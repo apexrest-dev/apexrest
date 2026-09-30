@@ -12,6 +12,12 @@ import { JobService } from './jobs.ts';
 import { panelActionSchema, type PanelAction } from './panel-schema.ts';
 import { browserPreferences } from './browser-preferences.ts';
 import { openVerificationBrowser } from './browser.ts';
+import { SyncStore } from './sync.ts';
+import { catalogSearch, catalogRead } from './composer/catalog.ts';
+import { blueprintAdd } from './composer/service.ts';
+import { blueprintSchema } from './composer/schemas.ts';
+import { readDocument, semanticDigest } from './composer/formats.ts';
+import { assessPlan } from './composer/materializer.ts';
 import { VERSION } from './version.ts';
 import { runProcess } from './process.ts';
 import { OracleAdapter } from './oracle.ts';
@@ -124,7 +130,25 @@ export class PanelService {
         if ((await stat(file)).size <= 128000) toolchain = await readJson(file);
       }
     }
+    const sync = ctx
+      ? await Promise.all(
+          Object.entries(ctx.config.environments).map(async ([name, env]) => {
+            try {
+              return { environment: name, ...(await new SyncStore(ctx, env, name).status()) };
+            } catch (error) {
+              return {
+                environment: name,
+                status: 'blocked',
+                blocked: true,
+                blockedReason: error instanceof Fault ? error.code : 'SYNC_STATE_INVALID',
+                serverFreshness: 'not-checked',
+              };
+            }
+          }),
+        )
+      : [];
     return safe({
+      sync,
       version: VERSION,
       updatedAt: new Date().toISOString(),
       project: this.root,
@@ -163,7 +187,45 @@ export class PanelService {
       );
     }
     if (action.kind === 'connection') return configureConnection(action.name, action);
+    if (action.kind === 'catalog-search')
+      return catalogSearch(action.query, {
+        project: this.root,
+        limit: 8,
+        ...(action.profile ? { profile: action.profile } : {}),
+      });
+    if (action.kind === 'catalog-read') return catalogRead(action.id, action.offset, 8192, this.root);
     const ctx = await loadProject(this.root);
+    if (action.kind === 'blueprint-read') {
+      const blueprint = await readDocument(this.root, action.blueprint, blueprintSchema);
+      return { blueprint, digest: semanticDigest(blueprint) };
+    }
+    if (action.kind === 'blueprint-add')
+      return blueprintAdd(
+        ctx,
+        action.blueprint,
+        action.instanceId,
+        action.instance,
+        action.expectedDigest,
+        action.apply,
+      );
+    if (action.kind === 'compose-status') {
+      const job = await new JobService(ctx).status(action.id);
+      const result = ('result' in job ? job.result : null) as {
+        data?: { plan?: string; planDigest?: string };
+      } | null;
+      let materializable = false;
+      if (result?.data?.plan && result.data.planDigest)
+        materializable = await assessPlan(ctx, result.data.plan, result.data.planDigest);
+      return { job, materializable };
+    }
+    if (action.kind === 'compose-plan' || action.kind === 'compose-materialize') {
+      const { kind, ...input } = action;
+      return new JobService(ctx).start(
+        kind === 'compose-plan' ? 'compose.plan' : 'compose.materialize',
+        input,
+        path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
+      );
+    }
     if (action.kind === 'browser') return openVerificationBrowser(ctx, action.env);
     if (action.kind === 'cancel-job') return new JobService(ctx).cancel(action.id);
     const operation =

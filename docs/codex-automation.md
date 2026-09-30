@@ -2,7 +2,7 @@
 
 English | [Українська](codex-automation.uk.md)
 
-The plugin targets Codex desktop and CLI. Its [18 MCP handlers](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, tests and deployment steps need no model. Codex supplies task understanding, source changes and assessment in the current conversation.
+The plugin targets Codex desktop and CLI. Its [19 MCP handlers](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, tests and deployment steps need no model. Codex supplies task understanding, source changes and assessment in the current conversation.
 
 ## What runs without AI
 

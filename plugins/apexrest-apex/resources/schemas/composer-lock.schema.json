@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "generatorVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "resolverPolicyVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "blueprintSemanticDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "catalogDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compatibilityProfile": {
+      "type": "string"
+    },
+    "packages": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "contractDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "generatorVersion",
+    "resolverPolicyVersion",
+    "blueprintSemanticDigest",
+    "catalogDigest",
+    "compatibilityProfile",
+    "packages",
+    "contractDigest"
+  ],
+  "additionalProperties": false
+}

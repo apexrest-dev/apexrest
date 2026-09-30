@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "column": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "string",
+        "integer",
+        "decimal",
+        "date",
+        "timestamp",
+        "boolean"
+      ]
+    },
+    "nullable": {
+      "type": "boolean"
+    },
+    "maxLength": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "precision": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "scale": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "enum": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "column",
+    "type",
+    "nullable"
+  ],
+  "additionalProperties": false
+}

@@ -16,7 +16,9 @@ APEXREST connects native Codex skills and MCP tools to Oracle SQLcl. Generate AP
 
 ![APEXREST connects a Codex request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
-> **Release `1.2.0`.** Work directly in your current Codex session with 18 MCP tools and 13 focused skills. Codex owns the conversation and its execution; APEXREST handles Oracle/APEX operations. Programmatic job waiting, metadata batches, concise project inspection and focused references reduce routine tool exchanges. See [release notes](docs/release-notes.md) for changes and evidence limits. Independent tooling; not an official Oracle or OpenAI product.
+> **`1.3.0-beta.1` candidate.** The current source has 21 MCP tools and 14 focused skills, including experimental Composer and working-copy workflows. Local checks do not establish live Oracle behavior. See [release notes](docs/release-notes.md) for changes and evidence limits. Independent tooling; not an official Oracle or OpenAI product.
+
+The current source checkout implements `apex sync` for the [single-editor working-copy cycle](docs/existing-app.md). This change has local verification; connected Oracle and authenticated browser checks remain open. npm installation does not update an active Codex plugin cache.
 
 Describe the change in Codex chat or use `$apexrest-work`. Implementation starts in the same context without a plugin startup call. See the [chat workflow](docs/chat-workflow.md) and [Codex integration](docs/codex-integration.md). Choose **Codex in-app browser / External system browser** for APEX verification in Settings.
 
@@ -56,7 +58,7 @@ The [Cloud setup guide](docs/codex-cloud.md) covers CLI + ORDS in a configured c
 
 ## Install from npm
 
-Use Node 24 LTS (supported range: Node 24–26). Install [apexrest](https://www.npmjs.com/package/apexrest) from npm. This package version is `1.2.0`; the commands below use `latest`. See [release notes](docs/release-notes.md) for distribution and verification status.
+Use Node 24 LTS (supported range: Node 24–26). Install [apexrest](https://www.npmjs.com/package/apexrest) from npm. The commands below use the stable `latest` tag; this source tree is the `1.3.0-beta.1` candidate. See [release notes](docs/release-notes.md) for distribution and verification status.
 
 Install the CLI globally and check its version:
 
@@ -76,7 +78,7 @@ npx apexrest --version
 npx apexrest
 ```
 
-To pin this version, use `npm install -g apexrest@1.2.0`. npm includes the built runtime, so no Git checkout or local build is needed. The repository installation below remains available.
+To pin the stable version, use `npm install -g apexrest@1.2.0`. Once the beta is published, opt in with `npm install -g apexrest@1.3.0-beta.1`. npm includes the built runtime, so no Git checkout or local build is needed. The repository installation below remains available.
 
 ## Install with the terminal menu
 
@@ -204,3 +206,7 @@ After source or resource changes, run `npm run plugin:sync` to refresh the check
 - [Publisher setup](docs/publishing.md): protected release workflow and outstanding prerequisites.
 
 Report reproducible bugs through [GitHub issues](https://github.com/apexrest-dev/apexrest-codex/issues), with sanitized diagnostics. Follow [SECURITY.md](SECURITY.md) for sensitive reports. Licensed under [Apache-2.0](LICENSE).
+
+## Composer — local development implementation
+
+Compose local APEXlang source from exact blocks and explicit dataset/API contracts. Panel Catalog shows a reviewed diff; plan/materialize run locally through existing jobs/artifacts and deployment safeguards. See [Composer](docs/composer.md). Blocks are experimental; live qualification is a separate stage.

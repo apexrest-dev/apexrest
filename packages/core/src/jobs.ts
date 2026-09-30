@@ -12,9 +12,17 @@ export class JobService {
   async start(operation: string, input: Record<string, unknown>, runtime: string) {
     await requireTrust(this.ctx.root);
     if (
-      !['apex.generate', 'apex.export', 'apex.validate', 'deploy.plan', 'deploy.apply', 'test.run'].includes(
-        operation,
-      )
+      ![
+        'compose.plan',
+        'compose.materialize',
+        'apex.sync',
+        'apex.generate',
+        'apex.export',
+        'apex.validate',
+        'deploy.plan',
+        'deploy.apply',
+        'test.run',
+      ].includes(operation)
     )
       throw new Fault('INVALID_JOB_OPERATION', 'Operation cannot run as a background job.', 2);
     const id = randomUUID(),

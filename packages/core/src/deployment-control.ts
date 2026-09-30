@@ -55,7 +55,14 @@ export class LocalDeploymentControl {
   }
   async owner() {
     const file = this.file('active.json');
-    return (await exists(file)) ? parse(ownerSchema, await readJson(file)) : undefined;
+    try {
+      return parse(ownerSchema, await readJson(file));
+    } catch (error) {
+      // A completed runner may remove the lease while a read-only status check
+      // observes it. Corrupt or inaccessible leases must still fail closed.
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    }
   }
   async acquire(runId: string) {
     await withLock(this.file('control.lock'), async () => {

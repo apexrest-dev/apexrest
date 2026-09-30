@@ -248,7 +248,7 @@ test('filesystem lock excludes concurrent setup and releases on error', async ()
   assert.equal(await withLock(lock, async () => 42), 42);
 });
 test('catalog stays bounded with strict schemas and no generic execution tool', () => {
-  assert.equal(toolCatalog.length, 18);
+  assert.equal(toolCatalog.length, 21);
   assert.ok(toolCatalog.every((t) => !/(shell|any_sql|any_file)/.test(t.name)));
   assert.equal(toolCatalog.find((t) => t.operation === 'test.run')!.readOnly, false);
 });

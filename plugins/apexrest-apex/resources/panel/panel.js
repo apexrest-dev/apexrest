@@ -2,6 +2,75 @@
   // plugins/apexrest-apex/assets/apexrest-logo.svg
   var apexrest_logo_default = `data:image/svg+xml,<?xml version='1.0' encoding='utf-8'?>%0A<svg xmlns="http://www.w3.org/2000/svg" version="1.1" x="0px" y="0px" viewBox="100 66 98 98" xml:space="preserve" width="98" height="98" role="img" aria-labelledby="logo-title">%0A  <title id="logo-title">APEXREST pencil and ruler symbol</title>%0A  <style type="text/css">%0A%09.st0{fill:%2331BEF9;}%0A%09.st1{fill:%23FFD541;}%0A%09.st2{fill:%23FF4141;}%0A%09.st3{fill:%231E1E1E;}%0A</style>%0A  <g id="\u0421\u043B\u043E\u0439_2">%0A    <polygon class="st0" points="133,149 177,106 160,89 116,132  " />%0A  </g>%0A  <g id="\u0421\u043B\u043E\u0439_3">%0A    <polygon class="st1" points="128,114 147,95 128,76 126,75 123,76 108,91 107,93 110,97 127,114  " />%0A    <polygon class="st1" points="151,137 170,118 189,137 190,140 189,142 186,146 173,157 170,157  " />%0A  </g>%0A  <g id="\u0421\u043B\u043E\u0439_4">%0A    <path class="st2" d="M166,83l16,16l4-3l2-5v-4c0,0-1-2-1-3s-3-4-3-4l-5-3h-3h-3l-3,2l-2,2L166,83L166,83z" />%0A  </g>%0A  <g id="\u0421\u043B\u043E\u0439_1">%0A    <g>%0A      <path class="st3" d="M126.7,115.5l1.7-1.7l-2.2-2.2l4.3-4.3c0.5-0.5,0.4-1.3-0.1-1.7c-0.5-0.4-1.2-0.4-1.7,0l-4.3,4.3l-4.1-4.1    l4.3-4.3c0.5-0.5,0.4-1.3-0.1-1.7c-0.5-0.4-1.2-0.4-1.7,0l-4.3,4.3l-4.1-4.1l9.4-9.5c0.5-0.5,0.4-1.3-0.1-1.7    c-0.5-0.4-1.2-0.4-1.7,0l-9.5,9.5l-3.6-3.6c-0.8-0.8-0.8-2,0-2.8L123.9,77c0.8-0.8,2-0.8,2.8,0L146,96.2l1.7-1.7l-19.2-19.2    c-1.7-1.7-4.6-1.7-6.3,0L107.5,90c-1.7,1.7-1.7,4.6,0,6.3L126.7,115.5z" />%0A      <path class="st3" d="M182.7,100.8l3-3c5-5.1,4.9-13.3-0.2-18.3c-5-5-13.1-5-18.2,0l-51.9,51.9c-0.1,0.1-0.2,0.2-0.2,0.4v0.1    l-7.2,23.8c-0.2,0.6,0.2,1.3,0.8,1.5c0.2,0.1,0.5,0.1,0.7,0l23.8-7.2h0.1c0.1-0.1,0.2-0.1,0.4-0.2L182.7,100.8L182.7,100.8z     M159.3,91l6.6,6.6l-41.3,41.3l-6.6-6.6L159.3,91z M110.9,154.2l1-3.5c1.1,0.5,2,1.3,2.5,2.4L110.9,154.2z M116.9,152.4    c-0.8-1.8-2.4-3.2-4.2-4l4.2-13.9l13.7,13.7L116.9,152.4z M132.9,147.1l-6.6-6.6l41.3-41.3l6.6,6.6L132.9,147.1z M175.9,104.1    l-7.4-7.4l-7.4-7.4l4.2-4.2l14.9,14.9L175.9,104.1z M167,83.3l2.1-2.1c4.3-4,10.9-3.7,14.9,0.6c3.7,4,3.7,10.3,0,14.3l-2.1,2.1    L167,83.3z" />%0A      <path class="st3" d="M189.9,136.7l-19.2-19.2l-1.7,1.7l19.2,19.2c0.8,0.8,0.8,2,0,2.8l-14.7,14.7c-0.8,0.8-2.1,0.8-2.8,0l-3.6-3.6    l9.5-9.5c0.5-0.4,0.6-1.2,0.2-1.7c-0.4-0.5-1.2-0.6-1.7-0.2c-0.1,0.1-0.1,0.1-0.2,0.2l-9.5,9.5l-4.1-4.1l4.3-4.3    c0.5-0.5,0.5-1.2,0.1-1.7c-0.5-0.5-1.2-0.5-1.7-0.1c0,0,0,0-0.1,0.1l-4.3,4.3l-4.1-4.1l4.3-4.3c0.5-0.5,0.4-1.3-0.1-1.7    c-0.5-0.4-1.2-0.4-1.7,0l-4.3,4.3l-2.2-2.2l-1.8,1.7l19.2,19.2c1.7,1.7,4.6,1.7,6.3,0l14.7-14.7    C191.6,141.3,191.6,138.4,189.9,136.7C189.9,136.7,189.9,136.7,189.9,136.7z" />%0A    </g>%0A  </g>%0A</svg>%0A`;
 
+  // packages/panel/src/composer-jobs.ts
+  var ReviewRequests = class {
+    revision = 0;
+    invalidate() {
+      this.revision++;
+    }
+    async run(read) {
+      const revision = ++this.revision;
+      const result = await read();
+      return revision === this.revision ? result : void 0;
+    }
+  };
+  var CompositionJobs = class {
+    constructor(read, observed, changed, failed, wait = () => new Promise((resolve) => setTimeout(resolve, 1500))) {
+      this.read = read;
+      this.observed = observed;
+      this.changed = changed;
+      this.failed = failed;
+      this.wait = wait;
+    }
+    read;
+    observed;
+    changed;
+    failed;
+    wait;
+    running = false;
+    pending;
+    revision = 0;
+    invalidate() {
+      this.revision++;
+    }
+    async run(start) {
+      if (this.running) return;
+      this.running = true;
+      this.changed();
+      try {
+        if (!this.pending) {
+          const revision = this.revision;
+          this.pending = { id: await start(), revision };
+          this.changed();
+        }
+        const job = this.pending;
+        let failures = 0;
+        for (; ; ) {
+          let response;
+          try {
+            response = await this.read(job.id);
+            failures = 0;
+          } catch (error) {
+            const paused = ++failures >= 3;
+            this.failed(error, paused);
+            if (paused) return;
+            await this.wait();
+            continue;
+          }
+          this.observed(response);
+          if (!["queued", "running", "cancelling"].includes(response.job.status)) {
+            this.pending = void 0;
+            return { response, current: job.revision === this.revision };
+          }
+          await this.wait();
+        }
+      } finally {
+        this.running = false;
+        this.changed();
+      }
+    }
+  };
+
   // packages/panel/src/panel.ts
   var $ = (id) => document.getElementById(id);
   var input = (id) => $(id);
@@ -168,14 +237,38 @@
     }
     renderSavedConnections();
   }
+  var selectedBlock = "";
+  var blueprintReview;
+  var composeJob = "";
+  var reviewedPlan;
+  var compositionJobs = new CompositionJobs(
+    async (id) => await api({ kind: "compose-status", id }),
+    (response) => {
+      notice("");
+      $("compose-review").textContent = JSON.stringify(response.job, null, 2);
+    },
+    controls,
+    (error, paused) => {
+      notice(
+        (error instanceof Error ? error.message : String(error)) + (paused ? " Job outcome is unknown. Retry job status to continue observing the same operation." : " Retrying the existing job status."),
+        true
+      );
+    }
+  );
+  var blueprintReviews = new ReviewRequests();
   function controls() {
     const canAct = connected && !!snapshot?.trusted && !busy;
     for (const id of ["validate", "run-tests", "plan", "open-browser"])
       $(id).disabled = !canAct || !snapshot?.configured;
-    for (const form of ["sqlcl-form", "connection-form", "preferences-form"])
+    for (const form of ["catalog-search", "catalog-add", "sqlcl-form", "connection-form", "preferences-form"])
       $(form).querySelectorAll("button[type=submit]").forEach((button) => {
         button.disabled = !canAct;
       });
+    $("compose-plan").disabled = !canAct || !snapshot?.configured || compositionJobs.running;
+    $("compose-plan").textContent = compositionJobs.pending ? "Retry job status" : "Plan and compile offline";
+    $("compose-materialize").disabled = !canAct || !reviewedPlan || compositionJobs.running || !!compositionJobs.pending;
+    $("compose-cancel").disabled = !canAct || !compositionJobs.pending;
+    $("blueprint-apply").disabled = !canAct || !blueprintReview;
     $("saved-connections-refresh").disabled = !canAct || savedConnectionsState === "loading";
     $("connection-save").disabled = !canAct || input("sqlcl-transport").value === "direct" && savedConnectionsState === "loading";
   }
@@ -240,6 +333,19 @@
       box.append(table);
     }
     const output = [card("Operation jobs", box, "Compile, export, tests and deployment work")];
+    const sync = node("div");
+    for (const entry of data.sync) {
+      const row = node("div", "journal-entry");
+      row.append(badge(entry.status), node("p", "", entry.environment));
+      if ("exportedAt" in entry) row.append(node("p", "subtle", "Initial export: " + entry.exportedAt));
+      if ("lastSuccessfulImport" in entry && entry.lastSuccessfulImport)
+        row.append(node("p", "subtle", "Latest successful import: " + entry.lastSuccessfulImport.at));
+      if ("blockedReason" in entry && entry.blockedReason) row.append(node("p", "", entry.blockedReason));
+      if ("dirty" in entry)
+        row.append(node("p", "", entry.dirty ? "Local edits present" : "Local checkpoint matches"));
+      sync.append(row);
+    }
+    output.push(card("Working-copy sync", sync, "Local status only; server freshness is not checked"));
     const deployments = node("div");
     if (!data.deployments.length) deployments.append(empty("No deployment runs recorded."));
     for (const deployment of data.deployments) {
@@ -376,7 +482,7 @@
         columns
       ];
     });
-    draw("operations-live", [data.jobs, data.deployments, busy], () => operations(data));
+    draw("operations-live", [data.jobs, data.deployments, data.sync, busy], () => operations(data));
     draw(
       "settings-live",
       [data.preferences, data.configuration, data.connections, data.toolchain, data.permissions],
@@ -445,6 +551,13 @@
     refreshing = true;
     try {
       render(await api());
+      if (reviewedPlan && composeJob) {
+        const assessed = await api({ kind: "compose-status", id: composeJob });
+        if (!assessed.materializable) {
+          reviewedPlan = void 0;
+          $("compose-materialize").disabled = true;
+        }
+      }
     } catch (error) {
       connected = false;
       $("connection").textContent = "Disconnected";
@@ -460,6 +573,7 @@
   var views = {
     overview: ["Workspace overview", "Project settings and APEX operations for your current Codex session."],
     operations: ["APEX operations", "Compile, verify and follow deployment state."],
+    catalog: ["Composer catalog", "Find blocks, review bindings and compile a local application plan."],
     settings: ["Workspace settings", "Inspect configuration, database connections and browser preferences."]
   };
   function view(name) {
@@ -626,4 +740,122 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) void refresh();
   });
+  function invalidateBlueprintReview() {
+    blueprintReviews.invalidate();
+    blueprintReview = void 0;
+    controls();
+  }
+  async function catalogAction(action) {
+    try {
+      return await api(action);
+    } catch (error) {
+      notice(error instanceof Error ? error.message : String(error), true);
+      throw error;
+    }
+  }
+  $("catalog-search").onsubmit = (event) => {
+    event.preventDefault();
+    void (async () => {
+      const result = await catalogAction({ kind: "catalog-search", query: input("catalog-query").value });
+      $("catalog-hits").replaceChildren();
+      for (const hit of result.results) {
+        const b = node("button", "quiet", hit.title + " \xB7 " + hit.status);
+        b.type = "button";
+        b.onclick = () => {
+          selectedBlock = hit.id;
+          invalidateBlueprintReview();
+          void catalogAction({ kind: "catalog-read", id: hit.id, offset: 0 }).then((data) => {
+            $("catalog-detail").textContent = data.content;
+          });
+        };
+        $("catalog-hits").append(b);
+      }
+    })();
+  };
+  $("catalog-add").onsubmit = (event) => {
+    event.preventDefault();
+    invalidateBlueprintReview();
+    void (async () => {
+      if (!selectedBlock) throw new Error("Select a block from the catalog.");
+      const blueprint = input("compose-blueprint").value, instanceId = input("compose-instance").value, instance = {
+        ...JSON.parse($("compose-parameters").value),
+        use: selectedBlock
+      };
+      const reviewed = await blueprintReviews.run(async () => {
+        const state = await catalogAction({ kind: "blueprint-read", blueprint });
+        const action = {
+          kind: "blueprint-add",
+          blueprint,
+          instanceId,
+          instance,
+          expectedDigest: state.digest,
+          apply: false
+        };
+        const diff = await catalogAction(action);
+        return { action, diff };
+      });
+      if (!reviewed) return;
+      blueprintReview = { ...reviewed.action, apply: true };
+      $("blueprint-diff").textContent = "BEFORE\n" + reviewed.diff.before + "\nAFTER\n" + reviewed.diff.after;
+      controls();
+    })().catch((error) => notice(String(error), true));
+  };
+  $("blueprint-apply").onclick = () => {
+    if (blueprintReview)
+      void catalogAction(blueprintReview).then(() => {
+        blueprintReview = void 0;
+        blueprintReviews.invalidate();
+        reviewedPlan = void 0;
+        compositionJobs.invalidate();
+        $("blueprint-apply").disabled = true;
+        $("compose-materialize").disabled = true;
+        notice("Blueprint updated. Create and review a new plan.");
+      });
+  };
+  async function startComposition(action) {
+    if (compositionJobs.running) return;
+    reviewedPlan = void 0;
+    controls();
+    try {
+      const completed = await compositionJobs.run(async () => {
+        composeJob = (await catalogAction(action)).jobId;
+        return composeJob;
+      });
+      const result = completed?.response.job.result?.data;
+      reviewedPlan = completed?.current && completed.response.materializable && result?.planDigest ? { plan: result.plan, planDigest: result.planDigest } : void 0;
+    } catch (error) {
+      notice(error instanceof Error ? error.message : String(error), true);
+    } finally {
+      controls();
+    }
+  }
+  input("compose-blueprint").oninput = () => {
+    invalidateBlueprintReview();
+    reviewedPlan = void 0;
+    compositionJobs.invalidate();
+    controls();
+  };
+  input("compose-instance").oninput = invalidateBlueprintReview;
+  $("compose-parameters").oninput = invalidateBlueprintReview;
+  $("compose-plan").onclick = () => {
+    void startComposition({
+      kind: "compose-plan",
+      blueprint: input("compose-blueprint").value,
+      out: ".apexrest/composer/panel-plan.json",
+      mode: "offline",
+      validation: "compiler",
+      action: "compose"
+    });
+  };
+  $("compose-materialize").onclick = () => {
+    if (reviewedPlan)
+      void startComposition({
+        kind: "compose-materialize",
+        plan: reviewedPlan.plan,
+        expectedDigest: reviewedPlan.planDigest
+      });
+  };
+  $("compose-cancel").onclick = () => {
+    if (composeJob) void catalogAction({ kind: "cancel-job", id: composeJob });
+  };
 })();

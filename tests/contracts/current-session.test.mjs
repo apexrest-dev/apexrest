@@ -46,7 +46,7 @@ test('removed agent entrypoints cannot start work through CLI, MCP or legacy env
     }),
   );
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 18);
+  assert.equal(catalog.tools.length, 21);
   assert.ok(
     catalog.tools.some((tool) => tool.name === 'apexrest_deploy_apply'),
     'Legacy reviewer flags cannot change current tools',
@@ -82,7 +82,7 @@ test('removed agent entrypoints cannot start work through CLI, MCP or legacy env
 test('distributed runtime and skills contain no model orchestration', async () => {
   const root = 'dist/codex-compat/plugins/apexrest-apex';
   const skills = await readdir(root + '/skills');
-  assert.equal(skills.length, 13);
+  assert.equal(skills.length, 14);
   assert.ok(!skills.includes('apexrest-team'));
   const work = await readFile(root + '/skills/apexrest-work/SKILL.md', 'utf8');
   assert.match(work, /current.*Codex|Codex.*current/i);

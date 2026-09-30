@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "path": "packages/analytics/status-summary/1.0.0",
+      "digest": "a38b31d68964a3175d17af8598b81c6d2c0d90f4143cc33c4f6c94febc913d3f"
+    },
+    {
+      "path": "packages/crud/report-dialog/1.0.0",
+      "digest": "3f22afdd45513ac6819f0be2562a3525f5971265cd4de22f183c607d3ced2431"
+    },
+    {
+      "path": "packages/read/detail/1.0.0",
+      "digest": "fd38f4d780ae0a9af3b77e9375ebd26f86391092505c55bd5a16090eb662f7e6"
+    },
+    {
+      "path": "packages/read/filtered-list/1.0.0",
+      "digest": "fec688afd7be366569f71dac270d619fb813ccb7d99b218450f4e5da80fa21f9"
+    },
+    {
+      "path": "packages/read/history/1.0.0",
+      "digest": "94ea76606df9425b94f4cb2cf5e59cadd17f607eec32bc3445b1ab9cab7b69bc"
+    },
+    {
+      "path": "packages/read/master-detail/1.0.0",
+      "digest": "fd87eceab2d2737bbf49a5f5478dc4618181cb1e67ec74e0e789f1bcb47b01f5"
+    }
+  ]
+}

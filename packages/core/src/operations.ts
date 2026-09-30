@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { composePlanInput, composeMaterializeInput } from './composer/service.ts';
 import { metadataInputSchema } from './metadata.ts';
 import { refName, relativePath } from './config.ts';
 import { savedConnectionName, ordsUrl, ordsUsername } from './connections.ts';
@@ -60,7 +61,12 @@ export const schemas = {
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).default('blank-app'),
     alias: refName.optional(),
   }),
-  'project.adopt': z.strictObject({ ...base, env, appId: z.number().int().positive() }),
+  'project.adopt': z.strictObject({
+    ...base,
+    env,
+    appId: z.number().int().positive(),
+    workingCopy: z.boolean().default(false),
+  }),
   'project.inspect': z.strictObject({ ...base, detail: z.enum(['full', 'summary']).default('full') }),
   'connection.add': z
     .strictObject({
@@ -82,16 +88,27 @@ export const schemas = {
     saved: z.boolean().default(false),
   }),
   'connection.remove': z.strictObject({ ...base, name: refName }),
+  'compose.plan': composePlanInput,
+  'compose.materialize': composeMaterializeInput,
   'docs.search': z.strictObject({
+    ...base,
     query: z.string().min(1).max(256),
-    corpus: z.enum(['apexlang', 'components', 'patterns']).default('apexlang'),
+    corpus: z.enum(['apexlang', 'components', 'patterns', 'blocks', 'blueprints']).default('apexlang'),
     version: z.string().optional(),
     kind: z.enum(['grammar', 'template', 'contract', 'guide']).optional(),
     family: z.string().min(1).max(200).optional(),
+    profile: z.string().max(200).optional(),
+    status: z.enum(['draft', 'experimental', 'verified', 'deprecated', 'revoked']).optional(),
+    locale: z.enum(['en', 'uk']).optional(),
+    cursor: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     offset: z.number().int().min(0).max(10000).default(0),
     limit: z.number().int().min(1).max(8).default(3),
   }),
   'docs.read': z.strictObject({
+    ...base,
     id: z.string().max(200),
     offset: z.number().int().min(0).default(0),
     limit: z.number().int().min(1).max(8192).default(4096),
@@ -104,9 +121,10 @@ export const schemas = {
     output: relativePath,
     alias: refName.optional(),
   }),
+  'apex.sync': z.strictObject({ ...base, env, action: z.enum(['init', 'status', 'refresh', 'invalidate']) }),
   'apex.export': z.strictObject({ ...base, env, output: relativePath }),
   'apex.validate': z.strictObject({ ...base, env: env.optional() }),
-  'apex.diff': z.strictObject({ ...base, env }),
+  'apex.diff': z.strictObject({ ...base, env, comparison: z.enum(['auto', 'live']).default('auto') }),
   'db.plan': z.strictObject({ ...base, env }),
   'deploy.plan': z.strictObject({ ...base, env, out: relativePath }),
   'deploy.apply': z.strictObject({ ...base, plan: relativePath }),
@@ -146,6 +164,24 @@ export const toolCatalog: {
   long?: boolean;
   destructive?: boolean;
 }[] = [
+  {
+    name: 'apexrest_compose_plan',
+    operation: 'compose.plan',
+    description:
+      'Create an immutable Composer plan. Offline by default; connected requires an explicit environment. No import or database writes. Full plans are artifacts.',
+    readOnly: false,
+    destructive: false,
+    long: true,
+  },
+  {
+    name: 'apexrest_compose_materialize',
+    operation: 'compose.materialize',
+    description:
+      'Apply a reviewed Composer plan using its expected digest. Journaled local source writes only; never deploys. Recovery is explicit.',
+    readOnly: false,
+    destructive: false,
+    long: true,
+  },
   {
     name: 'apexrest_browser_open',
     operation: 'browser.open',
@@ -214,6 +250,15 @@ export const toolCatalog: {
     operation: 'apex.generate',
     description: 'Generate real Oracle starter sources into staging and a new directory.',
     readOnly: false,
+    long: true,
+  },
+  {
+    name: 'apexrest_apex_sync',
+    operation: 'apex.sync',
+    description:
+      'Manage a single-editor working copy for an existing dev/test app: init, local status, explicit refresh or invalidate. Initial APEXlang and SQL exports only; blocked outcomes require reconciliation.',
+    readOnly: false,
+    destructive: false,
     long: true,
   },
   {

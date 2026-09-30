@@ -18,12 +18,13 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   const start = performance.now();
   await client.connect(transport);
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 18);
+  assert.equal(catalog.tools.length, 21);
   const jobSchema = catalog.tools.find((tool) => tool.name === 'apexrest_job_status').inputSchema;
   assert.equal(jobSchema.properties.waitSeconds.default, 0);
   assert.ok(!jobSchema.required.includes('waitSeconds'));
   for (const tool of catalog.tools.filter((tool) =>
     [
+      'apexrest_apex_sync',
       'apexrest_apex_generate',
       'apexrest_apex_export',
       'apexrest_apex_validate',
@@ -39,7 +40,13 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.ok(!searchSchema.required.includes('limit'));
   assert.ok(!searchSchema.required.includes('offset'));
   assert.ok(!searchSchema.required.includes('corpus'));
-  assert.deepEqual(searchSchema.properties.corpus.enum, ['apexlang', 'components', 'patterns']);
+  assert.deepEqual(searchSchema.properties.corpus.enum, [
+    'apexlang',
+    'components',
+    'patterns',
+    'blocks',
+    'blueprints',
+  ]);
   assert.equal(searchSchema.properties.corpus.default, 'apexlang');
   const settings = catalog.tools
     .find((tool) => tool.name === 'apexrest_panel_action')
@@ -148,6 +155,8 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     }),
   );
   const inputs = {
+    apexrest_compose_plan: { out: 'plans/compose.json' },
+    apexrest_compose_materialize: { plan: 'plans/compose.json', expectedDigest: '0'.repeat(64) },
     apexrest_browser_open: { env: 'dev' },
     apexrest_panel_open: {},
     apexrest_panel_status: {},
@@ -155,6 +164,7 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     apexrest_project_inspect: {},
     apexrest_metadata_read: { env: 'dev', kind: 'objects', schema: 'FIXTURE' },
     apexrest_apex_generate: { name: 'Fixture', output: 'new-app' },
+    apexrest_apex_sync: { env: 'dev', action: 'status' },
     apexrest_apex_export: { env: 'dev', output: 'exports/app' },
     apexrest_apex_validate: {},
     apexrest_deploy_plan: { env: 'dev', out: 'plans/dev.json' },
@@ -167,7 +177,8 @@ test('MCP project tools require an explicit absolute path before dispatch or job
   const catalog = await client.listTools();
   for (const tool of catalog.tools) {
     if (tool.name.startsWith('apexrest_reference_')) {
-      assert.equal(tool.inputSchema.properties.project, undefined);
+      assert.match(tool.inputSchema.properties.project.description, /Absolute project/);
+      assert.ok(!tool.inputSchema.required?.includes('project'));
       continue;
     }
     assert.match(tool.inputSchema.properties.project.description, /Absolute project.*plugin cache/);

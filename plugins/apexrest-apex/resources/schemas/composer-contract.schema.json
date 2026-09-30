@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kind": {
+          "type": "string",
+          "const": "authorization"
+        },
+        "rowPredicate": {
+          "type": "string",
+          "maxLength": 65536
+        },
+        "expression": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "provenance",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kind": {
+          "type": "string",
+          "const": "key"
+        },
+        "fields": {
+          "minItems": 1,
+          "maxItems": 16,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "provenance",
+        "kind",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kind": {
+          "type": "string",
+          "const": "command"
+        },
+        "transaction": {
+          "type": "string",
+          "const": "caller-owned"
+        },
+        "overload": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "parameters": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "in",
+                  "out",
+                  "in-out"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "NUMBER",
+                  "PLS_INTEGER",
+                  "BINARY_INTEGER",
+                  "VARCHAR2",
+                  "CHAR",
+                  "NVARCHAR2",
+                  "NCHAR",
+                  "DATE",
+                  "TIMESTAMP"
+                ]
+              },
+              "defaulted": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "mode",
+              "type",
+              "defaulted"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "provenance",
+        "kind",
+        "transaction",
+        "parameters"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kind": {
+          "type": "string",
+          "const": "errors"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "provenance",
+        "kind"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

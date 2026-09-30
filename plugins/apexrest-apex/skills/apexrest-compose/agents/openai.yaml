@@ -1,0 +1,4 @@
+interface:
+  display_name: "Composer"
+  short_description: "Compose APEX blocks with reviewed local plans"
+  default_prompt: "Use $apexrest-compose to compose and verify local APEX source from exact blocks and explicit contracts."

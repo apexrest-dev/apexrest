@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-09-24",
-  "release": "1.1.0",
+  "asOf": "2026-09-30",
+  "release": "1.3.0-beta.1",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -245,7 +245,11 @@
       "criterion": "An agent cannot authorize production by setting `approved=true` itself",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["packages/core/src/config.ts", "packages/core/src/deploy.ts", "tests/unit/core.test.ts"],
+      "evidence": [
+        "packages/core/src/config.ts",
+        "packages/core/src/deploy.ts",
+        "tests/unit/core.test.ts"
+      ],
       "blocker": "Strict schema and missing production authority rejection tested. Protected-runner signature/approval integration is not configured."
     },
     {
@@ -374,7 +378,10 @@
       "criterion": "Broad native-platform and Oracle integration qualification remains blocked when required source-bound evidence is missing; npm distribution is recorded separately",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": ["scripts/check-release-readiness.mjs", "dist/releases/release-readiness.json"],
+      "evidence": [
+        "scripts/check-release-readiness.mjs",
+        "dist/releases/release-readiness.json"
+      ],
       "blocker": null
     },
     {
@@ -425,7 +432,10 @@
       "criterion": "A sandbox labelled supported actually provisions the stack and preserves data during ordinary `down`",
       "implementation": "unsupported",
       "verification": "not_applicable",
-      "evidence": ["packages/core/src/sandbox.ts", "toolchains/compatibility.json"],
+      "evidence": [
+        "packages/core/src/sandbox.ts",
+        "toolchains/compatibility.json"
+      ],
       "blocker": "No supported sandbox claim. Legitimate complete Linux DB/APEX/ORDS/utPLSQL provisioning tuple is not implemented or verified."
     },
     {
@@ -433,7 +443,10 @@
       "criterion": "Retired: plugin-owned role sessions and mandatory controller reviews",
       "implementation": "retired",
       "verification": "not_applicable",
-      "evidence": ["docs/codex-integration.md", "docs/evidence/current-session-100-local.json"],
+      "evidence": [
+        "docs/codex-integration.md",
+        "docs/evidence/current-session-100-local.json"
+      ],
       "blocker": null,
       "historicalCriterion": "When explicitly enabled in Settings, the Codex-only team controller enforces separate developer, manager code review, independent QA and final manager review before completing a team task",
       "historicalEvidence": [
@@ -461,7 +474,10 @@
       "criterion": "Retired: plugin task startup, model routing and team wait lifecycle",
       "implementation": "retired",
       "verification": "not_applicable",
-      "evidence": ["docs/codex-integration.md", "docs/evidence/current-session-100-local.json"],
+      "evidence": [
+        "docs/codex-integration.md",
+        "docs/evidence/current-session-100-local.json"
+      ],
       "blocker": null,
       "historicalCriterion": "Codex chat executes single work in the current user session without a new agent or polling; explicitly enabled teams retain in-app panels, automatic model routing and digest-checked results through bounded waiting",
       "historicalEvidence": [
@@ -500,7 +516,10 @@
       "criterion": "Retired: dual single/team modes and Settings opt-in",
       "implementation": "retired",
       "verification": "not_applicable",
-      "evidence": ["docs/codex-integration.md", "docs/evidence/current-session-100-local.json"],
+      "evidence": [
+        "docs/codex-integration.md",
+        "docs/evidence/current-session-100-local.json"
+      ],
       "blocker": null,
       "historicalCriterion": "Single mode reuses the current Codex session across chat, CLI/MCP and panel handoffs with no new agent or App Server; queued legacy single requests cannot dispatch workers, while teams require explicit Settings opt-in",
       "historicalEvidence": [
@@ -597,6 +616,520 @@
         "tests/contracts/pattern-coverage.test.mjs"
       ],
       "blocker": null
+    },
+    {
+      "id": "A39",
+      "criterion": "Single-editor working copies for existing dev/test apps: dual-format baseline once, three locally verified real plan/apply cycles without exports, restart persistence and safety failures blocked at a fake Oracle boundary.",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/sync.ts",
+        "packages/core/src/deploy.ts",
+        "tests/unit/working-copy.test.ts",
+        "tests/unit/sync-metadata.test.ts",
+        "tests/contracts/working-copy.test.mjs",
+        "docs/evidence/working-copy-local.json",
+        "docs/evidence/working-copy-checks.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "A40",
+      "criterion": "Connected working-copy baseline, three changed full imports across restart, authenticated browser, actual fault recovery and separate initial SQL restore on an authorized DEV target.",
+      "implementation": "implemented",
+      "verification": "blocked",
+      "evidence": [
+        "docs/next-actions.md",
+        "docs/evidence/working-copy-checks.json"
+      ],
+      "blocker": "NOT RUN: no DEV target authorized for this change; fixtures and historical Oracle results do not satisfy this criterion."
+    },
+    {
+      "id": "CMP000",
+      "criterion": "Аудит checkout і карта інтеграції",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP001",
+      "criterion": "Baseline перевірок і журнал виконання",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP002",
+      "criterion": "ADR, threat model і acceptance IDs",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP003",
+      "criterion": "Strict schemas та contract dialect",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Full structural contract dialect is incomplete."
+    },
+    {
+      "id": "CMP004",
+      "criterion": "Безпечне читання YAML/JSON і package paths",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP005",
+      "criterion": "Canonical snapshots і content digests",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP006",
+      "criterion": "Tracked state, base store і runtime journal model",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP007",
+      "criterion": "Executable block registry поверх існуючих каталогів",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP008",
+      "criterion": "Пошук, filters і explainable shortlist",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Compatibility/contract-aware ranking and complete qualification filters remain incomplete."
+    },
+    {
+      "id": "CMP009",
+      "criterion": "Compatibility profiles та evidence policy",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Independent profile/configuration/fixture/toolchain qualification policy is incomplete."
+    },
+    {
+      "id": "CMP010",
+      "criterion": "Immutable local cache і index lifecycle",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP011",
+      "criterion": "Project inventory і reader adapter",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Complete resource reference graph remains incomplete."
+    },
+    {
+      "id": "CMP012",
+      "criterion": "Oracle metadata для keys, types і signatures",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP013",
+      "criterion": "Dataset contracts і entity binding",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Full producer/consumer dataset compatibility remains incomplete."
+    },
+    {
+      "id": "CMP014",
+      "criterion": "Commands, auth contracts і transaction semantics",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP015",
+      "criterion": "Deterministic dependency і capability resolver",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP016",
+      "criterion": "Stable allocator і shared resource ownership",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Shared LOV semantic deduplication and ownership are absent."
+    },
+    {
+      "id": "CMP017",
+      "criterion": "Typed event, action і route wiring",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Independent typed route mappings remain incomplete."
+    },
+    {
+      "id": "CMP018",
+      "criterion": "Composition plan і diagnostics",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP019",
+      "criterion": "Bounded APEXlang structural transformer",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP020",
+      "criterion": "Journaled local materialization і recovery",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP021",
+      "criterion": "Idempotence та базові ownership modes",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Hosted summary detach is coupled to page ownership; shared resource ownership is incomplete."
+    },
+    {
+      "id": "CMP022",
+      "criterion": "Binding із чинним deployment pipeline",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP023",
+      "criterion": "Ізольований CRM fixture і API contract",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP024",
+      "criterion": "Перший runnable read-only список",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP025",
+      "criterion": "Модальна форма зі збереженням через API",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP026",
+      "criterion": "Summary block і міжблокові refresh events",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP027",
+      "criterion": "Наскрізна Oracle/browser кваліфікація",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP028",
+      "criterion": "Public CLI surface",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/contracts/composer.test.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP029",
+      "criterion": "MCP tools, jobs і artifacts",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/contracts/composer.test.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP030",
+      "criterion": "Focused Codex skills і task routing",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/contracts/composer.test.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP031",
+      "criterion": "Catalog panel із reviewable blueprint changes",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/contracts/composer.test.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Schema-driven parameter and full plan/diff experience remains incomplete."
+    },
+    {
+      "id": "CMP032",
+      "criterion": "Version upgrade і structural three-way merge",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP033",
+      "criterion": "Remove/detach, dependency cleanup і migration seam",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Shared-resource consumers and typed migration references are absent."
+    },
+    {
+      "id": "CMP034",
+      "criterion": "Розширення бібліотеки і два application blueprints",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/verify-composer.mjs",
+        "tests/fixtures/composer/crm.sql",
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Live qualification deferred by agreed scope."
+    },
+    {
+      "id": "CMP035",
+      "criterion": "Локальне авторство та захоплення готового блока",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/composer-author.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Capture records declaration facts; arbitrary source normalization into executable blocks is absent."
+    },
+    {
+      "id": "CMP036",
+      "criterion": "Trust, provenance і supply-chain hardening",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP037",
+      "criterion": "Security/property/fault regression suite",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Remaining property/adversarial/deployment matrix cases are not implemented."
+    },
+    {
+      "id": "CMP038",
+      "criterion": "Benchmarks і agent workflow evaluation",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/benchmark-composer.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Matched recipe adaptation and broader workflow measurements are absent."
+    },
+    {
+      "id": "CMP039",
+      "criterion": "Bundling і clean-install перевірки",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/contracts/composer.test.mjs",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": null
+    },
+    {
+      "id": "CMP040",
+      "criterion": "Cross-platform CI і release gates",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "Full local gates are not closed; actual Linux/Windows runs not performed."
+    },
+    {
+      "id": "CMP041",
+      "criterion": "Документація, приймання і release readiness",
+      "implementation": "partial",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "docs/evidence/composer-local.json"
+      ],
+      "blocker": "The complete local roadmap has not met acceptance."
     }
   ],
   "amendments": [
@@ -625,6 +1158,11 @@
       "date": "2026-09-23",
       "rule": "Remove plugin-owned model-session orchestration and execute APEX work directly in the user-opened Codex session; retain deterministic Oracle/APEX runtimes and existing domain safeguards. Preserve original build specification and historical evidence without presenting them as current product requirements.",
       "source": "docs/codex-integration.md"
+    },
+    {
+      "date": "2026-09-29",
+      "rule": "Explicit single-editor baseline reuse for existing development/test application-only changes: initial APEXlang and SQL exports, repeat local plan/apply without exports, baseline restore only. External edits require explicit resync; preserve unresolved-outcome and authorization protections.",
+      "source": "docs/existing-app.md"
     }
   ]
 }

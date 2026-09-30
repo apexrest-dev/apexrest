@@ -2,6 +2,30 @@
 
 [English](next-actions.md) | Українська
 
+## Завершити локальне приймання Composer
+
+Закрити локальні прогалини з [аудиту](composer/audit.uk.md): shared resources і consumers ownership; повну contract/compatibility evidence policy; нормалізацію captured source у виконувані блоки; deployment fault/property coverage і порівнювані workflow benchmarks. Успішні наявні тести самі по собі не закривають roadmap.
+
+## Composer runtime acceptance
+
+Зберігайте регресійні перевірки повторного огляду при розширенні adapters: вкладені mappings мають залишатися детермінованими, переходи ownership мають враховувати consumers у результуючому source, а recovery/retry панелі — зберігати точну ідентичність операції.
+
+Окремо погодьте exact DEV target, fixture DDL/DML, metadata, app mapping/import і authenticated browser qualification. Перевірте create/edit/cancel, stale version, denied roles, scoped reads, saved/refresh payloads і narrow screens. G4 та залежні release gates залишаються відкритими. У новому Codex-чаті перевірте завантаження Composer tools/skill; Linux/Windows CI потребують фактичних runs. Зберігайте [Composer ledger](composer/ledger.json) та [local evidence](evidence/composer-local.json).
+
+## Connected-перевірка робочої копії
+
+[Зміну робочої копії](existing-app.uk.md) включено до кандидата `1.3.0-beta.1`. Зберігайте [локальні докази перевірок](evidence/working-copy-checks.json) та [узгоджені fixture-вимірювання](evidence/working-copy-local.json); fixtures не доводять поведінку Oracle.
+
+- На окремо дозволеному наявному DEV/test-застосунку виконайте початковий APEXlang + SQL sync, три цикли локального edit/plan/apply з перезапуском між ними й перевірте справжні лічильники експорту/імпорту, ідентичність, required suites та автентифікований браузер. Зараз ці перевірки — NOT RUN; історичні цілі не є дозволом.
+- Окремо перевірте початкове SQL-відновлення з прив’язкою до checksum і точним дозволом. Перевірте invalidation перед записами й фактичний відновлений стан; проміжні snapshots не дають автоматичного відкату.
+- Перевірте справжні lost-response/crash reconciliation та необов’язкову DB-координацію зі збереженням невідомого ownership і без повторів до звірки. Перевірте сумісність запиту метаданих на підтримуваних версіях APEX і цілях direct SQLcl/ORDS; незмінні метадані зберігають припущення одного редактора.
+- Перевірте connected-сценарії робочої копії в панелі на дозволеній цілі. Локальне оновлення Composer та in-app Catalog checks зафіксовані окремо; завантаження tools у новому чаті залишається відкритим.
+- Для тверджень про tokens/cost або продуктивність Oracle виміряйте узгоджені connected цикли зі справжніми usage counters. Локальний час, кількість викликів та UTF-8 bytes залишаються окремо позначеними.
+
+## Бета-випуск 1.3.0-beta.1
+
+Після публікації перевірте npm-тег `beta`, цілісність архіву та чисті локальне й глобальне встановлення. Збережіть `latest` на стабільному випуску 1.2.0. Бета-пакет не закриває roadmap Composer і підключені перевірки Oracle та нативного хоста.
+
 ## Випуск 1.2.0
 
 Цілісність пакета в реєстрі та чисті локальне й глобальне встановлення `apexrest@1.2.0` з npm `latest` підтверджено в [записі публікації 1.2.0](evidence/npm-120-publication.json). Використовуйте [поточні докази каталогу](evidence/pattern-catalog-local.json) та [примітки до випуску](release-notes.uk.md) для точних перевірок і стану розповсюдження. [Запис попередньої публікації 1.1.0](evidence/npm-110-publication.json) залишається історичним доказом. Після оновлення перевірте встановлений плагін у новій розмові Codex. Узгоджуйте метадані npm, комплектний нативний bundle і канонічні джерела GitHub; чисте встановлення з реєстру не доводить поведінку desktop або коректність Oracle.

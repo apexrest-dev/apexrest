@@ -215,6 +215,19 @@
       ],
       "additionalProperties": false
     },
+    "composer": {
+      "type": "object",
+      "properties": {
+        "allowSourceOnly": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "allowSourceOnly"
+      ],
+      "additionalProperties": false
+    },
     "artifacts": {
       "type": "object",
       "properties": {

@@ -2,6 +2,24 @@
 
 [English](implementation-status.md) | Українська
 
+## Composer — локальна реалізація, 2026-09-29
+
+Кандидат `1.3.0-beta.1` містить робоче локальне ядро Composer, шість experimental renderers, два blueprints, CLI/MCP та Catalog. Аудит **не підтверджує** завершення CMP-000–041: shared-resource ownership, повна compatibility/evidence policy, нормалізація довільного captured source та частина матриці перевірок залишаються незавершеними. [Аудит](composer/audit.uk.md), [ledger](composer/ledger.json) та [evidence](evidence/composer-local.json) відділяють реалізовану поведінку від залишку роботи. G4, live SQL/import/roles/browser, завантаження в новому чаті та нові Linux/Windows CI results залишаються відкритими. Published 1.2.0 evidence нижче є історичним.
+
+Повторний огляд додав регресійні перевірки детермінованості вкладених mappings, переходів page ownership, exact API bindings, повноти journal та retry/invalidation панелі. Поточні результати тестів і встановлення зафіксовані в Composer evidence; ця перевірка не змінює відкриті roadmap і runtime gates.
+
+Для кандидата бета-версії локально пройшли 262 unit-тести, 59 contract-тестів, 26 installer-тестів і 25 packaging-тестів, а також lint, typecheck, двомовна документація, Composer catalog/verification, синхронізація native bundle та CLI/stdio MCP smoke-перевірка архіву. Release dry run показав `stableReady: false`, оскільки перевірки Composer, Oracle й нативного хоста залишаються відкритими. Публікацію в реєстрі ще не підтверджено.
+
+## Реалізація робочої копії — 2026-09-29, кандидат бета-версії
+
+Checkout додає `apex.sync`, CLI `apex sync --env NAME --action init|status|refresh|invalidate`, дев’ятнадцятий MCP-інструмент `apexrest_apex_sync`, явне перенесення working copy, локальне джерело diff та стан у панелі. [Процес наявного застосунку](existing-app.uk.md) описує одного редактора. Наведені нижче докази опублікованого 1.2.0 залишаються історичними доказами розповсюдження; публікацію кандидата в реєстрі ще не підтверджено. Поточне локальне встановлення відстежує Composer evidence.
+
+Реалізовано: приватний атомарний стан sync та журнал переходів; незмінний APEXlang baseline/SQL-копія; читання метаданих; прив’язані v2 плани; повний імпорт зафіксованих локальних джерел без повторних експортів; перевірки ревізії/локальних змін/security/невідомих результатів; сумісність із v1/повним експортом та окремим відновленням baseline. Чистий refresh зберігає попередні артефакти й замінює відому чисту робочу копію. Звичайні status/панель не викликають Oracle. Активне сховище захищене від очищення результатів.
+
+Локально перевірено: справжній код sync/plan/apply з імітованими межами Oracle/compiler/tests, transport fixtures для метаданих direct SQLcl/ORDS, перезапуск та відповідність CLI/stdio MCP. [Звіт вимірювання](evidence/working-copy-local.json) відділяє початкові 1 APEXlang + 1 SQL експорт від трьох наступних імпортів без експортів проти 9 + 3 експортів за три старі цикли. Час і байти відповіді виміряні локальним harness; це не latency Oracle, tokenizer чи billing-докази. [Звіт перевірок](evidence/working-copy-checks.json) окремо фіксує поточні build/typecheck/lint/unit/contracts/packaging/docs/plugin перевірки.
+
+Oracle-перевірок цієї зміни немає. Connected initial sync + три зміни з перезапуском, справжні імпорти, автентифікований браузер застосунку та окреме SQL-відновлення baseline — NOT RUN; live qualification є окремо погодженим етапом. Composer Catalog перевірено у браузері Codex; installed payload та завантаження tools у новому чаті перевіряються окремо. Обсяг наявних required suites збережено. Plugin-owned агентів, команд і model router не додано.
+
 ## Поточний обсяг — 1.2.0, 2026-09-24
 
 APEXREST працює безпосередньо в поточній розмові Codex. Опублікований 1.2.0 надає 18 MCP-інструментів з обмеженим виводом, 13 спеціалізованих skills, CLI та необов’язкову панель операцій і налаштувань Oracle/APEX. Skill наповнення каталогу патернів розширює процес роботи з каталогом без нового MCP-інструмента. Codex керує завданням, контекстом, моделлю, дозволами й власною співпрацею. Виклик запуску роботи плагіна, контролер сесій моделей, маршрутизація ролей і вибір моделей не входять до продукту.

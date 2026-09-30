@@ -406,7 +406,7 @@ export class OracleAdapter {
     };
   }
   async exportApplication(env: Environment, connection: Connection, format: 'APEXLANG' | 'SQL' = 'APEXLANG') {
-    await this.requireCapability('export');
+    const compiler = await this.requireCapability('export');
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === 'ords';
     const exportRoot = ords ? path.join(stage, 'export') : stage;
@@ -443,7 +443,7 @@ export class OracleAdapter {
       (format === 'SQL' && !Object.keys(files).some((f) => f.endsWith('.sql')))
     )
       throw new Fault('EMPTY_BACKUP', 'Oracle export produced no usable files.', 1);
-    return { directory, files, digest: hash(canonical(files)), format, output: result.output };
+    return { directory, files, digest: hash(canonical(files)), format, compiler, output: result.output };
   }
   async savedConnections(signal?: AbortSignal) {
     const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll('-', '')}`;
@@ -593,6 +593,32 @@ export class OracleAdapter {
         5,
       );
     return { identity, workspace: workspaces[0]!, application: applications[0] ?? null };
+  }
+  async applicationMetadata(env: Environment, connection: Connection) {
+    const rows = await this.jsonQuery(
+      `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
+        last_updated_by from apex_applications
+        where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`,
+      connection,
+      { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema },
+    );
+    if (
+      rows.length !== 1 ||
+      !Object.hasOwn(rows[0]!, 'last_updated_on') ||
+      !Object.hasOwn(rows[0]!, 'last_updated_by')
+    )
+      throw new Fault(
+        'SYNC_METADATA_UNCONFIRMED',
+        'Application update metadata is absent or inaccessible.',
+        5,
+      );
+    const row = rows[0]!;
+    if ([row.last_updated_on, row.last_updated_by].some((v) => v !== null && typeof v !== 'string'))
+      throw new Fault('SYNC_METADATA_UNCONFIRMED', 'Unexpected application update metadata.', 5);
+    return {
+      lastUpdatedOn: row.last_updated_on as string | null,
+      lastUpdatedBy: row.last_updated_by as string | null,
+    };
   }
   async nativeDeployment(ctx: ProjectContext, env: Environment, source: string) {
     const output = path.join(await this.stage(), 'deployment.json');

@@ -1,0 +1,19 @@
+[
+  {
+    "schemaVersion": 1,
+    "kind": "compiler",
+    "status": "passed",
+    "sourceDigest": "fd38f4d780ae0a9af3b77e9375ebd26f86391092505c55bd5a16090eb662f7e6",
+    "generatorDigest": "b6664f483ba51882e81ccb44bccbd2f99d8b94f74ce58f5bb10297209fa7c196",
+    "configurationDigest": "4b5d1204a620cea10ca6e8253e7e68dd9677d9be73bacac4271126898ce95400",
+    "fixtureDigest": "83171baefa7b1cf5cbab5bd9d63b95dc5ae56223626e30175a27c4136eb19ff9",
+    "profile": "profile:apex261-ut261-mmd3102",
+    "tool": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334; MMD 26.1.0+3102",
+    "runner": "local",
+    "timestamp": "2026-09-29T17:58:15.027755+00:00",
+    "artifacts": [
+      "docs/evidence/composer-local.json"
+    ],
+    "reason": "Real offline SQLcl validation of complete library fixture containing this block. No live SQL, import, DML or browser qualification."
+  }
+]

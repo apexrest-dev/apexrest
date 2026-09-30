@@ -1,0 +1,1010 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "generatorVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "composition",
+        "recovery-resume",
+        "recovery-restore"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "materializable",
+        "blocked"
+      ]
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "blueprintPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "blueprintDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "catalogDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "configurationDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "toolchainDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourceInventory": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "stateDigest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "validation": {
+      "type": "string",
+      "enum": [
+        "compiler",
+        "source-only"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "offline",
+        "connected"
+      ]
+    },
+    "contextDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "environment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "review": {
+      "type": "object",
+      "properties": {
+        "entities": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "oracle-table",
+                      "oracle-view"
+                    ]
+                  },
+                  "object": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                  },
+                  "key": {
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                    }
+                  },
+                  "keyContract": {
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "column": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "string",
+                            "integer",
+                            "decimal",
+                            "date",
+                            "timestamp",
+                            "boolean"
+                          ]
+                        },
+                        "nullable": {
+                          "type": "boolean"
+                        },
+                        "maxLength": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "precision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "scale": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "enum": {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 128
+                          }
+                        }
+                      },
+                      "required": [
+                        "column",
+                        "type",
+                        "nullable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "object",
+                  "key",
+                  "fields"
+                ],
+                "additionalProperties": false
+              },
+              "authorization": {
+                "type": "object",
+                "properties": {
+                  "readContract": {
+                    "type": "string"
+                  },
+                  "writeContract": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "readContract"
+                ],
+                "additionalProperties": false
+              },
+              "capabilities": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "optimisticLock": {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      }
+                    },
+                    "required": [
+                      "field"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "read",
+              "authorization",
+              "capabilities"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "commands": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "oracle-procedure"
+              },
+              "package": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+              },
+              "procedure": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+              },
+              "signatureRef": {
+                "type": "string"
+              },
+              "transaction": {
+                "type": "string",
+                "const": "caller-owned"
+              },
+              "inputs": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "in",
+                        "in-out"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "mode"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "outputs": {
+                "type": "object",
+                "properties": {
+                  "recordKey": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "recordVersion": {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "from"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "recordKey",
+                  "recordVersion"
+                ],
+                "additionalProperties": false
+              },
+              "errorContract": {
+                "type": "string"
+              },
+              "authorizationContract": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "package",
+              "procedure",
+              "signatureRef",
+              "transaction",
+              "inputs",
+              "outputs",
+              "errorContract",
+              "authorizationContract"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "contracts": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "provenance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "authorization"
+                  },
+                  "rowPredicate": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "expression": {
+                    "type": "string",
+                    "maxLength": 65536
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "provenance",
+                  "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "provenance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "key"
+                  },
+                  "fields": {
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                    }
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "provenance",
+                  "kind",
+                  "fields"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "provenance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "command"
+                  },
+                  "transaction": {
+                    "type": "string",
+                    "const": "caller-owned"
+                  },
+                  "overload": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "in",
+                            "out",
+                            "in-out"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "NUMBER",
+                            "PLS_INTEGER",
+                            "BINARY_INTEGER",
+                            "VARCHAR2",
+                            "CHAR",
+                            "NVARCHAR2",
+                            "NCHAR",
+                            "DATE",
+                            "TIMESTAMP"
+                          ]
+                        },
+                        "defaulted": {
+                          "default": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "type",
+                        "defaulted"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "provenance",
+                  "kind",
+                  "transaction",
+                  "parameters"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 1
+                  },
+                  "provenance": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "const": "errors"
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "provenance",
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "packages": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "license": {
+                "type": "string"
+              },
+              "effects": {
+                "type": "object",
+                "properties": {
+                  "local": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deployment": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "applicationRuntime": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "authentication": {
+                    "type": "string",
+                    "const": "preserve"
+                  }
+                },
+                "required": [
+                  "local",
+                  "deployment",
+                  "applicationRuntime",
+                  "authentication"
+                ],
+                "additionalProperties": false
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "digest",
+              "origin",
+              "license",
+              "effects",
+              "dependencies"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "entities",
+        "commands",
+        "contracts",
+        "packages"
+      ],
+      "additionalProperties": false
+    },
+    "recovery": {
+      "type": "object",
+      "properties": {
+        "journalId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "sourcePlanDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "recordsDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "journalId",
+        "sourcePlanDigest",
+        "recordsDigest"
+      ],
+      "additionalProperties": false
+    },
+    "allocations": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dialog": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prefix": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          }
+        },
+        "required": [
+          "page",
+          "dialog",
+          "prefix"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "operations": {
+      "maxItems": 2048,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 65536
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after",
+          "content",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "state": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "number",
+              "const": 1
+            },
+            "generatorVersion": {
+              "type": "string",
+              "const": "1"
+            },
+            "generationDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "blueprintDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "lockDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "owners": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "blockId": {
+                    "type": "string",
+                    "pattern": "^block:[a-z0-9-]+\\/[a-z0-9-]+$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-z0-9.-]+)?$"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "managed",
+                      "extended",
+                      "detached"
+                    ]
+                  },
+                  "files": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "bases": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "allocation": {
+                    "type": "object",
+                    "properties": {
+                      "page": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "dialog": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "prefix": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      }
+                    },
+                    "required": [
+                      "page",
+                      "dialog",
+                      "prefix"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "consumers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                    }
+                  },
+                  "provenance": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "instanceId",
+                  "blockId",
+                  "version",
+                  "mode",
+                  "files",
+                  "bases",
+                  "allocation",
+                  "consumers",
+                  "provenance"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "generatorVersion",
+            "generationDigest",
+            "blueprintDigest",
+            "lockDigest",
+            "owners"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lock": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "schemaVersion": {
+              "type": "number",
+              "const": 1
+            },
+            "generatorVersion": {
+              "type": "string",
+              "const": "1"
+            },
+            "resolverPolicyVersion": {
+              "type": "string",
+              "const": "1"
+            },
+            "blueprintSemanticDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "catalogDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "compatibilityProfile": {
+              "type": "string"
+            },
+            "packages": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "contractDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "generatorVersion",
+            "resolverPolicyVersion",
+            "blueprintSemanticDigest",
+            "catalogDigest",
+            "compatibilityProfile",
+            "packages",
+            "contractDigest"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "generatorVersion",
+    "kind",
+    "status",
+    "projectId",
+    "blueprintPath",
+    "blueprintDigest",
+    "catalogDigest",
+    "configurationDigest",
+    "toolchainDigest",
+    "sourceInventory",
+    "stateDigest",
+    "validation",
+    "mode",
+    "contextDigest",
+    "environment",
+    "review",
+    "allocations",
+    "operations",
+    "state",
+    "lock",
+    "diagnostics",
+    "digest"
+  ],
+  "additionalProperties": false
+}

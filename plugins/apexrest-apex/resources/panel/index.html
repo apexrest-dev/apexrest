@@ -13,6 +13,7 @@
     <nav aria-label="Development views">
       <button data-view="overview" aria-current="page"><span>◈</span> Overview</button>
       <button data-view="operations"><span>↗</span> APEX operations</button>
+      <button data-view="catalog"><span>▦</span> Catalog</button>
       <button data-view="settings"><span>☷</span> Settings</button>
     </nav>
     <div class="sidebar-bottom"><span id="connection" class="badge">Connecting</span><p id="updated" class="subtle">Waiting for workspace data</p><button id="refresh" class="quiet">Refresh now</button></div>
@@ -26,6 +27,12 @@
     <section data-page="operations" hidden>
       <div class="card"><div class="section-heading"><div><h2>Run a check</h2><p class="subtle">Use the selected project's existing toolchain and authorization.</p></div></div><div class="actions"><button id="validate">Compile APEX source</button><label>Environment<select id="environment"><option value="">Choose environment</option></select></label><label>Test suite<select id="suite"><option value="unit">Unit</option><option value="sql">SQL</option><option value="api">API</option><option value="e2e">Playwright E2E</option><option value="all">All configured</option></select></label><button id="run-tests">Run checks</button><button id="plan">Prepare deployment plan</button><button id="open-browser">Open verification browser</button></div><p class="subtle">Application imports keep their existing plan, backup and approval gates. This panel does not grant deployment permission.</p></div>
       <div id="operations-live"></div>
+    </section>
+    <section data-page="catalog" hidden>
+      <form id="catalog-search" class="card"><h2>Executable blocks</h2><label>Search English or Ukrainian<input id="catalog-query" value="block:" maxlength="256" required></label><button type="submit">Search catalog</button><div id="catalog-hits"></div></form>
+      <div class="card"><h2>Contracts and qualification</h2><p class="subtle">Experimental blocks require live qualification. Previews show source as text.</p><pre id="catalog-detail"></pre></div>
+      <form id="catalog-add" class="card"><h2>Add to blueprint</h2><label>Blueprint path<input id="compose-blueprint" value="app.blueprint.yaml" required></label><label>Instance name<input id="compose-instance" value="NewList" required></label><label>Parameters and bindings (JSON)<textarea id="compose-parameters" rows="9">{"parameters":{"title":"Records"},"bindings":{"records":"entity:Customer"}}</textarea></label><button type="submit">Review blueprint diff</button><pre id="blueprint-diff"></pre><button id="blueprint-apply" type="button" disabled>Apply reviewed blueprint change</button></form>
+      <div class="card"><h2>Compose application</h2><button id="compose-plan" type="button">Plan and compile offline</button><button id="compose-materialize" type="button" disabled>Materialize reviewed plan</button><button id="compose-cancel" type="button" disabled>Cancel operation</button><pre id="compose-review"></pre><p class="subtle">Materialization writes local source only. Deployment keeps its existing policy and backup gates.</p></div>
     </section>
     <section data-page="settings" hidden>
       <div class="two-columns">

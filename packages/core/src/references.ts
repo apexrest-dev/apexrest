@@ -9,6 +9,7 @@ import { resourceRoot } from './project.ts';
 import { managedHome } from './config.ts';
 import { readJson, exists, writeJson, canonical, hash } from './fs.ts';
 import { Fault } from './result.ts';
+import { catalogSearch, catalogRead } from './composer/catalog.ts';
 import { componentSearch, componentRead } from './components.ts';
 import { patternSearch, patternRead } from './patterns.ts';
 
@@ -126,7 +127,12 @@ async function referenceIndex() {
   }
 }
 export type SearchOptions = {
-  corpus?: 'apexlang' | 'components' | 'patterns' | undefined;
+  project?: string | undefined;
+  corpus?: 'apexlang' | 'components' | 'patterns' | 'blocks' | 'blueprints' | undefined;
+  profile?: string | undefined;
+  status?: string | undefined;
+  locale?: string | undefined;
+  cursor?: string | undefined;
   kind?: Kind | undefined;
   family?: string | undefined;
   offset?: number | undefined;
@@ -153,6 +159,24 @@ function snippet(text: string, query: string, terms: string[]) {
   };
 }
 export async function referenceSearch(query: string, version?: string, options: SearchOptions = {}) {
+  if (options.corpus === 'blocks' || options.corpus === 'blueprints') {
+    const found = await catalogSearch(query, { ...options, ...(version ? { version } : {}) });
+    return found.results.map((hit) => ({
+      ...hit,
+      source: 'bundled-composer-catalog',
+      version: 'version' in hit ? hit.version : '1',
+      kind: 'template' as const,
+      family: 'composer',
+      text: hit.title,
+      offset: 0,
+      matchOffset: 0,
+      length: hit.title.length,
+      nextOffset: null,
+      requires: [],
+      totalMatches: found.totalMatches,
+      nextResultOffset: found.nextResultOffset,
+    }));
+  }
   if (options.corpus === 'components') return componentSearch(query, version, options);
   if (options.corpus === 'patterns') return patternSearch(query, version, options);
   const terms = termsFor(query);
@@ -232,7 +256,8 @@ export async function referenceSearch(query: string, version?: string, options: 
     };
   });
 }
-export async function referenceRead(id: string, offset: number, limit: number) {
+export async function referenceRead(id: string, offset: number, limit: number, project?: string) {
+  if (id.startsWith('block:') || id.startsWith('blueprint:')) return catalogRead(id, offset, limit, project);
   if (id.startsWith('component:')) return componentRead(id, offset, limit);
   if (id.startsWith('pattern:')) return patternRead(id, offset, limit);
   const index = await referenceIndex();

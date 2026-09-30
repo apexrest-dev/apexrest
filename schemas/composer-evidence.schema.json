@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "schema",
+        "unit",
+        "compiler",
+        "sql-read",
+        "sql-write",
+        "import",
+        "browser-observation",
+        "browser-automation",
+        "authorization",
+        "upgrade",
+        "packaging"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "not-run",
+        "blocked",
+        "stale"
+      ]
+    },
+    "sourceDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "generatorDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "configurationDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "fixtureDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "tool": {
+      "type": "string"
+    },
+    "runner": {
+      "type": "string",
+      "enum": [
+        "local",
+        "mock",
+        "oracle",
+        "native-host"
+      ]
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "status",
+    "sourceDigest",
+    "generatorDigest",
+    "configurationDigest",
+    "fixtureDigest",
+    "profile",
+    "tool",
+    "runner",
+    "timestamp",
+    "artifacts",
+    "reason"
+  ],
+  "additionalProperties": false
+}

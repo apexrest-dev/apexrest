@@ -24,6 +24,7 @@ jobs:
       - run: npm run lint
       - run: npm run docs:check
       - run: npm run typecheck
+      - run: npm run composer:check
       - run: npm run build
       - run: npm run test:unit
       - run: npm run plugin:check

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "block:crud/report-dialog",
+  "version": "1.0.0",
+  "kind": "block",
+  "name": "Report and API dialog",
+  "aliases": [
+    "CRUD",
+    "список",
+    "форма",
+    "CRM"
+  ],
+  "status": "experimental",
+  "license": "Apache-2.0",
+  "origin": "apexrest-dev/apexrest-codex",
+  "recipeRefs": [
+    "component:reports/interactive-report/recipes/basic",
+    "component:regions/cards/recipes/basic"
+  ],
+  "compatibility": {
+    "profileRefs": [
+      "profile:apex261-ut261-mmd3102"
+    ]
+  },
+  "renderer": "report-dialog",
+  "ports": {
+    "inputs": [
+      "records",
+      "saveRecord"
+    ],
+    "outputs": [
+      "saved"
+    ]
+  },
+  "requires": {
+    "blocks": [],
+    "capabilities": [
+      "key",
+      "readAuthorization",
+      "optimisticLock",
+      "writeAuthorization"
+    ]
+  },
+  "source": {
+    "files": [
+      "renderer.json"
+    ]
+  },
+  "effects": {
+    "local": [
+      "reviewed application source and tracked Composer state"
+    ],
+    "deployment": [
+      "full application import through existing policy-aware pipeline"
+    ],
+    "applicationRuntime": [
+      "read scoped records",
+      "invoke bound PL/SQL API on explicit save"
+    ],
+    "authentication": "preserve"
+  },
+  "limitations": [
+    "Experimental; live Oracle and authenticated browser qualification not run.",
+    "Only reviewed scalar contracts; no automatic DDL or business-table writes."
+  ]
+}

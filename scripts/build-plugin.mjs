@@ -2,6 +2,8 @@ import { build } from 'esbuild';
 import { mkdir, readFile, writeFile, cp, rm, chmod } from 'node:fs/promises';
 import { buildComponentCatalog } from './build-component-catalog.mjs';
 import { buildPatternCatalog } from './build-pattern-catalog.mjs';
+import { buildComposerCatalog } from './build-composer-catalog.mjs';
+await buildComposerCatalog(true);
 await buildComponentCatalog('resources/components', true);
 await buildPatternCatalog('resources/patterns', true);
 const metadata = JSON.parse(await readFile('plugins/metadata.json', 'utf8'));

@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "use": {
+      "type": "string",
+      "pattern": "^block:[a-z0-9-]+\\/[a-z0-9-]+@\\d+\\.\\d+\\.\\d+(?:-[a-z0-9.-]+)?$"
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "editableFields": {
+          "default": [],
+          "maxItems": 32,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          }
+        },
+        "createEnabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "editEnabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "deleteEnabled": {
+          "default": false,
+          "type": "boolean",
+          "const": false
+        },
+        "groupField": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "filterField": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "timeField": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "detailField": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "parentField": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        }
+      },
+      "required": [
+        "title",
+        "editableFields",
+        "createEnabled",
+        "editEnabled",
+        "deleteEnabled"
+      ],
+      "additionalProperties": false
+    },
+    "bindings": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "string"
+        },
+        "saveRecord": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "records"
+      ],
+      "additionalProperties": false
+    },
+    "ownership": {
+      "default": "managed",
+      "type": "string",
+      "enum": [
+        "managed",
+        "extended",
+        "detached"
+      ]
+    },
+    "extensions": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "beforeSaveValidation",
+          "afterSaveNotification"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 65536
+      }
+    }
+  },
+  "required": [
+    "use",
+    "parameters",
+    "bindings",
+    "ownership",
+    "extensions"
+  ],
+  "additionalProperties": false
+}

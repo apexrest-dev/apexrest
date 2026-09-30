@@ -37,12 +37,23 @@ function preview(value: unknown, depth = 0): unknown {
     'compiler',
     'approval',
     'backupRequired',
+    'mode',
+    'backupStrategy',
+    'syncId',
+    'revision',
+    'exportedAt',
+    'dirty',
+    'blocked',
+    'blockedReason',
+    'serverFreshness',
+    'backupId',
+    'importingRunId',
   ]) {
     const entry = data[key];
     if (['string', 'number', 'boolean'].includes(typeof entry))
       result[key] = typeof entry === 'string' ? entry.slice(0, 400) : entry;
   }
-  for (const key of ['jobs', 'deployments', 'diagnostics', 'artifacts', 'verification'])
+  for (const key of ['sync', 'jobs', 'deployments', 'diagnostics', 'artifacts', 'verification'])
     if (Array.isArray(data[key])) result[key + 'Count'] = data[key].length;
   if (Array.isArray(data.diagnostics))
     result.diagnostics = data.diagnostics
@@ -61,6 +72,9 @@ function preview(value: unknown, depth = 0): unknown {
       result[key] = data[key].slice(0, 4).map((entry) => String(entry).slice(0, 200));
       result[key + 'Omitted'] = Math.max(0, data[key].length - 4);
     }
+  if (data.lastSuccessfulImport && typeof data.lastSuccessfulImport === 'object')
+    result.lastSuccessfulImport = data.lastSuccessfulImport;
+  if (data.workingCopy && typeof data.workingCopy === 'object') result.workingCopy = data.workingCopy;
   if (depth < 2 && data.result && typeof data.result === 'object')
     result.result = preview(data.result, depth + 1);
   if (data.operation === 'deploy.plan' && data.data && depth < 2) result.data = preview(data.data, depth + 1);

@@ -53,10 +53,19 @@ function help() {
       ),
       ...(positional[key] ?? []).map((p) => '  <' + p + '>'),
     );
+  if (key === 'apex.sync')
+    lines.push(
+      '',
+      '--env NAME --action init|status|refresh|invalidate',
+      'status is local only. init reuses a valid baseline; refresh refuses dirty sources.',
+      'The initial SQL backup restores the baseline only. Interrupted imports require reconciliation.',
+    );
+  if (key === 'apex.diff')
+    lines.push('', '--comparison auto|live: auto uses an active local checkpoint; live explicitly exports.');
   if (key === 'docs.search')
     lines.push(
       '',
-      '--corpus apexlang|components|patterns selects the offline catalog (default: apexlang).',
+      '--corpus apexlang|components|patterns|blocks|blueprints selects the offline catalog (default: apexlang).',
       'Filter with --kind, --family and --version; follow nextResultOffset using --offset for more hits.',
     );
   if (key === 'docs.read')
@@ -168,6 +177,7 @@ try {
       'keepRuntime',
       'headed',
       'saved',
+      'workingCopy',
     ]);
     const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds']);
     let index = 0;

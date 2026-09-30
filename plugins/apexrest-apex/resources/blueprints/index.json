@@ -1,0 +1,12 @@
+[
+  {
+    "id": "blueprint:crm@1.0.0",
+    "title": "CRM Customers / Клієнти",
+    "path": "crm.yaml"
+  },
+  {
+    "id": "blueprint:service-desk@1.0.0",
+    "title": "Service Desk / Сервісна служба",
+    "path": "service-desk.yaml"
+  }
+]

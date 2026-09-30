@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "editableFields": {
+      "default": [],
+      "maxItems": 32,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      }
+    },
+    "createEnabled": {
+      "default": false,
+      "type": "boolean"
+    },
+    "editEnabled": {
+      "default": false,
+      "type": "boolean"
+    },
+    "deleteEnabled": {
+      "default": false,
+      "type": "boolean",
+      "const": false
+    },
+    "groupField": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    },
+    "filterField": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    },
+    "timeField": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    },
+    "detailField": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    },
+    "parentField": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+    }
+  },
+  "required": [
+    "title",
+    "editableFields",
+    "createEnabled",
+    "editEnabled",
+    "deleteEnabled"
+  ],
+  "additionalProperties": false
+}

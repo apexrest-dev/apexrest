@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "application": {
+    "mode": "extend",
+    "compatibilityProfile": "profile:apex261-ut261-mmd3102",
+    "preserve": {
+      "authentication": true,
+      "authorization": true,
+      "unmanagedSource": true
+    }
+  },
+  "entities": {
+    "Customer": {
+      "read": {
+        "kind": "oracle-table",
+        "object": "CMP_CUSTOMERS",
+        "key": [
+          "id"
+        ],
+        "fields": {
+          "id": {
+            "column": "CUSTOMER_ID",
+            "type": "integer",
+            "nullable": false
+          },
+          "name": {
+            "column": "CUSTOMER_NAME",
+            "type": "string",
+            "nullable": false,
+            "maxLength": 200
+          },
+          "status": {
+            "column": "STATUS",
+            "type": "string",
+            "nullable": false,
+            "maxLength": 16
+          },
+          "version": {
+            "column": "ROW_VERSION",
+            "type": "integer",
+            "nullable": false
+          }
+        }
+      },
+      "authorization": {
+        "readContract": "project:customer-access",
+        "writeContract": "project:customer-access"
+      },
+      "capabilities": {
+        "optimisticLock": {
+          "field": "version"
+        }
+      }
+    }
+  },
+  "commands": {
+    "SaveCustomer": {
+      "kind": "oracle-procedure",
+      "package": "CMP_CUSTOMER_API",
+      "procedure": "SAVE_CUSTOMER",
+      "signatureRef": "project:save-customer",
+      "transaction": "caller-owned",
+      "inputs": {
+        "P_CUSTOMER_ID": {
+          "from": "record.id",
+          "mode": "in-out"
+        },
+        "P_CUSTOMER_NAME": {
+          "from": "record.name",
+          "mode": "in"
+        },
+        "P_STATUS": {
+          "from": "record.status",
+          "mode": "in"
+        },
+        "P_EXPECTED_VERSION": {
+          "from": "record.version",
+          "mode": "in"
+        }
+      },
+      "outputs": {
+        "recordKey": {
+          "from": "P_CUSTOMER_ID"
+        },
+        "recordVersion": {
+          "from": "P_ROW_VERSION"
+        }
+      },
+      "errorContract": "project:customer-errors",
+      "authorizationContract": "project:customer-access"
+    }
+  },
+  "contracts": {
+    "project:customer-access": {
+      "schemaVersion": 1,
+      "kind": "authorization",
+      "rowPredicate": "OWNER_NAME = :APP_USER",
+      "expression": "apex_authorization.is_authorized('CMP_CUSTOMER_WRITE')",
+      "provenance": "Isolated CRM fixture; server-owned APEX identity; live qualification pending"
+    },
+    "project:save-customer": {
+      "schemaVersion": 1,
+      "kind": "command",
+      "transaction": "caller-owned",
+      "parameters": {
+        "P_CUSTOMER_ID": {
+          "mode": "in-out",
+          "type": "NUMBER"
+        },
+        "P_CUSTOMER_NAME": {
+          "mode": "in",
+          "type": "VARCHAR2"
+        },
+        "P_STATUS": {
+          "mode": "in",
+          "type": "VARCHAR2"
+        },
+        "P_EXPECTED_VERSION": {
+          "mode": "in",
+          "type": "NUMBER"
+        },
+        "P_ROW_VERSION": {
+          "mode": "out",
+          "type": "NUMBER"
+        }
+      },
+      "provenance": "fixture API source; caller owns transaction"
+    },
+    "project:customer-errors": {
+      "schemaVersion": 1,
+      "kind": "errors",
+      "provenance": "-20001 authorization, -20002 validation, -20003 optimistic conflict; generic client messages"
+    }
+  },
+  "blocks": {
+    "CustomerList": {
+      "use": "block:crud/report-dialog@1.0.0",
+      "parameters": {
+        "title": "Customers",
+        "createEnabled": true,
+        "editEnabled": true,
+        "editableFields": [
+          "name",
+          "status"
+        ]
+      },
+      "bindings": {
+        "records": "entity:Customer",
+        "saveRecord": "command:SaveCustomer"
+      }
+    },
+    "CustomerSummary": {
+      "use": "block:analytics/status-summary@1.0.0",
+      "parameters": {
+        "title": "Customer status",
+        "groupField": "status"
+      },
+      "bindings": {
+        "records": "entity:Customer"
+      }
+    }
+  },
+  "connections": [
+    {
+      "from": "CustomerList.events.saved",
+      "to": "CustomerSummary.actions.refresh",
+      "behavior": {
+        "coalesce": true
+      }
+    }
+  ]
+}

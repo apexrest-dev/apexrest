@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { browserPreferencesSchema } from './browser-preferences.ts';
 import { sqlclConfigSchema } from './sqlcl-config.ts';
-import { refName } from './config.ts';
+import { composePlanInput, composeMaterializeInput } from './composer/service.ts';
+import { digest, instanceSchema } from './composer/schemas.ts';
+import { refName, relativePath } from './config.ts';
 import { savedConnectionName, ordsUrl, ordsUsername } from './connections.ts';
 
 export const panelPreferencesSchema = z.strictObject({
@@ -25,6 +27,28 @@ export const panelActionSchema = z.strictObject({
     z.strictObject({ kind: z.literal('sqlcl'), settings: sqlclConfigSchema }),
     z.strictObject({ kind: z.literal('saved-connections') }),
     connectionActionSchema,
+    z.strictObject({
+      kind: z.literal('catalog-search'),
+      query: z.string().min(1).max(256),
+      profile: z.string().max(200).optional(),
+    }),
+    z.strictObject({
+      kind: z.literal('catalog-read'),
+      id: z.string().min(1).max(200),
+      offset: z.number().int().min(0).default(0),
+    }),
+    z.strictObject({ kind: z.literal('blueprint-read'), blueprint: relativePath }),
+    z.strictObject({
+      kind: z.literal('blueprint-add'),
+      blueprint: relativePath,
+      instanceId: z.string().min(1).max(64),
+      instance: instanceSchema,
+      expectedDigest: digest,
+      apply: z.boolean().default(false),
+    }),
+    composePlanInput.omit({ project: true }).extend({ kind: z.literal('compose-plan') }),
+    composeMaterializeInput.omit({ project: true }).extend({ kind: z.literal('compose-materialize') }),
+    z.strictObject({ kind: z.literal('compose-status'), id: z.uuid() }),
     z.strictObject({ kind: z.literal('cancel-job'), id: z.uuid() }),
     z.strictObject({ kind: z.literal('validate') }),
     z.strictObject({ kind: z.literal('browser'), env: z.string().min(1).max(100) }),

@@ -18,12 +18,16 @@ test('Codex package declares native skills, local MCP and exclusive product rout
   assert.deepEqual(marketplace.plugins[0].policy.products, ['codex']);
   await assert.rejects(readFile('dist/portable/plugins/apexrest-apex/plugin.json'), { code: 'ENOENT' });
 });
-test('Codex package is self-contained, same version, thirteen bounded skills and no author paths', async () => {
+test('Codex package is self-contained, same version, bounded skills including Composer and no author paths', async () => {
   for (const profile of ['codex-compat']) {
     const root = `dist/${profile}/plugins/apexrest-apex`;
     const list = await files(root);
     const skills = list.filter((f) => /^skills\/[^/]+\/SKILL.md$/.test(f));
-    assert.equal(skills.length, 13);
+    assert.ok(skills.includes('skills/apexrest-compose/SKILL.md'));
+    assert.equal(
+      skills.length,
+      (await files('plugins/apexrest-apex/skills')).filter((f) => f.endsWith('/SKILL.md')).length,
+    );
     assert.ok(skills.includes('skills/apexrest-pattern-catalog/SKILL.md'));
     for (const skill of skills)
       assert.ok(list.includes(skill.replace('SKILL.md', 'agents/openai.yaml')), skill);

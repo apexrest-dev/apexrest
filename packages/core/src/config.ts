@@ -47,6 +47,7 @@ export const projectSchema = z.strictObject({
     defaultBrowser: z.literal('chromium'),
     mutationAllowedEnvironments: z.array(refName),
   }),
+  composer: z.strictObject({ allowSourceOnly: z.boolean().default(false) }).optional(),
   artifacts: z.strictObject({ directory: relativePath, retentionDays: z.number().int().min(1).max(365) }),
 });
 export type ProjectConfig = z.infer<typeof projectSchema>;

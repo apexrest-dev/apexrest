@@ -219,6 +219,319 @@
             "properties": {
               "kind": {
                 "type": "string",
+                "const": "catalog-search"
+              },
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "profile": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "catalog-read"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "offset": {
+                "default": 0,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "blueprint-read"
+              },
+              "blueprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            },
+            "required": [
+              "kind",
+              "blueprint"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "blueprint-add"
+              },
+              "blueprint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "instanceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "instance": {
+                "type": "object",
+                "properties": {
+                  "use": {
+                    "type": "string",
+                    "pattern": "^block:[a-z0-9-]+\\/[a-z0-9-]+@\\d+\\.\\d+\\.\\d+(?:-[a-z0-9.-]+)?$"
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 180
+                      },
+                      "editableFields": {
+                        "default": [],
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                        }
+                      },
+                      "createEnabled": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "editEnabled": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "deleteEnabled": {
+                        "default": false,
+                        "type": "boolean",
+                        "const": false
+                      },
+                      "groupField": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      },
+                      "filterField": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      },
+                      "timeField": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      },
+                      "detailField": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      },
+                      "parentField": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                      }
+                    },
+                    "required": [
+                      "title"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "bindings": {
+                    "type": "object",
+                    "properties": {
+                      "records": {
+                        "type": "string"
+                      },
+                      "saveRecord": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "records"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "ownership": {
+                    "default": "managed",
+                    "type": "string",
+                    "enum": [
+                      "managed",
+                      "extended",
+                      "detached"
+                    ]
+                  },
+                  "extensions": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "enum": [
+                        "beforeSaveValidation",
+                        "afterSaveNotification"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 65536
+                    }
+                  }
+                },
+                "required": [
+                  "use",
+                  "parameters",
+                  "bindings"
+                ],
+                "additionalProperties": false
+              },
+              "expectedDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "apply": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "blueprint",
+              "instanceId",
+              "instance",
+              "expectedDigest"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "blueprint": {
+                "default": "app.blueprint.yaml",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "out": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "mode": {
+                "default": "offline",
+                "type": "string",
+                "enum": [
+                  "offline",
+                  "connected"
+                ]
+              },
+              "env": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+              },
+              "validation": {
+                "default": "compiler",
+                "type": "string",
+                "enum": [
+                  "compiler",
+                  "source-only"
+                ]
+              },
+              "action": {
+                "default": "compose",
+                "type": "string",
+                "enum": [
+                  "compose",
+                  "recover-resume",
+                  "recover-restore"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "const": "compose-plan"
+              }
+            },
+            "required": [
+              "out",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "plan": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "artifactId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "expectedDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "kind": {
+                "type": "string",
+                "const": "compose-materialize"
+              }
+            },
+            "required": [
+              "expectedDigest",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "compose-status"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
                 "const": "cancel-job"
               },
               "id": {
@@ -668,6 +981,10 @@
         "type": "integer",
         "exclusiveMinimum": 0,
         "maximum": 9007199254740991
+      },
+      "workingCopy": {
+        "default": false,
+        "type": "boolean"
       }
     },
     "required": [
@@ -797,14 +1114,114 @@
     ],
     "additionalProperties": false
   },
+  "compose.plan": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "blueprint": {
+        "default": "app.blueprint.yaml",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "out": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "mode": {
+        "default": "offline",
+        "type": "string",
+        "enum": [
+          "offline",
+          "connected"
+        ]
+      },
+      "env": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "validation": {
+        "default": "compiler",
+        "type": "string",
+        "enum": [
+          "compiler",
+          "source-only"
+        ]
+      },
+      "action": {
+        "default": "compose",
+        "type": "string",
+        "enum": [
+          "compose",
+          "recover-resume",
+          "recover-restore"
+        ]
+      }
+    },
+    "required": [
+      "out"
+    ],
+    "additionalProperties": false
+  },
+  "compose.materialize": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "plan": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "artifactId": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "expectedDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "required": [
+      "expectedDigest"
+    ],
+    "additionalProperties": false
+  },
   "docs.search": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
       "query": {
         "type": "string",
         "minLength": 1,
         "maxLength": 256
+      },
+      "corpus": {
+        "default": "apexlang",
+        "type": "string",
+        "enum": [
+          "apexlang",
+          "components",
+          "patterns",
+          "blocks",
+          "blueprints"
+        ]
       },
       "version": {
         "type": "string"
@@ -822,6 +1239,31 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 200
+      },
+      "profile": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "experimental",
+          "verified",
+          "deprecated",
+          "revoked"
+        ]
+      },
+      "locale": {
+        "type": "string",
+        "enum": [
+          "en",
+          "uk"
+        ]
+      },
+      "cursor": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
       },
       "offset": {
         "default": 0,
@@ -845,6 +1287,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
       "id": {
         "type": "string",
         "maxLength": 200
@@ -895,6 +1342,7 @@
           "objects",
           "columns",
           "constraints",
+          "constraint-columns",
           "signatures",
           "applications",
           "pages"
@@ -931,6 +1379,7 @@
                 "objects",
                 "columns",
                 "constraints",
+                "constraint-columns",
                 "signatures",
                 "applications",
                 "pages"
@@ -1009,6 +1458,35 @@
     ],
     "additionalProperties": false
   },
+  "apex.sync": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "env": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "init",
+          "status",
+          "refresh",
+          "invalidate"
+        ]
+      }
+    },
+    "required": [
+      "env",
+      "action"
+    ],
+    "additionalProperties": false
+  },
   "apex.export": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1062,6 +1540,14 @@
       "env": {
         "type": "string",
         "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "comparison": {
+        "default": "auto",
+        "type": "string",
+        "enum": [
+          "auto",
+          "live"
+        ]
       }
     },
     "required": [

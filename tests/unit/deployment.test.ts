@@ -242,6 +242,17 @@ test('same-schema apps contend locally; an independent schema does not', async (
   await second.acquire('second');
   await second.release('second');
 });
+test('status reads tolerate a released local lease while corrupt leases still block', async () => {
+  const { ctx } = await prepared(),
+    control = new LocalDeploymentControl(ctx.config.environments.dev!);
+  for (let i = 0; i < 30; i++) {
+    await control.acquire('owner');
+    await Promise.all([control.release('owner'), ...Array.from({ length: 8 }, () => control.owner())]);
+    assert.equal(await control.owner(), undefined);
+  }
+  await atomicWrite(control.file('active.json'), 'broken JSON');
+  await assert.rejects(() => control.owner());
+});
 
 test('local dead preparing owner recovers but dead writing owner requires reconciliation', async () => {
   const { ctx } = await prepared();

@@ -139,8 +139,9 @@ process.exit(99);
   connected = true;
   evidence.calls.listTools++;
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 18);
+  assert.equal(catalog.tools.length, 21);
   const longTools = [
+    'apexrest_apex_sync',
     'apexrest_apex_generate',
     'apexrest_apex_export',
     'apexrest_apex_validate',
@@ -159,7 +160,11 @@ process.exit(99);
   }
   assert.ok(catalog.tools.every((tool) => !/^apexrest_(team|work)_/.test(tool.name)));
   evidence.checks.push('no-agent-start-or-orchestration-tools');
-  evidence.catalog = { tools: 18, longToolsWithOptionalWait: longTools.length, defaultWaitSeconds: 25 };
+  evidence.catalog = {
+    tools: catalog.tools.length,
+    longToolsWithOptionalWait: longTools.length,
+    defaultWaitSeconds: 25,
+  };
   evidence.checks.push('real-stdio-catalog-and-optional-wait-schema');
 
   await writeTest(12);

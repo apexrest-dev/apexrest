@@ -76,6 +76,14 @@ export class ArtifactService {
     let removed = 0;
     for (const directory of directories) {
       if (!directory || !(await exists(directory))) continue;
+      // Durable working-copy/backup/import sources are never result archives.
+      const relative = path.relative(this.ctx.root, directory).split(path.sep).join('/');
+      if (
+        ['.apexrest/sync', '.apexrest/backups', '.apexrest/deployments'].some(
+          (root) => relative === root || relative.startsWith(root + '/'),
+        )
+      )
+        continue;
       for (const file of await readdir(directory))
         if (/^[a-f0-9-]{36}\.json$/.test(file)) {
           const metadata = (await readJson(path.join(directory, file))) as { expiresAt: string };

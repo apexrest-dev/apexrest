@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "renderer": {
+      "type": "string",
+      "enum": [
+        "report-dialog",
+        "status-summary",
+        "filtered-list",
+        "read-only-detail",
+        "history-timeline",
+        "master-detail"
+      ]
+    },
+    "escape": {
+      "type": "string",
+      "const": "native-plain-text"
+    },
+    "transaction": {
+      "type": "string",
+      "const": "caller-owned"
+    },
+    "savedPayload": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "string",
+          "const": "entityRef"
+        },
+        {
+          "type": "string",
+          "const": "recordKey"
+        },
+        {
+          "type": "string",
+          "const": "recordVersion"
+        },
+        {
+          "type": "string",
+          "const": "operation"
+        },
+        {
+          "type": "string",
+          "const": "originInstance"
+        },
+        {
+          "type": "string",
+          "const": "correlationId"
+        }
+      ],
+      "items": false,
+      "minItems": 6,
+      "maxItems": 6
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "renderer",
+    "escape",
+    "transaction",
+    "savedPayload"
+  ],
+  "additionalProperties": false
+}

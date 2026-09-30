@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^block:[a-z0-9-]+\\/[a-z0-9-]+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-z0-9.-]+)?$"
+    },
+    "kind": {
+      "type": "string",
+      "const": "block"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 180
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "experimental",
+        "verified",
+        "deprecated",
+        "revoked"
+      ]
+    },
+    "license": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "recipeRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "profileRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "profileRefs"
+      ],
+      "additionalProperties": false
+    },
+    "renderer": {
+      "type": "string",
+      "enum": [
+        "report-dialog",
+        "status-summary",
+        "filtered-list",
+        "read-only-detail",
+        "history-timeline",
+        "master-detail"
+      ]
+    },
+    "ports": {
+      "type": "object",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "records",
+              "saveRecord"
+            ]
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "const": "saved"
+          }
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs"
+      ],
+      "additionalProperties": false
+    },
+    "requires": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "blocks",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "effects": {
+      "type": "object",
+      "properties": {
+        "local": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deployment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "applicationRuntime": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authentication": {
+          "type": "string",
+          "const": "preserve"
+        }
+      },
+      "required": [
+        "local",
+        "deployment",
+        "applicationRuntime",
+        "authentication"
+      ],
+      "additionalProperties": false
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "kind",
+    "name",
+    "aliases",
+    "status",
+    "license",
+    "origin",
+    "recipeRefs",
+    "compatibility",
+    "renderer",
+    "ports",
+    "requires",
+    "source",
+    "effects",
+    "limitations"
+  ],
+  "additionalProperties": false
+}

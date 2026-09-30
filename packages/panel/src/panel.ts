@@ -1,6 +1,7 @@
 import type { PanelSnapshot } from '../../core/src/panel.ts';
 import type { PanelAction } from '../../core/src/panel-schema.ts';
 import logo from '../../../plugins/apexrest-apex/assets/apexrest-logo.svg';
+import { CompositionJobs, ReviewRequests } from './composer-jobs.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = (id: string) => $<HTMLInputElement>(id);
@@ -237,16 +238,49 @@ async function loadSavedConnections(force = false) {
   }
   renderSavedConnections();
 }
+let selectedBlock = '',
+  blueprintReview: Extract<PanelAction, { kind: 'blueprint-add' }> | undefined,
+  composeJob = '',
+  reviewedPlan: { plan: string; planDigest: string } | undefined;
+type CompositionResponse = {
+  job: { status: string; result?: { data?: { status: string; plan: string; planDigest: string } } };
+  materializable: boolean;
+};
+const compositionJobs = new CompositionJobs<CompositionResponse>(
+  async (id) => (await api({ kind: 'compose-status', id })) as CompositionResponse,
+  (response) => {
+    notice('');
+    $('compose-review').textContent = JSON.stringify(response.job, null, 2);
+  },
+  controls,
+  (error, paused) => {
+    notice(
+      (error instanceof Error ? error.message : String(error)) +
+        (paused
+          ? ' Job outcome is unknown. Retry job status to continue observing the same operation.'
+          : ' Retrying the existing job status.'),
+      true,
+    );
+  },
+);
+const blueprintReviews = new ReviewRequests();
+
 function controls() {
   const canAct = connected && !!snapshot?.trusted && !busy;
   for (const id of ['validate', 'run-tests', 'plan', 'open-browser'])
     $<HTMLButtonElement>(id).disabled = !canAct || !snapshot?.configured;
-  for (const form of ['sqlcl-form', 'connection-form', 'preferences-form'])
+  for (const form of ['catalog-search', 'catalog-add', 'sqlcl-form', 'connection-form', 'preferences-form'])
     $(form)
       .querySelectorAll<HTMLButtonElement>('button[type=submit]')
       .forEach((button) => {
         button.disabled = !canAct;
       });
+  $<HTMLButtonElement>('compose-plan').disabled = !canAct || !snapshot?.configured || compositionJobs.running;
+  $('compose-plan').textContent = compositionJobs.pending ? 'Retry job status' : 'Plan and compile offline';
+  $<HTMLButtonElement>('compose-materialize').disabled =
+    !canAct || !reviewedPlan || compositionJobs.running || !!compositionJobs.pending;
+  $<HTMLButtonElement>('compose-cancel').disabled = !canAct || !compositionJobs.pending;
+  $<HTMLButtonElement>('blueprint-apply').disabled = !canAct || !blueprintReview;
   $<HTMLButtonElement>('saved-connections-refresh').disabled = !canAct || savedConnectionsState === 'loading';
   $<HTMLButtonElement>('connection-save').disabled =
     !canAct || (input('sqlcl-transport').value === 'direct' && savedConnectionsState === 'loading');
@@ -327,6 +361,19 @@ function operations(data: PanelSnapshot) {
     box.append(table);
   }
   const output = [card('Operation jobs', box, 'Compile, export, tests and deployment work')];
+  const sync = node('div');
+  for (const entry of data.sync) {
+    const row = node('div', 'journal-entry');
+    row.append(badge(entry.status), node('p', '', entry.environment));
+    if ('exportedAt' in entry) row.append(node('p', 'subtle', 'Initial export: ' + entry.exportedAt));
+    if ('lastSuccessfulImport' in entry && entry.lastSuccessfulImport)
+      row.append(node('p', 'subtle', 'Latest successful import: ' + entry.lastSuccessfulImport.at));
+    if ('blockedReason' in entry && entry.blockedReason) row.append(node('p', '', entry.blockedReason));
+    if ('dirty' in entry)
+      row.append(node('p', '', entry.dirty ? 'Local edits present' : 'Local checkpoint matches'));
+    sync.append(row);
+  }
+  output.push(card('Working-copy sync', sync, 'Local status only; server freshness is not checked'));
   const deployments = node('div');
   if (!data.deployments.length) deployments.append(empty('No deployment runs recorded.'));
   for (const deployment of data.deployments) {
@@ -465,7 +512,7 @@ function render(data: PanelSnapshot) {
       columns,
     ];
   });
-  draw('operations-live', [data.jobs, data.deployments, busy], () => operations(data));
+  draw('operations-live', [data.jobs, data.deployments, data.sync, busy], () => operations(data));
   draw(
     'settings-live',
     [data.preferences, data.configuration, data.connections, data.toolchain, data.permissions],
@@ -540,6 +587,13 @@ async function refresh() {
   refreshing = true;
   try {
     render((await api()) as PanelSnapshot);
+    if (reviewedPlan && composeJob) {
+      const assessed = (await api({ kind: 'compose-status', id: composeJob })) as { materializable: boolean };
+      if (!assessed.materializable) {
+        reviewedPlan = undefined;
+        $<HTMLButtonElement>('compose-materialize').disabled = true;
+      }
+    }
   } catch (error) {
     connected = false;
     $('connection').textContent = 'Disconnected';
@@ -557,6 +611,7 @@ async function refresh() {
 const views: Record<string, [string, string]> = {
   overview: ['Workspace overview', 'Project settings and APEX operations for your current Codex session.'],
   operations: ['APEX operations', 'Compile, verify and follow deployment state.'],
+  catalog: ['Composer catalog', 'Find blocks, review bindings and compile a local application plan.'],
   settings: ['Workspace settings', 'Inspect configuration, database connections and browser preferences.'],
 };
 function view(name: string) {
@@ -738,3 +793,129 @@ scheduleRefresh();
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) void refresh();
 });
+
+function invalidateBlueprintReview() {
+  blueprintReviews.invalidate();
+  blueprintReview = undefined;
+  controls();
+}
+async function catalogAction(action: PanelAction) {
+  try {
+    return await api(action);
+  } catch (error) {
+    notice(error instanceof Error ? error.message : String(error), true);
+    throw error;
+  }
+}
+$('catalog-search').onsubmit = (event) => {
+  event.preventDefault();
+  void (async () => {
+    const result = (await catalogAction({ kind: 'catalog-search', query: input('catalog-query').value })) as {
+      results: { id: string; title: string; status: string }[];
+    };
+    $('catalog-hits').replaceChildren();
+    for (const hit of result.results) {
+      const b = node('button', 'quiet', hit.title + ' · ' + hit.status);
+      b.type = 'button';
+      b.onclick = () => {
+        selectedBlock = hit.id;
+        invalidateBlueprintReview();
+        void catalogAction({ kind: 'catalog-read', id: hit.id, offset: 0 }).then((data) => {
+          $('catalog-detail').textContent = (data as { content: string }).content;
+        });
+      };
+      $('catalog-hits').append(b);
+    }
+  })();
+};
+$('catalog-add').onsubmit = (event) => {
+  event.preventDefault();
+  invalidateBlueprintReview();
+  void (async () => {
+    if (!selectedBlock) throw new Error('Select a block from the catalog.');
+    const blueprint = input('compose-blueprint').value,
+      instanceId = input('compose-instance').value,
+      instance = {
+        ...JSON.parse($<HTMLTextAreaElement>('compose-parameters').value),
+        use: selectedBlock,
+      };
+    const reviewed = await blueprintReviews.run(async () => {
+      const state = (await catalogAction({ kind: 'blueprint-read', blueprint })) as { digest: string };
+      const action: Extract<PanelAction, { kind: 'blueprint-add' }> = {
+        kind: 'blueprint-add',
+        blueprint,
+        instanceId,
+        instance,
+        expectedDigest: state.digest,
+        apply: false,
+      };
+      const diff = (await catalogAction(action)) as { before: string; after: string };
+      return { action, diff };
+    });
+    if (!reviewed) return;
+    blueprintReview = { ...reviewed.action, apply: true };
+    $('blueprint-diff').textContent = 'BEFORE\n' + reviewed.diff.before + '\nAFTER\n' + reviewed.diff.after;
+    controls();
+  })().catch((error) => notice(String(error), true));
+};
+$('blueprint-apply').onclick = () => {
+  if (blueprintReview)
+    void catalogAction(blueprintReview).then(() => {
+      blueprintReview = undefined;
+      blueprintReviews.invalidate();
+      reviewedPlan = undefined;
+      compositionJobs.invalidate();
+      $<HTMLButtonElement>('blueprint-apply').disabled = true;
+      $<HTMLButtonElement>('compose-materialize').disabled = true;
+      notice('Blueprint updated. Create and review a new plan.');
+    });
+};
+async function startComposition(action: PanelAction) {
+  if (compositionJobs.running) return;
+  reviewedPlan = undefined;
+  controls();
+  try {
+    const completed = await compositionJobs.run(async () => {
+      composeJob = ((await catalogAction(action)) as { jobId: string }).jobId;
+      return composeJob;
+    });
+    const result = completed?.response.job.result?.data;
+    reviewedPlan =
+      completed?.current && completed.response.materializable && result?.planDigest
+        ? { plan: result.plan, planDigest: result.planDigest }
+        : undefined;
+  } catch (error) {
+    notice(error instanceof Error ? error.message : String(error), true);
+  } finally {
+    controls();
+  }
+}
+input('compose-blueprint').oninput = () => {
+  invalidateBlueprintReview();
+  reviewedPlan = undefined;
+  compositionJobs.invalidate();
+  controls();
+};
+input('compose-instance').oninput = invalidateBlueprintReview;
+$<HTMLTextAreaElement>('compose-parameters').oninput = invalidateBlueprintReview;
+$('compose-plan').onclick = () => {
+  void startComposition({
+    kind: 'compose-plan',
+    blueprint: input('compose-blueprint').value,
+    out: '.apexrest/composer/panel-plan.json',
+    mode: 'offline',
+    validation: 'compiler',
+    action: 'compose',
+  });
+};
+$('compose-materialize').onclick = () => {
+  if (reviewedPlan)
+    void startComposition({
+      kind: 'compose-materialize',
+      plan: reviewedPlan.plan,
+      expectedDigest: reviewedPlan.planDigest,
+    });
+};
+$('compose-cancel').onclick = () => {
+  if (composeJob) void catalogAction({ kind: 'cancel-job', id: composeJob });
+};

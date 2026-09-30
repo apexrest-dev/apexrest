@@ -1,0 +1,664 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "application": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "extend"
+        },
+        "environment": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "compatibilityProfile": {
+          "type": "string"
+        },
+        "preserve": {
+          "type": "object",
+          "properties": {
+            "authentication": {
+              "type": "boolean",
+              "const": true
+            },
+            "authorization": {
+              "type": "boolean",
+              "const": true
+            },
+            "unmanagedSource": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "authentication",
+            "authorization",
+            "unmanagedSource"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "mode",
+        "compatibilityProfile",
+        "preserve"
+      ],
+      "additionalProperties": false
+    },
+    "entities": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "read": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "oracle-table",
+                  "oracle-view"
+                ]
+              },
+              "object": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+              },
+              "key": {
+                "minItems": 1,
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                }
+              },
+              "keyContract": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "column": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "integer",
+                        "decimal",
+                        "date",
+                        "timestamp",
+                        "boolean"
+                      ]
+                    },
+                    "nullable": {
+                      "type": "boolean"
+                    },
+                    "maxLength": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "precision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "scale": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "enum": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 128
+                      }
+                    }
+                  },
+                  "required": [
+                    "column",
+                    "type",
+                    "nullable"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "object",
+              "key",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          "authorization": {
+            "type": "object",
+            "properties": {
+              "readContract": {
+                "type": "string"
+              },
+              "writeContract": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "readContract"
+            ],
+            "additionalProperties": false
+          },
+          "capabilities": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "optimisticLock": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "read",
+          "authorization",
+          "capabilities"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "commands": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "oracle-procedure"
+          },
+          "package": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+          },
+          "procedure": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+          },
+          "signatureRef": {
+            "type": "string"
+          },
+          "transaction": {
+            "type": "string",
+            "const": "caller-owned"
+          },
+          "inputs": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "in",
+                    "in-out"
+                  ]
+                }
+              },
+              "required": [
+                "from",
+                "mode"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "outputs": {
+            "type": "object",
+            "properties": {
+              "recordKey": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                  }
+                },
+                "required": [
+                  "from"
+                ],
+                "additionalProperties": false
+              },
+              "recordVersion": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                  }
+                },
+                "required": [
+                  "from"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "recordKey",
+              "recordVersion"
+            ],
+            "additionalProperties": false
+          },
+          "errorContract": {
+            "type": "string"
+          },
+          "authorizationContract": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "package",
+          "procedure",
+          "signatureRef",
+          "transaction",
+          "inputs",
+          "outputs",
+          "errorContract",
+          "authorizationContract"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "contracts": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^project:[a-z0-9-]+$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "provenance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "kind": {
+                "type": "string",
+                "const": "authorization"
+              },
+              "rowPredicate": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "expression": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "provenance",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "provenance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "kind": {
+                "type": "string",
+                "const": "key"
+              },
+              "fields": {
+                "minItems": 1,
+                "maxItems": 16,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                }
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "provenance",
+              "kind",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "provenance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "kind": {
+                "type": "string",
+                "const": "command"
+              },
+              "transaction": {
+                "type": "string",
+                "const": "caller-owned"
+              },
+              "overload": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "parameters": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "in",
+                        "out",
+                        "in-out"
+                      ]
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "NUMBER",
+                        "PLS_INTEGER",
+                        "BINARY_INTEGER",
+                        "VARCHAR2",
+                        "CHAR",
+                        "NVARCHAR2",
+                        "NCHAR",
+                        "DATE",
+                        "TIMESTAMP"
+                      ]
+                    },
+                    "defaulted": {
+                      "default": false,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "type",
+                    "defaulted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "provenance",
+              "kind",
+              "transaction",
+              "parameters"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "schemaVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "provenance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "kind": {
+                "type": "string",
+                "const": "errors"
+              }
+            },
+            "required": [
+              "schemaVersion",
+              "provenance",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "blocks": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "use": {
+            "type": "string",
+            "pattern": "^block:[a-z0-9-]+\\/[a-z0-9-]+@\\d+\\.\\d+\\.\\d+(?:-[a-z0-9.-]+)?$"
+          },
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 180
+              },
+              "editableFields": {
+                "default": [],
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                }
+              },
+              "createEnabled": {
+                "default": false,
+                "type": "boolean"
+              },
+              "editEnabled": {
+                "default": false,
+                "type": "boolean"
+              },
+              "deleteEnabled": {
+                "default": false,
+                "type": "boolean",
+                "const": false
+              },
+              "groupField": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              },
+              "filterField": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              },
+              "timeField": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              },
+              "detailField": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              },
+              "parentField": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              }
+            },
+            "required": [
+              "title",
+              "editableFields",
+              "createEnabled",
+              "editEnabled",
+              "deleteEnabled"
+            ],
+            "additionalProperties": false
+          },
+          "bindings": {
+            "type": "object",
+            "properties": {
+              "records": {
+                "type": "string"
+              },
+              "saveRecord": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "records"
+            ],
+            "additionalProperties": false
+          },
+          "ownership": {
+            "default": "managed",
+            "type": "string",
+            "enum": [
+              "managed",
+              "extended",
+              "detached"
+            ]
+          },
+          "extensions": {
+            "default": {},
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": [
+                "beforeSaveValidation",
+                "afterSaveNotification"
+              ]
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 65536
+            }
+          }
+        },
+        "required": [
+          "use",
+          "parameters",
+          "bindings",
+          "ownership",
+          "extensions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "connections": {
+      "default": [],
+      "maxItems": 256,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "behavior": {
+            "type": "object",
+            "properties": {
+              "coalesce": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "coalesce"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "behavior"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "application",
+    "entities",
+    "commands",
+    "contracts",
+    "blocks",
+    "connections"
+  ],
+  "additionalProperties": false
+}

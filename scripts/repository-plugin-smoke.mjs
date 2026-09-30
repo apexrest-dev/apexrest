@@ -25,7 +25,7 @@ try {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     return JSON.parse(result.stdout);
   };
-  assert.equal(cli('version', '--json').data.version, manifest.version);
+  assert.equal(cli('version', '--json').data.version, manifest.version.split('+codex.')[0]);
   cli('project', 'init', project, '--template', 'existing-app', '--alias', 'package-smoke', '--json');
   await client.connect(
     new StdioClientTransport({
@@ -37,10 +37,13 @@ try {
     }),
   );
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 18);
+  assert.equal(catalog.tools.length, 21);
+  for (const name of ['apexrest_compose_plan', 'apexrest_compose_materialize'])
+    assert.ok(catalog.tools.some((tool) => tool.name === name));
   assert.ok(catalog.tools.every((tool) => !/^apexrest_(team|work)_/.test(tool.name)));
   const skills = await readdir(path.join(root, 'skills'));
-  assert.equal(skills.length, 13);
+  assert.equal(skills.length, 14);
+  assert.ok(skills.includes('apexrest-compose'));
   assert.ok(skills.includes('apexrest-pattern-catalog'));
   assert.ok(!skills.includes('apexrest-team'));
   const query = async (name, args) => {
@@ -55,6 +58,11 @@ try {
   assert.equal(summary.targetVerified, false);
   const refs = await query('apexrest_reference_search', { query: 'validate' });
   assert.ok(JSON.stringify(refs).includes('validate'));
+  const blocks = await query('apexrest_reference_search', { query: 'підсумки', corpus: 'blocks' });
+  assert.equal(blocks[0].id, 'block:analytics/status-summary@1.0.0');
+  assert.equal(blocks[0].status, 'experimental');
+  const block = await query('apexrest_reference_read', { id: blocks[0].id, limit: 8192 });
+  assert.match(block.content, /compiler/);
   const components = await query('apexrest_reference_search', {
     corpus: 'components',
     query: 'картка показника',
@@ -117,6 +125,7 @@ try {
         'stdio MCP catalog',
         'project summary',
         'pinned reference search',
+        'Composer tools, skill, Ukrainian discovery and compiler evidence read',
         'offline Ukrainian component search and recipe read',
         'projectless Ukrainian pattern search and recipe read through CLI and MCP',
         'panel resource',

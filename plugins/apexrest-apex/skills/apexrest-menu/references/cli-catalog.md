@@ -9,7 +9,7 @@ Read when the user requests a complete command inventory or needs a CLI-only act
 | SQLcl backend       | `sqlcl.status`, `sqlcl.configure`                                                                                                                                                   |
 | Panel               | `panel.open`, `panel.status`, `panel.action`, `panel.tui`                                                                                                                           |
 | Projects            | `project.init`, `project.adopt`, `project.inspect`                                                                                                                                  |
-| APEX/references     | `apex.generate`, `apex.export`, `apex.validate`, `apex.diff`, `docs.search`, `docs.read`, `docs.sync`                                                                               |
+| APEX/references     | `apex.sync`, `apex.generate`, `apex.export`, `apex.validate`, `apex.diff`, `docs.search`, `docs.read`, `docs.sync`                                                                               |
 | Database            | `metadata.read`, `db.plan`                                                                                                                                                          |
 | Deployment/recovery | `deploy.plan`, `deploy.apply`, `deploy.status`, `deploy.restore-plan`                                                                                                               |
 | Tests               | `test.run`, `test.report`, `test.auth`, `browser.open`                                                                                                                              |
@@ -21,3 +21,10 @@ Read when the user requests a complete command inventory or needs a CLI-only act
 `docs search --corpus components` selects reusable components; `docs search --corpus patterns` selects UX compositions. `docs read --id ID` accepts the returned `component:` or `pattern:` IDs. Both catalogs work offline; the default search corpus remains `apexlang`. Adding a source application is a [pattern catalog maintainer workflow](../../apexrest-pattern-catalog/SKILL.md), not a side effect of search or `docs.sync`.
 
 `panel.open` returns a local desktop URL; `panel.status` reads configuration and operation state; `panel.action` updates browser/connection settings or queues checks. `panel tui --project PATH` opens the terminal view. Follow [panel guidance](../../apexrest-panel/SKILL.md).
+
+## Composer
+
+- `compose.plan`: `apexrest compose plan --blueprint app.blueprint.yaml --out plans/composition.json --mode offline`
+- `compose.materialize`: `apexrest compose materialize --plan plans/composition.json --expected-digest SHA256`
+
+Use `apexrest-compose` for exact block discovery, reviewed contracts, deterministic local plans and recovery.

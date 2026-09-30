@@ -1,0 +1,11 @@
+# Upgrade, removal and recovery
+
+English | [Українська](maintenance.uk.md)
+
+Change the exact block version or reviewed parameters in the blueprint, then plan again. Stable instance identities retain their allocations. Three-way merge compares the retained generated base B, actual local L and new generated N. Disjoint supported declaration/property changes merge; overlap, unknown anchors, missing base and edited deletion targets block with diagnostics and no conflict markers in source. Unmanaged children retain their exact bytes and location.
+
+Extension hooks beforeSaveValidation and afterSaveNotification require extended ownership and preserve caller-owned transactions. Detach retains source and prevents automatic reattachment. Removal deletes only confirmed unchanged owned artifacts. Remaining/unmanaged page references block cleanup; no table/package is dropped and no business-data rollback is claimed. This library does not generate shared LOVs; there is no heuristic garbage collection of unmanaged resources.
+
+Materialization freezes the reviewed plan and uses a shared local project lock plus durable preimage/postimage journal. Each write checks drift; state/lock publish after source writes. Interrupted plans require an explicit resume or restore plan; unknown concurrent bytes block recovery. Restore recovers local metadata/source only. Old bases and completed journals remain available.
+
+Deployment v3 binds the generation/blueprint/state/lock/catalog receipt. v1/v2 remain readable, but cannot bypass Composer binding for a managed generation. Both deployment modes retain their existing backup, target identity, approval, drift, required-suite and unknown-outcome safeguards.

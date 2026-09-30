@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-09-29T08:38:25.028Z",
+  "classification": "local-fake-oracle-boundary",
+  "methods": "Real sync/plan/apply and bounded MCP response formatting; Oracle/compiler/test methods are fixtures. Wall time includes local filesystem work only.",
+  "matchedChanges": 3,
+  "fullExport": {
+    "initialSync": null,
+    "cycles": [
+      {
+        "wallTimeMs": 131.88412499999998,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "export:APEXLANG": 3,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "export:SQL": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 3,
+          "sql": 1
+        },
+        "toolResponseBytes": 2686
+      },
+      {
+        "wallTimeMs": 132.44691699999998,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "export:APEXLANG": 3,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "export:SQL": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 3,
+          "sql": 1
+        },
+        "toolResponseBytes": 2686
+      },
+      {
+        "wallTimeMs": 112.08533299999999,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "export:APEXLANG": 3,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "export:SQL": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 3,
+          "sql": 1
+        },
+        "toolResponseBytes": 2686
+      }
+    ]
+  },
+  "workingCopy": {
+    "initialSync": {
+      "wallTimeMs": 46.54083299999991,
+      "oracleBoundaryCalls": 6,
+      "databaseOperationBoundaryCalls": 6,
+      "callsByMethod": {
+        "target": 2,
+        "metadata": 2,
+        "export:APEXLANG": 1,
+        "export:SQL": 1
+      },
+      "exports": {
+        "apexlang": 1,
+        "sql": 1
+      },
+      "toolResponseBytes": 702
+    },
+    "cycles": [
+      {
+        "wallTimeMs": 138.75770799999998,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "metadata": 4,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 0,
+          "sql": 0
+        },
+        "toolResponseBytes": 3073
+      },
+      {
+        "wallTimeMs": 143.961,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "metadata": 4,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 0,
+          "sql": 0
+        },
+        "toolResponseBytes": 3073
+      },
+      {
+        "wallTimeMs": 139.83554099999992,
+        "oracleBoundaryCalls": 14,
+        "databaseOperationBoundaryCalls": 11,
+        "callsByMethod": {
+          "target": 6,
+          "metadata": 4,
+          "validate": 1,
+          "capability:mutation": 1,
+          "capability:import": 1,
+          "import": 1,
+          "tests": 1
+        },
+        "exports": {
+          "apexlang": 0,
+          "sql": 0
+        },
+        "toolResponseBytes": 3073
+      }
+    ]
+  },
+  "sourceHashes": {
+    "packages/core/src/sync.ts": "8cbef1a45a49d388bbd5b78a5a8c7f95e46123456e72c09ceca9e02a3e574d00",
+    "packages/core/src/deploy.ts": "fe2665916e752db26db291c1476eca5ea4a60009a9c2dbbdc2aa1547228931c3",
+    "packages/core/src/oracle.ts": "1d7f41aaf4898c3ab76f34be867b572a190396d09ce1f92f9de063741eb34796",
+    "tests/fixtures/working-copy.ts": "e1b6e46ae1920a4581d62106a5bd4b31862dfc5894e03c8851eb20e6136e1129",
+    "tests/unit/working-copy.test.ts": "abadc6777367dc1baf4d046d9968395121ddcfb96f94bae0b205e491263a591a",
+    "tests/unit/sync-metadata.test.ts": "23d2549c1ded3ea121c36c90bb037ab38fb114597825eb08e04b8c4b4c42f648",
+    "scripts/measure-working-copy.mjs": "bedfb1f772aa826e90e066ab17760016660d2c2400271adca8d05dff8a48d37f"
+  },
+  "tokens": "NOT MEASURED",
+  "billing": "NOT MEASURED",
+  "connectedAcceptance": "NOT RUN: no authorized DEV target",
+  "browserVerification": "NOT RUN",
+  "initialRestore": "NOT RUN against Oracle"
+}

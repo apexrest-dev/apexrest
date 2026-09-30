@@ -6,6 +6,9 @@ export async function readiness() {
   const digest = await sourceDigest();
   const requirements = [];
   for (const [id, file] of [
+    ['composer-local', 'composer-local.json'],
+    ['composer-runtime', 'composer-runtime.json'],
+    ['composer-native-new-chat', 'composer-native-new-chat.json'],
     ['local-checks', 'local-checks.json'],
     ['native-macos', 'native-codex-compat.json'],
     ['native-linux', 'native-linux-x64.json'],

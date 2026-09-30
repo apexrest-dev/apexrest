@@ -1,3 +1,4 @@
+import { composePlan, composeMaterialize } from './composer/service.ts';
 import { VERSION } from './version.ts';
 import path from 'node:path';
 import { doctor } from './doctor.ts';
@@ -11,6 +12,7 @@ import { contained, readJson, writeJson } from './fs.ts';
 import { OracleAdapter, installSources } from './oracle.ts';
 import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
+import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService } from './deploy.ts';
 import { TestService } from './testing.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -143,7 +145,7 @@ export async function dispatch(operation: string, input: Record<string, unknown>
         data = await referenceSearch(text('query'), text('version'), schemas['docs.search'].parse(parsed));
         break;
       case 'docs.read':
-        data = await referenceRead(text('id'), Number(parsed.offset), Number(parsed.limit));
+        data = await referenceRead(text('id'), Number(parsed.offset), Number(parsed.limit), text('project'));
         break;
       case 'docs.sync':
         data = await referenceSync(text('version'), Boolean(parsed.dryRun));
@@ -156,6 +158,12 @@ export async function dispatch(operation: string, input: Record<string, unknown>
       default: {
         const ctx = await loadProject(root);
         switch (operation) {
+          case 'compose.plan':
+            data = await composePlan(ctx, schemas['compose.plan'].parse(parsed), oracle, signal);
+            break;
+          case 'compose.materialize':
+            data = await composeMaterialize(ctx, schemas['compose.materialize'].parse(parsed), signal);
+            break;
           case 'project.inspect':
             data = await projectInspect(ctx, parsed.detail as 'full' | 'summary');
             break;
@@ -177,6 +185,14 @@ export async function dispatch(operation: string, input: Record<string, unknown>
             };
             break;
           }
+          case 'apex.sync':
+            data = await deployment.sync(
+              ctx,
+              text('env'),
+              parsed.action as 'init' | 'status' | 'refresh' | 'invalidate',
+              signal,
+            );
+            break;
           case 'project.adopt':
           case 'apex.export': {
             await requireTrust(ctx.root);
@@ -187,6 +203,10 @@ export async function dispatch(operation: string, input: Record<string, unknown>
                 'Requested app ID differs from the environment mapping.',
                 5,
               );
+            if (operation === 'project.adopt' && parsed.workingCopy) {
+              data = await deployment.sync(ctx, text('env'), 'init', signal);
+              break;
+            }
             const connection = await resolveConnection(env.readConnectionRef);
             await oracle.verifyTarget(env, connection);
             const exported = await oracle.exportApplication(env, connection);
@@ -203,14 +223,25 @@ export async function dispatch(operation: string, input: Record<string, unknown>
             break;
           case 'apex.diff': {
             await requireTrust(ctx.root);
-            const env = environment(ctx, text('env')),
-              connection = await resolveConnection(env.readConnectionRef);
-            await oracle.verifyTarget(env, connection);
-            const exported = await oracle.exportApplication(env, connection),
-              local = (await projectInspect(ctx)).sources.apex as Record<string, string>;
+            const env = environment(ctx, text('env'));
+            const store = new SyncStore(ctx, env, text('env'));
+            const state = parsed.comparison === 'live' ? null : await store.read();
+            let exported: { files: Record<string, string> }, provenance: string;
+            if (state && state.status !== 'invalidated' && parsed.comparison !== 'live') {
+              await store.validate(state);
+              exported = checkpoint(state);
+              provenance = state.lastSuccessfulImport ? 'last-successful-import' : 'initial-baseline';
+            } else {
+              const connection = await resolveConnection(env.readConnectionRef);
+              await oracle.verifyTarget(env, connection);
+              exported = await oracle.exportApplication(env, connection);
+              provenance = 'live-export';
+            }
+            const local = (await projectInspect(ctx)).sources.apex as Record<string, string>;
             data = {
               scope: 'full-application-import',
               completeness: 'textual-file-hashes-only',
+              provenance,
               changes: [...new Set([...Object.keys(exported.files), ...Object.keys(local ?? {})])]
                 .filter((f) => exported.files[f] !== local?.[f])
                 .map((file) => ({

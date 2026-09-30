@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "oracle-procedure"
+    },
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+    },
+    "procedure": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+    },
+    "signatureRef": {
+      "type": "string"
+    },
+    "transaction": {
+      "type": "string",
+      "const": "caller-owned"
+    },
+    "inputs": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "in",
+              "in-out"
+            ]
+          }
+        },
+        "required": [
+          "from",
+          "mode"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "recordKey": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            }
+          },
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false
+        },
+        "recordVersion": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            }
+          },
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "recordKey",
+        "recordVersion"
+      ],
+      "additionalProperties": false
+    },
+    "errorContract": {
+      "type": "string"
+    },
+    "authorizationContract": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "package",
+    "procedure",
+    "signatureRef",
+    "transaction",
+    "inputs",
+    "outputs",
+    "errorContract",
+    "authorizationContract"
+  ],
+  "additionalProperties": false
+}

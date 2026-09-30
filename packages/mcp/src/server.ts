@@ -41,7 +41,12 @@ for (const { operation, long } of toolCatalog) {
   const schema = schemas[operation];
   const transportSchema =
     'project' in schema.shape
-      ? schema.extend({ project: operation === 'doctor' ? absoluteProject.optional() : absoluteProject })
+      ? schema.extend({
+          project:
+            operation === 'doctor' || operation.startsWith('docs.')
+              ? absoluteProject.optional()
+              : absoluteProject,
+        })
       : schema;
   mcpSchemas.set(operation, long ? transportSchema.extend({ waitSeconds: jobWaitSeconds }) : transportSchema);
 }
@@ -91,6 +96,8 @@ export async function startMcp() {
             destructiveHint: t.destructive ?? !t.readOnly,
             idempotentHint: t.readOnly,
             openWorldHint: ![
+              'compose.plan',
+              'compose.materialize',
               'doctor',
               'docs.search',
               'docs.read',
@@ -111,18 +118,21 @@ export async function startMcp() {
       if (!tool) throw new Fault('UNKNOWN_TOOL', 'Tool is not in the catalog.', 2);
       const input = parse(mcpSchemas.get(tool.operation)!, request.params.arguments ?? {});
       project = typeof input.project === 'string' ? input.project : undefined;
-      result = tool.long
-        ? jobToolResult(
-            tool.operation,
-            await runJobTool(
-              new JobService(await loadProject(String(input.project))),
+      const localSync = tool.operation === 'apex.sync' && input.action === 'status';
+      if (localSync) delete input.waitSeconds;
+      result =
+        tool.long && !localSync
+          ? jobToolResult(
               tool.operation,
-              input,
-              path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
-              extra.signal,
-            ),
-          )
-        : await dispatch(tool.operation, input, extra.signal);
+              await runJobTool(
+                new JobService(await loadProject(String(input.project))),
+                tool.operation,
+                input,
+                path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
+                extra.signal,
+              ),
+            )
+          : await dispatch(tool.operation, input, extra.signal);
     } catch (e) {
       result = failure(tool?.operation ?? 'unknown', e);
     }

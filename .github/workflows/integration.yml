@@ -5,6 +5,7 @@ permissions:
   contents: read
 jobs:
   trusted-target:
+    if: ${{ github.ref == 'refs/heads/main' }}
     environment: apexrest-integration
     runs-on: [self-hosted, apexrest-trusted]
     steps:
@@ -16,7 +17,8 @@ jobs:
       # Runner-owned environment supplies named connections, private policy, target,
       # exact identity, preinstalled SQLcl/Java/Codex and authenticated browser state.
       # Never schedule this runner for pull_request or untrusted refs.
-      - run: npm run test:native-codex
+      - run: npm run test:repository-plugin
+      - run: npm run composer:verify
       - run: node scripts/oracle-smoke.mjs
       - run: npm run test:integration
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
