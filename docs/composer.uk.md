@@ -2,7 +2,7 @@
 
 [English](composer.md) | Українська
 
-Composer складає локальні APEXlang sources із точних версій виконуваних блоків і явних dataset/API contracts. Він розширює наявний додаток і зберігає Oracle `.apex`, authentication, authorization та unmanaged bytes. Робота залишається в поточному Codex-чаті. Кандидат `1.3.0-beta.1` містить 21 MCP tool і 14 focused skills, зокрема `$apexrest-compose`; опублікований 1.2.0 залишається стабільним випуском.
+Composer складає локальні APEXlang sources із точних версій виконуваних блоків і явних dataset/API contracts. Він розширює наявний додаток і зберігає Oracle `.apex`, authentication, authorization та unmanaged bytes. Робота залишається в поточному Codex-чаті. Бета-пакет `1.3.0-beta.1` містить 21 MCP tool і 14 focused skills, зокрема `$apexrest-compose`; опублікований 1.2.0 залишається стабільним випуском.
 
 ## Використати блок
 

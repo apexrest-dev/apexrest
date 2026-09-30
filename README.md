@@ -16,7 +16,7 @@ APEXREST connects native Codex skills and MCP tools to Oracle SQLcl. Generate AP
 
 ![APEXREST connects a Codex request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
-> **`1.3.0-beta.1` candidate.** The current source has 21 MCP tools and 14 focused skills, including experimental Composer and working-copy workflows. Local checks do not establish live Oracle behavior. See [release notes](docs/release-notes.md) for changes and evidence limits. Independent tooling; not an official Oracle or OpenAI product.
+> **Beta release `1.3.0-beta.1`.** The package has 21 MCP tools and 14 focused skills, including experimental Composer and working-copy workflows. Local checks do not establish live Oracle behavior. See [release notes](docs/release-notes.md) for changes and evidence limits. Independent tooling; not an official Oracle or OpenAI product.
 
 The current source checkout implements `apex sync` for the [single-editor working-copy cycle](docs/existing-app.md). This change has local verification; connected Oracle and authenticated browser checks remain open. npm installation does not update an active Codex plugin cache.
 
@@ -58,7 +58,7 @@ The [Cloud setup guide](docs/codex-cloud.md) covers CLI + ORDS in a configured c
 
 ## Install from npm
 
-Use Node 24 LTS (supported range: Node 24–26). Install [apexrest](https://www.npmjs.com/package/apexrest) from npm. The commands below use the stable `latest` tag; this source tree is the `1.3.0-beta.1` candidate. See [release notes](docs/release-notes.md) for distribution and verification status.
+Use Node 24 LTS (supported range: Node 24–26). Install [apexrest](https://www.npmjs.com/package/apexrest) from npm. The commands below use the stable `latest` tag; opt in to beta with `apexrest@1.3.0-beta.1`. See [release notes](docs/release-notes.md) for distribution and verification status.
 
 Install the CLI globally and check its version:
 
@@ -78,7 +78,7 @@ npx apexrest --version
 npx apexrest
 ```
 
-To pin the stable version, use `npm install -g apexrest@1.2.0`. Once the beta is published, opt in with `npm install -g apexrest@1.3.0-beta.1`. npm includes the built runtime, so no Git checkout or local build is needed. The repository installation below remains available.
+To pin the stable version, use `npm install -g apexrest@1.2.0`. To install the beta, use `npm install -g apexrest@1.3.0-beta.1`. npm includes the built runtime, so no Git checkout or local build is needed. The repository installation below remains available.
 
 ## Install with the terminal menu
 

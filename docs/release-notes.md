@@ -2,13 +2,13 @@
 
 English | [Українська](release-notes.uk.md)
 
-## Beta candidate — 2026-09-30
+## Beta release — 2026-09-30
 
 - Adds local Composer with six experimental renderers, two blueprints, reviewed plans, materialization, recovery, CLI/MCP routes and an in-app Catalog. The package contains 21 MCP tools and 14 skills.
 - Adds single-editor working copies for existing applications: explicit `apex sync`, immutable local baselines, source-bound plans and imports from frozen local source. The legacy full-export path remains available.
 - The [Composer audit](composer/audit.md) records unfinished CMP-000–041 requirements. Local tests and offline compiler checks do not establish live Oracle import, roles, authenticated browser behavior or new-chat native loading. Those gates remain open.
 
-The `1.3.0-beta.1` source is prepared for the npm `beta` tag; registry publication and clean registry installs are not yet verified. Stable `latest` remains `1.2.0`. No Git tag, production deployment or active plugin-cache update is claimed.
+`apexrest@1.3.0-beta.1` is published under the npm `beta` tag. The [publication record](evidence/npm-130-beta1-publication.json) confirms matching registry integrity, clean local/global installs and [CI success](https://github.com/apexrest-dev/apexrest-codex/actions/runs/36689253006) on macOS, Ubuntu and Windows for source commit `d119ca60998565ab0d0eb73e54c227c5dbb9bfa7`. Stable `latest` remains `1.2.0`. No Git tag, production deployment or active plugin-cache update is claimed.
 
 ## 1.2.0 — reusable APEX pattern catalog
 

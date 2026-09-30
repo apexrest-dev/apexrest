@@ -10,11 +10,11 @@ Close the local gaps recorded in the [audit](composer/audit.md): shared resource
 
 Keep the second-review regressions when expanding the adapters: nested mappings must remain deterministic, ownership transitions must use resulting source consumers, and recovery/panel retry must retain exact operation identity.
 
-Separately authorize an exact DEV target, fixture DDL/DML, metadata, app mapping/import and authenticated browser qualification. Verify create/edit/cancel, stale versions, denied roles, scoped reads, saved/refresh payloads and narrow screens. G4 and dependent release gates remain open. In a new Codex chat verify Composer tool/skill loading; Linux/Windows CI require actual runs. Preserve [Composer ledger](composer/ledger.json) and [local evidence](evidence/composer-local.json).
+Separately authorize an exact DEV target, fixture DDL/DML, metadata, app mapping/import and authenticated browser qualification. Verify create/edit/cancel, stale versions, denied roles, scoped reads, saved/refresh payloads and narrow screens. G4 and dependent release gates remain open. In a new Codex chat verify Composer tool/skill loading; beta CI passed on macOS, Ubuntu and Windows but does not establish native-host execution. Preserve [Composer ledger](composer/ledger.json) and [local evidence](evidence/composer-local.json).
 
 ## Working-copy connected acceptance
 
-The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` candidate. Preserve the [local check evidence](evidence/working-copy-checks.json) and [matched fixture measurements](evidence/working-copy-local.json); fixtures do not establish Oracle behavior.
+The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` beta release. Preserve the [local check evidence](evidence/working-copy-checks.json) and [matched fixture measurements](evidence/working-copy-local.json); fixtures do not establish Oracle behavior.
 
 - With a separately authorized existing DEV/test app, run initial APEXlang + SQL sync, three local edit/plan/apply cycles with restart between cycles, and verify actual export/import counters, target identity, required suites and authenticated browser behavior. These checks are NOT RUN now; historical targets are not authorization.
 - Run a separate checksum-bound initial SQL restore under exact approval. Verify invalidation before writes and actual restored state; intermediate applied snapshots do not provide automatic rollback.
@@ -24,7 +24,7 @@ The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` can
 
 ## Beta release 1.3.0-beta.1
 
-Verify the `beta` registry tag, tarball integrity and clean local/global installs after publication. Keep `latest` at the stable 1.2.0 release. A beta package does not close the Composer roadmap or connected Oracle and native-host qualification.
+The [publication record](evidence/npm-130-beta1-publication.json) verifies the `beta` registry tag, tarball integrity and clean local/global installs. `latest` remains at the stable 1.2.0 release. Next verify the installed plugin in a new Codex conversation and complete the connected Oracle qualification; the beta package does not close the Composer roadmap.
 
 ## Release 1.2.0
 

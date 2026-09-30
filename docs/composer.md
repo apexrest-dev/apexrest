@@ -2,7 +2,7 @@
 
 English | [Українська](composer.uk.md)
 
-Composer builds local APEXlang source from exact executable blocks and explicit dataset/API contracts. It extends an existing application and preserves Oracle `.apex`, authentication, authorization and unmanaged bytes. It works in the current Codex chat. The `1.3.0-beta.1` candidate contains 21 MCP tools and 14 focused skills, including `$apexrest-compose`; published 1.2.0 remains the stable release.
+Composer builds local APEXlang source from exact executable blocks and explicit dataset/API contracts. It extends an existing application and preserves Oracle `.apex`, authentication, authorization and unmanaged bytes. It works in the current Codex chat. The `1.3.0-beta.1` beta package contains 21 MCP tools and 14 focused skills, including `$apexrest-compose`; published 1.2.0 remains the stable release.
 
 ## Use a block
 

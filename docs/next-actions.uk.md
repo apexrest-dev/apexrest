@@ -10,11 +10,11 @@
 
 Зберігайте регресійні перевірки повторного огляду при розширенні adapters: вкладені mappings мають залишатися детермінованими, переходи ownership мають враховувати consumers у результуючому source, а recovery/retry панелі — зберігати точну ідентичність операції.
 
-Окремо погодьте exact DEV target, fixture DDL/DML, metadata, app mapping/import і authenticated browser qualification. Перевірте create/edit/cancel, stale version, denied roles, scoped reads, saved/refresh payloads і narrow screens. G4 та залежні release gates залишаються відкритими. У новому Codex-чаті перевірте завантаження Composer tools/skill; Linux/Windows CI потребують фактичних runs. Зберігайте [Composer ledger](composer/ledger.json) та [local evidence](evidence/composer-local.json).
+Окремо погодьте exact DEV target, fixture DDL/DML, metadata, app mapping/import і authenticated browser qualification. Перевірте create/edit/cancel, stale version, denied roles, scoped reads, saved/refresh payloads і narrow screens. G4 та залежні release gates залишаються відкритими. У новому Codex-чаті перевірте завантаження Composer tools/skill; beta CI пройшов на macOS, Ubuntu та Windows, але не доводить виконання нативного хоста. Зберігайте [Composer ledger](composer/ledger.json) та [local evidence](evidence/composer-local.json).
 
 ## Connected-перевірка робочої копії
 
-[Зміну робочої копії](existing-app.uk.md) включено до кандидата `1.3.0-beta.1`. Зберігайте [локальні докази перевірок](evidence/working-copy-checks.json) та [узгоджені fixture-вимірювання](evidence/working-copy-local.json); fixtures не доводять поведінку Oracle.
+[Зміну робочої копії](existing-app.uk.md) включено до бета-випуску `1.3.0-beta.1`. Зберігайте [локальні докази перевірок](evidence/working-copy-checks.json) та [узгоджені fixture-вимірювання](evidence/working-copy-local.json); fixtures не доводять поведінку Oracle.
 
 - На окремо дозволеному наявному DEV/test-застосунку виконайте початковий APEXlang + SQL sync, три цикли локального edit/plan/apply з перезапуском між ними й перевірте справжні лічильники експорту/імпорту, ідентичність, required suites та автентифікований браузер. Зараз ці перевірки — NOT RUN; історичні цілі не є дозволом.
 - Окремо перевірте початкове SQL-відновлення з прив’язкою до checksum і точним дозволом. Перевірте invalidation перед записами й фактичний відновлений стан; проміжні snapshots не дають автоматичного відкату.
@@ -24,7 +24,7 @@
 
 ## Бета-випуск 1.3.0-beta.1
 
-Після публікації перевірте npm-тег `beta`, цілісність архіву та чисті локальне й глобальне встановлення. Збережіть `latest` на стабільному випуску 1.2.0. Бета-пакет не закриває roadmap Composer і підключені перевірки Oracle та нативного хоста.
+[Запис публікації](evidence/npm-130-beta1-publication.json) підтверджує npm-тег `beta`, цілісність архіву та чисті локальне й глобальне встановлення. `latest` залишається на стабільному випуску 1.2.0. Далі перевірте встановлений плагін у новому чаті Codex та завершіть підключені перевірки Oracle; бета-пакет не закриває roadmap Composer.
 
 ## Випуск 1.2.0
 

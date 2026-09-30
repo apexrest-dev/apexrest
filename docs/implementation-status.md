@@ -4,15 +4,15 @@ English | [Українська](implementation-status.uk.md)
 
 ## Composer — local implementation, 2026-09-29
 
-The `1.3.0-beta.1` candidate contains a working local Composer core, six experimental renderers, two blueprints, CLI/MCP and Catalog. The audit does **not** establish completion of CMP-000–041: shared-resource ownership, the complete compatibility/evidence policy, general captured-source normalization and parts of the verification matrix remain incomplete. [The audit](composer/audit.md), [ledger](composer/ledger.json) and [evidence](evidence/composer-local.json) distinguish implemented behavior from remaining work. G4, live SQL/import/roles/browser, fresh-chat discovery and new Linux/Windows CI results remain open. Published 1.2.0 evidence below is historical.
+The `1.3.0-beta.1` beta contains a working local Composer core, six experimental renderers, two blueprints, CLI/MCP and Catalog. The audit does **not** establish completion of CMP-000–041: shared-resource ownership, the complete compatibility/evidence policy, general captured-source normalization and parts of the verification matrix remain incomplete. [The audit](composer/audit.md), [ledger](composer/ledger.json) and [evidence](evidence/composer-local.json) distinguish implemented behavior from remaining work. G4, live SQL/import/roles/browser and fresh-chat discovery remain open. Beta CI on macOS, Ubuntu and Windows passed; published 1.2.0 evidence below is historical.
 
 The second review added regressions for nested mapping determinism, page ownership transitions, exact API bindings, journal completeness and panel retry/invalidation. The current test and installation results are recorded in Composer evidence; this pass does not change the open roadmap or runtime gates.
 
-For the beta candidate, local checks passed: 262 unit tests, 59 contract tests, 26 installer tests and 25 packaging tests, plus lint, typecheck, bilingual documentation, Composer catalog/verification, native bundle synchronization and a tarball CLI/stdio MCP smoke check. The release dry run reported `stableReady: false` because Composer, Oracle and native-host gates remain open. Registry publication is not yet verified.
+For the beta, local checks passed: 262 unit tests, 59 contract tests, 26 installer tests and 25 packaging tests, plus lint, typecheck, bilingual documentation, Composer catalog/verification, native bundle synchronization and a tarball CLI/stdio MCP smoke check. The release dry run reported `stableReady: false` because Composer, Oracle and native-host gates remain open. [Registry publication](evidence/npm-130-beta1-publication.json) and clean installs are verified separately.
 
-## Working-copy implementation — 2026-09-29, beta candidate
+## Working-copy implementation — 2026-09-29, beta release
 
-The source checkout adds `apex.sync`, CLI `apex sync --env NAME --action init|status|refresh|invalidate`, the nineteenth MCP tool `apexrest_apex_sync`, explicit working-copy adoption, local diff provenance and panel status. The [existing-app workflow](existing-app.md) documents the single-editor scope. Published 1.2.0 evidence below remains historical distribution evidence; registry publication of this beta candidate is not yet verified. Local installed-payload verification is recorded in the Composer evidence.
+The beta adds `apex.sync`, CLI `apex sync --env NAME --action init|status|refresh|invalidate`, the nineteenth MCP tool `apexrest_apex_sync`, explicit working-copy adoption, local diff provenance and panel status. The [existing-app workflow](existing-app.md) documents the single-editor scope. Published 1.2.0 evidence below remains historical distribution evidence; [beta publication](evidence/npm-130-beta1-publication.json) is verified separately. Local installed-payload verification is recorded in the Composer evidence.
 
 Implemented: private atomic sync state and transition journal; immutable APEXlang baseline/SQL backup; metadata reads; bound v2 plans; full import from frozen local sources without repeated exports; revision/dirty-source/security/unknown-outcome safeguards; legacy v1/full-export and separate baseline restore compatibility. Clean refresh preserves prior artifacts and replaces a known clean working tree. Ordinary status/panel reads make no Oracle calls. Active storage is protected from result retention.
 
@@ -20,7 +20,7 @@ Locally verified: real sync/plan/apply code with fake Oracle/compiler/test bound
 
 Oracle verified for this change: none. Connected initial sync + three edits with restart, actual imports, authenticated application browser behavior and a separate SQL baseline restore are NOT RUN; live qualification is a separately agreed stage. Composer Catalog was checked in the Codex in-app browser; installed payload and fresh-chat tool discovery are separate checks. Existing required-suite scopes were preserved. No plugin-owned agents, teams or model router were added.
 
-## Current scope — 1.2.0, 2026-09-24
+## Historical scope — 1.2.0, 2026-09-24
 
 APEXREST works directly in the current Codex conversation. Published 1.2.0 provides 18 bounded MCP tools, 13 focused skills, a CLI and an optional panel for Oracle/APEX operations and settings. The pattern-catalog maintenance skill extends the catalog workflow without adding an MCP tool. Codex owns the task, context, model, permissions and native collaboration. No plugin work-start call, model session controller, role routing or model selection is part of the product.
 
@@ -40,7 +40,7 @@ Recipe evidence binds complete scaffold and overlay inputs. SQL execution, appli
 
 ## Verification
 
-The [current local evidence](evidence/pattern-catalog-local.json) records 187 unit tests, 57 contract tests, 26 installer tests and 25 packaging tests. Catalog, documentation, plugin synchronization and relocated offline CLI/MCP checks passed. The 69 ready pattern recipes retain real offline SQLcl evidence without warnings. Publication, clean registry installs and installed-cache updates are separate checks.
+The [1.2.0 local evidence](evidence/pattern-catalog-local.json) records 187 unit tests, 57 contract tests, 26 installer tests and 25 packaging tests. Catalog, documentation, plugin synchronization and relocated offline CLI/MCP checks passed. The 69 ready pattern recipes retain real offline SQLcl evidence without warnings. Publication, clean registry installs and installed-cache updates are separate checks.
 
 The unchanged [component catalog](component-catalog.md), introduced in 1.1.0, provides offline discovery across 109 families and 138 compiler-checked recipes from the read-only Universal Theme 26.1 Reference snapshot. One unsupported recipe remains explicitly unresolved. [Catalog evidence](evidence/component-catalog-local.json) records source coverage, contextual parameter contracts, real offline compiler output, 181 unit tests, 42 contract tests and 19 packaging tests. Each ready recipe binds its scaffold and overlay hashes; SQL execution, application import and browser checks remain separate and not run for this catalog work.
 
@@ -52,8 +52,10 @@ The [acceptance matrix](acceptance.json) distinguishes current criteria, retired
 
 ## Distribution and remaining checks
 
+`apexrest@1.3.0-beta.1` is published under npm `beta`, with registry integrity, clean local/global installs and [CI](https://github.com/apexrest-dev/apexrest-codex/actions/runs/36689253006) on macOS, Ubuntu and Windows verified in the [beta publication record](evidence/npm-130-beta1-publication.json). npm `latest` remains 1.2.0. The beta package and native plugin versions match; this does not update the active Codex plugin cache or establish live Oracle behavior.
+
 `apexrest@1.2.0` is published as npm `latest`. The [1.2.0 publication record](evidence/npm-120-publication.json) confirms registry integrity and clean local/global installs for source commit `858b5d14b45370fc2ba01d63013d636f1fa11070`. The [release CI run](https://github.com/apexrest-dev/apexrest-codex/actions/runs/36017573027) passed on Ubuntu, macOS and Windows. The [previous 1.1.0 publication record](evidence/npm-110-publication.json) and [historical 1.0.0 publication record](evidence/npm-100-publication.json) retain their verified integrity, clean installs and platform CI results.
 
-The package and native plugin version is `1.2.0`. This publication makes no installed-cache update claim. npm publication is independent of the disabled protected GitHub artifact publisher. [Release notes](release-notes.md) track distribution separately from implementation and verification. Registry installation, local packaging, GitHub source and deployed website are separate outcomes.
+For the stable release, the package and native plugin version is `1.2.0`. That publication makes no installed-cache update claim. npm publication is independent of the disabled protected GitHub artifact publisher. [Release notes](release-notes.md) track distribution separately from implementation and verification. Registry installation, local packaging, GitHub source and deployed website are separate outcomes.
 
 Broader native-platform coverage, changed Oracle imports, SQL restore, real interruption/recovery, utPLSQL and authenticated application checks remain open where the existing evidence does not cover them. UTF-8 payload measurements are not paid-token measurements. See [next actions](next-actions.md).
