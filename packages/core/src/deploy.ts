@@ -17,7 +17,7 @@ import type { ProjectContext, Environment, ProductionTrust } from './config.ts';
 import { resolveConnection } from './connections.ts';
 import type { Connection } from './connections.ts';
 import { Fault } from './result.ts';
-import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlLiteral, sqlclToken } from './oracle.ts';
+import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlclToken } from './oracle.ts';
 import { LocalDeploymentControl, coordination } from './deployment-control.ts';
 import {
   SyncStore,
@@ -51,9 +51,10 @@ const legacyPlanSchema = z.strictObject({
   target: z.record(z.string(), z.unknown()),
   fingerprint: digestSchema,
   migrationHistory: z.array(z.record(z.string(), z.unknown())),
+  // Always the local durable store; the shape is kept so existing plan digests stay stable.
   coordination: z.strictObject({
-    backend: z.enum(['local', 'database']),
-    scope: z.enum(['managed-home-schema', 'database-application']),
+    backend: z.literal('local'),
+    scope: z.literal('managed-home-schema'),
     storeDigest: digestSchema,
   }),
   scope: z.literal('full-application-import'),
@@ -485,12 +486,9 @@ export class DeploymentService {
     private oracle = new OracleAdapter(),
     private runTests?: (ctx: ProjectContext, env: string) => Promise<{ ok: boolean; data: unknown }>,
   ) {}
-  async history(env: Environment, connection: Connection) {
-    if (coordination(env).backend === 'local') return new LocalDeploymentControl(env).history();
-    return this.oracle.jsonQuery(
-      'select version,checksum,status,run_id from apexrest_migrations order by version',
-      connection,
-    );
+  async history(env: Environment, _connection: Connection) {
+    // Migration history is local and durable; no Oracle control table is read.
+    return new LocalDeploymentControl(env).history();
   }
   async fingerprint(env: Environment, connection: Connection) {
     const target = await this.oracle.verifyTarget(env, connection);
@@ -586,24 +584,7 @@ export class DeploymentService {
       const readConnection = await resolveConnection(env.readConnectionRef),
         deployConnection = await resolveConnection(env.deployConnectionRef),
         runId = randomUUID();
-      await this.lease(env, deployConnection, runId, true);
-      let renewing = false,
-        leaseLost = false;
-      const heartbeat =
-        coordination(env).backend === 'database'
-          ? setInterval(() => {
-              if (renewing) return;
-              renewing = true;
-              void this.lease(env, deployConnection, runId, false)
-                .catch(() => {
-                  leaseLost = true;
-                })
-                .finally(() => {
-                  renewing = false;
-                });
-            }, 20000)
-          : undefined;
-      heartbeat?.unref();
+      await this.lease(env, runId, true);
       try {
         if (signal?.aborted) throw new Fault('CANCELLED', 'Sync cancelled before export.', 6, 'cancelled');
         const target = await this.oracle.verifyTarget(env, readConnection);
@@ -651,8 +632,7 @@ export class DeploymentService {
             'Application changed during sync. Staged artifacts were retained.',
             5,
           );
-        if (leaseLost) throw new Fault('LEASE_LOST', 'Sync ownership was lost during export.', 5);
-        await this.lease(env, deployConnection, runId, false);
+        await this.lease(env, runId, false);
         if (signal?.aborted)
           throw new Fault('CANCELLED', 'Sync cancelled before installing sources.', 6, 'cancelled');
         const state: SyncState = {
@@ -724,19 +704,12 @@ export class DeploymentService {
         await this.oracle.discardStage?.(sql.stage);
         return store.status();
       } finally {
-        if (heartbeat) clearInterval(heartbeat);
-        await this.releaseLease(env, deployConnection, runId);
+        await this.releaseLease(env, runId);
       }
     });
   }
-  async releaseLease(env: Environment, connection: Connection, runId: string) {
-    if (coordination(env).backend === 'local') await new LocalDeploymentControl(env).release(runId);
-    else
-      await this.oracle.session(
-        `delete from apexrest_deploy_locks where target_key=${sqlLiteral(targetDigest(env))} and owner_id=${sqlLiteral(runId)};\ncommit;`,
-        connection,
-        true,
-      );
+  async releaseLease(env: Environment, runId: string) {
+    await new LocalDeploymentControl(env).release(runId);
   }
   async plan(ctx: ProjectContext, name: string, restore = false): Promise<DeployPlan> {
     await requireTrust(ctx.root);
@@ -995,35 +968,29 @@ export class DeploymentService {
     await this.checkWorkingPlan(ctx, plan, permitImporting);
     return { plan, env };
   }
-  async lease(env: Environment, connection: Connection, runId: string, acquire: boolean) {
-    if (coordination(env).backend === 'local') {
-      const control = new LocalDeploymentControl(env);
-      if (acquire) await control.acquire(runId);
-      else await control.assertOwner(runId);
-      return;
-    }
-    const key = sqlLiteral(targetDigest(env)),
-      owner = sqlLiteral(runId);
-    if (acquire)
-      await this.oracle.session(
-        `begin\n update apexrest_deploy_locks set owner_id=${owner}, lease_until=systimestamp+interval '90' second where target_key=${key} and lease_until<systimestamp and phase='preparing';\n if sql%rowcount=0 then\n  begin insert into apexrest_deploy_locks(target_key,owner_id,lease_until) values(${key},${owner},systimestamp+interval '90' second);\n  exception when dup_val_on_index then raise_application_error(-20001,'APEXREST_TARGET_LOCKED'); end;\n end if;\n commit;\nend;\n/`,
-        connection,
-        true,
-      );
-    else
-      await this.oracle.session(
-        `begin\n update apexrest_deploy_locks set lease_until=systimestamp+interval '90' second where target_key=${key} and owner_id=${owner} and lease_until>systimestamp;\n if sql%rowcount<>1 then raise_application_error(-20002,'APEXREST_LEASE_LOST'); end if;\n commit;\nend;\n/`,
-        connection,
-        true,
-      );
+  /** Acquire or re-confirm local schema ownership. No Oracle objects are touched. */
+  async lease(env: Environment, runId: string, acquire: boolean) {
+    const control = new LocalDeploymentControl(env);
+    if (acquire) await control.acquire(runId);
+    else await control.assertOwner(runId);
   }
-  async apply(ctx: ProjectContext, value: unknown, signal?: AbortSignal) {
+  async apply(
+    ctx: ProjectContext,
+    value: unknown,
+    signal?: AbortSignal,
+    progress?: (state: DeployState) => void,
+  ) {
     await this.checkLocal(ctx, value);
     return withLock(await contained(ctx.root, '.apexrest/composer/ownership.lock'), () =>
-      this.applyLocked(ctx, value, signal),
+      this.applyLocked(ctx, value, signal, progress),
     );
   }
-  private async applyLocked(ctx: ProjectContext, value: unknown, signal?: AbortSignal) {
+  private async applyLocked(
+    ctx: ProjectContext,
+    value: unknown,
+    signal?: AbortSignal,
+    progress?: (state: DeployState) => void,
+  ) {
     if (signal?.aborted)
       throw new Fault('CANCELLED', 'Deployment cancelled before execution.', 6, 'cancelled');
     const { plan, env } = await this.checkLocal(ctx, value);
@@ -1100,6 +1067,12 @@ export class DeploymentService {
     const record = async (nextState: DeployState, details: unknown = {}) => {
       assertTransition(state, nextState);
       state = nextState;
+      // Progress is informational for job status; the journal stays the record.
+      try {
+        progress?.(nextState);
+      } catch {
+        /* Observers never alter deployment outcome. */
+      }
       const event = {
         runId,
         planId: plan.id,
@@ -1120,25 +1093,7 @@ export class DeploymentService {
     };
     await writeJson(path.join(runDir, 'plan.json'), plan);
     await record('approved');
-    await this.lease(env, deployConnection, runId, true);
-    let renewing = false,
-      leaseLost = false;
-    const heartbeat =
-      coordination(env).backend === 'database'
-        ? setInterval(() => {
-            if (renewing) return;
-            renewing = true;
-            void this.lease(env, deployConnection, runId, false)
-              .catch(() => {
-                leaseLost = true;
-                controller.abort();
-              })
-              .finally(() => {
-                renewing = false;
-              });
-          }, 20000)
-        : undefined;
-    heartbeat?.unref();
+    await this.lease(env, runId, true);
     try {
       await record('backing_up');
       working = await this.checkWorkingPlan(ctx, plan);
@@ -1196,40 +1151,25 @@ export class DeploymentService {
         });
       }
       await record('migrating');
-      // Once writes begin an expired lease is never automatically stolen. A DBA must reconcile it.
-      if (coordination(env).backend === 'local') await new LocalDeploymentControl(env).markWriting(runId);
-      else
-        await this.oracle.session(
-          `update apexrest_deploy_locks set phase='writing' where target_key=${sqlLiteral(plan.targetDigest)} and owner_id=${sqlLiteral(runId)};\ncommit;`,
-          deployConnection,
-          true,
-        );
+      // Once writes begin, ownership is never automatically reclaimed. It must be reconciled.
+      await new LocalDeploymentControl(env).markWriting(runId);
       for (const operation of plan.operations.filter((o) => ['migration', 'package'].includes(o.kind))) {
-        if (leaseLost || controller.signal.aborted)
+        if (controller.signal.aborted)
           throw new Fault(
             'LEASE_OR_CANCELLATION',
             'Execution was interrupted.',
             6,
             writeStarted ? 'outcome_unknown' : 'cancelled',
           );
-        await this.lease(env, deployConnection, runId, false);
+        await this.lease(env, runId, false);
         const file = await contained(snapshot, operation.file!);
-        const version = sqlLiteral(path.basename(file));
-        if (operation.kind === 'migration') {
-          if (coordination(env).backend === 'local')
-            await new LocalDeploymentControl(env).migration(
-              runId,
-              path.basename(file),
-              operation.sha256!,
-              'started',
-            );
-          else
-            await this.oracle.session(
-              `insert into apexrest_migrations(version,checksum,status,run_id) values(${version},${sqlLiteral(operation.sha256!)},'started',${sqlLiteral(runId)});\ncommit;`,
-              deployConnection,
-              true,
-            );
-        }
+        if (operation.kind === 'migration')
+          await new LocalDeploymentControl(env).migration(
+            runId,
+            path.basename(file),
+            operation.sha256!,
+            'started',
+          );
         writeStarted = true;
         // User scripts run restricted (no host/spool/save); level 2 still allows @file.
         await this.oracle.session(
@@ -1241,24 +1181,16 @@ export class DeploymentService {
           'text',
           SCRIPT_RESTRICT_LEVEL,
         );
-        if (operation.kind === 'migration') {
-          if (coordination(env).backend === 'local')
-            await new LocalDeploymentControl(env).migration(
-              runId,
-              path.basename(file),
-              operation.sha256!,
-              'succeeded',
-            );
-          else
-            await this.oracle.session(
-              `update apexrest_migrations set status='succeeded',finished_at=systimestamp where version=${version} and run_id=${sqlLiteral(runId)};\ncommit;`,
-              deployConnection,
-              true,
-            );
-        }
+        if (operation.kind === 'migration')
+          await new LocalDeploymentControl(env).migration(
+            runId,
+            path.basename(file),
+            operation.sha256!,
+            'succeeded',
+          );
       }
       await record('importing');
-      await this.lease(env, deployConnection, runId, false);
+      await this.lease(env, runId, false);
       await this.oracle.verifyTarget(env, deployConnection);
       if (plan.restore) {
         const backupRoot = await contained(
@@ -1360,8 +1292,7 @@ export class DeploymentService {
       await record('succeeded');
       return { runId, state, directory: runDir };
     } catch (error) {
-      const unknown =
-        writeStarted && (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6 || leaseLost);
+      const unknown = writeStarted && (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
       if (working && syncMarked) {
         try {
           await syncStore.lock(async () => {
@@ -1399,20 +1330,10 @@ export class DeploymentService {
         );
       throw error;
     } finally {
-      if (heartbeat) clearInterval(heartbeat);
       signal?.removeEventListener('abort', abort);
-      if ((state as DeployState) !== 'outcome_unknown') {
-        if (coordination(env).backend === 'local')
-          await new LocalDeploymentControl(env).release(runId).catch(() => {});
-        else
-          await this.oracle
-            .session(
-              `delete from apexrest_deploy_locks where target_key=${sqlLiteral(plan.targetDigest)} and owner_id=${sqlLiteral(runId)};\ncommit;`,
-              deployConnection,
-              true,
-            )
-            .catch(() => {});
-      }
+      // An unknown outcome retains writing ownership until it is reconciled.
+      if ((state as DeployState) !== 'outcome_unknown')
+        await new LocalDeploymentControl(env).release(runId).catch(() => {});
     }
   }
   async reconcile(ctx: ProjectContext, runId: string) {

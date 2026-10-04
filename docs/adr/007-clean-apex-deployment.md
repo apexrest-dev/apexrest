@@ -1,8 +1,8 @@
 # ADR 007: clean APEX deployment
 
-English | [Українська](007-clean-apex-deployment.uk.md)
-
 Status: accepted user amendment, 2026-09-12. Supersedes the mandatory DB-control-table portions of ADR 005/006 and the preserved original build specification.
+
+Superseded in part, 2026-10-04: the optional database backend described below was removed. Local coordination is the only backend; the local safeguards and the cross-machine limitation stay as written. Statements about an opt-in database backend are historical.
 
 A clean supported APEX installation is a valid deployment target. No APEXREST service tables, framework installation or setup DDL are prerequisites for ordinary application plan/apply. Local durable migration history and schema-scoped ownership are the default. Both plan and apply select the same backend; plans bind the store identity to prevent accidental movement to an empty history on another runner.
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Diagnostics and jobs"
-  short_description: "Diagnose failures and inspect background jobs"
-  default_prompt: "Use $apexrest-debug. Help me diagnose an APEXREST failure or inspect a background job."

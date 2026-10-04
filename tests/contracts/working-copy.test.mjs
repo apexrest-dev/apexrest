@@ -48,6 +48,7 @@ test('built CLI/MCP sync status is local, bounded and parity-compatible; adoptio
   const data = JSON.parse(response.content[0].text);
   assert.equal(data.data.status, 'ready');
   assert.equal(data.data.jobId, undefined);
+  assert.equal(data.operation, 'apex.sync');
   assert.equal(data.data.serverFreshness, 'not-checked');
   assert.ok(Buffer.byteLength(JSON.stringify(response)) < 8192);
   const cli = spawnSync(
@@ -83,6 +84,13 @@ test('built CLI/MCP sync status is local, bounded and parity-compatible; adoptio
   );
   assert.equal(panel.status, 0, panel.stdout + panel.stderr);
   assert.equal(JSON.parse(panel.stdout).data.sync[0].exportedAt, data.data.exportedAt);
+  const status = await client.callTool({
+    name: 'apexrest_status',
+    arguments: { project: f.ctx.root, detail: 'project' },
+  });
+  const statusData = JSON.parse(status.content[0].text);
+  assert.equal(statusData.operation, 'status');
+  assert.equal(statusData.data.sync[0].exportedAt, data.data.exportedAt);
   const adopt = spawnSync(
     process.execPath,
     [path.join(runtime, 'apexrest.mjs'), 'project', 'adopt', '--help'],

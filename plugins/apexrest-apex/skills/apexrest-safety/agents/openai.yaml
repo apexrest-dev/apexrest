@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Safety policy'
+  short_description: 'Deployment, test and recovery rules for APEX changes'
+  default_prompt: 'Use $apexrest-safety to explain what blocked my APEX deployment or test and what is allowed next.'

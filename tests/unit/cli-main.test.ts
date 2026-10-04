@@ -61,16 +61,6 @@ test('help for an unknown command fails with an input error instead of printing 
   }
 });
 
-test('panel action rejects malformed JSON as an input error and never offers SQLcl changes', async (t) => {
-  const run = await cli(t);
-  const result = run('panel', 'action', '--action', '{"kind":', '--json');
-  assert.equal(result.code, 2);
-  const parsed = JSON.parse(result.stdout);
-  assert.equal(parsed.diagnostics[0].code, 'INVALID_INPUT');
-  assert.match(parsed.summary, /--action must be one JSON object/);
-  assert.doesNotMatch(run('panel', 'action', '--help').stdout, /kinds: [^\n]*\bsqlcl\b/);
-});
-
 test('free-text search queries collect the remaining positional words', async (t) => {
   const run = await cli(t);
   // Validation fails after argument parsing, proving both words were accepted.

@@ -5,19 +5,18 @@ import { marked } from 'marked';
 import { files } from './lib/release.mjs';
 import { renderMarkdown } from './lib/site-markdown.mjs';
 
-// Human documentation has language companions. Historical specifications,
-// machine-readable evidence, third-party notices and agent skills retain their sources.
+// Human documentation is English only. Historical specifications, machine-readable
+// evidence, third-party notices and agent skills retain their sources.
 const documents = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md'];
 for (const root of ['docs', 'site/content', 'templates']) {
   for (const file of await files(root)) {
     if (file.endsWith('.md')) documents.push(root + '/' + file);
   }
 }
-const english = documents.filter((file) => !file.endsWith('.uk.md'));
 const context = {
   base: '/codex/',
   pages: [],
-  repository: 'https://github.com/apexrest-dev/apexrest-codex',
+  repository: 'https://github.com/apexrest-dev/apexrest',
 };
 const cache = new Map();
 async function inspect(file) {
@@ -39,21 +38,8 @@ async function inspect(file) {
   }
   return cache.get(file);
 }
-for (const file of english) {
-  const translation = file.replace(/\.md$/, '.uk.md');
-  const en = await inspect(file);
-  const uk = await inspect(translation);
-  assert.ok(en.links.includes(path.basename(translation)), `${file}: missing Ukrainian switch`);
-  assert.ok(uk.links.includes(path.basename(file)), `${translation}: missing English switch`);
-  assert.match(uk.text, /[ІіЇїЄєҐґА-Яа-я]/u, `${translation}: missing Ukrainian text`);
-  assert.deepEqual(uk.code, en.code, `${translation}: executable examples differ`);
-  assert.deepEqual(uk.headings, en.headings, `${translation}: heading outline differs`);
-}
-const allDocuments = [...new Set([...documents, ...english.map((file) => file.replace(/\.md$/, '.uk.md'))])];
+const allDocuments = [...new Set(documents)];
 for (const file of allDocuments) {
-  if (file.endsWith('.uk.md')) {
-    assert.ok(english.includes(file.replace(/\.uk\.md$/, '.md')), `${file}: orphan translation`);
-  }
   for (const href of (await inspect(file)).links) {
     if (/^[a-z][a-z\d+.-]*:/i.test(href)) continue;
     const [location, fragment] = href.split('#');
@@ -92,5 +78,5 @@ for (const file of ['APEXREST_CODEX_PLUGIN_BUILD_SPEC.md', 'APEXREST_COMPOSER_IM
   assert.ok(await stat(file).catch(() => null), `${file}: missing historical input`);
 }
 console.log(
-  `Documentation: ${english.length} EN/UK pairs; language links, code examples, heading outlines, local targets/anchors and documented script commands verified.`,
+  `Documentation: ${allDocuments.length} documents; local targets/anchors and documented script commands verified.`,
 );

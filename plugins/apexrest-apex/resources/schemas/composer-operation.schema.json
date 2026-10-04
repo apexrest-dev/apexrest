@@ -33,7 +33,7 @@
       "anyOf": [
         {
           "type": "string",
-          "maxLength": 65536
+          "maxLength": 1048576
         },
         {
           "type": "null"

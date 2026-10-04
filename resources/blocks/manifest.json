@@ -3,27 +3,27 @@
   "packages": [
     {
       "path": "packages/analytics/status-summary/1.0.0",
-      "digest": "a38b31d68964a3175d17af8598b81c6d2c0d90f4143cc33c4f6c94febc913d3f"
+      "digest": "e1156990b1192e874a73ac820bedec8c2fba8dff9ab8a38e941fae12b71b22c9"
     },
     {
       "path": "packages/crud/report-dialog/1.0.0",
-      "digest": "3f22afdd45513ac6819f0be2562a3525f5971265cd4de22f183c607d3ced2431"
+      "digest": "9461f820d3c7bc068fd3c416bbd8f3371b315a99d0a54bec294e5130e6a3c43b"
     },
     {
       "path": "packages/read/detail/1.0.0",
-      "digest": "fd38f4d780ae0a9af3b77e9375ebd26f86391092505c55bd5a16090eb662f7e6"
+      "digest": "c584cd06b8f4a28bc7ce464c8a7dd2b146006a416c30d076a4dd525c125c5528"
     },
     {
       "path": "packages/read/filtered-list/1.0.0",
-      "digest": "fec688afd7be366569f71dac270d619fb813ccb7d99b218450f4e5da80fa21f9"
+      "digest": "4837242f2a419544a037dc90c7f555558689ce9d5bb34d6b145e8dafd795786a"
     },
     {
       "path": "packages/read/history/1.0.0",
-      "digest": "94ea76606df9425b94f4cb2cf5e59cadd17f607eec32bc3445b1ab9cab7b69bc"
+      "digest": "a6b8157ff3ce600747245af0c456b35e551b8e08eabb6d2db3a716646986c5f9"
     },
     {
       "path": "packages/read/master-detail/1.0.0",
-      "digest": "fd87eceab2d2737bbf49a5f5478dc4618181cb1e67ec74e0e789f1bcb47b01f5"
+      "digest": "7b2e6f0fe653440f77c87aaa9b2ac23f4f113b10afba27b70bf8ae8879666929"
     }
   ]
 }

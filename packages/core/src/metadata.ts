@@ -65,31 +65,37 @@ export async function metadataRead(
       throw new Fault('OBJECT_REQUIRED', 'Select a specific object first.', 2);
   }
   await adapter.verifyTarget(env, connection);
-  const read = async (r: z.infer<typeof metadataRequest>) => {
-    const rows = await adapter.jsonQuery(
-      queries[r.kind] + ' offset :p_offset rows fetch next :p_limit rows only',
-      connection,
-      {
-        p_owner: r.schema,
-        p_name: r.name ?? '',
-        p_app_id: env.applicationId,
-        p_workspace: env.workspace,
-        p_offset: r.offset,
-        p_limit: r.limit,
-      },
-    );
-    return {
-      dataClassification: 'untrusted_database_content',
-      rows,
-      offset: r.offset,
-      nextOffset: rows.length === r.limit ? r.offset + r.limit : null,
-    };
-  };
-  if (!batch) return read(input);
-  const results = [];
-  // Preserve order and backend compatibility without concurrent SQLcl sessions.
-  // Any failure rejects the operation; do not fabricate a partial success.
-  for (const [index, r] of requests.entries())
-    results.push({ index, kind: r.kind, ...(r.name ? { name: r.name } : {}), ...(await read(r)) });
+  const query = (r: z.infer<typeof metadataRequest>) => ({
+    sql: queries[r.kind] + ' offset :p_offset rows fetch next :p_limit rows only',
+    bindings: {
+      p_owner: r.schema,
+      p_name: r.name ?? '',
+      p_app_id: env.applicationId,
+      p_workspace: env.workspace,
+      p_offset: r.offset,
+      p_limit: r.limit,
+    },
+  });
+  const page = (r: z.infer<typeof metadataRequest>, rows: Record<string, unknown>[]) => ({
+    dataClassification: 'untrusted_database_content',
+    rows,
+    offset: r.offset,
+    nextOffset: rows.length === r.limit ? r.offset + r.limit : null,
+  });
+  if (!batch) {
+    const q = query(input);
+    return page(input, await adapter.jsonQuery(q.sql, connection, q.bindings));
+  }
+  // One SQLcl session answers the whole batch in order. Any failure rejects
+  // the operation; do not fabricate a partial success.
+  const rows = await adapter.jsonQueryBatch(requests.map(query), connection);
+  const results = requests.map((r, index) => ({
+    index,
+    kind: r.kind,
+    ...(r.name ? { name: r.name } : {}),
+    ...page(r, rows[index] ?? []),
+  }));
+  if (rows.length !== requests.length)
+    throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not answer every metadata request.', 1);
   return { results, targetVerifiedOnce: true };
 }

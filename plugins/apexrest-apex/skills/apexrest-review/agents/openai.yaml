@@ -1,4 +1,0 @@
-interface:
-  display_name: "Review changes"
-  short_description: "Review source, deployment risk and release evidence"
-  default_prompt: "Use $apexrest-review. Review my APEXREST changes and report findings with supporting evidence."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "All functions"
-  short_description: "Browse all APEXREST workflows and commands"
-  default_prompt: "Use $apexrest-menu. Show me all APEXREST functions and help me choose a workflow."

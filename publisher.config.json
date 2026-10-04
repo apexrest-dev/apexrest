@@ -3,6 +3,6 @@
   "enabled": false,
   "basePath": "/codex/",
   "siteOrigin": "https://apex.rest",
-  "githubRepository": "apexrest-dev/apexrest-codex",
+  "githubRepository": "apexrest-dev/apexrest",
   "npmEnabled": false
 }

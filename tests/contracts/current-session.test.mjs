@@ -46,9 +46,9 @@ test('removed agent entrypoints cannot start work through CLI, MCP or legacy env
     }),
   );
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 21);
+  assert.equal(catalog.tools.length, 11);
   assert.ok(
-    catalog.tools.some((tool) => tool.name === 'apexrest_deploy_apply'),
+    catalog.tools.some((tool) => tool.name === 'apexrest_ship'),
     'Legacy reviewer flags cannot change current tools',
   );
   assert.doesNotMatch(
@@ -62,31 +62,32 @@ test('removed agent entrypoints cannot start work through CLI, MCP or legacy env
     'apexrest_team_message',
     'apexrest_team_cancel',
     'apexrest_work_start',
+    'apexrest_panel_open',
+    'apexrest_panel_action',
   ]) {
     const response = await client.callTool({ name, arguments: { project: root } });
     assert.equal(response.isError, true);
     assert.equal(JSON.parse(response.content[0].text).diagnostics[0].code, 'UNKNOWN_TOOL');
   }
-  const invalid = await client.callTool({
-    name: 'apexrest_panel_action',
-    arguments: {
-      project: root,
-      action: { kind: 'start', request: { task: 'Do not start', executionMode: 'team' } },
-    },
-  });
-  assert.equal(invalid.isError, true);
-  assert.equal(JSON.parse(invalid.content[0].text).diagnostics[0].code, 'INVALID_INPUT');
   assert.deepEqual(await readdir(root), [], 'Rejected starts do not create durable agent state');
 });
 
 test('distributed runtime and skills contain no model orchestration', async () => {
   const root = 'dist/codex-compat/plugins/apexrest-apex';
-  const skills = await readdir(root + '/skills');
-  assert.equal(skills.length, 14);
-  assert.ok(!skills.includes('apexrest-team'));
+  const skills = (await readdir(root + '/skills')).sort();
+  assert.deepEqual(skills, [
+    'apexrest-apexlang',
+    'apexrest-pattern-catalog',
+    'apexrest-safety',
+    'apexrest-setup',
+    'apexrest-work',
+  ]);
   const work = await readFile(root + '/skills/apexrest-work/SKILL.md', 'utf8');
-  assert.match(work, /current.*Codex|Codex.*current/i);
-  assert.doesNotMatch(work, /apexrest_work_start|apexrest_team_|requestId/);
+  assert.match(work, /current host session \(Codex or Claude Code\)/);
+  assert.doesNotMatch(work, /apexrest_work_start|apexrest_team_|requestId|\$apexrest-/);
+  let bytes = 0;
+  for (const skill of skills) bytes += (await readFile(`${root}/skills/${skill}/SKILL.md`)).length;
+  assert.ok(bytes < 20000, `skills total ${bytes} bytes`);
   for (const name of await readdir(root + '/runtime')) {
     const text = await readFile(root + '/runtime/' + name, 'utf8');
     assert.doesNotMatch(

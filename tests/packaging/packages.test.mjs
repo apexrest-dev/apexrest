@@ -16,21 +16,66 @@ test('Codex package declares native skills, local MCP and exclusive product rout
   assert.deepEqual(mcp.mcpServers.apexrest, { command: 'node', args: ['runtime/mcp.mjs'], cwd: '.' });
   const marketplace = JSON.parse(await readFile('dist/codex-compat/.agents/plugins/marketplace.json'));
   assert.deepEqual(marketplace.plugins[0].policy.products, ['codex']);
+  const claude = JSON.parse(
+    await readFile('dist/codex-compat/plugins/apexrest-apex/.claude-plugin/plugin.json'),
+  );
+  const claudeMarket = JSON.parse(await readFile('dist/codex-compat/.claude-plugin/marketplace.json'));
+  assert.equal(claude.name, 'apexrest');
+  assert.equal(claude.skills, './skills/');
+  assert.deepEqual(claude.mcpServers.apexrest.args, ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs']);
+  assert.equal(claudeMarket.plugins[0].name, claude.name);
+  assert.equal(claudeMarket.plugins[0].version, claude.version);
+  assert.equal(claudeMarket.plugins[0].source, './plugins/apexrest-apex');
+  // When the Claude Code CLI is installed, its validator is the authority on both manifests.
+  const validator = spawnSync('claude', ['--version'], { encoding: 'utf8' });
+  if (validator.status === 0)
+    for (const target of ['dist/codex-compat/plugins/apexrest-apex', 'dist/codex-compat'])
+      assert.equal(
+        spawnSync('claude', ['plugin', 'validate', '--strict', target], { encoding: 'utf8' }).status,
+        0,
+        `claude plugin validate --strict ${target}`,
+      );
   await assert.rejects(readFile('dist/portable/plugins/apexrest-apex/plugin.json'), { code: 'ENOENT' });
 });
-test('Codex package is self-contained, same version, bounded skills including Composer and no author paths', async () => {
+// The 2026-10-04 redesign: five skills and eleven MCP tools. Keep these lists in
+// step with plugins/apexrest-apex/skills and packages/core/src/operations.ts.
+const expectedSkills = [
+  'apexrest-apexlang',
+  'apexrest-pattern-catalog',
+  'apexrest-safety',
+  'apexrest-setup',
+  'apexrest-work',
+];
+const expectedTools = [
+  'apexrest_project',
+  'apexrest_reference',
+  'apexrest_metadata_read',
+  'apexrest_apex_validate',
+  'apexrest_ship',
+  'apexrest_apex_sync',
+  'apexrest_test_run',
+  'apexrest_browser_open',
+  'apexrest_job',
+  'apexrest_artifact_read',
+  'apexrest_status',
+];
+test('Codex package is self-contained, same version, exactly the five redesigned skills and no author paths', async () => {
   for (const profile of ['codex-compat']) {
     const root = `dist/${profile}/plugins/apexrest-apex`;
     const list = await files(root);
     const skills = list.filter((f) => /^skills\/[^/]+\/SKILL.md$/.test(f));
-    assert.ok(skills.includes('skills/apexrest-compose/SKILL.md'));
+    assert.deepEqual(
+      skills,
+      expectedSkills.map((skill) => `skills/${skill}/SKILL.md`),
+    );
     assert.equal(
       skills.length,
       (await files('plugins/apexrest-apex/skills')).filter((f) => f.endsWith('/SKILL.md')).length,
     );
-    assert.ok(skills.includes('skills/apexrest-pattern-catalog/SKILL.md'));
     for (const skill of skills)
       assert.ok(list.includes(skill.replace('SKILL.md', 'agents/openai.yaml')), skill);
+    assert.ok(list.includes('.claude-plugin/plugin.json'));
+    assert.ok(list.includes('.codex-plugin/plugin.json'));
     const manifest = JSON.parse(await readFile(root + '/' + '.codex-plugin/plugin.json'));
     assert.equal(manifest.version, pkg.version);
     assert.ok(list.includes('resources/templates/blank-app/application/.apex/apexlang.json'));
@@ -49,19 +94,39 @@ test('Codex package is self-contained, same version, bounded skills including Co
     assert.equal(r.status, 0, r.stdout + r.stderr);
   }
 });
-test('All functions menu covers the operation catalog within the native plugin prompt limits', async () => {
+test('Skills name only current MCP tools, the work skill covers the ship loop and default prompts resolve to shipped skills', async () => {
   const root = 'dist/codex-compat/plugins/apexrest-apex';
-  const menu = await readFile(root + '/skills/apexrest-menu/SKILL.md', 'utf8');
+  const mentioned = new Set();
+  for (const skill of expectedSkills) {
+    const text = await readFile(`${root}/skills/${skill}/SKILL.md`, 'utf8');
+    for (const [name] of text.matchAll(/apexrest_[a-z_]+/g)) {
+      assert.ok(expectedTools.includes(name), `${skill} names a tool outside the catalog: ${name}`);
+      mentioned.add(name);
+    }
+  }
+  const work = await readFile(`${root}/skills/apexrest-work/SKILL.md`, 'utf8');
+  for (const name of [
+    'apexrest_project',
+    'apexrest_reference',
+    'apexrest_apex_validate',
+    'apexrest_ship',
+    'apexrest_job',
+    'apexrest_browser_open',
+  ])
+    assert.ok(work.includes(name), `apexrest-work must describe ${name}`);
   const operations = JSON.parse(await readFile(root + '/resources/schemas/operations.schema.json', 'utf8'));
-  assert.ok(menu.includes('(references/cli-catalog.md)'));
-  const inventory = await readFile(root + '/skills/apexrest-menu/references/cli-catalog.md', 'utf8');
-  const indexed = new Set([...inventory.matchAll(/`([a-z]+(?:\.[a-z-]+)?)`/g)].map((match) => match[1]));
-  for (const operation of Object.keys(operations)) assert.ok(indexed.has(operation), operation);
+  for (const operation of ['project', 'reference', 'ship', 'job', 'status'])
+    assert.ok(operation in operations, `operation schema ${operation}`);
+  for (const operation of Object.keys(operations))
+    assert.ok(!/^panel\.(open|action)$/.test(operation), `removed panel operation ${operation}`);
   const manifest = JSON.parse(await readFile(root + '/.codex-plugin/plugin.json', 'utf8'));
   const prompts = manifest.interface.defaultPrompt;
   assert.ok(prompts.length > 0 && prompts.length <= 3);
   assert.ok(prompts.every((prompt) => prompt.length <= 128));
-  assert.ok(prompts.some((prompt) => prompt.includes('$apexrest-menu')));
+  assert.ok(prompts.some((prompt) => prompt.includes('$apexrest-work')));
+  for (const prompt of prompts)
+    for (const [, skill] of prompt.matchAll(/\$(apexrest-[a-z-]+)/g))
+      assert.ok(expectedSkills.includes(skill), `default prompt references a missing skill: ${skill}`);
 });
 test('ZIP generation is deterministic and includes dotfiles, licenses and native metadata', async () => {
   const first = await zipTree('dist/codex-compat', zipSync),
@@ -69,8 +134,47 @@ test('ZIP generation is deterministic and includes dotfiles, licenses and native
   assert.equal(sha256(first), sha256(second));
   const entries = unzipSync(first);
   assert.ok(entries['.agents/plugins/marketplace.json']);
+  assert.ok(entries['.claude-plugin/marketplace.json']);
+  assert.ok(entries['plugins/apexrest-apex/.claude-plugin/plugin.json']);
+  assert.ok(entries['plugins/apexrest-apex/.codex-plugin/plugin.json']);
   assert.ok(entries['plugins/apexrest-apex/.mcp.json']);
   assert.ok(entries['plugins/apexrest-apex/LICENSE']);
+  for (const skill of expectedSkills)
+    assert.ok(entries[`plugins/apexrest-apex/skills/${skill}/SKILL.md`], skill);
+});
+test('npm tarball inventory ships both host manifests, the runtime and no removed surfaces', async () => {
+  assert.ok(pkg.files.includes('dist/codex-compat/'));
+  const packed = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.equal(packed.status, 0, packed.stderr);
+  const inventory = JSON.parse(packed.stdout)[0].files.map((entry) => entry.path);
+  for (const file of [
+    'dist/codex-compat/.agents/plugins/marketplace.json',
+    'dist/codex-compat/.claude-plugin/marketplace.json',
+    'dist/codex-compat/plugins/apexrest-apex/.claude-plugin/plugin.json',
+    'dist/codex-compat/plugins/apexrest-apex/.codex-plugin/plugin.json',
+    'dist/codex-compat/plugins/apexrest-apex/.mcp.json',
+    'dist/codex-compat/plugins/apexrest-apex/runtime/mcp.mjs',
+    'dist/runtime/mcp.mjs',
+    'dist/runtime/apexrest.mjs',
+    ...expectedSkills.map((skill) => `dist/codex-compat/plugins/apexrest-apex/skills/${skill}/SKILL.md`),
+  ])
+    assert.ok(inventory.includes(file), file);
+  const shippedSkills = new Set(
+    inventory
+      .map(
+        (file) => file.match(/^dist\/codex-compat\/plugins\/apexrest-apex\/skills\/([^/]+)\/SKILL\.md$/)?.[1],
+      )
+      .filter(Boolean),
+  );
+  assert.deepEqual([...shippedSkills].sort(), expectedSkills);
+  assert.ok(
+    !inventory.some((file) => /\.uk\.md$/.test(file)),
+    'Ukrainian documentation is no longer shipped',
+  );
 });
 test('bootstrap refuses tampered ZIP before any installation code', async () => {
   const temp = await mkdtemp(path.join(tmpdir(), 'apexrest-integrity-'));

@@ -5,7 +5,6 @@ import { hash } from '../../core/src/fs.ts';
 
 const inlineLimit = 8192;
 const readerLimit = 32768;
-export const panelResultKey = 'apexrest/panelResult';
 const archives = new Map<string, { artifactId: string; capturedRunId: string }>();
 const pruneIntervalMs = 3600000;
 const pruned = new Map<string, number>();
@@ -60,6 +59,13 @@ function preview(value: unknown, depth = 0): unknown {
     'serverFreshness',
     'backupId',
     'importingRunId',
+    'phase',
+    'runner',
+    'planId',
+    'planDigest',
+    'planPath',
+    'runId',
+    'warningCount',
   ]) {
     const entry = data[key];
     if (['string', 'number', 'boolean'].includes(typeof entry))
@@ -69,16 +75,20 @@ function preview(value: unknown, depth = 0): unknown {
     if (Array.isArray(data[key])) result[key + 'Count'] = data[key].length;
   if (Array.isArray(data.diagnostics))
     result.diagnostics = data.diagnostics
-      .slice(0, 2)
+      .slice(0, 5)
       .map((entry) =>
         entry && typeof entry === 'object'
           ? Object.fromEntries(
-              ['severity', 'code', 'message', 'file']
-                .filter((key) => typeof entry[key] === 'string')
-                .map((key) => [key, entry[key].slice(0, key === 'message' ? 300 : 120)]),
+              ['severity', 'code', 'message', 'file', 'line', 'column', 'type', 'hint']
+                .filter((key) => ['string', 'number'].includes(typeof entry[key]))
+                .map((key) => [key, typeof entry[key] === 'string' ? entry[key].slice(0, 600) : entry[key]]),
             )
           : String(entry).slice(0, 300),
       );
+  for (const key of ['application', 'grant', 'verification', 'sources'])
+    if (data[key] && typeof data[key] === 'object' && JSON.stringify(data[key]).length <= 1200)
+      result[key] = data[key];
+  if (Array.isArray(data.phases) && JSON.stringify(data.phases).length <= 1200) result.phases = data.phases;
   for (const key of ['artifacts', 'nextActions', 'risks'])
     if (Array.isArray(data[key])) {
       result[key] = data[key].slice(0, 4).map((entry) => String(entry).slice(0, 200));
@@ -123,18 +133,12 @@ function preview(value: unknown, depth = 0): unknown {
 export async function toolOutput(original: Result, project?: string) {
   const full = sanitized(original) as Result;
   const serialized = JSON.stringify(full);
-  const panel = full.operation.startsWith('panel.');
-  const reader = ['docs.read', 'artifacts.read'].includes(full.operation);
+  const reader = ['docs.read', 'artifacts.read', 'reference'].includes(full.operation);
   let result = full;
   if (serialized.length > (reader ? readerLimit : inlineLimit)) {
     let artifactId: string | undefined;
     let capturedRunId: string | undefined;
-    let recoveryError: string | undefined;
-    // Panel snapshots are polled and their complete envelope already travels in
-    // UI metadata; archiving every poll would grow result storage without bound.
-    const uiOnly = full.operation === 'panel.status';
     try {
-      if (uiOnly) throw new Error('Panel snapshots are not archived.');
       if (!project) throw new Error('No project is available for a local result artifact.');
       const service = new ArtifactService(await loadProject(project));
       await pruneArchives(service, project);
@@ -155,22 +159,21 @@ export async function toolOutput(original: Result, project?: string) {
         if (archives.size > 32) archives.delete(archives.keys().next().value!);
       }
     } catch {
-      recoveryError = uiOnly
-        ? 'The complete panel snapshot is shown in the panel UI. Read specific jobs with apexrest_job_status; status reads change nothing.'
-        : 'The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.';
+      artifactId = undefined;
     }
+    // The first five diagnostics travel complete (file, line, column, hint);
+    // the compiler's own ordering already puts the blocking errors first.
     result = {
       ...full,
       summary: full.summary.slice(0, 600),
-      diagnostics: full.diagnostics
-        .slice(0, 5)
-        .map((d) => ({ severity: d.severity, code: d.code.slice(0, 100), message: d.message.slice(0, 400) })),
+      diagnostics: full.diagnostics.slice(0, 5),
       artifacts: artifactId ? [artifactId] : [],
-      nextActions: artifactId
-        ? [
-            'For omitted details, use apexrest_artifact_read with output.artifactId and the same project. Follow nextOffset as needed; do not repeat the operation.',
-          ]
-        : [recoveryError!],
+      nextActions: [
+        ...full.nextActions.slice(0, 3),
+        artifactId
+          ? 'For omitted details, use apexrest_artifact_read with output.artifactId and the same project. Follow nextOffset as needed; do not repeat the operation.'
+          : 'The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.',
+      ],
       data: {
         ...(preview(full.data) as Record<string, unknown>),
         output: {
@@ -178,16 +181,14 @@ export async function toolOutput(original: Result, project?: string) {
           characters: serialized.length,
           diagnosticsCount: full.diagnostics.length,
           artifactsCount: full.artifacts.length,
-          ...(artifactId
-            ? { artifactId, capturedRunId }
-            : { recovery: uiOnly ? 'panel-ui-metadata' : 'unavailable' }),
+          ...(artifactId ? { artifactId, capturedRunId } : { recovery: 'unavailable' }),
         },
       },
     };
     if (JSON.stringify(result).length > inlineLimit) {
       const data = result.data as Record<string, unknown>;
       result.data = Object.fromEntries(
-        ['id', 'jobId', 'status', 'ok', 'output']
+        ['id', 'jobId', 'status', 'phase', 'ok', 'output']
           .filter((key) => data[key] !== undefined)
           .map((key) => [key, data[key]]),
       );
@@ -199,14 +200,12 @@ export async function toolOutput(original: Result, project?: string) {
             .map((field) => [field, nested[field]]),
         );
       }
+      if (JSON.stringify(result).length > inlineLimit)
+        result.diagnostics = result.diagnostics.map((d) => ({ ...d, message: d.message.slice(0, 400) }));
     }
   }
-  // UI-only metadata carries the original sanitized panel envelope. Text is
-  // concise and never duplicated in structuredContent. The bundled panel reads
-  // full snapshots here; other consumers can recover the archived text result.
   return {
     isError: !result.ok,
     content: [{ type: 'text' as const, text: result === full ? serialized : JSON.stringify(result) }],
-    ...(panel ? { _meta: { [panelResultKey]: full } } : {}),
   };
 }

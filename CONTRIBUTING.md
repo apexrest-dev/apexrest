@@ -1,23 +1,21 @@
 # Contributing
 
-English | [Українська](CONTRIBUTING.uk.md)
+APEXREST is developed in [apexrest-dev/apexrest](https://github.com/apexrest-dev/apexrest). Code, CLI help, agent skill instructions, public documentation and diagrams use English. Keep changes focused and make claims match the evidence.
 
-APEXREST is developed in [apexrest-dev/apexrest-codex](https://github.com/apexrest-dev/apexrest-codex). Code, CLI help and agent skill instructions use English. Public documentation and diagrams are maintained in English and Ukrainian. Keep changes focused and make claims match the evidence.
-
-Update each English `.md` guide and its `.uk.md` companion together, including reciprocal language links. Translate explanatory text, prompt examples and image descriptions; preserve executable examples, configuration keys, paths, version numbers and evidence boundaries. Machine-readable evidence, third-party notices and the original build specification retain their original content. Site navigation and search stay within the selected language, and the language switch opens the corresponding page. Run `npm run docs:check` and the site checks after documentation changes.
+Keep executable examples, configuration keys, paths, version numbers and evidence boundaries accurate in every guide. Machine-readable evidence, third-party notices and the original build specification retain their original content. Run `npm run docs:check` and the site checks after documentation changes.
 
 ## Set up a checkout
 
 Use Node 24 LTS and the committed lockfile:
 
 ```sh
-git clone https://github.com/apexrest-dev/apexrest-codex.git
-cd apexrest-codex
+git clone https://github.com/apexrest-dev/apexrest.git
+cd apexrest
 npm ci --ignore-scripts
 npm run build
 ```
 
-After source, dependency, skill or resource changes, run `npm run plugin:sync`. It builds and refreshes the checked-in self-contained plugin bundle used by repository installations. Commit the resulting bundle with its source changes. `plugins/apexrest-apex/runtime/` and `plugins/apexrest-apex/resources/` are generated output, marked `linguist-generated` in `.gitattributes`; do not edit them by hand. Change the sources and rerun `npm run plugin:sync`.
+After source, dependency, skill or resource changes, run `npm run plugin:sync`. It builds and refreshes the checked-in self-contained plugin bundle used by repository installations, including the Codex manifest (`.codex-plugin/plugin.json`), the Claude Code manifest (`.claude-plugin/plugin.json`) and both repository marketplaces (`.agents/plugins/marketplace.json`, `.claude-plugin/marketplace.json`). Commit the resulting bundle with its source changes. With the `claude` CLI installed, `npm run test:packaging` also runs `claude plugin validate --strict` on the generated manifests. `plugins/apexrest-apex/runtime/` and `plugins/apexrest-apex/resources/` are generated output, marked `linguist-generated` in `.gitattributes`; do not edit them by hand. Change the sources and rerun `npm run plugin:sync`.
 
 The normal build does not deploy an app or install Oracle binaries. Native-host setup, vendor downloads, connection onboarding and remote integration have their own prerequisites. See [getting started](docs/getting-started.md).
 

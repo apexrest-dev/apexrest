@@ -19,9 +19,11 @@ async function inventory(root) {
 
 if (check) {
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const marketplace = await readFile('.agents/plugins/marketplace.json', 'utf8');
-  if (marketplace !== (await readFile('dist/codex-compat/.agents/plugins/marketplace.json', 'utf8')))
-    throw new Error('Repository marketplace differs from the generated native marketplace.');
+  for (const marketplace of ['.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json'])
+    if (
+      (await readFile(marketplace, 'utf8')) !== (await readFile(`dist/codex-compat/${marketplace}`, 'utf8'))
+    )
+      throw new Error(`Repository ${marketplace} differs from the generated marketplace.`);
   if (manifest.version !== packageVersion || manifest.sourceDigest !== inputDigest)
     throw new Error('Repository plugin is stale. Run npm run plugin:sync after source changes.');
   const actual = await inventory(repositoryPlugin);
@@ -35,7 +37,10 @@ if (check) {
   }
   console.log(`Repository plugin ${packageVersion}: source, integrity and fresh build verified.`);
 } else {
-  await cp('dist/codex-compat/.agents/plugins/marketplace.json', '.agents/plugins/marketplace.json');
+  for (const marketplace of ['.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json']) {
+    await mkdir(path.dirname(marketplace), { recursive: true });
+    await cp(`dist/codex-compat/${marketplace}`, marketplace);
+  }
   for (const entry of generatedPluginEntries.filter((name) => name !== 'bundle-manifest.json')) {
     const destination = path.join(repositoryPlugin, entry);
     await rm(destination, { force: true, recursive: true });

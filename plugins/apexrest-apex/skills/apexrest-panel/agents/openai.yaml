@@ -1,4 +1,0 @@
-interface:
-  display_name: 'Development panel'
-  short_description: 'Oracle/APEX operations and project or connection settings'
-  default_prompt: 'Use $apexrest-panel to open my Oracle APEX development panel inside Codex.'

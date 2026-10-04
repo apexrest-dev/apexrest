@@ -6,7 +6,7 @@ import { documentationUrl, renderMarkdown } from '../../scripts/lib/site-markdow
 const context = {
   source: 'docs/start.md',
   base: '/codex/',
-  repository: 'https://github.com/apexrest-dev/apexrest-codex',
+  repository: 'https://github.com/apexrest-dev/apexrest',
   pages: [
     { source: 'docs/start.md', slug: 'docs' },
     { source: 'docs/deployment-safety.md', slug: 'deployment' },
@@ -79,7 +79,7 @@ test('documentation escapes raw HTML and excludes unsafe links, credential URLs 
 });
 
 test('built site copies infographic SVGs and keeps a restrictive browser policy', async () => {
-  for (const name of ['overview.svg', 'deployment-flow.svg', 'overview.uk.svg', 'deployment-flow.uk.svg']) {
+  for (const name of ['overview.svg', 'deployment-flow.svg']) {
     assert.equal(
       await readFile('site-dist/assets/' + name, 'utf8'),
       await readFile('docs/assets/' + name, 'utf8'),
@@ -91,7 +91,7 @@ test('built site copies infographic SVGs and keeps a restrictive browser policy'
   assert.match(html, /<img src="\/codex\/assets\/overview.svg"/);
 });
 
-test('site keeps navigation and search in the selected language and switches to the corresponding page', async () => {
+test('site keeps navigation and search consistent for each page', async () => {
   const config = JSON.parse(await readFile('site/site.config.json', 'utf8'));
   const locales = JSON.parse(await readFile('site/locales.json', 'utf8'));
   assert.equal(new Set(config.pages.map((page) => page.slug)).size, config.pages.length);
@@ -115,20 +115,9 @@ test('site keeps navigation and search in the selected language and switches to 
         sidebarLinks,
         index.map((row) => row.url),
       );
-      const switcher = html.match(/<nav class="languages"[\s\S]*?<\/nav>/)[0];
-      for (const other of Object.keys(locales)) {
-        const matches = config.pages.filter((p) => p.key === page.key && p.lang === other);
-        assert.equal(matches.length, 1, `${page.key}: expected one ${other} counterpart`);
-        const counterpart = matches[0];
-        const url = `/codex/${counterpart.slug ? counterpart.slug + '/' : ''}`;
-        assert.ok(switcher.includes(`hreflang="${other}" href="${url}"`));
-        assert.ok(html.includes(`<link rel="alternate" hreflang="${other}" href="${url}">`));
-      }
       if (html.includes('<table>')) assert.ok(html.includes(`aria-label="${locale.table}"`));
     }
   }
-  const ukrainian = JSON.parse(await readFile('site-dist/uk/search-index.json', 'utf8'));
-  assert.ok(ukrainian.some((row) => row.text.toLowerCase().includes('розгортання')));
 });
 
 test('built documentation links point to existing sections and each page has unique IDs', async () => {

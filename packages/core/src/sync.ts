@@ -5,7 +5,7 @@ import type { Environment, ProjectContext } from './config.ts';
 import { isProductionTarget, relativePath, targetDigest } from './config.ts';
 import { canonical, contained, exists, hash, inventory, readJson, withLock, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
-import { LocalDeploymentControl, coordination } from './deployment-control.ts';
+import { LocalDeploymentControl } from './deployment-control.ts';
 import { VERSION } from './version.ts';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -224,11 +224,7 @@ export class SyncStore {
         'Snapshot reference does not match its sync or deployment owner.',
         5,
       );
-    if (
-      state.status === 'ready' &&
-      coordination(this.env).backend === 'local' &&
-      (await new LocalDeploymentControl(this.env).owner())?.phase === 'writing'
-    )
+    if (state.status === 'ready' && (await new LocalDeploymentControl(this.env).owner())?.phase === 'writing')
       throw new Fault('SYNC_BLOCKED', 'A writing owner must complete or be reconciled before reuse.', 5);
     await checkSnapshot(this.ctx, state.baseline);
     if (state.lastSuccessfulImport) await checkSnapshot(this.ctx, state.lastSuccessfulImport.snapshot);
@@ -275,10 +271,7 @@ export class SyncStore {
     } catch (error) {
       blockedReason = error instanceof Fault ? error.code : 'SYNC_ARTIFACT_INVALID';
     }
-    if (
-      coordination(this.env).backend === 'local' &&
-      (await new LocalDeploymentControl(this.env).owner())?.phase === 'writing'
-    )
+    if ((await new LocalDeploymentControl(this.env).owner())?.phase === 'writing')
       blockedReason = 'SYNC_BLOCKED';
     const source = await syncPath(this.ctx, state.sourceDir);
     const files = (await exists(source)) ? await inventory(source) : {};

@@ -13,8 +13,6 @@ import {
 import { configureSqlcl, sqlclConfig } from '../../packages/core/src/sqlcl-config.ts';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
 import { schemas } from '../../packages/core/src/operations.ts';
-import { dispatch } from '../../packages/core/src/service.ts';
-import { panelActionSchema } from '../../packages/core/src/panel-schema.ts';
 import { z } from 'zod';
 import type { ProcessRequest, ProcessResult } from '../../packages/core/src/process.ts';
 
@@ -226,29 +224,8 @@ test('missing credentials, incompatible transports and unsafe input block before
       schemas['connection.add'].safeParse({ name: 'ref', ordsUrl: url, ordsUsername: 'app' }).success,
       false,
     );
-  const blocked = await dispatch('panel.action', {
-    action: {
-      kind: 'connection',
-      name: 'local',
-      ordsUrl: endpoint,
-      ordsUsername: 'app',
-      password: 'tool-secret-prohibited',
-    },
-  });
-  assert.equal(blocked.diagnostics[0]!.code, 'INVALID_INPUT');
-  assert.doesNotMatch(JSON.stringify(blocked), /tool-secret-prohibited/);
-  const localAction = {
-    action: {
-      kind: 'connection',
-      name: 'local',
-      ordsUrl: endpoint,
-      ordsUsername: 'app',
-      password: 'local-form-secret',
-    },
-  };
-  assert.equal(panelActionSchema.safeParse(localAction).success, true);
-  assert.equal(schemas['panel.action'].safeParse(localAction).success, false);
-  assert.doesNotMatch(JSON.stringify(z.toJSONSchema(schemas['panel.action'])), /"password"/);
+  // Tool parameters never carry an ORDS password: the public schema omits it.
+  assert.doesNotMatch(JSON.stringify(z.toJSONSchema(schemas['connection.add'])), /"password"/);
 });
 
 test('ORDS connection failures are redacted and never trigger a direct fallback', async (t) => {

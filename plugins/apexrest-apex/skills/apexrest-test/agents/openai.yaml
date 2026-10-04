@@ -1,4 +1,0 @@
-interface:
-  display_name: "Tests and browser checks"
-  short_description: "Run configured suites and verify application behavior"
-  default_prompt: "Use $apexrest-test. Help me run the appropriate tests and browser checks for my APEXREST project."

@@ -1,10 +1,12 @@
 # Working language
 
-Use English for code, CLI help and agent skill instructions. Maintain public documentation in English and Ukrainian, with matching `.md` and `.uk.md` files and reciprocal language links. Update both versions together; keep commands, configuration keys and evidence claims consistent. Preserve the original build specification unchanged as historical input.
+Use English for code, CLI help, agent skill instructions and public documentation. Keep commands, configuration keys and evidence claims consistent. Preserve the original build specification unchanged as historical input.
+
+English-only documentation (user amendment, 2026-10-04): the Ukrainian `.uk.md` companions were retired; do not create or require translations. This amendment supersedes the earlier bilingual rule, which remains visible in the original specification as historical input.
 
 # Source repository
 
-Use https://github.com/apexrest-dev/apexrest-codex as the canonical repository for this project's code and the Git origin.
+Use https://github.com/apexrest-dev/apexrest as the canonical repository for this project's code and the Git origin.
 
 # Engineering rules
 

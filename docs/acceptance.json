@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-09-30",
+  "asOf": "2026-10-04",
   "release": "1.3.0-beta.1",
   "overall": "partial-local",
   "statusSemantics": {
@@ -8,23 +8,25 @@
     "passed": "Specified local evidence passed; platform/scope limits remain explicit.",
     "partial": "Only part of criterion or verification matrix is covered.",
     "blocked": "External target/access or unimplemented dependent fixture prevents verification.",
-    "retired": "Removed from current product scope by the 2026-09-23 current-session requirement; historical evidence is not current verification."
+    "retired": "Removed from current product scope by the 2026-09-23 current-session requirement or the 2026-10-04 redesign amendment; historical evidence is not current verification."
   },
   "criteria": [
     {
       "id": "A01",
-      "criterion": "Native Codex package declares the native manifest, skill/MCP paths and exclusive Codex product routing",
+      "criterion": "Native Codex and Claude Code packages declare their manifests, skill/MCP paths and product routing",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
         "tests/packaging/packages.test.mjs",
         "docs/evidence/local-checks.json",
         "docs/evidence/apexlang-codex.json",
-        "plugins/apexrest-apex/skills/apexrest-install-dependencies/SKILL.md",
         "docs/evidence/dependency-command-native.json",
         "docs/evidence/plugin-menu-native.json"
       ],
-      "blocker": null
+      "blocker": "2026-10-04 redesign: apexrest-install-dependencies skill retired (five skills remain); Claude Code .claude-plugin manifests are checked by tests/packaging/packages.test.mjs. Native-host (Codex/Claude Code) discovery of the redesigned package is not re-verified.",
+      "retiredEvidence": [
+        "plugins/apexrest-apex/skills/apexrest-install-dependencies/SKILL.md"
+      ]
     },
     {
       "id": "A02",
@@ -207,11 +209,13 @@
       "verification": "partial",
       "evidence": [
         "packages/core/src/deploy.ts",
-        "templates/database-control/install.sql",
         "tests/unit/deployment.test.ts",
         "docs/evidence/local-checks.json"
       ],
-      "blocker": "Default local checksum/history persistence, started-before-execution and interruption protection passed in fixtures. Actual Oracle DDL interruption/reconciliation remains unverified; database journal mode is optional."
+      "blocker": "Default local checksum/history persistence, started-before-execution and interruption protection passed in fixtures. Actual Oracle DDL interruption/reconciliation remains unverified; database journal mode is optional. 2026-10-04 redesign: templates/database-control/install.sql retired; no database-journal/control-table mode ships, local durable history and local coordination are the only modes.",
+      "retiredEvidence": [
+        "templates/database-control/install.sql"
+      ]
     },
     {
       "id": "A15",
@@ -220,11 +224,13 @@
       "verification": "partial",
       "evidence": [
         "packages/core/src/deploy.ts",
-        "templates/database-control/install.sql",
         "tests/unit/deployment.test.ts",
         "docs/evidence/local-checks.json"
       ],
-      "blocker": "Separate Node runner contention is covered by local fixtures within one managed home/schema. Independent homes/machines require external serialization or optional DB control; real distributed Oracle contention remains unverified."
+      "blocker": "Separate Node runner contention is covered by local fixtures within one managed home/schema. Independent homes/machines require external serialization or optional DB control; real distributed Oracle contention remains unverified. 2026-10-04 redesign: templates/database-control/install.sql retired; no database-journal/control-table mode ships, local durable history and local coordination are the only modes.",
+      "retiredEvidence": [
+        "templates/database-control/install.sql"
+      ]
     },
     {
       "id": "A16",
@@ -305,19 +311,13 @@
       "id": "A22",
       "criterion": "CLI and MCP apply policy and error classification consistently",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
         "tests/contracts/mcp.test.mjs",
         "packages/core/src/service.ts",
         "docs/evidence/local-checks.json",
         "docs/evidence/optimization-local.json",
-        "packages/cli/src/tui.ts",
-        "tests/unit/tui.test.ts",
-        "tests/contracts/tui.test.mjs",
-        "scripts/verify-tui.py",
         "docs/evidence/tui-local.json",
-        "packages/cli/src/tui-catalog.ts",
-        "packages/cli/src/tui-view.ts",
         "packages/installer/src/package-source.ts",
         "tests/contracts/setup-source.test.mjs",
         "tests/installers/native-source.test.ts",
@@ -330,9 +330,6 @@
         "docs/evidence/tui-focused-local.json",
         "docs/evidence/tui-direct-run-local.json",
         "docs/evidence/tui-apexlang-dashboard-local.json",
-        "packages/cli/src/tui-apexlang.ts",
-        "packages/cli/src/tui-home.ts",
-        "tests/unit/tui-apexlang.test.ts",
         "packages/core/src/sqlcl-config.ts",
         "packages/core/src/sqlcl-mcp.ts",
         "tests/unit/sqlcl-transport.test.ts",
@@ -340,7 +337,18 @@
         "docs/evidence/sqlcl-transport-local.json",
         "docs/evidence/sqlcl-transport-oracle-local.json"
       ],
-      "blocker": null
+      "blocker": "2026-10-04 redesign: the terminal UI (packages/cli/src/tui*.ts, scripts/verify-tui.py) and its evidence are retired, not current verification; the MCP surface was reduced to eleven composite tools and the CLI/MCP consistency evidence in tests/contracts/mcp.test.mjs must be re-run against the redesigned catalog before this row returns to passed.",
+      "retiredEvidence": [
+        "packages/cli/src/tui.ts",
+        "tests/unit/tui.test.ts",
+        "tests/contracts/tui.test.mjs",
+        "scripts/verify-tui.py",
+        "packages/cli/src/tui-catalog.ts",
+        "packages/cli/src/tui-view.ts",
+        "packages/cli/src/tui-apexlang.ts",
+        "packages/cli/src/tui-home.ts",
+        "tests/unit/tui-apexlang.test.ts"
+      ]
     },
     {
       "id": "A23",
@@ -388,19 +396,16 @@
       "id": "A26",
       "criterion": "Documentation distinguishes verified, experimental and planned capabilities and platform profiles",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
         "docs/implementation-status.md",
         "docs/next-actions.md",
         "toolchains/compatibility.json",
         "README.md",
-        "README.uk.md",
         "scripts/check-docs.mjs",
         "docs/evidence/documentation-bilingual.json",
         "docs/evidence/dependency-command-local.json",
         "docs/evidence/plugin-menu-local.json",
-        "docs/tui.md",
-        "docs/tui.uk.md",
         "docs/evidence/tui-local.json",
         "tests/unit/saved-connections.test.ts",
         "docs/evidence/tui-focused-local.json",
@@ -408,7 +413,12 @@
         "docs/evidence/installation-documentation-local.json",
         "docs/evidence/tui-apexlang-dashboard-local.json"
       ],
-      "blocker": null
+      "blocker": "2026-10-04 redesign: documentation is English only (README.uk.md, docs/*.uk.md retired; docs/evidence/documentation-bilingual.json is historical) and docs/tui.md is retired with the terminal UI; the redesigned docs set has not been re-verified against the status matrix.",
+      "retiredEvidence": [
+        "README.uk.md",
+        "docs/tui.md",
+        "docs/tui.uk.md"
+      ]
     },
     {
       "id": "A27",
@@ -458,16 +468,22 @@
     },
     {
       "id": "A30",
-      "criterion": "Optional Codex panel shows project/connection settings, browser preference and actual Oracle/APEX jobs without plugin task/session controls",
-      "implementation": "implemented",
-      "verification": "partial",
+      "criterion": "Retired: optional Codex panel server/UI; the read-only development status snapshot remains through apexrest_status detail:project",
+      "implementation": "retired",
+      "verification": "not_applicable",
       "evidence": [
+        "docs/panel.md",
+        "packages/core/src/panel.ts",
+        "tests/unit/panel.test.ts"
+      ],
+      "blocker": "2026-10-04 redesign: panel server, panel MCP tools and TUI removed; the snapshot is plain JSON for the host agent and CLI.",
+      "historicalCriterion": "Optional Codex panel shows project/connection settings, browser preference and actual Oracle/APEX jobs without plugin task/session controls",
+      "historicalEvidence": [
         "docs/panel.md",
         "packages/core/src/panel.ts",
         "tests/unit/panel.test.ts",
         "docs/evidence/current-session-100-local.json"
-      ],
-      "blocker": "Current local checks are recorded separately from historical desktop observations; no new Oracle deployment observation or broader platform rendering is implied."
+      ]
     },
     {
       "id": "A31",
@@ -494,7 +510,6 @@
       "verification": "partial",
       "evidence": [
         "docs/ords.md",
-        "docs/ords.uk.md",
         "packages/core/src/ords.ts",
         "resources/ords/OrdsBridge.java",
         "tests/unit/ords-transport.test.ts",
@@ -509,7 +524,10 @@
         "docs/evidence/ords-native.json",
         "docs/evidence/ords-connected.json"
       ],
-      "blocker": "Authorized live CLI no-op import/export and SQL backup verified on a private test target: deterministic pre-import exports and all 21 files identical after import. Changed imports, additional component/static-file/MMD variants, SQL restore, live interruption/reconciliation, remote rollback and Windows remain open. Application browser verification is explicitly deferred by the user. Native-host settings evidence is separate from connected CLI operation evidence."
+      "blocker": "Authorized live CLI no-op import/export and SQL backup verified on a private test target: deterministic pre-import exports and all 21 files identical after import. Changed imports, additional component/static-file/MMD variants, SQL restore, live interruption/reconciliation, remote rollback and Windows remain open. Application browser verification is explicitly deferred by the user. Native-host settings evidence is separate from connected CLI operation evidence. 2026-10-04 redesign: the Ukrainian companion document is retired; English documentation only.",
+      "retiredEvidence": [
+        "docs/ords.uk.md"
+      ]
     },
     {
       "id": "A33",
@@ -537,7 +555,6 @@
       "verification": "partial",
       "evidence": [
         "docs/optimization-review.md",
-        "docs/optimization-review.uk.md",
         "docs/evidence/plugin-efficiency-local.json",
         "docs/evidence/plugin-context-local.json",
         "docs/evidence/reference-ranking-cache-local.json",
@@ -546,7 +563,10 @@
         "tests/contracts/mcp.test.mjs",
         "scripts/benchmark-plugin-context.mjs"
       ],
-      "blocker": "Local byte and retrieval measurements plus isolated runtime tests only. End-to-end native APEX task latency, Oracle performance and billed-token savings remain unmeasured."
+      "blocker": "Local byte and retrieval measurements plus isolated runtime tests only. End-to-end native APEX task latency, Oracle performance and billed-token savings remain unmeasured. 2026-10-04 redesign: the Ukrainian companion document is retired; English documentation only.",
+      "retiredEvidence": [
+        "docs/optimization-review.uk.md"
+      ]
     },
     {
       "id": "A35",
@@ -555,7 +575,6 @@
       "verification": "partial",
       "evidence": [
         "docs/codex-automation.md",
-        "docs/codex-automation.uk.md",
         "docs/evidence/codex-automation-local.json",
         "docs/evidence/codex-automation-runtime.json",
         "tests/unit/job-tools.test.ts",
@@ -565,7 +584,10 @@
         "tests/contracts/mcp.test.mjs",
         "docs/evidence/current-session-100-local.json"
       ],
-      "blocker": "Local stdio MCP, CLI, synthetic nonempty test workers and mocked metadata adapter only. Native Codex end-to-end task latency, Oracle execution and billed-token savings are unmeasured."
+      "blocker": "Local stdio MCP, CLI, synthetic nonempty test workers and mocked metadata adapter only. Native Codex end-to-end task latency, Oracle execution and billed-token savings are unmeasured. 2026-10-04 redesign: the Ukrainian companion document is retired; English documentation only.",
+      "retiredEvidence": [
+        "docs/codex-automation.uk.md"
+      ]
     },
     {
       "id": "A36",
@@ -1005,15 +1027,16 @@
     },
     {
       "id": "CMP031",
-      "criterion": "Catalog panel із reviewable blueprint changes",
-      "implementation": "partial",
-      "verification": "partial",
+      "criterion": "Retired: Composer catalog panel with reviewable blueprint changes",
+      "implementation": "retired",
+      "verification": "not_applicable",
       "evidence": [
         "tests/unit/composer.test.ts",
         "tests/contracts/composer.test.mjs",
         "docs/evidence/composer-local.json"
       ],
-      "blocker": "Schema-driven parameter and full plan/diff experience remains incomplete."
+      "blocker": "2026-10-04 redesign: panel server and Composer MCP tools (apexrest_compose_*) removed; Composer remains a CLI/local workflow (scripts/composer-author.mjs, scripts/verify-composer.mjs) and tests/unit/composer-panel.test.ts is retired.",
+      "historicalCriterion": "Catalog panel із reviewable blueprint changes"
     },
     {
       "id": "CMP032",
@@ -1163,6 +1186,11 @@
       "date": "2026-09-29",
       "rule": "Explicit single-editor baseline reuse for existing development/test application-only changes: initial APEXlang and SQL exports, repeat local plan/apply without exports, baseline restore only. External edits require explicit resync; preserve unresolved-outcome and authorization protections.",
       "source": "docs/existing-app.md"
+    },
+    {
+      "date": "2026-10-04",
+      "rule": "Redesign: the MCP surface is eleven composite tools (apexrest_project, apexrest_reference, apexrest_metadata_read, apexrest_apex_validate, apexrest_ship, apexrest_apex_sync, apexrest_test_run, apexrest_browser_open, apexrest_job, apexrest_artifact_read, apexrest_status) and five skills (apexrest-work, apexrest-apexlang, apexrest-safety, apexrest-setup, apexrest-pattern-catalog); the terminal UI, panel server, panel and Composer MCP tools, the database-control template and Ukrainian documentation are retired. Claude Code is packaged through .claude-plugin manifests beside the Codex manifest. Rows citing retired files keep their historical evidence under retiredEvidence/historicalEvidence and are not current verification.",
+      "source": "packages/core/src/operations.ts"
     }
   ]
 }

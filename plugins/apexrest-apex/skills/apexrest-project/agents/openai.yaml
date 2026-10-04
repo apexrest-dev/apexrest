@@ -1,4 +1,0 @@
-interface:
-  display_name: "Projects"
-  short_description: "Create, adopt and inspect APEX projects"
-  default_prompt: "Use $apexrest-project. Help me create, adopt or inspect an APEXREST project."

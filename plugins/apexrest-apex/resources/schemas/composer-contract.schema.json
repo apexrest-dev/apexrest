@@ -19,11 +19,11 @@
         },
         "rowPredicate": {
           "type": "string",
-          "maxLength": 65536
+          "maxLength": 1048576
         },
         "expression": {
           "type": "string",
-          "maxLength": 65536
+          "maxLength": 1048576
         }
       },
       "required": [

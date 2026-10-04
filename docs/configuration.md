@@ -1,8 +1,6 @@
 # Configuration and connections
 
-English | [Українська](configuration.uk.md)
-
-Choose the verification browser (`codex` or `external`) in [panel settings](panel.md). Implementation uses the current Codex session and its permissions.
+Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (`codex` host browser or `external` system browser) is stored per project in `.apexrest/panel/preferences.json` as `{"browserMode":"codex"}`; `apexrest_browser_open` accepts `browserMode` to override it for one call, and `apexrest_status` `detail:project` reports the current value.
 
 A project has one `apexrest.json` and one pinned toolchain lock. `project init` creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.
 
@@ -24,8 +22,7 @@ Add an entry such as `environments.dev` to the generated `apexrest.json`:
     "serviceName": "YOUR_SERVICE"
   },
   "allowedOrigins": ["https://your-host.example"],
-  "expectedMarker": "apexrest-crm",
-  "deploymentControl": "local"
+  "expectedMarker": "apexrest-crm"
 }
 ```
 
@@ -35,16 +32,16 @@ The generated `schemas/project.schema.json` is the exact public schema. Unknown 
 
 ## List and test saved SQLcl connections
 
-Checking database access requires no project or APEXREST alias. Open **List saved SQLcl connections** or **Test saved SQLcl connection** in the [TUI](tui.md), choose a saved name and press Enter. Typing filters the list; Ctrl+R reloads it.
+Checking database access requires no project or APEXREST alias:
 
 ```sh
 apexrest connection list --saved --json
 apexrest connection test 'Development connection' --saved --json
 ```
 
-These commands read the SQLcl store directly and test the exact saved name with a read-only identity query. If the store is empty or credentials are missing, configure them in SQLcl. You can then register references for a project environment as described below. CLI commands without `--saved` use those references.
+These commands read the SQLcl store directly and test the exact saved name with a read-only identity query. If the store is empty or credentials are missing, configure them in SQLcl. You can then register references for a project environment as described below. CLI commands without `--saved` use those references; in the conversation, `apexrest_project` `action:connection_list` and `action:connection_test` do the same.
 
-For HTTP access when the listener is unreachable, configure plugin-level ORDS URL, username and password and select the network transport. See [SQL through ORDS](ords.md). The saved SQLcl connections below apply to direct access.
+The SQLcl mode (`cli` subprocess or `mcp`, the official SQLcl stdio server) and the database transport (`direct` listener or `ords`) are saved per managed home with `apexrest sqlcl configure --mode cli|mcp --database-transport direct|ords --json`; `apexrest sqlcl status --json` reads them. For HTTP access when the listener is unreachable, configure plugin-level ORDS URL, username and password and select the `ords` transport. See [SQL through ORDS](ords.md). The saved SQLcl connections below apply to direct access.
 
 ## Save connection references
 
@@ -72,18 +69,15 @@ Private policy lives at `$APEXREST_HOME/policy.json`, defaulting to `~/.apexrest
 
 Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` or `test` operations. A deploy grant, including one for restore, must also carry `planDigest` equal to the exact plan digest and an `expiresAt` no later than the plan's expiry; otherwise apply is blocked with `DEPLOY_APPROVAL_REQUIRED`. The policy schema still accepts a grant without `planDigest`, but such a grant never authorizes a deploy. Test grants bind project, target, operation and expiry.
 
-For an explicit request to create, update or import an identified development/test app, Codex may record the already supplied authorization as a short-lived grant with the exact current `planDigest`, `deploy` only and expiry no later than the plan. It retains a private authorization record, preserves unrelated grants and removes the task grant after the attempt. A project file or a tool response cannot supply that consent. Different targets, business-table mutations, authentication changes and protected production actions require their corresponding scope.
+For an explicit request to create, update or import an identified development/test app, `apexrest_ship` `mode:apply` records that already supplied authorization (the `userRequest` text) as a short-lived grant with the exact current `planDigest`, `deploy` only, `grantedBy: "ship"` and expiry no later than the plan. It preserves unrelated grants and removes the task grant after the attempt. A project file or a tool response cannot supply that consent, and the agent never edits grants by hand. Different targets, business-table mutations, authentication changes and protected production actions require their corresponding scope.
 
 Production requires the external signature workflow and the administrator-owned `$APEXREST_HOME/production-trust.json` described in [deployment safety](deployment-safety.md#production-approval); a writable local policy is not a substitute for a protected runner. A target listed in that file's `productionTargets` is production even when its `apexrest.json` environment has another `kind`.
 
-## Choose deployment coordination
+## Deployment coordination
 
-| Mode               | Storage and scope                                        | Operational requirement                                                                           |
-| ------------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `local` or omitted | Durable history and schema ownership in the managed home | Preserve that home; serialize independent machines externally                                     |
-| `database`         | Explicit optional control tables and database lease      | Install reviewed tables only with authorization; reconcile existing history before changing modes |
+Coordination is always local and is not configurable: durable migration history and schema ownership live in `$APEXREST_HOME/deployment-control/`, scoped to the database identity and parsing schema. No APEXREST service tables are needed or created. Plans bind the store identity. Deleting the local history or silently switching to a fresh home is not a recovery procedure.
 
-Local mode is the default and needs no APEXREST service tables. Plans bind the chosen backend and store identity. Deleting the local history or silently switching to a fresh home is not a recovery procedure. A selected database backend never silently falls back to local storage.
+The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. A former `deploymentControl` field is no longer accepted; remove it from `apexrest.json`.
 
 ## Select test scope
 

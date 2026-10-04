@@ -278,3 +278,54 @@ test('patterns are an optional public corpus and work without project or connect
     'REFERENCE_NOT_FOUND',
   );
 });
+
+test('pattern search prefers ready recipes, hides unresolved variants and resolves same-catalog links', async (t) => {
+  const root = await fixture(t);
+  const recipe = entry('dashboards/simple/recipes/basic', {
+    title: 'Simple dashboard composition / Композиція простої панелі показників',
+    searchText: 'Simple dashboard Проста панель показників dashboard дашборд',
+    requires: ['pattern:dashboards/simple/parameters', 'component:template-components/metric-card'],
+    related: ['pattern:dashboards/simple'],
+  });
+  await catalog(
+    root,
+    [
+      recipe,
+      entry('dashboards/simple', {
+        kind: 'contract',
+        title: 'Simple dashboard',
+        searchText: 'Simple dashboard dashboard',
+      }),
+      entry('dashboards/simple/parameters', {
+        kind: 'contract',
+        readiness: 'reference',
+        title: 'Simple dashboard parameters',
+        searchText: 'Simple dashboard parameters pageItemsToSubmit',
+      }),
+      entry('master-detail/split-view/recipes/basic', {
+        title: 'Split-view master detail',
+        searchText: 'master detail split view',
+        readiness: 'unresolved',
+      }),
+    ],
+    '# Simple dashboard\n\n```apexlang\npage 1 (\n    name: Dashboard\n)\n```\n',
+  );
+  const hits = await patternSearch('simple dashboard', '26.1');
+  assert.equal(hits[0]!.id, recipe.id);
+  assert.match(hits[0]!.code!.text, /name: Dashboard/);
+  assert.deepEqual(hits[0]!.requiresReferences, [
+    { id: 'pattern:dashboards/simple/parameters', title: 'Simple dashboard parameters', kind: 'contract' },
+    { id: 'component:template-components/metric-card', title: null, kind: null },
+  ]);
+  assert.equal(
+    (await patternSearch('pageItemsToSubmit', '26.1'))[0]!.id,
+    'pattern:dashboards/simple/parameters',
+  );
+  // "дашборд" inflections and the dashboard alias both reach the recipe.
+  assert.equal((await patternSearch('панель показників', '26.1'))[0]!.id, recipe.id);
+  assert.deepEqual(await patternSearch('master detail', '26.1'), []);
+  assert.equal(
+    (await patternSearch('master detail', '26.1', { includeUnresolved: true }))[0]!.readiness,
+    'unresolved',
+  );
+});

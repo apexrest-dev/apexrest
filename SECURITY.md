@@ -1,14 +1,12 @@
 # Security and privacy
 
-English | [Українська](SECURITY.uk.md)
-
 APEXREST handles executable application source and access to Oracle environments. Use explicit targets, reviewed project trust and least-privilege connections. The current beta has open verification gates; see [implementation status](docs/implementation-status.md).
 
 ## Report a vulnerability
 
 Do not include credentials, cookies, wallets, connection strings with passwords, real customer data or unredacted browser reports in public issues. No verified public security mailbox is configured. Contact the repository owner privately through an already verified channel; do not assume that an unverified email address belongs to the project.
 
-GitHub private vulnerability reporting must be enabled by the owner before it can be offered as a supported reporting channel. For ordinary non-sensitive bugs, use [GitHub issues](https://github.com/apexrest-dev/apexrest-codex/issues).
+GitHub private vulnerability reporting must be enabled by the owner before it can be offered as a supported reporting channel. For ordinary non-sensitive bugs, use [GitHub issues](https://github.com/apexrest-dev/apexrest/issues).
 
 ## Credentials and reports
 

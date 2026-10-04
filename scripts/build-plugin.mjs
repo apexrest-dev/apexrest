@@ -42,18 +42,6 @@ for (const folder of bundled) {
 for (const folder of ['toolchains', 'schemas', 'templates'])
   await cp(folder, `dist/resources/${folder}`, { recursive: true });
 await cp('resources', 'dist/resources', { recursive: true });
-await mkdir('dist/resources/panel', { recursive: true });
-for (const file of ['index.html', 'panel.css'])
-  await cp('packages/panel/src/' + file, 'dist/resources/panel/' + file);
-await build({
-  entryPoints: ['packages/panel/src/panel.ts'],
-  outfile: 'dist/resources/panel/panel.js',
-  bundle: true,
-  platform: 'browser',
-  format: 'iife',
-  target: 'es2022',
-  loader: { '.svg': 'dataurl' },
-});
 await build({
   entryPoints: ['packages/testkit/src/apex.ts'],
   outfile: 'dist/resources/testkit/apex.mjs',
@@ -112,6 +100,52 @@ await writeFile(
     2,
   ) + '\n',
 );
+// Claude Code reads the same skills and runtime through its own manifest. The MCP
+// server path uses the host-expanded plugin root, so no cwd assumption is needed.
+await mkdir(`${root}/.claude-plugin`, { recursive: true });
+await writeFile(
+  `${root}/.claude-plugin/plugin.json`,
+  JSON.stringify(
+    {
+      name: 'apexrest',
+      version: metadata.version,
+      description: metadata.description,
+      author: metadata.author,
+      homepage: 'https://apex.rest',
+      repository: 'https://github.com/apexrest-dev/apexrest',
+      license: metadata.license,
+      keywords: ['oracle', 'apex', 'apexlang', 'sqlcl', 'ords'],
+      skills: './skills/',
+      mcpServers: {
+        apexrest: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'] },
+      },
+    },
+    null,
+    2,
+  ) + '\n',
+);
+await mkdir(`dist/${profile}/.claude-plugin`, { recursive: true });
+await writeFile(
+  `dist/${profile}/.claude-plugin/marketplace.json`,
+  JSON.stringify(
+    {
+      name: 'apexrest',
+      owner: { name: 'APEXREST', url: 'https://apex.rest' },
+      metadata: { description: 'Oracle APEX development, deployment and testing', version: metadata.version },
+      plugins: [
+        {
+          name: 'apexrest',
+          source: './plugins/apexrest-apex',
+          description: metadata.description,
+          version: metadata.version,
+          category: 'productivity',
+        },
+      ],
+    },
+    null,
+    2,
+  ) + '\n',
+);
 await mkdir(`dist/${profile}/.agents/plugins`, { recursive: true });
 await writeFile(
   `dist/${profile}/.agents/plugins/marketplace.json`,
@@ -132,4 +166,4 @@ await writeFile(
     2,
   ) + '\n',
 );
-console.log('Built the self-contained Codex native package.');
+console.log('Built the self-contained Codex and Claude Code plugin package.');

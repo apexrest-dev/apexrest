@@ -1,8 +1,8 @@
-# APEXREST Composer
+# APEXREST Composer (experimental, CLI only)
 
-English | [Українська](composer.uk.md)
+Composer builds local APEXlang source from exact executable blocks and explicit dataset/API contracts. It extends an existing application and preserves Oracle `.apex`, authentication, authorization and unmanaged bytes.
 
-Composer builds local APEXlang source from exact executable blocks and explicit dataset/API contracts. It extends an existing application and preserves Oracle `.apex`, authentication, authorization and unmanaged bytes. It works in the current Codex chat. The `1.3.0-beta.1` beta package contains 21 MCP tools and 14 focused skills, including `$apexrest-compose`; published 1.2.0 remains the stable release.
+**Status.** Composer is experimental and reachable only through the CLI (`apexrest compose plan|materialize`, `apexrest docs search --corpus blocks|blueprints`). The redesign removed its MCP tools (`apexrest_compose_plan`, `apexrest_compose_materialize`), the `$apexrest-compose` skill and the panel Catalog; the `apexrest_reference` tool still accepts `corpus: "blocks"` and `corpus: "blueprints"` for offline reading. A later phase replaces the block library with an **App Spec compiler** that turns a reviewed application specification into APEXlang through the same validate/ship cycle; until then, treat Composer as a maintained prototype, not the primary way to generate applications. The published `1.3.0-beta.1` package still ships the Composer MCP tools and skill described in its [release notes](release-notes.md).
 
 ## Use a block
 
@@ -16,17 +16,15 @@ apexrest compose materialize --plan plans/composition.json --expected-digest SHA
 
 Start with the bundled CRM or Service Desk blueprint. Replace fixture objects and authorization contracts with reviewed project contracts. Offline is the default; `--mode connected --env NAME` explicitly reads bounded parsing-schema metadata without reading business rows. Missing keys, authorization, exact API signatures or supported adapters block planning.
 
-Plan compilation uses the real local SQLcl compiler on a complete staged application. It performs no import or fixture SQL execution. Plans bind blueprint, source inventory, state, catalog/generator, configuration and toolchain digests. Review their contracts, effects, allocations and file preimages before materializing. MCP returns durable jobs and bounded artifacts; poll the existing job ID instead of rerunning work.
+Plan compilation uses the real local SQLcl compiler on a complete staged application. It performs no import or fixture SQL execution. Plans bind blueprint, source inventory, state, catalog/generator, configuration and toolchain digests. Review their contracts, effects, allocations and file preimages before materializing. Materialized source then goes through the ordinary `apexrest_apex_validate` and `apexrest_ship` cycle.
 
-## Catalog
+## Blocks and blueprints
 
-The panel Catalog searches EN/UK aliases and shows contracts, parameters, effects, provenance and independent qualification. Add to blueprint presents a diff before an explicit local write. Plan runs offline; Materialize requires a current materializable plan. Source previews are text and never execute catalog HTML/JavaScript. Discovery also supports `corpus: blocks|blueprints`; existing defaults remain `apexlang`.
-
-Six experimental blocks implement report/API dialog, status summary, filtered list, read-only detail, history timeline and a self-referencing master-detail read view. CRM demonstrates list → API dialog → refresh list and summary. Service Desk demonstrates read views over tickets. These are bounded first adapters, not arbitrary APEX transformers.
+Six experimental blocks implement report/API dialog, status summary, filtered list, read-only detail, history timeline and a self-referencing master-detail read view. CRM demonstrates list → API dialog → refresh list and summary. Service Desk demonstrates read views over tickets. These are bounded first adapters, not arbitrary APEX transformers. Discovery searches EN/UK aliases and returns contracts, parameters, effects, provenance and independent qualification; source previews are text and never execute catalog HTML/JavaScript.
 
 ## Qualification and maintenance
 
-See [contracts](composer/contracts.md), [maintenance and recovery](composer/maintenance.md), [authoring](composer/authoring.md), [security](composer/security.md), [qualification](composer/qualification.md), the [42-task ledger](composer/ledger.json) and [ADR](adr/009-composer-local.md).
+See [contracts](composer/contracts.md), [maintenance and recovery](composer/maintenance.md), [authoring](composer/authoring.md), [security](composer/security.md), [qualification](composer/qualification.md), the [42-task ledger](composer/ledger.json), the [audit](composer/audit.md) and [ADR 009](adr/009-composer-local.md). Those pages predate the removal of the Composer MCP tools and panel; references to panel controls or MCP routes in them are historical.
 
 The [Composer implementation plan](../APEXREST_COMPOSER_IMPLEMENTATION_PLAN.md) is historical working input, written in Ukrainian and preserved unchanged without an English companion. It describes planned work, not the current product contract; the audit and ledger record actual status.
 

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import path from 'node:path';
 import { homedir } from 'node:os';
-import { access, constants, open, realpath } from 'node:fs/promises';
-import { canonical, contained, exists, hash, readJson } from './fs.ts';
+import { access, constants, mkdir, open, realpath } from 'node:fs/promises';
+import { canonical, contained, exists, hash, readJson, withLock, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 export const identifier = z.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/);
 export const refName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/);
@@ -26,7 +26,6 @@ export const environmentSchema = z.strictObject({
   databaseIdentity: z.strictObject({ dbUniqueName: z.string().min(1), serviceName: z.string().min(1) }),
   allowedOrigins: z.array(z.url()).default([]),
   expectedMarker: z.string().min(1).optional(),
-  deploymentControl: z.enum(['local', 'database']).optional(),
 });
 export const projectSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -120,14 +119,31 @@ export const policySchema = z.strictObject({
         .string()
         .regex(/^[a-f0-9]{64}$/)
         .optional(),
+      // A grant recorded by apexrest_ship keeps the user's literal instruction
+      // and its origin so the authorization record stays auditable.
+      note: z.string().max(2000).optional(),
+      grantedBy: z.enum(['user', 'ship']).optional(),
+      grantedAt: z.iso.datetime().optional(),
     }),
   ),
 });
-export async function policy() {
-  const file = path.join(managedHome(), 'policy.json');
+export type Policy = z.infer<typeof policySchema>;
+export type PolicyGrant = Policy['grants'][number];
+export const policyFile = () => path.join(managedHome(), 'policy.json');
+export async function policy(): Promise<Policy> {
+  const file = policyFile();
   return (await exists(file))
     ? parse(policySchema, await readJson(file))
     : { schemaVersion: 1 as const, trustedProjects: [], grants: [] };
+}
+/** Atomically rewrite the user policy under its lock; unrelated entries are preserved. */
+export async function updatePolicy(mutate: (current: Policy) => Policy) {
+  await mkdir(managedHome(), { recursive: true, mode: 0o700 });
+  return withLock(path.join(managedHome(), 'policy.lock'), async () => {
+    const next = parse(policySchema, mutate(await policy()));
+    await writeJson(policyFile(), next);
+    return next;
+  });
 }
 export async function requireTrust(root: string) {
   if (!(await policy()).trustedProjects.includes(await realpath(root)))

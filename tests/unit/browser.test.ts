@@ -23,20 +23,21 @@ async function setup(t: import('node:test').TestContext) {
     else process.env.APEXREST_HOME = before;
     await rm(ctx.root, { recursive: true, force: true });
   });
-  return { ctx, panel: new PanelService(ctx.root) };
+  const preferences = path.join(ctx.root, '.apexrest/panel/preferences.json');
+  return { ctx, panel: new PanelService(ctx.root), preferences };
 }
 
 test('browser preferences default to Codex and ignore obsolete execution settings', async (t) => {
-  const { ctx, panel } = await setup(t);
+  const { ctx, panel, preferences } = await setup(t);
   assert.deepEqual(await browserPreferences(ctx.root), { browserMode: 'codex' });
-  await writeJson(path.join(ctx.root, '.apexrest/panel/preferences.json'), {
+  await writeJson(preferences, {
     executionMode: 'team',
     multiAgentEnabled: true,
     developers: 3,
     browserMode: 'external',
   });
   assert.deepEqual(await panel.preferences(), { browserMode: 'external' });
-  await panel.act({ kind: 'preferences', settings: { browserMode: 'codex' } });
+  await writeJson(preferences, { browserMode: 'codex' });
   assert.deepEqual((await panel.snapshot()).preferences, { browserMode: 'codex' });
 });
 
@@ -52,8 +53,8 @@ test('Codex browser route requires a host action and never launches a system bro
 });
 
 test('external browser selection dispatches the exact configured target and reports launch failure', async (t) => {
-  const { ctx, panel } = await setup(t);
-  await panel.act({ kind: 'preferences', settings: { browserMode: 'external' } });
+  const { ctx, preferences } = await setup(t);
+  await writeJson(preferences, { browserMode: 'external' });
   let launched = '';
   const result = await openVerificationBrowser(ctx, 'dev', async (options) => {
     launched = JSON.stringify(options);
@@ -76,8 +77,8 @@ test('external browser selection dispatches the exact configured target and repo
 });
 
 test('explicit browser selection takes precedence and invalid targets are never launched', async (t) => {
-  const { ctx, panel } = await setup(t);
-  await panel.act({ kind: 'preferences', settings: { browserMode: 'external' } });
+  const { ctx, preferences } = await setup(t);
+  await writeJson(preferences, { browserMode: 'external' });
   const result = await openVerificationBrowser(
     ctx,
     'dev',

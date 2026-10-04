@@ -1,7 +1,5 @@
 # Pattern catalog
 
-English | [Українська](pattern-catalog.uk.md)
-
 Find a reusable Oracle APEX UX composition and adapt its APEXlang recipe to your application. The pattern catalog is separate from the [component catalog](component-catalog.md): components describe individual building blocks; patterns preserve the layout, data flow and interaction between them. Both are local resources used by the agent through the existing reference tools. Pattern lookup needs no database connection, catalog UI or automatic insertion step.
 
 This catalog and its maintenance skill are published in `apexrest@1.2.0`. The [1.2.0 publication record](evidence/npm-120-publication.json) confirms registry integrity and clean installs; the [1.1.0 publication record](evidence/npm-110-publication.json) describes the previous component-catalog release. Updating an installed plugin cache remains a separate action.
@@ -12,10 +10,11 @@ This catalog and its maintenance skill are published in `apexrest@1.2.0`. The [1
 apexrest docs search --corpus patterns --query "search" --kind template --version 26.1 --limit 3 --json
 ```
 
-The equivalent MCP call is `apexrest_reference_search`:
+The equivalent MCP call is `apexrest_reference` with `mode: "search"`:
 
 ```json
 {
+  "mode": "search",
   "corpus": "patterns",
   "query": "search",
   "kind": "template",
@@ -24,7 +23,9 @@ The equivalent MCP call is `apexrest_reference_search`:
 }
 ```
 
-Read a returned `pattern:` ID with `apexrest_reference_read` or `apexrest docs read --id ID --json`. Follow `nextOffset` for the needed continuation and `nextResultOffset` for more matches. English and Ukrainian search names refer to the same records. The default corpus remains `apexlang`; `component:` and existing Oracle reference IDs retain their meaning.
+Read a returned `pattern:` ID with `apexrest_reference` `mode: "read"` or `apexrest docs read --id ID --json`. Follow `nextOffset` for the needed continuation and `nextResultOffset` for more matches. English and Ukrainian search names refer to the same records; inflected forms (`панель показників`, `панелі показників`) match the same stem. The default corpus remains `apexlang`; `component:` and existing Oracle reference IDs retain their meaning.
+
+Search matches any of the query terms (at least half must match) and ranks a ready recipe whose title starts with the query above its pattern contract, so `simple dashboard` returns the composition with its primary `apexlang` block inline (`code`, bounded to 2,500 characters with `truncated` and `length`; `include: "code"` for every hit, `include: "metadata"` for none). Unresolved variants and concepts are hidden unless `includeUnresolved: true` is set; an exact ID always resolves. `requiresReferences` and `relatedReferences` resolve linked `pattern:` IDs to `{ id, title, kind }` (three per hit, sixteen on read); `component:` and `oracle:` targets keep `title: null` and are read through their own corpus. Pages stay within the existing 7,000-byte budget.
 
 Inspect the current project's source, APEX version, theme and MMD before choosing a recipe. Read its data contract and required `component:`/`oracle:` references. Adapt page and item names, DOM IDs, keys, SQL projections, submitted items, actions and shared references together. Merge the composition into the existing application without copying the source application's authentication or configuration. Compile the adapted application and use the existing authorized deployment and browser-verification workflow.
 
@@ -52,7 +53,7 @@ The observed sources and original recipes have concrete limits:
 
 Invoke `$apexrest-pattern-catalog` to add or refresh catalog entries from an identified APEX application. The skill handles catalog maintenance; ordinary use of an existing pattern follows `$apexrest-apexlang`.
 
-Maintainer capture/build helpers run from the [APEXREST source repository](https://github.com/apexrest-dev/apexrest-codex). An installed plugin can search existing patterns without that checkout. Do not edit the installed plugin cache or assume repository scripts are bundled beside its skills.
+Maintainer capture/build helpers run from the [APEXREST source repository](https://github.com/apexrest-dev/apexrest). An installed plugin can search existing patterns without that checkout. Do not edit the installed plugin cache or assume repository scripts are bundled beside its skills.
 
 Set `PATTERN_CONNECTION`, `PATTERN_APPLICATION_ID`, `PATTERN_WORKSPACE` and `PATTERN_SCHEMA` to the approved read-only source. Set `PATTERN_SOURCE_ID` to a stable non-sensitive slug; it is required in both capture modes. Capture to a fresh private directory:
 
@@ -111,6 +112,6 @@ node scripts/build-pattern-catalog.mjs
 node scripts/build-pattern-catalog.mjs --check
 ```
 
-Verify every recipe declared ready, rebuild the catalog and check deterministic output, dependencies, evidence hashes, bounded retrieval and package portability. A focused verification run does not waive evidence requirements for other ready recipes. Update English/Ukrainian documentation together. Catalog maintenance does not publish a release or authorize an application import.
+Verify every recipe declared ready, rebuild the catalog and check deterministic output, dependencies, evidence hashes, bounded retrieval and package portability. A focused verification run does not waive evidence requirements for other ready recipes. Update this guide with the catalog counts. Catalog maintenance does not publish a release or authorize an application import.
 
 See [implementation status](implementation-status.md), the [acceptance matrix](acceptance.json) and [next actions](next-actions.md) for current evidence and remaining work.

@@ -1,35 +1,25 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { readdir, realpath, stat } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { contained, exists, readJson, writeJson } from './fs.ts';
-import { loadProject, parse, policy, requireTrust } from './config.ts';
+import { contained, exists, readJson } from './fs.ts';
+import { loadProject, policy } from './config.ts';
 import { sanitized, Fault } from './result.ts';
-import { sqlclConfig, configureSqlcl } from './sqlcl-config.ts';
-import { connections, configureConnection } from './connections.ts';
+import { sqlclConfig } from './sqlcl-config.ts';
+import { connections } from './connections.ts';
 import { JobService } from './jobs.ts';
-import { panelActionSchema, type PanelAction } from './panel-schema.ts';
 import { browserPreferences } from './browser-preferences.ts';
-import { openVerificationBrowser } from './browser.ts';
 import { SyncStore } from './sync.ts';
-import { catalogSearch, catalogRead } from './composer/catalog.ts';
-import { blueprintAdd } from './composer/service.ts';
-import { blueprintSchema } from './composer/schemas.ts';
-import { readDocument, semanticDigest } from './composer/formats.ts';
-import { assessPlan } from './composer/materializer.ts';
 import { VERSION } from './version.ts';
 import { runProcess } from './process.ts';
-import { OracleAdapter } from './oracle.ts';
 
+// Read-only development status snapshot for `panel.status`. It reads local
+// project state (jobs, deployment journal, working-copy sync, Git changes and
+// settings) and never starts a server, a worker, a job or a database call.
 type Row = Record<string, unknown>;
 const safe = <T>(value: T) => sanitized(value) as T;
 const historyLimit = 2000;
 export class PanelService {
-  constructor(
-    private root: string,
-    private oracle: Pick<OracleAdapter, 'savedConnections'> = new OracleAdapter(),
-  ) {}
+  constructor(private root: string) {}
   async preferences() {
     return browserPreferences(this.root);
   }
@@ -72,7 +62,7 @@ export class PanelService {
             return {
               id: f.id,
               status: 'unavailable',
-              diagnostics: ['Record exceeds the panel limit.'],
+              diagnostics: ['Record exceeds the status limit.'],
             } as Row;
           try {
             return { ...((await readJson(f.file)) as Row), id: f.id };
@@ -108,7 +98,7 @@ export class PanelService {
           try {
             state = (await new JobService(ctx).status(String(row.id))) as Row;
           } catch {
-            // One unreadable job record must not hide the rest of the panel.
+            // One unreadable job record must not hide the rest of the snapshot.
             state = {
               ...row,
               status: 'unavailable',
@@ -197,79 +187,6 @@ export class PanelService {
           .map((g) => ({ operations: g.operations, expiresAt: g.expiresAt, exactPlan: !!g.planDigest })),
       },
     });
-  }
-  async act(action: PanelAction) {
-    action = parse(panelActionSchema, { action }).action;
-    this.root = await realpath(this.root);
-    await requireTrust(this.root);
-    if (action.kind === 'saved-connections') return this.oracle.savedConnections();
-    if (action.kind === 'preferences') {
-      const settings = { ...(await this.preferences()), ...action.settings };
-      await writeJson(await contained(this.root, '.apexrest/panel/preferences.json'), settings);
-      return { saved: true, appliesTo: 'browser-verification' };
-    }
-    if (action.kind === 'sqlcl') {
-      return configureSqlcl(
-        action.settings.mode,
-        action.settings.mcpRestrictLevel,
-        action.settings.databaseTransport,
-      );
-    }
-    if (action.kind === 'connection') return configureConnection(action.name, action);
-    if (action.kind === 'catalog-search')
-      return catalogSearch(action.query, {
-        project: this.root,
-        limit: 8,
-        ...(action.profile ? { profile: action.profile } : {}),
-      });
-    if (action.kind === 'catalog-read') return catalogRead(action.id, action.offset, 8192, this.root);
-    const ctx = await loadProject(this.root);
-    if (action.kind === 'blueprint-read') {
-      const blueprint = await readDocument(this.root, action.blueprint, blueprintSchema);
-      return { blueprint, digest: semanticDigest(blueprint) };
-    }
-    if (action.kind === 'blueprint-add')
-      return blueprintAdd(
-        ctx,
-        action.blueprint,
-        action.instanceId,
-        action.instance,
-        action.expectedDigest,
-        action.apply,
-      );
-    if (action.kind === 'compose-status') {
-      const job = await new JobService(ctx).status(action.id);
-      const result = ('result' in job ? job.result : null) as {
-        data?: { plan?: string; planDigest?: string };
-      } | null;
-      let materializable = false;
-      if (result?.data?.plan && result.data.planDigest)
-        materializable = await assessPlan(ctx, result.data.plan, result.data.planDigest);
-      return { job, materializable };
-    }
-    if (action.kind === 'compose-plan' || action.kind === 'compose-materialize') {
-      const { kind, ...input } = action;
-      return new JobService(ctx).start(
-        kind === 'compose-plan' ? 'compose.plan' : 'compose.materialize',
-        input,
-        path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
-      );
-    }
-    if (action.kind === 'browser') return openVerificationBrowser(ctx, action.env);
-    if (action.kind === 'cancel-job') return new JobService(ctx).cancel(action.id);
-    const operation =
-      action.kind === 'validate' ? 'apex.validate' : action.kind === 'plan' ? 'deploy.plan' : 'test.run';
-    const input =
-      action.kind === 'plan'
-        ? { env: action.env, out: '.apexrest/plans/' + randomUUID() + '.json' }
-        : action.kind === 'test'
-          ? { suite: action.suite, ...(action.env ? { env: action.env } : {}) }
-          : {};
-    return new JobService(ctx).start(
-      operation,
-      input,
-      path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
-    );
   }
 }
 export type PanelSnapshot = Awaited<ReturnType<PanelService['snapshot']>>;

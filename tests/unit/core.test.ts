@@ -258,9 +258,27 @@ test('filesystem lock excludes concurrent setup and releases on error', async ()
   assert.equal(await withLock(lock, async () => 42), 42);
 });
 test('catalog stays bounded with strict schemas and no generic execution tool', () => {
-  assert.equal(toolCatalog.length, 21);
+  assert.equal(toolCatalog.length, 11);
   assert.ok(toolCatalog.every((t) => !/(shell|any_sql|any_file)/.test(t.name)));
   assert.equal(toolCatalog.find((t) => t.operation === 'test.run')!.readOnly, false);
+  assert.equal(toolCatalog.find((t) => t.operation === 'apex.validate')!.readOnly, true);
+  assert.deepEqual(
+    toolCatalog.filter((t) => t.destructive).map((t) => t.name),
+    ['apexrest_ship', 'apexrest_job'],
+  );
+  for (const removed of [
+    'compose.plan',
+    'apex.generate',
+    'apex.export',
+    'deploy.apply',
+    'panel.status',
+    'doctor',
+  ])
+    assert.equal(
+      toolCatalog.some((t) => t.operation === removed),
+      false,
+      removed,
+    );
 });
 test('CLI/shared service fails invalid commands with stable exit codes', async () => {
   assert.equal((await dispatch('not-a-command')).exitCode, 2);

@@ -9,6 +9,7 @@ import { toolOutput } from '../../packages/mcp/src/output.ts';
 const receipt = {
   jobId: '12345678-1234-4123-8123-123456789abc',
   status: 'queued',
+  runner: 'detached-worker',
   nextAction: 'Wait for this job.',
 } as const;
 const input = { project: '/fixture', env: 'dev' };
@@ -47,6 +48,7 @@ test('long MCP tools start once and return completed nested outcomes without the
     const { jobs, starts, reads } = fixture(state);
     assert.deepEqual(await runJobTool(jobs, 'deploy.apply', input, runtime), {
       ...state,
+      runner: receipt.runner,
       jobId: receipt.jobId,
     });
     assert.deepEqual(starts, [['deploy.apply', input, runtime]]);
@@ -146,6 +148,7 @@ test('expired worker outcomes preserve their reconciliation instruction', async 
   const { jobs } = fixture(state);
   assert.deepEqual(await runJobTool(jobs, 'deploy.apply', input, runtime), {
     ...state,
+    runner: receipt.runner,
     jobId: receipt.jobId,
   });
 });

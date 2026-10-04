@@ -1,12 +1,10 @@
 # SQL through ORDS
 
-English | [Українська](ords.uk.md)
-
-Use **Settings → Database network transport → ORDS HTTP(S)** when the Oracle listener, commonly on port 1521, is unreachable but the schema's ORDS endpoint is available. This is a plugin-wide preference for new operations. Existing operations keep their selected transport. Direct Oracle connections remain available when you switch back.
+Select the `ords` database transport (`apexrest sqlcl configure --mode cli --database-transport ords`) when the Oracle listener, commonly on port 1521, is unreachable but the schema's ORDS endpoint is available. This is a plugin-wide preference for new operations. Existing operations keep their selected transport. Direct Oracle connections remain available when you switch back.
 
 ## Configure the connection
 
-Open the local development dashboard and save an APEXREST connection reference with the schema URL, **Database username** and **Database password**. Use the credentials of an existing Oracle database account allowed to access the schema through ORDS; no separate ORDS account is needed. Saving the reference configures the plugin to use that account. Use separate references for `readConnectionRef` and `deployConnectionRef` when their privileges differ. The URL identifies the REST-enabled schema, for example `https://ords.example.invalid/ords/app_user/`; its schema alias can differ from the database username. Use the schema URL provided by your administrator, rather than an APEX application URL or a `/_/sql` URL. The URL must use `https:`; plain `http:` is accepted only for `localhost`, `127.0.0.1` or `[::1]`, because it would expose the database password.
+Save an APEXREST connection reference with the schema URL, the database username and a password file (`apexrest connection add`, or `apexrest_project` `action:connection_add` with `ordsUrl`, `ordsUsername` and `passwordFile` in the conversation). Use the credentials of an existing Oracle database account allowed to access the schema through ORDS; no separate ORDS account is needed. Saving the reference configures the plugin to use that account. Use separate references for `readConnectionRef` and `deployConnectionRef` when their privileges differ. The URL identifies the REST-enabled schema, for example `https://ords.example.invalid/ords/app_user/`; its schema alias can differ from the database username. Use the schema URL provided by your administrator, rather than an APEX application URL or a `/_/sql` URL. The URL must use `https:`; plain `http:` is accepted only for `localhost`, `127.0.0.1` or `[::1]`, because it would expose the database password.
 
 The equivalent interactive Oracle connection is:
 
@@ -16,9 +14,9 @@ connect -orest app_user@https://ords.example.invalid/ords/app_user/
 
 APEXREST stores the transport in `$APEXREST_HOME/sqlcl.json`, connection metadata in `$APEXREST_HOME/connections.json`, and passwords separately under `$APEXREST_HOME/credentials/`. These are plugin-level local files, normally under `~/.apexrest`, rather than project files. Secret files use owner-only permissions on POSIX; they are not an encrypted password vault. Do not copy them into source control or share them. SQLcl saved connections are used only for the direct transport; ORDS does not require saving a connection in SQLcl.
 
-The local dashboard's **Database password** field stays blank when editing a saved reference. Leaving it empty preserves the existing value for the same endpoint and database username. Changing either requires credentials for the new identity. The embedded MCP view does not submit passwords through tool calls: use the local dashboard or the CLI's `--password-file` option. The CLI reads a local password file rather than taking the password as an argument. That file must be a regular file, not a symbolic link, and on POSIX it must be accessible only by its owner (`chmod 600`); otherwise the command fails with `PASSWORD_FILE_UNSAFE`.
+Passwords never travel through chat or tool arguments: the CLI and the `apexrest_project` tool read a local password file rather than taking the password as a value. Omitting `--password-file` when updating a reference preserves the existing password for the same endpoint and database username; changing either requires credentials for the new identity. The file must be a regular file, not a symbolic link, and on POSIX it must be accessible only by its owner (`chmod 600`); otherwise the command fails with `PASSWORD_FILE_UNSAFE`.
 
-When you switch back to **Direct Oracle listener**, choose an existing saved SQLcl connection from the settings selector. Opening Direct connection settings loads the local SQLcl connection names without opening a database session; **Refresh saved connections** reloads them on request. Loading, empty-list and error states are shown in the panel, with **Retry** after a failure. Ordinary panel refreshes do not repeatedly load this list. Switching transport preserves both the direct mapping and the saved ORDS credentials for the reference. See [panel controls](panel.md).
+When you switch back to the `direct` transport, the reference's saved SQLcl connection name (`--sqlcl-name`) applies again. Switching transport preserves both the direct mapping and the saved ORDS credentials for the reference; `apexrest_status` `detail:project` lists the references without secrets.
 
 ```sh
 apexrest connection add dev-read \
@@ -35,7 +33,7 @@ The sample hostname and username are examples, not a configured or verified targ
 
 ## APEXlang import and export
 
-ORDS uses SQLcl's OREST driver for SQL and metadata queries. The execution backend is CLI; selecting official SQLcl MCP together with ORDS is rejected explicitly. APEXREST's own Codex MCP tools remain available.
+ORDS uses SQLcl's OREST driver for SQL and metadata queries. The execution backend is CLI; selecting official SQLcl MCP together with ORDS is rejected explicitly. APEXREST's own MCP tools remain available. ORDS sessions keep one SQLcl process per call; the pooled SQLcl engine applies to offline compiler work and SQLcl `mcp` mode only.
 
 For metadata queries, the adapter initializes bind values with SQLcl's client-side `VARIABLE ... = ...` syntax. This avoids a separate `EXEC` request for an output bind, which the REST driver can reject with `ORA-17283`.
 

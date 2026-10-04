@@ -1,26 +1,26 @@
 # Testing and verification
 
-English | [Українська](testing.uk.md)
-
-Choose checks that establish the behavior being changed, then record what actually ran. Unit fixtures, compiler validation, connected Oracle results, native Codex discovery and browser observations are different evidence classes.
+Choose checks that establish the behavior being changed, then record what actually ran. Unit fixtures, compiler validation, connected Oracle results, host plugin discovery and browser observations are different evidence classes. This page is the canonical home of the browser verification rule applied by the [work skill](../plugins/apexrest-apex/skills/apexrest-work/SKILL.md) (step 7) and required by the project rules in `AGENTS.md`.
 
 ## Local development checks
 
-| Command                   | What it establishes                                                            |
-| ------------------------- | ------------------------------------------------------------------------------ |
-| `npm run lint`            | Repository formatting and source conventions                                   |
-| `npm run typecheck`       | TypeScript consistency                                                         |
-| `npm run test:unit`       | Core behavior and labelled failure/concurrency fixtures                        |
-| `npm run test:contracts`  | Real CLI and stdio MCP contract behavior, without claiming Oracle connectivity |
-| `npm run test:installers` | Download, archive, integrity and platform fixtures                             |
-| `npm run test:packaging`  | Built package schemas, containment, runtime and site checks                    |
-| `npm run site:build`      | Local documentation site generation                                            |
+| Command                   | What it establishes                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run lint`            | Repository formatting and source conventions                                                       |
+| `npm run typecheck`       | TypeScript consistency                                                                             |
+| `npm run test:unit`       | Core behavior and labelled failure/concurrency fixtures, including the SQLcl session pool          |
+| `npm run test:contracts`  | Real CLI and stdio MCP contract behavior (11-tool catalog, `ship`, `job`, `status`) without Oracle |
+| `npm run test:installers` | Download, archive, integrity and platform fixtures                                                 |
+| `npm run test:packaging`  | Built package schemas, containment, runtime, Codex and Claude Code manifests, site checks          |
+| `npm run docs:check`      | Local links, anchors and documented `node scripts/...` and `npm run` commands                      |
+| `npm run plugin:check`    | The checked-in bundle matches a fresh build                                                        |
+| `npm run site:build`      | Local documentation site generation                                                                |
 
-Build with `npm run build` before checks that consume `dist/`. The [implementation status](implementation-status.md) records dated results; this command list does not imply that every current release platform or Oracle scenario has passed.
+Build with `npm run build` before checks that consume `dist/`. When the `claude` CLI is installed, the packaging tests also run `claude plugin validate --strict` on the plugin and the marketplace. The [implementation status](implementation-status.md) records dated results; this command list does not imply that every current release platform or Oracle scenario has passed.
 
-## Native host and Oracle checks
+## Host and Oracle checks
 
-`npm run test:repository-plugin` installs the bundled plugin into an isolated Codex profile and checks registration plus installed CLI/stdio MCP behavior. This does not invoke a model or prove desktop rendering or native tool discovery inside a conversation; those observations require a real host session.
+`npm run test:repository-plugin` installs the bundled plugin into an isolated Codex profile and checks registration plus installed CLI/stdio MCP behavior. It does not invoke a model or prove that a host loaded the skills or tools in a conversation; those observations require a real Codex or Claude Code session.
 
 `node scripts/oracle-smoke.mjs` runs generation and validation with installed SQLcl, without connecting to a database. It records real compiler and MMD output for the blank and CRM templates. It does not establish a successful database import.
 
@@ -32,23 +32,29 @@ Build with `npm run build` before checks that consume `dist/`. The [implementati
 - `APEXREST_INTEGRATION_ALLOW_WRITES=true` before any apply, with independently authorized mutation scope.
 - Local interactive browser authentication and a dedicated test user when E2E is required.
 
-The integration harness refuses production. Remote test suites are also refused for any target classified as production, including targets listed in the administrator's `production-trust.json`. Missing prerequisites produce blocked evidence and exit code 3; they do not count as passing skips. Default local deployment coordination requires no service tables. The full release matrix also includes recovery and fault-injection scenarios beyond the happy-path harness.
+The integration harness refuses production. Remote test suites are also refused for any target classified as production, including targets listed in the administrator's `production-trust.json`. Missing prerequisites produce blocked evidence and exit code 3; they do not count as passing skips. Deployment coordination is local and requires no service tables. The full release matrix also includes recovery and fault-injection scenarios beyond the happy-path harness.
 
 ## Application-only changes
 
-For a page or dashboard change, validate with the real Oracle compiler, reconcile the source queries through authorized read-only checks and inspect the imported page in the Codex in-app browser when available. Planning already performs compiler validation; avoid an identical standalone validation immediately before it unless diagnosing a source change or failure.
+For a page or dashboard change, validate with the real Oracle compiler (`apexrest_apex_validate` until `diagnostics` is empty), reconcile the source queries through authorized read-only checks (`apexrest_metadata_read`) and inspect the imported page in the selected verification browser. `apexrest_ship` validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.
 
-CRUD and utPLSQL are required when the change or configured suite scope calls for them. An explicitly authorized isolated application-only profile can declare no automated suites and record its source/browser checks separately. Preserve the established profile and historical failures. No configured suites means no automated SQL/E2E tests ran.
+CRUD and utPLSQL are required when the change or the configured suite scope calls for them. An explicitly authorized isolated application-only profile can declare no automated suites and record its source/browser checks separately. Preserve the established profile and historical failures; changing an established required-suite scope needs user authorization. Do not install utPLSQL or add empty suites just to import a page. No configured suites means no automated SQL/E2E tests ran.
 
-## In-app browser verification
+## Browser verification
 
-For user-visible application changes, use the Codex in-app browser when it and the deployed target are available. Follow the [plugin's browser rule](../plugins/apexrest-apex/skills/apexrest-test/SKILL.md#in-app-browser-verification).
+This rule applies to every user-visible application change.
 
-Inspect the affected page, wait for the relevant asynchronous regions to finish loading, then exercise changed controls and navigation. For dashboards, check date ranges, filter submission, chart refresh, reconciled values and a real empty state. For form changes, check the relevant validation, save and cancel behavior. Inspect layout at the viewports relevant to the change.
+1. **Select the browser.** The project preference `.apexrest/panel/preferences.json` (`browserMode: codex|external`, default `codex`) selects the host's in-app browser or the external system browser; `apexrest_browser_open` accepts `browserMode` for one call. The development status snapshot stays inside the host; only application pages open in the selected browser.
+2. **Resolve the page.** After a successful ship, call `apexrest_browser_open` with `env`. In `codex` mode it returns the configured URL for the host browser controls; in `external` mode it launches the system browser. The resolved URL is a handoff, not evidence.
+3. **Inspect the affected page.** Open it with the browser controls, complete login in that browser if needed, wait for the relevant asynchronous regions to finish loading, then exercise the changed controls and navigation. For dashboards, check date ranges, filter submission, chart refresh, reconciled values and a real empty state. For forms, check the relevant validation, save and cancel behavior. Inspect layout at the viewports relevant to the change. Opening a page is not verification; a login screen or a transient chart-loading state is not evidence that the feature works or is broken.
+4. **Record observations separately.** Report what was observed per page, apart from automated suite results and compiler output. Record missing browser controls, incomplete authentication, an unavailable deployed change or an unreachable target as missing verification with its reason; never describe it as passed.
+5. **Keep evidence sanitized.** Screenshots and page text can contain business data, URLs and session identifiers; review them before attaching them to a report or issue.
 
-Keep browser observations separate from automated test results. Record missing access, incomplete authentication or an unavailable deployed change as missing verification with a reason. A login screen or a transient chart-loading state is not evidence that the final feature works or is broken.
+Automated browser authentication (`apexrest test auth`) and the verification browser are separate contexts; success in one does not prove the other is authenticated.
 
 ## Automated application tests
+
+`apexrest_test_run` (CLI `apexrest test unit|sql|api|e2e|all --env NAME`) runs the configured suites. `unit` runs locally inside the MCP server process; `sql`, `api`, `e2e` and `all` can mutate data, run in a detached worker and need an environment listed in `tests.mutationAllowedEnvironments` plus a user test grant. Required suites fail when absent, empty, skipped or blocked.
 
 The SQL runner reads real utPLSQL JUnit output and counts executed test cases. Missing utPLSQL is `dependency_missing`. SQL test files may contain SQL and PL/SQL only: before any Oracle call, a line that SQLcl could interpret as a client command, such as `host`, `@`, `spool` or `connect`, blocks the run with `SQL_TEST_SCRIPT_CONTROL`. In CLI mode each test script runs in a SQLcl session started with `-R 2`. The CRM fixture checks accepted customers, missing name, invalid email/status and duplicate email.
 
@@ -58,6 +64,6 @@ Authenticate locally with `apexrest test auth --project ./crm --env dev`. Auth s
 
 ## Diagnose and rerun
 
-Classify the failure, read its bounded diagnostic artifact and inspect the affected source or dependency. Make one focused repair, rerun the affected compiler/test check, then the required gate. Do not repeat discovery, export or full imports without evidence that they are needed.
+Classify the failure, read its bounded diagnostic artifact (`apexrest_artifact_read`) and inspect the affected source or dependency. Make one focused repair, rerun the affected compiler/test check, then the required gate. Do not repeat discovery, export or full imports without evidence that they are needed.
 
 After three unsuccessful repairs of the same cause, report the evidence and unresolved dependency. Do not loosen authorization, remove required suites or replace meaningful assertions to produce a passing result. For a write with an unknown outcome, follow [reconciliation](deployment-safety.md) before any retry.

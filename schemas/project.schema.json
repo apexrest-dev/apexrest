@@ -140,13 +140,6 @@
           "expectedMarker": {
             "type": "string",
             "minLength": 1
-          },
-          "deploymentControl": {
-            "type": "string",
-            "enum": [
-              "local",
-              "database"
-            ]
           }
         },
         "required": [

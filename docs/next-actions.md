@@ -1,6 +1,17 @@
 # Next actions and verification limits
 
-English | [Українська](next-actions.uk.md)
+## Redesign follow-up
+
+[Redesign phase 1](implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) is implemented and checked locally only. Remaining work, in order:
+
+- **Connected verification of the pooled engine and ship.** On a separately authorized DEV target: run `apexrest_apex_validate`, `apexrest_ship` `mode:plan` and `mode:apply` through the MCP server, confirm the grant is recorded and removed, the phases `backing_up` → `testing` are reported by `apexrest_job`, the warm-session timings hold with a saved connection in SQLcl `mcp` mode, and the ORDS `cli` path still imports. Record real Oracle results separately from the fixture results.
+- **Host sessions.** Load the 5-skill, 11-tool bundle in a live Codex session and in an end-to-end Claude Code session (`claude plugin marketplace add`, `claude plugin install apexrest@apexrest`, then a change through `$apexrest-work` that calls the tools). Record discovery, tool calls and browser handoff per host.
+- **Phase 2 — verify loop.** Add the checks the work cycle still lacks: an APEXlang lint before compilation, a SQL precheck of source queries against the parsing schema, a page smoke test after import, reading APEX debug output for the changed page, and seed data for empty-state checks.
+- **Phase 3 — App Spec compiler.** Replace the experimental Composer blocks with a compiler from a reviewed application specification to APEXlang that feeds the same validate/ship cycle; retire `apexrest compose` afterwards.
+- **GitHub rename.** The `apexrest-dev` organization owner renames the repository from `apexrest-codex` to `apexrest` on GitHub (documentation, package metadata and CI references already use the new name); then update local remotes.
+- **Local directory rename.** Rename the local checkout directory from `apexrest-codex` to `apexrest` after the GitHub rename; evidence files that record the old path keep their historical content.
+- **Windows and Linux.** Exercise the MCP server, the pooled engine and the installers on both platforms.
+- **Generated plugin metadata.** Run `npm run plugin:sync` so the checked-in `plugins/apexrest-apex/.codex-plugin/plugin.json` carries the new starter prompts from `plugins/metadata.json` and the repository root `.claude-plugin/marketplace.json` exists.
 
 ## Review fixes follow-up
 
@@ -31,7 +42,7 @@ The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` bet
 
 - With a separately authorized existing DEV/test app, run initial APEXlang + SQL sync, three local edit/plan/apply cycles with restart between cycles, and verify actual export/import counters, target identity, required suites and authenticated browser behavior. These checks are NOT RUN now; historical targets are not authorization.
 - Run a separate checksum-bound initial SQL restore under exact approval. Verify invalidation before writes and actual restored state; intermediate applied snapshots do not provide automatic rollback.
-- Exercise real lost-response/crash reconciliation and optional database coordination, retaining unknown ownership and no retry until resolved. Verify metadata query compatibility on the supported APEX versions and direct SQLcl/ORDS targets; unchanged metadata remains a single-editor assumption.
+- Exercise real lost-response/crash reconciliation, retaining unknown ownership and no retry until resolved. Verify metadata query compatibility on the supported APEX versions and direct SQLcl/ORDS targets; unchanged metadata remains a single-editor assumption.
 - Verify working-copy connected panel flows on an authorized target. The local Composer update and in-app Catalog checks are recorded separately; fresh-chat tool discovery remains open.
 - For token/cost or Oracle performance claims, measure matched connected cycles with real usage counters. Local wall time, call counts and UTF-8 bytes remain separately labeled.
 
@@ -56,7 +67,7 @@ Registry integrity and clean local/global installs for `apexrest@1.2.0` on npm `
 - For the [component catalog](component-catalog.md), test adapted recipes on a separately authorized development application. Record source-query, import and browser evidence independently of offline compilation; the reference application remains read-only. npm publication does not establish application runtime behavior.
 
 - Exercise changed APEX imports, component/static-file/MMD preservation and SQL restore on an explicitly authorized test target, with source/target identity and verified backups.
-- Record real database interruption, lost-response reconciliation and coordination evidence. Separate homes/machines need external serialization or explicitly configured database coordination.
+- Record real database interruption, lost-response reconciliation and coordination evidence. Separate homes/machines need external serialization.
 - Run nonempty configured utPLSQL, API and authenticated application tests; verify changed pages in the selected browser. Missing suites or access are limitations, not passes.
 - Refresh native Codex installation, discovery and panel/browser observations for current supported hosts. Linux, Windows and WSL2 retain their documented gaps until actually exercised.
 - Compare matched tasks using actual Codex usage counters if token or end-to-end latency claims are needed. Local UTF-8 bytes and tool counts measure payloads and surface area only.

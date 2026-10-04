@@ -1,7 +1,5 @@
 # Plugin optimization review
 
-English | [Українська](optimization-review.uk.md)
-
 This is a historical review. The dated measurements below describe earlier revisions and are not re-measured for later releases. When last updated for 1.1.0, the scope was 18 MCP tools and 12 skills, with implementation directly in the current Codex session; see [catalog evidence](evidence/component-catalog-local.json). Current counts are in the [release notes](release-notes.md). Historical counts are retained only for comparison.
 
 ## Smaller context and faster reference lookup — 2026-09-21

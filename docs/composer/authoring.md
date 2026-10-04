@@ -1,7 +1,5 @@
 # Maintainer authoring
 
-English | [Українська](authoring.uk.md)
-
 Keep exact packages under blocks/packages/<family>/<name>/<version>; manifests and declarative renderer source are immutable. The current runtime supports a finite set of reviewed native factories, not arbitrary package scripts. Existing component recipe IDs are resolved during registry generation. Package hooks, remote references and implicit downloads are prohibited.
 
 Use npm run composer:author with a contained source package, new output, explicit license and optional new ID/version. Optional --page captures local declaration facts/hashes while excluding page IDs/security settings from generated behavior. Raw exports and private URLs/credentials are rejected or remain outside the bundle. Capture produces a draft, not runtime equivalence. Review redistribution rights and normalize application-specific assumptions into blueprint parameters/contracts; custom factories require a reviewed core change.

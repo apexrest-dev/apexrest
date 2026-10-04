@@ -6,7 +6,6 @@
     "dist/resources/",
     "dist/codex-compat/",
     "README.md",
-    "README.uk.md",
     "LICENSE",
     "NOTICE"
   ],
@@ -17,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/apexrest-dev/apexrest-codex.git"
+    "url": "git+https://github.com/apexrest-dev/apexrest.git"
   },
   "description": "Native Codex plugin for Oracle APEX development, deployment and testing",
   "license": "Apache-2.0",

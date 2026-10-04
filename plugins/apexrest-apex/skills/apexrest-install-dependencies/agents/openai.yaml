@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install dependencies"
-  short_description: "Install Java, SQLcl and browser dependencies"
-  default_prompt: "Use $apexrest-install-dependencies. Install Java, SQLcl and the other APEXREST client dependencies."

@@ -133,7 +133,8 @@
                       "type": "array",
                       "items": {
                         "type": "string",
-                        "maxLength": 128
+                        "maxLength": 128,
+                        "pattern": "^[^\\x00-\\x1f\\x7f`]*$"
                       }
                     }
                   },
@@ -338,11 +339,11 @@
               },
               "rowPredicate": {
                 "type": "string",
-                "maxLength": 65536
+                "maxLength": 1048576
               },
               "expression": {
                 "type": "string",
-                "maxLength": 65536
+                "maxLength": 1048576
               }
             },
             "required": [
@@ -601,7 +602,7 @@
             },
             "additionalProperties": {
               "type": "string",
-              "maxLength": 65536
+              "maxLength": 1048576
             }
           }
         },

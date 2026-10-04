@@ -1,7 +1,5 @@
 # Upgrade, removal and recovery
 
-English | [Українська](maintenance.uk.md)
-
 Change the exact block version or reviewed parameters in the blueprint, then plan again. Stable instance identities retain their allocations. Three-way merge compares the retained generated base B, actual local L and new generated N. Disjoint supported declaration/property changes merge; overlap, unknown anchors, missing base and edited deletion targets block with diagnostics and no conflict markers in source. Unmanaged children retain their exact bytes and location.
 
 Extension hooks beforeSaveValidation and afterSaveNotification require extended ownership and preserve caller-owned transactions. Detach retains source and prevents automatic reattachment. Removal deletes only confirmed unchanged owned artifacts. Remaining/unmanaged page references block cleanup, including page alias, `f?p` and `p_page` references and dynamically built page links (`UNKNOWN_CONSUMER_RETAINED`); namespace collision checks cover every name derived from a block namespace, case-insensitively (`SYMBOL_COLLISION`); no table/package is dropped and no business-data rollback is claimed. This library does not generate shared LOVs; there is no heuristic garbage collection of unmanaged resources.

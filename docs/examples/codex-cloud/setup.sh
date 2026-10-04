@@ -97,7 +97,7 @@ if (!username || username.length > 128 || /["\x00-\x1f\x7f-\x9f]/.test(username)
 JS
   if [[ ! -d "$checkout" ]]; then
     git init -q "$temporary/plugin"
-    git -C "$temporary/plugin" fetch --depth 1 https://github.com/apexrest-dev/apexrest-codex.git "$APEXREST_REVISION"
+    git -C "$temporary/plugin" fetch --depth 1 https://github.com/apexrest-dev/apexrest.git "$APEXREST_REVISION"
     git -C "$temporary/plugin" checkout --detach -q FETCH_HEAD
     mv "$temporary/plugin" "$checkout"
   fi

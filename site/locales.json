@@ -14,21 +14,5 @@
     "table": "Documentation table",
     "sourceBuild": "Source build",
     "independent": "Not an official Oracle or OpenAI product"
-  },
-  "uk": {
-    "name": "Українська",
-    "prefix": "uk/",
-    "description": "Незалежні інструменти APEXREST для нативного Codex та розробки Oracle APEX. Перевірені можливості й явні докази розгортання.",
-    "skip": "Перейти до вмісту",
-    "documentation": "Документація",
-    "language": "Мова",
-    "search": "Пошук у документації",
-    "placeholder": "Спробуйте «резервна копія»",
-    "empty": "Відповідної документації не знайдено.",
-    "error": "Індекс пошуку недоступний. Скористайтеся навігацією.",
-    "eyebrow": "Незалежні інструменти Oracle APEX",
-    "table": "Таблиця документації",
-    "sourceBuild": "Збірка з коду",
-    "independent": "Не є офіційним продуктом Oracle чи OpenAI"
   }
 }

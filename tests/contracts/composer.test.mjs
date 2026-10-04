@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-test('relocated offline Composer CLI/MCP/panel semantic parity and exact local materialization', async (t) => {
+test('relocated offline Composer stays CLI-only with exact local materialization; MCP keeps reference parity', async (t) => {
   const base = await realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-compose-contract-'))),
     plugin = path.join(base, 'plugin'),
     project = path.join(base, 'project'),
@@ -72,38 +72,26 @@ test('relocated offline Composer CLI/MCP/panel semantic parity and exact local m
     JSON.parse((await client.callTool({ name, arguments: args })).content[0].text);
   const tools = await client.listTools();
   for (const name of ['apexrest_compose_plan', 'apexrest_compose_materialize'])
-    assert.ok(tools.tools.some((t) => t.name === name));
-  const search = await call('apexrest_reference_search', { query: 'форма', corpus: 'blocks' });
+    assert.ok(!tools.tools.some((t) => t.name === name), `${name} is CLI-only`);
+  const search = await call('apexrest_reference', { mode: 'search', query: 'форма', corpus: 'blocks' });
   assert.equal(search.data[0].id, 'block:crud/report-dialog@1.0.0');
   const direct = cli(['docs', 'search', 'форма', '--corpus', 'blocks']);
   assert.deepEqual(direct.data, search.data);
-  const planned = await call('apexrest_compose_plan', {
-    project,
-    out: 'plans/mcp.json',
-    validation: 'source-only',
-    waitSeconds: 25,
-  });
-  assert.equal(planned.ok, true, JSON.stringify(planned));
-  const plan = planned.data.result.data;
-  assert.equal(plan.planDigest, cliPlan.data.planDigest);
-  assert.equal(plan.qualification, 'unverified');
-  const panel = await call('apexrest_panel_action', {
-    project,
-    action: { kind: 'catalog-search', query: 'форма' },
-  });
-  assert.equal(panel.data.results[0].id, search.data[0].id);
-  const detail = await call('apexrest_reference_read', {
+  const detail = await call('apexrest_reference', {
+    mode: 'read',
     id: 'block:crud/report-dialog@1.0.0/source/renderer.json',
   });
   assert.match(detail.data.content, /savedPayload/);
-  const applied = await call('apexrest_compose_materialize', {
-    project,
-    artifactId: plan.artifactId,
-    expectedDigest: plan.planDigest,
-    waitSeconds: 25,
-  });
+  const applied = cli([
+    'compose',
+    'materialize',
+    '--plan',
+    'plans/cli.json',
+    '--expected-digest',
+    cliPlan.data.planDigest,
+  ]);
   assert.equal(applied.ok, true, JSON.stringify(applied));
-  assert.equal(applied.data.result.data.deployment, 'not-run');
+  assert.equal(applied.data.deployment, 'not-run');
   const repeated = cli(['compose', 'plan', '--out', 'plans/repeat.json', '--validation', 'source-only']);
   assert.equal(repeated.data.operations.length, 0);
   const noOp = cli([
@@ -115,21 +103,42 @@ test('relocated offline Composer CLI/MCP/panel semantic parity and exact local m
     repeated.data.planDigest,
   ]);
   assert.equal(noOp.data.status, 'no-op');
-  const invalid = await call('apexrest_compose_plan', {
-    project,
-    out: 'plans/invalid.json',
-    mode: 'connected',
-  });
-  assert.equal(invalid.ok, false);
-  assert.match(JSON.stringify(invalid), /ENVIRONMENT_REQUIRED/);
-  const unsafe = await call('apexrest_compose_materialize', {
-    project,
-    plan: 'plans/repeat.json',
-    expectedDigest: '0'.repeat(64),
-  });
-  assert.equal(unsafe.ok, false);
-  assert.match(JSON.stringify(unsafe), /PLAN_TAMPERED/);
-  assert.ok((await readdir(path.join(plugin, 'skills'))).includes('apexrest-compose'));
+  const invalid = spawnSync(
+    process.execPath,
+    [
+      path.join(plugin, 'runtime/apexrest.mjs'),
+      'compose',
+      'plan',
+      '--out',
+      'plans/invalid.json',
+      '--mode',
+      'connected',
+      '--json',
+    ],
+    { cwd: project, env, encoding: 'utf8' },
+  );
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stdout, /ENVIRONMENT_REQUIRED/);
+  const unsafe = spawnSync(
+    process.execPath,
+    [
+      path.join(plugin, 'runtime/apexrest.mjs'),
+      'compose',
+      'materialize',
+      '--plan',
+      'plans/repeat.json',
+      '--expected-digest',
+      '0'.repeat(64),
+      '--json',
+    ],
+    { cwd: project, env, encoding: 'utf8' },
+  );
+  assert.notEqual(unsafe.status, 0);
+  assert.match(unsafe.stdout, /PLAN_TAMPERED/);
+  assert.ok(
+    !(await readdir(path.join(plugin, 'skills'))).includes('apexrest-compose'),
+    'Composer skill folded; CLI compose remains',
+  );
   assert.deepEqual(
     await readFile(path.join(project, 'app/.apex/apexlang.json')),
     await readFile('dist/resources/templates/blank-app/application/.apex/apexlang.json'),

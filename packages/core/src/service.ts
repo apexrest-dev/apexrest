@@ -3,12 +3,13 @@ import { VERSION } from './version.ts';
 import path from 'node:path';
 import { doctor } from './doctor.ts';
 import { referenceSearch, referenceRead, referenceSync } from './references.ts';
-import { failure, Fault, success } from './result.ts';
+import { failure, Fault, success, type Result } from './result.ts';
 import { schemas } from './operations.ts';
 import type { Operation } from './operations.ts';
 import { environment, loadProject, managedHome, parse, requireTrust } from './config.ts';
 import { connections, configureConnection, editConnection, resolveConnection } from './connections.ts';
-import { contained, readJson, writeJson } from './fs.ts';
+import { canonical, contained, exists, hash, readJson, writeJson } from './fs.ts';
+import * as oracleModule from './oracle.ts';
 import { OracleAdapter, installSources } from './oracle.ts';
 import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
@@ -16,13 +17,109 @@ import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService } from './deploy.ts';
 import { TestService } from './testing.ts';
 import { ArtifactService } from './artifacts.ts';
-import { JobService } from './jobs.ts';
+import { JobService, type JobPhase } from './jobs.ts';
 import { sandboxAction } from './sandbox.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
-import { panelActionSchema } from './panel-schema.ts';
-import { realpath } from 'node:fs/promises';
-export async function dispatch(operation: string, input: Record<string, unknown> = {}, signal?: AbortSignal) {
+import {
+  fallbackCompilerDiagnostics,
+  shipApply,
+  shipPlan,
+  validateApplication,
+  type DiagnosticParser,
+} from './ship.ts';
+
+// The engine exports parseCompilerDiagnostics once structured compiler output
+// lands; until then the fallback keeps diagnostics structured but coarse.
+const engine = oracleModule as unknown as {
+  parseCompilerDiagnostics?: DiagnosticParser;
+  closeSqlclSessions?: () => Promise<void>;
+};
+export const parseDiagnostics: DiagnosticParser = (output) =>
+  (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
+
+// One OracleAdapter per managed-home settings digest for the whole process:
+// the engine's session pool and capability caches are reused across tool
+// calls, while a changed SQLcl mode, transport or runtime selects a new adapter.
+const adapters = new Map<string, OracleAdapter>();
+export async function sharedOracle() {
+  const home = managedHome();
+  const runtimeFile = path.join(home, 'runtime.json');
+  const key = hash(
+    canonical({
+      home,
+      sqlcl: process.env.APEXREST_SQLCL ?? null,
+      java: process.env.APEXREST_JAVA_HOME ?? null,
+      runtime: (await exists(runtimeFile)) ? await readJson(runtimeFile) : null,
+      config: await sqlclConfig(),
+    }),
+  );
+  let adapter = adapters.get(key);
+  if (!adapter) {
+    adapter = new OracleAdapter();
+    adapters.set(key, adapter);
+    if (adapters.size > 4) adapters.delete(adapters.keys().next().value!);
+  }
+  return adapter;
+}
+/** Close pooled SQLcl sessions on process exit; safe when the engine has no pool. */
+export async function shutdownOracle() {
+  adapters.clear();
+  const close =
+    engine.closeSqlclSessions ??
+    (
+      await import('./sqlcl-session.ts').then(
+        (m) => m as { closeSqlclSessions?: () => Promise<void> },
+        () => ({}) as { closeSqlclSessions?: () => Promise<void> },
+      )
+    ).closeSqlclSessions;
+  await close?.().catch(() => undefined);
+}
+
+function routeProject(parsed: Record<string, unknown>) {
+  const action = parsed.action as string;
+  const pick = (...keys: string[]) =>
+    Object.fromEntries(keys.filter((k) => parsed[k] !== undefined).map((k) => [k, parsed[k]]));
+  switch (action) {
+    case 'init':
+      return { operation: 'project.init', input: pick('project', 'directory', 'template', 'alias') };
+    case 'adopt':
+      return { operation: 'project.adopt', input: pick('project', 'env', 'appId', 'workingCopy') };
+    case 'inspect':
+      return { operation: 'project.inspect', input: pick('project', 'detail') };
+    case 'connection_add':
+      return {
+        operation: 'connection.add',
+        input: pick('project', 'name', 'sqlclName', 'ordsUrl', 'ordsUsername', 'passwordFile'),
+      };
+    case 'connection_list':
+      return { operation: 'connection.list', input: pick('project', 'saved') };
+    default:
+      return { operation: 'connection.test', input: pick('project', 'name', 'saved') };
+  }
+}
+function routeReference(parsed: Record<string, unknown>) {
+  const { mode, query, id, limit, offset, ...rest } = parsed;
+  if (mode === 'read') {
+    if (typeof id !== 'string') throw new Fault('INVALID_INPUT', 'id: required for mode read', 2);
+    return {
+      operation: 'docs.read',
+      input: { project: rest.project, id, offset, ...(limit ? { limit } : {}) },
+    };
+  }
+  if (typeof query !== 'string') throw new Fault('INVALID_INPUT', 'query: required for mode search', 2);
+  if (typeof limit === 'number' && limit > 8)
+    throw new Fault('INVALID_INPUT', 'limit: search returns at most 8 hits per page', 2);
+  if (typeof offset === 'number' && offset > 10000)
+    throw new Fault('INVALID_INPUT', 'offset: search offsets are at most 10000', 2);
+  return { operation: 'docs.search', input: { ...rest, query, offset, ...(limit ? { limit } : {}) } };
+}
+export async function dispatch(
+  operation: string,
+  input: Record<string, unknown> = {},
+  signal?: AbortSignal,
+  progress?: (phase: JobPhase) => void,
+): Promise<Result> {
   try {
     if (signal?.aborted)
       throw new Fault('CANCELLED', 'Operation cancelled before execution.', 6, 'cancelled');
@@ -33,31 +130,44 @@ export async function dispatch(operation: string, input: Record<string, unknown>
     );
     const text = (key: string) => parsed[key] as string;
     const root = text('project') ?? process.cwd();
-    const oracle = new OracleAdapter(),
+    // Composite MCP operations reuse the granular implementations and keep
+    // their own name on the envelope so callers see the tool they invoked.
+    if (operation === 'project' || operation === 'reference') {
+      const route = operation === 'project' ? routeProject(parsed) : routeReference(parsed);
+      return { ...(await dispatch(route.operation, route.input, signal, progress)), operation };
+    }
+    if (operation === 'job') {
+      const result = await dispatch(
+        parsed.action === 'cancel' ? 'jobs.cancel' : 'jobs.status',
+        {
+          project: parsed.project,
+          id: parsed.jobId,
+          ...(parsed.action === 'cancel' ? {} : { waitSeconds: parsed.waitSeconds }),
+        },
+        signal,
+      );
+      return { ...result, operation };
+    }
+    if (operation === 'status') {
+      const result = await dispatch(
+        parsed.detail === 'doctor' ? 'doctor' : 'panel.status',
+        { project: parsed.project },
+        signal,
+      );
+      return { ...result, operation };
+    }
+    const oracle = await sharedOracle(),
       tests = new TestService(oracle),
-      deployment = new DeploymentService(oracle, (ctx, env) => tests.all(ctx, env));
+      testReports: unknown[] = [],
+      deployment = new DeploymentService(oracle, async (ctx, env) => {
+        const report = await tests.all(ctx, env);
+        testReports.push(report.data);
+        return report;
+      });
     let data: unknown;
     switch (operation) {
-      case 'panel.open': {
-        const { openPanel } = await import('./panel-server.ts');
-        data = await openPanel(await realpath(root));
-        break;
-      }
       case 'panel.status':
         data = await new PanelService(root).snapshot();
-        break;
-      case 'panel.action':
-        {
-          const action = panelActionSchema.parse(parsed).action;
-          if (action.kind === 'connection' && action.password !== undefined)
-            throw new Fault(
-              'LOCAL_CREDENTIAL_ENTRY_REQUIRED',
-              'Enter the ORDS password only in the local browser settings form, or supply a local password file to connection.add.',
-              3,
-              'blocked',
-            );
-          data = await new PanelService(root).act(action);
-        }
         break;
       case 'version':
         data = { version: VERSION, node: process.version };
@@ -222,7 +332,52 @@ export async function dispatch(operation: string, input: Record<string, unknown>
           }
           case 'apex.validate':
             await requireTrust(ctx.root);
-            data = await oracle.validate(await contained(ctx.root, ctx.config.application.sourceDir), signal);
+            data = await validateApplication(
+              oracle,
+              await contained(ctx.root, ctx.config.application.sourceDir),
+              parseDiagnostics,
+              signal,
+            );
+            break;
+          case 'ship': {
+            const planned = await shipPlan(ctx, text('env'), deployment, parseDiagnostics, progress);
+            if (parsed.mode !== 'apply') {
+              data = {
+                mode: 'plan',
+                status: 'planned',
+                ...planned.preview,
+                planPath: planned.planPath,
+                phases: planned.phases,
+              };
+              break;
+            }
+            const applied = await shipApply(
+              ctx,
+              planned.plan,
+              text('userRequest'),
+              deployment,
+              () => testReports.at(-1),
+              signal,
+              progress,
+            );
+            data = {
+              mode: 'apply',
+              ...applied,
+              planPath: planned.planPath,
+              phases: [...planned.phases, ...applied.phases],
+            };
+            break;
+          }
+          case 'ship.apply':
+            data = await shipApply(
+              ctx,
+              await readJson(await contained(ctx.root, text('plan'))),
+              text('userRequest'),
+              deployment,
+              () => testReports.at(-1),
+              signal,
+              progress,
+            );
             break;
           case 'apex.diff': {
             await requireTrust(ctx.root);

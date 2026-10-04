@@ -18,28 +18,32 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   const start = performance.now();
   await client.connect(transport);
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 21);
-  const jobSchema = catalog.tools.find((tool) => tool.name === 'apexrest_job_status').inputSchema;
+  assert.equal(catalog.tools.length, 11);
+  const jobSchema = catalog.tools.find((tool) => tool.name === 'apexrest_job').inputSchema;
   assert.equal(jobSchema.properties.waitSeconds.default, 0);
+  assert.equal(jobSchema.properties.waitSeconds.maximum, 120);
   assert.ok(!jobSchema.required.includes('waitSeconds'));
+  assert.ok(jobSchema.required.includes('jobId'));
   for (const tool of catalog.tools.filter((tool) =>
-    [
-      'apexrest_apex_sync',
-      'apexrest_apex_generate',
-      'apexrest_apex_export',
-      'apexrest_apex_validate',
-      'apexrest_deploy_plan',
-      'apexrest_deploy_apply',
-      'apexrest_test_run',
-    ].includes(tool.name),
+    ['apexrest_apex_sync', 'apexrest_test_run'].includes(tool.name),
   )) {
     assert.equal(tool.inputSchema.properties.waitSeconds.default, 25);
     assert.ok(!tool.inputSchema.required.includes('waitSeconds'));
   }
-  const searchSchema = catalog.tools.find((tool) => tool.name === 'apexrest_reference_search').inputSchema;
+  const ship = catalog.tools.find((tool) => tool.name === 'apexrest_ship');
+  assert.equal(ship.inputSchema.properties.waitSeconds.default, 60);
+  assert.equal(ship.inputSchema.properties.waitSeconds.maximum, 120);
+  assert.ok(ship.inputSchema.required.includes('userRequest'));
+  assert.equal(ship.annotations.destructiveHint, true);
+  const validate = catalog.tools.find((tool) => tool.name === 'apexrest_apex_validate');
+  assert.equal(validate.inputSchema.properties.waitSeconds, undefined, 'validate runs in-process');
+  assert.equal(validate.annotations.readOnlyHint, true);
+  assert.equal(validate.annotations.destructiveHint, false);
+  const searchSchema = catalog.tools.find((tool) => tool.name === 'apexrest_reference').inputSchema;
   assert.ok(!searchSchema.required.includes('limit'));
   assert.ok(!searchSchema.required.includes('offset'));
   assert.ok(!searchSchema.required.includes('corpus'));
+  assert.ok(searchSchema.required.includes('mode'));
   assert.deepEqual(searchSchema.properties.corpus.enum, [
     'apexlang',
     'components',
@@ -48,23 +52,36 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
     'blueprints',
   ]);
   assert.equal(searchSchema.properties.corpus.default, 'apexlang');
-  const settings = catalog.tools
-    .find((tool) => tool.name === 'apexrest_panel_action')
-    .inputSchema.properties.action.oneOf.find((action) => action.properties.kind.const === 'preferences')
-    .properties.settings;
-  assert.deepEqual(Object.keys(settings.properties), ['browserMode']);
-  const panelTool = catalog.tools.find((tool) => tool.name === 'apexrest_panel_open');
-  assert.equal(panelTool._meta.ui.resourceUri, 'ui://apexrest/development-panel.html');
-  const resources = await client.listResources();
-  assert.equal(resources.resources[0].mimeType, 'text/html;profile=mcp-app');
-  const ui = await client.readResource({ uri: panelTool._meta.ui.resourceUri });
-  assert.ok(!ui.contents[0].text.includes('Agent team'));
-  assert.ok(!ui.contents[0].text.includes('data-view="team"'));
-  assert.ok(!ui.contents[0].text.includes('src="/panel.js"'));
+  for (const removed of [
+    'apexrest_panel_open',
+    'apexrest_panel_action',
+    'apexrest_panel_status',
+    'apexrest_doctor',
+    'apexrest_deploy_plan',
+    'apexrest_deploy_apply',
+    'apexrest_apex_generate',
+    'apexrest_apex_export',
+    'apexrest_compose_plan',
+    'apexrest_compose_materialize',
+    'apexrest_job_status',
+    'apexrest_job_cancel',
+    'apexrest_reference_search',
+    'apexrest_reference_read',
+    'apexrest_project_inspect',
+  ])
+    assert.equal(
+      catalog.tools.find((tool) => tool.name === removed),
+      undefined,
+      removed,
+    );
+  const status = catalog.tools.find((tool) => tool.name === 'apexrest_status');
+  assert.equal(status.annotations.readOnlyHint, true);
+  assert.equal(status._meta, undefined);
+  assert.equal(client.getServerCapabilities().resources, undefined);
   assert.ok(performance.now() - start < 10000);
   const reference = await client.callTool({
-    name: 'apexrest_reference_search',
-    arguments: { query: 'validate' },
+    name: 'apexrest_reference',
+    arguments: { mode: 'search', query: 'validate' },
   });
   const domain = JSON.parse(reference.content[0].text);
   assert.equal(domain.ok, true);
@@ -76,8 +93,9 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.equal(cli.status, 0);
   assert.deepEqual(JSON.parse(cli.stdout).data, domain.data);
   const component = await client.callTool({
-    name: 'apexrest_reference_search',
+    name: 'apexrest_reference',
     arguments: {
+      mode: 'search',
       query: 'картка показника',
       corpus: 'components',
       kind: 'template',
@@ -113,8 +131,8 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.equal(componentCli.status, 0, componentCli.stdout + componentCli.stderr);
   assert.deepEqual(JSON.parse(componentCli.stdout).data, componentDomain.data);
   const componentPage = await client.callTool({
-    name: 'apexrest_reference_read',
-    arguments: { id: componentDomain.data[0].id },
+    name: 'apexrest_reference',
+    arguments: { mode: 'read', id: componentDomain.data[0].id },
   });
   const componentPageDomain = JSON.parse(componentPage.content[0].text);
   assert.equal(componentPageDomain.ok, true);
@@ -122,26 +140,32 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.equal(componentPageDomain.data.compatibility.apexVersion, '26.1');
   assert.ok(Buffer.byteLength(componentPage.content[0].text, 'utf8') < 32768);
   const invalid = await client.callTool({
-    name: 'apexrest_deploy_apply',
-    arguments: { plan: 'x', approved: true },
+    name: 'apexrest_ship',
+    arguments: { env: 'dev', userRequest: 'Deploy page ten to dev', approved: true },
   });
   assert.equal(JSON.parse(invalid.content[0].text).exitCode, 2);
   assert.equal(invalid.isError, true);
   const noProject = await client.callTool({
-    name: 'apexrest_deploy_apply',
-    arguments: { plan: 'x', project: '/private/tmp' },
+    name: 'apexrest_ship',
+    arguments: { env: 'dev', userRequest: 'Deploy page ten to dev', mode: 'apply', project: '/private/tmp' },
   });
-  assert.equal(JSON.parse(noProject.content[0].text).ok, false);
+  const noProjectResult = JSON.parse(noProject.content[0].text);
+  assert.equal(noProjectResult.ok, false);
+  assert.equal(noProjectResult.operation, 'ship');
+  assert.equal(noProjectResult.data, undefined, 'An unconfigured project never starts a job');
   await client.close();
 });
 test('CLI stdout remains a single JSON envelope for invalid options', () => {
-  const r = spawnSync(
-    process.execPath,
-    [path.join(runtime, 'apexrest.mjs'), 'deploy', 'apply', '--env', 'prod', '--approved', '--json'],
-    { encoding: 'utf8' },
-  );
-  assert.equal(r.status, 2);
-  assert.equal(JSON.parse(r.stdout).ok, false);
+  for (const args of [
+    ['deploy', 'apply', '--env', 'prod', '--approved', '--json'],
+    ['ship', '--env', 'prod', '--mode', 'apply', '--json'],
+  ]) {
+    const r = spawnSync(process.execPath, [path.join(runtime, 'apexrest.mjs'), ...args], {
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 2, args.join(' '));
+    assert.equal(JSON.parse(r.stdout).ok, false);
+  }
 });
 test('MCP project tools require an explicit absolute path before dispatch or job creation', async (t) => {
   const client = new Client({ name: 'explicit-project-contract', version: '1.0.0' });
@@ -155,35 +179,24 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     }),
   );
   const inputs = {
-    apexrest_compose_plan: { out: 'plans/compose.json' },
-    apexrest_compose_materialize: { plan: 'plans/compose.json', expectedDigest: '0'.repeat(64) },
     apexrest_browser_open: { env: 'dev' },
-    apexrest_panel_open: {},
-    apexrest_panel_status: {},
-    apexrest_panel_action: { action: { kind: 'validate' } },
-    apexrest_project_inspect: {},
     apexrest_metadata_read: { env: 'dev', kind: 'objects', schema: 'FIXTURE' },
-    apexrest_apex_generate: { name: 'Fixture', output: 'new-app' },
     apexrest_apex_sync: { env: 'dev', action: 'status' },
-    apexrest_apex_export: { env: 'dev', output: 'exports/app' },
     apexrest_apex_validate: {},
-    apexrest_deploy_plan: { env: 'dev', out: 'plans/dev.json' },
-    apexrest_deploy_apply: { plan: 'plans/dev.json' },
+    apexrest_ship: { env: 'dev', mode: 'apply', userRequest: 'Deploy page ten to dev' },
     apexrest_test_run: { suite: 'unit' },
-    apexrest_job_status: { id: '12345678-1234-4123-8123-123456789abc' },
-    apexrest_job_cancel: { id: '12345678-1234-4123-8123-123456789abc' },
+    apexrest_job: { action: 'status', jobId: '12345678-1234-4123-8123-123456789abc' },
     apexrest_artifact_read: { id: '12345678-1234-4123-8123-123456789abc' },
+    // Optional-project tools still reject relative paths.
+    apexrest_project: { action: 'inspect' },
+    apexrest_reference: { mode: 'search', query: 'validate' },
+    apexrest_status: { detail: 'project' },
   };
   const catalog = await client.listTools();
   for (const tool of catalog.tools) {
-    if (tool.name.startsWith('apexrest_reference_')) {
-      assert.match(tool.inputSchema.properties.project.description, /Absolute project/);
-      assert.ok(!tool.inputSchema.required?.includes('project'));
-      continue;
-    }
     assert.match(tool.inputSchema.properties.project.description, /Absolute project.*plugin cache/);
-    if (tool.name === 'apexrest_doctor') {
-      assert.ok(!tool.inputSchema.required?.includes('project'));
+    if (['apexrest_reference', 'apexrest_status', 'apexrest_project'].includes(tool.name)) {
+      assert.ok(!tool.inputSchema.required?.includes('project'), tool.name);
     } else {
       assert.ok(tool.inputSchema.required.includes('project'), tool.name);
       assert.ok(Object.hasOwn(inputs, tool.name), `${tool.name} needs an input fixture`);
@@ -263,8 +276,8 @@ for (const profile of ['codex-compat'])
         const catalog = await client.listTools();
         assert.deepEqual(await client.listTools(), catalog);
         const inspected = JSON.parse(
-          (await client.callTool({ name: 'apexrest_project_inspect', arguments: { project } })).content[0]
-            .text,
+          (await client.callTool({ name: 'apexrest_project', arguments: { project, action: 'inspect' } }))
+            .content[0].text,
         );
         assert.equal(inspected.ok, true, JSON.stringify(inspected));
         assert.equal(
@@ -275,8 +288,8 @@ for (const profile of ['codex-compat'])
         const found = JSON.parse(
           (
             await client.callTool({
-              name: 'apexrest_reference_read',
-              arguments: { id: 'oracle-form-example', limit: 80 },
+              name: 'apexrest_reference',
+              arguments: { mode: 'read', id: 'oracle-form-example', limit: 80 },
             })
           ).content[0].text,
         );
@@ -290,6 +303,7 @@ for (const profile of ['codex-compat'])
         assert.equal(result.ok, true);
         const jobId = result.data.jobId;
         assert.ok(jobId);
+        assert.equal(result.data.runner, 'in-process', 'local unit suites run inside the MCP process');
         // A loaded Windows runner can outlast the original tool call's bounded wait.
         // Follow the same job instead of starting the suite again.
         for (let attempt = 0; attempt < 3 && result.data.status !== 'completed'; attempt++) {
@@ -297,8 +311,8 @@ for (const profile of ['codex-compat'])
           result = JSON.parse(
             (
               await client.callTool({
-                name: 'apexrest_job_status',
-                arguments: { id: jobId, waitSeconds: 30 },
+                name: 'apexrest_job',
+                arguments: { action: 'status', jobId, waitSeconds: 30 },
               })
             ).content[0].text,
           );

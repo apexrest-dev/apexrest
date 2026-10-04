@@ -1,4 +1,0 @@
-interface:
-  display_name: "Deployment and recovery"
-  short_description: "Plan, deploy and inspect application recovery"
-  default_prompt: "Use $apexrest-deploy. Show the deployment and recovery actions for my configured APEXREST project."

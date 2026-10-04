@@ -63,7 +63,7 @@
   <path d="M80 530H102V551H80ZM85 525H97V530M86 540H96" stroke="#77DBCF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   <text x="118" y="546" font-size="21" font-weight="700" fill="#F5FAFF">Local by default</text>
   <text class="card-body" x="80" y="578">Durable migration history and single-machine coordination.</text>
-  <text class="card-body" x="80" y="605">Database-backed coordination is an explicit optional mode.</text>
+  <text class="card-body" x="80" y="605">Independent machines or homes need external serialization.</text>
   <text class="caption" x="80" y="634">No service tables required for a normal plan and apply.</text>
 
   <rect x="612" y="502" width="534" height="151" rx="14" fill="#172B3A" stroke="#536274"/>

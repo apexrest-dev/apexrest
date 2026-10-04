@@ -1,4 +1,4 @@
 interface:
-  display_name: "APEX applications"
-  short_description: "Build, edit, export and validate APEX applications"
-  default_prompt: "Use $apexrest-apexlang. Help me build or update an Oracle APEX application with APEXlang."
+  display_name: 'APEXlang'
+  short_description: 'Write APEXlang with pinned Oracle references and recipes'
+  default_prompt: 'Use $apexrest-apexlang to write or fix the APEXlang for this Oracle APEX change using the bundled references.'

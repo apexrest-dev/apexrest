@@ -1,7 +1,5 @@
 # ADR 008: bounded runtime work
 
-English | [Українська](008-runtime-optimization.uk.md)
-
 Status: implemented locally, 2026-09-12.
 
 Build CLI and MCP together with shared ESM chunks. Keep every chunk directly in `runtime/`, because resource discovery and background worker paths are relative to `import.meta.url`. Clear the generated runtime before rebuilding so obsolete chunks cannot accumulate. Load installer setup and its validation/client dependencies only for installation operations. The entire runtime directory is the distribution unit.

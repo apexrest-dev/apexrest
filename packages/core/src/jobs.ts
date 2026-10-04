@@ -7,23 +7,34 @@ import { contained, exists, readJson, writeJson } from './fs.ts';
 import { parse, requireTrust } from './config.ts';
 import type { ProjectContext } from './config.ts';
 import { Fault, failure } from './result.ts';
+/** Status waits are bounded; apexrest_ship may wait longer than ordinary jobs. */
+export const JOB_WAIT_MAX_SECONDS = 120;
+/** Work the worker reports while a job runs; informative only, never an outcome. */
+export type JobPhase =
+  'validating' | 'planning' | 'backing_up' | 'migrating' | 'importing' | 'verifying' | 'testing' | 'syncing';
+export type JobExecutor = (
+  op: string,
+  input: Record<string, unknown>,
+  signal: AbortSignal,
+  progress: (phase: JobPhase) => void,
+) => Promise<unknown>;
+export const jobOperations = [
+  'compose.plan',
+  'compose.materialize',
+  'apex.sync',
+  'apex.generate',
+  'apex.export',
+  'apex.validate',
+  'deploy.plan',
+  'deploy.apply',
+  'ship.apply',
+  'test.run',
+];
 export class JobService {
   constructor(private ctx: ProjectContext) {}
-  async start(operation: string, input: Record<string, unknown>, runtime: string) {
+  private async enqueue(operation: string, input: Record<string, unknown>) {
     await requireTrust(this.ctx.root);
-    if (
-      ![
-        'compose.plan',
-        'compose.materialize',
-        'apex.sync',
-        'apex.generate',
-        'apex.export',
-        'apex.validate',
-        'deploy.plan',
-        'deploy.apply',
-        'test.run',
-      ].includes(operation)
-    )
+    if (!jobOperations.includes(operation))
       throw new Fault('INVALID_JOB_OPERATION', 'Operation cannot run as a background job.', 2);
     const id = randomUUID(),
       root = await contained(this.ctx.root, '.apexrest/jobs/' + id);
@@ -38,6 +49,31 @@ export class JobService {
       operation,
       updatedAt: new Date().toISOString(),
     });
+    return id;
+  }
+  /**
+   * Run a job inside this process: same request/state files and heartbeat as a
+   * detached worker, so apexrest_job observes it identically, but the warm
+   * SQLcl session pool and capability caches are reused. Use only for work
+   * whose interruption leaves no database write unresolved.
+   */
+  async startInline(operation: string, input: Record<string, unknown>, execute: JobExecutor) {
+    const id = await this.enqueue(operation, input);
+    const run = executeJob(this.ctx, id, execute).catch(async (error: unknown) => {
+      await failQueuedJob(this.ctx.root, id, error).catch(() => undefined);
+    });
+    inlineJobs.set(id, run);
+    void run.finally(() => inlineJobs.delete(id));
+    return {
+      jobId: id,
+      status: 'queued',
+      runner: 'in-process' as const,
+      nextAction:
+        'Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results.',
+    };
+  }
+  async start(operation: string, input: Record<string, unknown>, runtime: string) {
+    const id = await this.enqueue(operation, input);
     try {
       const worker = spawn(process.execPath, [runtime, '--job-worker', this.ctx.root, id], {
         cwd: this.ctx.root,
@@ -60,19 +96,21 @@ export class JobService {
     return {
       jobId: id,
       status: 'queued',
+      runner: 'detached-worker' as const,
       nextAction:
-        'Wait for this job with apexrest_job_status and waitSeconds:25; never rerun the operation to fetch results. Cancellation does not imply database rollback.',
+        'Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results. Cancellation does not imply database rollback.',
     };
   }
   async status(id: string, waitSeconds = 0, signal?: AbortSignal) {
     parse(z.uuid(), id);
-    parse(z.number().int().min(0).max(30), waitSeconds);
+    parse(z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS), waitSeconds);
     const root = await contained(this.ctx.root, '.apexrest/jobs/' + id);
     const deadline = Date.now() + waitSeconds * 1000;
     for (;;) {
       const state = (await readJson(path.join(root, 'state.json'))) as {
         status: string;
         updatedAt: string;
+        phase?: JobPhase;
       };
       if (!['queued', 'running'].includes(state.status)) return state;
       if (Date.parse(state.updatedAt) + 60000 < Date.now())
@@ -98,6 +136,15 @@ export class JobService {
     });
     return { jobId: id, status: 'cancellation_requested', rollbackConfirmed: false };
   }
+}
+// In-process jobs still running in this process; awaited on shutdown so a
+// local-only job is not abandoned mid-write when the MCP transport closes.
+const inlineJobs = new Map<string, Promise<void>>();
+export function inlineJobCount() {
+  return inlineJobs.size;
+}
+export async function settleInlineJobs() {
+  await Promise.allSettled([...inlineJobs.values()]);
 }
 // Mark a job that never started execution as failed. Only a still-queued job
 // changes: once a worker reports running, its operation may have touched the
@@ -128,11 +175,7 @@ export function jobOutcome(result: unknown) {
     ? value.status
     : 'failed';
 }
-export async function executeJob(
-  ctx: ProjectContext,
-  id: string,
-  execute: (op: string, input: Record<string, unknown>, signal: AbortSignal) => Promise<unknown>,
-) {
+export async function executeJob(ctx: ProjectContext, id: string, execute: JobExecutor) {
   await requireTrust(ctx.root);
   parse(z.uuid(), id);
   const root = await contained(ctx.root, '.apexrest/jobs/' + id);
@@ -142,6 +185,7 @@ export async function executeJob(
   };
   const controller = new AbortController();
   let done = false;
+  let phase: JobPhase | undefined;
   const pulse = async () => {
     if (done) return;
     if (await exists(path.join(root, 'cancel.json'))) controller.abort();
@@ -150,19 +194,34 @@ export async function executeJob(
         id,
         operation: request.operation,
         status: 'running',
+        ...(phase ? { phase } : {}),
         updatedAt: new Date().toISOString(),
       });
   };
   await pulse();
   let pending = Promise.resolve();
-  const timer = setInterval(() => {
-      pending = pending.then(pulse).catch(() => {
-        controller.abort();
-      });
-    }, 2000),
+  const schedule = () => {
+    pending = pending.then(pulse).catch(() => {
+      controller.abort();
+    });
+  };
+  const timer = setInterval(schedule, 2000),
     timeout = setTimeout(() => controller.abort(), 900000);
+  // A phase change is written immediately so status reads stay informative
+  // between heartbeats; the phase never replaces the recorded outcome.
+  const progress = (next: JobPhase) => {
+    phase = next;
+    schedule();
+  };
   try {
-    const result = await execute(request.operation, request.input, controller.signal);
+    let result: unknown;
+    try {
+      result = await execute(request.operation, request.input, controller.signal, progress);
+    } catch (error) {
+      // dispatch never throws; an executor exception is an infrastructure
+      // failure and is recorded as the job outcome instead of a lost heartbeat.
+      result = failure(request.operation, error);
+    }
     done = true;
     clearInterval(timer);
     clearTimeout(timeout);
@@ -171,6 +230,7 @@ export async function executeJob(
       id,
       operation: request.operation,
       status: jobOutcome(result),
+      ...(phase ? { phase } : {}),
       result,
       updatedAt: new Date().toISOString(),
     });

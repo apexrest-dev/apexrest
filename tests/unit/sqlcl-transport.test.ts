@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, stat } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { configureSqlcl, sqlclConfig } from '../../packages/core/src/sqlcl-config.ts';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
 import { runSqlclMcp } from '../../packages/core/src/sqlcl-mcp.ts';
+import { closeSqlclSessions, sqlclSessionStats } from '../../packages/core/src/sqlcl-session.ts';
 import type { ProcessResult } from '../../packages/core/src/process.ts';
 
 const completed = (stdout: string): ProcessResult => ({
@@ -229,3 +231,172 @@ test('CLI script sessions run restricted at level 2 and private staging is remov
   await oracle.discardStage(owned);
   await assert.rejects(stat(owned), { code: 'ENOENT' });
 });
+
+// Pooled path: one SQLcl server per key stays alive between batches; an
+// interrupted command kills its server and the next call starts a fresh one.
+async function pooledFixture(t: { after: (action: () => Promise<void>) => void }) {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-sqlcl-pool-'));
+  const oldHome = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = root;
+  t.after(async () => {
+    await closeSqlclSessions();
+    if (oldHome === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = oldHome;
+    await rm(root, { recursive: true, force: true });
+  });
+  const server = path.join(root, 'server.mjs');
+  const starts = path.join(root, 'starts');
+  await writeFile(
+    server,
+    `
+import {createInterface} from 'node:readline';
+import {appendFileSync} from 'node:fs';
+appendFileSync(${JSON.stringify(starts)}, process.argv.slice(2).join(' ') + '\\n');
+let connected = '';
+for await (const line of createInterface({input:process.stdin})) {
+ const r=JSON.parse(line); if(r.id===undefined) continue;
+ let result;
+ if(r.method==='initialize') result={protocolVersion:'2024-11-05',capabilities:{tools:{}},serverInfo:{name:'fixture',version:'1'}};
+ else if(r.method==='tools/list') result={tools:[
+  {name:'sqlcl_run',inputSchema:{type:'object',properties:{sqlcl:{type:'string'},execution_type:{type:'string'}}}},
+  {name:'connect',inputSchema:{type:'object',properties:{connection_name:{type:'string'}}}}
+ ]};
+ else if(r.method==='tools/call') {
+  const name=r.params.name;
+  if(name==='connect') { connected=r.params.arguments.connection_name; result={content:[{type:'text',text:'connected'}]}; }
+  else {
+   const sqlcl=r.params.arguments.sqlcl;
+   if(sqlcl.includes('HANG')) continue;
+   if(sqlcl.includes('CRASH')) process.exit(1);
+   const lines=sqlcl.split('\\n').flatMap(l=>l.startsWith('prompt ')?[l.slice(7)]:l.startsWith('select ')?['{"results":[{"items":[{"n":1,"c":"'+connected+'"}]}]}']:[]);
+   result={content:[{type:'text',text:lines.join('\\n')+'\\n'}]};
+  }
+ }
+ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result})+'\\n');
+}
+`,
+  );
+  const launcher = path.join(root, 'sql');
+  await writeFile(launcher, `#!/bin/sh\nexec "${process.execPath}" "${server}" "$@"\n`, { mode: 0o755 });
+  const oracle = new OracleAdapter();
+  oracle.settings = async () => ({
+    schemaVersion: 1,
+    mode: 'cli',
+    mcpRestrictLevel: '4',
+    executable: launcher,
+    javaHome: undefined,
+  });
+  return {
+    oracle,
+    starts: async () => (await readFile(starts, 'utf8').catch(() => '')).split('\n').filter(Boolean),
+  };
+}
+
+test(
+  'offline CLI sessions reuse one pooled SQLcl server and recover from interrupted commands',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle, starts } = await pooledFixture(t);
+    const first = await oracle.session('prompt hello');
+    assert.equal(first.output, 'hello');
+    const second = await oracle.session('prompt again');
+    assert.equal(second.output, 'again');
+    assert.deepEqual(await starts(), ['-mcp']);
+    assert.equal(
+      sqlclSessionStats().reduce((n, s) => n + s.sessions, 0),
+      1,
+    );
+    // Concurrent offline work may open a second server; never more than the limit.
+    await Promise.all([oracle.session('prompt a'), oracle.session('prompt b'), oracle.session('prompt c')]);
+    assert.ok((await starts()).length <= 2);
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 100);
+    await assert.rejects(oracle.session('prompt HANG', undefined, false, controller.signal), {
+      code: 'CANCELLED',
+      status: 'cancelled',
+    });
+    await assert.rejects(oracle.session('prompt CRASH', undefined, true), { status: 'outcome_unknown' });
+    const before = (await starts()).length;
+    assert.equal((await oracle.session('prompt fresh')).output, 'fresh');
+    assert.ok((await starts()).length > before - 2, 'a killed server is replaced');
+    // Restricted offline sessions get their own server with the restrict flag.
+    await oracle.session('prompt restricted', undefined, false, undefined, undefined, 'text', '2');
+    assert.ok((await starts()).includes('-R 2 -mcp'));
+    await closeSqlclSessions();
+    assert.deepEqual(sqlclSessionStats(), []);
+  },
+);
+
+test(
+  'MCP mode pools its server per saved connection and answers query batches in one session',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle, starts } = await pooledFixture(t);
+    const settings = await oracle.settings();
+    oracle.settings = async () => ({ ...settings, mode: 'mcp' });
+    const connection = { kind: 'sqlcl-store', name: 'fixture-dev' } as const;
+    assert.deepEqual(await oracle.jsonQuery('select 1 n from dual', connection), [
+      { n: 1, c: 'fixture-dev' },
+    ]);
+    assert.deepEqual(
+      await oracle.jsonQueryBatch(
+        [{ sql: 'select 1 n from dual' }, { sql: 'select 2 n from dual' }],
+        connection,
+      ),
+      [[{ n: 1, c: 'fixture-dev' }], [{ n: 1, c: 'fixture-dev' }]],
+    );
+    await oracle.jsonQuery('select 1 n from dual', { kind: 'sqlcl-store', name: 'fixture-other' });
+    const started = await starts();
+    assert.equal(started.filter((args) => args === '-mcp').length, 2, 'one server per saved connection');
+  },
+);
+
+const localSqlcl = '/Users/oleksii/sqlcl/bin/sql';
+const localJava = (() => {
+  try {
+    const base = '/Users/oleksii/.apexrest/toolchains/java';
+    for (const version of readdirSync(base))
+      for (const dist of readdirSync(path.join(base, version)))
+        if (existsSync(path.join(base, version, dist, 'Contents/Home/bin/java')))
+          return path.join(base, version, dist, 'Contents/Home');
+  } catch {
+    // No managed runtime on this machine.
+  }
+  return undefined;
+})();
+test(
+  'real local SQLcl: pooled offline validate reuses one JVM',
+  { skip: !existsSync(localSqlcl) || !localJava },
+  async (t) => {
+    const root = await mkdtemp(path.join(tmpdir(), 'apexrest-sqlcl-real-'));
+    const oldHome = process.env.APEXREST_HOME;
+    process.env.APEXREST_HOME = root;
+    t.after(async () => {
+      await closeSqlclSessions();
+      if (oldHome === undefined) delete process.env.APEXREST_HOME;
+      else process.env.APEXREST_HOME = oldHome;
+      await rm(root, { recursive: true, force: true });
+    });
+    const oracle = new OracleAdapter();
+    oracle.settings = async () => ({
+      schemaVersion: 1,
+      mode: 'cli',
+      mcpRestrictLevel: '4',
+      executable: localSqlcl,
+      javaHome: localJava,
+    });
+    const generated = await oracle.generate('Pool Fixture', 'pool_fixture');
+    const timings: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const started = Date.now();
+      assert.equal((await oracle.validate(generated.directory)).status, 'passed');
+      timings.push(Date.now() - started);
+    }
+    assert.equal(
+      sqlclSessionStats().reduce((n, s) => n + s.sessions, 0),
+      1,
+    );
+    assert.ok(timings[2]! < 1500, `warm validate took ${timings[2]} ms`);
+    await rm(generated.directory, { recursive: true, force: true });
+  },
+);

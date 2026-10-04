@@ -1,4 +1,4 @@
 interface:
-  display_name: "Setup and connections"
-  short_description: "Check tools and manage local connection references"
-  default_prompt: "Use $apexrest-setup. Check my APEXREST setup and show the connection and toolchain actions available."
+  display_name: 'Setup and connections'
+  short_description: 'Check tools, install dependencies and manage connection references'
+  default_prompt: 'Use $apexrest-setup. Check my APEXREST setup and show the connection and toolchain actions available.'

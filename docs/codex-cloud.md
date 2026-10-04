@@ -1,8 +1,6 @@
 # Run APEXREST in Codex Cloud
 
-English | [Українська](codex-cloud.uk.md)
-
-Run APEXREST's bundled **CLI inside the Cloud container**, using ORDS over HTTPS for database access. The example below adapts a project-specific Cloud bootstrap into reusable scripts. It does not register the desktop plugin, expose its MCP tools to the Cloud agent, or start the desktop development panel. Those integrations require their own host verification; see the [Codex integration audit](codex-integration.md).
+Run APEXREST's bundled **CLI inside the Cloud container**, using ORDS over HTTPS for database access. The example below adapts a project-specific Cloud bootstrap into reusable scripts. It does not register the plugin or expose its MCP tools and skills to the Cloud agent. Those integrations require their own host verification; see [host integration](codex-integration.md).
 
 ## 1. Prepare your application repository
 
@@ -10,7 +8,7 @@ Copy the files in [the Cloud example directory](examples/codex-cloud/) into `scr
 
 ```sh
 mkdir -p scripts/codex-cloud
-cp /path/to/apexrest-codex/docs/examples/codex-cloud/* scripts/codex-cloud/
+cp /path/to/apexrest/docs/examples/codex-cloud/* scripts/codex-cloud/
 ```
 
 Add these entries to the application's `.gitignore` before running setup:
@@ -113,7 +111,7 @@ Before application work, configure the target in `apexrest.json`, including work
 
 The example keeps local deployment history under `APEXREST_HOME`. Cloud caches are not durable backup storage or cross-container coordination: preserve private backups/history outside an expiring container and serialize runners before authorizing deployments. Do not reset away an unresolved operation's records or silently start fresh history against the same schema.
 
-Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work`, the in-app dashboard or automatic skill/MCP discovery work in Cloud. Use the launcher for the documented flow and report unavailable checks explicitly.
+Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work` or automatic skill/MCP discovery work in Cloud; the CLI equivalents of the work cycle are `apexrest apex validate`, `apexrest ship --mode plan|apply --user-request TEXT` and `apexrest job status`. Use the launcher for the documented flow and report unavailable checks explicitly.
 
 ## Troubleshooting
 
@@ -124,7 +122,7 @@ Browser dependencies are skipped. Browser checks require separately configured t
 | Pinned checkout/runtime/credentials missing after resume | Rerun setup with the Secret; maintenance cannot reconstruct an uncached environment.                 |
 | HTTP 401/403 or failed identity check                    | Verify the account, REST-Enabled SQL access, schema URL, expected identity and agent POST allowlist. |
 | Java timeout or certificate error                        | Check proxy/CA settings and run maintenance; do not disable TLS.                                     |
-| CLI works but no plugin tools or panel appear            | Native Cloud integration is not installed or verified by this example; continue through the CLI.     |
+| CLI works but no plugin tools or skills appear           | Native Cloud integration is not installed or verified by this example; continue through the CLI.     |
 
 ## Verification scope
 

@@ -11,7 +11,7 @@
   ],
   "status": "experimental",
   "license": "Apache-2.0",
-  "origin": "apexrest-dev/apexrest-codex",
+  "origin": "apexrest-dev/apexrest",
   "recipeRefs": [
     "component:reports/interactive-report/recipes/basic",
     "component:regions/cards/recipes/basic"

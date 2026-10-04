@@ -6,7 +6,7 @@ const config = JSON.parse(await readFile('site/site.config.json', 'utf8')),
   pkg = JSON.parse(await readFile('package.json', 'utf8'));
 const base = process.env.APEXREST_SITE_BASE_PATH ?? publisher.basePath ?? config.basePath;
 if (!/^\/(?:[a-zA-Z0-9_-]+\/)*$/.test(base)) throw new Error('basePath must be an absolute directory path');
-const repository = 'https://github.com/apexrest-dev/apexrest-codex';
+const repository = 'https://github.com/apexrest-dev/apexrest';
 const assets = (await readdir('docs/assets', { withFileTypes: true }))
   .filter((entry) => entry.isFile() && /\.(?:svg|png|jpe?g|webp)$/.test(entry.name))
   .map((entry) => 'docs/assets/' + entry.name);

@@ -7,6 +7,7 @@ export const generatedPluginEntries = [
   'runtime',
   'resources',
   '.codex-plugin',
+  '.claude-plugin',
   '.mcp.json',
   'LICENSE',
   'NOTICE',

@@ -2,21 +2,21 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch,
-  schemas
-} from "./chunk-A3TYG7T6.mjs";
-import {
   executeJob,
-  failQueuedJob
-} from "./chunk-S7T3NE27.mjs";
-import "./chunk-JBCN5WYI.mjs";
-import "./chunk-G3KR57BY.mjs";
+  failQueuedJob,
+  internalOperations,
+  schemas
+} from "./chunk-IV5KLHWM.mjs";
+import "./chunk-GSPRURYR.mjs";
+import "./chunk-JRODHLRL.mjs";
 import {
   loadProject
-} from "./chunk-MU6I3KRM.mjs";
+} from "./chunk-HIFCMPCL.mjs";
+import "./chunk-Z5TALD4Z.mjs";
 import {
   Fault,
   failure
-} from "./chunk-OX4ZKXO7.mjs";
+} from "./chunk-WPS3CSQJ.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -31,46 +31,36 @@ var positional = {
   "jobs.cancel": ["id"],
   "artifacts.read": ["id"]
 };
+var groupAliases = { job: "jobs", reference: "docs" };
 var variadic = { "docs.search": "query" };
 function operationFrom(args) {
-  const first = args[0];
-  if (["doctor", "version", "setup"].includes(first ?? "")) return { op: first, start: 1 };
+  const first = groupAliases[args[0] ?? ""] ?? args[0];
+  if (["doctor", "version", "setup", "ship", "status"].includes(first ?? "")) return { op: first, start: 1 };
   if (first === "test" && ["unit", "sql", "api", "e2e", "all"].includes(args[1] ?? ""))
     return { op: "test.run", start: 2, suite: args[1] };
-  return { op: args.slice(0, 2).join("."), start: 2 };
+  return { op: [first, args[1]].join("."), start: 2 };
 }
+var listed = (op) => !internalOperations.includes(op);
 var selected = operationFrom(argv);
 function knownHelpTarget() {
   const first = argv[0] ?? "";
-  return first.startsWith("-") || ["tui", "mcp", "test"].includes(first) || first === "panel" && argv[1] === "tui" || selected.op in schemas || // A command group alone (apexrest deploy --help) lists the general help.
-  (argv[1] ?? "-").startsWith("-") && Object.keys(schemas).some((op) => op.startsWith(first + "."));
-}
-function actionJson(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    throw new Fault(
-      "INVALID_INPUT",
-      `--action must be one JSON object, for example '{"kind":"validate"}'.`,
-      2
-    );
-  }
+  return first.startsWith("-") || ["mcp", "test"].includes(first) || selected.op in schemas || // A command group alone (apexrest deploy --help) lists the general help.
+  (argv[1] ?? "-").startsWith("-") && Object.keys(schemas).some((op) => op.startsWith((groupAliases[first] ?? first) + "."));
 }
 function help() {
   const key = selected.op;
   const lines = [
     "APEXREST for Codex \u2014 independent Oracle APEX developer tools",
     "Usage: apexrest [command] [options]",
-    "Run apexrest in a terminal to manage tools, plugins and saved SQLcl connections.",
-    "  tui [--project PATH]   Open the terminal UI explicitly",
-    "  panel tui [--project PATH]   Live development panel inside Codex CLI",
     "",
-    ...Object.keys(schemas).filter((x) => x !== "test.run").map((x) => "  " + x.replace(".", " ")),
+    ...Object.keys(schemas).filter((x) => x !== "test.run" && listed(x)).map((x) => "  " + x.replace(".", " ")),
     "  test unit|sql|api|e2e|all [--env NAME]",
+    "  job status|cancel <id>   (alias of jobs ...)",
     "  mcp",
     "",
     "--json emits one structured JSON result; diagnostics use stderr.",
     "Use --project PATH for project operations. Environment never defaults.",
+    "ship --env NAME --mode plan|apply --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.",
     "Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled."
   ];
   if (schemas[key])
@@ -103,17 +93,31 @@ function help() {
       "Read a result ID, grammar:production-name, component: ID or pattern: ID.",
       "Follow nextOffset using --offset; catalog navigationOffset recovers all dependency links."
     );
-  if (key === "panel.action")
+  if (key === "panel.status")
     lines.push(
       "",
-      "Pass --action as one JSON object. Supported kinds: preferences, connection, saved-connections, cancel-job, validate, test, browser, plan.",
-      "Change SQLcl settings with apexrest sqlcl configure or the local dashboard.",
-      `Example: apexrest panel action --action '{"kind":"validate"}' --project PATH --json`
+      "Read-only local snapshot: settings, connections, Git changes, sync state, jobs and deployment journal.",
+      "No server, worker, job or database call is started. Same as: apexrest status --detail project --project PATH --json"
     );
   if (key === "jobs.status")
     lines.push(
-      "Use --wait-seconds 25 to wait for an existing job without repeated status calls (default: immediate)."
+      "Use --wait-seconds N (up to 120) to wait for an existing job without repeated status calls (default: immediate)."
     );
+  if (key === "ship")
+    lines.push(
+      "",
+      "mode plan: validate with the Oracle compiler, read the target and write .apexrest/plans/ship-<id>.json for review.",
+      "mode apply: non-production only. Records a deploy grant bound to this project, target and plan digest with the",
+      "user's literal --user-request, imports with backup/drift/identity checks, verifies, runs required suites, then",
+      "removes the grant. Production targets require the protected CI approval path (deploy apply)."
+    );
+  if (key === "status")
+    lines.push(
+      "",
+      "--detail doctor probes local tools; --detail project (default) prints the read-only project snapshot."
+    );
+  if (key === "apex.validate")
+    lines.push("", "Runs in-process and returns structured diagnostics (file, line, column, type, hint).");
   if (key === "dependencies.install")
     lines.push(
       "",
@@ -152,7 +156,7 @@ function help() {
       "cli: SQLcl subprocess (default). mcp: official SQLcl stdio server (sql -mcp).",
       "direct: Oracle listener connection (default). ords: SQLcl OREST over HTTP(S), without port 1521.",
       "ORDS uses SQLcl CLI; select --mode cli with --database-transport ords.",
-      "Configure the ORDS URL, username and password for each reference using connection add or panel Settings.",
+      "Configure the ORDS URL, username and password for each reference using connection add.",
       "--mcp-restrict-level 4|1: 4 is the default; 1 explicitly permits scripts but blocks host commands.",
       "Saved in APEXREST_HOME/sqlcl.json. No connection, download or Codex registration is changed.",
       "SQLcl MCP can write its own database audit log on connected operations. No silent CLI fallback."
@@ -168,22 +172,8 @@ try {
         2
       );
     help();
-  } else if (argv[0] === "tui" || !argv.length && process.stdin.isTTY && process.stdout.isTTY && process.env.TERM !== "dumb") {
-    if (argv.length > 1 && (argv.length !== 3 || argv[1] !== "--project" || !argv[2] || argv[2].startsWith("--")))
-      throw new Fault("INVALID_INPUT", "Usage: apexrest tui [--project PATH]", 2);
-    const { runTui } = await import("./chunk-57EQRB72.mjs");
-    await runTui(argv[2] ? { project: argv[2] } : {});
   } else if (!argv.length) help();
-  else if (argv[0] === "panel" && argv[1] === "tui") {
-    if (argv.length !== 2 && (argv.length !== 4 || argv[2] !== "--project" || !argv[3]))
-      throw new Fault("INVALID_INPUT", "Usage: apexrest panel tui [--project PATH]", 2);
-    const { runPanelTui } = await import("./chunk-S3HS3SQX.mjs");
-    await runPanelTui(argv[3] ?? process.cwd());
-  } else if (argv[0] === "--panel-worker") {
-    if (argv.length !== 2 || !argv[1]) throw new Fault("INVALID_INPUT", "Invalid panel worker request.", 2);
-    const { servePanel } = await import("./chunk-RCBXRQOO.mjs");
-    await servePanel(argv[1]);
-  } else if (argv[0] === "--job-worker") {
+  else if (argv[0] === "--job-worker") {
     if (argv.length !== 3) throw new Fault("INVALID_INPUT", "Invalid internal job request.", 2);
     try {
       await executeJob(await loadProject(argv[1]), argv[2], dispatch);
@@ -193,7 +183,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-WYMU4QKT.mjs");
+    const { startMcp } = await import("./chunk-N3NTN2ZA.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -213,7 +203,8 @@ try {
       "keepRuntime",
       "headed",
       "saved",
-      "workingCopy"
+      "workingCopy",
+      "includeUnresolved"
     ]);
     const numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds"]);
     let index = 0, rest;
@@ -229,7 +220,7 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith("--"))
             throw new Fault("INVALID_INPUT", `Missing value for ${token}`, 2);
-          input[name] = name === "action" && selectedOp.op === "panel.action" ? actionJson(value) : numbers.has(name) ? Number(value) : value;
+          input[name] = numbers.has(name) ? Number(value) : value;
         }
       } else {
         const field = positional[selectedOp.op]?.[index];

@@ -1,6 +1,18 @@
-# 1.3.0-beta.1 — experimental Composer and working copies
+# Unreleased — redesign phase 1
 
-English | [Українська](release-notes.uk.md)
+## Source repository — 2026-10-04
+
+The working tree contains the first redesign phase, implemented and checked locally only; nothing is published. npm `latest` remains `1.2.0` and npm `beta` remains `1.3.0-beta.1`, both with the previous surface described below.
+
+- A persistent SQLcl engine: offline compiler work and SQLcl `mcp`-mode connections run on a pooled SQLcl server process for the MCP server's lifetime, with one capability probe per process. Measured locally: `apex validate` 3.2 s cold → about 43 ms warm; capability probe 1.5 s → 0 ms. Compiler results return structured diagnostics with file, line, column, type, message, valid values and hint.
+- Eleven MCP tools instead of 21 (`apexrest_project`, `apexrest_reference`, `apexrest_metadata_read`, `apexrest_apex_validate`, `apexrest_ship`, `apexrest_apex_sync`, `apexrest_test_run`, `apexrest_browser_open`, `apexrest_job`, `apexrest_artifact_read`, `apexrest_status`); the catalog shrinks from about 24 KB to 12.2 KB. `apexrest_ship` plans, records a plan-bound deploy grant from the user's explicit request, applies, verifies and removes the grant; production is refused.
+- Five host-neutral skills instead of 14 (`apexrest-work`, `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`), about 17.6 KB instead of 41 KB.
+- Claude Code support through `.claude-plugin/plugin.json` and the repository marketplace (`claude plugin marketplace add apexrest-dev/apexrest`, `claude plugin install apexrest@apexrest`); the Codex route is unchanged.
+- Removed: the terminal UI, the panel server, worker, actions and MCP UI resource, database-backed deployment coordination, the Composer MCP tools and skill (Composer remains an experimental CLI), and Ukrainian documentation. The repository is renamed to `apexrest-dev/apexrest`.
+
+See the [changelog](../CHANGELOG.md#unreleased--redesign-phase-1-security-hardening-and-review-fixes) for breaking changes and [implementation status](implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) for what was and was not verified.
+
+# 1.3.0-beta.1 — experimental Composer and working copies
 
 ## Beta release — 2026-09-30
 
@@ -8,7 +20,7 @@ English | [Українська](release-notes.uk.md)
 - Adds single-editor working copies for existing applications: explicit `apex sync`, immutable local baselines, source-bound plans and imports from frozen local source. The legacy full-export path remains available.
 - The [Composer audit](composer/audit.md) records unfinished CMP-000–041 requirements. Local tests and offline compiler checks do not establish live Oracle import, roles, authenticated browser behavior or new-chat native loading. Those gates remain open.
 
-`apexrest@1.3.0-beta.1` is published under the npm `beta` tag. The [publication record](evidence/npm-130-beta1-publication.json) confirms matching registry integrity, clean local/global installs and [CI success](https://github.com/apexrest-dev/apexrest-codex/actions/runs/36689253006) on macOS, Ubuntu and Windows for source commit `d119ca60998565ab0d0eb73e54c227c5dbb9bfa7`. Stable `latest` remains `1.2.0`. No Git tag, production deployment or active plugin-cache update is claimed.
+`apexrest@1.3.0-beta.1` is published under the npm `beta` tag. The [publication record](evidence/npm-130-beta1-publication.json) confirms matching registry integrity, clean local/global installs and [CI success](https://github.com/apexrest-dev/apexrest/actions/runs/36689253006) on macOS, Ubuntu and Windows for source commit `d119ca60998565ab0d0eb73e54c227c5dbb9bfa7`. Stable `latest` remains `1.2.0`. No Git tag, production deployment or active plugin-cache update is claimed.
 
 ## 1.2.0 — reusable APEX pattern catalog
 
@@ -30,7 +42,7 @@ Browse the [Universal Theme component list and examples](https://apex.oracle.com
 
 ## Distribution
 
-`apexrest@1.2.0` is published as npm `latest`. The [1.2.0 publication record](evidence/npm-120-publication.json) confirms registry integrity and clean local/global installs for source commit `858b5d14b45370fc2ba01d63013d636f1fa11070`. The [release CI run](https://github.com/apexrest-dev/apexrest-codex/actions/runs/36017573027) passed on Ubuntu, macOS and Windows. The previous 1.1.0 publication remains recorded separately below.
+`apexrest@1.2.0` is published as npm `latest`. The [1.2.0 publication record](evidence/npm-120-publication.json) confirms registry integrity and clean local/global installs for source commit `858b5d14b45370fc2ba01d63013d636f1fa11070`. The [release CI run](https://github.com/apexrest-dev/apexrest/actions/runs/36017573027) passed on Ubuntu, macOS and Windows. The previous 1.1.0 publication remains recorded separately below.
 
 npm publication is separate from the disabled protected GitHub artifact publisher. It does not claim signed GitHub artifacts, a Git tag, website deployment or full platform/Oracle qualification. Updating the active Codex plugin cache and opening a new conversation to load its tools are separate installation actions.
 

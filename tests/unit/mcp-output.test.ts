@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fixture } from '../fixtures/project.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
 import { success, failure, Fault, sanitized } from '../../packages/core/src/result.ts';
-import { toolOutput, panelResultKey } from '../../packages/mcp/src/output.ts';
+import { toolOutput } from '../../packages/mcp/src/output.ts';
 import { exists, hash, writeJson } from '../../packages/core/src/fs.ts';
 import { randomUUID } from 'node:crypto';
 
@@ -59,23 +59,63 @@ test('large failed and unknown operations retain failures even when output archi
   }
 });
 
-test('nested job failure remains visible while full panel state is carried only in UI metadata', async (t) => {
+test('nested job failure remains visible and no UI metadata channel exists', async (t) => {
   const { ctx } = await isolated(t);
   const job = {
     status: 'completed',
     result: { ok: false, status: 'failed', summary: 'Compiler failed', data: 'x'.repeat(40000) },
   };
-  const jobResponse = JSON.parse((await toolOutput(success('jobs.status', job), ctx.root)).content[0]!.text);
+  const response = await toolOutput(success('jobs.status', job), ctx.root);
+  const jobResponse = JSON.parse(response.content[0]!.text);
   assert.equal(jobResponse.data.status, 'completed');
   assert.equal(jobResponse.data.result.ok, false);
   assert.equal(jobResponse.data.result.status, 'failed');
-  const full = success('panel.status', { project: ctx.root, jobs: [job], password: 'private-value' });
-  const panel = await toolOutput(full, ctx.root);
-  assert.equal('structuredContent' in panel, false);
-  assert.deepEqual(panel._meta?.[panelResultKey], sanitized(full));
-  assert.doesNotMatch(JSON.stringify(panel), /private-value/);
-  assert.ok(panel.content[0]!.text.length < 2000);
+  assert.equal('_meta' in response, false);
+  assert.equal('structuredContent' in response, false);
 });
+
+test('structured compiler diagnostics travel complete and the compacted summary keeps the first five', async (t) => {
+  const { ctx } = await isolated(t);
+  const entries = Array.from({ length: 60 }, (_, i) => ({
+    message: `Unknown property ${i} ` + 'detail '.repeat(120),
+    file: `pages/p000${i}.apx`,
+    line: i + 1,
+    column: 7,
+    type: 'unknown-property',
+    hint: 'Use a listed property.',
+    validValues: ['title', 'label'],
+  }));
+  const failed = failure(
+    'apex.validate',
+    new Fault('VALIDATION_FAILED', 'Oracle compiler reported 60 error(s).', 1, 'failed', {
+      diagnostics: entries,
+    }),
+  );
+  assert.equal(failed.diagnostics.length, 50);
+  assert.deepEqual(failed.diagnostics[0], {
+    severity: 'error',
+    code: 'VALIDATION_FAILED',
+    message: entries[0]!.message,
+    file: 'pages/p0000.apx',
+    line: 1,
+    column: 7,
+    type: 'unknown-property',
+    hint: 'Use a listed property.',
+    validValues: ['title', 'label'],
+  });
+  assert.equal((failed.data as { diagnosticsOmitted: number }).diagnosticsOmitted, 10);
+  assert.match(failed.nextActions[0]!, /rerun apexrest_apex_validate/);
+  const response = await toolOutput(failed, ctx.root);
+  const compact = JSON.parse(response.content[0]!.text);
+  assert.equal(response.isError, true);
+  assert.equal(compact.diagnostics.length, 5);
+  assert.deepEqual(compact.diagnostics[4], failed.diagnostics[4]);
+  assert.equal(compact.data.output.diagnosticsCount, 50);
+  assert.match(compact.nextActions[0], /rerun apexrest_apex_validate/);
+  assert.ok(compact.data.output.artifactId);
+  assert.ok(response.content[0]!.text.length < inlineBudget);
+});
+const inlineBudget = 8192;
 
 test('JSON artifacts redact before pagination without corrupting quotes or split secret fields', async (t) => {
   const { ctx } = await isolated(t);
@@ -118,26 +158,6 @@ test('automatic archives ignore source directories and repeated identical result
   const sources = await readdir(path.join(ctx.root, ctx.config.database.migrationsDir)).catch(() => []);
   assert.deepEqual(sources, []);
   assert.match((await new ArtifactService(ctx).read(first.data.output.artifactId)).content, /failed/);
-});
-
-test('panel status polls are never archived; their complete state stays in UI metadata', async (t) => {
-  const { ctx } = await isolated(t);
-  const data = {
-    project: ctx.root,
-    jobs: Array.from({ length: 20 }, () => ({ status: 'failed', summary: 'x'.repeat(1000) })),
-  };
-  for (const updatedAt of ['first', 'second', 'third']) {
-    const full = success('panel.status', { ...data, updatedAt });
-    const response = await toolOutput(full, ctx.root);
-    const compact = JSON.parse(response.content[0]!.text);
-    assert.equal(response.isError, false);
-    assert.deepEqual(compact.artifacts, []);
-    assert.equal(compact.data.output.recovery, 'panel-ui-metadata');
-    assert.match(compact.nextActions[0], /panel UI/);
-    assert.deepEqual(response._meta?.[panelResultKey], sanitized(full));
-  }
-  const results = path.join(process.env.APEXREST_HOME!, 'results');
-  assert.deepEqual(await readdir(results).catch(() => []), []);
 });
 
 test('archiving prunes expired result records at most once per hour per project', async (t) => {

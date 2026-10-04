@@ -74,7 +74,9 @@ test('synthetic worker fixture executes nonempty assertions', { timeout: 1500 },
   );
 const checkJob = async (response, passed) => {
   const job = response.envelope.data;
-  assert.equal(job.status, 'completed');
+  // A worker records the operation outcome: a failed suite is a terminal
+  // 'failed' job with its nested result (packages/core/src/jobs.ts jobOutcome).
+  assert.equal(job.status, passed ? 'completed' : 'failed');
   assert.match(job.jobId ?? job.id, /^[0-9a-f-]{36}$/);
   assert.equal(job.result.ok, passed);
   assert.equal(job.result.data.status, passed ? 'passed' : 'failed');
@@ -139,31 +141,35 @@ process.exit(99);
   connected = true;
   evidence.calls.listTools++;
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 21);
-  const longTools = [
-    'apexrest_apex_sync',
-    'apexrest_apex_generate',
-    'apexrest_apex_export',
-    'apexrest_apex_validate',
-    'apexrest_deploy_plan',
-    'apexrest_deploy_apply',
-    'apexrest_test_run',
-  ];
-  for (const name of longTools) {
+  // The 2026-10-04 redesign: eleven tools; apex.validate runs in-process and
+  // apexrest_ship waits longer than the job tools (packages/mcp/src/job-tools.ts).
+  assert.equal(catalog.tools.length, 11);
+  const longTools = {
+    apexrest_apex_sync: { maximum: 30, default: 25 },
+    apexrest_test_run: { maximum: 30, default: 25 },
+    apexrest_ship: { maximum: 120, default: 60 },
+  };
+  for (const [name, wait] of Object.entries(longTools)) {
     const schema = catalog.tools.find((tool) => tool.name === name)?.inputSchema;
     assert.ok(schema, name);
     assert.equal(schema.properties.waitSeconds.type, 'integer');
     assert.equal(schema.properties.waitSeconds.minimum, 0);
-    assert.equal(schema.properties.waitSeconds.maximum, 30);
-    assert.equal(schema.properties.waitSeconds.default, 25);
+    assert.equal(schema.properties.waitSeconds.maximum, wait.maximum);
+    assert.equal(schema.properties.waitSeconds.default, wait.default);
     assert.ok(!schema.required?.includes('waitSeconds'));
   }
-  assert.ok(catalog.tools.every((tool) => !/^apexrest_(team|work)_/.test(tool.name)));
+  for (const name of ['apexrest_apex_validate', 'apexrest_project', 'apexrest_reference', 'apexrest_status'])
+    assert.equal(
+      catalog.tools.find((tool) => tool.name === name)?.inputSchema.properties.waitSeconds,
+      undefined,
+      `${name} is in-process`,
+    );
+  assert.ok(catalog.tools.every((tool) => !/^apexrest_(team|work|compose|panel)_/.test(tool.name)));
   evidence.checks.push('no-agent-start-or-orchestration-tools');
   evidence.catalog = {
     tools: catalog.tools.length,
-    longToolsWithOptionalWait: longTools.length,
-    defaultWaitSeconds: 25,
+    longToolsWithOptionalWait: Object.keys(longTools).length,
+    defaultWaitSeconds: { job: 25, ship: 60 },
   };
   evidence.checks.push('real-stdio-catalog-and-optional-wait-schema');
 
@@ -178,7 +184,11 @@ process.exit(99);
   await writeTest(12);
   const queued = await call('apexrest_test_run', { suite: 'unit', waitSeconds: 0 });
   assert.equal(queued.envelope.data.status, 'queued');
-  const waited = await call('apexrest_job_status', { id: queued.envelope.data.jobId, waitSeconds: 25 });
+  const waited = await call('apexrest_job', {
+    action: 'status',
+    jobId: queued.envelope.data.jobId,
+    waitSeconds: 25,
+  });
   assert.equal(waited.envelope.data.id, queued.envelope.data.jobId);
   evidence.immediateQueueCompatibility = { toolCalls: 2, ...(await checkJob(waited, true)) };
   assert.equal((await readdir(path.join(project, '.apexrest/jobs'))).length, 3);
@@ -196,8 +206,8 @@ process.exit(99);
       writeFile(path.join(source, `page-${i}.apx`), `// synthetic local source ${i}\n`),
     ),
   );
-  const summary = await call('apexrest_project_inspect', { detail: 'summary' });
-  const full = await call('apexrest_project_inspect', { detail: 'full' });
+  const summary = await call('apexrest_project', { action: 'inspect', detail: 'summary' });
+  const full = await call('apexrest_project', { action: 'inspect', detail: 'full' });
   assert.equal(summary.envelope.data.sources, undefined);
   assert.equal(summary.envelope.data.output, undefined);
   assert.equal(summary.envelope.data.targetVerified, false);

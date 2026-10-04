@@ -1,4 +1,0 @@
-interface:
-  display_name: "Database and PL/SQL"
-  short_description: "Inspect metadata and plan Oracle schema changes"
-  default_prompt: "Use $apexrest-database. Help me inspect Oracle metadata or design a database and PL/SQL change."

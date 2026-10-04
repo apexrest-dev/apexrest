@@ -7,19 +7,18 @@ import type { Environment } from './config.ts';
 import { canonical, exists, hash, readJson, withLock, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 
+/**
+ * Deployment coordination is always the local durable store: a lease and
+ * migration history under the managed home, scoped to the database identity
+ * and parsing schema. It serializes runners sharing one managed home only;
+ * independent machines or homes need external serialization.
+ */
 export function coordination(env: Environment) {
-  const backend = env.deploymentControl ?? 'local';
   return {
-    backend,
-    scope: backend === 'local' ? ('managed-home-schema' as const) : ('database-application' as const),
+    backend: 'local' as const,
+    scope: 'managed-home-schema' as const,
     // Bind plans to the history store. Moving a plan to a fresh home is not migration recovery.
-    storeDigest: hash(
-      canonical(
-        backend === 'local'
-          ? { home: managedHome(), ...env.databaseIdentity, schema: env.parsingSchema }
-          : { ...env.databaseIdentity, schema: env.parsingSchema },
-      ),
-    ),
+    storeDigest: hash(canonical({ home: managedHome(), ...env.databaseIdentity, schema: env.parsingSchema })),
   };
 }
 const ownerSchema = z.strictObject({

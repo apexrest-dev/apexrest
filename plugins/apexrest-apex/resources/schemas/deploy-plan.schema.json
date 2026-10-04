@@ -89,17 +89,11 @@
           "properties": {
             "backend": {
               "type": "string",
-              "enum": [
-                "local",
-                "database"
-              ]
+              "const": "local"
             },
             "scope": {
               "type": "string",
-              "enum": [
-                "managed-home-schema",
-                "database-application"
-              ]
+              "const": "managed-home-schema"
             },
             "storeDigest": {
               "type": "string",
@@ -174,6 +168,10 @@
             "checksum": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
+            },
+            "alias": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
             }
           },
           "required": [
@@ -298,17 +296,11 @@
           "properties": {
             "backend": {
               "type": "string",
-              "enum": [
-                "local",
-                "database"
-              ]
+              "const": "local"
             },
             "scope": {
               "type": "string",
-              "enum": [
-                "managed-home-schema",
-                "database-application"
-              ]
+              "const": "managed-home-schema"
             },
             "storeDigest": {
               "type": "string",
@@ -383,6 +375,10 @@
             "checksum": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
+            },
+            "alias": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
             }
           },
           "required": [
@@ -572,17 +568,11 @@
           "properties": {
             "backend": {
               "type": "string",
-              "enum": [
-                "local",
-                "database"
-              ]
+              "const": "local"
             },
             "scope": {
               "type": "string",
-              "enum": [
-                "managed-home-schema",
-                "database-application"
-              ]
+              "const": "managed-home-schema"
             },
             "storeDigest": {
               "type": "string",
@@ -657,6 +647,10 @@
             "checksum": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
+            },
+            "alias": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
             }
           },
           "required": [

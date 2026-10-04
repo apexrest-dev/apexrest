@@ -16,8 +16,32 @@ import { runProcess } from './process.ts';
 import type { ProcessRequest, ProcessResult } from './process.ts';
 import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
+import { runPooledSqlcl } from './sqlcl-session.ts';
 import { runOrdsBridge, type OrdsBridgeJob } from './ords.ts';
 export type Runner = (request: ProcessRequest) => Promise<ProcessResult>;
+export interface SqlclCapabilities {
+  version: string;
+  commands: Record<string, boolean>;
+  helpHash: string;
+  help: string;
+}
+// One capability probe per SQLcl installation per process. The key covers the
+// launcher, the compiler libraries and the Java runtime; every adapter in the
+// process shares it, so an import after a validate never re-probes.
+const capabilityCache = new Map<string, Promise<SqlclCapabilities>>();
+export function resetCapabilityCache() {
+  capabilityCache.clear();
+}
+function raceCancellation<T>(promise: Promise<T>, signal: AbortSignal | undefined, message: string) {
+  const cancelled = () => new Fault('CANCELLED', message, 6, 'cancelled');
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(cancelled());
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(cancelled());
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
+}
 export function sqlclToken(value: string) {
   if (!value || /[\r\n\x00"&]/.test(value))
     throw new Fault(
@@ -46,31 +70,9 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
   let diagnostics = output;
   if (format === 'json') {
     // Error messages returned as data (for example an APEX activity log row)
-    // are not SQLcl failures. Strip only rows of a decoded result envelope;
+    // are not SQLcl failures. Strip only rows of decoded result envelopes;
     // keep stderr, surrounding output and envelope error metadata observable.
-    const start = stdout.indexOf('{'),
-      end = stdout.lastIndexOf('}');
-    try {
-      const envelope = JSON.parse(stdout.slice(start, end + 1)) as {
-        results?: { items?: unknown[] }[];
-      };
-      if (
-        Array.isArray(envelope.results) &&
-        envelope.results.length > 0 &&
-        envelope.results.every((result) => Array.isArray(result.items))
-      )
-        diagnostics =
-          stdout.slice(0, start) +
-          JSON.stringify({
-            ...envelope,
-            results: envelope.results.map(({ items: _items, ...metadata }) => metadata),
-          }) +
-          stdout.slice(end + 1) +
-          '\n' +
-          stderr;
-    } catch {
-      // Malformed or command-error JSON receives the normal text diagnostics.
-    }
+    diagnostics = stripEnvelopeRows(stdout) + '\n' + stderr;
   }
   if (/ORA-01017|ORA-28000|ORA-28001/i.test(diagnostics))
     throw new Fault('AUTHENTICATION_FAILED', 'Oracle authentication failed.', 4, 'blocked');
@@ -89,6 +91,48 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
     );
   return output;
 }
+/** Top-level JSON documents in SQLcl output, as [start, end) offsets. */
+export function jsonDocuments(text: string) {
+  const spans: [number, number][] = [];
+  let depth = 0,
+    start = -1,
+    quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '\\') i++;
+      else if (c === '"') quoted = false;
+    } else if (c === '"') quoted = true;
+    else if (c === '{') {
+      if (depth++ === 0) start = i;
+    } else if (c === '}' && depth > 0 && --depth === 0) spans.push([start, i + 1]);
+  }
+  return spans;
+}
+function stripEnvelopeRows(stdout: string) {
+  let result = '',
+    cursor = 0;
+  for (const [start, end] of jsonDocuments(stdout)) {
+    let replacement = stdout.slice(start, end);
+    try {
+      const envelope = JSON.parse(replacement) as { results?: { items?: unknown[] }[] };
+      if (
+        Array.isArray(envelope.results) &&
+        envelope.results.length > 0 &&
+        envelope.results.every((entry) => Array.isArray(entry.items))
+      )
+        replacement = JSON.stringify({
+          ...envelope,
+          results: envelope.results.map(({ items: _items, ...metadata }) => metadata),
+        });
+    } catch {
+      // Malformed or command-error JSON receives the normal text diagnostics.
+    }
+    result += stdout.slice(cursor, start) + replacement;
+    cursor = end;
+  }
+  return result + stdout.slice(cursor);
+}
 /**
  * SQLcl CLI restrict level for sessions that execute reviewed SQL files
  * (migrations, packages, restores, SQL tests) and application imports. Level 2
@@ -101,8 +145,6 @@ export const SCRIPT_RESTRICT_LEVEL = '2';
 export class OracleAdapter {
   private selectedTransport: Promise<SqlclConfig> | undefined;
   private selectedConnections = new Map<string, Promise<{ name?: string; ords?: OrdsCredentials }>>();
-  private capabilityHelp: { key: string; help: string } | undefined;
-  private pendingHelp: { key: string; signal: AbortSignal | undefined; result: Promise<string> }[] = [];
   constructor(
     private runner: Runner = runProcess,
     private executable = process.env.APEXREST_SQLCL ?? 'sql',
@@ -211,20 +253,41 @@ export class OracleAdapter {
       timeoutMs: 180000,
       ...(signal ? { signal } : {}),
     };
-    const raw =
+    // Persistent engine: SQLcl executes a piped script only after stdin EOF, so
+    // reuse runs through SQLcl's server mode (sqlcl-session.ts). CLI mode pools
+    // offline (/nolog) work such as generate/validate/help; connected CLI
+    // sessions (saved name, ORDS) keep one process per call. MCP mode pools its
+    // server per saved connection. Injected test runners keep the per-call path.
+    const pooled =
       settings.mode === 'mcp'
-        ? await this.mcpRunner({
-            ...request,
-            // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
-            // also suppresses connmgr output, unlike the default MCP profile.
-            args: settings.mcpRestrictLevel === '4' ? ['-mcp'] : ['-R', '1', '-mcp'],
-            // CLI's final EXIT commits on success. Preserve that transaction
-            // boundary before acknowledging a write over a persistent MCP session.
-            input: preamble + input + (mutation ? '\ncommit;\n' : '\n') + `prompt ${marker}\n`,
-            mutation,
-            ...(selected?.name ? { connectionName: selected.name } : {}),
-          })
-        : await this.runner(request);
+        ? this.mcpRunner === runSqlclMcp
+        : this.runner === runProcess && !selected && settings.databaseTransport !== 'ords';
+    const viaServer = settings.mode === 'mcp' || pooled;
+    const raw = viaServer
+      ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
+          ...request,
+          cwd: pooled ? await this.sessionHome() : work,
+          // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
+          // also suppresses connmgr output, unlike the default MCP profile.
+          args:
+            settings.mode === 'mcp'
+              ? settings.mcpRestrictLevel === '4'
+                ? ['-mcp']
+                : ['-R', '1', '-mcp']
+              : [...(restrictLevel ? ['-R', restrictLevel] : []), '-mcp'],
+          // CLI's final EXIT commits on success. Preserve that transaction
+          // boundary before acknowledging a write over a persistent session.
+          input:
+            (settings.mode === 'cli' ? preamble.replace(/exit failure rollback/g, 'continue') : preamble) +
+            // Persistent servers keep SET state between batches; start neutral.
+            'set sqlformat default\n' +
+            input +
+            (mutation ? '\ncommit;\n' : '\n') +
+            `prompt ${marker}\n`,
+          mutation,
+          ...(selected?.name ? { connectionName: selected.name } : {}),
+        })
+      : await this.runner(request);
     const secret = selected?.ords?.password;
     // Internal JSON rows can legitimately equal a short password (for example
     // the schema name). Do not rewrite result data before parsing/identity
@@ -244,14 +307,20 @@ export class OracleAdapter {
       if (secret && error instanceof Error) error.message = error.message.replaceAll(secret, '[REDACTED]');
       throw error;
     }
-    if (settings.mode === 'mcp' && !output.split(/\r?\n/).some((line) => line.trim() === marker))
+    if (viaServer && !output.split(/\r?\n/).some((line) => line.trim() === marker))
       throw new Fault(
         'SQLCL_MCP_INCOMPLETE',
         'SQLcl MCP did not confirm the complete command batch.',
         6,
         mutation ? 'outcome_unknown' : 'failed',
       );
-    return { ...result, output: settings.mode === 'mcp' ? output.replace(marker, '').trim() : output, work };
+    return { ...result, output: viaServer ? output.replace(marker, '').trim() : output, work };
+  }
+  /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
+  async sessionHome() {
+    const root = path.join(managedHome(), 'staging');
+    await mkdir(root, { recursive: true, mode: 0o700 });
+    return root;
   }
   async requireMutationSupport() {
     const settings = await this.settings();
@@ -294,36 +363,42 @@ export class OracleAdapter {
       if (!stage) await this.discardStage(work);
     }
   }
-  private async capabilityKey(settings: Awaited<ReturnType<OracleAdapter['settings']>>, version: string) {
-    // Only cache bundled help for an identifiable SQLcl installation. Bare PATH
-    // commands and custom layouts retain fresh help probes on every call.
+  private async capabilityKey(settings: Awaited<ReturnType<OracleAdapter['settings']>>) {
+    // Only cache for an identifiable SQLcl installation. Bare PATH commands and
+    // custom layouts retain fresh probes on every call. A few stats replace the
+    // former bin/lib walk: the launcher, the lib directory and the APEX jars.
     if (!path.isAbsolute(settings.executable)) return;
     try {
       const executable = await realpath(settings.executable);
       const bin = path.dirname(executable);
       if (path.basename(bin) !== 'bin') return;
-      const files: Record<string, string[]> = {};
-      const walk = async (directory: string): Promise<void> => {
-        for (const entry of await readdir(directory, { withFileTypes: true })) {
-          const file = path.join(directory, entry.name);
-          if (entry.isSymbolicLink()) throw new Error('Untracked SQLcl dependency');
-          if (entry.isDirectory()) await walk(file);
-          else if (entry.isFile()) {
-            const info = await stat(file, { bigint: true });
-            files[file] = [info.dev, info.ino, info.mode, info.size, info.mtimeNs, info.ctimeNs].map(String);
-          } else throw new Error('Untracked SQLcl dependency');
+      const lib = path.join(path.dirname(bin), 'lib');
+      const mark = async (file: string, required: boolean) => {
+        try {
+          const info = await stat(file, { bigint: true });
+          return [info.dev, info.ino, info.mode, info.size, info.mtimeNs, info.ctimeNs].map(String);
+        } catch (error) {
+          if (required) throw error;
+          return 'absent';
         }
       };
-      await walk(bin);
-      await walk(path.join(path.dirname(bin), 'lib'));
-      return hash(canonical({ ...settings, executable, version, files }));
+      const marks = {
+        executable: await mark(executable, true),
+        lib: await mark(lib, true),
+        apex: await mark(path.join(lib, 'dbtools-apex.jar'), false),
+        apexlang: await mark(path.join(lib, 'apexlang-compiler.jar'), false),
+      };
+      const { executable: _executable, ...rest } = settings;
+      return hash(canonical({ ...rest, executable, marks }));
     } catch {
       // A cache miss must never replace the actual capability check.
       return;
     }
   }
-  async capabilities(signal?: AbortSignal) {
-    const settings = await this.settings();
+  private async probeCapabilities(
+    settings: Awaited<ReturnType<OracleAdapter['settings']>>,
+    key: string | undefined,
+  ): Promise<SqlclCapabilities> {
     const versionStage = await this.stage();
     let version: ProcessResult;
     try {
@@ -333,47 +408,38 @@ export class OracleAdapter {
         cwd: versionStage,
         env: { ...process.env, JAVA_HOME: settings.javaHome },
         timeoutMs: 15000,
-        ...(signal ? { signal } : {}),
       });
     } finally {
       await this.discardStage(versionStage);
     }
     oracleDiagnostics(version);
-    const currentVersion = version.stdout.trim();
-    const key = await this.capabilityKey(settings, currentVersion);
-    let help: string;
-    if (key && this.capabilityHelp?.key === key) help = this.capabilityHelp.help;
-    else {
-      const probe = async () => {
-        const help = (await this.session('help apex', undefined, false, signal)).output;
-        this.capabilityHelp =
-          key && key === (await this.capabilityKey(settings, currentVersion)) ? { key, help } : undefined;
-        return help;
-      };
-      if (!key) help = await probe();
-      else {
-        // Share only calls with the same cancellation lifetime. One cancelled
-        // caller must never cancel an unrelated caller's capability probe.
-        let pending = this.pendingHelp.find((entry) => entry.key === key && entry.signal === signal);
-        if (!pending) {
-          pending = { key, signal, result: probe() };
-          this.pendingHelp.push(pending);
-        }
-        try {
-          help = await pending.result;
-        } finally {
-          this.pendingHelp = this.pendingHelp.filter((entry) => entry !== pending);
-        }
-      }
-    }
-    if (signal?.aborted) throw new Fault('CANCELLED', 'Capability check cancelled.', 6, 'cancelled');
+    const help = (await this.session('help apex')).output;
+    // An installation replaced during the probe must not keep this answer.
+    if (key && key !== (await this.capabilityKey(settings))) capabilityCache.delete(key);
     const commands = Object.fromEntries(
       ['generate', 'export', 'validate', 'import'].map((command) => [
         command,
         new RegExp('\\b' + command + '\\b', 'i').test(help),
       ]),
     );
-    return { version: currentVersion, commands, helpHash: hash(help), help };
+    return { version: version.stdout.trim(), commands, helpHash: hash(help), help };
+  }
+  async capabilities(signal?: AbortSignal) {
+    const settings = await this.settings();
+    const key = await this.capabilityKey(settings);
+    let pending = key ? capabilityCache.get(key) : undefined;
+    if (!pending) {
+      // The shared probe runs without any caller's cancellation: one cancelled
+      // caller must never cancel an unrelated caller's capability check.
+      pending = this.probeCapabilities(settings, key);
+      if (key) {
+        capabilityCache.set(key, pending);
+        pending.catch(() => {
+          if (capabilityCache.get(key) === pending) capabilityCache.delete(key);
+        });
+      } else pending.catch(() => {});
+    }
+    return raceCancellation(pending, signal, 'Capability check cancelled.');
   }
   async requireCapability(name: 'generate' | 'export' | 'validate' | 'import', signal?: AbortSignal) {
     const capabilities = await this.capabilities(signal);
@@ -435,15 +501,18 @@ export class OracleAdapter {
         signal,
         stage,
       );
+    } catch (error) {
+      // Compile errors are text with exit code 0 that the session classifies
+      // as a failed command; a parsed report becomes a validation failure.
+      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details) {
+        const details = await compilerDetails(error.message, source);
+        if (details) throw new Fault('VALIDATION_FAILED', error.message, 1, 'failed', details);
+      }
+      throw error;
     } finally {
       await this.discardStage(stage);
     }
-    if (!compilerSucceeded(result.output))
-      throw new Fault(
-        'VALIDATION_UNCONFIRMED',
-        result.output.slice(0, 4000) || 'Compiler returned no success marker.',
-        1,
-      );
+    if (!compilerSucceeded(result.output)) throw await compilerFault(result.output, source);
     if (canonical(before) !== canonical(await inventory(source)))
       throw new Fault('SOURCE_DRIFT', 'Source changed during validation.', 5);
     return {
@@ -526,14 +595,8 @@ export class OracleAdapter {
       connections: names.map((name) => ({ name: parse(savedConnectionName, name) })),
     };
   }
-  async jsonQuery(
-    sql: string,
-    connection: Connection,
-    bindings: Record<string, string | number> = {},
-    signal?: AbortSignal,
-  ) {
-    const ords = (await this.settings()).databaseTransport === 'ords';
-    const preamble = Object.entries(bindings)
+  private bindPreamble(bindings: Record<string, string | number>, ords: boolean) {
+    return Object.entries(bindings)
       .map(([key, value]) => {
         if (!/^p_[a-z_]+$/.test(key)) throw new Fault('INVALID_BIND', 'Invalid internal bind name.', 2);
         const declaration = `variable ${key} ${typeof value === 'number' ? 'number' : 'varchar2(1024)'}`;
@@ -553,20 +616,14 @@ export class OracleAdapter {
         return `${declaration}\nexec :${key} := ${literal};`;
       })
       .join('\n');
-    const result = await this.session(
-      `${preamble}\nset sqlformat json\n${sql};`,
-      connection,
-      false,
-      signal,
-      undefined,
-      'json',
-    );
-    const start = result.output.indexOf('{'),
-      end = result.output.lastIndexOf('}');
+  }
+  private parseRows(output: string) {
+    const start = output.indexOf('{'),
+      end = output.lastIndexOf('}');
     if (start < 0) throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not return its JSON result envelope.', 1);
     let json: unknown;
     try {
-      json = JSON.parse(result.output.slice(start, end + 1));
+      json = JSON.parse(output.slice(start, end + 1));
     } catch {
       throw new Fault('INVALID_ORACLE_JSON', 'Cannot decode Oracle metadata result.', 1);
     }
@@ -574,6 +631,55 @@ export class OracleAdapter {
     if (!Array.isArray(resultSets) || !Array.isArray(resultSets[0]?.items))
       throw new Fault('INVALID_ORACLE_JSON', 'SQLcl result has no items collection.', 1);
     return resultSets[0]!.items!;
+  }
+  async jsonQuery(
+    sql: string,
+    connection: Connection,
+    bindings: Record<string, string | number> = {},
+    signal?: AbortSignal,
+  ) {
+    const ords = (await this.settings()).databaseTransport === 'ords';
+    const result = await this.session(
+      `${this.bindPreamble(bindings, ords)}\nset sqlformat json\n${sql};`,
+      connection,
+      false,
+      signal,
+      undefined,
+      'json',
+    );
+    return this.parseRows(result.output);
+  }
+  /**
+   * Several read-only queries in one SQLcl session. Each query's rows are
+   * delimited by a private marker; a missing marker fails the whole batch and
+   * never yields a partial result.
+   */
+  async jsonQueryBatch(
+    queries: { sql: string; bindings?: Record<string, string | number> }[],
+    connection: Connection,
+    signal?: AbortSignal,
+  ) {
+    if (!queries.length) return [];
+    const ords = (await this.settings()).databaseTransport === 'ords';
+    const token = `APEXREST_ROWS_${randomUUID().replaceAll('-', '')}`;
+    const input = queries
+      .map(
+        (query, index) =>
+          `${this.bindPreamble(query.bindings ?? {}, ords)}\nset sqlformat json\n${query.sql};\nprompt ${token}_${index}`,
+      )
+      .join('\n');
+    const result = await this.session(input, connection, false, signal, undefined, 'json');
+    const lines = result.output.split(/\r?\n/);
+    const rows: Record<string, unknown>[][] = [];
+    let from = 0;
+    for (let index = 0; index < queries.length; index++) {
+      const at = lines.findIndex((line, i) => i >= from && line.trim() === `${token}_${index}`);
+      if (at < 0)
+        throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not return every JSON result envelope.', 1);
+      rows.push(this.parseRows(lines.slice(from, at).join('\n')));
+      from = at + 1;
+    }
+    return rows;
   }
   async identity(connection: Connection, signal?: AbortSignal) {
     const rows = await this.jsonQuery(
@@ -735,15 +841,23 @@ export class OracleAdapter {
       );
       return String(result.message ?? 'Import successful');
     }
-    const result = await this.session(
-      `apex import -input ${sqlclToken(source)} -deployment ${sqlclToken(config)} -workspace ${sqlclToken(env.workspace)} -schema ${sqlclToken(env.parsingSchema)} -id ${env.applicationId}`,
-      connection,
-      true,
-      signal,
-      undefined,
-      'text',
-      SCRIPT_RESTRICT_LEVEL,
-    );
+    let result;
+    try {
+      result = await this.session(
+        `apex import -input ${sqlclToken(source)} -deployment ${sqlclToken(config)} -workspace ${sqlclToken(env.workspace)} -schema ${sqlclToken(env.parsingSchema)} -id ${env.applicationId}`,
+        connection,
+        true,
+        signal,
+        undefined,
+        'text',
+        SCRIPT_RESTRICT_LEVEL,
+      );
+    } catch (error) {
+      // Compiler output arrives as text with exit code 0; keep the fault, add structure.
+      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details)
+        error.details = await compilerDetails(error.message, source);
+      throw error;
+    }
     if (!/import.*(?:success|complete)|successfully.*import/is.test(result.output))
       throw new Fault(
         'IMPORT_UNCONFIRMED',
@@ -778,6 +892,127 @@ export class OracleAdapter {
       SCRIPT_RESTRICT_LEVEL,
     );
   }
+}
+export interface CompilerDiagnostic {
+  code: string;
+  severity: 'error';
+  file: string;
+  line: number;
+  column: number;
+  type: string;
+  message: string;
+  validValues?: string[];
+  hint?: string;
+}
+/**
+ * Parse the APEXlang compiler's text report (SQLcl 26.1):
+ *   File: pages/p00080-customer.apx / Line: 6 / Column: 8 / Type: LOV_NOT_FOUND
+ *   Error: Invalid LOV required parameter: appearance - pageMode (string)
+ *   Valid parameters are: modalDialog / -nonModalDialog / -normal
+ * Blocks are separated by blank lines; continuation lines extend the message.
+ */
+export function parseCompilerDiagnostics(output: string): CompilerDiagnostic[] {
+  const diagnostics: CompilerDiagnostic[] = [];
+  let current: Partial<CompilerDiagnostic> | undefined, values: string[] | undefined;
+  const flush = () => {
+    if (current?.file && current.type && current.message !== undefined)
+      diagnostics.push({
+        code: current.type,
+        severity: 'error',
+        file: current.file,
+        line: current.line ?? 0,
+        column: current.column ?? 0,
+        type: current.type,
+        message: current.message,
+        ...(values?.length ? { validValues: values } : {}),
+      });
+    current = undefined;
+    values = undefined;
+  };
+  for (const raw of output.replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/)) {
+    const line = raw.trimEnd();
+    const field = line.match(/^(File|Line|Column|Type|Error):\s?(.*)$/);
+    if (field?.[1] === 'File') {
+      flush();
+      current = { file: field[2]!.trim() };
+    } else if (!current) continue;
+    else if (field?.[1] === 'Line') current.line = Number(field[2]);
+    else if (field?.[1] === 'Column') current.column = Number(field[2]);
+    else if (field?.[1] === 'Type') current.type = field[2]!.trim();
+    else if (field?.[1] === 'Error') current.message = field[2]!.trim();
+    else if (!line.trim()) flush();
+    else if (current.message === undefined) continue;
+    else {
+      const valid = line.match(/^Valid (?:parameters|values|options) are:\s*(.*)$/i);
+      if (valid) values = valid[1]!.trim() ? [valid[1]!.trim()] : [];
+      else if (values && /^-\S/.test(line.trim())) values.push(line.trim().slice(1));
+      else current.message += ' ' + line.trim();
+    }
+  }
+  flush();
+  return diagnostics;
+}
+/**
+ * Cheap source context for a diagnostic: the enclosing APEXlang declarations
+ * (for example "inside appearance of region bad (type: form)") read from the
+ * reported file around the reported line. Never fails the diagnostic itself.
+ */
+export async function diagnosticHint(root: string, diagnostic: CompilerDiagnostic) {
+  if (!diagnostic.line || !/^INVALID_PROPERTY|MISSING_REQUIRED|_NOT_FOUND$|INVALID_/.test(diagnostic.type))
+    return;
+  try {
+    const file = await contained(root, diagnostic.file);
+    const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
+    const indent = (text: string) => text.match(/^\s*/)![0].length;
+    const open = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
+    const chain: string[] = [];
+    let level = indent(lines[diagnostic.line - 1] ?? '');
+    for (let i = diagnostic.line - 2; i >= 0 && chain.length < 3; i--) {
+      const text = lines[i]!;
+      if (!text.trim() || indent(text) >= level) continue;
+      const match = text.match(open);
+      if (!match) continue;
+      level = indent(text);
+      const kind = match[1]!,
+        name = match[2];
+      let label = name ? `${kind} ${name}` : kind;
+      if (name) {
+        // A declaration's own type property, when stated directly below it.
+        for (let j = i + 1; j < lines.length && j < i + 40; j++) {
+          const property = lines[j]!.match(/^\s*type:\s*(\S+)/);
+          if (indent(lines[j]!) <= level && lines[j]!.trim()) break;
+          if (property && indent(lines[j]!) === level + (indent(lines[i + 1] ?? '') - level || 4)) {
+            label += ` (type: ${property[1]})`;
+            break;
+          }
+        }
+      }
+      chain.push(label);
+    }
+    return chain.length ? `inside ${chain.join(' of ')}` : undefined;
+  } catch {
+    return;
+  }
+}
+export async function compilerDetails(output: string, root?: string) {
+  const diagnostics = parseCompilerDiagnostics(output);
+  if (root)
+    for (const diagnostic of diagnostics) {
+      const hint = await diagnosticHint(root, diagnostic);
+      if (hint) diagnostic.hint = hint;
+    }
+  return diagnostics.length ? { diagnostics } : undefined;
+}
+/** Validation failure with structured diagnostics; the raw report stays the message. */
+export async function compilerFault(output: string, root?: string) {
+  const details = await compilerDetails(output, root);
+  return new Fault(
+    details ? 'VALIDATION_FAILED' : 'VALIDATION_UNCONFIRMED',
+    output.slice(0, 4000) || 'Compiler returned no success marker.',
+    1,
+    'failed',
+    details,
+  );
 }
 /**
  * SQLcl reports compiler errors as text while still exiting 0. Success needs a

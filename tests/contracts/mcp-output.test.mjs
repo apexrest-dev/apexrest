@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-test('MCP large project, job and panel outputs retain usable status and paged results', async (t) => {
+test('MCP large project, job and status outputs retain usable status and paged results', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-output-'));
   const project = path.join(root, 'project');
   const env = { ...process.env, APEXREST_HOME: path.join(root, 'managed') };
@@ -45,7 +45,7 @@ test('MCP large project, job and panel outputs retain usable status and paged re
     }),
   );
   const call = (name, args = {}) => client.callTool({ name, arguments: { project, ...args } });
-  const inspect = await call('apexrest_project_inspect');
+  const inspect = await call('apexrest_project', { action: 'inspect', detail: 'full' });
   const compact = JSON.parse(inspect.content[0].text);
   assert.equal(compact.ok, true);
   assert.equal(compact.data.sourceCounts.apex, 400);
@@ -80,25 +80,31 @@ test('MCP large project, job and panel outputs retain usable status and paged re
     },
   };
   await writeFile(path.join(jobRoot, 'state.json'), JSON.stringify(job));
-  const status = JSON.parse((await call('apexrest_job_status', { id: jobId })).content[0].text);
+  const status = JSON.parse((await call('apexrest_job', { jobId })).content[0].text);
   assert.equal(status.ok, true);
   assert.equal(status.data.status, 'completed');
   assert.equal(status.data.result.status, 'failed');
   assert.ok(status.data.output.artifactId);
-  // Twelve valid records make the full panel exceed the previous 32 KiB cap.
+  assert.equal(status.diagnostics.length, 0, 'status reads succeed; the recorded result carries diagnostics');
+  // Twelve valid records make the full snapshot exceed the inline cap.
   for (let i = 0; i < 11; i++) {
     const id = randomUUID(),
       folder = path.join(project, '.apexrest/jobs', id);
     await mkdir(folder, { recursive: true });
     await writeFile(path.join(folder, 'state.json'), JSON.stringify({ ...job, id }));
   }
-  const panel = await call('apexrest_panel_status');
-  const panelText = JSON.parse(panel.content[0].text);
-  assert.equal(panelText.ok, true);
-  assert.ok(panel.content[0].text.length < 2048);
-  assert.equal(panel.structuredContent, undefined);
-  assert.equal(panel._meta['apexrest/panelResult'].data.jobs.length, 12);
-  assert.ok(panel._meta['apexrest/panelResult'].data.jobs.every((j) => j.status === 'failed'));
+  const snapshot = await call('apexrest_status', { detail: 'project' });
+  const snapshotText = JSON.parse(snapshot.content[0].text);
+  assert.equal(snapshotText.ok, true);
+  assert.equal(snapshotText.operation, 'status');
+  assert.ok(snapshot.content[0].text.length < 2048);
+  assert.equal(snapshot.structuredContent, undefined);
+  assert.equal(snapshot._meta, undefined, 'no UI metadata channel');
+  assert.equal(snapshotText.data.jobsCount, 12);
+  assert.ok(snapshotText.data.output.artifactId, 'large snapshots are archived like any result');
+  const validate = JSON.parse((await call('apexrest_apex_validate')).content[0].text);
+  assert.equal(validate.ok, false);
+  assert.equal(validate.data?.jobId, undefined, 'validation runs in-process, never as a job');
   assert.equal(
     (await readdir(path.join(project, '.apexrest/jobs'))).length,
     12,

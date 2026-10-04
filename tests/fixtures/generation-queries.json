@@ -1,0 +1,254 @@
+[
+  {
+    "query": "interactive report with edit link",
+    "expected": [
+      "oracle:templates/region-components/interactive-report/interactive-report.standard",
+      "oracle-report-example"
+    ]
+  },
+  {
+    "query": "modal form page",
+    "expected": [
+      "oracle:templates/page-layout-templates/modal-dialog/modal-dialog.basic",
+      "oracle:templates/region-components/form/form.dialog-buttons"
+    ]
+  },
+  {
+    "query": "select list LOV",
+    "expected": ["oracle:templates/items/select-list/select-list.lov-shared"]
+  },
+  {
+    "query": "pie chart by status",
+    "expected": ["oracle:templates/region-components/chart/chart.pie"]
+  },
+  {
+    "query": "faceted search",
+    "expected": [
+      "oracle:templates/region-components/faceted-search/faceted-search.standard",
+      "oracle:templates/page-examples/faceted-search/faceted-search.example"
+    ]
+  },
+  {
+    "query": "cards region",
+    "expected": ["oracle:templates/region-components/cards/cards.standard"]
+  },
+  {
+    "query": "dynamic action refresh after dialog close",
+    "expected": [
+      "oracle:templates/business-logic/dynamic-actions/dynamic-actions.refresh-region-after-dialog"
+    ]
+  },
+  {
+    "query": "validation not null",
+    "expected": ["oracle:templates/business-logic/validations/validations.item"]
+  },
+  {
+    "query": "authorization scheme",
+    "expected": [
+      "oracle:templates/shared-components/authorizations/authorizations.exists.query",
+      "oracle:templates/shared-components/authorizations/authorizations.plsql.boolean",
+      "oracle:templates/shared-components/authorizations/authorizations.role"
+    ]
+  },
+  {
+    "query": "date picker item",
+    "expected": ["oracle:templates/items/date-picker/date-picker.minimal"]
+  },
+  {
+    "query": "page process execute code",
+    "expected": ["oracle:templates/business-logic/processes/processes.execute-code"]
+  },
+  {
+    "query": "breadcrumb",
+    "expected": [
+      "oracle:templates/region-components/breadcrumb/breadcrumb.standard",
+      "oracle:templates/region-components/breadcrumb/breadcrumb.page-header-nav"
+    ]
+  },
+  {
+    "query": "navigation menu entry",
+    "expected": ["oracle:templates/shared-components/lists/list-entries"]
+  },
+  {
+    "query": "interactive grid editable",
+    "expected": [
+      "oracle:templates/region-components/interactive-grid/interactive-grid.standard",
+      "oracle:templates/region-components/interactive-grid/interactive-grid.region"
+    ]
+  },
+  {
+    "query": "file upload item",
+    "expected": ["oracle:templates/items/file-upload/file-upload.minimal"]
+  },
+  {
+    "query": "timeline report",
+    "expected": ["oracle:templates/template-components/timeline/timeline.report-sample-data"]
+  },
+  {
+    "query": "metric card",
+    "expected": [
+      "oracle:templates/template-components/metric-card/metric-card.report-minimal",
+      "oracle:templates/template-components/metric-card/metric-card.partial-minimal"
+    ]
+  },
+  {
+    "query": "switch item",
+    "expected": ["oracle:templates/items/switch/switch.minimal"]
+  },
+  {
+    "query": "textarea",
+    "expected": ["oracle:templates/items/text-area/text-area.minimal"]
+  },
+  {
+    "query": "static content region with buttons",
+    "expected": ["oracle:templates/region-components/static-content/static-content.buttons"]
+  },
+  {
+    "query": "branch to page",
+    "kind": "grammar",
+    "expected": ["oracle-grammar-1024", "oracle-grammar-1014"]
+  },
+  {
+    "query": "computation set from item",
+    "expected": ["oracle:templates/business-logic/computations/computations.set-from-item"]
+  },
+  {
+    "query": "list of values static",
+    "expected": ["oracle:templates/shared-components/lovs/lovs.static"]
+  },
+  {
+    "query": "login page",
+    "expected": [
+      "oracle:templates/page-examples/login-page/login-page.example",
+      "oracle:templates/page-layout-templates/login/login.basic"
+    ]
+  },
+  {
+    "query": "global page",
+    "expected": ["oracle:templates/page-examples/global_page_0/global_page_0.example"]
+  },
+  {
+    "query": "button redirect",
+    "expected": [
+      "oracle:templates/buttons/buttons.redirect-this-app",
+      "oracle:templates/buttons/buttons.redirect-other-app"
+    ]
+  },
+  {
+    "query": "hidden item",
+    "expected": ["oracle:templates/items/hidden-item/hidden-item.minimal"]
+  },
+  {
+    "query": "display only",
+    "expected": ["oracle:templates/items/display-only/standard"]
+  },
+  {
+    "query": "popup lov",
+    "expected": [
+      "oracle:templates/items/popup-lov/popup-lov.minimal",
+      "oracle:templates/items/popup-lov/popup-lov.lov-shared"
+    ]
+  },
+  {
+    "query": "calendar region",
+    "expected": ["oracle:templates/region-components/calendar/calendar.standard-monthly"]
+  },
+  {
+    "query": "dynamic action refresh region",
+    "kind": "grammar",
+    "expected": ["oracle-grammar-1193", "oracle-grammar-1203"]
+  },
+  {
+    "query": "pageItemsToSubmit",
+    "kind": "grammar",
+    "expected": ["oracle-grammar-3042"]
+  },
+  {
+    "query": "dashboard filters",
+    "corpus": "patterns",
+    "expected": ["pattern:dashboards/executive/recipes/basic", "pattern:dashboards/executive"]
+  },
+  {
+    "query": "faceted cards",
+    "corpus": "patterns",
+    "expected": ["pattern:browse/faceted-cards/recipes/basic", "pattern:browse/faceted-cards"]
+  },
+  {
+    "query": "metric card",
+    "corpus": "components",
+    "expected": ["component:template-components/metric-card/recipes/basic"]
+  },
+  {
+    "query": "картка показника",
+    "corpus": "components",
+    "expected": ["component:template-components/metric-card/recipes/basic"]
+  },
+  {
+    "query": "interactive grid editable",
+    "corpus": "components",
+    "expected": ["component:reports/interactive-grid/recipes/editable"]
+  },
+  {
+    "query": "форма введення з секціями",
+    "corpus": "patterns",
+    "expected": [
+      "pattern:data-entry/sectioned-form/recipes/table-contract",
+      "pattern:data-entry/sectioned-form"
+    ]
+  },
+  {
+    "query": "pie chart",
+    "corpus": "components",
+    "expected": ["component:regions/chart/recipes/pie"]
+  },
+  {
+    "query": "textarea",
+    "corpus": "components",
+    "expected": ["component:items/textarea/recipes/basic"]
+  },
+  {
+    "query": "side navigation menu",
+    "corpus": "components",
+    "expected": ["component:lists/side-navigation-menu/recipes/basic"]
+  },
+  {
+    "query": "classic report timeline",
+    "corpus": "components",
+    "expected": ["component:reports/timeline/recipes/basic"]
+  },
+  {
+    "query": "form initialization process",
+    "expected": ["oracle:templates/business-logic/processes/processes.form-initialization"]
+  },
+  {
+    "query": "static content index",
+    "expected": ["oracle:templates/region-components/static-content/static-content._index"]
+  },
+  {
+    "query": "interactive report common contract",
+    "expected": [
+      "oracle:templates/region-components/interactive-report/interactive-report._common",
+      "oracle:templates/region-components/interactive-report/interactive-report._columns._common"
+    ]
+  },
+  {
+    "query": "кнопка перехід на сторінку",
+    "expected": [
+      "oracle:templates/buttons/buttons.redirect-this-app",
+      "oracle:templates/buttons/buttons.redirect-other-app"
+    ]
+  },
+  {
+    "query": "інтерактивний звіт",
+    "expected": ["oracle:templates/region-components/interactive-report/interactive-report.standard"]
+  },
+  {
+    "query": "dynamic actions refresh",
+    "kind": "template",
+    "expected": [
+      "oracle:templates/business-logic/dynamic-actions/dynamic-actions.refresh-region-on-change",
+      "oracle:templates/business-logic/dynamic-actions/dynamic-actions.refresh-region-after-dialog",
+      "oracle:templates/business-logic/dynamic-actions/dynamic-actions.refresh-region-after-api"
+    ]
+  }
+]

@@ -1,10 +1,6 @@
 # APEXlang routes for Codex
 
-For ready component recipes, first search the bundled component catalog with `corpus: "components"` and the relevant name, `kind: "template"`, target `version` and `limit: 3`. Read the returned `component:` ID and its dependencies. Known entrypoints include `component:template-components/metric-card`, `component:regions/cards`, `component:reports/interactive-grid` and `component:regions/region-display-selector`. English and Ukrainian names are searchable. Keep recipe readiness separate from SQL, import and browser evidence. The complete inventory is `component:catalog`; do not load it for an ordinary component edit.
-
-For a UX pattern spanning several components, use `corpus: "patterns"` with the requested workflow, `kind: "template"`, target `version` and `limit: 3`. Read the selected `pattern:` recipe, then only its required `component:`/`oracle:` contracts. Preserve the page/item/action relationships and data contract. Adding another application's patterns to the catalog uses [pattern catalog maintenance](../../apexrest-pattern-catalog/SKILL.md); using an existing pattern does not invoke capture or refresh its source.
-
-Read the selected entry with `apexrest_reference_read`, then its `requires` and one scenario template. No search is needed for these entrypoints. The IDs below resolve inside the installed plugin outside the source repository. The bundled Oracle APEXlang skills release is 2026.09.21 for APEX 26.1; compiler metadata remains authoritative for the actual target.
+Read the selected entry with `apexrest_reference` `mode:read`, then its `requires` and one scenario template. No search is needed for these entrypoints. The IDs below resolve inside the installed plugin outside the source repository. The bundled Oracle APEXlang skills release is 2026.09.21 for APEX 26.1; compiler metadata remains authoritative for the actual target.
 
 | Requested work | Entry ID | Search family |
 | --- | --- | --- |

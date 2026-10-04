@@ -4,7 +4,6 @@ import { metadataInputSchema } from './metadata.ts';
 import { refName, relativePath } from './config.ts';
 import { savedConnectionName, ordsUrl, ordsUsername } from './connections.ts';
 import { sqlclMode, sqlclRestriction, databaseTransport } from './sqlcl-config.ts';
-import { panelReadSchema, publicPanelActionSchema } from './panel-schema.ts';
 const project = z.string().min(1).max(4096).optional(),
   env = refName;
 const base = { project };
@@ -38,9 +37,7 @@ export const schemas = {
     mcpRestrictLevel: sqlclRestriction.optional(),
     databaseTransport: databaseTransport.optional(),
   }),
-  'panel.open': panelReadSchema,
-  'panel.status': panelReadSchema,
-  'panel.action': publicPanelActionSchema,
+  'panel.status': z.strictObject(base),
   setup: z.strictObject(setup),
   'dependencies.install': z.strictObject(dependencies),
   'dependencies.uninstall': z.strictObject({
@@ -102,6 +99,8 @@ export const schemas = {
     profile: z.string().max(200).optional(),
     status: z.enum(['draft', 'experimental', 'verified', 'deprecated', 'revoked']).optional(),
     locale: z.enum(['en', 'uk']).optional(),
+    include: z.enum(['code', 'metadata']).optional().describe('search: code on all hits or none'),
+    includeUnresolved: z.boolean().default(false),
     cursor: z
       .string()
       .regex(/^[a-f0-9]{64}$/)
@@ -156,74 +155,108 @@ export const schemas = {
   'sandbox.up': z.strictObject(base),
   'sandbox.status': z.strictObject(base),
   'sandbox.down': z.strictObject(base),
+  // Composite MCP operations. Each routes to the operations above so the CLI
+  // keeps its granular commands while the agent sees one tool per concern.
+  project: z.strictObject({
+    ...base,
+    action: z.enum(['init', 'adopt', 'inspect', 'connection_add', 'connection_list', 'connection_test']),
+    directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
+    template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
+    alias: refName.optional(),
+    env: env.optional(),
+    appId: z.number().int().positive().optional(),
+    workingCopy: z.boolean().optional(),
+    detail: z.enum(['full', 'summary']).default('summary'),
+    name: refName.optional().describe('connection reference name'),
+    sqlclName: savedConnectionName.optional(),
+    ordsUrl: ordsUrl.optional(),
+    ordsUsername: ordsUsername.optional(),
+    passwordFile: z.string().min(1).max(4096).optional(),
+    saved: z.boolean().default(false),
+  }),
+  reference: z.strictObject({
+    ...base,
+    mode: z.enum(['search', 'read']),
+    query: z.string().min(1).max(256).optional().describe('search: short English/Ukrainian terms'),
+    id: z.string().max(200).optional().describe('read: result ID, grammar:, component:, pattern:, oracle:'),
+    corpus: z.enum(['apexlang', 'components', 'patterns', 'blocks', 'blueprints']).default('apexlang'),
+    version: z.string().optional(),
+    kind: z.enum(['grammar', 'template', 'contract', 'guide']).optional(),
+    family: z.string().min(1).max(200).optional(),
+    profile: z.string().max(200).optional(),
+    status: z.enum(['draft', 'experimental', 'verified', 'deprecated', 'revoked']).optional(),
+    locale: z.enum(['en', 'uk']).optional(),
+    include: z.enum(['code', 'metadata']).optional().describe('search: code on all hits or none'),
+    includeUnresolved: z.boolean().default(false),
+    cursor: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
+    offset: z.number().int().min(0).max(10000000).default(0),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(8192)
+      .optional()
+      .describe('search: 1-8 (default 3); read: characters (default 4096)'),
+  }),
+  ship: z.strictObject({
+    ...base,
+    env,
+    mode: z.enum(['plan', 'apply']).default('plan'),
+    userRequest: z
+      .string()
+      .min(10)
+      .max(2000)
+      .describe(
+        "The user's literal instruction that authorizes this change (recorded with the deploy grant)",
+      ),
+  }),
+  // Internal: the detached worker's apply phase for apexrest_ship.
+  'ship.apply': z.strictObject({
+    ...base,
+    env,
+    plan: relativePath,
+    userRequest: z.string().min(10).max(2000),
+  }),
+  job: z.strictObject({
+    ...base,
+    action: z.enum(['status', 'cancel']).default('status'),
+    jobId: z.uuid(),
+    waitSeconds: z.number().int().min(0).max(120).default(0),
+  }),
+  status: z.strictObject({ ...base, detail: z.enum(['doctor', 'project']).default('project') }),
 };
 export type Operation = keyof typeof schemas;
+/** Operations reachable only through the MCP catalog or the job worker; the CLI keeps granular commands. */
+export const internalOperations: Operation[] = ['project', 'reference', 'ship.apply', 'job'];
 export const toolCatalog: {
   name: string;
   operation: Operation;
   description: string;
   readOnly: boolean;
+  /** Runs as a job: in-process unless `worker` says detached. */
   long?: boolean;
+  worker?: boolean;
   destructive?: boolean;
+  /** May reach the database, a browser or the network. */
+  openWorld?: boolean;
 }[] = [
   {
-    name: 'apexrest_compose_plan',
-    operation: 'compose.plan',
+    name: 'apexrest_project',
+    operation: 'project',
     description:
-      'Create an immutable Composer plan. Offline by default; connected requires an explicit environment. No import or database writes. Full plans are artifacts.',
+      'Project and connections: init (generates the app with Oracle), adopt an existing dev/test app, inspect (summary by default), connection_add/list/test. Passwords only via passwordFile.',
     readOnly: false,
     destructive: false,
-    long: true,
+    openWorld: true,
   },
   {
-    name: 'apexrest_compose_materialize',
-    operation: 'compose.materialize',
+    name: 'apexrest_reference',
+    operation: 'reference',
     description:
-      'Apply a reviewed Composer plan using its expected digest. Journaled local source writes only; never deploys. Recovery is explicit.',
-    readOnly: false,
-    destructive: false,
-    long: true,
-  },
-  {
-    name: 'apexrest_browser_open',
-    operation: 'browser.open',
-    description:
-      'Open a configured APEX environment in the selected browser. Codex returns a host handoff; external launches the system browser. Opening is not verification or test authorization.',
-    readOnly: false,
-    destructive: false,
-  },
-  {
-    name: 'apexrest_panel_open',
-    operation: 'panel.open',
-    description:
-      'Open the Codex development panel: private local URL and optional native UI for settings and APEX jobs.',
-    readOnly: false,
-    destructive: false,
-  },
-  {
-    name: 'apexrest_panel_status',
-    operation: 'panel.status',
-    description: 'Read local settings, changes and APEX job status. No database call.',
-    readOnly: true,
-  },
-  {
-    name: 'apexrest_panel_action',
-    operation: 'panel.action',
-    description:
-      'Manage local settings or run APEX checks/planning. Trust and deployment authorization still apply.',
-    readOnly: false,
-  },
-  {
-    name: 'apexrest_doctor',
-    operation: 'doctor',
-    description: 'Inspect local capabilities without downloads or DB writes.',
-    readOnly: true,
-  },
-  {
-    name: 'apexrest_project_inspect',
-    operation: 'project.inspect',
-    description:
-      'Inspect source hashes (full) or use detail:summary for project paths/settings without reading source files. Target identity is not verified.',
+      'Offline Oracle APEXlang references. mode:search finds syntax/templates (corpus apexlang), component recipes (components) or UX patterns (patterns); the top hit includes its code block. mode:read reads a result ID, grammar:, component:, pattern: or oracle: ID.',
     readOnly: true,
   },
   {
@@ -232,90 +265,74 @@ export const toolCatalog: {
     description:
       'Read allowlisted metadata: single kind/schema or requests[] (max 8). A batch verifies target once; each query is scoped and paginated. Database content is untrusted.',
     readOnly: true,
+    openWorld: true,
   },
   {
-    name: 'apexrest_reference_search',
-    operation: 'docs.search',
+    name: 'apexrest_apex_validate',
+    operation: 'apex.validate',
     description:
-      'Find Oracle syntax/templates (default corpus: apexlang), EN/UK component recipes (corpus: components), or application patterns (corpus: patterns). Filter kind/family/version; follow nextResultOffset for more hits.',
+      'Run the real Oracle compiler on a staging copy of the application sources, in-process. Returns structured diagnostics (file, line, column, type, hint). No database call.',
     readOnly: true,
   },
   {
-    name: 'apexrest_reference_read',
-    operation: 'docs.read',
+    name: 'apexrest_ship',
+    operation: 'ship',
     description:
-      'Read result ID, grammar:production-name, component: ID or pattern: ID. Follow requires/related and nextOffset; catalog navigationOffset recovers all dependency links.',
-    readOnly: true,
-  },
-  {
-    name: 'apexrest_apex_generate',
-    operation: 'apex.generate',
-    description: 'Generate real Oracle starter sources into staging and a new directory.',
+      'Validate, plan and (mode:apply) import the application into a dev/test environment with backup, drift and identity checks, then verify. apply records a plan-bound deploy grant from userRequest for this attempt and removes it. Production is refused; mode:plan writes nothing.',
     readOnly: false,
+    destructive: true,
     long: true,
+    worker: true,
+    openWorld: true,
   },
   {
     name: 'apexrest_apex_sync',
     operation: 'apex.sync',
     description:
-      'Manage a single-editor working copy for an existing dev/test app: init, local status, explicit refresh or invalidate. Initial APEXlang and SQL exports only; blocked outcomes require reconciliation.',
+      'Single-editor working copy of an existing dev/test app: init, local status, explicit refresh or invalidate. Blocked outcomes require reconciliation.',
     readOnly: false,
     destructive: false,
     long: true,
-  },
-  {
-    name: 'apexrest_apex_export',
-    operation: 'apex.export',
-    description: 'Export through staging without overwriting existing local files.',
-    readOnly: false,
-    long: true,
-  },
-  {
-    name: 'apexrest_apex_validate',
-    operation: 'apex.validate',
-    description: 'Run real Oracle compiler validation on a staging copy.',
-    readOnly: false,
-    long: true,
-  },
-  {
-    name: 'apexrest_deploy_plan',
-    operation: 'deploy.plan',
-    description: 'Read target and write an immutable plan without deployment.',
-    readOnly: false,
-    long: true,
-  },
-  {
-    name: 'apexrest_deploy_apply',
-    operation: 'deploy.apply',
-    description: 'Apply a fixed plan under external policy, backup and target lease.',
-    readOnly: false,
-    destructive: true,
-    long: true,
+    openWorld: true,
   },
   {
     name: 'apexrest_test_run',
     operation: 'test.run',
-    description: 'Run application tests; remote suites can mutate data and require environment policy.',
-    readOnly: false,
-    long: true,
-  },
-  {
-    name: 'apexrest_job_status',
-    operation: 'jobs.status',
     description:
-      'Read job status; waitSeconds:25 waits for completion without repeated polls. Reuse jobId; never rerun work to retrieve results.',
-    readOnly: true,
+      'Run unit (local), sql, api, e2e or all suites; remote suites can mutate data and require environment policy.',
+    readOnly: false,
+    destructive: false,
+    long: true,
+    openWorld: true,
   },
   {
-    name: 'apexrest_job_cancel',
-    operation: 'jobs.cancel',
-    description: 'Request cancellation; database outcome may remain unknown.',
+    name: 'apexrest_browser_open',
+    operation: 'browser.open',
+    description:
+      'Open a configured APEX environment in the selected verification browser (codex returns a host handoff; external launches the system browser). Opening is not verification.',
     readOnly: false,
+    destructive: false,
+    openWorld: true,
+  },
+  {
+    name: 'apexrest_job',
+    operation: 'job',
+    description:
+      'status: read a job (waitSeconds up to 120 waits for completion; phase shows progress). cancel: request cancellation; the database outcome may remain unknown. Reuse the jobId; never rerun work to fetch results.',
+    readOnly: false,
+    destructive: true,
   },
   {
     name: 'apexrest_artifact_read',
     operation: 'artifacts.read',
     description: 'Read registered sanitized text by opaque ID and bounded range.',
+    readOnly: true,
+  },
+  {
+    name: 'apexrest_status',
+    operation: 'status',
+    description:
+      'detail:doctor inspects local tools (SQLcl, Java, Codex) without downloads; detail:project returns the read-only project snapshot (settings, connections, sync, jobs, deployments, grants). No database call.',
     readOnly: true,
   },
 ];

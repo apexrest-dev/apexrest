@@ -38,12 +38,11 @@ async function grant(home: string, root: string, plan?: DeployPlan) {
       : [],
   });
 }
-async function prepared(backup = false, backend: 'local' | 'database' = 'local') {
+async function prepared(backup = false) {
   const { ctx, plan } = await fixture(),
     home = path.join(ctx.root, 'managed');
   await mkdir(home);
   process.env.APEXREST_HOME = home;
-  if (backend === 'database') ctx.config.environments.dev!.deploymentControl = backend;
   plan.configurationDigest = hash(canonical(ctx.config));
   plan.coordination = coordination(ctx.config.environments.dev!);
   plan.digest = planDigest(plan);
@@ -98,10 +97,7 @@ async function prepared(backup = false, backend: 'local' | 'database' = 'local')
   service.fingerprint = async () =>
     ({
       target: { identity: {}, workspace: {}, application: backup ? app : null },
-      history:
-        backend === 'local'
-          ? await service.history(ctx.config.environments.dev!, { kind: 'sqlcl-store', name: 'read' })
-          : [],
+      history: await service.history(ctx.config.environments.dev!, { kind: 'sqlcl-store', name: 'read' }),
       exported: null,
       fingerprint: plan.fingerprint,
     }) as Awaited<ReturnType<DeploymentService['fingerprint']>>;
@@ -140,16 +136,22 @@ test('fixture target drift blocks before lease or write', async () => {
   assert.ok(!calls.includes('import'));
   assert.ok(!calls.some((c) => c.includes('apexrest_deploy_locks')));
 });
-test('fixture timeout after import starts retains writing lease and reports unknown', async () => {
-  const { ctx, plan, service, calls, fake } = await prepared(false, 'database');
+test('fixture timeout after import starts retains local writing ownership and reports unknown', async () => {
+  const { ctx, plan, service, calls, fake } = await prepared();
   fake.importApplication = async () => {
     calls.push('import');
     throw new Fault('TIMEOUT', 'fixture timeout', 6, 'outcome_unknown');
   };
   await assert.rejects(service.apply(ctx, plan), { code: 'OUTCOME_UNKNOWN' });
-  assert.ok(calls.some((c) => c.includes("phase='writing'")));
-  assert.ok(!calls.some((c) => c.startsWith('delete from apexrest_deploy_locks')));
+  const control = new LocalDeploymentControl(ctx.config.environments.dev!);
+  assert.equal((await control.owner())!.phase, 'writing');
+  await assert.rejects(control.acquire('another-run'), { code: 'TARGET_LOCKED' });
   assert.ok(!calls.includes('tests'));
+  // Coordination never issues Oracle statements; only identity, backup and import reach the adapter.
+  assert.deepEqual(
+    calls.filter((c) => !['identity', 'backup', 'import'].includes(c)),
+    [],
+  );
 });
 test('forged execution map cannot add SQL even with a recomputed plan digest', async () => {
   const { ctx, plan, service } = await prepared();
@@ -163,15 +165,16 @@ test('source map itself is bound and cannot be replaced by a claimed sourceDiges
   plan.digest = planDigest(plan);
   await assert.rejects(service.checkLocal(ctx, plan), { code: 'PLAN_TAMPERED' });
 });
-test('expired writing leases are never automatically reclaimed by acquisition SQL', async () => {
-  const { ctx, service, calls } = await prepared(false, 'database');
-  await service.lease(
-    ctx.config.environments.dev!,
-    { kind: 'sqlcl-store', name: 'deploy' },
-    'fixture-run',
-    true,
-  );
-  assert.match(calls.join('\n'), /lease_until<systimestamp and phase='preparing'/);
+test('lease acquisition, renewal and release are local and issue no Oracle statements', async () => {
+  const { ctx, service, calls } = await prepared();
+  const env = ctx.config.environments.dev!;
+  await service.lease(env, 'fixture-run', true);
+  await service.lease(env, 'fixture-run', false);
+  assert.equal((await new LocalDeploymentControl(env).owner())!.runId, 'fixture-run');
+  await assert.rejects(service.lease(env, 'other-run', false), { code: 'LEASE_LOST' });
+  await service.releaseLease(env, 'fixture-run');
+  assert.equal(await new LocalDeploymentControl(env).owner(), undefined);
+  assert.deepEqual(calls, []);
 });
 test('same-host dead installer process lock is recovered without granting a live owner access', async () => {
   const { ctx } = await fixture();
@@ -367,6 +370,13 @@ test('plans with forged migration history or an overlong lifetime are rejected',
   const long = { ...plan, expiresAt: new Date(Date.parse(plan.createdAt) + 31 * 60000).toISOString() };
   long.digest = planDigest(long);
   await assert.rejects(service.checkLocal(ctx, long), { code: 'PLAN_TAMPERED' });
+  // Only the local coordination store exists; a plan claiming another backend is not a valid plan.
+  const foreign = {
+    ...plan,
+    coordination: { ...plan.coordination, backend: 'database' },
+  } as unknown as DeployPlan;
+  foreign.digest = planDigest(foreign);
+  await assert.rejects(service.checkLocal(ctx, foreign));
 });
 
 test('backups are private copies and Oracle staging exports are discarded', async () => {

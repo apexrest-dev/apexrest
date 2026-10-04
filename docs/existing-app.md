@@ -1,7 +1,5 @@
 # Adopt an existing application
 
-English | [Українська](existing-app.uk.md)
-
 Create an `existing-app` skeleton and configure the exact existing development/test target and named connections. For a single-editor application, adopt with the working-copy option or initialize synchronization on an existing matching source tree:
 
 ```sh
@@ -12,6 +10,8 @@ apexrest apex sync --env dev --action init --json
 apexrest deploy plan --env dev --out plans/dev.json --json
 apexrest deploy apply --plan plans/dev.json --json
 ```
+
+In the conversation the same steps are `apexrest_project` `action:adopt` (`env`, `appId`, `workingCopy: true`), `apexrest_apex_sync` (`init`, `status`, `refresh`, `invalidate`) and `apexrest_ship` (`mode:plan`, then `mode:apply` with the user's request); `apex diff` and `apex export` remain CLI-only.
 
 The initial operation creates one APEXlang export and one SQL backup. It installs an absent source directory or requires the existing file inventory to match the export exactly. A conflict preserves local files and private staging. A valid active record is reused without exporting, including after a new process or chat. Keep `.apex`, Oracle IDs, shared LOVs, authentication and all page files under version control.
 

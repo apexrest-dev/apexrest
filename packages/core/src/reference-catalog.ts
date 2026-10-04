@@ -4,8 +4,25 @@ import { z } from 'zod';
 import { hash } from './fs.ts';
 import { resourceRoot } from './project.ts';
 import { artifactPage, Fault, redact, sanitized } from './result.ts';
-import { normalizeReference, referenceWords } from './reference-index.ts';
-import type { SearchOptions } from './references.ts';
+import {
+  referenceStems,
+  referenceTerms,
+  referenceQueryTerms,
+  queryPhrase,
+  stemmedReference,
+  navigationalQuery,
+  identifierQuery,
+  canonicalReference,
+  primaryCodeBlock,
+  boundCode,
+  scoreReference,
+  fitResults,
+  codeWanted,
+  CODE_LIMIT,
+  SEARCH_LINKS,
+  type CodeBlock,
+} from './reference-index.ts';
+import type { ReferenceLink, SearchOptions } from './references.ts';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const ascii = (max: number) =>
@@ -103,11 +120,14 @@ export function createReferenceCatalog<
           invalid(`${definition.label} document checksum is missing or disagrees with its manifest.`);
         if (byId.has(entry.id)) invalid(`${definition.label} catalog contains duplicate reference IDs.`);
         byId.set(entry.id, entry);
+        const titleStems = referenceStems(entry.title);
         return {
           entry,
-          words: new Set(referenceWords(`${entry.id} ${entry.title} ${entry.searchText}`)),
-          title: normalizeReference(entry.title),
-          body: normalizeReference(entry.searchText),
+          stems: new Set(referenceStems(`${entry.id} ${entry.title} ${entry.searchText}`)),
+          titleText: ' ' + titleStems.join(' ') + ' ',
+          titleStems: new Set(titleStems),
+          bodyText: undefined as string | undefined,
+          code: undefined as CodeBlock | null | undefined,
         };
       });
       for (const entry of entries)
@@ -149,7 +169,6 @@ export function createReferenceCatalog<
       throw error;
     }
   }
-  const stopwords = new Set(['a', 'an', 'the', 'for', 'with', 'and', 'of', 'to', 'in']);
   // Redaction can expand short secret-like examples into longer markers. Account
   // for the actual public envelope, not only its pre-sanitization representation.
   const bytes = (value: unknown) => Buffer.byteLength(JSON.stringify(sanitized(value)), 'utf8');
@@ -166,15 +185,35 @@ export function createReferenceCatalog<
       classification: definition.classification,
     };
   }
-  function links(entry: CatalogReference, count: number) {
+  function links(
+    entry: CatalogReference,
+    count: number,
+    byId: Map<string, CatalogReference>,
+    resolved: number,
+  ) {
+    // Same-catalog targets resolve to their title and kind; other corpora stay bare IDs.
+    const link = (id: string): ReferenceLink => {
+      const target = byId.get(id);
+      return { id, title: target?.title ?? null, kind: target?.kind ?? null };
+    };
     return {
       requires: entry.requires.slice(0, count),
+      requiresReferences: entry.requires.slice(0, resolved).map(link),
       requiresCount: entry.requires.length,
       requiresOmittedCount: Math.max(0, entry.requires.length - count),
       related: entry.related.slice(0, count),
+      relatedReferences: entry.related.slice(0, resolved).map(link),
       relatedCount: entry.related.length,
       relatedOmittedCount: Math.max(0, entry.related.length - count),
     };
+  }
+  async function verifiedDocument(root: string, entry: CatalogReference) {
+    const raw = await readFile(await containedFile(root, entry.document), 'utf8');
+    if (hash(raw) !== entry.sha256)
+      invalid(`${definition.label} document checksum does not match the catalog.`);
+    if (entry.length !== undefined && entry.length !== raw.length)
+      invalid(`${definition.label} document length does not match the catalog.`);
+    return raw;
   }
   function window(text: string, start: number, length: number) {
     let end = Math.min(text.length, start + length);
@@ -185,38 +224,59 @@ export function createReferenceCatalog<
   }
 
   async function search(query: string, version?: string, options: SearchOptions = {}) {
-    const terms = [...new Set(referenceWords(query).filter((term) => !stopwords.has(term)))];
+    const terms = referenceQueryTerms(query);
     if (!terms.length) return [];
     const index = await catalogIndex();
-    const normalized = normalizeReference(query);
+    const phrase = queryPhrase(terms);
+    const navigational = navigationalQuery(query);
+    const exactId = query.trim();
+    const identifier = identifierQuery(query);
     const ranked = index.searchable
       .filter(
-        ({ entry, words }) =>
-          (entry.id === query.trim() || terms.every((term) => words.has(term))) &&
-          (!version ||
+        ({ entry }) =>
+          entry.id === exactId ||
+          ((!version ||
             entry.version === version ||
             (!version.includes('@') && entry.version.split('@')[0] === version)) &&
-          (!options.kind || entry.kind === options.kind) &&
-          (!options.family ||
-            entry.family === options.family ||
-            entry.family.startsWith(options.family + '/')),
+            (!options.kind || entry.kind === options.kind) &&
+            (!options.family ||
+              entry.family === options.family ||
+              entry.family.startsWith(options.family + '/')) &&
+            // Unresolved records have no usable recipe; they stay discoverable on request.
+            (options.includeUnresolved || entry.readiness !== 'unresolved')),
       )
-      .map(({ entry, title, body }) => ({
-        entry,
-        score:
-          (entry.id === query.trim() ? 10000 : 0) +
-          (title === normalized ? 2000 : 0) +
-          (title.includes(normalized) ? 400 : 0) +
-          terms.filter((term) => [...referenceWords(title)].includes(term)).length * 50 +
-          (body.includes(normalized) ? 80 : 0) +
-          (entry.readiness === 'ready' ? 10 : 0) +
-          (entry.kind === 'contract' ? 5 : 0),
+      .map((candidate) => ({
+        entry: candidate.entry,
+        score: scoreReference({
+          terms,
+          phrase,
+          navigational,
+          exact: candidate.entry.id === exactId,
+          matched: terms.filter((term) =>
+            term.alternatives.some((alternative) => alternative.every((stem) => candidate.stems.has(stem))),
+          ).length,
+          titleText: candidate.titleText,
+          titleStems: candidate.titleStems,
+          titleWeight: 2000,
+          bodyText: () => (candidate.bodyText ??= stemmedReference(candidate.entry.searchText)),
+          // Ready recipes first; parameter contracts for property-name lookups.
+          prior:
+            (candidate.entry.readiness === 'ready' ? 10 : 0) +
+            (candidate.entry.kind === 'template' ? 10 : 0) +
+            (candidate.entry.kind === 'contract' ? 5 + (identifier ? 100 : 0) : 0),
+          routing: false,
+          canonical: canonicalReference(candidate.entry.id),
+          length: candidate.entry.searchText.length,
+        }),
       }))
+      .filter((hit): hit is { entry: CatalogReference; score: number } => hit.score !== null)
       .sort((a, b) => b.score - a.score || (a.entry.id < b.entry.id ? -1 : a.entry.id > b.entry.id ? 1 : 0));
     const offset = Math.max(0, options.offset ?? 0),
       limit = Math.max(1, Math.min(8, options.limit ?? 3));
-    const candidates = ranked.slice(offset, offset + limit).map(({ entry }) => {
-      const first = terms.map((term) => entry.searchText.toLowerCase().indexOf(term)).filter((n) => n >= 0);
+    const words = referenceTerms(query);
+    const candidates = [];
+    for (const [i, { entry }] of ranked.slice(offset, offset + limit).entries()) {
+      const first = words.map((term) => entry.searchText.toLowerCase().indexOf(term)).filter((n) => n >= 0);
       const matchOffset = first.length ? Math.min(...first) : null;
       let snippetOffset = Math.max(0, (matchOffset ?? 0) - 80);
       if (
@@ -226,10 +286,12 @@ export function createReferenceCatalog<
       )
         snippetOffset--;
       const text = window(entry.searchText, snippetOffset, 600);
-      return {
+      const code = codeWanted(options.include, offset, i) ? await documentCode(index, entry) : undefined;
+      candidates.push({
         ...metadata(entry),
-        ...links(entry, 2),
+        ...links(entry, 2, index.byId, SEARCH_LINKS),
         text,
+        ...(code ? { code } : {}),
         // Index summaries are intentionally independent of documents; read a result at offset 0.
         snippetSource: 'index' as const,
         readOffset: 0,
@@ -239,11 +301,12 @@ export function createReferenceCatalog<
         nextOffset: null,
         totalMatches: ranked.length,
         nextResultOffset: null as number | null,
-      };
-    });
+      });
+    }
+    // Reserve room for the Result envelope. Measure serialized UTF-8, including escaping.
+    fitResults(candidates, 7000, bytes);
     const results: typeof candidates = [];
     for (const hit of candidates) {
-      // Reserve room for the Result envelope. Measure serialized UTF-8, including escaping.
       while (bytes([...results, hit]) > 7000 && hit.text.length) {
         const remaining = Math.floor(hit.text.length / 2);
         hit.text = remaining < 2 ? '' : window(hit.text, 0, remaining);
@@ -257,6 +320,21 @@ export function createReferenceCatalog<
     for (const result of results) result.nextResultOffset = next;
     return results;
   }
+  /** Primary code block of a verified document; unreadable or tampered documents yield no code. */
+  async function documentCode(
+    index: Awaited<ReturnType<typeof loadIndex>>,
+    entry: CatalogReference,
+  ): Promise<CodeBlock | undefined> {
+    const candidate = index.searchable.find((item) => item.entry === entry)!;
+    if (candidate.code === undefined) {
+      try {
+        candidate.code = primaryCodeBlock(redact(await verifiedDocument(index.root, entry)), CODE_LIMIT);
+      } catch {
+        candidate.code = null;
+      }
+    }
+    return candidate.code ? boundCode(candidate.code, CODE_LIMIT) : undefined;
+  }
 
   async function read(id: string, offset: number, limit: number) {
     const index = await catalogIndex();
@@ -269,15 +347,11 @@ export function createReferenceCatalog<
       );
     let raw: string;
     try {
-      raw = await readFile(await containedFile(index.root, entry.document), 'utf8');
+      raw = await verifiedDocument(index.root, entry);
     } catch (error) {
       if (error instanceof Fault) throw error;
       invalid(`${definition.label} document cannot be read.`);
     }
-    if (hash(raw) !== entry.sha256)
-      invalid(`${definition.label} document checksum does not match the catalog.`);
-    if (entry.length !== undefined && entry.length !== raw.length)
-      invalid(`${definition.label} document length does not match the catalog.`);
     // All links remain readable through the existing text pagination interface, even
     // if compact navigation arrays must omit many dependencies or related recipes.
     const navigation =
@@ -291,7 +365,7 @@ export function createReferenceCatalog<
     const create = () =>
       artifactPage(document, 'text', id, start, count, {
         ...metadata(entry),
-        ...links(entry, 16),
+        ...links(entry, 16, index.byId, 16),
         length: document.length,
         documentLength: safeRaw.length,
         sourceDocumentLength: raw.length,

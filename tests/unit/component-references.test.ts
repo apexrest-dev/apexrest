@@ -356,3 +356,69 @@ test('search budgets include redaction expansion before projectless MCP serializ
   assert.ok(Array.isArray(JSON.parse(output.content[0]!.text).data));
   assert.ok(!output.content[0]!.text.includes('token=a'));
 });
+
+test('component search hides unresolved recipes by default, inlines verified recipe code and resolves links', async (t) => {
+  const root = await fixture(t);
+  const code = '```apexlang\npage 1 (\n    region demo (\n        type: cards\n    )\n)\n```';
+  const ready = entry('regions/cards/recipes/basic', 'Native Cards', 'cards картки', {
+    requires: [
+      'component:regions/cards/parameters',
+      'oracle:templates/region-components/cards/cards.standard',
+    ],
+    related: ['component:regions/cards'],
+  });
+  const inputs = [
+    ready,
+    entry('regions/cards/parameters', 'Native Cards parameters', 'cards параметри', {
+      kind: 'contract',
+      readiness: 'reference',
+    }),
+    entry('regions/cards', 'Native Cards', 'cards картки overview', {
+      kind: 'contract',
+      readiness: 'reference',
+    }),
+    entry('regions/cards/recipes/favorite', 'Cards favorite action', 'cards favorite', {
+      readiness: 'unresolved',
+    }),
+  ];
+  const { entries } = await catalog(
+    root,
+    inputs,
+    '# Native Cards\n\nStatus: ready.\n\n## Data contract\n\n```json\n{"tables": []}\n```\n\n## pages/p00001-home.apx\n\n' +
+      code +
+      '\n',
+  );
+  const hits = await componentSearch('cards', '26.1', { limit: 8 });
+  assert.equal(hits[0]!.id, ready.id, 'the ready recipe outranks its overview contract');
+  assert.ok(hits.every((hit) => hit.readiness !== 'unresolved'));
+  assert.equal(hits[0]!.code?.language, 'apexlang');
+  assert.match(hits[0]!.code!.text, /region demo/);
+  assert.ok(hits.slice(1).every((hit) => hit.code === undefined));
+  assert.deepEqual(hits[0]!.requiresReferences, [
+    { id: 'component:regions/cards/parameters', title: 'Native Cards parameters', kind: 'contract' },
+    { id: 'oracle:templates/region-components/cards/cards.standard', title: null, kind: null },
+  ]);
+  assert.deepEqual(hits[0]!.relatedReferences, [
+    { id: 'component:regions/cards', title: 'Native Cards', kind: 'contract' },
+  ]);
+  const shown = await componentSearch('cards', '26.1', { limit: 8, includeUnresolved: true });
+  assert.ok(shown.some((hit) => hit.readiness === 'unresolved'));
+  assert.equal((await componentSearch(entries[3]!.id))[0]?.id, entries[3]!.id, 'exact IDs bypass the filter');
+  const everywhere = await componentSearch('cards', '26.1', { limit: 8, include: 'code' });
+  assert.ok(everywhere.filter((hit) => hit.code).length >= 2);
+  assert.ok(
+    (await componentSearch('cards', '26.1', { include: 'metadata' })).every((hit) => hit.code === undefined),
+  );
+  const page = await componentRead(ready.id, 0, 8192);
+  assert.deepEqual(page.relatedReferences, [
+    { id: 'component:regions/cards', title: 'Native Cards', kind: 'contract' },
+  ]);
+  assert.equal(page.requiresReferences[1]!.title, null);
+  // A tampered recipe document yields no inline code; search still answers and read fails closed.
+  await catalog(root, inputs, '# Native Cards\n\nchanged\n');
+  await writeFile(path.join(root, 'components', ready.document), 'tampered');
+  const tampered = await componentSearch('cards', '26.1');
+  assert.equal(tampered[0]!.id, ready.id);
+  assert.equal(tampered[0]!.code, undefined);
+  await assert.rejects(componentRead(ready.id, 0, 100), { code: 'COMPONENT_CATALOG_INVALID' });
+});

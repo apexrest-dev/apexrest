@@ -1,7 +1,5 @@
 # Component catalog
 
-English | [Українська](component-catalog.uk.md)
-
 Find a component, inspect its parameters and adapt its APEXlang recipe to your application. The catalog is bundled with APEXREST since 1.1.0 and works offline, without a project or a connection to the reference application. It covers the Universal Theme 26.1 Reference application, including distinct component hosts and examples; it is not a claim to cover every capability of Oracle APEX.
 
 Browse the component list and examples in [Universal Theme Reference](https://apex.oracle.com/ut).
@@ -13,10 +11,11 @@ apexrest docs search --corpus components --query "metric card" --kind template -
 apexrest docs read --id component:catalog --json
 ```
 
-The equivalent MCP search uses `apexrest_reference_search`:
+The equivalent MCP call is `apexrest_reference` with `mode: "search"`:
 
 ```json
 {
+  "mode": "search",
   "corpus": "components",
   "query": "картка показника",
   "kind": "template",
@@ -25,7 +24,9 @@ The equivalent MCP search uses `apexrest_reference_search`:
 }
 ```
 
-Read the returned ID with `apexrest_reference_read`, following `nextOffset` for the rest of a document and `nextResultOffset` for more search matches. Parameter and recipe documents are separate so a request does not load an entire component family. English and Ukrainian search aliases resolve to the same versioned records. The existing reference search defaults to `corpus: "apexlang"`; existing Oracle IDs keep their meaning.
+Read the returned ID with `apexrest_reference` `mode: "read"` (`id`), following `nextOffset` for the rest of a document and `nextResultOffset` for more search matches. The CLI alias `apexrest reference search|read` maps to the same `docs` commands. Parameter and recipe documents are separate so a request does not load an entire component family. English and Ukrainian search aliases resolve to the same versioned records; plural, singular and inflected forms match the same stem. The existing reference search defaults to `corpus: "apexlang"`; existing Oracle IDs keep their meaning.
+
+Search matches any of the query terms (at least half must match), ranks ready recipes whose title starts with the query above their overview contracts, and returns property-name lookups such as `pageItemsToSubmit` at the parameter contract. Records with `readiness: "unresolved"` are hidden unless `includeUnresolved: true` is set; an exact ID always resolves. The first hit of a page carries `code`, the recipe's primary `apexlang` block read from its checksum-verified document (bounded to 2,500 characters, `truncated: true` with the full `length` when a read must continue); `include: "code"` attaches it to every hit and `include: "metadata"` to none. `requiresReferences` and `relatedReferences` resolve up to three linked IDs to `{ id, title, kind }` (titles of `oracle:` or `pattern:` targets are `null`), and `docs.read` resolves up to sixteen. The page budget of 7,000 bytes is unchanged: later snippets shrink first, then inline code, and code is dropped before any hit is omitted.
 
 ## Use a recipe
 

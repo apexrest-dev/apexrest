@@ -30,7 +30,7 @@ const report = {
   scope:
     'Actual SQLcl/Oracle through built stdio MCP; no native Codex discovery, database writes or automated application tests.',
   method:
-    'Sequential plans of unchanged sources and target; fresh MCP and worker per sample. Wall time includes startup and up to 250 ms completion polling. Descriptive samples, not a CI threshold.',
+    'Sequential apexrest_ship mode:plan calls on unchanged sources and target; fresh MCP process per sample. Planning runs in-process (no worker, no apply). Wall time includes MCP startup. Descriptive samples, not a CI threshold.',
   runtimeFiles: {},
   samples: [],
 };
@@ -52,33 +52,25 @@ for (let sample = 0; sample < samples; sample++) {
     return JSON.parse(envelope.content.find((item) => item.type === 'text').text);
   };
   const start = performance.now();
-  let jobId;
   try {
     await client.connect(transport);
-    const queued = await call('apexrest_deploy_plan', {
+    // mode:plan writes only the local plan file; apply is never requested here.
+    const planned = await call('apexrest_ship', {
       project,
       env: environment,
-      out: `plans/benchmark-${randomUUID()}.json`,
+      mode: 'plan',
+      userRequest: `Read-only benchmark plan ${randomUUID()}; do not apply.`,
     });
-    assert.equal(queued.ok, true, queued.summary);
-    jobId = queued.data.jobId;
-    assert.ok(jobId);
-    let result;
-    while (performance.now() - start < 600000) {
-      const state = await call('apexrest_job_status', { project, id: jobId });
-      assert.equal(state.ok, true, state.summary);
-      if (state.data.status === 'completed') {
-        result = state.data.result;
-        break;
-      }
-      assert.notEqual(state.data.status, 'outcome_unknown', 'Inspect the durable job before retrying.');
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    assert.ok(result, `Deadline reached; inspect job ${jobId} before retrying.`);
-    assert.equal(result.ok, true, result.summary);
-    const plan = result.data;
+    assert.equal(planned.ok, true, planned.summary);
+    assert.equal(planned.data.mode, 'plan');
+    assert.equal(planned.data.status, 'planned');
+    const planPath = planned.data.planPath;
+    assert.ok(planPath && !path.isAbsolute(planPath), 'ship plan must return a project-relative planPath');
+    const plan = JSON.parse(await readFile(path.join(project, planPath), 'utf8'));
+    assert.equal(plan.id, planned.data.planId);
     const entry = {
-      jobId,
+      planId: plan.id,
+      planPath,
       wallMs: performance.now() - start,
       compiler: plan.compiler,
       sourceDigest: plan.sourceDigest,
@@ -100,9 +92,6 @@ for (let sample = 0; sample < samples; sample++) {
     report.samples.push(entry);
     console.log(JSON.stringify({ sample: sample + 1, wallMs: entry.wallMs }));
     await writeFile(output, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
-  } catch (error) {
-    if (jobId) console.error(`Inspect durable job ${jobId}; this benchmark will not retry it.`);
-    throw error;
   } finally {
     await client.close();
   }

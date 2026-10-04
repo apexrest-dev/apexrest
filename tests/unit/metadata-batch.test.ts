@@ -27,6 +27,16 @@ function fixture() {
       calls.push({ sql, bindings });
       return [{ column_name: 'CUSTOMER_ID' }];
     },
+    // The real adapter answers a batch in one SQLcl session; the fixture
+    // records each query in order through the same single-query boundary.
+    async jsonQueryBatch(
+      queries: { sql: string; bindings?: Record<string, string | number> }[],
+      connection: unknown,
+    ) {
+      const rows = [];
+      for (const q of queries) rows.push(await adapter.jsonQuery(q.sql, connection, q.bindings ?? {}));
+      return rows;
+    },
   };
   const read = (input: unknown) => metadataRead(adapter as unknown as OracleAdapter, env, connection, input);
   return { adapter, calls, read, targetChecks: () => targetChecks };

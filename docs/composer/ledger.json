@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-09-29",
+  "asOf": "2026-10-04",
   "baselineHead": "b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a",
   "baselineBranch": "main",
   "existingDirtyFiles": 69,
@@ -612,18 +612,20 @@
         "CMP-028",
         "CMP-029"
       ],
-      "implementation": "partial",
-      "verification": "local-verified-with-open-acceptance",
+      "implementation": "retired",
+      "verification": "not-run",
       "acceptanceId": "CMP031",
       "evidence": [
         "tests/unit/composer.test.ts",
         "tests/contracts/composer.test.mjs",
         "docs/evidence/composer-local.json",
-        "docs/composer/audit.md",
-        "tests/unit/composer-panel.test.ts"
+        "docs/composer/audit.md"
       ],
       "runtimeAcceptance": "not-a-runtime-proof",
-      "remaining": "Schema-driven parameter and full plan/diff experience remains incomplete."
+      "remaining": "2026-10-04 redesign: the panel server and the Composer MCP tools were removed, so the catalog panel no longer exists; Composer remains a CLI/local workflow (composer:author, composer:verify). Historical panel evidence is retired, not current verification.",
+      "retiredEvidence": [
+        "tests/unit/composer-panel.test.ts"
+      ]
     },
     {
       "id": "CMP-032",
@@ -745,11 +747,13 @@
         "docs/evidence/composer-local.json",
         "docs/composer/audit.md",
         "tests/unit/composer-binding-review.test.ts",
-        "tests/unit/composer-materializer-review.test.ts",
-        "tests/unit/composer-panel.test.ts"
+        "tests/unit/composer-materializer-review.test.ts"
       ],
       "runtimeAcceptance": "not-a-runtime-proof",
-      "remaining": "Remaining property/adversarial/deployment matrix cases are not implemented."
+      "remaining": "Remaining property/adversarial/deployment matrix cases are not implemented. 2026-10-04 redesign: the panel regression test is retired with the panel; the remaining suite is tests/unit/composer.test.ts and the review tests.",
+      "retiredEvidence": [
+        "tests/unit/composer-panel.test.ts"
+      ]
     },
     {
       "id": "CMP-038",

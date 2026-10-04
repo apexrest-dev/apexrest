@@ -116,19 +116,29 @@ test('batched target verification keeps identity, workspace and application fail
   assert.equal((await oracle.verifyTarget(target, connection)).application, null);
 });
 
-test('help cache saves repeated SQLcl startups but every capability check refreshes the compiler version', async () => {
+test('one capability probe per installation per process; a replaced launcher re-probes version and help', async () => {
   const calls: ProcessRequest[] = [];
   let version = 'SQLcl: Release 26.1.2';
-  const { oracle } = await adapter(async (request) => {
+  const { oracle, executable } = await adapter(async (request) => {
     calls.push(request);
     return result(request.args[0] === '-version' ? version : 'apex generate export validate import');
   });
   const first = await oracle.requireCapability('validate');
   assert.deepEqual(await oracle.requireCapability('import'), first);
-  assert.equal(calls.filter((r) => r.args[0] === '-version').length, 2);
+  assert.equal(calls.filter((r) => r.args[0] === '-version').length, 1);
   assert.equal(calls.filter((r) => r.input?.includes('help apex')).length, 1);
+  // A second adapter in the same process (one per dispatch) shares the answer.
+  const sibling = new OracleAdapter(async (request) => {
+    calls.push(request);
+    return result('unexpected');
+  });
+  sibling.settings = oracle.settings;
+  assert.deepEqual(await sibling.requireCapability('import'), first);
+  assert.equal(calls.length, 2);
   version = 'SQLcl: Release 26.2.0';
+  await writeFile(executable, 'replaced fixture launcher with a different size');
   assert.notEqual((await oracle.requireCapability('import')).version, first.version);
+  assert.equal(calls.filter((r) => r.args[0] === '-version').length, 2);
   assert.equal(calls.filter((r) => r.input?.includes('help apex')).length, 2);
 });
 
@@ -147,7 +157,7 @@ test('replacing SQLcl libraries invalidates cached help even when the reported v
   assert.equal(probes, 2);
 });
 
-test('concurrent capability checks share one help probe and evict a failed shared probe', async () => {
+test('concurrent capability checks share one probe and evict a failed shared probe', async () => {
   let versions = 0;
   let helps = 0;
   let fail = true;
@@ -166,31 +176,32 @@ test('concurrent capability checks share one help probe and evict a failed share
     oracle.requireCapability('import'),
   ]);
   assert.ok(failures.every((r) => r.status === 'rejected'));
-  assert.equal(versions, 3);
+  assert.equal(versions, 1);
   assert.equal(helps, 1);
   fail = false;
   await Promise.all([oracle.requireCapability('validate'), oracle.requireCapability('export')]);
-  assert.equal(versions, 5);
+  assert.equal(versions, 2);
   assert.equal(helps, 2);
 });
 
-test('separate cancellation signals do not share an in-flight help process', async () => {
+test('a cancelled caller never cancels the shared probe of another caller', async () => {
   const one = new AbortController();
   const two = new AbortController();
   const helpSignals: (AbortSignal | undefined)[] = [];
   const { oracle } = await adapter(async (request) => {
     if (request.args[0] === '-version') return result('SQLcl: fixture');
     helpSignals.push(request.signal);
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 60));
     return result('apex validate');
   });
-  await Promise.all([
-    oracle.requireCapability('validate', one.signal),
-    oracle.requireCapability('validate', two.signal),
-  ]);
-  assert.equal(helpSignals.length, 2);
-  assert.ok(helpSignals.includes(one.signal));
-  assert.ok(helpSignals.includes(two.signal));
+  const first = oracle.requireCapability('validate', one.signal);
+  const second = oracle.requireCapability('validate', two.signal);
+  setTimeout(() => one.abort(), 10);
+  await assert.rejects(first, { code: 'CANCELLED', status: 'cancelled' });
+  await second;
+  assert.deepEqual(helpSignals, [undefined]);
+  await oracle.requireCapability('validate');
+  assert.equal(helpSignals.length, 1);
 });
 
 test('unidentified SQLcl layouts do not reuse help and unsuccessful probes never populate the cache', async () => {
@@ -213,30 +224,26 @@ test('unidentified SQLcl layouts do not reuse help and unsuccessful probes never
   await retry.requireCapability('validate');
 });
 
-test('a warm capability cache does not hide failed version probes or cancellation', async () => {
+test('a warm capability cache still honours cancellation and a failed probe after the launcher changes', async () => {
   const controller = new AbortController();
-  let cancelled = false;
   let failVersion = false;
-  const { oracle } = await adapter(async (request) => {
-    if (cancelled) {
-      assert.equal(request.signal, controller.signal);
-      return result('', { cancelled: true, code: null });
-    }
-    return result(
+  const { oracle, executable } = await adapter(async (request) =>
+    result(
       request.args[0] === '-version'
         ? failVersion
           ? 'SQLCL-12345 fixture version failure'
           : 'SQLcl: fixture'
         : 'apex generate export validate import',
-    );
-  });
+    ),
+  );
   await oracle.requireCapability('validate');
-  failVersion = true;
-  await assert.rejects(oracle.requireCapability('validate'), { code: 'ORACLE_COMMAND_FAILED' });
-  failVersion = false;
-  cancelled = true;
   controller.abort();
   await assert.rejects(oracle.requireCapability('validate', controller.signal), { code: 'CANCELLED' });
+  failVersion = true;
+  await writeFile(executable, 'replaced fixture launcher with a different size');
+  await assert.rejects(oracle.requireCapability('validate'), { code: 'ORACLE_COMMAND_FAILED' });
+  failVersion = false;
+  await oracle.requireCapability('validate');
 });
 
 test('successful JSON rows may contain historical Oracle errors without changing their data', async () => {

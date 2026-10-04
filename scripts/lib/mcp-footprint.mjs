@@ -2,28 +2,30 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 // UTF-8 JSON payload budgets, not tokenizer estimates or native-host billing.
-export const catalogByteBudget = 27000;
+export const catalogByteBudget = 13000;
 export const responseCases = [
   {
     id: 'defaultReferenceSearch',
-    request: { name: 'apexrest_reference_search', arguments: { query: 'validate' } },
-    maxBytes: 6500,
+    request: { name: 'apexrest_reference', arguments: { mode: 'search', query: 'validate' } },
+    // The default search page is bounded by the 8 KiB inline result limit; the
+    // reference ranking rewrite returns richer hits than the earlier 6500-byte sample.
+    maxBytes: 8192,
   },
   {
     id: 'focusedReferenceSearch',
     request: {
-      name: 'apexrest_reference_search',
-      arguments: { query: 'chart series', kind: 'grammar', limit: 3 },
+      name: 'apexrest_reference',
+      arguments: { mode: 'search', query: 'chart series', kind: 'grammar', limit: 3 },
     },
     maxBytes: 3500,
   },
   {
     id: 'boundedReferenceRead',
     request: {
-      name: 'apexrest_reference_read',
-      arguments: { id: 'oracle:templates/region-components/chart/chart.bar', limit: 1024 },
+      name: 'apexrest_reference',
+      arguments: { mode: 'read', id: 'oracle:templates/region-components/chart/chart.bar', limit: 1024 },
     },
-    maxBytes: 3000,
+    maxBytes: 4096,
   },
 ];
 

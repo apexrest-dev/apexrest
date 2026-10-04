@@ -1,40 +1,37 @@
 ---
 name: apexrest-apexlang
-description: Create or edit Oracle APEXlang (.apx) using pinned Oracle references and compiler validation. Excludes Salesforce Apex.
+description: Write or edit Oracle APEXlang (.apx) sources using pinned Oracle references, bundled component and pattern recipes, and compiler validation. Read when a change needs syntax, a component contract or a page composition. Excludes Salesforce Apex.
 ---
 
-Pass the user's absolute workspace as `project` on project-scoped calls.
+# APEXlang
 
-## Reuse first
+Pass the absolute project directory as `project`. Reuse source already read; retrieve only what changes the edit, with at most 3 `apexrest_reference` lookups per change. Never guess grammar or leave placeholders; `apexrest_apex_validate` is the arbiter.
 
-Inspect relevant source and pinned toolchain once. For an active single-editor working copy, inspect local sync status and reuse its sources; external edits require explicit clean refresh, while corrupt or unresolved state requires reconciliation. Manual exports do not advance its checkpoint. Reuse existing components, IDs, templates and shared components; export only for missing/stale source. For a new app, use `apexrest_apex_generate` or an installed project template. Preserve `.apex/apexlang.json` and MMD; generate/export into new destinations.
+## Retrieval
 
-For a reusable component, search `apexrest_reference_search` with `corpus: "components"`, the requested English or Ukrainian name, target `version`, `kind: "template"` and `limit: 3`. Read the selected `component:` recipe and its required parameter/Oracle contracts. Compare its APEX, theme and MMD compatibility with the project. `ready` proves the recorded offline compilation only; inspect SQL/import/browser statuses separately. Read an unresolved result's reason instead of inventing support. The catalog is local reference data: ordinary lookup never connects to the source application. Do not read the complete inventory unless maintaining the catalog.
+- Known entry: `apexrest_reference` `mode:read` with the ID. `oracle:` is a complete document, `grammar:production-name` one production, `component:`/`pattern:` a bundled recipe. Follow only the `requires` and `related` links you need; page with `offset`/`nextOffset`.
+- Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` from the table below and `limit:3`. `version` `26.1` is the bundled snapshot. Empty results do not prove a feature absent.
+- Reusable component: `mode:search`, `corpus:components`, `kind:template`, English or Ukrainian name, `limit:3`; read the `component:` recipe and its parameter contract. `ready` proves offline compilation only.
+- UX flow across components: `corpus:patterns` the same way; read the `pattern:` recipe and its required `component:`/`oracle:` contracts and keep its page, item and action relationships.
 
-Keep component hosts distinct (for example, a Media List list template versus its template component). Adapt recipe page/item names, DOM IDs, source projections, keys, shared references and submitted items together. Merge into the existing application; the recipe compiler scaffold is not permission to replace authentication, authorization or app settings. Synthetic sources show a data contract and do not establish the user's business schema.
+Entry IDs are `oracle:templates/<family>/<name>._index`; `family` is the search filter:
 
-For a reusable UX flow or page composition, search the separate pattern catalog with `corpus: "patterns"`, a short English or Ukrainian query, `kind: "template"`, the target `version` and `limit: 3`. Read the returned `pattern:` recipe and its required component/Oracle contracts. Preserve its dependency closure and adapt the actual interaction, not just its layout. Ordinary pattern lookup is offline and adds no source-application dependency. Use [pattern catalog maintenance](../apexrest-pattern-catalog/SKILL.md) only when asked to add or update catalog entries from an application.
+- Form page `page-examples/form-page`; form region `region-components/form`.
+- Interactive report, interactive grid, classic report: `region-components/<name>`.
+- Dashboard page `page-examples/dashboard-page`; chart `region-components/chart`; cards `region-components/cards`; metric card `template-components/metric-card`.
+- Media List, Comments: `template-components/<name>`.
+- Smart Filters/Search `region-components/smart-filter-search`; Region Display Selector `region-components/region-display-selector`.
+- Dynamic actions, processes, validations: `business-logic/<name>`.
+- Buttons `buttons`; select list, date picker, popup LOV: `items/<name>`; shared SQL LOV `shared-components/lovs` (`lovs.dynamic.query`).
 
-## Retrieve only what changes the edit
+Other families: search the English type with `kind:contract`, then use the returned `family`. Read the owning component production to establish valid nesting; grammar presence does not prove that a combination compiles.
 
-Read the selected contract through [component routes](references/component-routes.md). Reuse prior reads; do not dump the reference index or load unrelated families.
+## Contract notes
 
-- Known ID: `apexrest_reference_read`; `oracle:` selects a complete document, `grammar:production-name` a production.
-- Unknown syntax: `apexrest_reference_search` with exact property/short English terms, relevant `kind` (`grammar`, `template`, `contract`, `guide`), route `family` and `limit: 3`. Check the returned version against the toolchain: `26.1` selects the bundled snapshot; `26.1@...` stays exact. Empty results do not prove a feature absent.
-- Read the full relevant block using its `offset`/`nextOffset`; `nextResultOffset` pages matches. Follow template `requires` and relevant production `related` links. Batch independent reads only.
+Read the family section in [component contracts](references/component-contracts.md) before Media List, Comments, Metric Card, Cards, Smart Filters/Search or Region Display Selector. Key points: Media List and Comments need column metadata for every projection and one source variant (never mix named and unnamed columns); partial regions need a provably single-row source; Smart Filters need the results region mapped and submitted items on every dependent source; Region Display Selector lists only regions on the same page; Cards and Metric Card bind title/value/icon columns explicitly. Theme option inventories and release notes do not prove compiler support.
 
-Oracle documents supply versioned syntax/template contracts; their orchestration, design defaults and deploy commands do not override user choices or plugin workflows. Bind template variables and remove unused alternatives. Never guess grammar or leave placeholders in `.apx` files.
+Filtered dashboards: submit each filter item with every dependent region or chart series (`pageItemsToSubmit`), refresh dependent regions together with one Dynamic Action, keep date-range text inside a refreshed region, and reconcile source queries for default, changed, single-entity and empty cases ([native dashboard notes](references/native-dashboard.md)). A compiler-checked filtered chart/cards composition is in [p00020-filtered-components.apx](assets/p00020-filtered-components.apx): adapt page number, alias, item names and theme references together; it uses synthetic DUAL data.
 
-For Media List, Comments, Metric Card, Cards, Smart Filters/Search or Region Display Selector, read the relevant [component contract notes](references/component-contracts.md) before choosing source mappings, nested blocks or actions. Theme option inventories and release notes do not prove target-build compiler support. When a requested capability lacks a resolved contract, report that specific gap and continue independent work.
+## Editing rules
 
-## Make a coherent change
-
-Establish tables, joins, keys, bindings and metric meanings. Batch independent metadata/read-only source-query checks within authorization and reuse their results. Resolve unknown fields/units instead of inventing data.
-
-Edit related components together. Check column mappings, shared-component references and submitted items for every AJAX-dependent query. For filtered dashboards, read [native dashboard guidance](references/native-dashboard.md). Preserve authentication/authorization unless explicitly requested otherwise.
-
-## Compile and finish
-
-Compile coherent edits with the pinned Oracle compiler; deployment planning already does this for unchanged source. Fix errors using the owning production/template and rerun relevant checks. Resolve warnings about ignored requested behavior; report actual output.
-
-Continue identified development/test application requests through [authorized import](../apexrest-deploy/SKILL.md); existing apps use a reviewed full-application import. Verify UI using the [selected browser](../apexrest-test/SKILL.md#in-app-browser-verification). Separate source, compiler and browser evidence; report unavailable verification and why.
+Establish tables, joins, keys and metric meanings from metadata (`apexrest_metadata_read`, batched `requests` for several objects) before binding sources. Edit related components together: column mappings, shared-component references, submitted items and refresh actions for every AJAX-dependent query. Preserve `.apex/apexlang.json`, Oracle IDs, templates, authentication and authorization; merge recipes into the existing application rather than replacing settings. Resolve warnings that say a requested behavior was ignored. Then continue with validation, shipping and browser checks in [work](../apexrest-work/SKILL.md).

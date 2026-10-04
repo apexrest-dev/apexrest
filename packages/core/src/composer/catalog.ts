@@ -53,7 +53,7 @@ export async function loadCatalog(project?: string, cachePayloads = true): Promi
     }
     const manifest = await readDocument(directory, 'block.yaml', blockSchema),
       key = manifest.id + '@' + manifest.version;
-    if (expected && manifest.origin !== 'apexrest-dev/apexrest-codex')
+    if (expected && manifest.origin !== 'apexrest-dev/apexrest')
       throw new Fault('ORIGIN_DENIED', 'Bundled block origin is outside registry policy.', 5);
     if (!expected && project) {
       const policyFile = await safePath(project, '.apexrest-composer/registry-policy.json');

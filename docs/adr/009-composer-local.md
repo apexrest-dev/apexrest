@@ -1,7 +1,5 @@
 # ADR 009: Local deterministic Composer
 
-English | [Українська](009-composer-local.uk.md)
-
 ## Decision
 
 Use the current-session core, existing jobs/artifacts and policy-aware deployment rather than a separate application/session controller. Blocks are exact immutable packages selecting reviewed native renderers with typed entity/API contracts. YAML 2.x AST is parsed before strict Zod validation; schema generation has one source of truth. The initial profile binds APEX/UT 26.1 and MMD 26.1.0+3102.

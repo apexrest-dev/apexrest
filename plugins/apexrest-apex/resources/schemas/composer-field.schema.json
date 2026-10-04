@@ -40,7 +40,8 @@
       "type": "array",
       "items": {
         "type": "string",
-        "maxLength": 128
+        "maxLength": 128,
+        "pattern": "^[^\\x00-\\x1f\\x7f`]*$"
       }
     }
   },

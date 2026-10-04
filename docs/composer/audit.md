@@ -1,6 +1,6 @@
 # Composer implementation audit — 2026-09-29
 
-English | [Українська](audit.uk.md)
+This audit predates the 2026-10-04 redesign, which removed the Composer MCP tools, the `$apexrest-compose` skill and the panel Catalog; Composer is now [CLI only and experimental](../composer.md). Statements below about panel controls, panel status retries or MCP routes describe the audited state, not the current surface.
 
 The current implementation is an experimental local Composer, not completed CMP-000–041 acceptance. The [ledger](ledger.json) and [local evidence](../evidence/composer-local.json) supersede earlier blanket completion statements. Existing tests and real offline compilation establish the behavior they exercise; they do not establish unimplemented requirements.
 
@@ -22,15 +22,15 @@ These corrections strengthen the existing local adapters. They do not close the 
 
 ## Remaining local requirements
 
-| Roadmap | Observed limitation | Required completion |
-| --- | --- | --- |
-| CMP-003, 013, 017 | Strict schemas cover the current finite adapters; they do not implement the full contract dialect and independently configurable typed routes. | Expand and test structural producer/consumer compatibility and route mappings. |
-| CMP-008–009 | Discovery uses lexical aliases and exact profile IDs. Qualification remains conservative; source/generator evidence staleness is checked, but configuration/fixture/toolchain policy is incomplete. | Explain profile dimensions, enforce independent evidence requirements and test stale/copy/failed evidence. |
-| CMP-011, 016, 021, 033 | Allocation and ownership cover pages plus the hosted summary. Shared LOV semantic deduplication, complete resource consumers and typed migration references are absent. | Add shared-resource span ownership, retain unmanaged/unknown consumers and implement a reviewed migration reference seam. |
-| CMP-031 | Catalog supports text previews, JSON parameters, blueprint review and jobs. It lacks the full schema-driven parameter/compatibility experience. | Finish structured fields and full plan/diff navigation; retain stale-plan and safe-preview checks. |
-| CMP-035 | Authoring clones a supported native factory and captures declaration facts. It does not normalize arbitrary captured APEXlang into a new executable block. | Implement and verify the selected-declaration normalization workflow. |
-| CMP-037–038 | Regression tests cover the current adapters and complete write-boundary recovery. Benchmarks measure a small local harness. | Add remaining property/adversarial/deployment cases and matched recipe-adaptation measurements. Do not claim token savings or end-to-end speedups. |
-| CMP-040–041 | CI definitions, paired documentation and release blockers exist; the full local roadmap is still incomplete. | Close local gaps and update task-specific acceptance before marking the roadmap complete. |
+| Roadmap                | Observed limitation                                                                                                                                                                                 | Required completion                                                                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CMP-003, 013, 017      | Strict schemas cover the current finite adapters; they do not implement the full contract dialect and independently configurable typed routes.                                                      | Expand and test structural producer/consumer compatibility and route mappings.                                                                     |
+| CMP-008–009            | Discovery uses lexical aliases and exact profile IDs. Qualification remains conservative; source/generator evidence staleness is checked, but configuration/fixture/toolchain policy is incomplete. | Explain profile dimensions, enforce independent evidence requirements and test stale/copy/failed evidence.                                         |
+| CMP-011, 016, 021, 033 | Allocation and ownership cover pages plus the hosted summary. Shared LOV semantic deduplication, complete resource consumers and typed migration references are absent.                             | Add shared-resource span ownership, retain unmanaged/unknown consumers and implement a reviewed migration reference seam.                          |
+| CMP-031                | Catalog supports text previews, JSON parameters, blueprint review and jobs. It lacks the full schema-driven parameter/compatibility experience.                                                     | Finish structured fields and full plan/diff navigation; retain stale-plan and safe-preview checks.                                                 |
+| CMP-035                | Authoring clones a supported native factory and captures declaration facts. It does not normalize arbitrary captured APEXlang into a new executable block.                                          | Implement and verify the selected-declaration normalization workflow.                                                                              |
+| CMP-037–038            | Regression tests cover the current adapters and complete write-boundary recovery. Benchmarks measure a small local harness.                                                                         | Add remaining property/adversarial/deployment cases and matched recipe-adaptation measurements. Do not claim token savings or end-to-end speedups. |
+| CMP-040–041            | CI definitions, paired documentation and release blockers exist; the full local roadmap is still incomplete.                                                                                        | Close local gaps and update task-specific acceptance before marking the roadmap complete.                                                          |
 
 ## Separate external qualification
 

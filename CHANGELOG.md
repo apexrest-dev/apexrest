@@ -1,12 +1,24 @@
 # Changelog
 
-English | [Українська](CHANGELOG.uk.md)
+## Unreleased — redesign phase 1, security hardening and review fixes
 
-## Unreleased — security hardening and review fixes
+These changes are implemented in the working tree and checked locally only; they are not verified against Oracle, APEX or ORDS. See [implementation status](docs/implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) and the [review fixes record](docs/implementation-status.md#review-fixes--local-implementation-2026-10-04).
 
-These changes are implemented in the working tree and checked locally only; they are not verified against Oracle, APEX or ORDS. See [implementation status](docs/implementation-status.md#review-fixes--local-implementation-2026-10-04).
+**Breaking changes (redesign):** the MCP catalog is reduced from 21 tools to 11; removed tool names are `apexrest_doctor`, `apexrest_project_inspect`, `apexrest_reference_search`, `apexrest_reference_read`, `apexrest_apex_generate`, `apexrest_apex_export`, `apexrest_deploy_plan`, `apexrest_deploy_apply`, `apexrest_job_status`, `apexrest_job_cancel`, `apexrest_panel_open`, `apexrest_panel_status`, `apexrest_panel_action`, `apexrest_compose_plan` and `apexrest_compose_materialize` (their operations continue under `apexrest_project`, `apexrest_reference`, `apexrest_ship`, `apexrest_job`, `apexrest_status` or the CLI). Skills are reduced from 14 to 5; `$apexrest-menu`, `$apexrest-panel`, `$apexrest-compose`, `$apexrest-deploy`, `$apexrest-debug`, `$apexrest-database`, `$apexrest-test`, `$apexrest-project`, `$apexrest-review` and `$apexrest-install-dependencies` no longer exist. The terminal UI (`apexrest`, `apexrest tui`, `apexrest panel tui`), the panel HTTP server and worker, panel actions and the MCP UI resource are removed; `apexrest` without arguments prints help. The `deploymentControl` configuration field and database-backed coordination are removed; coordination is always local. Ukrainian `.uk.md` documentation and `.uk.svg` diagrams are removed. The repository moved to `apexrest-dev/apexrest`.
 
-**Breaking changes:** production apply needs an administrator-owned `production-trust.json` and attestations that also carry `planId` and `projectId`; every local deploy grant needs a matching `planDigest`; migrations must be flat and uniquely versioned; ORDS `http:` URLs are limited to loopback and `--password-file` must be owner-only; the `sqlcl` panel action kind is removed from MCP/CLI; the release runtime is one `apexrest-runtime-<version>.zip`.
+**Breaking changes (review fixes):** production apply needs an administrator-owned `production-trust.json` and attestations that also carry `planId` and `projectId`; every local deploy grant needs a matching `planDigest`; migrations must be flat and uniquely versioned; ORDS `http:` URLs are limited to loopback and `--password-file` must be owner-only; the release runtime is one `apexrest-runtime-<version>.zip`.
+
+### Redesign phase 1
+
+- **Engine.** Offline compiler work (generate, validate, help) in SQLcl `cli` mode and every SQLcl `mcp`-mode connection now run on a pooled SQLcl server process (`sql -mcp`) that lives for the MCP server process: commands on one session are serialized, idle sessions are reaped after ten minutes and a timed-out, cancelled or failed command kills its session. The capability probe runs once per SQLcl installation per process. Measured locally: `apex validate` 3.2 s cold → about 43 ms warm; capability probe 1.5 s → 0 ms. Connected `cli`-mode sessions (saved `-name` connections, ORDS `connect -orest`) keep one process per call.
+- **Diagnostics.** Compiler results return structured `diagnostics[]` with `file`, `line`, `column`, `type`, `message`, `validValues` and `hint`; `VALIDATION_FAILED` and other domain faults carry `nextActions`.
+- **Agent surface.** Eleven MCP tools: `apexrest_project` (init, adopt, inspect, connection_add, connection_list, connection_test), `apexrest_reference` (`mode:search|read`, any-term EN/UK ranking with stemming and aliases, top hit includes its primary code block and resolved `requires`/`related` IDs, `include`, `includeUnresolved`), `apexrest_metadata_read`, `apexrest_apex_validate` (in-process), `apexrest_ship` (`mode:plan|apply` with `userRequest`), `apexrest_apex_sync`, `apexrest_test_run`, `apexrest_browser_open`, `apexrest_job` (status, cancel), `apexrest_artifact_read` and `apexrest_status` (doctor, project). The catalog shrinks from about 24 KB to 12.2 KB. Jobs run inside the MCP process except `ship` apply and remote test suites, which keep the detached worker.
+- **Ship.** `apexrest_ship` `mode:apply` records a deploy grant from the user's literal request under the authorized-import rule, bound to the exact project, target and plan digest, then backs up, imports, verifies, runs required suites and removes the grant. Phases `backing_up` → `migrating` → `importing` → `verifying` → `testing` are reported through `apexrest_job`; the call waits up to 120 s. Production targets are refused and keep the external approval path. CLI: `apexrest ship --env NAME --mode plan|apply --user-request TEXT`.
+- **Skills.** Five host-neutral skills for Codex or Claude Code: `apexrest-work` (the eight-step cycle), `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup` and the maintainer-only `apexrest-pattern-catalog`; about 41 KB → 17.6 KB of `SKILL.md`.
+- **Claude Code.** The built plugin carries `.claude-plugin/plugin.json` (name `apexrest`, MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`) and the repository root `.claude-plugin/marketplace.json`: `claude plugin marketplace add apexrest-dev/apexrest`, then `claude plugin install apexrest@apexrest`. Both manifests pass `claude plugin validate --strict`; the Codex route is unchanged.
+- **CLI.** New `apexrest ship`, `apexrest status --detail doctor|project` and the aliases `job` (for `jobs`) and `reference` (for `docs`). `apexrest panel status` remains a read-only snapshot. Composer stays available as `apexrest compose plan|materialize` (experimental) until an App Spec compiler replaces it.
+- **Removed.** Terminal UI, panel server/worker/actions and MCP UI resource, database-backed deployment coordination and control tables, Ukrainian documentation and the `.uk` site routes, and the Composer MCP tools. The panel is now a read-only status snapshot (`apexrest_status` / `apexrest panel status`).
+- **Repository.** Renamed from `apexrest-codex` to `apexrest`; the GitHub rename itself is performed by the organization owner.
 
 ### Deployment safety
 
@@ -26,11 +38,10 @@ These changes are implemented in the working tree and checked locally only; they
 - Re-check row visibility on edit saves; block page removal on alias, `f?p`, `p_page` and dynamic references; include derived names in collision checks.
 - Refresh stale receipts on no-op apply; require the frozen plan record and enforce write scope during recovery; match timestamp precision and unquoted identifiers case-insensitively in connected binding.
 
-### MCP, panel and CLI
+### MCP and CLI
 
-- Require project trust for `metadata.read`, `deploy.status`, `deploy.restore-plan` and for opening the panel.
-- Remove the `sqlcl` action kind from MCP/CLI panel actions; use the local dashboard or `apexrest sqlcl configure`.
-- Stop archiving `panel.status` snapshots, prune result archives at most hourly and list the newest 2000 history records with omitted counts.
+- Require project trust for `metadata.read`, `deploy.status` and `deploy.restore-plan`.
+- Stop archiving `panel.status` snapshots, prune result archives at most hourly and list the newest 2000 history records with omitted counts. (The panel actions these fixes first adjusted were removed entirely by the redesign above.)
 - Report the operation's own `failed`, `outcome_unknown` or `cancelled` job outcome, mark jobs whose worker never started as failed, and add MCP `completed_unreadable`.
 - Exit with code 2 for `--help` on an unknown command and for invalid `--action` JSON; accept multi-word `docs search` queries.
 

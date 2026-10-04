@@ -413,15 +413,19 @@ test('installed patterns support EN/UK lookup, filtering and full pagination off
   };
   // A broad pattern request can return any of its variants. Exact variant
   // requests must still retrieve that individual recipe among the first three.
+  // Unresolved recipes are hidden unless includeUnresolved is set
+  // (packages/core/src/references.ts), so a pattern whose recipes are all
+  // unresolved must stay hidden by default while every other pattern is found.
   for (const pattern of registry.patterns) {
-    const recipeIds = new Set(
-      registry.recipes.filter((recipe) => recipe.patternId === pattern.id).map((recipe) => recipe.id),
-    );
+    const recipes = registry.recipes.filter((recipe) => recipe.patternId === pattern.id);
+    const recipeIds = new Set(recipes.map((recipe) => recipe.id));
     assert.ok(recipeIds.size > 0, pattern.id);
+    const hidden = recipes.every((recipe) => recipe.readiness === 'unresolved');
     for (const query of [pattern.title, pattern.titleUk]) {
       const found = searchVariant(query, pattern);
-      assert.ok(
+      assert.equal(
         found.some((hit) => recipeIds.has(hit.id)),
+        !hidden,
         `${query}: ${found.map((hit) => hit.id)}`,
       );
     }
@@ -467,7 +471,14 @@ test('installed patterns support EN/UK lookup, filtering and full pagination off
     assert.ok(next === null || next > offset);
     offset = next;
   } while (offset !== null);
-  assert.deepEqual(all.slice().sort(), registry.recipes.map((recipe) => recipe.id).sort());
+  // Full pagination lists every resolvable recipe; unresolved ones stay hidden by default.
+  assert.deepEqual(
+    all.slice().sort(),
+    registry.recipes
+      .filter((recipe) => recipe.readiness !== 'unresolved')
+      .map((recipe) => recipe.id)
+      .sort(),
+  );
   assert.equal(new Set(all).size, all.length);
   const coverage = [];
   offset = 0;

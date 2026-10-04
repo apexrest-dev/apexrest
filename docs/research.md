@@ -1,7 +1,5 @@
 # Capability research
 
-English | [Українська](research.uk.md)
-
 This page is a historical research record from 2026-09-12. It is not the current execution architecture; see [Codex integration](codex-integration.md). Old host protocol observations do not describe a runtime dependency of 1.1.0 or later releases.
 
 Research was retrieved on 2026-09-12 from all S01–S18 URLs in the immutable build specification. `docs/evidence/research-sources.json` records HTTP status, resolved URL and SHA-256 for every response. `toolchains/sources.lock.json` pins schema bytes and the reviewed Oracle skill commit. Retrieval is provenance, not a claim that every documented Oracle component was exercised.

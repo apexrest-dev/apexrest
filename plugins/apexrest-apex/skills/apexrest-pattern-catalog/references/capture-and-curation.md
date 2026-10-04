@@ -80,7 +80,7 @@ The verifier must compile every recipe declared `ready` with its complete local 
 
 Keep SQL/import/browser results separate and retain `not-run` with a reason when unavailable. Do not import into the source application to establish catalog readiness. A runtime verification request needs its own identified authorized target and the existing [deployment workflow](../../apexrest-deploy/SKILL.md).
 
-After review, rebuild the catalog and validate deterministic output, ID/link integrity, source isolation, evidence hashes and search/read bounds. Use the repository's normal build, packaging and plugin synchronization checks. Ordinary retrieval uses `apexrest_reference_search` with `corpus: "patterns"`, then `apexrest_reference_read` for a returned `pattern:` ID; it must work offline outside the source checkout.
+After review, rebuild the catalog and validate deterministic output, ID/link integrity, source isolation, evidence hashes and search/read bounds. Use the repository's normal build, packaging and plugin synchronization checks. Ordinary retrieval uses `apexrest_reference` `mode:search` with `corpus: "patterns"`, then `mode:read` for a returned `pattern:` ID; it must work offline outside the source checkout.
 
 ```sh
 node scripts/verify-pattern-recipes.mjs

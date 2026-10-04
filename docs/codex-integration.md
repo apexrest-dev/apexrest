@@ -1,21 +1,30 @@
-# Codex integration
+# Host integration: Codex and Claude Code
 
-English | [Українська](codex-integration.uk.md)
-
-APEXREST targets Codex desktop and CLI. Beta 1.3.0-beta.1 contains 14 focused skills and 21 bounded MCP tools, including the experimental [Composer](composer.md) skill; stable 1.2.0 contains 13 skills and 18 MCP tools, including the [pattern-catalog skill](pattern-catalog.md). See [release notes](release-notes.md) for publication status. Codex executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI.
+APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. The published packages (`1.2.0` on npm `latest`, `1.3.0-beta.1` on `beta`) still carry the previous 21-tool, 14-skill surface and Codex-only manifests; see [release notes](release-notes.md).
 
 ## Ownership
 
-- Codex owns the conversation, model, permissions and any native collaboration.
-- APEXREST owns project configuration, pinned references, Oracle adapters, deployment policy, test execution and recoverable operation jobs.
-- The optional development panel shows project/connection settings and Oracle/APEX operations. Open its private local URL in the Codex in-app browser; the verification-browser preference applies separately to application checks.
+- The host owns the conversation, model, permissions, browser controls and any native collaboration.
+- APEXREST owns project configuration, pinned references and catalogs, Oracle adapters and the pooled SQLcl engine, deployment policy, test execution, recoverable jobs and the read-only status snapshot.
 
-APEXREST does not start Codex model sessions, choose models or maintain a parallel conversation context. There is no plugin work-start API. Request implementation through the [current-chat skill](chat-workflow.md), and use the domain tools when an actual operation is needed.
+APEXREST does not start model sessions, choose models or maintain a parallel conversation context. There is no plugin work-start API, panel application, HTTP server or MCP UI resource. Request implementation through the [work skill](chat-workflow.md) and use the domain tools when an actual operation is needed.
+
+## Manifests
+
+| Host        | Manifest in the bundle                                     | Marketplace                                         | Install                                                                                          |
+| ----------- | ---------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Codex       | `.codex-plugin/plugin.json` (`apexrest-apex`), `.mcp.json` | `.agents/plugins/marketplace.json`                  | `codex plugin marketplace add apexrest-dev/apexrest`; `codex plugin add apexrest-apex@apexrest`  |
+| Claude Code | `.claude-plugin/plugin.json` (`apexrest`)                  | `.claude-plugin/marketplace.json` (repository root) | `claude plugin marketplace add apexrest-dev/apexrest`; `claude plugin install apexrest@apexrest` |
+
+Both manifests point `skills` at the same `./skills/` directory and start the same MCP server: Codex with `cwd: "."` inside the plugin, Claude Code with `${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`. `scripts/build-plugin.mjs` generates all four files from `plugins/metadata.json`; `npm run plugin:sync` copies them into the repository and `npm run plugin:check` detects drift. The Codex manifest's three starter prompts invoke `$apexrest-work`, `$apexrest-setup` and `$apexrest-safety`.
+
+Every project-scoped tool takes the absolute project directory as `project` because the host launches the server from its plugin cache. The MCP server pools SQLcl sessions and in-process jobs for its lifetime and shuts them down when the host closes the transport.
 
 ## Host boundaries and verification
 
-The native manifest declares skills and MCP resources. The loopback panel and its MCP UI resource are separate surfaces: a valid resource or returned URL is not proof that a host rendered it. Browser observations, installed-plugin CLI/stdio checks and live Oracle operations are recorded separately.
+A listed plugin, a valid manifest or a returned URL is not proof that a host rendered a skill, loaded the tools or showed a page. Browser observations, installed-plugin CLI/stdio checks and live Oracle operations are recorded separately.
 
-The [historical 1.0.0 evidence](evidence/current-session-100-local.json) retains its source checks; [1.1.0 catalog evidence](evidence/component-catalog-local.json) records the current component corpus. Older native-host reports retain their original host versions, source digests and scope; they do not verify this release's desktop rendering. See [implementation status](implementation-status.md) and [open checks](next-actions.md).
+- Codex: isolated installation, discovery, tool calls and lifecycle were exercised on Codex 0.154.0 / macOS arm64 for earlier builds ([native installation report](evidence/native-repository.json)). The redesigned surface has not been re-verified in a live Codex session.
+- Claude Code: both manifests pass `claude plugin validate --strict` (also run by `npm run test:packaging` when the `claude` CLI is present) and a local install from a scratch marketplace succeeded. An end-to-end session that calls the tools is still open.
 
-The original [build specification](../APEXREST_CODEX_PLUGIN_BUILD_SPEC.md) is preserved as historical input. It is not the current product contract; the [acceptance matrix](acceptance.json) records the current scope and superseded requirements.
+The original [build specification](../APEXREST_CODEX_PLUGIN_BUILD_SPEC.md) is preserved as historical input. It is not the current product contract; the [acceptance matrix](acceptance.json) records the current scope and superseded requirements. See [implementation status](implementation-status.md) and [open checks](next-actions.md).
