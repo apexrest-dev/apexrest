@@ -68,9 +68,11 @@ export class ArtifactService {
       throw new Fault('ARTIFACT_CHANGED', 'Artifact integrity check failed.', 5);
     return artifactPage(content, metadata.format ?? 'text', id, offset, limit);
   }
-  async prune() {
+  // `results` limits pruning to the managed MCP result archive, so automatic
+  // cleanup never scans a project-configured directory.
+  async prune(scope: 'all' | 'results' = 'all') {
     const directories = [
-      await contained(this.ctx.root, this.ctx.config.artifacts.directory),
+      ...(scope === 'all' ? [await contained(this.ctx.root, this.ctx.config.artifacts.directory)] : []),
       await this.resultDirectory(),
     ];
     let removed = 0;
@@ -86,8 +88,11 @@ export class ArtifactService {
         continue;
       for (const file of await readdir(directory))
         if (/^[a-f0-9-]{36}\.json$/.test(file)) {
-          const metadata = (await readJson(path.join(directory, file))) as { expiresAt: string };
-          if (Date.parse(metadata.expiresAt) < Date.now()) {
+          // One unreadable record must not stop cleanup of the others.
+          const metadata = (await readJson(path.join(directory, file)).catch(() => null)) as {
+            expiresAt?: string;
+          } | null;
+          if (typeof metadata?.expiresAt === 'string' && Date.parse(metadata.expiresAt) < Date.now()) {
             await rm(path.join(directory, file));
             await rm(path.join(directory, file.replace('.json', '.txt')), { force: true });
             removed++;

@@ -6,7 +6,9 @@ import {
   Client,
   StdioClientTransport,
   ToolchainService,
+  canonicalHome,
   managedHome,
+  renameWithRetry,
   requireTrust,
   require_applicator,
   require_codegen,
@@ -25,9 +27,9 @@ import {
   require_validation,
   require_validation_error,
   resourceRoot,
-  runProcess,
+  runCommand,
   runtimeState
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   __commonJS,
@@ -35,13 +37,14 @@ import {
   atomicWrite,
   canonical,
   contained,
+  containedChild,
   exists,
   hash,
   inventory,
   readJson,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // node_modules/ajv/dist/vocabularies/dynamic/dynamicAnchor.js
 var require_dynamicAnchor = __commonJS({
@@ -872,9 +875,8 @@ import path4 from "node:path";
 import { homedir } from "node:os";
 import { readFile as readFile2, rm as rm2 } from "node:fs/promises";
 
-// packages/installer/src/native.ts
-import path3 from "node:path";
-import { cp, mkdir, readFile, rename, rm, chmod, realpath as realpath2 } from "node:fs/promises";
+// packages/installer/src/registration.ts
+import path2 from "node:path";
 
 // packages/installer/src/package-source.ts
 var import__ = __toESM(require__(), 1);
@@ -952,9 +954,8 @@ async function validateNative(source) {
 }
 
 // packages/installer/src/registration.ts
-import path2 from "node:path";
 async function checkCodex(codexHome, codex = "codex") {
-  const result = await runProcess({
+  const result = await runCommand({
     executable: codex,
     args: ["--version"],
     cwd: process.cwd(),
@@ -969,15 +970,19 @@ async function checkCodex(codexHome, codex = "codex") {
       "dependency_missing"
     );
 }
+function codexRun(codexHome, cwd, codex = "codex") {
+  return (args, timeoutMs = 6e4) => runCommand({
+    executable: codex,
+    args,
+    cwd,
+    env: { ...process.env, CODEX_HOME: codexHome },
+    timeoutMs
+  });
+}
 function codexInvoke(codexHome, cwd, codex = "codex") {
+  const run = codexRun(codexHome, cwd, codex);
   return async (args) => {
-    const result = await runProcess({
-      executable: codex,
-      args,
-      cwd,
-      env: { ...process.env, CODEX_HOME: codexHome },
-      timeoutMs: 6e4
-    });
+    const result = await run(args);
     if (result.timedOut || result.cancelled || result.truncated || result.code === null)
       throw new Fault(
         "CODEX_REGISTRATION_UNKNOWN",
@@ -1052,6 +1057,8 @@ async function inspectRegistration(markets, home, codexHome, destination) {
 }
 
 // packages/installer/src/native.ts
+import path3 from "node:path";
+import { cp, mkdir, readFile, rm, chmod } from "node:fs/promises";
 async function installNative(r) {
   const source = await resolveNativePlugin(r.source);
   const payload = Object.fromEntries(
@@ -1063,22 +1070,27 @@ async function installNative(r) {
   payload[".agents/plugins/marketplace.json"] = hash(JSON.stringify(nativeMarketplace, null, 2) + "\n");
   const copyDigest = hash(canonical(payload));
   const sourceMcpFile = await exists(path3.join(source, "plugin.json")) ? "mcp.json" : ".mcp.json";
+  const mcpKey = "plugins/apexrest-apex/" + sourceMcpFile;
+  const expectedFiles = canonical({ ...payload, [mcpKey]: void 0 });
   const sourceMcp = await readJson(path3.join(source, sourceMcpFile));
   const sourceServer = sourceMcp.mcpServers.apexrest;
   if (!sourceServer) throw new Fault("INVALID_PACKAGE", "Native package has no apexrest MCP server.", 2);
   sourceServer.command = "node";
   sourceServer.args = ["runtime/mcp.mjs"];
   delete sourceServer.env;
-  payload["plugins/apexrest-apex/" + sourceMcpFile] = hash(JSON.stringify(sourceMcp, null, 2) + "\n");
+  payload[mcpKey] = hash(JSON.stringify(sourceMcp, null, 2) + "\n");
   const digest = hash(canonical(payload));
   if (!r.dryRun) {
     await mkdir(r.home, { recursive: true, mode: 448 });
     await mkdir(r.codexHome, { recursive: true, mode: 448 });
   }
-  const home = await exists(r.home) ? await realpath2(r.home) : path3.resolve(r.home);
-  const codexHome = await exists(r.codexHome) ? await realpath2(r.codexHome) : path3.resolve(r.codexHome);
+  const home = await canonicalHome(r.home);
+  const codexHome = await canonicalHome(r.codexHome);
   const node = r.node ?? process.execPath;
   const destination = path3.join(home, "native", hash(canonical({ sourceDigest: digest, node, home })));
+  const root = path3.join(destination, "plugins/apexrest-apex");
+  const cli = path3.join(root, "runtime/apexrest.mjs");
+  const launchers = launcherScripts(home, node, cli);
   const invoke = codexInvoke(codexHome, await exists(home) ? home : process.cwd(), r.codex);
   if (!await exists(codexHome)) await checkCodex(codexHome, r.codex);
   const inspect = async () => inspectRegistration(
@@ -1087,7 +1099,7 @@ async function installNative(r) {
     codexHome,
     destination
   );
-  const registration = await inspect();
+  let registration = await inspect();
   if (r.expectedRegistration && r.expectedRegistration !== registration.fingerprint)
     throw new Fault(
       "MARKETPLACE_CHANGED",
@@ -1112,6 +1124,12 @@ async function installNative(r) {
     const stamp = Date.now();
     const configBackup = path3.join(home, "config-before-install-" + stamp + ".toml");
     if (await exists(config)) await cp(config, configBackup);
+    const repaired = await exists(destination) && !await reusable(destination, expectedFiles, mcpKey);
+    if (repaired) {
+      const broken = `${destination}.broken-${stamp}`;
+      await renameWithRetry(destination, broken);
+      await rm(broken, { recursive: true, force: true });
+    }
     if (!await exists(destination)) {
       const staging = destination + ".staging";
       await rm(staging, { recursive: true, force: true });
@@ -1121,9 +1139,8 @@ async function installNative(r) {
       await writeJson(path3.join(staging, ".agents/plugins/marketplace.json"), nativeMarketplace);
       if (hash(canonical(await inventory(staging))) !== copyDigest)
         throw new Fault("PACKAGE_COPY_INVALID", "Native package copy changed.", 5);
-      await rename(staging, destination);
+      await renameWithRetry(staging, destination);
     }
-    const root = path3.join(destination, "plugins/apexrest-apex");
     const portable = await exists(path3.join(root, "plugin.json"));
     const mcpPath = path3.join(root, portable ? "mcp.json" : ".mcp.json");
     const mcp = JSON.parse(await readFile(mcpPath, "utf8"));
@@ -1133,6 +1150,7 @@ async function installNative(r) {
     server.args = [path3.join(root, "runtime/mcp.mjs")];
     server.env = { APEXREST_HOME: home };
     await writeJson(mcpPath, mcp);
+    if (repaired && registration.previousRoot === destination) registration = await inspect();
     const current = await inspect();
     if (current.fingerprint !== registration.fingerprint)
       throw new Fault(
@@ -1225,28 +1243,10 @@ async function installNative(r) {
       actions: ["CODEX_RELOAD_REQUIRED", "NATIVE_HOST_VERIFICATION_REQUIRED"]
     };
     await writeJson(path3.join(home, "installation.json"), state);
-    const cli = path3.join(root, "runtime/apexrest.mjs");
-    const quote = (value) => "'" + value.replaceAll("'", `'"'"'`) + "'";
     await mkdir(path3.join(home, "bin"), { recursive: true });
-    if (process.platform === "win32") {
-      const ps = (value) => "'" + value.replaceAll("'", "''") + "'";
-      await atomicWrite(
-        path3.join(home, "bin/apexrest.ps1"),
-        `$env:APEXREST_HOME=${ps(home)}
-& ${ps(node)} ${ps(cli)} @args
-exit $LASTEXITCODE
-`
-      );
-    } else {
-      const launcher = path3.join(home, "bin/apexrest");
-      await atomicWrite(
-        launcher,
-        `#!/bin/sh
-export APEXREST_HOME=${quote(home)}
-exec ${quote(node)} ${quote(cli)} "$@"
-`
-      );
-      await chmod(launcher, 448);
+    for (const [name, contents] of Object.entries(launchers)) {
+      await atomicWrite(path3.join(home, "bin", name), contents);
+      if (name === "apexrest") await chmod(path3.join(home, "bin", name), 448);
     }
     await writeJson(transition, { status: "completed", ...record });
     return state;
@@ -1255,11 +1255,59 @@ exec ${quote(node)} ${quote(cli)} "$@"
 async function installationState(home) {
   return readJson(path3.join(home, "installation.json"));
 }
+async function reusable(destination, expectedFiles, mcpKey) {
+  try {
+    const files = await inventory(destination);
+    if (!files[mcpKey]) return false;
+    return canonical({ ...files, [mcpKey]: void 0 }) === expectedFiles;
+  } catch {
+    return false;
+  }
+}
+var cmdUnsafe = /[%!"\x00-\x1f]/;
+function launcherScripts(home, node, cli, platform = process.platform) {
+  if (platform !== "win32") {
+    const quote = (value) => "'" + value.replaceAll("'", `'"'"'`) + "'";
+    return {
+      apexrest: `#!/bin/sh
+export APEXREST_HOME=${quote(home)}
+exec ${quote(node)} ${quote(cli)} "$@"
+`
+    };
+  }
+  if ([home, node, cli].some((value) => cmdUnsafe.test(value)))
+    throw new Fault(
+      "UNSAFE_LAUNCHER_PATH",
+      'The managed home, Node.js or plugin path contains characters a Windows launcher cannot represent safely (% ! " or control characters). Choose another home directory.',
+      2,
+      "blocked"
+    );
+  const ps = (value) => "'" + value.replaceAll("'", "''") + "'";
+  return {
+    // Restore the caller's APEXREST_HOME: a dot-sourced or in-session call must not leak it.
+    "apexrest.ps1": `$apexrestPreviousHome = $env:APEXREST_HOME
+$env:APEXREST_HOME = ${ps(home)}
+try {
+  & ${ps(node)} ${ps(cli)} @args
+  $apexrestExitCode = $LASTEXITCODE
+} finally {
+  $env:APEXREST_HOME = $apexrestPreviousHome
+}
+exit $apexrestExitCode
+`,
+    "apexrest.cmd": `@echo off\r
+setlocal\r
+set "APEXREST_HOME=${home}"\r
+"${node}" "${cli}" %*\r
+exit /b %ERRORLEVEL%\r
+`
+  };
+}
 
 // packages/installer/src/setup.ts
 async function setup(input) {
   const text = (key) => input[key];
-  const home = path4.resolve(
+  const home = await canonicalHome(
     text("home") ?? (input.scope === "project" ? path4.join(text("project") ?? process.cwd(), ".apexrest/managed") : managedHome())
   );
   if (input.scope === "project") {
@@ -1279,9 +1327,10 @@ async function setup(input) {
       "Requested version does not match the supplied immutable package.",
       2
     );
-  const codexHome = path4.resolve(
+  const codexHome = await canonicalHome(
     text("codexHome") ?? process.env.CODEX_HOME ?? path4.join(homedir(), ".codex")
   );
+  const codex = text("codex");
   const request = {
     home,
     ...text("cacheDir") ? { cacheDir: text("cacheDir") } : {},
@@ -1298,6 +1347,7 @@ async function setup(input) {
     source,
     home,
     codexHome,
+    ...codex ? { codex } : {},
     dryRun: true,
     node: existingRuntime.node ?? process.execPath
   });
@@ -1321,6 +1371,7 @@ async function setup(input) {
     source,
     home,
     codexHome,
+    ...codex ? { codex } : {},
     node: runtime.node ?? process.execPath,
     expectedRegistration: nativePlan.registration.fingerprint
   });
@@ -1359,63 +1410,57 @@ async function setup(input) {
   await writeJson(path4.join(home, "setup-result.json"), result);
   return result;
 }
-async function uninstallNative(home, keepRuntime) {
-  const state = await installationState(home);
-  const markets = await runProcess({
-    executable: "codex",
-    args: ["plugin", "marketplace", "list", "--json"],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 3e4
-  });
-  const owned = markets.code === 0 && JSON.parse(markets.stdout).marketplaces.some(
-    (m) => m.name === "apexrest" && m.root === state.destination
-  );
-  if (!owned)
+var ownedDestination = (home, destination) => {
+  if (typeof destination !== "string" || !path4.isAbsolute(destination) || path4.dirname(destination) !== path4.join(home, "native") || !/^[a-f0-9]{64}$/.test(path4.basename(destination)))
     throw new Fault(
       "MARKETPLACE_OWNERSHIP_CONFLICT",
-      "Current marketplace no longer belongs to this installation; nothing was removed.",
-      5
+      "The installation record does not name a managed native payload under this home; nothing was removed.",
+      5,
+      "conflict"
     );
-  const result = await runProcess({
-    executable: "codex",
-    args: ["plugin", "remove", "apexrest-apex@apexrest"],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 3e4
+  return destination;
+};
+async function uninstallNative(homeInput, keepRuntime, options = {}) {
+  const home = await canonicalHome(homeInput);
+  return withLock(path4.join(home, "install.lock"), async () => {
+    const state = await installationState(home);
+    if (typeof state.codexHome !== "string" || !path4.isAbsolute(state.codexHome))
+      throw new Fault("INSTALLATION_RECORD_INVALID", "The installation record has no Codex profile.", 5);
+    const codexHome = state.codexHome;
+    const destination = ownedDestination(home, state.destination);
+    const run = codexRun(codexHome, home, options.codex);
+    const markets = await listMarketplaces(codexInvoke(codexHome, home, options.codex));
+    if (!markets.some((m) => m.name === "apexrest" && m.root === destination))
+      throw new Fault(
+        "MARKETPLACE_OWNERSHIP_CONFLICT",
+        "Current marketplace no longer belongs to this installation; nothing was removed.",
+        5
+      );
+    const result = await run(["plugin", "remove", "apexrest-apex@apexrest"], 3e4);
+    if (result.code !== 0) throw new Fault("UNINSTALL_FAILED", result.stderr, 3);
+    const removal = await run(["plugin", "marketplace", "remove", "apexrest"], 3e4);
+    if (removal.code !== 0) throw new Fault("MARKETPLACE_REMOVE_FAILED", removal.stderr, 3);
+    const listing = await run(["plugin", "list", "--json"], 3e4);
+    if (listing.code !== 0 || listing.stdout.includes("apexrest-apex@apexrest"))
+      throw new Fault("UNINSTALL_UNCONFIRMED", "Codex still lists this plugin.", 3);
+    if (!keepRuntime && await exists(destination))
+      await rm2(await containedChild(path4.join(home, "native"), destination), {
+        recursive: true,
+        force: true
+      });
+    await writeJson(path4.join(home, "uninstalled.json"), {
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      keepRuntime,
+      sharedRuntimePreserved: true
+    });
+    return {
+      status: "uninstalled",
+      projectsPreserved: true,
+      backupsPreserved: true,
+      credentialsPreserved: true,
+      sharedRuntimePreserved: true
+    };
   });
-  if (result.code !== 0) throw new Fault("UNINSTALL_FAILED", result.stderr, 3);
-  const removal = await runProcess({
-    executable: "codex",
-    args: ["plugin", "marketplace", "remove", "apexrest"],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 3e4
-  });
-  if (removal.code !== 0) throw new Fault("MARKETPLACE_REMOVE_FAILED", removal.stderr, 3);
-  const listing = await runProcess({
-    executable: "codex",
-    args: ["plugin", "list", "--json"],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 3e4
-  });
-  if (listing.code !== 0 || listing.stdout.includes("apexrest-apex@apexrest"))
-    throw new Fault("UNINSTALL_UNCONFIRMED", "Codex still lists this plugin.", 3);
-  const destination = await contained(home, state.destination);
-  if (!keepRuntime) await rm2(destination, { recursive: true, force: true });
-  await writeJson(path4.join(home, "uninstalled.json"), {
-    at: (/* @__PURE__ */ new Date()).toISOString(),
-    keepRuntime,
-    sharedRuntimePreserved: true
-  });
-  return {
-    status: "uninstalled",
-    projectsPreserved: true,
-    backupsPreserved: true,
-    credentialsPreserved: true,
-    sharedRuntimePreserved: true
-  };
 }
 export {
   setup,

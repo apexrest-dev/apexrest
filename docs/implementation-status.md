@@ -2,6 +2,14 @@
 
 English | [Українська](implementation-status.uk.md)
 
+## Review fixes — local implementation, 2026-10-04
+
+Implemented in the uncommitted working tree after a code review: administrator-owned production trust with key fingerprints and listed production targets; plan-bound local deploy grants; live target/history comparison, live authentication/authorization risk and unconditional backup of an existing live application at apply; SQLcl client-command blocking for migrations, package scripts and SQL tests with `-R 2` for CLI-mode migration/package script, import, restore and SQL test sessions; flat, uniquely versioned migrations; loopback-only ORDS `http:` and owner-only password files; owner-only backups, atomic lock publication and `LOCK_CORRUPT`; Composer predicate, extension, label, recovery and binding hardening; trust checks for metadata, deployment status, restore planning and the panel; job outcome reporting; installer timeouts, proxy handling, Windows `.cmd` support, cache ownership and toolchain integrity records; and `npm run release:package`. The [changelog](../CHANGELOG.md#unreleased--security-hardening-and-review-fixes) lists the user-facing changes and breaking changes.
+
+Locally verified on macOS with Node 25.9.0: 312 unit tests, 59 contract tests, 45 installer tests and 25 packaging tests passed; typecheck, lint, documentation, plugin, catalog and Composer checks passed; the site build and release dry run passed. These are automated local results with fixture Oracle, compiler and host boundaries.
+
+Not verified: none of these changes ran against Oracle, APEX or ORDS. Windows and Linux were not exercised natively. The `-R 2` SQLcl sessions were checked offline with a local SQLcl only, without a database connection. The `production-trust.json` approval flow was tested with local fixtures only, not on a protected CI runner. The generated Composer JavaScript path that retries a saved create as an edit was not verified in a browser. Open follow-ups are listed in [next actions](next-actions.md#review-fixes-follow-up).
+
 ## Composer — local implementation, 2026-09-29
 
 The `1.3.0-beta.1` beta contains a working local Composer core, six experimental renderers, two blueprints, CLI/MCP and Catalog. The audit does **not** establish completion of CMP-000–041: shared-resource ownership, the complete compatibility/evidence policy, general captured-source normalization and parts of the verification matrix remain incomplete. [The audit](composer/audit.md), [ledger](composer/ledger.json) and [evidence](evidence/composer-local.json) distinguish implemented behavior from remaining work. G4, live SQL/import/roles/browser and fresh-chat discovery remain open. Beta CI on macOS, Ubuntu and Windows passed; published 1.2.0 evidence below is historical.

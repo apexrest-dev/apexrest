@@ -40,7 +40,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // packages/core/src/fs.ts
-import { mkdir, open, readFile, readdir, realpath, rename, lstat, rm } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, realpath, rename, lstat, rm, link } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import { hostname } from "node:os";
@@ -169,6 +169,21 @@ async function atomicWrite(file, value) {
     await rm(temporary, { force: true });
     throw error;
   }
+  await syncDirectory(path.dirname(file));
+}
+async function syncDirectory(directory) {
+  let handle;
+  try {
+    handle = await open(directory, "r");
+    await handle.sync();
+  } catch (error) {
+    const code = error.code;
+    if (process.platform === "win32" || ["EPERM", "EISDIR", "EINVAL", "ENOTSUP", "EBADF"].includes(code ?? ""))
+      return;
+    throw error;
+  } finally {
+    await handle?.close();
+  }
 }
 var writeJson = (file, value) => atomicWrite(file, JSON.stringify(value, null, 2) + "\n");
 async function readJson(file) {
@@ -184,15 +199,25 @@ async function exists(file) {
   }
 }
 async function contained(root, candidate) {
+  return containedPath(root, candidate, false);
+}
+async function containedChild(root, candidate) {
+  return containedPath(root, candidate, true);
+}
+async function containedPath(root, candidate, child) {
   const base = await realpath(root), target = path.resolve(base, candidate);
   const rel = path.relative(base, target);
   if (rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel))
     throw new Fault("PATH_ESCAPE", "Path escapes the permitted root.", 2);
+  if (child && rel === "")
+    throw new Fault("PATH_ESCAPE", "Path must be inside, not equal to, the permitted root.", 2);
   let probe = target;
   while (!await exists(probe)) probe = path.dirname(probe);
   const physical = await realpath(probe), physicalRel = path.relative(base, physical);
   if (physicalRel === ".." || physicalRel.startsWith(".." + path.sep) || path.isAbsolute(physicalRel))
     throw new Fault("SYMLINK_ESCAPE", "Symlink escapes the permitted root.", 2);
+  if (child && probe === target && physicalRel === "")
+    throw new Fault("PATH_ESCAPE", "Path must be inside, not equal to, the permitted root.", 2);
   return target;
 }
 async function inventory(root) {
@@ -211,6 +236,36 @@ async function inventory(root) {
   await walk(root);
   return Object.fromEntries(Object.entries(out).sort());
 }
+var LOCK_CORRUPT_AFTER_MS = 3e4;
+async function createLock(file, owner) {
+  const temporary = file + "." + randomUUID2() + ".owner";
+  const handle = await open(temporary, "wx", 384);
+  try {
+    try {
+      await handle.writeFile(owner);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    try {
+      await link(temporary, file);
+      return;
+    } catch (error) {
+      const code = error.code;
+      if (code === "EEXIST") throw error;
+      if (!["EPERM", "ENOTSUP", "ENOSYS", "EXDEV", "EOPNOTSUPP"].includes(code ?? "")) throw error;
+    }
+    const fallback = await open(file, "wx", 384);
+    try {
+      await fallback.writeFile(owner);
+      await fallback.sync();
+    } finally {
+      await fallback.close();
+    }
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
 async function withLock(file, action) {
   await mkdir(path.dirname(file), { recursive: true, mode: 448 });
   const recovery = file + ".recovery";
@@ -226,6 +281,20 @@ async function withLock(file, action) {
     try {
       owner = await readJson(file);
     } catch {
+    }
+    if (!owner || typeof owner !== "object" || !Number.isInteger(owner.pid)) {
+      let age = 0;
+      try {
+        age = Date.now() - (await lstat(file)).mtimeMs;
+      } catch {
+      }
+      if (age > LOCK_CORRUPT_AFTER_MS)
+        throw new Fault(
+          "LOCK_CORRUPT",
+          `Lock file ${file} has no readable owner (an interrupted earlier process left it). Confirm no apexrest operation is running on any host, then delete that file and retry.`,
+          5,
+          "conflict"
+        );
     }
     if (owner && owner.hostname === hostname() && Number.isInteger(owner.pid) && owner.pid > 0) {
       let dead = false;
@@ -249,9 +318,11 @@ async function withLock(file, action) {
       }
     }
   }
-  let handle;
   try {
-    handle = await open(file, "wx", 384);
+    await createLock(
+      file,
+      JSON.stringify({ pid: process.pid, hostname: hostname(), createdAt: (/* @__PURE__ */ new Date()).toISOString() })
+    );
   } catch (e) {
     if (e.code === "EEXIST")
       throw new Fault(
@@ -263,13 +334,8 @@ async function withLock(file, action) {
     throw e;
   }
   try {
-    await handle.writeFile(
-      JSON.stringify({ pid: process.pid, hostname: hostname(), createdAt: (/* @__PURE__ */ new Date()).toISOString() })
-    );
-    await handle.sync();
     return await action();
   } finally {
-    await handle.close();
     await rm(file, { force: true });
   }
 }
@@ -289,10 +355,13 @@ export {
   hashFile,
   canonical,
   atomicWrite,
+  syncDirectory,
   writeJson,
   readJson,
   exists,
   contained,
+  containedChild,
   inventory,
+  LOCK_CORRUPT_AFTER_MS,
   withLock
 };

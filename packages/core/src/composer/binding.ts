@@ -25,27 +25,97 @@ export function keyFields(entity: Entity) {
     return entry[0];
   });
 }
+const unsafeSql = () =>
+  new Fault('CONTRACT_SQL_UNSAFE', 'Row predicates accept reviewed expressions only.', 5);
+const untrustedContext = () =>
+  new Fault('AUTH_CONTEXT_UNTRUSTED', 'Row access may only use server-owned APEX session bindings.', 5);
+const serverBinds = new Set(['APP_USER', 'APP_ID', 'APP_SESSION']);
+// Conservative allowlist: unquoted identifiers, numeric/string literals, comparison and
+// logical operators, parentheses, server-owned APEX binds and side-effect-free functions.
+const safeFunctions = new Set([
+  'UPPER',
+  'LOWER',
+  'TRIM',
+  'TRUNC',
+  'NVL',
+  'COALESCE',
+  'LENGTH',
+  'SUBSTR',
+  'INSTR',
+  'TO_CHAR',
+  'TO_NUMBER',
+  'TO_DATE',
+  'APEX_AUTHORIZATION.IS_AUTHORIZED',
+]);
+const groupingWords = new Set(['AND', 'OR', 'NOT', 'IN']);
+const deniedWords =
+  /^(?:SELECT|WITH|COMMIT|ROLLBACK|SAVEPOINT|GRANT|REVOKE|INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|EXECUTE|IMMEDIATE|HOST|CONNECT|BEGIN|DECLARE|CALL|LOCK)$/;
+const deniedOwners = /^(?:DBMS_|UTL_|WWV_|OWA_|APEX_(?!AUTHORIZATION$)|(?:OWA|HTP|HTF|SYS)$)/;
+const tokens = {
+  space: /[ \t]+/y,
+  string: /'(?:[^']|'')*'/y,
+  number: /\d+(?:\.\d+)?/y,
+  bind: /:([A-Za-z][A-Za-z0-9_]*)/y,
+  name: /[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*){0,2}/y,
+  operator: /<>|!=|\^=|<=|>=|=|<|>|\(|\)|,|\+|-|\*|\//y,
+};
+function match(pattern: RegExp, value: string, at: number) {
+  pattern.lastIndex = at;
+  return pattern.exec(value);
+}
+/** Accepts only a reviewed, allowlisted SQL boolean expression; never statements or session reads. */
 export function expression(value: string) {
-  if (
-    !value.trim() ||
-    /[\r\n;]|```|\b(?:commit|rollback|grant|revoke|insert|update|delete|drop|alter|create|execute\s+immediate|host|connect)\b|&/i.test(
-      value,
-    )
-  )
-    throw new Fault('CONTRACT_SQL_UNSAFE', 'Row predicates accept reviewed expressions only.', 5);
-  if (
-    /:[a-z0-9_]+/gi.test(value) &&
-    [...value.matchAll(/:([a-z0-9_]+)/gi)].some(
-      (m) => !['APP_USER', 'APP_ID', 'APP_SESSION'].includes(m[1]!.toUpperCase()),
-    )
-  )
-    throw new Fault(
-      'AUTH_CONTEXT_UNTRUSTED',
-      'Row access may only use server-owned APEX session bindings.',
-      5,
-    );
+  if (!value.trim() || value.length > 4000) throw unsafeSql();
+  if (/:\s*"/.test(value)) throw untrustedContext();
+  if (/[\x00-\x08\x0a-\x1f\x7f;`&#$"@{}\[\]|]|--|\/\*|\*\//.test(value)) throw unsafeSql();
+  let at = 0,
+    depth = 0;
+  while (at < value.length) {
+    let found: RegExpExecArray | null;
+    if ((found = match(tokens.space, value, at))) at += found[0].length;
+    else if ((found = match(tokens.string, value, at))) at += found[0].length;
+    else if ((found = match(tokens.bind, value, at))) {
+      if (!serverBinds.has(found[1]!.toUpperCase())) throw untrustedContext();
+      at += found[0].length;
+    } else if ((found = match(tokens.name, value, at))) {
+      const name = found[0].toUpperCase(),
+        parts = name.split('.');
+      at += found[0].length;
+      if (parts.some((part) => deniedWords.test(part)) || deniedOwners.test(parts[0]!)) {
+        if (!safeFunctions.has(name)) throw unsafeSql();
+      }
+      // q'..', n'..' and similar prefixed literals are not part of the reviewed dialect.
+      if (value[at] === "'") throw unsafeSql();
+      const next = value.slice(at).match(/^[ \t]*(.)/)?.[1];
+      if (next === '(' && !safeFunctions.has(name) && !groupingWords.has(name)) throw unsafeSql();
+      if (next !== '(' && safeFunctions.has(name) && name.includes('.')) throw unsafeSql();
+    } else if ((found = match(tokens.number, value, at))) at += found[0].length;
+    else if ((found = match(tokens.operator, value, at))) {
+      if (found[0] === '(') depth++;
+      if (found[0] === ')' && --depth < 0) throw unsafeSql();
+      at += found[0].length;
+    } else if (value[at] === ':') throw untrustedContext();
+    else throw unsafeSql();
+  }
+  if (depth !== 0) throw unsafeSql();
   return value;
 }
+/** Oracle dictionary names: unquoted identifiers are case-insensitive, quoted ones exact. */
+export function oracleName(value: unknown) {
+  const text = String(value ?? '');
+  return /^".*"$/.test(text) ? text.slice(1, -1) : text.toUpperCase();
+}
+const sameName = (a: unknown, b: unknown) => oracleName(a) === oracleName(b);
+/** ALL_TAB_COLUMNS reports precision inside DATA_TYPE, for example TIMESTAMP(6) WITH TIME ZONE. */
+export function oracleType(value: unknown) {
+  return String(value ?? '')
+    .toUpperCase()
+    .replace(/\(\s*\d+(?:\s*,\s*\d+)?\s*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+const entry = <T>(record: Record<string, T>, name: string) =>
+  Object.entries(record).find(([key]) => sameName(key, name))?.[1];
 export function bind(blueprint: Blueprint, instance: Instance, metadata?: MetadataSnapshot) {
   const ref = instance.bindings.records;
   if (!ref.startsWith('entity:'))
@@ -215,7 +285,9 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
         throw new Fault('COMMAND_ARGUMENT_MISMATCH', 'API key/version outputs must be OUT or IN OUT.', 5);
     if (metadata) {
       const rows =
-        metadata.signatures[command.package]?.filter((row) => row.OBJECT_NAME === command!.procedure) ?? [];
+        entry(metadata.signatures, command.package)?.filter((row) =>
+          sameName(row.OBJECT_NAME, command!.procedure),
+        ) ?? [];
       const overloads = new Set(rows.map((row) => String(row.OVERLOAD ?? row.SUBPROGRAM_ID ?? '')));
       if (overloads.size !== 1 && !signature.overload)
         throw new Fault('COMMAND_OVERLOAD_AMBIGUOUS', 'An exact reviewed API overload is required.', 5);
@@ -235,7 +307,7 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
       for (const [argument, spec] of Object.entries(signature.parameters)) {
         const row = selected.find(
           (r) =>
-            r.ARGUMENT_NAME === argument &&
+            sameName(r.ARGUMENT_NAME, argument) &&
             (!signature.overload || String(r.OVERLOAD ?? '') === signature.overload),
         );
         if (
@@ -243,7 +315,7 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
           String(row.IN_OUT)
             .toLowerCase()
             .replace(/\s*\/\s*|\s+/g, '-') !== spec.mode ||
-          String(row.DATA_TYPE) !== spec.type ||
+          oracleType(row.DATA_TYPE) !== spec.type ||
           (row.DEFAULTED === 'Y') !== spec.defaulted
         )
           throw new Fault(
@@ -255,10 +327,10 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
     }
   }
   if (metadata) {
-    const object = metadata.objects[entity.read.object];
+    const object = entry(metadata.objects, entity.read.object);
     if (!object) throw new Fault('OBJECT_BINDING_MISSING', 'The selected Oracle object was not verified.', 5);
     for (const field of Object.values(entity.read.fields)) {
-      const column = object.columns.find((row) => row.COLUMN_NAME === field.column);
+      const column = object.columns.find((row) => sameName(row.COLUMN_NAME, field.column));
       if (!column || (column.NULLABLE === 'Y' && !field.nullable))
         throw new Fault('COLUMN_CONTRACT_MISMATCH', 'Live field nullability or column mapping differs.', 5);
       const expected = ['integer', 'decimal'].includes(field.type)
@@ -268,7 +340,7 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
           : field.type === 'timestamp'
             ? ['TIMESTAMP', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITH LOCAL TIME ZONE']
             : ['VARCHAR2', 'CHAR', 'NVARCHAR2', 'NCHAR'];
-      if (!expected.includes(String(column.DATA_TYPE)))
+      if (!expected.includes(oracleType(column.DATA_TYPE)))
         throw new Fault('COLUMN_TYPE_UNSUPPORTED', 'Live datatype needs an explicit supported adapter.', 5);
       if (field.maxLength && Number(column.CHAR_LENGTH ?? column.DATA_LENGTH) > field.maxLength)
         throw new Fault('COLUMN_CONTRACT_MISMATCH', 'Producer length exceeds consumer capacity.', 5);
@@ -290,10 +362,10 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
       const columns = object.constraintColumns
         .filter((row) => row.CONSTRAINT_NAME === primary?.CONSTRAINT_NAME)
         .sort((a, b) => Number(a.POSITION) - Number(b.POSITION))
-        .map((row) => row.COLUMN_NAME);
+        .map((row) => oracleName(row.COLUMN_NAME));
       if (
         !primary ||
-        JSON.stringify(columns) !== JSON.stringify(keys.map((k) => entity.read.fields[k]!.column))
+        JSON.stringify(columns) !== JSON.stringify(keys.map((k) => oracleName(entity.read.fields[k]!.column)))
       )
         throw new Fault(
           'PRIMARY_KEY_MISMATCH',

@@ -5,12 +5,27 @@ import { fixture } from '../fixtures/project.ts';
 import { hash, writeJson } from '../../packages/core/src/fs.ts';
 import {
   blueprintSchema,
+  fieldSchema,
   type Blueprint,
   type CompositionPlan,
 } from '../../packages/core/src/composer/schemas.ts';
-import { bind, keyFields } from '../../packages/core/src/composer/binding.ts';
-import { planComposition, snapshot, type Snapshot } from '../../packages/core/src/composer/planner.ts';
+import {
+  bind,
+  expression,
+  keyFields,
+  oracleType,
+  type MetadataSnapshot,
+} from '../../packages/core/src/composer/binding.ts';
+import {
+  derivedNames,
+  extensionCode,
+  planComposition,
+  snapshot,
+  type Snapshot,
+} from '../../packages/core/src/composer/planner.ts';
 import { declarations } from '../../packages/core/src/composer/reader.ts';
+import { render } from '../../packages/core/src/composer/emitter.ts';
+import { loadCatalog } from '../../packages/core/src/composer/catalog.ts';
 
 async function blueprint() {
   return blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/crm.yaml', 'utf8')));
@@ -155,4 +170,335 @@ test('dialog removal checks merged postimages and preserves unmanaged consumers'
   assert.equal(blocked.status, 'blocked');
   assert.ok(blocked.diagnostics.some((diagnostic) => diagnostic.code === 'UNKNOWN_CONSUMER_RETAINED'));
   assert.deepEqual(blocked.operations, []);
+});
+
+async function serviceDesk() {
+  return blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/service-desk.yaml', 'utf8')));
+}
+async function emit(value: Blueprint, id: string, page = 100, dialog: number | null = null) {
+  const catalog = await loadCatalog(),
+    instance = value.blocks[id]!,
+    block = catalog.packages.get(instance.use)!.manifest;
+  return render(value, id, instance, block, { page, dialog, prefix: 'cmp_test' });
+}
+const joined = (files: Record<string, string>) => Object.values(files).join('\n');
+
+test('row predicates accept only the reviewed allowlisted dialect', () => {
+  for (const safe of [
+    'OWNER_NAME = :APP_USER',
+    "apex_authorization.is_authorized('CMP_CUSTOMER_WRITE')",
+    "upper(owner_name) = upper(:app_user) and status in ('OPEN', 'O''NEIL')",
+    'created_on >= trunc(sysdate) - 30 or nvl(t.tenant_id, 0) = :APP_ID',
+    'owner_name is not null and (region_code between 1 and 9)',
+  ])
+    assert.equal(expression(safe), safe);
+  for (const unsafe of [
+    'OWNER_NAME = :APP_USER -- or 1=1',
+    'OWNER_NAME = :APP_USER /* hidden */',
+    'OWNER_NAME = :APP_USER */',
+    "OWNER_NAME = v('APP_USER')",
+    "OWNER_NAME = nv('P1_ID')",
+    "OWNER_NAME = apex_util.get_session_state('P1_OWNER')",
+    'OWNER_NAME = apex_application.g_user',
+    'OWNER_NAME = apex_application.g_x01',
+    'dbms_sql.execute(1) = 1',
+    'dbms_random.value > 0.5',
+    "utl_http.request('https://example.test') is not null",
+    'exists (select 1 from dual)',
+    "OWNER_NAME = 'a' || 'b'",
+    "OWNER_NAME = q'[x]'",
+    'OWNER_NAME = :APP_USER; commit',
+    'OWNER_NAME = "SYS"',
+    'OWNER_NAME = &P1_OWNER.',
+    'OWNER_NAME = #OWNER#',
+    'OWNER_NAME = :APP_USER\nor 1 = 1',
+    'OWNER_NAME = :APP_USER ```',
+    'owner@remote = :APP_USER',
+    'sys.dual_check(1) = 1',
+    'custom_fn(owner_name) = 1',
+    '((OWNER_NAME = :APP_USER)',
+  ])
+    assert.throws(() => expression(unsafe), { code: 'CONTRACT_SQL_UNSAFE' }, unsafe);
+  for (const untrusted of ['OWNER_NAME = :P1_OWNER', 'OWNER_NAME = :"APP_USER"', 'OWNER_NAME = : APP_USER'])
+    assert.throws(() => expression(untrusted), { code: 'AUTH_CONTEXT_UNTRUSTED' }, untrusted);
+});
+
+test('extension code normalizes comments and literals before the transaction denylist', () => {
+  for (const safe of [
+    "if :P1_NAME is null then raise_application_error(-20002, 'Do not commit or rollback'); end if;",
+    "-- notify after save\napex_debug.info('saved');",
+  ])
+    assert.equal(extensionCode(safe), safe);
+  for (const unsafe of [
+    'execute/**/immediate l_sql;',
+    'execute -- split\n immediate l_sql;',
+    'l_cursor := dbms_sql.open_cursor;',
+    'l_cursor := DBMS_SQL . open_cursor;',
+    '"DBMS_SQL".open_cursor;',
+    'commit;',
+    'pragma autonomous_transaction;',
+    "l := utl_http.request('x');",
+    'null; /* unterminated',
+    "raise_application_error(-20002, 'unterminated);",
+    "l := q'[it's]';",
+    'null;\n```',
+  ])
+    assert.throws(() => extensionCode(unsafe), { code: 'EXTENSION_UNSAFE' }, unsafe);
+});
+
+test('enumerated values are single-line literals at the schema and emitter boundaries', async () => {
+  for (const value of ['A\nB', 'A`B', 'A\u0000B', 'A\rB'])
+    assert.throws(() =>
+      fieldSchema.parse({ column: 'STATUS', type: 'string', nullable: false, enum: [value] }),
+    );
+  const value = await blueprint();
+  value.entities.Customer!.read.fields.status!.enum = ['OPEN', "O'NEIL"];
+  const files = joined(await emit(value, 'CustomerList', 100, 101));
+  assert.match(files, /:P101_STATUS not in \('OPEN', 'O''NEIL'\)/);
+  // An unvalidated in-memory blueprint still cannot terminate the PL/SQL code fence.
+  value.entities.Customer!.read.fields.status!.enum = ["OPEN')\n    ```\n    page 1 ("];
+  await assert.rejects(() => emit(value, 'CustomerList', 100, 101), { code: 'LITERAL_UNSAFE' });
+});
+
+test('every generated read query parenthesizes the reviewed row predicate', async () => {
+  const value = await blueprint(),
+    predicate = "OWNER_NAME = :APP_USER or STATUS = 'PUBLIC'";
+  const access = value.contracts['project:customer-access']!;
+  if (access.kind !== 'authorization') throw new Error('fixture');
+  access.rowPredicate = predicate;
+  const desk = await serviceDesk(),
+    deskAccess = desk.contracts['project:ticket-access']!;
+  if (deskAccess.kind !== 'authorization') throw new Error('fixture');
+  deskAccess.rowPredicate = predicate;
+  const sources = [
+    joined(await emit(value, 'CustomerList', 100, 101)),
+    joined(await emit(value, 'CustomerSummary')),
+    ...(await Promise.all(Object.keys(desk.blocks).map(async (id) => joined(await emit(desk, id))))),
+  ];
+  for (const source of sources) {
+    assert.ok(source.includes(`(${predicate})`));
+    assert.ok(!new RegExp(`where ${predicate.replace(/[()*+?.]/g, '\\$&')}`).test(source), source);
+    assert.ok(!/\bwhere OWNER_NAME/.test(source));
+  }
+  const list = joined(await emit(desk, 'Tickets'));
+  assert.ok(
+    list.includes(`where (${predicate}) and (STATUS = :P100_FILTER or :P100_FILTER is null)`),
+    'filter predicate is a separate conjunct',
+  );
+});
+
+test('read-only renderers emit filter, detail, history and master-detail contracts', async () => {
+  const desk = await serviceDesk();
+  const list = joined(await emit(desk, 'Tickets'));
+  assert.match(list, /pageItemsToSubmit: P100_FILTER/);
+  assert.match(list, /pageItem P100_FILTER \(/);
+  assert.match(list, /event: change\n\s+selectionType: items\n\s+items: P100_FILTER/);
+  assert.match(list, /action: refresh/);
+  assert.match(list, /column CHANGED_AT \([\s\S]*?dataType: DATE/);
+  assert.ok(!list.includes('apexafterclosedialog'), 'read-only lists do not listen for saves');
+  const detail = joined(await emit(desk, 'TicketDetail'));
+  assert.match(detail, /pageItem P100_ID \(\n\s+type: hidden/);
+  assert.match(detail, /sessionStateProtection: checksumRequiredSessionLevel/);
+  assert.match(detail, /from CMP_TICKETS where \(OWNER_NAME = :APP_USER\) and TICKET_ID=:P100_ID;/);
+  assert.match(detail, /pageItem P100_TITLE \(\n\s+type: displayOnly/);
+  const history = joined(await emit(desk, 'TicketHistory'));
+  assert.match(history, /CHANGED_AT EVENT_DATE/);
+  assert.match(history, /apex_escape\.html\(TITLE\) EVENT_TITLE/);
+  assert.match(history, /order by CHANGED_AT, TICKET_ID/);
+  assert.match(history, /template: @\/timeline/);
+  const lines = joined(await emit(desk, 'TicketLines'));
+  assert.match(lines, /and PARENT_ID is null/);
+  assert.match(lines, /and PARENT_ID=:P100_PARENT/);
+  assert.match(lines, /P100_PARENT: #TICKET_ID#/);
+  const timeless = structuredClone(desk);
+  timeless.blocks.TicketHistory!.parameters.timeField = 'title';
+  await assert.rejects(() => emit(timeless, 'TicketHistory'), { code: 'TIMELINE_BINDING_REQUIRED' });
+  const parentless = structuredClone(desk);
+  parentless.entities.Ticket!.read.fields.parentId!.type = 'string';
+  await assert.rejects(() => emit(parentless, 'TicketLines'), { code: 'MASTER_DETAIL_KEY_MISMATCH' });
+});
+
+test('timestamp fields bind through the dialog adapter and live metadata normalization', async () => {
+  const value = await blueprint(),
+    signature = value.contracts['project:save-customer']!;
+  if (signature.kind !== 'command') throw new Error('fixture');
+  value.entities.Customer!.read.fields.dueAt = { column: 'DUE_AT', type: 'timestamp', nullable: true };
+  value.blocks.CustomerList!.parameters.editableFields.push('dueAt');
+  value.commands.SaveCustomer!.inputs.P_DUE_AT = { from: 'record.dueAt', mode: 'in' };
+  signature.parameters.P_DUE_AT = { mode: 'in', type: 'TIMESTAMP', defaulted: false };
+  const files = joined(await emit(value, 'CustomerList', 100, 101));
+  assert.match(files, /P_DUE_AT => to_timestamp\(:P101_DUEAT,'FXYYYY-MM-DD"T"HH24:MI:SS\.FF6'\)/);
+  assert.match(files, /to_char\(DUE_AT,'YYYY-MM-DD"T"HH24:MI:SS\.FF6'\)/);
+  for (const type of ['TIMESTAMP(6)', 'TIMESTAMP(6) WITH TIME ZONE', 'timestamp(9) with local time zone'])
+    assert.match(oracleType(type), /^TIMESTAMP(?: WITH (?:LOCAL )?TIME ZONE)?$/);
+  const rows = Object.entries(signature.parameters).map(([name, spec], i) => ({
+    OBJECT_NAME: 'save_customer',
+    ARGUMENT_NAME: name.toLowerCase(),
+    DATA_TYPE: spec.type,
+    IN_OUT: spec.mode.replace('in-out', 'IN/OUT').toUpperCase(),
+    OVERLOAD: null,
+    SUBPROGRAM_ID: 1,
+    POSITION: i + 1,
+    DATA_LEVEL: 0,
+    DEFAULTED: 'N',
+  }));
+  const metadata: MetadataSnapshot = {
+    schema: 'FIXTURE',
+    objects: {
+      cmp_customers: {
+        columns: Object.values(value.entities.Customer!.read.fields).map((field) => ({
+          COLUMN_NAME: field.column.toLowerCase(),
+          DATA_TYPE:
+            field.type === 'integer'
+              ? 'NUMBER'
+              : field.type === 'timestamp'
+                ? 'TIMESTAMP(6) WITH TIME ZONE'
+                : 'VARCHAR2',
+          NULLABLE: field.nullable ? 'Y' : 'N',
+          CHAR_LENGTH: field.maxLength ?? 0,
+        })),
+        constraints: [
+          { CONSTRAINT_NAME: 'PK', CONSTRAINT_TYPE: 'P', STATUS: 'ENABLED', VALIDATED: 'VALIDATED' },
+        ],
+        constraintColumns: [{ CONSTRAINT_NAME: 'PK', COLUMN_NAME: 'customer_id', POSITION: 1 }],
+      },
+    },
+    signatures: { cmp_customer_api: rows },
+  };
+  assert.doesNotThrow(() => bind(value, value.blocks.CustomerList!, metadata));
+  const wrong = structuredClone(metadata);
+  wrong.objects.cmp_customers!.columns.find((c) => c.COLUMN_NAME === 'due_at')!.DATA_TYPE = 'DATE';
+  assert.throws(() => bind(value, value.blocks.CustomerList!, wrong), { code: 'COLUMN_TYPE_UNSUPPORTED' });
+});
+
+test('dialog save binds edits to the read predicate and never repeats a create', async () => {
+  const files = await emit(await blueprint(), 'CustomerList', 100, 101),
+    dialog = Object.entries(files).find(([file]) => file.endsWith('_edit.apx'))![1];
+  const edit = dialog.indexOf("elsif apex_application.g_x01 = 'edit' then"),
+    visible = dialog.indexOf(
+      'select count(*) into l_visible from CMP_CUSTOMERS where CUSTOMER_ID = l_key and (OWNER_NAME = :APP_USER) and rownum = 1;',
+    ),
+    denied = dialog.indexOf("if l_visible = 0 then raise_application_error(-20001, 'Authorization denied');"),
+    other = dialog.indexOf("else raise_application_error(-20002, 'Invalid operation')"),
+    call = dialog.indexOf('CMP_CUSTOMER_API.SAVE_CUSTOMER(');
+  assert.ok(edit > 0 && edit < visible && visible < denied && denied < other && other < call);
+  assert.ok(!/correlationId: crypto\.randomUUID\(\)/.test(dialog), 'secure-context-only UUID fallback');
+  assert.match(
+    dialog,
+    /window\.crypto && window\.crypto\.randomUUID \? window\.crypto\.randomUUID\(\) : Date\.now/,
+  );
+  const operation = dialog.indexOf("operation = keyItem.getValue() ? 'edit' : 'create'"),
+    setKey = dialog.indexOf('keyItem.setValue(data.recordKey)'),
+    setVersion = dialog.indexOf('apex.item("P101_VERSION").setValue(data.recordVersion)'),
+    close = dialog.indexOf('apex.navigation.dialog.close(');
+  assert.ok(operation > 0 && operation < setKey && setKey < setVersion && setVersion < close);
+  assert.match(dialog, /operation: operation,/);
+  assert.match(dialog, /complete: function\(\) \{ if \(!saved\) button\.disabled = false; \}/);
+  assert.match(dialog, /try \{ apex\.navigation\.dialog\.close\([\s\S]*\} catch \(e\) \{/);
+});
+
+test('titles and labels reject HTML and APEX substitution syntax', async () => {
+  for (const title of ['<b>Customers</b>', 'Hi &P1_NAME.', 'Hi &APP_USER.', '#APP_ID# list', '@/x', ' @x']) {
+    const value = await blueprint();
+    value.blocks.CustomerList!.parameters.title = title;
+    await assert.rejects(() => emit(value, 'CustomerList', 100, 101), { code: 'LABEL_UNSAFE' }, title);
+  }
+  const value = await blueprint();
+  value.blocks.CustomerList!.parameters.title = 'Customers & partners #1 @ HQ';
+  await assert.doesNotReject(() => emit(value, 'CustomerList', 100, 101));
+});
+
+test('block namespaces check every derived alias, static ID and process name', async (t) => {
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await writeJson(ctx.root + '/app.blueprint.yaml', await blueprint());
+  const input = await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' }),
+    initial = planComposition(input),
+    prefix = initial.allocations.CustomerList!.prefix;
+  assert.equal(initial.status, 'materializable');
+  for (const name of derivedNames(prefix)) assert.equal(name, name.toUpperCase());
+  for (const line of [
+    `alias: ${prefix.toUpperCase()}_EDIT`,
+    `alias: ${prefix.toLowerCase()}`,
+    `htmlDomId: ${prefix}_records`,
+    `buttonName: ${prefix}_SAVE`,
+    `name: ${prefix}-saved`,
+  ]) {
+    const unmanaged = `page 50 (\n    ${line}\n)\n`;
+    const blocked = planComposition({
+      ...input,
+      sources: { ...input.sources, 'pages/p00050-manual.apx': unmanaged },
+      sourceInventory: { ...input.sourceInventory, 'pages/p00050-manual.apx': hash(unmanaged) },
+    });
+    assert.equal(blocked.status, 'blocked', line);
+    assert.equal(blocked.diagnostics[0]!.code, 'SYMBOL_COLLISION', line);
+  }
+});
+
+test('removal blocks alias, f?p, p_page and dynamic page references', async (t) => {
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  const original = await blueprint();
+  await writeJson(ctx.root + '/app.blueprint.yaml', original);
+  const input = await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' }),
+    initial = planComposition(input),
+    readOnly = structuredClone(original),
+    { dialog, prefix } = initial.allocations.CustomerList!,
+    alias = prefix.toUpperCase() + '_EDIT';
+  readOnly.blocks.CustomerList!.parameters.createEnabled = false;
+  readOnly.blocks.CustomerList!.parameters.editEnabled = false;
+  readOnly.connections = [];
+  delete readOnly.blocks.CustomerSummary;
+  const afterInitial = generatedSnapshot(input, initial, readOnly);
+  const consumer = (body: string) => {
+    const source = `page 50 (\n    process manual (\n        source {\n            plsqlCode:\n                \`\`\`plsql\n                ${body}\n                \`\`\`\n        }\n    )\n)\n`;
+    return planComposition({
+      ...afterInitial,
+      sources: { ...afterInitial.sources, 'pages/p00050-manual.apx': source },
+      sourceInventory: { ...afterInitial.sourceInventory, 'pages/p00050-manual.apx': hash(source) },
+    });
+  };
+  const plain = consumer("l_url := 'f?p=&APP_ID.:&APP_PAGE_ID.:&APP_SESSION.';");
+  assert.equal(plain.status, 'materializable', JSON.stringify(plain.diagnostics));
+  const other = consumer("l_url := apex_page.get_url(p_page => 'OTHER_PAGE');");
+  assert.equal(other.status, 'materializable', JSON.stringify(other.diagnostics));
+  for (const body of [
+    `l_url := 'f?p=&APP_ID.:${alias}:&APP_SESSION.';`,
+    `l_url := 'f?p=&APP_ID.:${alias.toLowerCase()}';`,
+    `l_url := 'f?p=&APP_ID.:${dialog}';`,
+    `l_url := apex_page.get_url(p_page => ${dialog});`,
+    `l_url := apex_page.get_url(p_page=>'${dialog}');`,
+    `l_url := apex_page.get_url(p_page => '${alias}');`,
+    `apex_util.redirect_url('f?p=&APP_ID.:${alias}');`,
+    'l_url := apex_page.get_url(p_page => l_target);',
+    'l_url := apex_page.get_url(l_target);',
+    "l_url := 'f?p=&APP_ID.:&P50_TARGET.:&APP_SESSION.';",
+    "l_url := 'f?p=&APP_ID.:' || l_target;",
+  ]) {
+    const blocked = consumer(body);
+    assert.equal(blocked.status, 'blocked', body);
+    assert.equal(blocked.diagnostics[0]!.code, 'UNKNOWN_CONSUMER_RETAINED', body);
+    assert.deepEqual(blocked.operations, []);
+  }
+});
+
+test('oversized owned content returns a blocked plan instead of a raw schema error', async (t) => {
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  const value = await blueprint();
+  await writeJson(ctx.root + '/app.blueprint.yaml', value);
+  const input = await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' });
+  value.blocks.CustomerList!.ownership = 'extended';
+  value.blocks.CustomerList!.extensions = {
+    beforeSaveValidation: '-- ' + 'x'.repeat(1024 * 1024) + '\nnull;',
+  };
+  const plan = planComposition({ ...input, blueprint: value });
+  assert.equal(plan.status, 'blocked');
+  assert.equal(plan.diagnostics.at(-1)!.code, 'PLAN_LIMIT');
+  assert.deepEqual(plan.operations, []);
+  assert.equal(plan.state, null);
+  value.blocks.CustomerList!.extensions = {
+    beforeSaveValidation: '-- ' + 'x'.repeat(200 * 1024) + '\nnull;',
+  };
+  assert.equal(planComposition({ ...input, blueprint: value }).status, 'materializable');
 });

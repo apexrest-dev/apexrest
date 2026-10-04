@@ -71,6 +71,26 @@ for (const file of allDocuments) {
     }
   }
 }
+// Documented commands must resolve: `node scripts/<file>` to an existing file and
+// `npm run <script>` to a root package script. Evidence JSON is not scanned.
+const { scripts: npmScripts } = JSON.parse(await readFile('package.json', 'utf8'));
+const scriptFiles = new Map();
+for (const file of allDocuments) {
+  const { text } = await inspect(file);
+  for (const [, script] of text.matchAll(/\bnode\s+(scripts\/[\w./-]+\.[cm]?[jt]s)\b/g)) {
+    if (!scriptFiles.has(script)) scriptFiles.set(script, await stat(script).catch(() => null));
+    assert.ok(scriptFiles.get(script), `${file}: missing script: node ${script}`);
+  }
+  for (const [, name] of text.matchAll(/\bnpm\s+run\s+([\w:.-]+)/g)) {
+    assert.ok(Object.hasOwn(npmScripts, name), `${file}: missing npm script: npm run ${name}`);
+  }
+}
+// Historical working inputs keep their original form and language; they are not
+// translated or rewritten, but must remain present.
+for (const file of ['APEXREST_CODEX_PLUGIN_BUILD_SPEC.md', 'APEXREST_COMPOSER_IMPLEMENTATION_PLAN.md']) {
+  assert.ok(!documents.includes(file), `${file}: historical input must not be a translated document`);
+  assert.ok(await stat(file).catch(() => null), `${file}: missing historical input`);
+}
 console.log(
-  `Documentation: ${english.length} EN/UK pairs; language links, code examples, heading outlines and local targets/anchors verified.`,
+  `Documentation: ${english.length} EN/UK pairs; language links, code examples, heading outlines, local targets/anchors and documented script commands verified.`,
 );

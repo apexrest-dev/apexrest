@@ -24,6 +24,7 @@ import { OracleAdapter } from './oracle.ts';
 
 type Row = Record<string, unknown>;
 const safe = <T>(value: T) => sanitized(value) as T;
+const historyLimit = 2000;
 export class PanelService {
   constructor(
     private root: string,
@@ -34,16 +35,26 @@ export class PanelService {
   }
   private async records(folder: string) {
     const base = await contained(this.root, '.apexrest/' + folder);
-    if (!(await exists(base))) return [];
-    const entries = (await readdir(base, { withFileTypes: true })).filter(
+    if (!(await exists(base))) return { rows: [] as Row[], omitted: 0 };
+    let entries = (await readdir(base, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && z.uuid().safeParse(e.name).success,
     );
-    if (entries.length > 2000)
-      throw new Fault(
-        'PANEL_HISTORY_LIMIT',
-        'Archive old operation records before loading more than 2000 runs.',
-        2,
+    // Large histories stay readable: inspect only the most recently modified
+    // directories and report how many older records were not considered.
+    let omitted = 0;
+    if (entries.length > historyLimit) {
+      const dated = await Promise.all(
+        entries.map(async (entry) => ({
+          entry,
+          at: (await stat(path.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0,
+        })),
       );
+      omitted = entries.length - historyLimit;
+      entries = dated
+        .sort((a, b) => b.at - a.at)
+        .slice(0, historyLimit)
+        .map((d) => d.entry);
+    }
     const files = await Promise.all(
       entries.map(async (entry) => {
         const file = await contained(base, entry.name + '/state.json');
@@ -51,7 +62,7 @@ export class PanelService {
         return { id: entry.name, file, at: info?.mtimeMs ?? 0, size: info?.size ?? 0 };
       }),
     );
-    return Promise.all(
+    const rows = await Promise.all(
       files
         .filter((f) => f.size > 0)
         .sort((a, b) => b.at - a.at)
@@ -74,6 +85,7 @@ export class PanelService {
           }
         }),
     );
+    return { rows, omitted };
   }
   async snapshot() {
     this.root = await realpath(this.root);
@@ -90,21 +102,37 @@ export class PanelService {
       this.records('deployments'),
     ]);
     const jobs = await Promise.all(
-      jobRecords.map(async (row) => {
-        const state = ctx ? ((await new JobService(ctx).status(String(row.id))) as Row) : row;
+      jobRecords.rows.map(async (row) => {
+        let state: Row = row;
+        if (ctx)
+          try {
+            state = (await new JobService(ctx).status(String(row.id))) as Row;
+          } catch {
+            // One unreadable job record must not hide the rest of the panel.
+            state = {
+              ...row,
+              status: 'unavailable',
+              diagnostics: ['Cannot read this job status.'],
+            };
+          }
         const result = (state.result ?? {}) as Row;
+        const diagnostics = Array.isArray(result.diagnostics)
+          ? result.diagnostics
+          : Array.isArray(state.diagnostics)
+            ? state.diagnostics
+            : [];
         return {
           id: String(row.id),
           operation: String(row.operation ?? result.operation ?? 'operation'),
           status: String(result.status ?? state.status),
           updatedAt: String(state.updatedAt ?? ''),
           summary: String(result.summary ?? '').slice(0, 1000),
-          diagnostics: Array.isArray(result.diagnostics) ? result.diagnostics.slice(0, 5) : [],
+          diagnostics: diagnostics.slice(0, 5),
           artifacts: Array.isArray(result.artifacts) ? result.artifacts.slice(0, 10) : [],
         };
       }),
     );
-    const deployments = deploymentRecords.map((row) => ({
+    const deployments = deploymentRecords.rows.map((row) => ({
       id: String(row.id),
       status: String(row.state ?? 'unknown'),
       at: String(row.at ?? ''),
@@ -161,6 +189,7 @@ export class PanelService {
       toolchain,
       jobs,
       deployments,
+      history: { jobsOmitted: jobRecords.omitted, deploymentsOmitted: deploymentRecords.omitted },
       changes,
       permissions: {
         activeGrants: security.grants

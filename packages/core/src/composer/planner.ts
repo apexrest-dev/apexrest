@@ -11,12 +11,108 @@ import {
   type Owner,
   type Allocation,
 } from './schemas.ts';
-import { readDocument, semanticDigest, safePath, planDigest, validate } from './formats.ts';
+import {
+  readDocument,
+  semanticDigest,
+  safePath,
+  planDigest,
+  validate,
+  documentText,
+  planLimits,
+} from './formats.ts';
 import { loadCatalog, resolvePackages, type Catalog } from './catalog.ts';
 import { inventorySymbols, declarations, threeWay } from './reader.ts';
 import { bind, type MetadataSnapshot } from './binding.ts';
 import { render } from './emitter.ts';
 
+const extensionUnsafe = () =>
+  new Fault(
+    'EXTENSION_UNSAFE',
+    'Extension code must preserve caller-owned transactions and literal boundaries.',
+    5,
+  );
+/**
+ * Reviewed PL/SQL extensions are opaque, so normalize comments, literals and whitespace
+ * before applying the denylist; a keyword split by a comment must not slip through.
+ */
+export function extensionCode(source: string) {
+  if (/```|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\b[nN]?[qQ]'/.test(source)) throw extensionUnsafe();
+  let code = '',
+    at = 0;
+  while (at < source.length) {
+    if (source.startsWith('--', at)) {
+      const end = source.indexOf('\n', at);
+      at = end < 0 ? source.length : end;
+      code += ' ';
+    } else if (source.startsWith('/*', at)) {
+      const end = source.indexOf('*/', at + 2);
+      if (end < 0) throw extensionUnsafe();
+      at = end + 2;
+      code += ' ';
+    } else if (source[at] === "'") {
+      const end = source.slice(at + 1).search(/'(?!')/);
+      if (end < 0) throw extensionUnsafe();
+      at += end + 2;
+      code += "''";
+    } else if (source[at] === '"') {
+      const end = source.indexOf('"', at + 1);
+      if (end < 0) throw extensionUnsafe();
+      code += ' ' + source.slice(at + 1, end) + ' ';
+      at = end + 1;
+    } else code += source[at++];
+  }
+  const normalized = code.replace(/\s+/g, ' ');
+  if (
+    /\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|utl_\w+)\b|\bsys\s*\./i.test(
+      normalized,
+    )
+  )
+    throw extensionUnsafe();
+  return source;
+}
+/** Every source identity a block namespace derives; all are compared case-insensitively. */
+export function derivedNames(prefix: string) {
+  return [
+    prefix,
+    prefix + '_EDIT',
+    prefix + '_SAVE',
+    prefix + '_records',
+    prefix + '_summary',
+    ...['records', 'summary', 'history', 'master', 'detail', 'filter', 'create', 'saved', 'read'].map(
+      (suffix) => prefix + '-' + suffix,
+    ),
+  ].map((name) => name.toUpperCase());
+}
+function sourceIdentities(sources: Record<string, string>) {
+  const names = new Set(inventorySymbols(sources).symbols);
+  for (const source of Object.values(sources))
+    for (const match of source.matchAll(
+      /^[ \t]*(?:alias|htmlDomId|staticId|buttonName|name):[ \t]*([^\s]+)[ \t]*$/gm,
+    ))
+      names.add(match[1]!.toUpperCase());
+  return names;
+}
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Literal and dynamic page references. Dynamic ones are uncertain and also block removal. */
+function pageReference(source: string, page: string, alias: string | undefined) {
+  const target = alias ? `(?:${page}|${escapeRegExp(alias)})` : page,
+    end = '(?![A-Za-z0-9_$#-])';
+  if (
+    new RegExp('\\bpage:\\s*' + target + end, 'i').test(source) ||
+    source.includes(':' + page + ':') ||
+    new RegExp(`f\\?p=[^:\\s'"]*:${target}${end}`, 'i').test(source) ||
+    new RegExp(`\\bp_page\\s*=>\\s*'?${target}${end}`, 'i').test(source) ||
+    (alias && new RegExp(`(?<![A-Za-z0-9_$#-])${escapeRegExp(alias)}${end}`, 'i').test(source))
+  )
+    return 'literal';
+  if (
+    /\bp_page\s*=>(?!\s*(?:'[A-Za-z0-9_$#]*'|\d+\b))/i.test(source) ||
+    /\bapex_page\.get_url\s*\((?!\s*(?:p_|\)))/i.test(source) ||
+    /f\?p=[^:\s'"]*:(?:&(?!APP_PAGE_ID\.)|#|'\s*\|\|)/i.test(source)
+  )
+    return 'dynamic';
+  return null;
+}
 export interface Snapshot {
   blueprint: Blueprint;
   blueprintPath: string;
@@ -173,7 +269,11 @@ export function planComposition(input: Snapshot): CompositionPlan {
         });
     const symbols = inventorySymbols(input.sources),
       used = new Set(symbols.pages),
-      prefixes = new Set<string>();
+      prefixes = new Set<string>(),
+      ownedFiles = new Set(Object.values(state?.owners ?? {}).flatMap((owner) => Object.keys(owner.files))),
+      existing = sourceIdentities(
+        Object.fromEntries(Object.entries(input.sources).filter(([file]) => !ownedFiles.has(file))),
+      );
     const allocated: Record<string, Allocation> = {};
     const nextPage = () => {
       for (let page = 100; page < 9999; page++)
@@ -187,20 +287,19 @@ export function planComposition(input: Snapshot): CompositionPlan {
       const binding = bind(blueprint, instance, input.metadata ?? undefined);
       if (Object.keys(instance.extensions).length && instance.ownership !== 'extended')
         throw new Fault('EXTENSION_MODE_REQUIRED', 'Extension hooks require explicit extended ownership.', 5);
-      for (const source of Object.values(instance.extensions))
-        if (/```|\b(?:commit|rollback|grant|revoke|host|connect|execute\s+immediate)\b/i.test(source!))
-          throw new Fault(
-            'EXTENSION_UNSAFE',
-            'Extension code must preserve caller-owned transactions and literal boundaries.',
-            5,
-          );
+      for (const source of Object.values(instance.extensions)) extensionCode(source!);
       const previous = state?.owners[id],
         prefix =
           previous?.allocation.prefix ??
           'cmp_' + id.toLowerCase().replaceAll('-', '_').slice(0, 24) + '_' + hash(id).slice(0, 8);
-      if (prefixes.has(prefix.toUpperCase()) || (!previous && symbols.symbols.has(prefix.toUpperCase())))
+      const names = derivedNames(prefix);
+      if (
+        names.some(
+          (name) => prefixes.has(name) || existing.has(name) || (!previous && symbols.symbols.has(name)),
+        )
+      )
         throw new Fault('SYMBOL_COLLISION', 'A block namespace collides with existing source.', 5);
-      prefixes.add(prefix.toUpperCase());
+      for (const name of names) prefixes.add(name);
       if (previous)
         for (const file of Object.keys(previous.files)) {
           if (!input.sources[file])
@@ -435,19 +534,21 @@ export function planComposition(input: Snapshot): CompositionPlan {
         const targetPage = declarations(input.sources[file]!).find(
           (n) => n.kind === 'page' && n.depth === 0,
         )?.key;
-        for (const [consumer, source] of Object.entries(effectiveSources))
-          if (
-            consumer !== file &&
-            !removedFiles.has(consumer) &&
-            targetPage &&
-            (new RegExp('\\bpage:\\s*' + targetPage + '(?:\\s|$)').test(source) ||
-              source.includes(':' + targetPage + ':'))
-          )
+        if (!targetPage || !/^\d+$/.test(targetPage))
+          throw new Fault('UNKNOWN_CONSUMER_RETAINED', 'Removed page identity cannot be verified.', 5);
+        const alias = input.sources[file]!.match(/^ {4}alias:[ \t]*([A-Za-z0-9_$#]+)[ \t]*$/m)?.[1];
+        for (const [consumer, source] of Object.entries(effectiveSources)) {
+          if (consumer === file || removedFiles.has(consumer)) continue;
+          const reference = pageReference(source, targetPage, alias);
+          if (reference)
             throw new Fault(
               'UNKNOWN_CONSUMER_RETAINED',
-              'A remaining or unmanaged source still references the removed page.',
+              reference === 'literal'
+                ? 'A remaining or unmanaged source still references the removed page.'
+                : 'A remaining source builds a dynamic page link; review it before removing an owned page.',
               5,
             );
+        }
         operations.push({
           path: input.sourceDir + '/' + file,
           before: input.sourceInventory[file]!,
@@ -504,6 +605,22 @@ export function planComposition(input: Snapshot): CompositionPlan {
     a.path < b.path ? -1 : 1,
   );
   plan.digest = planDigest(plan);
+  const checked = planSchema.safeParse(plan);
+  if (checked.success && Buffer.byteLength(documentText(plan)) <= planLimits.document) return checked.data;
+  // Oversized or otherwise invalid generated content blocks the plan instead of escaping raw.
+  plan.status = 'blocked';
+  plan.operations = [];
+  plan.state = null;
+  plan.lock = null;
+  plan.diagnostics = [
+    ...diagnostics.filter((diagnostic) => diagnostic.severity !== 'info'),
+    {
+      code: 'PLAN_LIMIT',
+      severity: 'error',
+      message: `Generated plan exceeds reviewed limits (owned source up to ${OWNED_TEXT_LIMIT} characters, at most 2048 writes).`,
+    },
+  ];
+  plan.digest = planDigest(plan);
   return validate(planSchema, plan);
 }
-import { planSchema } from './schemas.ts';
+import { planSchema, OWNED_TEXT_LIMIT } from './schemas.ts';

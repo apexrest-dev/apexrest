@@ -223,7 +223,7 @@ test('active job envelopes describe queued or running work without claiming comp
   }
 });
 
-test('missing or mismatched terminal results remain unknown instead of fabricated success', async () => {
+test('completed jobs with missing or mismatched results are unreadable, never fabricated success', async () => {
   for (const result of [undefined, { ok: true }, success('test.run', {})]) {
     const envelope = jobToolResult('deploy.apply', {
       jobId: receipt.jobId,
@@ -233,8 +233,37 @@ test('missing or mismatched terminal results remain unknown instead of fabricate
     const response = await toolOutput(envelope);
     const transported = JSON.parse(response.content[0]!.text);
     assert.equal(response.isError, true);
-    assert.equal(transported.status, 'outcome_unknown');
+    assert.equal(transported.ok, false);
+    assert.equal(transported.status, 'completed_unreadable');
+    assert.equal(transported.exitCode, 1);
+    assert.equal(transported.diagnostics[0].code, 'JOB_RESULT_UNREADABLE');
     assert.equal(transported.data.jobId, receipt.jobId);
     assert.match(transported.summary, /do not repeat/);
   }
+});
+
+test('failed and unknown job records expose their recorded nested outcome', () => {
+  for (const status of ['failed', 'outcome_unknown']) {
+    const nested = failure(
+      'deploy.apply',
+      new Fault(
+        'FIXTURE_FAILURE',
+        'Existing deployment requires review.',
+        status === 'failed' ? 1 : 6,
+        status,
+      ),
+    );
+    const result = jobToolResult('deploy.apply', { jobId: receipt.jobId, status, result: nested });
+    assert.equal(result.status, status);
+    assert.equal(result.runId, nested.runId);
+    assert.deepEqual(result.diagnostics, nested.diagnostics);
+    assert.equal((result.data as { jobId: string }).jobId, receipt.jobId);
+  }
+  const unreadable = jobToolResult('deploy.apply', {
+    jobId: receipt.jobId,
+    status: 'failed',
+    result: { ok: false },
+  });
+  assert.equal(unreadable.status, 'failed');
+  assert.equal(unreadable.exitCode, 1);
 });

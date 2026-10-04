@@ -3,12 +3,17 @@ import { request } from 'node:http';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { rm, symlink, mkdtemp, mkdir } from 'node:fs/promises';
+import { connect } from 'node:net';
+import { rm, symlink, mkdtemp, mkdir, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fixture } from '../fixtures/project.ts';
 import { readJson, writeJson } from '../../packages/core/src/fs.ts';
 import { PanelService } from '../../packages/core/src/panel.ts';
-import { startPanelServer, panelDocument } from '../../packages/core/src/panel-server.ts';
+import { startPanelServer, panelDocument, openPanel } from '../../packages/core/src/panel-server.ts';
+import { panelActionSchema } from '../../packages/core/src/panel-schema.ts';
+import { sqlclConfig } from '../../packages/core/src/sqlcl-config.ts';
+import { dispatch } from '../../packages/core/src/service.ts';
+import { exists } from '../../packages/core/src/fs.ts';
 import { panelLines } from '../../packages/cli/src/panel-tui.ts';
 import { schemas } from '../../packages/core/src/operations.ts';
 
@@ -251,4 +256,122 @@ test('removed workflow settings and actions are rejected while legacy preference
     assert.equal(schemas['panel.action'].safeParse({ action }).success, false);
   await service.act({ kind: 'preferences', settings: { browserMode: 'codex' } });
   assert.deepEqual(await readJson(file), { browserMode: 'codex' });
+});
+
+test('MCP and CLI panel actions cannot change global SQLcl settings; the local dashboard still can', async (t) => {
+  const { ctx } = await setup(t);
+  const action = {
+    kind: 'sqlcl',
+    settings: { schemaVersion: 1, mode: 'mcp', mcpRestrictLevel: '1', databaseTransport: 'direct' },
+  } as const;
+  assert.equal(schemas['panel.action'].safeParse({ project: ctx.root, action }).success, false);
+  assert.equal(panelActionSchema.safeParse({ action }).success, true);
+  const before = await sqlclConfig();
+  const result = await dispatch('panel.action', { project: ctx.root, action });
+  assert.equal(result.ok, false);
+  assert.equal(result.exitCode, 2);
+  assert.deepEqual(await sqlclConfig(), before);
+});
+
+test('panel open and connection-resolving operations require a configured, trusted project first', async (t) => {
+  const { ctx } = await setup(t, false);
+  const empty = await mkdtemp(path.join(tmpdir(), 'panel-unconfigured-'));
+  t.after(() => rm(empty, { recursive: true, force: true }));
+  await assert.rejects(openPanel(empty), { code: 'PROJECT_NOT_CONFIGURED' });
+  assert.equal(await exists(path.join(empty, '.apexrest')), false);
+  await assert.rejects(openPanel(ctx.root), { code: 'PROJECT_TRUST_REQUIRED' });
+  assert.equal(
+    (await dispatch('panel.open', { project: ctx.root })).diagnostics[0]?.code,
+    'PROJECT_TRUST_REQUIRED',
+  );
+  assert.equal(await exists(path.join(ctx.root, '.apexrest/panel')), false);
+  for (const [operation, input] of [
+    ['metadata.read', { env: 'dev', kind: 'objects', schema: 'FIXTURE' }],
+    ['deploy.status', { run: randomUUID() }],
+    ['deploy.restore-plan', { backup: randomUUID(), out: 'plans/restore.json' }],
+  ] as const) {
+    const result = await dispatch(operation, { project: ctx.root, ...input });
+    assert.equal(result.ok, false, operation);
+    assert.equal(result.diagnostics[0]?.code, 'PROJECT_TRUST_REQUIRED', operation);
+  }
+});
+
+test('panel lists the newest records of a large history and reports how many were omitted', async (t) => {
+  const { ctx, service } = await setup(t);
+  const jobs = path.join(ctx.root, '.apexrest/jobs');
+  const old = new Date(Date.now() - 86400000);
+  await mkdir(jobs, { recursive: true });
+  const ids = Array.from({ length: 2004 }, () => randomUUID());
+  for (const id of ids) {
+    await mkdir(path.join(jobs, id));
+    await utimes(path.join(jobs, id), old, old);
+  }
+  const newest = randomUUID();
+  await writeJson(path.join(jobs, newest, 'state.json'), {
+    id: newest,
+    operation: 'apex.validate',
+    status: 'running',
+    updatedAt: new Date().toISOString(),
+  });
+  const snapshot = await service.snapshot();
+  assert.equal(snapshot.history.jobsOmitted, 5);
+  assert.equal(snapshot.history.deploymentsOmitted, 0);
+  assert.deepEqual(
+    snapshot.jobs.map((job) => [job.id, job.status]),
+    [[newest, 'running']],
+  );
+});
+
+test('one unreadable job status does not hide the panel snapshot', async (t) => {
+  const { ctx, service } = await setup(t);
+  const broken = randomUUID(),
+    healthy = randomUUID();
+  await mkdir(path.join(ctx.root, '.apexrest/jobs', broken), { recursive: true });
+  await writeFile(path.join(ctx.root, '.apexrest/jobs', broken, 'state.json'), 'null');
+  await writeJson(path.join(ctx.root, '.apexrest/jobs', healthy, 'state.json'), {
+    operation: 'apex.validate',
+    status: 'failed',
+    updatedAt: new Date().toISOString(),
+  });
+  const snapshot = await service.snapshot();
+  assert.equal(snapshot.jobs.find((job) => job.id === broken)?.status, 'unavailable');
+  assert.deepEqual(snapshot.jobs.find((job) => job.id === broken)?.diagnostics, [
+    'Cannot read this job status.',
+  ]);
+  assert.equal(snapshot.jobs.find((job) => job.id === healthy)?.status, 'failed');
+});
+
+test('panel shutdown closes stalled connections after a grace period and releases only its own session', async (t) => {
+  const { ctx } = await setup(t);
+  const file = path.join(ctx.root, '.apexrest/panel/session.json');
+  const handle = await startPanelServer(ctx.root, 3600000, 100);
+  await writeJson(file, handle.session);
+  // An authorized request with an incomplete body keeps its connection active.
+  const socket = connect(handle.session.port, '127.0.0.1');
+  await new Promise<void>((resolve) => socket.once('connect', () => resolve()));
+  socket.on('error', () => undefined);
+  socket.write(
+    [
+      'POST /api/action HTTP/1.1',
+      `Host: 127.0.0.1:${handle.session.port}`,
+      'Authorization: Bearer ' + handle.session.token,
+      'Content-Type: application/json',
+      'Content-Length: 100',
+      '',
+      '{"kind":',
+    ].join('\r\n'),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const closedSocket = new Promise<void>((resolve) => socket.once('close', () => resolve()));
+  const started = Date.now();
+  await handle.close();
+  await closedSocket;
+  assert.ok(Date.now() - started < 5000, 'Shutdown must not wait for request timeouts');
+  assert.equal(await exists(file), false);
+
+  const other = await startPanelServer(ctx.root, 3600000, 100);
+  const replacement = { ...other.session, token: 'a'.repeat(64) };
+  await writeJson(file, replacement);
+  await other.close();
+  assert.deepEqual(await readJson(file), replacement);
 });

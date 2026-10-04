@@ -6,7 +6,7 @@ Use **Settings → Database network transport → ORDS HTTP(S)** when the Oracle
 
 ## Configure the connection
 
-Open the local development dashboard and save an APEXREST connection reference with the schema URL, **Database username** and **Database password**. Use the credentials of an existing Oracle database account allowed to access the schema through ORDS; no separate ORDS account is needed. Saving the reference configures the plugin to use that account. Use separate references for `readConnectionRef` and `deployConnectionRef` when their privileges differ. The URL identifies the REST-enabled schema, for example `https://ords.example.invalid/ords/app_user/`; its schema alias can differ from the database username. Use the schema URL provided by your administrator, rather than an APEX application URL or a `/_/sql` URL.
+Open the local development dashboard and save an APEXREST connection reference with the schema URL, **Database username** and **Database password**. Use the credentials of an existing Oracle database account allowed to access the schema through ORDS; no separate ORDS account is needed. Saving the reference configures the plugin to use that account. Use separate references for `readConnectionRef` and `deployConnectionRef` when their privileges differ. The URL identifies the REST-enabled schema, for example `https://ords.example.invalid/ords/app_user/`; its schema alias can differ from the database username. Use the schema URL provided by your administrator, rather than an APEX application URL or a `/_/sql` URL. The URL must use `https:`; plain `http:` is accepted only for `localhost`, `127.0.0.1` or `[::1]`, because it would expose the database password.
 
 The equivalent interactive Oracle connection is:
 
@@ -16,7 +16,7 @@ connect -orest app_user@https://ords.example.invalid/ords/app_user/
 
 APEXREST stores the transport in `$APEXREST_HOME/sqlcl.json`, connection metadata in `$APEXREST_HOME/connections.json`, and passwords separately under `$APEXREST_HOME/credentials/`. These are plugin-level local files, normally under `~/.apexrest`, rather than project files. Secret files use owner-only permissions on POSIX; they are not an encrypted password vault. Do not copy them into source control or share them. SQLcl saved connections are used only for the direct transport; ORDS does not require saving a connection in SQLcl.
 
-The local dashboard's **Database password** field stays blank when editing a saved reference. Leaving it empty preserves the existing value for the same endpoint and database username. Changing either requires credentials for the new identity. The embedded MCP view does not submit passwords through tool calls: use the local dashboard or the CLI's `--password-file` option. The CLI reads a local password file rather than taking the password as an argument.
+The local dashboard's **Database password** field stays blank when editing a saved reference. Leaving it empty preserves the existing value for the same endpoint and database username. Changing either requires credentials for the new identity. The embedded MCP view does not submit passwords through tool calls: use the local dashboard or the CLI's `--password-file` option. The CLI reads a local password file rather than taking the password as an argument. That file must be a regular file, not a symbolic link, and on POSIX it must be accessible only by its owner (`chmod 600`); otherwise the command fails with `PASSWORD_FILE_UNSAFE`.
 
 When you switch back to **Direct Oracle listener**, choose an existing saved SQLcl connection from the settings selector. Opening Direct connection settings loads the local SQLcl connection names without opening a database session; **Refresh saved connections** reloads them on request. Loading, empty-list and error states are shown in the panel, with **Retry** after a failure. Ordinary panel refreshes do not repeatedly load this list. Switching transport preserves both the direct mapping and the saved ORDS credentials for the reference. See [panel controls](panel.md).
 
@@ -45,7 +45,7 @@ ORDS REST SQL commits successful requests and rolls back failed requests. Separa
 
 ## Prerequisites and verification
 
-Use SQLcl and APEX 26.1 or later for APEXlang, with the required workspace/schema privileges. ORDS must expose REST-Enabled SQL for the selected schema and accept the supplied database authentication. HTTPS is recommended.
+Use SQLcl and APEX 26.1 or later for APEXlang, with the required workspace/schema privileges. ORDS must expose REST-Enabled SQL for the selected schema and accept the supplied database authentication. HTTPS is required for every non-loopback endpoint.
 
 The Java helper requires a JDK 21 or newer containing `jdk.compiler`; the managed SQLcl JRE alone does not provide it. The adapter checks the configured Java first, then an already-installed JDK from `JAVA_HOME` or `PATH`. This fallback applies only to the helper and leaves SQLcl's managed JRE settings unchanged. If no suitable JDK is available, `ORDS_JDK_REQUIRED` blocks the operation before credentials or database requests are submitted. The adapter does not download Java or change runtime configuration automatically.
 

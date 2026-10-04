@@ -25,9 +25,17 @@ export function canonical(value: unknown): string {
 }
 export const documentText = (value: unknown) => JSON.stringify(JSON.parse(canonical(value)), null, 2) + '\n';
 export const semanticDigest = (value: unknown) => hash(canonical(value));
-export function parseDocumentData(source: string): unknown {
-  if (Buffer.byteLength(source) > 1024 * 1024)
-    throw new Fault('DOCUMENT_LIMIT', 'Document exceeds 1 MiB.', 2);
+export interface DocumentLimits {
+  document: number;
+  scalar: number;
+}
+/** Authored documents: blueprints, manifests, state and lock. */
+export const authoringLimits: DocumentLimits = { document: 1024 * 1024, scalar: 65536 };
+/** Reviewed plans carry owned source images of up to 1 MiB each. */
+export const planLimits: DocumentLimits = { document: 64 * 1024 * 1024, scalar: 1024 * 1024 };
+export function parseDocumentData(source: string, limits: DocumentLimits = authoringLimits): unknown {
+  if (Buffer.byteLength(source) > limits.document)
+    throw new Fault('DOCUMENT_LIMIT', `Document exceeds ${limits.document} bytes.`, 2);
   const doc = parseDocument(source, {
     version: '1.2',
     schema: 'core',
@@ -47,8 +55,9 @@ export function parseDocumentData(source: string): unknown {
       2,
     );
   let count = 0;
+  const nodes = limits === authoringLimits ? 10000 : 1000000;
   function inspect(node: unknown, depth: number) {
-    if (++count > 10000 || depth > 64)
+    if (++count > nodes || depth > 64)
       throw new Fault('DOCUMENT_LIMIT', 'Document structure exceeds limits.', 2);
     if (isAlias(node)) throw new Fault('INVALID_DOCUMENT', 'Aliases are unsupported.', 2);
     if (node && typeof node === 'object' && 'tag' in node && node.tag)
@@ -64,8 +73,8 @@ export function parseDocumentData(source: string): unknown {
         inspect(pair.value, depth + 1);
       }
     else if (isSeq(node)) for (const item of node.items) inspect(item, depth + 1);
-    else if (isScalar(node) && typeof node.value === 'string' && node.value.length > 65536)
-      throw new Fault('DOCUMENT_LIMIT', 'Scalar exceeds 64 KiB.', 2);
+    else if (isScalar(node) && typeof node.value === 'string' && node.value.length > limits.scalar)
+      throw new Fault('DOCUMENT_LIMIT', `Scalar exceeds ${limits.scalar} characters.`, 2);
   }
   inspect(doc.contents, 0);
   const value = doc.toJS({ maxAliasCount: 0 });
@@ -97,8 +106,13 @@ export async function safePath(root: string, relative: string) {
   }
   return file;
 }
-export async function readDocument<T>(root: string, file: string, schema: z.ZodType<T>) {
-  return validate(schema, parseDocumentData(await readFile(await safePath(root, file), 'utf8')));
+export async function readDocument<T>(
+  root: string,
+  file: string,
+  schema: z.ZodType<T>,
+  limits: DocumentLimits = authoringLimits,
+) {
+  return validate(schema, parseDocumentData(await readFile(await safePath(root, file), 'utf8'), limits));
 }
 export function planDigest(plan: { digest?: string } & Record<string, unknown>) {
   const { digest: _digest, ...payload } = plan;

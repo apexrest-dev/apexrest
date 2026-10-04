@@ -176,3 +176,56 @@ for await (const line of createInterface({input:process.stdin})) {
   setTimeout(() => controller.abort(), 150);
   await assert.rejects(pending, { code: 'CANCELLED', status: 'cancelled' });
 });
+
+test('CLI script sessions run restricted at level 2 and private staging is removed after use', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-sqlcl-restrict-'));
+  const oldHome = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = root;
+  t.after(async () => {
+    if (oldHome === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = oldHome;
+    await rm(root, { recursive: true, force: true });
+  });
+  const seen: { args: string[]; cwd: string }[] = [];
+  const oracle = new OracleAdapter(async (request) => {
+    seen.push({ args: request.args, cwd: request.cwd! });
+    return completed('done');
+  });
+  oracle.settings = async () => ({
+    schemaVersion: 1,
+    mode: 'cli',
+    mcpRestrictLevel: '1',
+    executable: 'sql',
+    javaHome: undefined,
+  });
+  await oracle.session('select 1 from dual;');
+  await oracle.restoreApplication(
+    {
+      kind: 'development',
+      readConnectionRef: 'read',
+      deployConnectionRef: 'deploy',
+      workspace: 'FIXTURE',
+      parsingSchema: 'FIXTURE',
+      applicationId: 123,
+      baseUrl: 'https://fixture.example.com/ords/',
+      databaseIdentity: { dbUniqueName: 'fixture', serviceName: 'fixture' },
+      allowedOrigins: [],
+    },
+    undefined as never,
+    path.join(root, 'f123.sql'),
+  );
+  assert.equal(seen[0]!.args.includes('-R'), false);
+  const restricted = seen.find((call) => call.args.includes('-R'));
+  assert.ok(restricted, 'restore runs restricted');
+  assert.equal(restricted.args[restricted.args.indexOf('-R') + 1], '2');
+  await oracle.session('@"script.sql"', undefined, false, undefined, undefined, 'text', '2');
+  const last = seen.at(-1)!;
+  assert.deepEqual(last.args.slice(0, 4), ['-S', '-L', '-R', '2']);
+  // Self-created staging is removed; caller-owned or foreign directories never are.
+  for (const call of seen) await assert.rejects(stat(call.cwd), { code: 'ENOENT' });
+  await oracle.discardStage(tmpdir());
+  await stat(tmpdir());
+  const owned = await oracle.stage();
+  await oracle.discardStage(owned);
+  await assert.rejects(stat(owned), { code: 'ENOENT' });
+});

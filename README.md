@@ -139,7 +139,7 @@ The [terminal guide](docs/tui.md) covers keyboard controls and launchers. From a
 | Deploy a change                | Bind an immutable plan to source, toolchain and target; back up an existing app; import under the required authorization. |
 | Test and diagnose              | Run configured unit, SQL, API or browser suites; inspect bounded diagnostics and background-job results.                  |
 
-An explicit request to create, update or import an identified development/test app includes the necessary scoped import. Codex records that existing authorization and completes the workflow. Production uses a separate, externally signed approval on a protected runner.
+An explicit request to create, update or import an identified development/test app includes the necessary scoped import. Codex records that existing authorization and completes the workflow. Production uses a separate, externally signed approval on a protected POSIX runner, with trusted keys and production targets in an administrator-owned `production-trust.json`; see [production approval](docs/deployment-safety.md#production-approval).
 
 ## Start with a concrete request
 

@@ -43,7 +43,10 @@ const completedResultSchema: z.ZodType<Result> = z.object({
 });
 
 export function jobToolResult(operation: string, job: Record<string, unknown>): Result {
-  if (job.status === 'completed') {
+  const active = job.status === 'queued' || job.status === 'running' ? job.status : undefined;
+  // Workers record the operation outcome on terminal jobs (completed, failed,
+  // outcome_unknown, ...). Prefer that exact nested result whenever it is valid.
+  if (!active && job.result !== undefined) {
     const nested = completedResultSchema.safeParse(job.result);
     if (nested.success && nested.data.operation === operation) return { ...nested.data, data: job };
   }
@@ -51,10 +54,24 @@ export function jobToolResult(operation: string, job: Record<string, unknown>): 
     typeof job.nextAction === 'string'
       ? [job.nextAction]
       : ['Read apexrest_job_status with this jobId; inspect the existing operation before any retry.'];
-  if (job.status === 'queued' || job.status === 'running')
+  if (job.status === 'completed') {
+    // The worker finished, so the outcome is not a lost heartbeat; its recorded
+    // result is missing, malformed or belongs to another operation.
+    const result = failure(
+      operation,
+      new Fault(
+        'JOB_RESULT_UNREADABLE',
+        'The job completed but its recorded result cannot be read for this operation. Inspect its existing record; do not repeat the operation.',
+        1,
+        'completed_unreadable',
+      ),
+    );
+    return { ...result, nextActions, data: job };
+  }
+  if (active)
     return {
       ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
-      status: job.status,
+      status: active,
       nextActions,
     };
   const status = job.status === 'failed' || job.status === 'cancelled' ? job.status : 'outcome_unknown';

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { cp, mkdir, readFile, rename, rm, chmod, realpath } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, chmod } from 'node:fs/promises';
 import {
   canonical,
   exists,
@@ -14,6 +14,7 @@ import {
 import { Fault } from '../../core/src/result.ts';
 import { nativeMarketplace, resolveNativePlugin } from './package-source.ts';
 import { checkCodex, codexInvoke, inspectRegistration, listMarketplaces } from './registration.ts';
+import { canonicalHome, renameWithRetry } from './toolchain.ts';
 export interface NativeInstallRequest {
   source: string;
   home: string;
@@ -34,6 +35,9 @@ export async function installNative(r: NativeInstallRequest) {
   payload['.agents/plugins/marketplace.json'] = hash(JSON.stringify(nativeMarketplace, null, 2) + '\n');
   const copyDigest = hash(canonical(payload));
   const sourceMcpFile = (await exists(path.join(source, 'plugin.json'))) ? 'mcp.json' : '.mcp.json';
+  const mcpKey = 'plugins/apexrest-apex/' + sourceMcpFile;
+  // The installer rewrites only the MCP binding after copying; everything else must match.
+  const expectedFiles = canonical({ ...payload, [mcpKey]: undefined });
   const sourceMcp = (await readJson(path.join(source, sourceMcpFile))) as {
     mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
   };
@@ -44,18 +48,22 @@ export async function installNative(r: NativeInstallRequest) {
   sourceServer.command = 'node';
   sourceServer.args = ['runtime/mcp.mjs'];
   delete sourceServer.env;
-  payload['plugins/apexrest-apex/' + sourceMcpFile] = hash(JSON.stringify(sourceMcp, null, 2) + '\n');
+  payload[mcpKey] = hash(JSON.stringify(sourceMcp, null, 2) + '\n');
   const digest = hash(canonical(payload));
   if (!r.dryRun) {
     await mkdir(r.home, { recursive: true, mode: 0o700 });
     await mkdir(r.codexHome, { recursive: true, mode: 0o700 });
   }
-  const home = (await exists(r.home)) ? await realpath(r.home) : path.resolve(r.home);
-  const codexHome = (await exists(r.codexHome)) ? await realpath(r.codexHome) : path.resolve(r.codexHome);
+  const home = await canonicalHome(r.home);
+  const codexHome = await canonicalHome(r.codexHome);
   const node = r.node ?? process.execPath;
   // Runtime bindings are part of the installation identity, so switching Node never
   // rewrites a plugin that is still registered from the previous installation.
   const destination = path.join(home, 'native', hash(canonical({ sourceDigest: digest, node, home })));
+  const root = path.join(destination, 'plugins/apexrest-apex');
+  const cli = path.join(root, 'runtime/apexrest.mjs');
+  // Fail before any registration change if a launcher cannot represent these paths safely.
+  const launchers = launcherScripts(home, node, cli);
   const invoke = codexInvoke(codexHome, (await exists(home)) ? home : process.cwd(), r.codex);
   if (!(await exists(codexHome))) await checkCodex(codexHome, r.codex);
   const inspect = async () =>
@@ -65,7 +73,7 @@ export async function installNative(r: NativeInstallRequest) {
       codexHome,
       destination,
     );
-  const registration = await inspect();
+  let registration = await inspect();
   if (r.expectedRegistration && r.expectedRegistration !== registration.fingerprint)
     throw new Fault(
       'MARKETPLACE_CHANGED',
@@ -90,6 +98,13 @@ export async function installNative(r: NativeInstallRequest) {
     const stamp = Date.now();
     const configBackup = path.join(home, 'config-before-install-' + stamp + '.toml');
     if (await exists(config)) await cp(config, configBackup);
+    const repaired = (await exists(destination)) && !(await reusable(destination, expectedFiles, mcpKey));
+    if (repaired) {
+      // A content-addressed directory that no longer matches its address is rebuilt, never reused.
+      const broken = `${destination}.broken-${stamp}`;
+      await renameWithRetry(destination, broken);
+      await rm(broken, { recursive: true, force: true });
+    }
     if (!(await exists(destination))) {
       const staging = destination + '.staging';
       await rm(staging, { recursive: true, force: true });
@@ -99,9 +114,8 @@ export async function installNative(r: NativeInstallRequest) {
       await writeJson(path.join(staging, '.agents/plugins/marketplace.json'), nativeMarketplace);
       if (hash(canonical(await inventory(staging))) !== copyDigest)
         throw new Fault('PACKAGE_COPY_INVALID', 'Native package copy changed.', 5);
-      await rename(staging, destination);
+      await renameWithRetry(staging, destination);
     }
-    const root = path.join(destination, 'plugins/apexrest-apex');
     const portable = await exists(path.join(root, 'plugin.json'));
     const mcpPath = path.join(root, portable ? 'mcp.json' : '.mcp.json');
     const mcp = JSON.parse(await readFile(mcpPath, 'utf8')) as {
@@ -113,6 +127,9 @@ export async function installNative(r: NativeInstallRequest) {
     server.args = [path.join(root, 'runtime/mcp.mjs')];
     server.env = { APEXREST_HOME: home };
     await writeJson(mcpPath, mcp);
+    // Repairing the payload that is itself the registered marketplace changes its file
+    // fingerprint; the repaired, verified content becomes the baseline under the lock.
+    if (repaired && registration.previousRoot === destination) registration = await inspect();
     const current = await inspect();
     if (current.fingerprint !== registration.fingerprint)
       throw new Fault(
@@ -234,22 +251,10 @@ export async function installNative(r: NativeInstallRequest) {
       actions: ['CODEX_RELOAD_REQUIRED', 'NATIVE_HOST_VERIFICATION_REQUIRED'],
     };
     await writeJson(path.join(home, 'installation.json'), state);
-    const cli = path.join(root, 'runtime/apexrest.mjs');
-    const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
     await mkdir(path.join(home, 'bin'), { recursive: true });
-    if (process.platform === 'win32') {
-      const ps = (value: string) => "'" + value.replaceAll("'", "''") + "'";
-      await atomicWrite(
-        path.join(home, 'bin/apexrest.ps1'),
-        `$env:APEXREST_HOME=${ps(home)}\n& ${ps(node)} ${ps(cli)} @args\nexit $LASTEXITCODE\n`,
-      );
-    } else {
-      const launcher = path.join(home, 'bin/apexrest');
-      await atomicWrite(
-        launcher,
-        `#!/bin/sh\nexport APEXREST_HOME=${quote(home)}\nexec ${quote(node)} ${quote(cli)} \"$@\"\n`,
-      );
-      await chmod(launcher, 0o700);
+    for (const [name, contents] of Object.entries(launchers)) {
+      await atomicWrite(path.join(home, 'bin', name), contents);
+      if (name === 'apexrest') await chmod(path.join(home, 'bin', name), 0o700);
     }
     await writeJson(transition, { status: 'completed', ...record });
     return state;
@@ -257,4 +262,49 @@ export async function installNative(r: NativeInstallRequest) {
 }
 export async function installationState(home: string) {
   return readJson(path.join(home, 'installation.json'));
+}
+
+async function reusable(destination: string, expectedFiles: string, mcpKey: string) {
+  try {
+    const files: Record<string, string | undefined> = await inventory(destination);
+    if (!files[mcpKey]) return false;
+    return canonical({ ...files, [mcpKey]: undefined }) === expectedFiles;
+  } catch {
+    return false;
+  }
+}
+
+// cmd.exe expands % and ! and ends quoted text at ", even inside "set" quotes.
+const cmdUnsafe = /[%!"\x00-\x1f]/;
+
+/** Launcher scripts for the managed CLI. Windows gets both PowerShell and cmd.exe entry points. */
+export function launcherScripts(
+  home: string,
+  node: string,
+  cli: string,
+  platform = process.platform,
+): Record<string, string> {
+  if (platform !== 'win32') {
+    const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
+    return {
+      apexrest: `#!/bin/sh\nexport APEXREST_HOME=${quote(home)}\nexec ${quote(node)} ${quote(cli)} "$@"\n`,
+    };
+  }
+  if ([home, node, cli].some((value) => cmdUnsafe.test(value)))
+    throw new Fault(
+      'UNSAFE_LAUNCHER_PATH',
+      'The managed home, Node.js or plugin path contains characters a Windows launcher cannot represent safely (% ! " or control characters). Choose another home directory.',
+      2,
+      'blocked',
+    );
+  const ps = (value: string) => "'" + value.replaceAll("'", "''") + "'";
+  return {
+    // Restore the caller's APEXREST_HOME: a dot-sourced or in-session call must not leak it.
+    'apexrest.ps1':
+      `$apexrestPreviousHome = $env:APEXREST_HOME\n` +
+      `$env:APEXREST_HOME = ${ps(home)}\n` +
+      `try {\n  & ${ps(node)} ${ps(cli)} @args\n  $apexrestExitCode = $LASTEXITCODE\n} finally {\n  $env:APEXREST_HOME = $apexrestPreviousHome\n}\n` +
+      `exit $apexrestExitCode\n`,
+    'apexrest.cmd': `@echo off\r\nsetlocal\r\nset "APEXREST_HOME=${home}"\r\n"${node}" "${cli}" %*\r\nexit /b %ERRORLEVEL%\r\n`,
+  };
 }

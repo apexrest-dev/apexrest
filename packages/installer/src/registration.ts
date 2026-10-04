@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { canonical, exists, hash, inventory, readJson } from '../../core/src/fs.ts';
-import { runProcess } from '../../core/src/process.ts';
+import { runCommand } from './command.ts';
 import { Fault } from '../../core/src/result.ts';
 import { nativeMarketplace, resolveNativePlugin, validateNative } from './package-source.ts';
 
@@ -11,7 +11,7 @@ export interface Marketplace {
 }
 export type CodexInvoke = (args: string[]) => Promise<unknown>;
 export async function checkCodex(codexHome: string, codex = 'codex') {
-  const result = await runProcess({
+  const result = await runCommand({
     executable: codex,
     args: ['--version'],
     cwd: process.cwd(),
@@ -26,15 +26,21 @@ export async function checkCodex(codexHome: string, codex = 'codex') {
       'dependency_missing',
     );
 }
-export function codexInvoke(codexHome: string, cwd: string, codex = 'codex'): CodexInvoke {
-  return async (args) => {
-    const result = await runProcess({
+/** Run Codex with this profile; .cmd shims on Windows are resolved via PATHEXT. */
+export function codexRun(codexHome: string, cwd: string, codex = 'codex') {
+  return (args: string[], timeoutMs = 60000) =>
+    runCommand({
       executable: codex,
       args,
       cwd,
       env: { ...process.env, CODEX_HOME: codexHome },
-      timeoutMs: 60000,
+      timeoutMs,
     });
+}
+export function codexInvoke(codexHome: string, cwd: string, codex = 'codex'): CodexInvoke {
+  const run = codexRun(codexHome, cwd, codex);
+  return async (args) => {
+    const result = await run(args);
     if (result.timedOut || result.cancelled || result.truncated || result.code === null)
       throw new Fault(
         'CODEX_REGISTRATION_UNKNOWN',

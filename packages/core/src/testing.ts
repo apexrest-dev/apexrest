@@ -2,17 +2,17 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, cp, chmod } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { environment, managedHome, policy, requireTrust } from './config.ts';
+import { environment, isProductionTarget, managedHome, policy, requireTrust } from './config.ts';
 import type { ProjectContext } from './config.ts';
 import { contained, exists, inventory, readJson, writeJson, atomicWrite } from './fs.ts';
 import { resolveConnection } from './connections.ts';
-import { OracleAdapter, sqlclToken, sqlLiteral } from './oracle.ts';
+import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlclToken, sqlLiteral } from './oracle.ts';
 import { runProcess } from './process.ts';
 import { Fault, redact } from './result.ts';
 import { ArtifactService } from './artifacts.ts';
 import { resourceRoot } from './project.ts';
 import { runtimeState } from '../../installer/src/toolchain.ts';
-import { targetDigest } from './deploy.ts';
+import { sqlclControlLines, targetDigest } from './deploy.ts';
 export type Suite = 'unit' | 'sql' | 'api' | 'e2e';
 export interface SuiteResult {
   suite: Suite;
@@ -68,7 +68,7 @@ export class TestService {
   async authorize(ctx: ProjectContext, name: string) {
     await requireTrust(ctx.root);
     const env = environment(ctx, name);
-    if (env.kind === 'production' || !ctx.config.tests.mutationAllowedEnvironments.includes(name))
+    if ((await isProductionTarget(env)) || !ctx.config.tests.mutationAllowedEnvironments.includes(name))
       throw new Fault(
         'TEST_MUTATION_DENIED',
         'Remote tests require a non-production environment explicitly allowed for mutations.',
@@ -144,6 +144,18 @@ export class TestService {
       if (!envName) throw new Fault('ENVIRONMENT_REQUIRED', 'Remote test suites require --env.', 2);
       const env = await this.authorize(ctx, envName);
       if (suite === 'sql') {
+        // Reviewed SQL tests run as scripts; reject client commands before any Oracle call.
+        const scripts = files.filter((f) => f.endsWith('.sql')).sort();
+        for (const file of scripts) {
+          const lines = sqlclControlLines(await readFile(await contained(dir, file), 'utf8'));
+          if (lines.length)
+            throw new Fault(
+              'SQL_TEST_SCRIPT_CONTROL',
+              `SQL test ${file} uses SQLcl client commands (line ${lines.join(', ')}). Tests may contain SQL and PL/SQL only.`,
+              4,
+              'blocked',
+            );
+        }
         await this.oracle.requireMutationSupport();
         const connection = await resolveConnection(env.deployConnectionRef);
         await this.oracle.verifyTarget(env, connection);
@@ -160,8 +172,16 @@ export class TestService {
             skipped: 0,
             diagnostic: 'utPLSQL is absent. Review a separate framework installation plan.',
           };
-        for (const file of files.filter((f) => f.endsWith('.sql')).sort())
-          await this.oracle.session(`@${sqlclToken(await contained(dir, file))}`, connection, true, signal);
+        for (const file of scripts)
+          await this.oracle.session(
+            `@${sqlclToken(await contained(dir, file))}`,
+            connection,
+            true,
+            signal,
+            undefined,
+            'text',
+            SCRIPT_RESTRICT_LEVEL,
+          );
         const result = await this.oracle.session(
           `set serveroutput on size unlimited\nbegin\n ut.run(${sqlLiteral(env.parsingSchema)}, ut_junit_reporter());\nend;\n/`,
           connection,

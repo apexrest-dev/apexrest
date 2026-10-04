@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { contained, exists, readJson, writeJson } from './fs.ts';
 import { parse, requireTrust } from './config.ts';
 import type { ProjectContext } from './config.ts';
-import { Fault } from './result.ts';
+import { Fault, failure } from './result.ts';
 export class JobService {
   constructor(private ctx: ProjectContext) {}
   async start(operation: string, input: Record<string, unknown>, runtime: string) {
@@ -38,18 +38,25 @@ export class JobService {
       operation,
       updatedAt: new Date().toISOString(),
     });
-    const worker = spawn(process.execPath, [runtime, '--job-worker', this.ctx.root, id], {
-      cwd: this.ctx.root,
-      env: process.env,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    });
-    await new Promise<void>((resolve, reject) => {
-      worker.once('spawn', resolve);
-      worker.once('error', reject);
-    });
-    worker.unref();
+    try {
+      const worker = spawn(process.execPath, [runtime, '--job-worker', this.ctx.root, id], {
+        cwd: this.ctx.root,
+        env: process.env,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      await new Promise<void>((resolve, reject) => {
+        worker.once('spawn', resolve);
+        worker.once('error', reject);
+      });
+      worker.unref();
+    } catch (error) {
+      // No worker exists, so the operation never ran: record a known failure
+      // instead of leaving a queued job that later looks like an unknown outcome.
+      await failQueuedJob(this.ctx.root, id, error).catch(() => undefined);
+      throw error;
+    }
     return {
       jobId: id,
       status: 'queued',
@@ -92,6 +99,35 @@ export class JobService {
     return { jobId: id, status: 'cancellation_requested', rollbackConfirmed: false };
   }
 }
+// Mark a job that never started execution as failed. Only a still-queued job
+// changes: once a worker reports running, its operation may have touched the
+// target and the heartbeat must decide the outcome instead.
+export async function failQueuedJob(projectRoot: string, id: string, error: unknown) {
+  parse(z.uuid(), id);
+  const file = await contained(projectRoot, '.apexrest/jobs/' + id + '/state.json');
+  if (!(await exists(file))) return false;
+  const state = (await readJson(file)) as { status?: string; operation?: string };
+  if (state.status !== 'queued') return false;
+  const operation = typeof state.operation === 'string' ? state.operation : 'job';
+  await writeJson(file, {
+    id,
+    operation,
+    status: 'failed',
+    result: failure(operation, error),
+    nextAction: 'The worker did not start this operation. Resolve the diagnostic, then start a new job.',
+    updatedAt: new Date().toISOString(),
+  });
+  return true;
+}
+// A completed worker records the operation outcome, not merely process exit.
+export function jobOutcome(result: unknown) {
+  const value = result as { ok?: unknown; status?: unknown } | null;
+  if (!value || typeof value !== 'object' || value.ok !== false) return 'completed';
+  return typeof value.status === 'string' &&
+    !['queued', 'running', 'completed', 'succeeded'].includes(value.status)
+    ? value.status
+    : 'failed';
+}
 export async function executeJob(
   ctx: ProjectContext,
   id: string,
@@ -133,7 +169,8 @@ export async function executeJob(
     await pending;
     await writeJson(path.join(root, 'state.json'), {
       id,
-      status: 'completed',
+      operation: request.operation,
+      status: jobOutcome(result),
       result,
       updatedAt: new Date().toISOString(),
     });

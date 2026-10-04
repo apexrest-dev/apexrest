@@ -83,6 +83,10 @@ let currentView = 'overview',
   savedConnectionNames: string[] = [],
   savedConnectionsError = '';
 const embedded = window.parent !== window;
+// Global SQLcl execution and restriction settings are not exposed to Codex
+// tools; only the local dashboard or the terminal can change them.
+const embeddedSqlclNote =
+  'Change SQLcl settings in the local dashboard (apexrest_panel_open) or with apexrest sqlcl configure.';
 const token = launch.get('session') ?? '';
 const pending = new Map<
   number,
@@ -124,6 +128,7 @@ async function api(action?: PanelAction): Promise<unknown> {
   if (embedded) {
     if (action?.kind === 'connection' && action.password)
       throw new Error('Enter the password in the local dashboard or use CLI --password-file.');
+    if (action?.kind === 'sqlcl') throw new Error(embeddedSqlclNote);
     if (!bridgeReady || !bridgeProject) throw new Error('Waiting for the Codex workspace context.');
     const response = (await bridge('tools/call', {
       name: action ? 'apexrest_panel_action' : 'apexrest_panel_status',
@@ -273,7 +278,7 @@ function controls() {
     $(form)
       .querySelectorAll<HTMLButtonElement>('button[type=submit]')
       .forEach((button) => {
-        button.disabled = !canAct;
+        button.disabled = !canAct || (embedded && form === 'sqlcl-form');
       });
   $<HTMLButtonElement>('compose-plan').disabled = !canAct || !snapshot?.configured || compositionJobs.running;
   $('compose-plan').textContent = compositionJobs.pending ? 'Retry job status' : 'Plan and compile offline';
@@ -360,7 +365,15 @@ function operations(data: PanelSnapshot) {
     table.append(body);
     box.append(table);
   }
-  const output = [card('Operation jobs', box, 'Compile, export, tests and deployment work')];
+  const omitted = data.history?.jobsOmitted ?? 0;
+  const output = [
+    card(
+      'Operation jobs',
+      box,
+      'Compile, export, tests and deployment work' +
+        (omitted ? ` · ${omitted} older record${omitted === 1 ? '' : 's'} not shown` : ''),
+    ),
+  ];
   const sync = node('div');
   for (const entry of data.sync) {
     const row = node('div', 'journal-entry');
@@ -666,6 +679,7 @@ function sqlclControls() {
   $('sqlcl-transport-note').textContent = ords
     ? 'Connect through ORDS over HTTP(S) when the Oracle listener is unavailable. Uses SQLcl CLI and the ORDS settings for each connection reference below.'
     : 'Connect through the Oracle listener using saved SQLcl connections.';
+  if (embedded) $('sqlcl-transport-note').textContent += ' ' + embeddedSqlclNote;
   for (const [id, enabled] of [
     ['connection-direct-group', !ords],
     ['connection-ords-group', ords],
@@ -820,13 +834,16 @@ $('catalog-search').onsubmit = (event) => {
       b.onclick = () => {
         selectedBlock = hit.id;
         invalidateBlueprintReview();
-        void catalogAction({ kind: 'catalog-read', id: hit.id, offset: 0 }).then((data) => {
-          $('catalog-detail').textContent = (data as { content: string }).content;
-        });
+        void catalogAction({ kind: 'catalog-read', id: hit.id, offset: 0 }).then(
+          (data) => {
+            $('catalog-detail').textContent = (data as { content: string }).content;
+          },
+          () => controls(),
+        );
       };
       $('catalog-hits').append(b);
     }
-  })();
+  })().catch(() => controls());
 };
 $('catalog-add').onsubmit = (event) => {
   event.preventDefault();
@@ -860,15 +877,18 @@ $('catalog-add').onsubmit = (event) => {
 };
 $('blueprint-apply').onclick = () => {
   if (blueprintReview)
-    void catalogAction(blueprintReview).then(() => {
-      blueprintReview = undefined;
-      blueprintReviews.invalidate();
-      reviewedPlan = undefined;
-      compositionJobs.invalidate();
-      $<HTMLButtonElement>('blueprint-apply').disabled = true;
-      $<HTMLButtonElement>('compose-materialize').disabled = true;
-      notice('Blueprint updated. Create and review a new plan.');
-    });
+    void catalogAction(blueprintReview)
+      .then(() => {
+        blueprintReview = undefined;
+        blueprintReviews.invalidate();
+        reviewedPlan = undefined;
+        compositionJobs.invalidate();
+        $<HTMLButtonElement>('blueprint-apply').disabled = true;
+        $<HTMLButtonElement>('compose-materialize').disabled = true;
+        notice('Blueprint updated. Create and review a new plan.');
+      })
+      // catalogAction already shows the error; keep the review and restore its controls.
+      .catch(() => controls());
 };
 async function startComposition(action: PanelAction) {
   if (compositionJobs.running) return;

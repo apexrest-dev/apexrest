@@ -3,16 +3,16 @@ import {
   dispatch,
   schemas,
   toolCatalog
-} from "./chunk-HKJVCGQQ.mjs";
+} from "./chunk-A3TYG7T6.mjs";
 import {
   panelDocument
-} from "./chunk-FTTPESNK.mjs";
+} from "./chunk-IO6M33NE.mjs";
 import {
   JobService
-} from "./chunk-2BBNJVKW.mjs";
+} from "./chunk-S7T3NE27.mjs";
 import {
   ArtifactService
-} from "./chunk-YPLIIQ4Y.mjs";
+} from "./chunk-JBCN5WYI.mjs";
 import {
   VERSION
 } from "./chunk-G3KR57BY.mjs";
@@ -49,14 +49,14 @@ import {
   parse,
   safeParse,
   serializeMessage
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   failure,
   hash,
   sanitized,
   success
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
@@ -719,6 +719,15 @@ var inlineLimit = 8192;
 var readerLimit = 32768;
 var panelResultKey = "apexrest/panelResult";
 var archives = /* @__PURE__ */ new Map();
+var pruneIntervalMs = 36e5;
+var pruned = /* @__PURE__ */ new Map();
+async function pruneArchives(service, project, now = Date.now()) {
+  const last = pruned.get(project);
+  if (last !== void 0 && now - last < pruneIntervalMs) return;
+  pruned.set(project, now);
+  if (pruned.size > 32) pruned.delete(pruned.keys().next().value);
+  await service.prune("results").catch(() => void 0);
+}
 function preview(value, depth = 0) {
   if (Array.isArray(value)) return { count: value.length };
   if (!value || typeof value !== "object") return typeof value === "string" ? value.slice(0, 400) : value;
@@ -818,13 +827,13 @@ async function toolOutput(original, project) {
     let artifactId;
     let capturedRunId;
     let recoveryError;
+    const uiOnly = full.operation === "panel.status";
     try {
+      if (uiOnly) throw new Error("Panel snapshots are not archived.");
       if (!project) throw new Error("No project is available for a local result artifact.");
       const service = new ArtifactService(await loadProject(project));
-      const stable = { ...full, runId: "" };
-      if (full.operation === "panel.status" && full.data && typeof full.data === "object")
-        stable.data = { ...full.data, updatedAt: "" };
-      const key = hash(project + JSON.stringify(stable));
+      await pruneArchives(service, project);
+      const key = hash(project + JSON.stringify({ ...full, runId: "" }));
       const cached = archives.get(key);
       if (cached && await service.read(cached.artifactId, 0, 1).then(
         () => true,
@@ -838,7 +847,7 @@ async function toolOutput(original, project) {
         if (archives.size > 32) archives.delete(archives.keys().next().value);
       }
     } catch {
-      recoveryError = "The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.";
+      recoveryError = uiOnly ? "The complete panel snapshot is shown in the panel UI. Read specific jobs with apexrest_job_status; status reads change nothing." : "The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.";
     }
     result = {
       ...full,
@@ -855,7 +864,7 @@ async function toolOutput(original, project) {
           characters: serialized.length,
           diagnosticsCount: full.diagnostics.length,
           artifactsCount: full.artifacts.length,
-          ...artifactId ? { artifactId, capturedRunId } : { recovery: "unavailable" }
+          ...artifactId ? { artifactId, capturedRunId } : { recovery: uiOnly ? "panel-ui-metadata" : "unavailable" }
         }
       }
     };
@@ -910,15 +919,28 @@ var completedResultSchema = external_exports.object({
   ])
 });
 function jobToolResult(operation, job) {
-  if (job.status === "completed") {
+  const active = job.status === "queued" || job.status === "running" ? job.status : void 0;
+  if (!active && job.result !== void 0) {
     const nested = completedResultSchema.safeParse(job.result);
     if (nested.success && nested.data.operation === operation) return { ...nested.data, data: job };
   }
   const nextActions = typeof job.nextAction === "string" ? [job.nextAction] : ["Read apexrest_job_status with this jobId; inspect the existing operation before any retry."];
-  if (job.status === "queued" || job.status === "running")
+  if (job.status === "completed") {
+    const result2 = failure(
+      operation,
+      new Fault(
+        "JOB_RESULT_UNREADABLE",
+        "The job completed but its recorded result cannot be read for this operation. Inspect its existing record; do not repeat the operation.",
+        1,
+        "completed_unreadable"
+      )
+    );
+    return { ...result2, nextActions, data: job };
+  }
+  if (active)
     return {
       ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
-      status: job.status,
+      status: active,
       nextActions
     };
   const status = job.status === "failed" || job.status === "cancelled" ? job.status : "outcome_unknown";

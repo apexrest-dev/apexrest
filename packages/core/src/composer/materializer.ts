@@ -21,6 +21,8 @@ import {
   planDigest,
   parseDocumentData,
   validate,
+  canonical,
+  planLimits,
 } from './formats.ts';
 import { loadCatalog } from './catalog.ts';
 import { blueprintSchema } from './schemas.ts';
@@ -59,6 +61,38 @@ function receiptFor(plan: CompositionPlan) {
     qualification: plan.validation === 'compiler' ? 'offline-compiler' : 'source-only',
     deployment: 'not-run',
   };
+}
+/** Composer may write owned application source (never `.apex`), bases and tracked metadata. */
+function requireWriteScope(
+  ctx: ProjectContext,
+  write: { path: string; after: string | null },
+  metadata = false,
+) {
+  const sourceDir = ctx.config.application.sourceDir,
+    base = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
+  if (!(
+    write.path.startsWith(sourceDir + '/') ||
+    (base && (write.after === null || write.after === base[1])) ||
+    (metadata && ['.apexrest-composer/state.json', '.apexrest-composer/lock.json'].includes(write.path))
+  ))
+    throw new Fault('COMPOSITION_SCOPE_DENIED', 'Plan writes outside Composer ownership.', 5);
+  if (write.path.split('/').includes('.apex'))
+    throw new Fault('COMPOSITION_SCOPE_DENIED', 'Oracle metadata cannot be overwritten.', 5);
+}
+async function requireFrozenPlan(ctx: ProjectContext, plan: CompositionPlan) {
+  let frozen: CompositionPlan;
+  try {
+    frozen = await readDocument(
+      ctx.root,
+      `.apexrest/composer/plans/${plan.digest}.json`,
+      planSchema,
+      planLimits,
+    );
+  } catch {
+    throw new Fault('JOURNAL_CORRUPT', 'Journal plan has no immutable reviewed plan record.', 5);
+  }
+  if (canonical(frozen) !== canonical(plan))
+    throw new Fault('JOURNAL_CORRUPT', 'Journal plan differs from its immutable reviewed record.', 5);
 }
 async function bytes(ctx: ProjectContext, relative: string) {
   const file = await safePath(ctx.root, relative);
@@ -109,6 +143,7 @@ export async function journal(ctx: ProjectContext): Promise<Journal | null> {
   )
     throw new Fault('JOURNAL_CORRUPT', 'Journal checkpoints do not match its write set.', 5);
   for (const record of value.records) {
+    requireWriteScope(ctx, record, true);
     await safePath(ctx.root, record.path);
     const operation = value.plan.operations.find((op) => op.path === record.path);
     const metadata =
@@ -203,13 +238,7 @@ async function checkPreconditions(ctx: ProjectContext, plan: CompositionPlan) {
   )
     throw new Fault('COMPOSITION_DRIFT', 'Tracked lock differs from state.', 5);
   for (const op of plan.operations) {
-    if (
-      !op.path.startsWith(ctx.config.application.sourceDir + '/') &&
-      !/^\.apexrest-composer\/bases\/[a-f0-9]{64}\.apx$/.test(op.path)
-    )
-      throw new Fault('COMPOSITION_SCOPE_DENIED', 'Plan writes outside Composer ownership.', 5);
-    if (op.path.includes('/.apex/'))
-      throw new Fault('COMPOSITION_SCOPE_DENIED', 'Oracle metadata cannot be overwritten.', 5);
+    requireWriteScope(ctx, op);
     const current = await bytes(ctx, op.path);
     if (
       (current ? hash(current) : null) !== op.before ||
@@ -266,7 +295,7 @@ export async function freeze(ctx: ProjectContext, plan: CompositionPlan, out: st
     );
   if ((await exists(destination)) && destination !== frozen) {
     try {
-      await readDocument(ctx.root, out, planSchema);
+      await readDocument(ctx.root, out, planSchema, planLimits);
     } catch {
       throw new Fault('COMPOSITION_SCOPE_DENIED', 'Existing output is not a Composer plan.', 5);
     }
@@ -274,10 +303,15 @@ export async function freeze(ctx: ProjectContext, plan: CompositionPlan, out: st
   await atomicWrite(destination, text);
 }
 export async function readPlan(ctx: ProjectContext, file: string, expectedDigest: string) {
-  const plan = await readDocument(ctx.root, file, planSchema);
+  const plan = await readDocument(ctx.root, file, planSchema, planLimits);
   if (plan.digest !== expectedDigest || planDigest(plan) !== plan.digest)
     throw new Fault('PLAN_TAMPERED', 'Reviewed plan digest differs.', 5);
-  const frozen = await readDocument(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`, planSchema);
+  const frozen = await readDocument(
+    ctx.root,
+    `.apexrest/composer/plans/${plan.digest}.json`,
+    planSchema,
+    planLimits,
+  );
   if (semanticDigest(frozen) !== semanticDigest(plan))
     throw new Fault('PLAN_TAMPERED', 'Plan differs from its original immutable record.', 5);
   return plan;
@@ -325,9 +359,16 @@ export async function materialize(
       const receiptFile = '.apexrest/composer/receipt.json',
         existing = await bytes(ctx, receiptFile);
       const receipt = receiptFor(plan);
-      // A fresh checkout has tracked generation state but no private receipt. Re-establish
-      // it only after the reviewed plan has passed all current source/context checks.
-      if (!existing || JSON.parse(existing.toString('utf8')).qualification !== receipt.qualification)
+      // A fresh checkout has tracked generation state but no private receipt, and a stale
+      // receipt may name an older plan or qualification. Re-establish it only after the
+      // reviewed plan has passed all current source/context checks.
+      let current: unknown = null;
+      try {
+        current = existing ? JSON.parse(existing.toString('utf8')) : null;
+      } catch {
+        current = null;
+      }
+      if (current === null || canonical(current) !== canonical(receipt))
         await durable(ctx, receiptFile, documentText(receipt));
       return {
         status: 'no-op',
@@ -435,6 +476,7 @@ export async function recoveryPlan(
   const record = await journal(ctx);
   if (!record || record.phase === 'completed')
     throw new Fault('RECOVERY_NOT_REQUIRED', 'No interrupted composition requires recovery.', 5);
+  await requireFrozenPlan(ctx, record.plan);
   for (const entry of record.records) {
     const current = await bytes(ctx, entry.path),
       digest = current ? hash(current) : null;
@@ -494,6 +536,14 @@ async function applyRecovery(
     plan.recovery.recordsDigest !== semanticDigest(record.records)
   )
     throw new Fault('RECOVERY_CONFLICT', 'Recovery plan binds another journal.', 5);
+  await requireFrozenPlan(ctx, record.plan);
+  for (const entry of record.records) requireWriteScope(ctx, entry, true);
+  for (const operation of plan.operations) requireWriteScope(ctx, operation, true);
+  if (
+    canonical(plan.operations.map((operation) => operation.path)) !==
+    canonical(record.records.map((entry) => entry.path))
+  )
+    throw new Fault('RECOVERY_CONFLICT', 'Recovery plan write set differs from its journal.', 5);
   await checkPreconditions(ctx, { ...plan, operations: [] });
   const restore = plan.kind === 'recovery-restore';
   for (const entry of [...record.records].sort((a, b) =>
@@ -558,6 +608,12 @@ export async function deploymentBinding(ctx: ProjectContext) {
     lockDigest: string;
     qualification: string;
   };
+  if (receipt.qualification !== 'offline-compiler')
+    throw new Fault(
+      'COMPOSITION_UNQUALIFIED',
+      'Source-only Composer drafts cannot bind into deployment plans; replan with compiler validation.',
+      5,
+    );
   const state = await readDocument(ctx.root, '.apexrest-composer/state.json', stateSchema);
   const blueprintDigest = semanticDigest(
     await readDocument(ctx.root, receipt.blueprintPath, blueprintSchema),

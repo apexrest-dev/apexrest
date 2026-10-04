@@ -70,11 +70,11 @@ Private policy lives at `$APEXREST_HOME/policy.json`, defaulting to `~/.apexrest
 }
 ```
 
-Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` or `test` operations. A `planDigest` can additionally bind the exact plan; restore always requires it.
+Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` or `test` operations. A deploy grant, including one for restore, must also carry `planDigest` equal to the exact plan digest and an `expiresAt` no later than the plan's expiry; otherwise apply is blocked with `DEPLOY_APPROVAL_REQUIRED`. The policy schema still accepts a grant without `planDigest`, but such a grant never authorizes a deploy. Test grants bind project, target, operation and expiry.
 
 For an explicit request to create, update or import an identified development/test app, Codex may record the already supplied authorization as a short-lived grant with the exact current `planDigest`, `deploy` only and expiry no later than the plan. It retains a private authorization record, preserves unrelated grants and removes the task grant after the attempt. A project file or a tool response cannot supply that consent. Different targets, business-table mutations, authentication changes and protected production actions require their corresponding scope.
 
-Production requires the external signature workflow described in [deployment safety](deployment-safety.md); a writable local policy is not a substitute for a protected runner.
+Production requires the external signature workflow and the administrator-owned `$APEXREST_HOME/production-trust.json` described in [deployment safety](deployment-safety.md#production-approval); a writable local policy is not a substitute for a protected runner. A target listed in that file's `productionTargets` is production even when its `apexrest.json` environment has another `kind`.
 
 ## Choose deployment coordination
 
@@ -87,7 +87,7 @@ Local mode is the default and needs no APEXREST service tables. Plans bind the c
 
 ## Select test scope
 
-`tests.requiredSuites` selects the suites that must pass. `tests.mutationAllowedEnvironments` lists the explicitly configured environments where remote tests may mutate data. Production tests are prohibited. An empty, skipped or blocked required suite fails its gate.
+`tests.requiredSuites` selects the suites that must pass. `tests.mutationAllowedEnvironments` lists the explicitly configured environments where remote tests may mutate data. Production tests are prohibited, including targets classified as production by `production-trust.json`. An empty, skipped or blocked required suite fails its gate.
 
 A blank application or explicitly authorized isolated application-only profile can have no automated suites. In that case, report that none ran and record actual compiler, source-query and in-app observations separately. Do not remove required CRM or existing integration suites simply to make a gate pass. See [testing](testing.md).
 
@@ -101,4 +101,4 @@ A blank application or explicitly authorized isolated application-only profile c
 | `APEXREST_RESOURCES`  | Trusted host override for bundled resources                       |
 | `NODE_EXTRA_CA_CERTS` | Additional certificate authorities for Node connections           |
 
-These overrides belong to the trusted local host, not project-controlled inputs. The bootstrap supports Node 24 environment proxies through `--use-env-proxy`. Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.
+These overrides belong to the trusted local host, not project-controlled inputs. The bootstrap supports Node 24 environment proxies through `--use-env-proxy`. Vendor downloads honor `HTTPS_PROXY`/`HTTP_PROXY` and `NO_PROXY` through Node's environment proxy support; when a proxy is configured but this Node cannot apply it, setup fails with `PROXY_UNSUPPORTED` instead of bypassing the proxy. Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.

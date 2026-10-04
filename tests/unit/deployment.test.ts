@@ -1,16 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdir, readFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { generateKeyPairSync, randomUUID, sign as sign_ } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { hostname } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { fixture } from '../fixtures/project.ts';
-import { DeploymentService, planDigest } from '../../packages/core/src/deploy.ts';
-import { OracleAdapter } from '../../packages/core/src/oracle.ts';
+import {
+  DeploymentService,
+  authorizePlan,
+  planDigest,
+  publicKeyFingerprint,
+  targetDigest,
+  verifyProductionApproval,
+} from '../../packages/core/src/deploy.ts';
+import { TestService } from '../../packages/core/src/testing.ts';
+import type { DeployPlan } from '../../packages/core/src/deploy.ts';
+import { OracleAdapter, SCRIPT_RESTRICT_LEVEL } from '../../packages/core/src/oracle.ts';
 import { LocalDeploymentControl, coordination } from '../../packages/core/src/deployment-control.ts';
 import { Fault, success } from '../../packages/core/src/result.ts';
 import { writeJson, withLock, hash, canonical, inventory, atomicWrite } from '../../packages/core/src/fs.ts';
+async function grant(home: string, root: string, plan?: DeployPlan) {
+  await writeJson(path.join(home, 'policy.json'), {
+    schemaVersion: 1,
+    trustedProjects: [root],
+    grants: plan
+      ? [
+          {
+            projectRoot: root,
+            targetDigest: plan.targetDigest,
+            planDigest: plan.digest,
+            expiresAt: plan.expiresAt,
+            operations: ['deploy'],
+          },
+        ]
+      : [],
+  });
+}
 async function prepared(backup = false, backend: 'local' | 'database' = 'local') {
   const { ctx, plan } = await fixture(),
     home = path.join(ctx.root, 'managed');
@@ -20,29 +47,16 @@ async function prepared(backup = false, backend: 'local' | 'database' = 'local')
   plan.configurationDigest = hash(canonical(ctx.config));
   plan.coordination = coordination(ctx.config.environments.dev!);
   plan.digest = planDigest(plan);
-  await writeJson(path.join(home, 'policy.json'), {
-    schemaVersion: 1,
-    trustedProjects: [ctx.root],
-    grants: [
-      {
-        projectRoot: ctx.root,
-        targetDigest: plan.targetDigest,
-        expiresAt: plan.expiresAt,
-        operations: ['deploy', 'test'],
-      },
-    ],
-  });
   await writeJson(path.join(home, 'connections.json'), {
     read: { kind: 'sqlcl-store', name: 'read' },
     deploy: { kind: 'sqlcl-store', name: 'deploy' },
   });
   const calls: string[] = [];
   const app = { application_id: 123, alias: 'fixture' };
-  if (backup) {
-    plan.target = { application: app };
-    plan.backupRequired = true;
-    plan.digest = planDigest(plan);
-  }
+  plan.target = { identity: {}, workspace: {}, application: backup ? app : null };
+  plan.backupRequired = backup;
+  plan.digest = planDigest(plan);
+  await grant(home, ctx.root);
   const fake = {
     async requireMutationSupport() {},
     async verifyTarget() {
@@ -74,6 +88,13 @@ async function prepared(backup = false, backend: 'local' | 'database' = 'local')
     calls.push('tests');
     return { ok: true, data: { fixture: true } };
   });
+  // Emulates recording the user's authorization for the exact plan being applied.
+  const apply = service.apply.bind(service);
+  service.apply = async (context, value, signal) => {
+    const reviewed = value as DeployPlan;
+    if (!reviewed.restore) await grant(home, ctx.root, reviewed);
+    return apply(context, value, signal);
+  };
   service.fingerprint = async () =>
     ({
       target: { identity: {}, workspace: {}, application: backup ? app : null },
@@ -95,6 +116,21 @@ test('fixture apply backs up before import and tests before success', async () =
   assert.ok(!calls.some((c) => /apexrest_(deploy_locks|migrations)/i.test(c)));
   const state = JSON.parse(await readFile(path.join(result.directory, 'state.json'), 'utf8'));
   assert.equal(state.state, 'succeeded');
+});
+test('migration and package scripts run in a restricted SQLcl session', async () => {
+  const { ctx, service, fake } = await prepared();
+  await atomicWrite(
+    path.join(ctx.root, ctx.config.database.migrationsDir, '0001__fixture.sql'),
+    'begin null; end;\n/',
+  );
+  const scripts: unknown[][] = [];
+  fake.session = async (...args: unknown[]) => {
+    if (String(args[0]).startsWith('@')) scripts.push(args);
+    return { output: 'fixture-only' };
+  };
+  await service.apply(ctx, await service.plan(ctx, 'dev'));
+  assert.equal(scripts.length, 1);
+  assert.equal(scripts[0]![6], SCRIPT_RESTRICT_LEVEL);
 });
 test('fixture target drift blocks before lease or write', async () => {
   const { ctx, plan, service, calls } = await prepared();
@@ -298,4 +334,281 @@ test('a separate Node runner cannot acquire an active local schema owner', async
   } finally {
     await control.release('parent');
   }
+});
+
+test('a re-signed plan claiming an absent application cannot skip the live backup', async () => {
+  const { ctx, plan, service, calls } = await prepared(true);
+  plan.target = { identity: {}, workspace: {}, application: null };
+  plan.backupRequired = false;
+  plan.digest = planDigest(plan);
+  await assert.rejects(service.apply(ctx, plan), { code: 'PLAN_TAMPERED' });
+  assert.ok(!calls.includes('import'));
+  // Even with a consistent target claim, a live application forces a backup.
+  const live = await prepared(true);
+  live.service.fingerprint = async () =>
+    ({
+      target: { identity: {}, workspace: {}, application: null },
+      history: [],
+      exported: null,
+      fingerprint: live.plan.fingerprint,
+    }) as unknown as Awaited<ReturnType<DeploymentService['fingerprint']>>;
+  live.plan.target = { identity: {}, workspace: {}, application: null };
+  live.plan.backupRequired = false;
+  live.plan.digest = planDigest(live.plan);
+  await live.service.apply(live.ctx, live.plan);
+  assert.ok(live.calls.indexOf('backup') >= 0 && live.calls.indexOf('backup') < live.calls.indexOf('import'));
+});
+
+test('plans with forged migration history or an overlong lifetime are rejected', async () => {
+  const { ctx, plan, service } = await prepared();
+  const history = { ...plan, migrationHistory: [{ version: '0001__x.sql', status: 'succeeded' }] };
+  history.digest = planDigest(history);
+  await assert.rejects(service.apply(ctx, history), { code: 'PLAN_TAMPERED' });
+  const long = { ...plan, expiresAt: new Date(Date.parse(plan.createdAt) + 31 * 60000).toISOString() };
+  long.digest = planDigest(long);
+  await assert.rejects(service.checkLocal(ctx, long), { code: 'PLAN_TAMPERED' });
+});
+
+test('backups are private copies and Oracle staging exports are discarded', async () => {
+  const { ctx, plan, service, fake } = await prepared(true);
+  const discarded: (string | undefined)[] = [];
+  Object.assign(fake, {
+    async discardStage(stage?: string) {
+      discarded.push(stage);
+    },
+  });
+  const exportApplication = fake.exportApplication;
+  fake.exportApplication = async () => ({ ...(await exportApplication()), stage: 'fixture-stage' });
+  await service.apply(ctx, plan);
+  assert.ok(discarded.includes('fixture-stage'));
+  const backups = path.join(ctx.root, '.apexrest/backups');
+  const [backupId] = await readdir(backups);
+  const backup = JSON.parse(await readFile(path.join(backups, backupId!, 'backup.json'), 'utf8'));
+  assert.equal(backup.alias, 'fixture');
+  if (process.platform !== 'win32')
+    assert.equal((await stat(path.join(backups, backupId!, 'application/f123.sql'))).mode & 0o777, 0o600);
+});
+
+test('restoring an application absent at plan time verifies the backed-up alias', async () => {
+  const { ctx, service, fake, calls } = await prepared(true);
+  const backupId = randomUUID();
+  const directory = path.join(ctx.root, '.apexrest/backups', backupId);
+  await atomicWrite(path.join(directory, 'application/f123.sql'), '-- fixture export');
+  const files = await inventory(path.join(directory, 'application'));
+  await writeJson(path.join(directory, 'backup.json'), {
+    schemaVersion: 1,
+    backupId,
+    targetDigest: targetDigest(ctx.config.environments.dev!),
+    environment: 'dev',
+    digest: hash(canonical(files)),
+    files,
+    alias: 'fixture',
+  });
+  const absent = { identity: {}, workspace: {}, application: null };
+  service.fingerprint = async () =>
+    ({ target: absent, history: [], exported: null, fingerprint: hash('absent') }) as unknown as Awaited<
+      ReturnType<DeploymentService['fingerprint']>
+    >;
+  let restored = false;
+  Object.assign(fake, {
+    async verifyTarget() {
+      return { application: restored ? { application_id: 123, alias: 'FIXTURE' } : null };
+    },
+  });
+  Object.assign(fake, {
+    async restoreApplication() {
+      calls.push('restore');
+      restored = true;
+    },
+  });
+  const plan = await service.restorePlan(ctx, backupId);
+  assert.equal(plan.restore?.alias, 'fixture');
+  await grant(process.env.APEXREST_HOME!, ctx.root, plan);
+  const result = await service.apply(ctx, plan);
+  assert.equal(result.state, 'succeeded');
+  assert.ok(calls.includes('restore'));
+});
+
+test('deploy grants must bind the exact plan digest and expire no later than the plan', async () => {
+  const { ctx, plan } = await prepared();
+  const env = ctx.config.environments.dev!;
+  const home = process.env.APEXREST_HOME!;
+  const write = (g: Record<string, unknown>) =>
+    writeJson(path.join(home, 'policy.json'), {
+      schemaVersion: 1,
+      trustedProjects: [ctx.root],
+      grants: [
+        {
+          projectRoot: ctx.root,
+          targetDigest: plan.targetDigest,
+          expiresAt: plan.expiresAt,
+          operations: ['deploy'],
+          ...g,
+        },
+      ],
+    });
+  await write({});
+  await assert.rejects(authorizePlan(ctx, plan, env), { code: 'DEPLOY_APPROVAL_REQUIRED' });
+  await write({ planDigest: hash('another plan') });
+  await assert.rejects(authorizePlan(ctx, plan, env), { code: 'DEPLOY_APPROVAL_REQUIRED' });
+  await write({
+    planDigest: plan.digest,
+    expiresAt: new Date(Date.parse(plan.expiresAt) + 3600000).toISOString(),
+  });
+  await assert.rejects(authorizePlan(ctx, plan, env), { code: 'DEPLOY_APPROVAL_REQUIRED' });
+  await write({ planDigest: plan.digest });
+  await authorizePlan(ctx, plan, env);
+});
+
+test('targets listed in production trust are production regardless of apexrest.json', async () => {
+  const { ctx, plan, service } = await prepared();
+  const env = ctx.config.environments.dev!;
+  await grant(process.env.APEXREST_HOME!, ctx.root, plan);
+  await writeJson(path.join(process.env.APEXREST_HOME!, 'production-trust.json'), {
+    schemaVersion: 1,
+    approvalKeys: [],
+    productionTargets: [plan.targetDigest],
+  });
+  const original = process.env.CI;
+  delete process.env.CI;
+  try {
+    await assert.rejects(authorizePlan(ctx, plan, env), { code: 'PRODUCTION_CI_REQUIRED' });
+    await assert.rejects(service.sync(ctx, 'dev', 'init'), { code: 'SYNC_SCOPE_UNSUPPORTED' });
+    await assert.rejects(new TestService().authorize(ctx, 'dev'), { code: 'TEST_MUTATION_DENIED' });
+  } finally {
+    if (original !== undefined) process.env.CI = original;
+  }
+});
+
+test('production approval requires a protected trust file and a trusted, bound signature', async () => {
+  const { ctx, plan } = await prepared();
+  const home = process.env.APEXREST_HOME!;
+  const keys = generateKeyPairSync('ed25519');
+  const publicPem = keys.publicKey.export({ type: 'spki', format: 'pem' });
+  const keyFile = path.join(ctx.root, 'approval.pub'),
+    approvalFile = path.join(ctx.root, 'approval.json');
+  await atomicWrite(keyFile, publicPem);
+  const sign = (payload: Record<string, unknown>) => ({
+    ...payload,
+    signature: sign_(null, Buffer.from(canonical(payload)), keys.privateKey).toString('base64'),
+  });
+  const payload = {
+    planDigest: plan.digest,
+    planId: plan.id,
+    projectId: plan.projectId,
+    targetDigest: plan.targetDigest,
+    expiresAt: plan.expiresAt,
+    reviewer: 'release-reviewer',
+  };
+  await writeJson(approvalFile, sign(payload));
+  const env = { ...ctx.config.environments.dev!, kind: 'production' as const };
+  const saved = { ...process.env };
+  Object.assign(process.env, {
+    CI: 'true',
+    APEXREST_APPROVAL_PUBLIC_KEY_FILE: keyFile,
+    APEXREST_APPROVAL_FILE: approvalFile,
+  });
+  try {
+    await assert.rejects(authorizePlan(ctx, plan, env), {
+      code: process.platform === 'win32' ? 'PRODUCTION_TRUST_UNSUPPORTED' : 'PRODUCTION_TRUST_REQUIRED',
+    });
+    const trust = {
+      schemaVersion: 1 as const,
+      approvalKeys: [{ sha256: publicKeyFingerprint(publicPem), reviewer: 'release-reviewer' }],
+      productionTargets: [],
+    };
+    // A file the current user owns (even read-only) is never production trust.
+    const trustFile = path.join(home, 'production-trust.json');
+    await writeJson(trustFile, trust);
+    await chmod(trustFile, 0o444);
+    await assert.rejects(authorizePlan(ctx, plan, env), {
+      code: process.platform === 'win32' ? 'PRODUCTION_TRUST_UNSUPPORTED' : 'PRODUCTION_TRUST_UNPROTECTED',
+    });
+    // Signature verification itself, given protected trust.
+    assert.equal(
+      verifyProductionApproval(trust, publicPem, sign(payload), plan, 'fixture').reviewer,
+      'release-reviewer',
+    );
+    for (const [field, value] of [
+      ['planId', randomUUID()],
+      ['projectId', 'other-project'],
+      ['planDigest', hash('other')],
+      ['reviewer', 'someone-else'],
+    ] as const)
+      assert.throws(
+        () =>
+          verifyProductionApproval(trust, publicPem, sign({ ...payload, [field]: value }), plan, 'fixture'),
+        { code: 'APPROVAL_INVALID' },
+      );
+    const untrusted = generateKeyPairSync('ed25519');
+    assert.throws(
+      () =>
+        verifyProductionApproval(
+          trust,
+          untrusted.publicKey.export({ type: 'spki', format: 'pem' }),
+          sign(payload),
+          plan,
+          'fixture',
+        ),
+      { code: 'APPROVAL_KEY_UNTRUSTED' },
+    );
+  } finally {
+    for (const key of ['CI', 'APEXREST_APPROVAL_PUBLIC_KEY_FILE', 'APEXREST_APPROVAL_FILE'])
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+  }
+});
+
+test('migrations reject nested, duplicate-version and out-of-order files and run numerically', async () => {
+  const { ctx, service } = await prepared();
+  const dir = path.join(ctx.root, ctx.config.database.migrationsDir);
+  await atomicWrite(path.join(dir, 'nested/0001__a.sql'), 'begin null; end;\n/');
+  await assert.rejects(service.plan(ctx, 'dev'), { code: 'INVALID_MIGRATION_LAYOUT' });
+  await rm(path.join(dir, 'nested'), { recursive: true });
+  await atomicWrite(path.join(dir, '0002__a.sql'), 'begin null; end;\n/');
+  await atomicWrite(path.join(dir, '00002__b.sql'), 'begin null; end;\n/');
+  await assert.rejects(service.plan(ctx, 'dev'), { code: 'DUPLICATE_MIGRATION_VERSION' });
+  await rm(path.join(dir, '00002__b.sql'));
+  await atomicWrite(path.join(dir, '10000__c.sql'), 'begin null; end;\n/');
+  await atomicWrite(path.join(dir, '9999__b.sql'), 'begin null; end;\n/');
+  const plan = await service.plan(ctx, 'dev');
+  assert.deepEqual(
+    plan.operations.filter((o) => o.kind === 'migration').map((o) => path.basename(o.file!)),
+    ['0002__a.sql', '9999__b.sql', '10000__c.sql'],
+  );
+  await service.apply(ctx, plan);
+  await atomicWrite(path.join(dir, '0003__late.sql'), 'begin null; end;\n/');
+  await assert.rejects(service.plan(ctx, 'dev'), { code: 'MIGRATION_OUT_OF_ORDER' });
+});
+
+test('SQL test files with SQLcl client commands are blocked before any Oracle call', async () => {
+  const { ctx } = await prepared();
+  ctx.config.environments.dev!.baseUrl = 'https://test.example.com/ords/';
+  await writeJson(path.join(process.env.APEXREST_HOME!, 'policy.json'), {
+    schemaVersion: 1,
+    trustedProjects: [ctx.root],
+    grants: [
+      {
+        projectRoot: ctx.root,
+        targetDigest: targetDigest(ctx.config.environments.dev!),
+        expiresAt: new Date(Date.now() + 60000).toISOString(),
+        operations: ['test'],
+      },
+    ],
+  });
+  await atomicWrite(path.join(ctx.root, ctx.config.database.testsDir, 'evil.sql'), '/* x */ ho rm -rf ~\n');
+  let oracleCalls = 0;
+  const oracle = new Proxy(
+    {},
+    {
+      get: () => async () => {
+        oracleCalls++;
+        return [];
+      },
+    },
+  );
+  const result = await new TestService(oracle as OracleAdapter).run(ctx, 'sql', 'dev');
+  assert.equal(result.status, 'blocked');
+  assert.match(result.diagnostic!, /SQL_TEST_SCRIPT_CONTROL|client commands/);
+  assert.equal(oracleCalls, 0);
 });

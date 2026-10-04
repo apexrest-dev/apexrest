@@ -22,6 +22,11 @@ async function prepared() {
   const home = path.join(ctx.root, 'managed');
   process.env.APEXREST_HOME = home;
   plan.coordination = coordination(ctx.config.environments.dev!);
+  plan.target = {
+    identity: { db_unique_name: 'fixture', service_name: 'fixture', parsing_schema: 'FIXTURE' },
+    workspace: { workspace_id: 123, workspace: 'FIXTURE' },
+    application: null,
+  };
   plan.digest = planDigest(plan);
   await writeJson(path.join(home, 'policy.json'), {
     schemaVersion: 1,
@@ -31,6 +36,7 @@ async function prepared() {
         projectRoot: ctx.root,
         targetDigest: plan.targetDigest,
         expiresAt: plan.expiresAt,
+        planDigest: plan.digest,
         operations: ['deploy'],
       },
     ],
@@ -53,15 +59,11 @@ async function prepared() {
   };
   const service = new DeploymentService(oracle as unknown as OracleAdapter);
   const fingerprint = {
-    target: {
-      identity: { db_unique_name: 'fixture', service_name: 'fixture', parsing_schema: 'FIXTURE' },
-      workspace: { workspace_id: 123, workspace: 'FIXTURE' },
-      application: null,
-    },
+    target: plan.target,
     history: [],
     exported: null,
     fingerprint: plan.fingerprint,
-  } as Awaited<ReturnType<DeploymentService['fingerprint']>>;
+  } as unknown as Awaited<ReturnType<DeploymentService['fingerprint']>>;
   service.fingerprint = async () => fingerprint;
   return { ctx, plan, oracle, service, fingerprint };
 }

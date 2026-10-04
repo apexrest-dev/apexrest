@@ -7,6 +7,18 @@ const inlineLimit = 8192;
 const readerLimit = 32768;
 export const panelResultKey = 'apexrest/panelResult';
 const archives = new Map<string, { artifactId: string; capturedRunId: string }>();
+const pruneIntervalMs = 3600000;
+const pruned = new Map<string, number>();
+
+// Expired result archives are removed opportunistically: once per project when
+// this process first archives, then at most hourly. Pruning errors never affect output.
+async function pruneArchives(service: ArtifactService, project: string, now = Date.now()) {
+  const last = pruned.get(project);
+  if (last !== undefined && now - last < pruneIntervalMs) return;
+  pruned.set(project, now);
+  if (pruned.size > 32) pruned.delete(pruned.keys().next().value!);
+  await service.prune('results').catch(() => undefined);
+}
 
 function preview(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return { count: value.length };
@@ -118,13 +130,15 @@ export async function toolOutput(original: Result, project?: string) {
     let artifactId: string | undefined;
     let capturedRunId: string | undefined;
     let recoveryError: string | undefined;
+    // Panel snapshots are polled and their complete envelope already travels in
+    // UI metadata; archiving every poll would grow result storage without bound.
+    const uiOnly = full.operation === 'panel.status';
     try {
+      if (uiOnly) throw new Error('Panel snapshots are not archived.');
       if (!project) throw new Error('No project is available for a local result artifact.');
       const service = new ArtifactService(await loadProject(project));
-      const stable = { ...full, runId: '' };
-      if (full.operation === 'panel.status' && full.data && typeof full.data === 'object')
-        stable.data = { ...full.data, updatedAt: '' };
-      const key = hash(project + JSON.stringify(stable));
+      await pruneArchives(service, project);
+      const key = hash(project + JSON.stringify({ ...full, runId: '' }));
       const cached = archives.get(key);
       if (
         cached &&
@@ -141,8 +155,9 @@ export async function toolOutput(original: Result, project?: string) {
         if (archives.size > 32) archives.delete(archives.keys().next().value!);
       }
     } catch {
-      recoveryError =
-        'The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.';
+      recoveryError = uiOnly
+        ? 'The complete panel snapshot is shown in the panel UI. Read specific jobs with apexrest_job_status; status reads change nothing.'
+        : 'The complete result could not be archived. Inspect the existing local operation record; do not rerun a completed operation.';
     }
     result = {
       ...full,
@@ -163,7 +178,9 @@ export async function toolOutput(original: Result, project?: string) {
           characters: serialized.length,
           diagnosticsCount: full.diagnostics.length,
           artifactsCount: full.artifacts.length,
-          ...(artifactId ? { artifactId, capturedRunId } : { recovery: 'unavailable' }),
+          ...(artifactId
+            ? { artifactId, capturedRunId }
+            : { recovery: uiOnly ? 'panel-ui-metadata' : 'unavailable' }),
         },
       },
     };

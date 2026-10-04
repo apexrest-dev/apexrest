@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fixture } from '../fixtures/project.ts';
 import { exists, readJson, writeJson } from '../../packages/core/src/fs.ts';
-import { JobService } from '../../packages/core/src/jobs.ts';
+import { JobService, executeJob, failQueuedJob, jobOutcome } from '../../packages/core/src/jobs.ts';
+import { Fault, failure, success } from '../../packages/core/src/result.ts';
 
 async function setup(t: import('node:test').TestContext, status = 'running') {
   const { ctx } = await fixture();
@@ -91,4 +92,91 @@ test('job status preserves failed results, cancellation and recorded unknown out
     await writeJson(file, terminal);
     assert.deepEqual(await service.status(id, 30), terminal);
   }
+});
+
+async function trusted(t: import('node:test').TestContext, root: string) {
+  const before = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = path.join(root, 'managed');
+  await writeJson(path.join(process.env.APEXREST_HOME, 'policy.json'), {
+    schemaVersion: 1,
+    trustedProjects: [root],
+    grants: [],
+  });
+  t.after(() => {
+    if (before === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = before;
+  });
+}
+
+test('a worker that cannot spawn records a failed job instead of a queued one', async (t) => {
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await trusted(t, ctx.root);
+  const executable = process.execPath;
+  process.execPath = path.join(ctx.root, 'missing-node');
+  try {
+    await assert.rejects(new JobService(ctx).start('apex.validate', {}, '/runtime/apexrest.mjs'));
+  } finally {
+    process.execPath = executable;
+  }
+  const [id] = await readdir(path.join(ctx.root, '.apexrest/jobs'));
+  const state = (await readJson(path.join(ctx.root, '.apexrest/jobs', id!, 'state.json'))) as {
+    status: string;
+    operation: string;
+    result: { ok: boolean; operation: string; exitCode: number };
+  };
+  assert.equal(state.status, 'failed');
+  assert.equal(state.operation, 'apex.validate');
+  assert.equal(state.result.ok, false);
+  assert.equal(state.result.operation, 'apex.validate');
+  assert.equal((await new JobService(ctx).status(id!, 0)).status, 'failed');
+});
+
+test('only a job that never started can be marked failed by its worker', async (t) => {
+  const queued = await setup(t, 'queued');
+  assert.equal(
+    await failQueuedJob(path.dirname(path.dirname(path.dirname(queued.root))), queued.id, new Error('x')),
+    true,
+  );
+  assert.equal(((await readJson(queued.file)) as { status: string }).status, 'failed');
+  const running = await setup(t, 'running');
+  const projectRoot = path.dirname(path.dirname(path.dirname(running.root)));
+  assert.equal(
+    await failQueuedJob(projectRoot, running.id, new Fault('PROJECT_TRUST_REQUIRED', 'x', 4)),
+    false,
+  );
+  assert.deepEqual(await readJson(running.file), running.state);
+  assert.equal(await failQueuedJob(projectRoot, randomUUID(), new Error('x')), false);
+});
+
+test('completed workers record the operation outcome rather than plain completion', async (t) => {
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await trusted(t, ctx.root);
+  const outcomes = [
+    [success('apex.validate', {}), 'completed'],
+    [failure('apex.validate', new Fault('COMPILE_FAILED', 'Compiler failed.', 1)), 'failed'],
+    [
+      failure('deploy.apply', new Fault('IMPORT_INTERRUPTED', 'Unknown.', 6, 'outcome_unknown')),
+      'outcome_unknown',
+    ],
+    [failure('test.run', new Fault('CANCELLED', 'Stopped.', 6, 'cancelled')), 'cancelled'],
+  ] as const;
+  for (const [result, status] of outcomes) {
+    const id = randomUUID(),
+      root = path.join(ctx.root, '.apexrest/jobs', id);
+    await writeJson(path.join(root, 'request.json'), { id, operation: result.operation, input: {} });
+    await writeJson(path.join(root, 'state.json'), {
+      id,
+      status: 'queued',
+      operation: result.operation,
+      updatedAt: new Date().toISOString(),
+    });
+    await executeJob(ctx, id, async () => result);
+    const state = (await readJson(path.join(root, 'state.json'))) as { status: string; result: unknown };
+    assert.equal(state.status, status);
+    assert.deepEqual(state.result, result);
+  }
+  assert.equal(jobOutcome({ ok: false, status: 'running' }), 'failed');
+  assert.equal(jobOutcome(undefined), 'completed');
 });

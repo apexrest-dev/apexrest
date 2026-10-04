@@ -99,7 +99,9 @@ export async function dispatch(operation: string, input: Record<string, unknown>
       }
       case 'plugin.uninstall': {
         const { uninstallNative } = await import('../../installer/src/setup.ts');
-        data = await uninstallNative(text('home') ?? managedHome(), Boolean(parsed.keepRuntime));
+        data = await uninstallNative(text('home') ?? managedHome(), Boolean(parsed.keepRuntime), {
+          ...(text('codex') ? { codex: text('codex') } : {}),
+        });
         break;
       }
       case 'project.init':
@@ -168,6 +170,7 @@ export async function dispatch(operation: string, input: Record<string, unknown>
             data = await projectInspect(ctx, parsed.detail as 'full' | 'summary');
             break;
           case 'metadata.read': {
+            await requireTrust(ctx.root);
             const env = environment(ctx, text('env'));
             const { project: _p, env: _e, ...request } = parsed;
             data = await metadataRead(oracle, env, await resolveConnection(env.readConnectionRef), request);
@@ -269,9 +272,12 @@ export async function dispatch(operation: string, input: Record<string, unknown>
             );
             break;
           case 'deploy.status':
+            // Reconciliation resolves the read connection and exports the target.
+            await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text('run'));
             break;
           case 'deploy.restore-plan': {
+            await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text('backup'));
             await writeJson(await contained(ctx.root, text('out')), plan);
             data = plan;

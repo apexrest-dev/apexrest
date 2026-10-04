@@ -30,7 +30,7 @@ Use the [repository installation guide](getting-started.md#install-the-plugin) f
 
 ## SQLcl is present but compilation fails
 
-The reviewed local combination is SQLcl 26.1.2.132.1334 with Java 21. The system Java can differ; managed setup or `APEXREST_JAVA_HOME` selects the intended JRE. Inspect exact compiler diagnostics rather than relying only on process exit code: SQLcl can print an error and still exit zero.
+The reviewed local combination is SQLcl 26.1.2.132.1334 with Java 21. The system Java can differ; managed setup or `APEXREST_JAVA_HOME` selects the intended JRE. Inspect exact compiler diagnostics rather than relying only on process exit code: SQLcl can print an error and still exit zero. Validation therefore requires a success marker and no error indication; otherwise it reports `VALIDATION_UNCONFIRMED` with the compiler output.
 
 Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent an MMD version or edit internal APEX tables to work around a compiler incompatibility. Use the references for the selected toolchain version and make a focused source correction.
 
@@ -43,6 +43,11 @@ Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent 
 | Expired or mismatched plan                    | Create a new plan from the intended current source and target; do not edit a plan in place.         |
 | Missing service tables in ordinary deployment | Use the default local mode; only explicitly selected database coordination requires control tables. |
 | A required suite is empty or blocked          | Supply its real tests/dependency or resolve its authorized scope; do not count it as passed.        |
+| `DEPLOY_APPROVAL_REQUIRED`                    | Record a deploy grant with this plan's exact `planDigest` and an expiry no later than the plan.     |
+| `PLAN_TAMPERED`                               | The plan no longer matches the live target, history or sources; create and review a new plan.       |
+| `RECOVERY_REVIEW_REQUIRED`                    | Remove SQLcl client commands or destructive/authentication changes, or use a reviewed workflow.     |
+| `PRODUCTION_TRUST_*` or `APPROVAL_*`          | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.    |
+| `PASSWORD_FILE_UNSAFE`                        | Use a regular, non-symlink password file readable only by its owner (`chmod 600`).                  |
 
 Connection credentials belong in SQLcl's local store. Do not put them in an issue or prompt. See [configuration](configuration.md).
 
@@ -54,13 +59,15 @@ Wait for asynchronous APEX chart regions to finish loading before judging an emp
 
 ## Offline, proxy or download errors
 
-Preload the exact SHA-keyed vendor artifacts and required npm/browser caches. `--offline` never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Inspect disk space, proxy/CA settings and platform-specific browser dependencies separately.
+Preload the exact SHA-keyed vendor artifacts and required npm/browser caches. `--offline` never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Inspect disk space, proxy/CA settings and platform-specific browser dependencies separately. Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total. `PROXY_UNSUPPORTED` means a proxy is configured but the running Node cannot apply it: run with `NODE_USE_ENV_PROXY=1` on Node 24 or later, or preload the offline cache. `UNSAFE_CACHE_DIRECTORY` means the download cache is not owned by the current user or is group/world writable.
 
 `--install-os-deps` explicitly requests Playwright's system package installation and may require elevation. Oracle license acceptance remains separate from technical setup consent. No dependency download runs during MCP startup.
 
 ## Setup is locked or interrupted
 
 Concurrent setup reports `LOCKED`. A proven dead process on the same host can be recovered through the dedicated recovery gate. Unknown ownership, another host or an interrupted recovery gate requires inspection; do not guess that a live lock is stale.
+
+`LOCK_CORRUPT` reports a lock file without a readable owner that is older than 30 seconds, usually left by an interrupted process. Confirm that no apexrest operation is running on any host, then delete the lock file named in the message and retry. There is no automated recovery command for this case.
 
 Native packages are copied through staging and atomic rename. A rerun probes completed components. Preserve unrelated plugins and the private managed state; deleting everything is not a normal repair step.
 

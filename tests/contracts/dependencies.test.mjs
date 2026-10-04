@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { cp, mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 async function fixture(t) {
@@ -48,7 +48,7 @@ test('dependency preview works outside a checkout without writes or native regis
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const { data } = JSON.parse(result.stdout);
   assert.equal(data.status, 'planned');
-  assert.equal(data.plan.home, home);
+  assert.equal(data.plan.home, await realpath(home));
   assert.equal(data.plan.cache, cache);
   assert.equal(data.plan.offline, true);
   assert.deepEqual(data.plan.steps.map((step) => step.artifact.id).sort(), ['java', 'node', 'sqlcl']);

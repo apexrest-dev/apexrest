@@ -40,9 +40,8 @@ npm run test:unit
 npm run test:contracts
 node scripts/benchmark-apexlang-references.mjs docs/evidence/apexlang-retrieval.json
 node scripts/verify-apexlang-patterns.mjs docs/evidence/apexlang-compiler.json
-node scripts/verify-apexlang-codex.mjs docs/evidence/apexlang-codex.json
 ```
 
-The compiler command requires the supported local SQLcl, selected through `APEXREST_SQLCL` when it is outside `PATH`. The native check requires the Codex CLI. Neither command connects to an Oracle database. To compare an earlier implementation, supply its saved bundled reference module and resource directory as the benchmark's third and fourth arguments. To rebuild the corpus, supply the exact reviewed archive to `node scripts/build-apexlang-references.mjs`; its pinned hash is recorded in the builder and snapshot manifest.
+The compiler command requires the supported local SQLcl, selected through `APEXREST_SQLCL` when it is outside `PATH`; it does not connect to an Oracle database. The native Codex evidence was produced by a dedicated verification script that was removed in 1.0.0; the report is retained as historical evidence and cannot be regenerated with the current repository. To compare an earlier implementation, supply its saved bundled reference module and resource directory as the benchmark's third and fourth arguments. To rebuild the corpus, supply the exact reviewed archive to `node scripts/build-apexlang-references.mjs`; its pinned hash is recorded in the builder and snapshot manifest.
 
 Connected component/runtime coverage, broader task-level generation evaluations and other native platforms remain separate work. See [implementation status](implementation-status.md) and [next actions](next-actions.md).

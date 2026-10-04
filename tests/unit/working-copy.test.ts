@@ -1,17 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { readFile, rm, symlink, stat, rename } from 'node:fs/promises';
+import { chmod, readFile, rm, symlink, stat, rename } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { workingCopyFixture } from '../fixtures/working-copy.ts';
+import { workingCopyFixture as baseFixture } from '../fixtures/working-copy.ts';
 import { SyncStore, checkpoint, syncPath } from '../../packages/core/src/sync.ts';
 import { DeploymentService, planDigest } from '../../packages/core/src/deploy.ts';
+import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { writeJson, atomicWrite, canonical, hash, inventory } from '../../packages/core/src/fs.ts';
 import { LocalDeploymentControl } from '../../packages/core/src/deployment-control.ts';
 import { Fault } from '../../packages/core/src/result.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
 
+// Deploy grants must bind the exact plan digest. Emulate recording the user's
+// authorization for each non-restore plan; restores still need their own grant.
+async function workingCopyFixture() {
+  const f = await baseFixture();
+  const apply = f.service.apply.bind(f.service);
+  f.service.apply = async (context, value, signal) => {
+    const plan = value as DeployPlan;
+    if (!plan.restore)
+      await writeJson(path.join(process.env.APEXREST_HOME!, 'policy.json'), {
+        schemaVersion: 1,
+        trustedProjects: [f.ctx.root],
+        grants: [
+          {
+            projectRoot: f.ctx.root,
+            targetDigest: plan.targetDigest,
+            planDigest: plan.digest,
+            operations: ['deploy'],
+            expiresAt: plan.expiresAt,
+          },
+        ],
+      });
+    return apply(context, value, signal);
+  };
+  return f;
+}
 async function initialized() {
   const f = await workingCopyFixture();
   const initial = await f.service.sync(f.ctx, 'dev', 'init');
@@ -391,4 +417,55 @@ test('changed actual compiler requires explicit refresh without hidden exports',
   await service.sync(ctx, 'dev', 'refresh');
   const plan = await service.plan(ctx, 'dev');
   assert.equal(plan.compiler, 'new SQLcl');
+});
+
+test('security attribute edits in ordinary files are risks; full-export apply recomputes them live', async () => {
+  const securityEdit =
+    'application x (\n    authentication {\n        scheme: @no-authentication\n    }\n)\n';
+  const { ctx, service, calls } = await initialized();
+  const file = path.join(ctx.root, ctx.config.application.sourceDir, 'application.apx');
+  await atomicWrite(file, securityEdit);
+  const working = await service.plan(ctx, 'dev');
+  assert.ok(working.risks.includes('authentication-or-authorization-change'));
+  working.risks = [];
+  working.digest = planDigest(working);
+  await assert.rejects(service.apply(ctx, working), { code: 'PLAN_TAMPERED' });
+  const full = await workingCopyFixture();
+  await atomicWrite(
+    path.join(full.ctx.root, full.ctx.config.application.sourceDir, 'application.apx'),
+    securityEdit,
+  );
+  const plan = await full.service.plan(full.ctx, 'dev');
+  assert.ok(plan.risks.includes('authentication-or-authorization-change'));
+  plan.risks = [];
+  plan.digest = planDigest(plan);
+  await assert.rejects(full.service.apply(full.ctx, plan), { code: 'PLAN_TAMPERED' });
+  assert.ok(!calls.includes('import') && !full.calls.includes('import'));
+});
+
+test('a failure after the durable success checkpoint never rolls the working copy back', async (t) => {
+  if (process.platform === 'win32' || process.getuid?.() === 0) return t.skip('needs POSIX permissions');
+  const { ctx, service, store } = await initialized();
+  await atomicWrite(path.join(ctx.root, ctx.config.application.sourceDir, 'application.apx'), 'edit');
+  const plan = await service.plan(ctx, 'dev');
+  const write = SyncStore.prototype.write;
+  let runDir = '';
+  SyncStore.prototype.write = async function (state) {
+    await write.call(this, state);
+    if (state.status === 'ready' && state.lastSuccessfulImport && !runDir) {
+      // Make the final journal state write fail after the checkpoint is durable.
+      runDir = path.join(ctx.root, '.apexrest/deployments', state.lastSuccessfulImport.runId);
+      await chmod(runDir, 0o500);
+    }
+  };
+  try {
+    await assert.rejects(service.apply(ctx, plan));
+  } finally {
+    SyncStore.prototype.write = write;
+    if (runDir) await chmod(runDir, 0o700);
+  }
+  const after = (await store.read())!;
+  assert.ok(runDir);
+  assert.equal(after.lastSuccessfulImport?.runId, path.basename(runDir));
+  assert.equal(after.status, 'outcome_unknown');
 });

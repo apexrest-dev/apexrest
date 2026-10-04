@@ -1,14 +1,15 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  canonicalHome,
   managedHome,
   runtimeState
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   exists,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // packages/installer/src/uninstall-tools.ts
 import path from "node:path";
@@ -31,8 +32,23 @@ async function checkDirectory(home, directory) {
     }
   }
 }
+async function relativeToHome(home, file) {
+  const resolved = path.resolve(file);
+  const ancestors = [];
+  for (let current = path.dirname(resolved); ; current = path.dirname(current)) {
+    ancestors.unshift(current);
+    if (path.dirname(current) === current) break;
+  }
+  for (const ancestor of ancestors) {
+    try {
+      if (await canonicalHome(ancestor) === home) return path.relative(ancestor, resolved);
+    } catch {
+    }
+  }
+  return void 0;
+}
 async function uninstallTools(request) {
-  const home = path.resolve(request.home ?? managedHome());
+  const home = await canonicalHome(request.home ?? managedHome());
   await checkDirectory(home, home);
   const perform = async () => {
     const state = await runtimeState(home);
@@ -40,7 +56,7 @@ async function uninstallTools(request) {
     for (const component of ["node", "java", "sqlcl", "playwright"]) {
       const executable = state[component];
       if (!executable) continue;
-      const parts = path.relative(home, path.resolve(executable)).split(path.sep);
+      const parts = (await relativeToHome(home, executable) ?? "..").split(path.sep);
       const prefix = component === "playwright" ? ["playwright"] : ["toolchains", component];
       if (!prefix.every((part, index) => parts[index] === part) || parts.length <= prefix.length + 1) {
         steps.push({ component, action: "keep", reason: "External runtime; not owned by APEXREST." });

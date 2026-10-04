@@ -2,6 +2,19 @@
 
 English | [Українська](next-actions.uk.md)
 
+## Review fixes follow-up
+
+The [review fixes](implementation-status.md#review-fixes--local-implementation-2026-10-04) are verified locally only. Remaining work:
+
+- On a separately authorized DEV target, run migrations, package scripts, `apex import`, metadata restore and SQL tests through connected SQLcl sessions started with `-R 2`, and confirm that neither the restriction nor the client-command scanner rejects the project's legitimate scripts.
+- Verify the generated Composer save dialog in a browser over both `http` and `https`, including the path that retries a saved create as an edit.
+- On Windows, verify Codex `.cmd` shim resolution, the `apexrest.cmd` launcher and rename retries during installation.
+- Write provisioning guidance for `production-trust.json` on CI runners: file ownership, permissions, key fingerprints and target digests.
+- Reject deploy grants without `planDigest` at schema level. Today this is enforced only at authorization time; `schemas/policy.schema.json` and `tests/fixtures/working-copy.ts` still allow such grants.
+- Provide a recovery command for `LOCK_CORRUPT`; recovery is currently manual.
+- Toolchains installed by earlier releases receive integrity records on their first verification (trust on first use); decide whether to require a fresh install or an explicit re-verification.
+- If the runner user can delete `production-trust.json`, it removes the trust-file production classification of listed targets. Production approval still fails closed, but `kind`-only classification then applies; protect the managed home directory as well.
+
 ## Complete Composer local acceptance
 
 Close the local gaps recorded in the [audit](composer/audit.md): shared resources and consumer ownership; complete contract/compatibility evidence policy; executable captured-source normalization; deployment fault/property coverage and comparable workflow benchmarks. Do not close the roadmap merely because the existing test suites pass.

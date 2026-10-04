@@ -1,14 +1,23 @@
 import path from 'node:path';
 import { readFile, mkdir, cp, open, rename } from 'node:fs/promises';
-import { randomUUID, verify } from 'node:crypto';
+import { createPublicKey, randomUUID, verify } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
-import { environment, managedHome, parse, policy, requireTrust, refName } from './config.ts';
-import type { ProjectContext, Environment } from './config.ts';
+import {
+  environment,
+  isProductionTarget,
+  managedHome,
+  parse,
+  policy,
+  protectedProductionTrust,
+  requireTrust,
+  refName,
+} from './config.ts';
+import type { ProjectContext, Environment, ProductionTrust } from './config.ts';
 import { resolveConnection } from './connections.ts';
 import type { Connection } from './connections.ts';
 import { Fault } from './result.ts';
-import { OracleAdapter, sqlLiteral, sqlclToken } from './oracle.ts';
+import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlLiteral, sqlclToken } from './oracle.ts';
 import { LocalDeploymentControl, coordination } from './deployment-control.ts';
 import {
   SyncStore,
@@ -59,8 +68,12 @@ const legacyPlanSchema = z.strictObject({
   approval: z.literal('external-policy-required'),
   backupRequired: z.boolean(),
   digest: digestSchema,
-  restore: z.strictObject({ backupId: z.uuid(), checksum: digestSchema }).optional(),
+  restore: z
+    .strictObject({ backupId: z.uuid(), checksum: digestSchema, alias: refName.optional() })
+    .optional(),
 });
+/** Reviewed plans are valid for at most this long after creation. */
+export const PLAN_LIFETIME_MS = 30 * 60000;
 const syncBindingSchema = z.strictObject({
   syncId: z.uuid(),
   revision: z.number().int().nonnegative(),
@@ -132,13 +145,194 @@ export function planDigest(value: Omit<DeployPlan, 'digest'> | DeployPlan) {
   const { digest: _digest, ...unsigned } = value as DeployPlan;
   return hash(canonical(unsigned));
 }
+// SQL*Plus/SQLcl client commands with their minimum abbreviation. A reviewed
+// migration may contain SQL and PL/SQL only; client commands can run local
+// programs, read or write files, switch connections or execute JavaScript.
+const clientCommands: [string, number][] = [
+  ['host', 2],
+  ['start', 3],
+  ['spool', 3],
+  ['save', 3],
+  ['store', 3],
+  ['get', 3],
+  ['edit', 2],
+  ['connect', 4],
+  ['disconnect', 4],
+  ['password', 5],
+  ['exit', 4],
+  ['quit', 4],
+  ['script', 6],
+  ['javascript', 10],
+  ['cd', 2],
+  ['copy', 4],
+  ['alias', 5],
+  ['repeat', 6],
+  ['load', 4],
+  ['unload', 6],
+  ['liquibase', 9],
+  ['lb', 2],
+  ['sshtunnel', 9],
+  ['connmgr', 7],
+  ['apex', 4],
+  ['oci', 3],
+  ['datapump', 8],
+  ['dp', 2],
+  ['cloudstorage', 12],
+  ['cs', 2],
+  ['soda', 4],
+  ['mcp', 3],
+];
+const plsqlBlockStart =
+  /^(?:begin|declare)\b|^create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable)\s+)?(?:and\s+(?:resolve|compile)\s+)?(?:noforce\s+)?(?:java|function|procedure|package|trigger|type|library)\b/i;
+/**
+ * Return 1-based line numbers that SQLcl could interpret as client commands.
+ * Each line is tokenized after leading whitespace and leading block comments.
+ * Lines inside multi-line comments and strings are still checked: a lexer that
+ * disagrees with SQLcl must over-report, never hide a command.
+ */
+export function sqlclControlLines(sql: string): number[] {
+  const found: number[] = [];
+  let block = false;
+  sql.split(/\r\n|\r|\n/).forEach((raw, index) => {
+    let line = raw;
+    for (;;) {
+      line = line.replace(/^\s+/, '');
+      if (!line.startsWith('/*')) break;
+      const end = line.indexOf('*/', 2);
+      line = end < 0 ? '' : line.slice(end + 2);
+    }
+    if (!line || line.startsWith('--')) return;
+    if (/^[/.]\s*$/.test(line)) {
+      block = false;
+      return;
+    }
+    if (/^[!$@]/.test(line)) {
+      found.push(index + 1);
+      return;
+    }
+    const word = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
+    if (!word) return;
+    const rest = line.slice(word.length).trimStart();
+    if (word.length >= 3 && 'remark'.startsWith(word)) return;
+    if (plsqlBlockStart.test(line)) block = true;
+    // SQL clauses that share a command word on continuation lines.
+    if ('start'.startsWith(word) && word.length >= 3 && /^with\b/i.test(rest)) return;
+    if ('connect'.startsWith(word) && word.length >= 4 && /^by\b/i.test(rest)) return;
+    // PL/SQL EXIT [label] [WHEN ...] inside a block buffer.
+    if (block && word === 'exit') return;
+    if (
+      (word === 'whenever' && /\bcontinue\b/i.test(rest)) ||
+      (word === 'set' && /^(?:logsource|editfile)\b/i.test(rest)) ||
+      clientCommands.some(([name, min]) => word.length >= min && name.startsWith(word))
+    )
+      found.push(index + 1);
+  });
+  return found;
+}
 export function migrationRisk(sql: string): string[] {
   const risks: string[] = [];
   if (/\b(?:drop|truncate|delete|revoke|grant)\b|\balter\s+(?:table|user|system|database)\b/i.test(sql))
     risks.push('destructive-or-privileged-sql');
-  if (/^\s*(?:host|!|connect|conn|start|@|@@|exit|quit|script|javascript)\b/im.test(sql))
-    risks.push('sqlcl-script-control');
+  if (sqlclControlLines(sql).length) risks.push('sqlcl-script-control');
   return risks;
+}
+const securityHeader =
+  /^(?:(?:authentication|authorization)(?:[-_ ]?scheme)?\s*[:=]|(?:authentication|authorization)\s*(?:\{|[\w.-]+\s*\())/i;
+/**
+ * APEXlang security attributes of one source file: `authentication: public`,
+ * `authorizationScheme: @admin`, and the bodies of `authentication { ... }`,
+ * `authentication name ( ... )` and `authorization name ( ... )` blocks.
+ */
+export function securityAttributes(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (depth > 0) {
+      out.push(line);
+      depth += (line.match(/[{(]/g)?.length ?? 0) - (line.match(/[})]/g)?.length ?? 0);
+      continue;
+    }
+    if (!securityHeader.test(line)) continue;
+    out.push(line);
+    depth = Math.max(0, (line.match(/[{(]/g)?.length ?? 0) - (line.match(/[})]/g)?.length ?? 0));
+  }
+  return out;
+}
+/** Detect added, removed or edited security components and security attributes. */
+export async function securityChanged(
+  local: { root: string; files: Record<string, string> },
+  server: { root: string; files: Record<string, string> },
+) {
+  const read = async (root: string, files: Record<string, string>, file: string) =>
+    files[file] === undefined ? [] : securityAttributes(await readFile(await contained(root, file), 'utf8'));
+  for (const file of new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
+    if (local.files[file] === server.files[file]) continue;
+    if (/authenticat|authoriz/i.test(file)) return true;
+    if (
+      canonical(await read(local.root, local.files, file)) !==
+      canonical(await read(server.root, server.files, file))
+    )
+      return true;
+  }
+  return false;
+}
+const attestationSchema = z.strictObject({
+  planDigest: digestSchema,
+  planId: z.uuid(),
+  projectId: refName,
+  targetDigest: digestSchema,
+  expiresAt: z.iso.datetime(),
+  reviewer: z.string().min(1),
+  signature: z.string().min(1),
+});
+/** SHA-256 of a public key in SPKI DER form; PEM formatting does not change it. */
+export function publicKeyFingerprint(publicKey: string | Buffer) {
+  return hash(createPublicKey(publicKey).export({ type: 'spki', format: 'der' }));
+}
+/**
+ * Verify an external production approval against administrator trust. The
+ * signature covers the canonical attestation without `signature`.
+ */
+export function verifyProductionApproval(
+  trust: ProductionTrust,
+  publicKey: string | Buffer,
+  value: unknown,
+  plan: Pick<DeployPlan, 'digest' | 'id' | 'projectId' | 'targetDigest'>,
+  projectId: string,
+) {
+  const fingerprint = publicKeyFingerprint(publicKey);
+  const key = trust.approvalKeys.find((k) => k.sha256 === fingerprint);
+  if (!key)
+    throw new Fault(
+      'APPROVAL_KEY_UNTRUSTED',
+      'The approval public key is not listed in the protected production trust file.',
+      4,
+      'blocked',
+    );
+  const attestation = parse(attestationSchema, value);
+  const { signature, ...payload } = attestation;
+  if (
+    payload.planDigest !== plan.digest ||
+    payload.planId !== plan.id ||
+    payload.projectId !== plan.projectId ||
+    payload.projectId !== projectId ||
+    payload.targetDigest !== plan.targetDigest ||
+    (key.reviewer !== undefined && key.reviewer !== payload.reviewer) ||
+    Date.parse(payload.expiresAt) <= Date.now() ||
+    !verify(
+      null,
+      Buffer.from(canonical(payload)),
+      createPublicKey(publicKey),
+      Buffer.from(signature, 'base64'),
+    )
+  )
+    throw new Fault(
+      'APPROVAL_INVALID',
+      'External approval is invalid, expired or for another project/plan/target.',
+      4,
+    );
+  return payload;
 }
 export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: Environment) {
   await requireTrust(ctx.root);
@@ -149,7 +343,8 @@ export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: 
       4,
       'blocked',
     );
-  if (env.kind === 'production') {
+  // Administrator trust can mark a target as production regardless of apexrest.json.
+  if (await isProductionTarget(env, plan.targetDigest)) {
     if (
       process.env.CI !== 'true' ||
       !process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE ||
@@ -161,33 +356,15 @@ export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: 
         4,
         'blocked',
       );
-    const attestation = parse(
-      z.strictObject({
-        planDigest: digestSchema,
-        targetDigest: digestSchema,
-        expiresAt: z.iso.datetime(),
-        reviewer: z.string().min(1),
-        signature: z.string().min(1),
-      }),
+    // The environment only selects a key; trust comes from a file this process cannot modify.
+    const trust = await protectedProductionTrust();
+    verifyProductionApproval(
+      trust,
+      await readFile(process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE),
       await readJson(process.env.APEXREST_APPROVAL_FILE),
+      plan,
+      ctx.config.projectId,
     );
-    const { signature, ...payload } = attestation;
-    if (
-      payload.planDigest !== plan.digest ||
-      payload.targetDigest !== plan.targetDigest ||
-      Date.parse(payload.expiresAt) <= Date.now() ||
-      !verify(
-        null,
-        Buffer.from(canonical(payload)),
-        await readFile(process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE),
-        Buffer.from(signature, 'base64'),
-      )
-    )
-      throw new Fault(
-        'APPROVAL_INVALID',
-        'External approval is invalid, expired or for another plan/target.',
-        4,
-      );
     return;
   }
   const grants = (await policy()).grants;
@@ -197,16 +374,86 @@ export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: 
         g.projectRoot === ctx.root &&
         g.targetDigest === plan.targetDigest &&
         g.operations.includes('deploy') &&
+        g.planDigest === plan.digest &&
         Date.parse(g.expiresAt) > Date.now() &&
-        (plan.restore ? g.planDigest === plan.digest : !g.planDigest || g.planDigest === plan.digest),
+        Date.parse(g.expiresAt) <= Date.parse(plan.expiresAt),
     )
   )
     throw new Fault(
       'DEPLOY_APPROVAL_REQUIRED',
-      'A user-owned development grant for this project and target is required.',
+      'A user-owned deploy grant for this project and target is required. It must carry planDigest equal to this plan digest and expire no later than the plan.',
       4,
       'blocked',
     );
+}
+const migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
+const migrationVersion = (file: string) => BigInt(migrationName.exec(path.basename(file))?.[1] ?? '-1');
+/** Migrations run in numeric version order, then package files by path. */
+function operationOrder(a: DeployPlan['operations'][number], b: DeployPlan['operations'][number]) {
+  const kind = (a.kind === 'migration' ? 0 : 1) - (b.kind === 'migration' ? 0 : 1);
+  if (kind) return kind;
+  if (a.kind === 'migration' && b.kind === 'migration') {
+    const left = migrationVersion(a.file ?? ''),
+      right = migrationVersion(b.file ?? '');
+    if (left !== right) return left < right ? -1 : 1;
+  }
+  return (a.file ?? '').localeCompare(b.file ?? '');
+}
+/** Flat, uniquely versioned migration files; new versions must follow applied history. */
+function checkMigrations(
+  ctx: ProjectContext,
+  sources: Record<string, string>,
+  history: Record<string, unknown>[],
+) {
+  const prefix = ctx.config.database.migrationsDir + '/';
+  const versions = new Map<bigint, string>();
+  const applied = new Set(history.map((row) => String(row.version)));
+  let highest = -1n;
+  for (const row of history) {
+    const match = migrationName.exec(String(row.version));
+    if (match && BigInt(match[1]!) > highest) highest = BigInt(match[1]!);
+  }
+  for (const file of Object.keys(sources)) {
+    if (!file.startsWith(prefix)) continue;
+    const name = file.slice(prefix.length);
+    if (name.includes('/'))
+      throw new Fault(
+        'INVALID_MIGRATION_LAYOUT',
+        `Migration ${file} is in a subdirectory. Keep migrations directly in ${ctx.config.database.migrationsDir}.`,
+        2,
+      );
+    const match = migrationName.exec(name);
+    if (!match)
+      throw new Fault(
+        'INVALID_MIGRATION_NAME',
+        'Use ordered immutable migration names such as 0001__customers.sql.',
+        2,
+      );
+    const version = BigInt(match[1]!);
+    const duplicate = versions.get(version);
+    if (duplicate)
+      throw new Fault(
+        'DUPLICATE_MIGRATION_VERSION',
+        `Migrations ${duplicate} and ${name} share version ${match[1]}. Use one file per version.`,
+        2,
+      );
+    versions.set(version, name);
+    if (!applied.has(name) && version < highest)
+      throw new Fault(
+        'MIGRATION_OUT_OF_ORDER',
+        `New migration ${name} is older than the highest applied version. Give it a higher version.`,
+        5,
+      );
+  }
+}
+/** Application source files keyed relative to the application source directory. */
+function applicationFiles(ctx: ProjectContext, sources: Record<string, string>) {
+  const prefix = ctx.config.application.sourceDir + '/';
+  return Object.fromEntries(
+    Object.entries(sources)
+      .filter(([file]) => file.startsWith(prefix))
+      .map(([file, sha]) => [file.slice(prefix.length), sha]),
+  );
 }
 export async function sourceInventory(ctx: ProjectContext) {
   const files: Record<string, string> = {};
@@ -308,7 +555,7 @@ export class DeploymentService {
         await store.validate(previous);
         return store.status();
       }
-      if (env.kind === 'production')
+      if (await isProductionTarget(env))
         throw new Fault(
           'SYNC_SCOPE_UNSUPPORTED',
           'Working copies support existing development/test applications only.',
@@ -472,6 +719,9 @@ export class DeploymentService {
         if (previous && previous.targetDigest !== state.targetDigest)
           await store.write({ ...previous, status: 'invalidated', revision: previous.revision + 1 });
         await store.write(state);
+        // Private baseline and backup copies are installed; release the Oracle staging exports.
+        await this.oracle.discardStage?.(exported.stage);
+        await this.oracle.discardStage?.(sql.stage);
         return store.status();
       } finally {
         if (heartbeat) clearInterval(heartbeat);
@@ -532,6 +782,7 @@ export class DeploymentService {
         'An earlier migration has an unresolved outcome. Reconcile it before any new deployment.',
         5,
       );
+    checkMigrations(ctx, sources, current.history);
     for (const [file, sha256] of Object.entries(sources)) {
       const migration = file.startsWith(ctx.config.database.migrationsDir + '/');
       const pkg = file.startsWith(ctx.config.database.packagesDir + '/');
@@ -565,22 +816,24 @@ export class DeploymentService {
         5,
       );
     if (current.exported) {
-      const prefix = ctx.config.application.sourceDir + '/';
-      const localApp = Object.fromEntries(
-        Object.entries(sources)
-          .filter(([file]) => file.startsWith(prefix))
-          .map(([file, sha]) => [file.slice(prefix.length), sha]),
-      );
-      for (const file of new Set([...Object.keys(current.exported.files), ...Object.keys(localApp)]))
-        if (/authenticat|authoriz/i.test(file) && localApp[file] !== current.exported.files[file])
+      try {
+        if (
+          await securityChanged(
+            {
+              root: await contained(ctx.root, ctx.config.application.sourceDir),
+              files: applicationFiles(ctx, sources),
+            },
+            { root: path.resolve(ctx.root, current.exported.directory), files: current.exported.files },
+          )
+        )
           risks.push('authentication-or-authorization-change');
+      } finally {
+        if (!working) await this.oracle.discardStage?.((current.exported as { stage?: string }).stage);
+      }
     }
-    operations.sort(
-      (a, b) =>
-        (a.kind === 'migration' ? 0 : 1) - (b.kind === 'migration' ? 0 : 1) ||
-        (a.file ?? '').localeCompare(b.file ?? ''),
-    );
+    operations.sort(operationOrder);
     operations.push({ kind: 'import' }, { kind: 'verify' }, { kind: 'test' });
+    const createdAt = Date.now();
     const plan: DeployPlan = {
       schemaVersion: 2,
       mode: working ? 'working-copy' : 'full-export',
@@ -590,8 +843,8 @@ export class DeploymentService {
       projectId: ctx.config.projectId,
       projectRoot: ctx.root,
       environment: name,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 60000).toISOString(),
+      createdAt: new Date(createdAt).toISOString(),
+      expiresAt: new Date(createdAt + PLAN_LIFETIME_MS).toISOString(),
       sourceDigest: hash(canonical(sources)),
       sources,
       configurationDigest: hash(canonical(ctx.config)),
@@ -641,18 +894,16 @@ export class DeploymentService {
           'Plan does not bind the current working-copy revision. Re-plan.',
           5,
         );
-      const prefix = ctx.config.application.sourceDir + '/';
-      const before = checkpoint(state).files;
-      const local = Object.fromEntries(
-        Object.entries(plan.sources)
-          .filter(([file]) => file.startsWith(prefix))
-          .map(([file, sha]) => [file.slice(prefix.length), sha]),
-      );
+      const reviewed = checkpoint(state);
       if (
-        [...new Set([...Object.keys(before), ...Object.keys(local)])].some(
-          (file) => /authenticat|authoriz/i.test(file) && local[file] !== before[file],
-        ) &&
-        !plan.risks.includes('authentication-or-authorization-change')
+        !plan.risks.includes('authentication-or-authorization-change') &&
+        (await securityChanged(
+          {
+            root: await contained(ctx.root, ctx.config.application.sourceDir),
+            files: applicationFiles(ctx, plan.sources),
+          },
+          { root: await syncPath(ctx, reviewed.directory), files: reviewed.files },
+        ))
       )
         throw new Fault('PLAN_TAMPERED', 'Plan omits an authentication or authorization change.', 5);
       await store.validate(state, !(permitImporting && state.status === 'importing'));
@@ -688,6 +939,9 @@ export class DeploymentService {
       throw new Fault('PLAN_TARGET_MISMATCH', 'Plan project or target differs from the current request.', 5);
     if (Date.parse(plan.expiresAt) <= Date.now())
       throw new Fault('PLAN_EXPIRED', 'Create and review a new plan.', 5);
+    const lifetime = Date.parse(plan.expiresAt) - Date.parse(plan.createdAt);
+    if (!(lifetime > 0 && lifetime <= PLAN_LIFETIME_MS) || Date.parse(plan.createdAt) > Date.now() + 60000)
+      throw new Fault('PLAN_TAMPERED', 'Plan lifetime exceeds the reviewed plan limit.', 5);
     if (
       plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) ||
       plan.configurationDigest !== hash(canonical(ctx.config)) ||
@@ -704,6 +958,7 @@ export class DeploymentService {
       );
     const expected: DeployPlan['operations'] = [];
     if (!plan.restore) {
+      checkMigrations(ctx, plan.sources, plan.migrationHistory);
       const history = new Map(plan.migrationHistory.map((row) => [String(row.version), row]));
       for (const [file, sha256] of Object.entries(plan.sources)) {
         const kind = file.startsWith(ctx.config.database.migrationsDir + '/')
@@ -728,11 +983,7 @@ export class DeploymentService {
         if (risks.some((r) => !plan.risks.includes(r)))
           throw new Fault('PLAN_TAMPERED', 'Plan omits a SQL risk.', 5);
       }
-      expected.sort(
-        (a, b) =>
-          (a.kind === 'migration' ? 0 : 1) - (b.kind === 'migration' ? 0 : 1) ||
-          (a.file ?? '').localeCompare(b.file ?? ''),
-      );
+      expected.sort(operationOrder);
     }
     expected.push({ kind: 'import' }, { kind: 'verify' }, { kind: 'test' });
     if (canonical(expected) !== canonical(plan.operations))
@@ -789,10 +1040,44 @@ export class DeploymentService {
         : this.fingerprint(env, readConnection),
       this.oracle.requireCapability('import'),
     ]);
-    if (deployTargetCheck.status === 'rejected') throw deployTargetCheck.reason;
-    if (fingerprintCheck.status === 'rejected') throw fingerprintCheck.reason;
-    if (fingerprintCheck.value.fingerprint !== plan.fingerprint)
-      throw new Fault('TARGET_DRIFT', 'Target or migration history changed after review.', 5);
+    const liveStage =
+      !working && fingerprintCheck.status === 'fulfilled'
+        ? (fingerprintCheck.value.exported as { stage?: string } | null)?.stage
+        : undefined;
+    try {
+      if (deployTargetCheck.status === 'rejected') throw deployTargetCheck.reason;
+      if (fingerprintCheck.status === 'rejected') throw fingerprintCheck.reason;
+      const live = fingerprintCheck.value;
+      if (live.fingerprint !== plan.fingerprint)
+        throw new Fault('TARGET_DRIFT', 'Target or migration history changed after review.', 5);
+      // The fingerprint covers the observed target; the plan's own copies must match it too.
+      if (
+        canonical(live.target) !== canonical(plan.target) ||
+        canonical(live.history) !== canonical(plan.migrationHistory)
+      )
+        throw new Fault('PLAN_TAMPERED', 'Plan target or migration history differs from the live target.', 5);
+      // Recompute security risk from the live export instead of trusting plan.risks.
+      if (
+        !working &&
+        !plan.restore &&
+        live.exported &&
+        !plan.risks.includes('authentication-or-authorization-change') &&
+        (await securityChanged(
+          {
+            root: await contained(ctx.root, ctx.config.application.sourceDir),
+            files: applicationFiles(ctx, plan.sources),
+          },
+          { root: live.exported.directory, files: live.exported.files },
+        ))
+      )
+        throw new Fault('PLAN_TAMPERED', 'Plan omits an authentication or authorization change.', 5);
+    } finally {
+      await this.oracle.discardStage?.(liveStage);
+    }
+    // Backup necessity follows the live target, never only the plan's claim.
+    const liveApplication =
+      (fingerprintCheck.value.target.application as { alias?: unknown } | null) ??
+      (deployTargetCheck.value.application as { alias?: unknown } | null);
     if (capabilityCheck.status === 'rejected') throw capabilityCheck.reason;
     const capability = capabilityCheck.value;
     if (capability.version !== plan.compiler)
@@ -806,7 +1091,8 @@ export class DeploymentService {
     let state: DeployState = 'planned',
       writeStarted = false,
       importConfirmed = false,
-      syncMarked = false;
+      syncMarked = false,
+      syncSucceeded = false;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
@@ -857,33 +1143,37 @@ export class DeploymentService {
       await record('backing_up');
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if (plan.backupRequired && !working) {
+      if ((plan.backupRequired || liveApplication) && !working) {
         const backup = await this.oracle.exportApplication(env, readConnection, 'SQL');
-        const backupId = randomUUID(),
-          directory = path.join(ctx.root, '.apexrest/backups', backupId);
-        await mkdir(directory, { recursive: true, mode: 0o700 });
-        await cp(backup.directory, path.join(directory, 'application'), { recursive: true });
-        const files = await inventory(path.join(directory, 'application'));
-        if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
-          throw new Fault('BACKUP_INVALID', 'Backup copy failed checksum verification.', 1);
-        await writeJson(path.join(directory, 'backup.json'), {
-          schemaVersion: 1,
-          backupId,
-          targetDigest: plan.targetDigest,
-          environment: plan.environment,
-          digest: backup.digest,
-          files,
-          restoreProcedure:
-            'Reviewed SQL export import; application metadata only. Schema/data recovery is separate.',
-        });
+        try {
+          const backupId = randomUUID(),
+            directory = path.join(ctx.root, '.apexrest/backups', backupId);
+          await mkdir(directory, { recursive: true, mode: 0o700 });
+          await privateCopy(backup.directory, path.join(directory, 'application'));
+          const files = await inventory(path.join(directory, 'application'));
+          if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
+            throw new Fault('BACKUP_INVALID', 'Backup copy failed checksum verification.', 1);
+          await writeJson(path.join(directory, 'backup.json'), {
+            schemaVersion: 1,
+            backupId,
+            targetDigest: plan.targetDigest,
+            environment: plan.environment,
+            digest: backup.digest,
+            files,
+            ...(typeof liveApplication?.alias === 'string' ? { alias: liveApplication.alias } : {}),
+            restoreProcedure:
+              'Reviewed SQL export import; application metadata only. Schema/data recovery is separate.',
+          });
+        } finally {
+          await this.oracle.discardStage?.((backup as { stage?: string }).stage);
+        }
       }
       await this.checkLocal(ctx, plan);
-      if (
-        (working
-          ? await this.workingFingerprint(ctx, plan.environment, working)
-          : await this.fingerprint(env, readConnection)
-        ).fingerprint !== plan.fingerprint
-      )
+      const after = working
+        ? await this.workingFingerprint(ctx, plan.environment, working)
+        : await this.fingerprint(env, readConnection);
+      if (!working) await this.oracle.discardStage?.((after.exported as { stage?: string } | null)?.stage);
+      if (after.fingerprint !== plan.fingerprint)
         throw new Fault('TARGET_DRIFT', 'Target changed during backup.', 5);
       // Execute a frozen copy. A later working-tree edit cannot alter reviewed bytes.
       const snapshot = path.join(runDir, 'snapshot');
@@ -941,11 +1231,15 @@ export class DeploymentService {
             );
         }
         writeStarted = true;
+        // User scripts run restricted (no host/spool/save); level 2 still allows @file.
         await this.oracle.session(
           `@${sqlclToken(file)}\nprompt APEXREST_SCRIPT_COMPLETE`,
           deployConnection,
           true,
           controller.signal,
+          undefined,
+          'text',
+          SCRIPT_RESTRICT_LEVEL,
         );
         if (operation.kind === 'migration') {
           if (coordination(env).backend === 'local')
@@ -974,7 +1268,7 @@ export class DeploymentService {
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault('BACKUP_INVALID', 'Restore source changed after approval.', 5);
         const frozen = path.join(runDir, 'restore');
-        await cp(backupRoot, frozen, { recursive: true });
+        await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
           throw new Fault('BACKUP_INVALID', 'Restore copy changed.', 5);
@@ -1008,26 +1302,39 @@ export class DeploymentService {
         );
       }
       importConfirmed = true;
-      await record('verifying');
-      const target = await this.oracle.verifyTarget(env, readConnection);
-      if (
-        !target.application ||
-        String(target.application.alias).toLowerCase() !==
-          String(
-            plan.restore
-              ? (plan.target.application as { alias: string }).alias
-              : ctx.config.application.alias,
-          ).toLowerCase()
-      )
-        throw new Fault('POST_DEPLOY_IDENTITY_FAILED', 'Expected imported app was not found.', 1);
-      await record('testing');
-      if (ctx.config.tests.requiredSuites.length) {
-        if (!this.runTests)
-          throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
-        await this.checkLocal(ctx, plan, true);
-        const tests = await this.runTests(ctx, plan.environment);
-        if (!tests.ok)
-          throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
+      let target: Awaited<ReturnType<OracleAdapter['verifyTarget']>>;
+      try {
+        await record('verifying');
+        target = await this.oracle.verifyTarget(env, readConnection);
+        // A restored app may have been absent at plan time; use the alias recorded with the backup.
+        const expectedAlias = plan.restore
+          ? (plan.restore.alias ??
+            (plan.target.application as { alias?: unknown } | null | undefined)?.alias ??
+            ctx.config.application.alias)
+          : ctx.config.application.alias;
+        if (
+          !target.application ||
+          String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase()
+        )
+          throw new Fault('POST_DEPLOY_IDENTITY_FAILED', 'Expected imported app was not found.', 1);
+        await record('testing');
+        if (ctx.config.tests.requiredSuites.length) {
+          if (!this.runTests)
+            throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
+          await this.checkLocal(ctx, plan, true);
+          const tests = await this.runTests(ctx, plan.environment);
+          if (!tests.ok)
+            throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
+        }
+      } catch (error) {
+        // The import itself was confirmed. An unexpected verification error is a
+        // verification failure, not an unknown import outcome.
+        if (error instanceof Fault) throw error;
+        throw new Fault(
+          'POST_DEPLOY_VERIFICATION_FAILED',
+          `Import was confirmed but verification failed: ${error instanceof Error ? error.message : 'unexpected error'}`,
+          1,
+        );
       }
       if (working) {
         const metadata = await this.oracle.applicationMetadata(env, readConnection);
@@ -1048,6 +1355,7 @@ export class DeploymentService {
             lastSuccessfulImport: { at: new Date().toISOString(), runId, snapshot },
           });
         });
+        syncSucceeded = true;
       }
       await record('succeeded');
       return { runId, state, directory: runDir };
@@ -1060,11 +1368,14 @@ export class DeploymentService {
             const owned = await syncStore.read();
             if (!owned || (owned.importingRunId !== runId && owned.lastSuccessfulImport?.runId !== runId))
               throw new Error('Sync ownership changed during failure recording.');
-            await syncStore.write({
-              ...working!,
-              importingRunId: writeStarted ? runId : null,
-              status: unknown ? 'outcome_unknown' : writeStarted ? 'verification_failed' : 'ready',
-            });
+            const status = unknown ? 'outcome_unknown' : writeStarted ? 'verification_failed' : 'ready';
+            // Once this run's success checkpoint is durable, never roll it back
+            // to the pre-import state; only the status may change.
+            await syncStore.write(
+              syncSucceeded || owned.lastSuccessfulImport?.runId === runId
+                ? { ...owned, status, importingRunId: status === 'ready' ? null : runId }
+                : { ...working!, importingRunId: writeStarted ? runId : null, status },
+            );
           });
         } catch {
           state = 'outcome_unknown';
@@ -1110,6 +1421,7 @@ export class DeploymentService {
     const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json'))),
       env = environment(ctx, plan.environment);
     const current = await this.fingerprint(env, await resolveConnection(env.readConnectionRef));
+    await this.oracle.discardStage?.((current.exported as { stage?: string } | null)?.stage);
     const state = await readJson(path.join(directory, 'state.json'));
     return {
       runId,
@@ -1147,6 +1459,7 @@ export class DeploymentService {
       digest: string;
       environment: string;
       targetDigest: string;
+      alias?: unknown;
     };
     const files = await inventory(path.join(directory, 'application'));
     if (hash(canonical(files)) !== backup.digest)
@@ -1154,7 +1467,16 @@ export class DeploymentService {
     const plan = await this.plan(ctx, backup.environment, true);
     if (plan.targetDigest !== backup.targetDigest)
       throw new Fault('BACKUP_TARGET_MISMATCH', 'Backup belongs to another target.', 5);
-    plan.restore = { backupId, checksum: backup.digest };
+    // Record the backed-up alias: the application may be absent when restoring.
+    const alias =
+      typeof backup.alias === 'string'
+        ? backup.alias
+        : (plan.target.application as { alias?: unknown } | null)?.alias;
+    plan.restore = {
+      backupId,
+      checksum: backup.digest,
+      ...(typeof alias === 'string' && refName.safeParse(alias).success ? { alias } : {}),
+    };
     plan.risks = ['application-restore'];
     plan.operations = [{ kind: 'import' }, { kind: 'verify' }, { kind: 'test' }];
     plan.digest = planDigest(plan);

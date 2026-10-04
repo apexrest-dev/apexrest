@@ -135,6 +135,7 @@
   var savedConnectionNames = [];
   var savedConnectionsError = "";
   var embedded = window.parent !== window;
+  var embeddedSqlclNote = "Change SQLcl settings in the local dashboard (apexrest_panel_open) or with apexrest sqlcl configure.";
   var token = launch.get("session") ?? "";
   var pending = /* @__PURE__ */ new Map();
   function bridge(method, params) {
@@ -170,6 +171,7 @@
     if (embedded) {
       if (action?.kind === "connection" && action.password)
         throw new Error("Enter the password in the local dashboard or use CLI --password-file.");
+      if (action?.kind === "sqlcl") throw new Error(embeddedSqlclNote);
       if (!bridgeReady || !bridgeProject) throw new Error("Waiting for the Codex workspace context.");
       const response2 = await bridge("tools/call", {
         name: action ? "apexrest_panel_action" : "apexrest_panel_status",
@@ -262,7 +264,7 @@
       $(id).disabled = !canAct || !snapshot?.configured;
     for (const form of ["catalog-search", "catalog-add", "sqlcl-form", "connection-form", "preferences-form"])
       $(form).querySelectorAll("button[type=submit]").forEach((button) => {
-        button.disabled = !canAct;
+        button.disabled = !canAct || embedded && form === "sqlcl-form";
       });
     $("compose-plan").disabled = !canAct || !snapshot?.configured || compositionJobs.running;
     $("compose-plan").textContent = compositionJobs.pending ? "Retry job status" : "Plan and compile offline";
@@ -332,7 +334,14 @@
       table.append(body);
       box.append(table);
     }
-    const output = [card("Operation jobs", box, "Compile, export, tests and deployment work")];
+    const omitted = data.history?.jobsOmitted ?? 0;
+    const output = [
+      card(
+        "Operation jobs",
+        box,
+        "Compile, export, tests and deployment work" + (omitted ? ` \xB7 ${omitted} older record${omitted === 1 ? "" : "s"} not shown` : "")
+      )
+    ];
     const sync = node("div");
     for (const entry of data.sync) {
       const row = node("div", "journal-entry");
@@ -626,6 +635,7 @@
     $("sqlcl-mode").querySelector("option[value=mcp]").disabled = ords;
     input("sqlcl-level").disabled = input("sqlcl-mode").value !== "mcp";
     $("sqlcl-transport-note").textContent = ords ? "Connect through ORDS over HTTP(S) when the Oracle listener is unavailable. Uses SQLcl CLI and the ORDS settings for each connection reference below." : "Connect through the Oracle listener using saved SQLcl connections.";
+    if (embedded) $("sqlcl-transport-note").textContent += " " + embeddedSqlclNote;
     for (const [id, enabled] of [
       ["connection-direct-group", !ords],
       ["connection-ords-group", ords]
@@ -764,13 +774,16 @@
         b.onclick = () => {
           selectedBlock = hit.id;
           invalidateBlueprintReview();
-          void catalogAction({ kind: "catalog-read", id: hit.id, offset: 0 }).then((data) => {
-            $("catalog-detail").textContent = data.content;
-          });
+          void catalogAction({ kind: "catalog-read", id: hit.id, offset: 0 }).then(
+            (data) => {
+              $("catalog-detail").textContent = data.content;
+            },
+            () => controls()
+          );
         };
         $("catalog-hits").append(b);
       }
-    })();
+    })().catch(() => controls());
   };
   $("catalog-add").onsubmit = (event) => {
     event.preventDefault();
@@ -810,7 +823,7 @@
         $("blueprint-apply").disabled = true;
         $("compose-materialize").disabled = true;
         notice("Blueprint updated. Create and review a new plan.");
-      });
+      }).catch(() => controls());
   };
   async function startComposition(action) {
     if (compositionJobs.running) return;

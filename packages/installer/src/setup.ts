@@ -4,18 +4,19 @@ import { homedir } from 'node:os';
 import { readFile, rm } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { exists, readJson, writeJson, contained } from '../../core/src/fs.ts';
+import { exists, writeJson, containedChild, withLock } from '../../core/src/fs.ts';
 import { managedHome, requireTrust } from '../../core/src/config.ts';
 import { Fault } from '../../core/src/result.ts';
-import { runProcess } from '../../core/src/process.ts';
+import { codexRun, codexInvoke, listMarketplaces } from './registration.ts';
 import { installNative, installationState } from './native.ts';
 import { resolveNativePlugin, validateNative } from './package-source.ts';
 export { validateNative } from './package-source.ts';
-import { ToolchainService, runtimeState } from './toolchain.ts';
+import { ToolchainService, canonicalHome, runtimeState } from './toolchain.ts';
 import type { SetupRequest } from './toolchain.ts';
 export async function setup(input: Record<string, unknown>) {
   const text = (key: string) => input[key] as string | undefined;
-  const home = path.resolve(
+  // Canonicalize once; toolchain records, the native install and APEXREST_HOME then agree.
+  const home = await canonicalHome(
     text('home') ??
       (input.scope === 'project'
         ? path.join(text('project') ?? process.cwd(), '.apexrest/managed')
@@ -38,9 +39,10 @@ export async function setup(input: Record<string, unknown>) {
       'Requested version does not match the supplied immutable package.',
       2,
     );
-  const codexHome = path.resolve(
+  const codexHome = await canonicalHome(
     text('codexHome') ?? process.env.CODEX_HOME ?? path.join(homedir(), '.codex'),
   );
+  const codex = text('codex');
   const request: SetupRequest = {
     home,
     ...(text('cacheDir') ? { cacheDir: text('cacheDir')! } : {}),
@@ -57,6 +59,7 @@ export async function setup(input: Record<string, unknown>) {
     source,
     home,
     codexHome,
+    ...(codex ? { codex } : {}),
     dryRun: true,
     node: existingRuntime.node ?? process.execPath,
   });
@@ -84,6 +87,7 @@ export async function setup(input: Record<string, unknown>) {
     source,
     home,
     codexHome,
+    ...(codex ? { codex } : {}),
     node: runtime.node ?? process.execPath,
     expectedRegistration: nativePlan.registration.fingerprint,
   });
@@ -122,63 +126,66 @@ export async function setup(input: Record<string, unknown>) {
   await writeJson(path.join(home, 'setup-result.json'), result);
   return result;
 }
-export async function uninstallNative(home: string, keepRuntime: boolean) {
-  const state = (await installationState(home)) as { codexHome: string; destination: string };
-  const markets = await runProcess({
-    executable: 'codex',
-    args: ['plugin', 'marketplace', 'list', '--json'],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 30000,
-  });
-  const owned =
-    markets.code === 0 &&
-    (JSON.parse(markets.stdout) as { marketplaces: { name: string; root: string }[] }).marketplaces.some(
-      (m) => m.name === 'apexrest' && m.root === state.destination,
-    );
-  if (!owned)
+const ownedDestination = (home: string, destination: unknown) => {
+  // Only a content-addressed child of <home>/native may be removed; never home or native itself.
+  if (
+    typeof destination !== 'string' ||
+    !path.isAbsolute(destination) ||
+    path.dirname(destination) !== path.join(home, 'native') ||
+    !/^[a-f0-9]{64}$/.test(path.basename(destination))
+  )
     throw new Fault(
       'MARKETPLACE_OWNERSHIP_CONFLICT',
-      'Current marketplace no longer belongs to this installation; nothing was removed.',
+      'The installation record does not name a managed native payload under this home; nothing was removed.',
       5,
+      'conflict',
     );
-  const result = await runProcess({
-    executable: 'codex',
-    args: ['plugin', 'remove', 'apexrest-apex@apexrest'],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 30000,
+  return destination;
+};
+export async function uninstallNative(
+  homeInput: string,
+  keepRuntime: boolean,
+  options: { codex?: string } = {},
+) {
+  const home = await canonicalHome(homeInput);
+  return withLock(path.join(home, 'install.lock'), async () => {
+    const state = (await installationState(home)) as { codexHome?: unknown; destination?: unknown };
+    if (typeof state.codexHome !== 'string' || !path.isAbsolute(state.codexHome))
+      throw new Fault('INSTALLATION_RECORD_INVALID', 'The installation record has no Codex profile.', 5);
+    const codexHome = state.codexHome;
+    const destination = ownedDestination(home, state.destination);
+    const run = codexRun(codexHome, home, options.codex);
+    // Invalid or partial Codex output is outcome-unknown: nothing is removed.
+    const markets = await listMarketplaces(codexInvoke(codexHome, home, options.codex));
+    if (!markets.some((m) => m.name === 'apexrest' && m.root === destination))
+      throw new Fault(
+        'MARKETPLACE_OWNERSHIP_CONFLICT',
+        'Current marketplace no longer belongs to this installation; nothing was removed.',
+        5,
+      );
+    const result = await run(['plugin', 'remove', 'apexrest-apex@apexrest'], 30000);
+    if (result.code !== 0) throw new Fault('UNINSTALL_FAILED', result.stderr, 3);
+    const removal = await run(['plugin', 'marketplace', 'remove', 'apexrest'], 30000);
+    if (removal.code !== 0) throw new Fault('MARKETPLACE_REMOVE_FAILED', removal.stderr, 3);
+    const listing = await run(['plugin', 'list', '--json'], 30000);
+    if (listing.code !== 0 || listing.stdout.includes('apexrest-apex@apexrest'))
+      throw new Fault('UNINSTALL_UNCONFIRMED', 'Codex still lists this plugin.', 3);
+    if (!keepRuntime && (await exists(destination)))
+      await rm(await containedChild(path.join(home, 'native'), destination), {
+        recursive: true,
+        force: true,
+      });
+    await writeJson(path.join(home, 'uninstalled.json'), {
+      at: new Date().toISOString(),
+      keepRuntime,
+      sharedRuntimePreserved: true,
+    });
+    return {
+      status: 'uninstalled',
+      projectsPreserved: true,
+      backupsPreserved: true,
+      credentialsPreserved: true,
+      sharedRuntimePreserved: true,
+    };
   });
-  if (result.code !== 0) throw new Fault('UNINSTALL_FAILED', result.stderr, 3);
-  const removal = await runProcess({
-    executable: 'codex',
-    args: ['plugin', 'marketplace', 'remove', 'apexrest'],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 30000,
-  });
-  if (removal.code !== 0) throw new Fault('MARKETPLACE_REMOVE_FAILED', removal.stderr, 3);
-  const listing = await runProcess({
-    executable: 'codex',
-    args: ['plugin', 'list', '--json'],
-    cwd: home,
-    env: { ...process.env, CODEX_HOME: state.codexHome },
-    timeoutMs: 30000,
-  });
-  if (listing.code !== 0 || listing.stdout.includes('apexrest-apex@apexrest'))
-    throw new Fault('UNINSTALL_UNCONFIRMED', 'Codex still lists this plugin.', 3);
-  const destination = await contained(home, state.destination);
-  if (!keepRuntime) await rm(destination, { recursive: true, force: true });
-  await writeJson(path.join(home, 'uninstalled.json'), {
-    at: new Date().toISOString(),
-    keepRuntime,
-    sharedRuntimePreserved: true,
-  });
-  return {
-    status: 'uninstalled',
-    projectsPreserved: true,
-    backupsPreserved: true,
-    credentialsPreserved: true,
-    sharedRuntimePreserved: true,
-  };
 }

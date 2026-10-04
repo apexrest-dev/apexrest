@@ -5,7 +5,13 @@ import { readFile, rm } from 'node:fs/promises';
 import { fixture } from '../fixtures/project.ts';
 import { atomicWrite, hash, inventory, writeJson } from '../../packages/core/src/fs.ts';
 import { blueprintSchema } from '../../packages/core/src/composer/schemas.ts';
-import { documentText, parseDocumentData, validate } from '../../packages/core/src/composer/formats.ts';
+import {
+  canonical,
+  documentText,
+  parseDocumentData,
+  planDigest,
+  validate,
+} from '../../packages/core/src/composer/formats.ts';
 import { snapshot, planComposition } from '../../packages/core/src/composer/planner.ts';
 import {
   freeze,
@@ -15,7 +21,7 @@ import {
   deploymentBinding,
 } from '../../packages/core/src/composer/materializer.ts';
 
-async function setup() {
+async function setup(validation: 'compiler' | 'source-only' = 'source-only') {
   const { ctx } = await fixture();
   process.env.APEXREST_HOME = path.join(ctx.root, 'managed');
   await writeJson(path.join(process.env.APEXREST_HOME, 'policy.json'), {
@@ -28,7 +34,7 @@ async function setup() {
     parseDocumentData(await readFile('tests/fixtures/composer/crm.blueprint.yaml', 'utf8')),
   );
   await writeJson(path.join(ctx.root, 'app.blueprint.yaml'), blueprint);
-  const plan = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' }));
+  const plan = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation }));
   assert.equal(plan.status, 'materializable', JSON.stringify(plan.diagnostics));
   await freeze(ctx, plan, 'plans/compose.json');
   return { ctx, plan };
@@ -200,4 +206,115 @@ test('receipt changed before journal completion keeps deployment blocked', async
   );
   assert.equal((await journal(ctx))!.phase, 'writing');
   await assert.rejects(() => deploymentBinding(ctx), { code: 'RECOVERY_REQUIRED' });
+});
+
+async function interrupt(
+  ctx: Awaited<ReturnType<typeof setup>>['ctx'],
+  plan: Awaited<ReturnType<typeof setup>>['plan'],
+) {
+  await assert.rejects(() =>
+    materialize(ctx, plan, {
+      boundary: async (phase) => {
+        if (phase === 'prepared') throw new Error('interrupted');
+      },
+    }),
+  );
+}
+
+test('a source-only receipt never binds into a deployment plan', async (t) => {
+  const { ctx, plan } = await setup('source-only');
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await materialize(ctx, plan);
+  await assert.rejects(() => deploymentBinding(ctx), { code: 'COMPOSITION_UNQUALIFIED' });
+  const compiled = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'compiler' }));
+  await freeze(ctx, compiled, 'plans/compiled.json');
+  assert.equal((await materialize(ctx, compiled)).status, 'no-op');
+  assert.equal((await deploymentBinding(ctx))!.generationDigest, plan.state!.generationDigest);
+});
+
+test('a reviewed no-op plan rewrites a stale receipt', async (t) => {
+  const { ctx, plan } = await setup('compiler');
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await materialize(ctx, plan);
+  const file = path.join(ctx.root, '.apexrest/composer/receipt.json'),
+    stale = {
+      ...JSON.parse(await readFile(file, 'utf8')),
+      planDigest: '0'.repeat(64),
+      lockDigest: 'f'.repeat(64),
+    };
+  await writeJson(file, stale);
+  await assert.rejects(() => deploymentBinding(ctx), { code: 'COMPOSITION_DRIFT' });
+  const repeat = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'compiler' }));
+  await freeze(ctx, repeat, 'plans/repeat.json');
+  assert.equal((await materialize(ctx, repeat)).status, 'no-op');
+  const receipt = JSON.parse(await readFile(file, 'utf8'));
+  assert.equal(receipt.planDigest, repeat.digest);
+  assert.notEqual(canonical(receipt), canonical(stale));
+  assert.equal((await deploymentBinding(ctx))!.generationDigest, plan.state!.generationDigest);
+  for (const corrupt of ['not json', '{}\n']) {
+    await atomicWrite(file, corrupt);
+    assert.equal((await materialize(ctx, repeat)).status, 'no-op');
+    assert.equal(JSON.parse(await readFile(file, 'utf8')).planDigest, repeat.digest);
+  }
+});
+
+test('recovery requires the immutable reviewed plan record for the journal', async (t) => {
+  for (const kind of ['missing', 'changed'] as const) {
+    const { ctx, plan } = await setup();
+    t.after(() => rm(ctx.root, { recursive: true, force: true }));
+    await interrupt(ctx, plan);
+    const frozen = path.join(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`);
+    if (kind === 'missing') await rm(frozen);
+    else await atomicWrite(frozen, documentText({ ...plan, diagnostics: [] }));
+    for (const action of ['resume', 'restore'] as const)
+      await assert.rejects(() => recoveryPlan(ctx, action), { code: 'JOURNAL_CORRUPT' }, kind);
+  }
+});
+
+test('recovery applies the frozen-plan and write-scope checks to an already reviewed recovery', async (t) => {
+  const { ctx, plan } = await setup();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  await interrupt(ctx, plan);
+  const recovery = await recoveryPlan(ctx, 'restore');
+  await freeze(ctx, recovery, 'plans/recovery.json');
+  await rm(path.join(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`));
+  await assert.rejects(() => materialize(ctx, recovery), { code: 'JOURNAL_CORRUPT' });
+});
+
+test('a forged journal cannot steer recovery outside Composer write scope', async (t) => {
+  for (const target of [
+    'apexrest.json',
+    'APPLICATION/.apex/metadata.json',
+    '.apexrest-composer/bases/x.apx',
+  ]) {
+    const { ctx, plan } = await setup();
+    t.after(() => rm(ctx.root, { recursive: true, force: true }));
+    await interrupt(ctx, plan);
+    const record = (await journal(ctx))!,
+      before = await readFile(
+        path.join(ctx.root, target.replace('APPLICATION', ctx.config.application.sourceDir)),
+        'utf8',
+      ).catch(() => null),
+      destination = target.replace('APPLICATION', ctx.config.application.sourceDir),
+      forged = structuredClone(record.plan),
+      operation = forged.operations.find((op) => op.path.startsWith(ctx.config.application.sourceDir + '/'))!,
+      entry = record.records.find((e) => e.path === operation.path)!;
+    operation.path = destination;
+    operation.before = null;
+    entry.path = destination;
+    entry.before = null;
+    entry.preimage = null;
+    forged.digest = planDigest(forged);
+    record.plan = forged;
+    // An attacker able to write the private journal can also write a matching frozen plan.
+    await atomicWrite(
+      path.join(ctx.root, `.apexrest/composer/plans/${forged.digest}.json`),
+      documentText(forged),
+    );
+    await writeJson(path.join(ctx.root, '.apexrest/composer/journal.json'), record);
+    for (const action of ['resume', 'restore'] as const)
+      await assert.rejects(() => recoveryPlan(ctx, action), { code: 'COMPOSITION_SCOPE_DENIED' }, target);
+    await assert.rejects(() => deploymentBinding(ctx), { code: 'COMPOSITION_SCOPE_DENIED' });
+    assert.equal(await readFile(path.join(ctx.root, destination), 'utf8').catch(() => null), before);
+  }
 });

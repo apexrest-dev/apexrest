@@ -13,20 +13,30 @@ await rm('dist/resources', { recursive: true, force: true });
 await mkdir('dist/resources/third-party', { recursive: true });
 const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
 const { readdir } = await import('node:fs/promises');
-for (const folder of Object.keys(lock.packages).filter((p) => p.includes('node_modules/'))) {
+// Notices cover packages bundled into the runtime: production dependencies only.
+// Dev tooling and OS/CPU-specific optional packages are excluded, so the notice
+// set is identical whichever platform runs the build.
+const bundled = Object.entries(lock.packages)
+  .filter(
+    ([folder, entry]) =>
+      folder.includes('node_modules/') &&
+      !entry.dev &&
+      !entry.devOptional &&
+      !entry.link &&
+      !(entry.optional && (entry.os || entry.cpu)),
+  )
+  .map(([folder]) => folder)
+  .sort();
+for (const folder of bundled) {
   let list;
   try {
     list = await readdir(folder);
   } catch {
-    continue;
+    throw new Error(`Installed production dependency is missing: ${folder}. Run npm ci.`);
   }
-  for (const file of list.filter((f) => /^(LICENSE|LICENCE|NOTICE)(?:[.-].*)?$/i.test(f))) {
+  for (const file of list.filter((f) => /^(LICENSE|LICENCE|NOTICE)(?:[.-].*)?$/i.test(f)).sort()) {
     const destination = 'dist/resources/third-party/' + folder.replaceAll('/', '__') + '__' + file;
-    try {
-      await cp(folder + '/' + file, destination, { recursive: true });
-    } catch {
-      /* absent optional package */
-    }
+    await cp(folder + '/' + file, destination, { recursive: true });
   }
 }
 for (const folder of ['toolchains', 'schemas', 'templates'])

@@ -23,7 +23,7 @@ import { loadCatalog, catalogSearch, resolvePackages } from '../../packages/core
 import { bind } from '../../packages/core/src/composer/binding.ts';
 import { composePlan, composePlanInput } from '../../packages/core/src/composer/service.ts';
 
-async function setup() {
+async function setup(validation: 'compiler' | 'source-only' = 'source-only') {
   const { ctx } = await fixture();
   process.env.APEXREST_HOME = path.join(ctx.root, 'managed');
   await writeJson(path.join(process.env.APEXREST_HOME, 'policy.json'), {
@@ -36,7 +36,7 @@ async function setup() {
     parseDocumentData(await readFile('tests/fixtures/composer/crm.blueprint.yaml', 'utf8')),
   );
   await writeJson(path.join(ctx.root, 'app.blueprint.yaml'), blueprint);
-  const plan = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' }));
+  const plan = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation }));
   assert.equal(plan.status, 'materializable', JSON.stringify(plan.diagnostics));
   await freeze(ctx, plan, 'plans/compose.json');
   return { ctx, blueprint, plan };
@@ -149,7 +149,7 @@ test('structural merge retains unmanaged spans at exact location and detects B/L
   assert.throws(() => editSpans(base, [{ ...root, expectedDigest: hash('other'), content: '' }]));
 });
 test('journaled materialization preserves .apex and unmanaged bytes, then has no diff', async () => {
-  const { ctx, plan } = await setup();
+  const { ctx, plan } = await setup('compiler');
   const before = await inventory(path.join(ctx.root, ctx.config.application.sourceDir));
   await materialize(ctx, plan);
   const binding = await deploymentBinding(ctx);
@@ -173,7 +173,7 @@ test('stale source, package cache tampering and forged immutable plans cannot ma
   await rm(ctx.root, { recursive: true, force: true });
 });
 test('fault at every write boundary supports explicit resume and restore', async () => {
-  const baseline = await setup();
+  const baseline = await setup('compiler');
   const boundaries = [
     ['prepared', 0],
     ['writing', 0],
@@ -189,7 +189,7 @@ test('fault at every write boundary supports explicit resume and restore', async
   await rm(baseline.ctx.root, { recursive: true, force: true });
   for (const [boundary, occurrence] of boundaries)
     for (const recovery of ['resume', 'restore'] as const) {
-      const { ctx, plan } = await setup();
+      const { ctx, plan } = await setup('compiler');
       const original = await inventory(path.join(ctx.root, ctx.config.application.sourceDir));
       let stopped = false,
         seen = 0;
@@ -326,11 +326,11 @@ test('recovery rechecks each preimage after a concurrent edit and keeps the exte
   await rm(ctx.root, { recursive: true, force: true });
 });
 test('reviewed no-op plan restores a missing private receipt after a fresh checkout', async () => {
-  const { ctx, plan } = await setup();
+  const { ctx, plan } = await setup('compiler');
   await materialize(ctx, plan);
   await rm(path.join(ctx.root, '.apexrest/composer/receipt.json'));
   await assert.rejects(() => deploymentBinding(ctx), /receipt/);
-  const repeat = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'source-only' }));
+  const repeat = planComposition(await snapshot(ctx, 'app.blueprint.yaml', { validation: 'compiler' }));
   await freeze(ctx, repeat, 'plans/repeat.json');
   assert.equal((await materialize(ctx, repeat)).status, 'no-op');
   assert.equal((await deploymentBinding(ctx))!.generationDigest, plan.state!.generationDigest);

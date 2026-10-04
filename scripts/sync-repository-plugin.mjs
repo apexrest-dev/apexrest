@@ -27,13 +27,11 @@ if (check) {
   const actual = await inventory(repositoryPlugin);
   if (JSON.stringify(actual) !== JSON.stringify(manifest.files))
     throw new Error('Repository plugin file inventory/hash mismatch. Run npm run plugin:sync.');
-  // Optional dependency notices differ by build OS; every checked-in notice is
-  // still verified by the manifest above. Runtime, metadata and resources must
-  // match a fresh build on every CI platform.
+  // Third-party notices come from non-dev, platform-independent lock entries,
+  // so the whole checked-in plugin must match a fresh build on every platform.
   const fresh = await inventory(built);
-  for (const [file, hash] of Object.entries(fresh)) {
-    if (!file.startsWith('resources/third-party/') && actual[file] !== hash)
-      throw new Error(`Repository plugin differs from fresh build: ${file}`);
+  for (const file of new Set([...Object.keys(fresh), ...Object.keys(actual)])) {
+    if (actual[file] !== fresh[file]) throw new Error(`Repository plugin differs from fresh build: ${file}`);
   }
   console.log(`Repository plugin ${packageVersion}: source, integrity and fresh build verified.`);
 } else {

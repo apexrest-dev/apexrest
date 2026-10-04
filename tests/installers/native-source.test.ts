@@ -17,6 +17,7 @@ import {
 } from 'node:fs/promises';
 import { atomicWrite, inventory, readJson, writeJson } from '../../packages/core/src/fs.ts';
 import { installNative } from '../../packages/installer/src/native.ts';
+import { uninstallNative } from '../../packages/installer/src/setup.ts';
 import { nativeMarketplace } from '../../packages/installer/src/package-source.ts';
 
 const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
@@ -86,6 +87,7 @@ const emit = value => console.log(JSON.stringify(value));
 const fail = message => { console.error(message); process.exit(1); };
 const command = args.slice(0, 3).join(' ');
 if (command === 'plugin marketplace list') {
+  if (state.invalidList) { console.log('{"marketplaces": ['); process.exit(0); }
   emit({ marketplaces: state.marketplaces });
 } else if (command === 'plugin marketplace remove') {
   state.marketplaces = state.marketplaces.filter(m => m.name !== args[3]);
@@ -498,5 +500,84 @@ test(
     assert.equal(nextMcp.mcpServers.apexrest.command, nextNode);
     const state = (await readJson(f.stubState)) as { marketplaces: { name: string; root: string }[] };
     assert.equal(state.marketplaces.find((market) => market.name === 'apexrest')!.root, second.destination);
+  },
+);
+
+test(
+  'reused content-addressed payload is verified and rebuilt when modified (local Codex fixture)',
+  {
+    skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false,
+  },
+  async (t) => {
+    const f = await fixture(t);
+    const first = await installNative(f.request);
+    assert.ok('root' in first);
+    const expected = await inventory(first.destination);
+    await atomicWrite(path.join(first.root, 'runtime/mcp.mjs'), 'tampered runtime\n');
+    await atomicWrite(path.join(first.root, 'runtime/injected.mjs'), 'extra file\n');
+    const second = await installNative(f.request);
+    assert.ok('root' in second);
+    assert.equal(second.destination, first.destination);
+    assert.deepEqual(await inventory(second.destination), expected);
+    assert.deepEqual(
+      (await readdir(path.join(f.home, 'native'))).filter((name) => name.includes('.broken-')),
+      [],
+    );
+    // An untouched payload is reused as is (only the installer-owned MCP binding differs from source).
+    const third = await installNative(f.request);
+    assert.ok('root' in third);
+    assert.deepEqual(await inventory(third.destination), expected);
+  },
+);
+
+test(
+  'native uninstall uses the selected Codex, the install lock and a strict payload path (local Codex fixture)',
+  {
+    skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false,
+  },
+  async (t) => {
+    const f = await fixture(t);
+    const installed = await installNative(f.request);
+    assert.ok('root' in installed);
+    const receipt = path.join(f.home, 'installation.json');
+    const record = (await readJson(receipt)) as Record<string, unknown>;
+
+    // The receipt may not redirect removal to the home itself or outside <home>/native/<digest>.
+    for (const destination of [f.home, path.join(f.home, 'native'), path.join(f.root, 'checkout')]) {
+      await writeJson(receipt, { ...record, destination });
+      await assert.rejects(uninstallNative(f.home, false, { codex: f.codex }), {
+        code: 'MARKETPLACE_OWNERSHIP_CONFLICT',
+      });
+    }
+    await writeJson(receipt, record);
+
+    // Unparseable Codex output is an unknown outcome; nothing is removed.
+    const state = (await readJson(f.stubState)) as Record<string, unknown>;
+    await writeJson(f.stubState, { ...state, invalidList: true });
+    await assert.rejects(uninstallNative(f.home, false, { codex: f.codex }), {
+      code: 'CODEX_REGISTRATION_UNKNOWN',
+      status: 'outcome_unknown',
+    });
+    await writeJson(f.stubState, state);
+    assert.ok((await f.calls()).every((args) => args[1] !== 'remove' && args[2] !== 'remove'));
+
+    // A concurrent installer holding the lock blocks uninstall.
+    const lock = path.join(f.home, 'install.lock');
+    await atomicWrite(
+      lock,
+      JSON.stringify({ pid: process.pid, hostname: (await import('node:os')).hostname() }),
+    );
+    await assert.rejects(uninstallNative(f.home, false, { codex: f.codex }), { code: 'LOCKED' });
+    await rm(lock);
+
+    const result = await uninstallNative(f.home, false, { codex: f.codex });
+    assert.equal(result.status, 'uninstalled');
+    assert.equal(
+      await inventory(f.home).then((files) => Object.keys(files).some((file) => file.startsWith('native/'))),
+      false,
+    );
+    const after = (await readJson(f.stubState)) as { marketplaces: { name: string }[]; installed?: unknown };
+    assert.equal(after.installed, undefined);
+    assert.ok(!after.marketplaces.some((market) => market.name === 'apexrest'));
   },
 );

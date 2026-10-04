@@ -45,7 +45,7 @@ npx apexrest --version
 npx apexrest
 ```
 
-To pin this version, use `npm install -g apexrest@1.1.0`. The repository installation below remains available.
+`npm install -g apexrest` installs the stable npm `latest` release (1.2.0). To pin a version, use `npm install -g apexrest@1.2.0`, or `npm install -g apexrest@1.3.0-beta.1` for the beta. The repository installation below remains available.
 
 ## Install with the terminal menu
 
@@ -160,7 +160,7 @@ npm run release:dry-run
 
 Open `dist/releases/install-local.txt`, which contains the exact Bash or PowerShell command with the generated archive name and SHA-256. Review that command before running it. `--yes` authorizes technical setup; `--accept-oracle-license` is separate consent to the linked vendor terms. The installer can reuse compatible existing runtimes and writes managed dependencies under `~/.apexrest` by default.
 
-Supported options include `--dry-run`, `--offline`, `--cache-dir`, `--home`, `--codex-home` and `--native-only`. Project-only Codex enablement is blocked on the tested host; a dedicated profile through `--codex-home` is available. No shell profile is edited. Registration uses the same plugin identity, so do not keep competing installations of that identity in different marketplaces or add a duplicate global MCP server.
+Supported options include `--dry-run`, `--offline`, `--cache-dir`, `--home`, `--codex-home` and `--native-only`. Project-only Codex enablement is blocked on the tested host; a dedicated profile through `--codex-home` is available. `--codex` selects the Codex executable used for registration and removal; on Windows, `.cmd` shims are resolved through `PATH` and `PATHEXT`, and a path or argument containing cmd.exe metacharacters is refused with `UNSAFE_COMMAND_ARGUMENT`. A preview reports an existing tool as `found, not probed` without executing it. The download cache must be owned by the current user and not group/world writable (`UNSAFE_CACHE_DIRECTORY`). No shell profile is edited. Registration uses the same plugin identity, so do not keep competing installations of that identity in different marketplaces or add a duplicate global MCP server.
 
 Setup checks the selected Codex profile before downloading tools. A valid local marketplace containing only the expected APEXREST plugin can be moved into managed installation even without an earlier managed receipt. Preview shows that existing installation and the planned update; `--yes` authorizes applying it. No force flag is required. For a registration-only update using the existing runtime:
 
@@ -171,7 +171,7 @@ apexrest setup --native-only --yes --json
 
 `--native-only` omits tool downloads from both preview and apply. The update retains the previous plugin files and backs up the Codex configuration. A foreign, remote or ambiguous marketplace stays blocked with `MARKETPLACE_OWNERSHIP_CONFLICT`; the diagnostic identifies its root and Codex profile. Review that registration or select another profile through `--codex-home`. If an interrupted update leaves an unknown result, review its saved transition record before retrying. See [registration status](evidence/setup-registration-local.json) for verification scope.
 
-The local packaging command generates unsigned beta artifacts and reports readiness. It does not publish or certify a stable release.
+The local packaging command generates unsigned beta artifacts and reports readiness. It does not publish or certify a stable release. `npm run release:dry-run` rebuilds the plugin and site itself and accepts uncommitted changes; `npm run release:package` refuses a dirty working tree. The runtime is one platform-neutral `apexrest-runtime-<version>.zip` archive.
 
 ## Connect and configure
 
@@ -242,7 +242,7 @@ node plugins/apexrest-apex/runtime/apexrest.mjs doctor --json
 node plugins/apexrest-apex/runtime/apexrest.mjs project init ./crm --template customer-crm
 ```
 
-The TUI's **Install plugin** action and managed setup create `~/.apexrest/bin/apexrest` on macOS/Linux or `apexrest.ps1` in the managed `bin` directory on Windows. Installing tools alone does not create this launcher. For the default home on macOS/Linux, add it to the current shell's PATH:
+The TUI's **Install plugin** action and managed setup create `~/.apexrest/bin/apexrest` on macOS/Linux or `apexrest.ps1` and `apexrest.cmd` in the managed `bin` directory on Windows. If the managed home, Node.js or plugin path contains `%`, `!`, `"` or control characters, Windows launcher creation is refused with `UNSAFE_LAUNCHER_PATH`. Installing tools alone does not create this launcher. For the default home on macOS/Linux, add it to the current shell's PATH:
 
 ```sh
 export PATH="$HOME/.apexrest/bin:$PATH"
@@ -272,7 +272,7 @@ apexrest deploy apply --project ./crm --plan plans/dev.json
 
 Configure `environments.dev`, review and trust the project, and supply the authorized exact-target policy before the target operations. The CRM template includes schema changes and required SQL/E2E suites, so its import needs their applicable authorization and dependencies. For a diagnostics-only compiler run, use `apexrest apex validate --project ./crm --json`.
 
-Command help is available through `--help`. CLI `apex export` uses `--output`; `deploy plan` uses `--out`. JSON output reports classified results and exit codes. CLI and MCP share the same core checks.
+Command help is available through `--help`; `--help` with an unknown command exits with code 2. Free-text `docs search` queries may span several words without quotes. CLI `apex export` uses `--output`; `deploy plan` uses `--out`. JSON output reports classified results and exit codes. CLI and MCP share the same core checks.
 
 When calling project-scoped MCP tools, pass the absolute application project directory in the `project` argument. The native server starts in its installed plugin directory, so missing or relative project paths are rejected before work starts. CLI examples resolve `--project` from the terminal working directory.
 
@@ -289,7 +289,7 @@ apexrest dependencies uninstall --yes
 apexrest plugin uninstall
 ```
 
-Use the same managed directory and `--home` if you customized it. For direct registration without a managed installation record, use the Codex commands below. Uninstalling does not undo database deployments.
+Use the same managed directory and `--home` if you customized it. For direct registration without a managed installation record, use the Codex commands below. Plugin removal holds the installation lock, removes only the plugin directory recorded for that managed home and accepts `--codex` for a specific Codex executable. Uninstalling does not undo database deployments.
 
 ## Remove the repository plugin
 

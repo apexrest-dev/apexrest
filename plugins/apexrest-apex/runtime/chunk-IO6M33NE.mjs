@@ -2,11 +2,13 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   PanelService,
   panelActionSchema
-} from "./chunk-2BBNJVKW.mjs";
+} from "./chunk-S7T3NE27.mjs";
 import {
+  loadProject,
   parse,
+  requireTrust,
   resourceRoot
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   contained,
@@ -15,14 +17,14 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // packages/core/src/panel-server.ts
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 function validSession(value) {
@@ -36,7 +38,7 @@ async function panelDocument() {
   );
   return html.replace('<link rel="stylesheet" href="/panel.css">', () => "<style>" + css + "</style>").replace('<script src="/panel.js" defer></script>', "").replace("</body>", () => "<script>" + js.replaceAll("</script", "<\\/script") + "</script>\n</body>");
 }
-async function startPanelServer(root, idleMs = 36e5) {
+async function startPanelServer(root, idleMs = 36e5, graceMs = 2e3) {
   const token = randomBytes(32).toString("hex");
   const service = new PanelService(root);
   let lastRequest = Date.now(), origin = "";
@@ -124,17 +126,37 @@ async function startPanelServer(root, idleMs = 36e5) {
     },
     Math.min(idleMs, 6e4)
   );
-  const close = () => {
+  let closing;
+  const close = () => closing ??= (async () => {
     clearInterval(timer);
+    const force = setTimeout(() => server.closeAllConnections(), graceMs);
+    force.unref();
+    const closed = new Promise((resolve) => server.close(() => resolve()));
     server.closeIdleConnections();
-    return new Promise((resolve) => server.close(() => resolve()));
-  };
+    await closed;
+    clearTimeout(force);
+    await releaseSession(root, token);
+  })();
   return {
     session: { port: address.port, token, project: root, pid: process.pid },
     close
   };
 }
+async function releaseSession(root, token) {
+  try {
+    const file = await contained(root, ".apexrest/panel/session.json");
+    const session = await readJson(file).catch(() => null);
+    if (validSession(session) && session.token === token && session.pid === process.pid)
+      await rm(file, { force: true });
+  } catch {
+  }
+}
+async function requirePanelProject(root) {
+  await loadProject(root);
+  await requireTrust(root);
+}
 async function servePanel(root) {
+  await requirePanelProject(root);
   const handle = await startPanelServer(root);
   await writeJson(await contained(root, ".apexrest/panel/session.json"), handle.session);
   process.once("SIGTERM", () => {
@@ -145,6 +167,7 @@ async function servePanel(root) {
   });
 }
 async function openPanel(root) {
+  await requirePanelProject(root);
   const file = await contained(root, ".apexrest/panel/session.json");
   const read = async () => {
     if (!await exists(file)) return null;

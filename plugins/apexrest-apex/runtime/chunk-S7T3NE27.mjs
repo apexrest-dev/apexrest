@@ -1,6 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   ArtifactService,
+  OWNED_TEXT_LIMIT,
   SyncStore,
   assessPlan,
   blueprintSchema,
@@ -10,6 +11,7 @@ import {
   catalogRead,
   catalogSearch,
   digest,
+  documentText,
   freeze,
   instanceSchema,
   journal,
@@ -17,6 +19,7 @@ import {
   materialize,
   openVerificationBrowser,
   planDigest,
+  planLimits,
   planSchema,
   readDocument,
   readPlan,
@@ -27,7 +30,7 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-YPLIIQ4Y.mjs";
+} from "./chunk-JBCN5WYI.mjs";
 import {
   VERSION
 } from "./chunk-G3KR57BY.mjs";
@@ -52,19 +55,20 @@ import {
   savedConnectionName,
   sqlclConfig,
   sqlclConfigSchema
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   atomicWrite,
   contained,
   exists,
+  failure,
   hash,
   inventory,
   readJson,
   sanitized,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // packages/core/src/composer/service.ts
 import { readFile as readFile2 } from "node:fs/promises";
@@ -270,7 +274,7 @@ function mergeLines(base, local, next) {
   if (local === base) return next;
   if (next === base || local === next) return local;
   const literals = [base, local, next].map(
-    (source2) => [...source2.matchAll(/```[^\r\n]*[\r\n]+[\s\S]*?^[ \t]*```/gm)].map((match) => match[0])
+    (source2) => [...source2.matchAll(/```[^\r\n]*[\r\n]+[\s\S]*?^[ \t]*```/gm)].map((match2) => match2[0])
   );
   if (literals[0].length !== literals[1].length || literals[0].length !== literals[2].length || literals[0].some(
     (value, i) => value !== literals[1][i] && value !== literals[2][i] && literals[1][i] !== literals[2][i]
@@ -302,26 +306,86 @@ function keyFields(entity) {
     );
     if (entries.length > 1)
       throw new Fault("KEY_MAPPING_AMBIGUOUS", "A key part must identify exactly one projected field.", 5);
-    const entry = entries[0];
-    if (!entry) throw new Fault("KEY_MAPPING_MISSING", "Every key part must map to a projected field.", 5);
-    return entry[0];
+    const entry2 = entries[0];
+    if (!entry2) throw new Fault("KEY_MAPPING_MISSING", "Every key part must map to a projected field.", 5);
+    return entry2[0];
   });
 }
+var unsafeSql = () => new Fault("CONTRACT_SQL_UNSAFE", "Row predicates accept reviewed expressions only.", 5);
+var untrustedContext = () => new Fault("AUTH_CONTEXT_UNTRUSTED", "Row access may only use server-owned APEX session bindings.", 5);
+var serverBinds = /* @__PURE__ */ new Set(["APP_USER", "APP_ID", "APP_SESSION"]);
+var safeFunctions = /* @__PURE__ */ new Set([
+  "UPPER",
+  "LOWER",
+  "TRIM",
+  "TRUNC",
+  "NVL",
+  "COALESCE",
+  "LENGTH",
+  "SUBSTR",
+  "INSTR",
+  "TO_CHAR",
+  "TO_NUMBER",
+  "TO_DATE",
+  "APEX_AUTHORIZATION.IS_AUTHORIZED"
+]);
+var groupingWords = /* @__PURE__ */ new Set(["AND", "OR", "NOT", "IN"]);
+var deniedWords = /^(?:SELECT|WITH|COMMIT|ROLLBACK|SAVEPOINT|GRANT|REVOKE|INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|EXECUTE|IMMEDIATE|HOST|CONNECT|BEGIN|DECLARE|CALL|LOCK)$/;
+var deniedOwners = /^(?:DBMS_|UTL_|WWV_|OWA_|APEX_(?!AUTHORIZATION$)|(?:OWA|HTP|HTF|SYS)$)/;
+var tokens = {
+  space: /[ \t]+/y,
+  string: /'(?:[^']|'')*'/y,
+  number: /\d+(?:\.\d+)?/y,
+  bind: /:([A-Za-z][A-Za-z0-9_]*)/y,
+  name: /[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*){0,2}/y,
+  operator: /<>|!=|\^=|<=|>=|=|<|>|\(|\)|,|\+|-|\*|\//y
+};
+function match(pattern, value, at) {
+  pattern.lastIndex = at;
+  return pattern.exec(value);
+}
 function expression(value) {
-  if (!value.trim() || /[\r\n;]|```|\b(?:commit|rollback|grant|revoke|insert|update|delete|drop|alter|create|execute\s+immediate|host|connect)\b|&/i.test(
-    value
-  ))
-    throw new Fault("CONTRACT_SQL_UNSAFE", "Row predicates accept reviewed expressions only.", 5);
-  if (/:[a-z0-9_]+/gi.test(value) && [...value.matchAll(/:([a-z0-9_]+)/gi)].some(
-    (m) => !["APP_USER", "APP_ID", "APP_SESSION"].includes(m[1].toUpperCase())
-  ))
-    throw new Fault(
-      "AUTH_CONTEXT_UNTRUSTED",
-      "Row access may only use server-owned APEX session bindings.",
-      5
-    );
+  if (!value.trim() || value.length > 4e3) throw unsafeSql();
+  if (/:\s*"/.test(value)) throw untrustedContext();
+  if (/[\x00-\x08\x0a-\x1f\x7f;`&#$"@{}\[\]|]|--|\/\*|\*\//.test(value)) throw unsafeSql();
+  let at = 0, depth = 0;
+  while (at < value.length) {
+    let found;
+    if (found = match(tokens.space, value, at)) at += found[0].length;
+    else if (found = match(tokens.string, value, at)) at += found[0].length;
+    else if (found = match(tokens.bind, value, at)) {
+      if (!serverBinds.has(found[1].toUpperCase())) throw untrustedContext();
+      at += found[0].length;
+    } else if (found = match(tokens.name, value, at)) {
+      const name = found[0].toUpperCase(), parts = name.split(".");
+      at += found[0].length;
+      if (parts.some((part) => deniedWords.test(part)) || deniedOwners.test(parts[0])) {
+        if (!safeFunctions.has(name)) throw unsafeSql();
+      }
+      if (value[at] === "'") throw unsafeSql();
+      const next = value.slice(at).match(/^[ \t]*(.)/)?.[1];
+      if (next === "(" && !safeFunctions.has(name) && !groupingWords.has(name)) throw unsafeSql();
+      if (next !== "(" && safeFunctions.has(name) && name.includes(".")) throw unsafeSql();
+    } else if (found = match(tokens.number, value, at)) at += found[0].length;
+    else if (found = match(tokens.operator, value, at)) {
+      if (found[0] === "(") depth++;
+      if (found[0] === ")" && --depth < 0) throw unsafeSql();
+      at += found[0].length;
+    } else if (value[at] === ":") throw untrustedContext();
+    else throw unsafeSql();
+  }
+  if (depth !== 0) throw unsafeSql();
   return value;
 }
+function oracleName(value) {
+  const text = String(value ?? "");
+  return /^".*"$/.test(text) ? text.slice(1, -1) : text.toUpperCase();
+}
+var sameName = (a, b) => oracleName(a) === oracleName(b);
+function oracleType(value) {
+  return String(value ?? "").toUpperCase().replace(/\(\s*\d+(?:\s*,\s*\d+)?\s*\)/g, "").replace(/\s+/g, " ").trim();
+}
+var entry = (record, name) => Object.entries(record).find(([key]) => sameName(key, name))?.[1];
 function bind(blueprint, instance, metadata) {
   const ref = instance.bindings.records;
   if (!ref.startsWith("entity:"))
@@ -446,7 +510,9 @@ function bind(blueprint, instance, metadata) {
       if (!["out", "in-out"].includes(signature.parameters[output.from]?.mode ?? ""))
         throw new Fault("COMMAND_ARGUMENT_MISMATCH", "API key/version outputs must be OUT or IN OUT.", 5);
     if (metadata) {
-      const rows = metadata.signatures[command.package]?.filter((row) => row.OBJECT_NAME === command.procedure) ?? [];
+      const rows = entry(metadata.signatures, command.package)?.filter(
+        (row) => sameName(row.OBJECT_NAME, command.procedure)
+      ) ?? [];
       const overloads = new Set(rows.map((row) => String(row.OVERLOAD ?? row.SUBPROGRAM_ID ?? "")));
       if (overloads.size !== 1 && !signature.overload)
         throw new Fault("COMMAND_OVERLOAD_AMBIGUOUS", "An exact reviewed API overload is required.", 5);
@@ -461,9 +527,9 @@ function bind(blueprint, instance, metadata) {
         );
       for (const [argument, spec] of Object.entries(signature.parameters)) {
         const row = selected.find(
-          (r) => r.ARGUMENT_NAME === argument && (!signature.overload || String(r.OVERLOAD ?? "") === signature.overload)
+          (r) => sameName(r.ARGUMENT_NAME, argument) && (!signature.overload || String(r.OVERLOAD ?? "") === signature.overload)
         );
-        if (!row || String(row.IN_OUT).toLowerCase().replace(/\s*\/\s*|\s+/g, "-") !== spec.mode || String(row.DATA_TYPE) !== spec.type || row.DEFAULTED === "Y" !== spec.defaulted)
+        if (!row || String(row.IN_OUT).toLowerCase().replace(/\s*\/\s*|\s+/g, "-") !== spec.mode || oracleType(row.DATA_TYPE) !== spec.type || row.DEFAULTED === "Y" !== spec.defaulted)
           throw new Fault(
             "COMMAND_ARGUMENT_MISMATCH",
             "Live API signature differs from its reviewed contract.",
@@ -473,14 +539,14 @@ function bind(blueprint, instance, metadata) {
     }
   }
   if (metadata) {
-    const object = metadata.objects[entity.read.object];
+    const object = entry(metadata.objects, entity.read.object);
     if (!object) throw new Fault("OBJECT_BINDING_MISSING", "The selected Oracle object was not verified.", 5);
     for (const field of Object.values(entity.read.fields)) {
-      const column = object.columns.find((row) => row.COLUMN_NAME === field.column);
+      const column = object.columns.find((row) => sameName(row.COLUMN_NAME, field.column));
       if (!column || column.NULLABLE === "Y" && !field.nullable)
         throw new Fault("COLUMN_CONTRACT_MISMATCH", "Live field nullability or column mapping differs.", 5);
       const expected = ["integer", "decimal"].includes(field.type) ? ["NUMBER", "FLOAT"] : field.type === "date" ? ["DATE"] : field.type === "timestamp" ? ["TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITH LOCAL TIME ZONE"] : ["VARCHAR2", "CHAR", "NVARCHAR2", "NCHAR"];
-      if (!expected.includes(String(column.DATA_TYPE)))
+      if (!expected.includes(oracleType(column.DATA_TYPE)))
         throw new Fault("COLUMN_TYPE_UNSUPPORTED", "Live datatype needs an explicit supported adapter.", 5);
       if (field.maxLength && Number(column.CHAR_LENGTH ?? column.DATA_LENGTH) > field.maxLength)
         throw new Fault("COLUMN_CONTRACT_MISMATCH", "Producer length exceeds consumer capacity.", 5);
@@ -495,8 +561,8 @@ function bind(blueprint, instance, metadata) {
       const primary = object.constraints.find(
         (row) => row.CONSTRAINT_TYPE === "P" && row.STATUS === "ENABLED" && row.VALIDATED === "VALIDATED"
       );
-      const columns = object.constraintColumns.filter((row) => row.CONSTRAINT_NAME === primary?.CONSTRAINT_NAME).sort((a, b) => Number(a.POSITION) - Number(b.POSITION)).map((row) => row.COLUMN_NAME);
-      if (!primary || JSON.stringify(columns) !== JSON.stringify(keys.map((k) => entity.read.fields[k].column)))
+      const columns = object.constraintColumns.filter((row) => row.CONSTRAINT_NAME === primary?.CONSTRAINT_NAME).sort((a, b) => Number(a.POSITION) - Number(b.POSITION)).map((row) => oracleName(row.COLUMN_NAME));
+      if (!primary || JSON.stringify(columns) !== JSON.stringify(keys.map((k) => oracleName(entity.read.fields[k].column))))
         throw new Fault(
           "PRIMARY_KEY_MISMATCH",
           "Live enabled/validated primary key differs from the contract.",
@@ -517,9 +583,20 @@ ${indent(value)}
 )
 `;
 var scalar = (value) => {
-  if (/[\r\n\x00-\x1f{}()`]/.test(value))
+  if (/[\r\n\x00-\x1f\x7f{}()`]/.test(value))
     throw new Fault("PARAMETER_UNSUPPORTED", "Labels must be single-line literal values.", 2);
+  if (/[<>]|&[A-Za-z0-9_$#]+\.|#[A-Za-z0-9_$]+#|^\s*@/.test(value))
+    throw new Fault(
+      "LABEL_UNSAFE",
+      "Titles and labels cannot contain HTML, &ITEM. or #NAME# substitutions, or a leading @ reference.",
+      2
+    );
   return value;
+};
+var sqlLiteral = (value) => {
+  if (/[\x00-\x1f\x7f`]/.test(value))
+    throw new Fault("LITERAL_UNSAFE", "Literal values must be single-line text without backticks.", 2);
+  return "'" + value.replaceAll("'", "''") + "'";
 };
 var code = (language, source2) => `
     \`\`\`${language}
@@ -632,7 +709,7 @@ function summaryRegion(blueprint, instance, allocation) {
       `name: ${scalar(instance.parameters.title)}`,
       "type: cards",
       source(
-        `select ${field.column} ID, ${field.column} TITLE, to_char(count(*)) STATUS from ${entity.read.object} where ${predicate} group by ${field.column}`
+        `select ${field.column} ID, ${field.column} TITLE, to_char(count(*)) STATUS from ${entity.read.object} where (${predicate}) group by ${field.column}`
       ),
       layout(30),
       appearance("cards-container"),
@@ -794,7 +871,7 @@ ${group("security", "sessionStateProtection: checksumRequiredSessionLevel")}`
     };
   }
   const region = allocation.prefix + "-records", filterItem = `P${allocation.page}_FILTER`;
-  const where = instance.parameters.filterField ? `${predicate} and (${entity.read.fields[instance.parameters.filterField].column} = :${filterItem} or :${filterItem} is null)` : predicate;
+  const where = instance.parameters.filterField ? `(${predicate}) and (${entity.read.fields[instance.parameters.filterField].column} = :${filterItem} or :${filterItem} is null)` : `(${predicate})`;
   const columns = fields.map(
     ([name, field], i) => node(
       "column",
@@ -902,10 +979,7 @@ region: @${region}`,
     const spec = entity.read.fields[field], value = ":" + itemName(field), checks = [];
     if (!spec.nullable) checks.push(`${value} is null`);
     if (spec.maxLength) checks.push(`length(${value})>${spec.maxLength}`);
-    if (spec.enum?.length)
-      checks.push(
-        `${value} not in (${spec.enum.map((v) => "'" + v.replaceAll("'", "''") + "'").join(", ")})`
-      );
+    if (spec.enum?.length) checks.push(`${value} not in (${spec.enum.map(sqlLiteral).join(", ")})`);
     if (["integer", "decimal"].includes(spec.type))
       checks.push(
         `${value} is not null and not regexp_like(${value},'${spec.type === "integer" ? "^[+-]?[0-9]+$" : "^[+-]?[0-9]+([.][0-9]+)?$"}')`
@@ -970,6 +1044,7 @@ end;`
   const server = `declare
   l_key ${entity.read.object}.${entity.read.fields[keys[0]].column}%type;
   l_authorized boolean;
+  l_visible pls_integer;
   l_version ${entity.read.object}.${entity.read.fields[version].column}%type;
 begin
   savepoint composer_save;
@@ -980,6 +1055,8 @@ begin
     if ${instance.parameters.createEnabled ? "false" : "true"} or l_key is not null or :${itemName(version)} is not null then raise_application_error(-20002, 'Invalid create draft'); end if;
   elsif apex_application.g_x01 = 'edit' then
     if ${instance.parameters.editEnabled ? "false" : "true"} or l_key is null or :${itemName(version)} is null then raise_application_error(-20002, 'Invalid edit draft'); end if;
+    select count(*) into l_visible from ${entity.read.object} where ${entity.read.fields[keys[0]].column} = l_key and (${predicate}) and rownum = 1;
+    if l_visible = 0 then raise_application_error(-20001, 'Authorization denied'); end if;
   else raise_application_error(-20002, 'Invalid operation'); end if;
   ${validation}
   ${instance.extensions.beforeSaveValidation ?? ""}
@@ -993,14 +1070,83 @@ exception when others then
 end;`;
   form += process2(saveName, "ajaxCallback", server);
   const pageItems = mappedFields.map(([f]) => "#" + itemName(f)).join(",");
-  const js = `var button = this.triggeringElement; if (button.disabled) return; button.disabled = true;
-apex.server.process(${JSON.stringify(saveName)}, {x01: apex.item(${JSON.stringify(itemName(keys[0]))}).getValue() ? 'edit' : 'create', pageItems: ${JSON.stringify(pageItems)}}, {dataType: 'json', success: function(data) { if (data.ok) { apex.navigation.dialog.close(true, {entityRef: ${JSON.stringify(binding.entityRef)}, recordKey: data.recordKey, recordVersion: data.recordVersion, operation: apex.item(${JSON.stringify(itemName(keys[0]))}).getValue() ? 'edit' : 'create', originInstance: ${JSON.stringify(id)}, correlationId: crypto.randomUUID()}); } else { apex.message.showErrors([{type:'error',location:'page',message:data.message,unsafe:false}]); } }, error: function() {apex.message.showErrors([{type:'error',location:'page',message:'Save request failed.',unsafe:false}]);}, complete: function() {button.disabled = false;} });`;
+  const correlation = "(window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2))";
+  const js = `var button = this.triggeringElement; if (button.disabled) return; button.disabled = true; var saved = false;
+var keyItem = apex.item(${JSON.stringify(itemName(keys[0]))}), operation = keyItem.getValue() ? 'edit' : 'create';
+apex.server.process(${JSON.stringify(saveName)}, {x01: operation, pageItems: ${JSON.stringify(pageItems)}}, {dataType: 'json', success: function(data) { if (data.ok) { saved = true; try { keyItem.setValue(data.recordKey); apex.item(${JSON.stringify(itemName(version))}).setValue(data.recordVersion); } catch (e) {} try { apex.navigation.dialog.close(true, {entityRef: ${JSON.stringify(binding.entityRef)}, recordKey: data.recordKey, recordVersion: data.recordVersion, operation: operation, originInstance: ${JSON.stringify(id)}, correlationId: ${correlation}}); } catch (e) { apex.message.showErrors([{type:'error',location:'page',message:'Saved. Close this dialog and refresh the report.',unsafe:false}]); } } else { apex.message.showErrors([{type:'error',location:'page',message:data.message,unsafe:false}]); } }, error: function() {apex.message.showErrors([{type:'error',location:'page',message:'Save request failed.',unsafe:false}]);}, complete: function() { if (!saved) button.disabled = false; } });`;
   form += dynamic("save-dialog", "click", "selectionType: button\nbutton: @save", jsAction("save-api", js));
   result[file(dialog)] = page(allocation, instance.parameters.title, form, true);
   return result;
 }
 
 // packages/core/src/composer/planner.ts
+var extensionUnsafe = () => new Fault(
+  "EXTENSION_UNSAFE",
+  "Extension code must preserve caller-owned transactions and literal boundaries.",
+  5
+);
+function extensionCode(source2) {
+  if (/```|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\b[nN]?[qQ]'/.test(source2)) throw extensionUnsafe();
+  let code2 = "", at = 0;
+  while (at < source2.length) {
+    if (source2.startsWith("--", at)) {
+      const end = source2.indexOf("\n", at);
+      at = end < 0 ? source2.length : end;
+      code2 += " ";
+    } else if (source2.startsWith("/*", at)) {
+      const end = source2.indexOf("*/", at + 2);
+      if (end < 0) throw extensionUnsafe();
+      at = end + 2;
+      code2 += " ";
+    } else if (source2[at] === "'") {
+      const end = source2.slice(at + 1).search(/'(?!')/);
+      if (end < 0) throw extensionUnsafe();
+      at += end + 2;
+      code2 += "''";
+    } else if (source2[at] === '"') {
+      const end = source2.indexOf('"', at + 1);
+      if (end < 0) throw extensionUnsafe();
+      code2 += " " + source2.slice(at + 1, end) + " ";
+      at = end + 1;
+    } else code2 += source2[at++];
+  }
+  const normalized = code2.replace(/\s+/g, " ");
+  if (/\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|utl_\w+)\b|\bsys\s*\./i.test(
+    normalized
+  ))
+    throw extensionUnsafe();
+  return source2;
+}
+function derivedNames(prefix) {
+  return [
+    prefix,
+    prefix + "_EDIT",
+    prefix + "_SAVE",
+    prefix + "_records",
+    prefix + "_summary",
+    ...["records", "summary", "history", "master", "detail", "filter", "create", "saved", "read"].map(
+      (suffix) => prefix + "-" + suffix
+    )
+  ].map((name) => name.toUpperCase());
+}
+function sourceIdentities(sources) {
+  const names = new Set(inventorySymbols(sources).symbols);
+  for (const source2 of Object.values(sources))
+    for (const match2 of source2.matchAll(
+      /^[ \t]*(?:alias|htmlDomId|staticId|buttonName|name):[ \t]*([^\s]+)[ \t]*$/gm
+    ))
+      names.add(match2[1].toUpperCase());
+  return names;
+}
+var escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function pageReference(source2, page2, alias) {
+  const target = alias ? `(?:${page2}|${escapeRegExp(alias)})` : page2, end = "(?![A-Za-z0-9_$#-])";
+  if (new RegExp("\\bpage:\\s*" + target + end, "i").test(source2) || source2.includes(":" + page2 + ":") || new RegExp(`f\\?p=[^:\\s'"]*:${target}${end}`, "i").test(source2) || new RegExp(`\\bp_page\\s*=>\\s*'?${target}${end}`, "i").test(source2) || alias && new RegExp(`(?<![A-Za-z0-9_$#-])${escapeRegExp(alias)}${end}`, "i").test(source2))
+    return "literal";
+  if (/\bp_page\s*=>(?!\s*(?:'[A-Za-z0-9_$#]*'|\d+\b))/i.test(source2) || /\bapex_page\.get_url\s*\((?!\s*(?:p_|\)))/i.test(source2) || /f\?p=[^:\s'"]*:(?:&(?!APP_PAGE_ID\.)|#|'\s*\|\|)/i.test(source2))
+    return "dynamic";
+  return null;
+}
 async function snapshot(ctx, blueprintPath, options = {}) {
   const root = await safePath(ctx.root, ctx.config.application.sourceDir), sourceInventory = await inventory(root);
   const sources = {};
@@ -1015,10 +1161,10 @@ async function snapshot(ctx, blueprintPath, options = {}) {
   const bases = {};
   const baseRoot = await safePath(ctx.root, ".apexrest-composer/bases");
   if (await exists(baseRoot))
-    for (const entry of await readdir(baseRoot)) {
-      if (!/^[a-f0-9]{64}\.apx$/.test(entry))
+    for (const entry2 of await readdir(baseRoot)) {
+      if (!/^[a-f0-9]{64}\.apx$/.test(entry2))
         throw new Fault("GENERATION_BASE_CORRUPT", "Unexpected generated base entry.", 5);
-      const bytes = await readFile(await safePath(baseRoot, entry)), digest2 = entry.slice(0, -4);
+      const bytes = await readFile(await safePath(baseRoot, entry2)), digest2 = entry2.slice(0, -4);
       if (hash(bytes) !== digest2)
         throw new Fault("GENERATION_BASE_CORRUPT", "Generated base integrity failed.", 5);
       bases[digest2] = bytes.toString("utf8");
@@ -1128,7 +1274,9 @@ function planComposition(input) {
           severity: "warning",
           message: "Selected exact block is deprecated; review replacement separately."
         });
-    const symbols = inventorySymbols(input.sources), used = new Set(symbols.pages), prefixes = /* @__PURE__ */ new Set();
+    const symbols = inventorySymbols(input.sources), used = new Set(symbols.pages), prefixes = /* @__PURE__ */ new Set(), ownedFiles = new Set(Object.values(state?.owners ?? {}).flatMap((owner) => Object.keys(owner.files))), existing = sourceIdentities(
+      Object.fromEntries(Object.entries(input.sources).filter(([file]) => !ownedFiles.has(file)))
+    );
     const allocated = {};
     const nextPage = () => {
       for (let page2 = 100; page2 < 9999; page2++)
@@ -1142,17 +1290,14 @@ function planComposition(input) {
       const binding = bind(blueprint, instance, input.metadata ?? void 0);
       if (Object.keys(instance.extensions).length && instance.ownership !== "extended")
         throw new Fault("EXTENSION_MODE_REQUIRED", "Extension hooks require explicit extended ownership.", 5);
-      for (const source2 of Object.values(instance.extensions))
-        if (/```|\b(?:commit|rollback|grant|revoke|host|connect|execute\s+immediate)\b/i.test(source2))
-          throw new Fault(
-            "EXTENSION_UNSAFE",
-            "Extension code must preserve caller-owned transactions and literal boundaries.",
-            5
-          );
+      for (const source2 of Object.values(instance.extensions)) extensionCode(source2);
       const previous = state?.owners[id], prefix = previous?.allocation.prefix ?? "cmp_" + id.toLowerCase().replaceAll("-", "_").slice(0, 24) + "_" + hash(id).slice(0, 8);
-      if (prefixes.has(prefix.toUpperCase()) || !previous && symbols.symbols.has(prefix.toUpperCase()))
+      const names = derivedNames(prefix);
+      if (names.some(
+        (name) => prefixes.has(name) || existing.has(name) || !previous && symbols.symbols.has(name)
+      ))
         throw new Fault("SYMBOL_COLLISION", "A block namespace collides with existing source.", 5);
-      prefixes.add(prefix.toUpperCase());
+      for (const name of names) prefixes.add(name);
       if (previous)
         for (const file of Object.keys(previous.files)) {
           if (!input.sources[file])
@@ -1321,9 +1466,9 @@ function planComposition(input) {
     );
     for (const [file, owner] of oldFiles)
       if (!(file in desired)) {
-        const existing = owners[owner.instanceId];
-        if (existing?.mode === "detached" || owner.mode === "detached") {
-          if (!existing) owners[owner.instanceId] = owner;
+        const existing2 = owners[owner.instanceId];
+        if (existing2?.mode === "detached" || owner.mode === "detached") {
+          if (!existing2) owners[owner.instanceId] = owner;
           continue;
         }
         if (Object.values(state.owners).some(
@@ -1339,13 +1484,19 @@ function planComposition(input) {
         const targetPage = declarations(input.sources[file]).find(
           (n) => n.kind === "page" && n.depth === 0
         )?.key;
-        for (const [consumer, source2] of Object.entries(effectiveSources))
-          if (consumer !== file && !removedFiles.has(consumer) && targetPage && (new RegExp("\\bpage:\\s*" + targetPage + "(?:\\s|$)").test(source2) || source2.includes(":" + targetPage + ":")))
+        if (!targetPage || !/^\d+$/.test(targetPage))
+          throw new Fault("UNKNOWN_CONSUMER_RETAINED", "Removed page identity cannot be verified.", 5);
+        const alias = input.sources[file].match(/^ {4}alias:[ \t]*([A-Za-z0-9_$#]+)[ \t]*$/m)?.[1];
+        for (const [consumer, source2] of Object.entries(effectiveSources)) {
+          if (consumer === file || removedFiles.has(consumer)) continue;
+          const reference = pageReference(source2, targetPage, alias);
+          if (reference)
             throw new Fault(
               "UNKNOWN_CONSUMER_RETAINED",
-              "A remaining or unmanaged source still references the removed page.",
+              reference === "literal" ? "A remaining or unmanaged source still references the removed page." : "A remaining source builds a dynamic page link; review it before removing an owned page.",
               5
             );
+        }
         operations.push({
           path: input.sourceDir + "/" + file,
           before: input.sourceInventory[file],
@@ -1400,6 +1551,21 @@ function planComposition(input) {
   plan.operations = [...new Map(operations.map((op) => [op.path, op])).values()].sort(
     (a, b) => a.path < b.path ? -1 : 1
   );
+  plan.digest = planDigest(plan);
+  const checked = planSchema.safeParse(plan);
+  if (checked.success && Buffer.byteLength(documentText(plan)) <= planLimits.document) return checked.data;
+  plan.status = "blocked";
+  plan.operations = [];
+  plan.state = null;
+  plan.lock = null;
+  plan.diagnostics = [
+    ...diagnostics.filter((diagnostic) => diagnostic.severity !== "info"),
+    {
+      code: "PLAN_LIMIT",
+      severity: "error",
+      message: `Generated plan exceeds reviewed limits (owned source up to ${OWNED_TEXT_LIMIT} characters, at most 2048 writes).`
+    }
+  ];
   plan.digest = planDigest(plan);
   return validate(planSchema, plan);
 }
@@ -1630,10 +1796,11 @@ var panelActionSchema = external_exports.strictObject({
     external_exports.strictObject({ kind: external_exports.literal("plan"), env: external_exports.string().min(1).max(100) })
   ])
 });
+var [preferencesAction, ...otherActions] = panelActionSchema.shape.action.options;
 var publicPanelActionSchema = panelActionSchema.extend({
   action: external_exports.discriminatedUnion("kind", [
-    panelActionSchema.shape.action.options[0],
-    ...panelActionSchema.shape.action.options.slice(1).map(
+    preferencesAction,
+    ...otherActions.filter((option) => option.shape.kind.value !== "sqlcl").map(
       (option) => option.shape.kind.value === "connection" ? connectionActionSchema.omit({ password: true }) : option
     )
   ])
@@ -1675,18 +1842,23 @@ var JobService = class {
       operation,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     });
-    const worker = spawn(process.execPath, [runtime, "--job-worker", this.ctx.root, id], {
-      cwd: this.ctx.root,
-      env: process.env,
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true
-    });
-    await new Promise((resolve, reject) => {
-      worker.once("spawn", resolve);
-      worker.once("error", reject);
-    });
-    worker.unref();
+    try {
+      const worker = spawn(process.execPath, [runtime, "--job-worker", this.ctx.root, id], {
+        cwd: this.ctx.root,
+        env: process.env,
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true
+      });
+      await new Promise((resolve, reject) => {
+        worker.once("spawn", resolve);
+        worker.once("error", reject);
+      });
+      worker.unref();
+    } catch (error) {
+      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
+      throw error;
+    }
     return {
       jobId: id,
       status: "queued",
@@ -1725,6 +1897,28 @@ var JobService = class {
     return { jobId: id, status: "cancellation_requested", rollbackConfirmed: false };
   }
 };
+async function failQueuedJob(projectRoot, id, error) {
+  parse(external_exports.uuid(), id);
+  const file = await contained(projectRoot, ".apexrest/jobs/" + id + "/state.json");
+  if (!await exists(file)) return false;
+  const state = await readJson(file);
+  if (state.status !== "queued") return false;
+  const operation = typeof state.operation === "string" ? state.operation : "job";
+  await writeJson(file, {
+    id,
+    operation,
+    status: "failed",
+    result: failure(operation, error),
+    nextAction: "The worker did not start this operation. Resolve the diagnostic, then start a new job.",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  return true;
+}
+function jobOutcome(result) {
+  const value = result;
+  if (!value || typeof value !== "object" || value.ok !== false) return "completed";
+  return typeof value.status === "string" && !["queued", "running", "completed", "succeeded"].includes(value.status) ? value.status : "failed";
+}
 async function executeJob(ctx, id, execute) {
   await requireTrust(ctx.root);
   parse(external_exports.uuid(), id);
@@ -1758,7 +1952,8 @@ async function executeJob(ctx, id, execute) {
     await pending;
     await writeJson(path.join(root, "state.json"), {
       id,
-      status: "completed",
+      operation: request.operation,
+      status: jobOutcome(result),
       result,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     });
@@ -1775,6 +1970,7 @@ import { fileURLToPath } from "node:url";
 import { readdir as readdir2, realpath, stat } from "node:fs/promises";
 import { randomUUID as randomUUID2 } from "node:crypto";
 var safe = (value) => sanitized(value);
+var historyLimit = 2e3;
 var PanelService = class {
   constructor(root, oracle = new OracleAdapter()) {
     this.root = root;
@@ -1787,24 +1983,29 @@ var PanelService = class {
   }
   async records(folder) {
     const base = await contained(this.root, ".apexrest/" + folder);
-    if (!await exists(base)) return [];
-    const entries = (await readdir2(base, { withFileTypes: true })).filter(
+    if (!await exists(base)) return { rows: [], omitted: 0 };
+    let entries = (await readdir2(base, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && external_exports.uuid().safeParse(e.name).success
     );
-    if (entries.length > 2e3)
-      throw new Fault(
-        "PANEL_HISTORY_LIMIT",
-        "Archive old operation records before loading more than 2000 runs.",
-        2
+    let omitted = 0;
+    if (entries.length > historyLimit) {
+      const dated = await Promise.all(
+        entries.map(async (entry2) => ({
+          entry: entry2,
+          at: (await stat(path2.join(base, entry2.name)).catch(() => null))?.mtimeMs ?? 0
+        }))
       );
+      omitted = entries.length - historyLimit;
+      entries = dated.sort((a, b) => b.at - a.at).slice(0, historyLimit).map((d) => d.entry);
+    }
     const files = await Promise.all(
-      entries.map(async (entry) => {
-        const file = await contained(base, entry.name + "/state.json");
+      entries.map(async (entry2) => {
+        const file = await contained(base, entry2.name + "/state.json");
         const info = await stat(file).catch(() => null);
-        return { id: entry.name, file, at: info?.mtimeMs ?? 0, size: info?.size ?? 0 };
+        return { id: entry2.name, file, at: info?.mtimeMs ?? 0, size: info?.size ?? 0 };
       })
     );
-    return Promise.all(
+    const rows = await Promise.all(
       files.filter((f) => f.size > 0).sort((a, b) => b.at - a.at).slice(0, 12).map(async (f) => {
         if (f.size > 2 * 1024 * 1024)
           return {
@@ -1823,6 +2024,7 @@ var PanelService = class {
         }
       })
     );
+    return { rows, omitted };
   }
   async snapshot() {
     this.root = await realpath(this.root);
@@ -1839,21 +2041,32 @@ var PanelService = class {
       this.records("deployments")
     ]);
     const jobs = await Promise.all(
-      jobRecords.map(async (row) => {
-        const state = ctx ? await new JobService(ctx).status(String(row.id)) : row;
+      jobRecords.rows.map(async (row) => {
+        let state = row;
+        if (ctx)
+          try {
+            state = await new JobService(ctx).status(String(row.id));
+          } catch {
+            state = {
+              ...row,
+              status: "unavailable",
+              diagnostics: ["Cannot read this job status."]
+            };
+          }
         const result = state.result ?? {};
+        const diagnostics = Array.isArray(result.diagnostics) ? result.diagnostics : Array.isArray(state.diagnostics) ? state.diagnostics : [];
         return {
           id: String(row.id),
           operation: String(row.operation ?? result.operation ?? "operation"),
           status: String(result.status ?? state.status),
           updatedAt: String(state.updatedAt ?? ""),
           summary: String(result.summary ?? "").slice(0, 1e3),
-          diagnostics: Array.isArray(result.diagnostics) ? result.diagnostics.slice(0, 5) : [],
+          diagnostics: diagnostics.slice(0, 5),
           artifacts: Array.isArray(result.artifacts) ? result.artifacts.slice(0, 10) : []
         };
       })
     );
-    const deployments = deploymentRecords.map((row) => ({
+    const deployments = deploymentRecords.rows.map((row) => ({
       id: String(row.id),
       status: String(row.state ?? "unknown"),
       at: String(row.at ?? ""),
@@ -1907,6 +2120,7 @@ var PanelService = class {
       toolchain,
       jobs,
       deployments,
+      history: { jobsOmitted: jobRecords.omitted, deploymentsOmitted: deploymentRecords.omitted },
       changes,
       permissions: {
         activeGrants: security.grants.filter((g) => g.projectRoot === this.root && Date.parse(g.expiresAt) > Date.now()).map((g) => ({ operations: g.operations, expiresAt: g.expiresAt, exactPlan: !!g.planDigest }))
@@ -1991,6 +2205,7 @@ export {
   panelActionSchema,
   publicPanelActionSchema,
   JobService,
+  failQueuedJob,
   executeJob,
   PanelService
 };

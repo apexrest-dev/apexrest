@@ -32,7 +32,7 @@ Build with `npm run build` before checks that consume `dist/`. The [implementati
 - `APEXREST_INTEGRATION_ALLOW_WRITES=true` before any apply, with independently authorized mutation scope.
 - Local interactive browser authentication and a dedicated test user when E2E is required.
 
-The integration harness refuses production. Missing prerequisites produce blocked evidence and exit code 3; they do not count as passing skips. Default local deployment coordination requires no service tables. The full release matrix also includes recovery and fault-injection scenarios beyond the happy-path harness.
+The integration harness refuses production. Remote test suites are also refused for any target classified as production, including targets listed in the administrator's `production-trust.json`. Missing prerequisites produce blocked evidence and exit code 3; they do not count as passing skips. Default local deployment coordination requires no service tables. The full release matrix also includes recovery and fault-injection scenarios beyond the happy-path harness.
 
 ## Application-only changes
 
@@ -50,7 +50,7 @@ Keep browser observations separate from automated test results. Record missing a
 
 ## Automated application tests
 
-The SQL runner reads real utPLSQL JUnit output and counts executed test cases. Missing utPLSQL is `dependency_missing`. The CRM fixture checks accepted customers, missing name, invalid email/status and duplicate email.
+The SQL runner reads real utPLSQL JUnit output and counts executed test cases. Missing utPLSQL is `dependency_missing`. SQL test files may contain SQL and PL/SQL only: before any Oracle call, a line that SQLcl could interpret as a client command, such as `host`, `@`, `spool` or `connect`, blocks the run with `SQL_TEST_SCRIPT_CONTROL`. In CLI mode each test script runs in a SQLcl session started with `-R 2`. The CRM fixture checks accepted customers, missing name, invalid email/status and duplicate email.
 
 The browser fixture uses a unique synthetic record, tests invalid input, exercises create/read/update/delete and cleans up its own data. Its selectors must be verified against the deployed app. API suites use Playwright request tests and the guarded testkit helper with explicit allowed origins. There is no mock HTTP endpoint presented as a live APEX test.
 

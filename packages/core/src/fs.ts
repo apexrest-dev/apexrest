@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, readdir, realpath, rename, lstat, rm } from 'node:fs/promises';
+import { mkdir, open, readFile, readdir, realpath, rename, lstat, rm, link } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { hostname } from 'node:os';
@@ -40,6 +40,25 @@ export async function atomicWrite(file: string, value: string | Buffer | AsyncIt
     await rm(temporary, { force: true });
     throw error;
   }
+  await syncDirectory(path.dirname(file));
+}
+/** Persist a renamed or linked directory entry. Windows cannot fsync directories; that is best effort. */
+export async function syncDirectory(directory: string) {
+  let handle;
+  try {
+    handle = await open(directory, 'r');
+    await handle.sync();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (
+      process.platform === 'win32' ||
+      ['EPERM', 'EISDIR', 'EINVAL', 'ENOTSUP', 'EBADF'].includes(code ?? '')
+    )
+      return;
+    throw error;
+  } finally {
+    await handle?.close();
+  }
 }
 export const writeJson = (file: string, value: unknown) =>
   atomicWrite(file, JSON.stringify(value, null, 2) + '\n');
@@ -56,17 +75,28 @@ export async function exists(file: string) {
   }
 }
 export async function contained(root: string, candidate: string): Promise<string> {
+  return containedPath(root, candidate, false);
+}
+/** Like contained(), but the candidate must be a strict descendant: the root itself is rejected. */
+export async function containedChild(root: string, candidate: string): Promise<string> {
+  return containedPath(root, candidate, true);
+}
+async function containedPath(root: string, candidate: string, child: boolean): Promise<string> {
   const base = await realpath(root),
     target = path.resolve(base, candidate);
   const rel = path.relative(base, target);
   if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel))
     throw new Fault('PATH_ESCAPE', 'Path escapes the permitted root.', 2);
+  if (child && rel === '')
+    throw new Fault('PATH_ESCAPE', 'Path must be inside, not equal to, the permitted root.', 2);
   let probe = target;
   while (!(await exists(probe))) probe = path.dirname(probe);
   const physical = await realpath(probe),
     physicalRel = path.relative(base, physical);
   if (physicalRel === '..' || physicalRel.startsWith('..' + path.sep) || path.isAbsolute(physicalRel))
     throw new Fault('SYMLINK_ESCAPE', 'Symlink escapes the permitted root.', 2);
+  if (child && probe === target && physicalRel === '')
+    throw new Fault('PATH_ESCAPE', 'Path must be inside, not equal to, the permitted root.', 2);
   return target;
 }
 export async function inventory(root: string): Promise<Record<string, string>> {
@@ -85,6 +115,40 @@ export async function inventory(root: string): Promise<Record<string, string>> {
   await walk(root);
   return Object.fromEntries(Object.entries(out).sort());
 }
+/** Locks without complete owner records are never silently reclaimed. */
+export const LOCK_CORRUPT_AFTER_MS = 30000;
+async function createLock(file: string, owner: string) {
+  // Publish a fully written owner record with link(): other runners see either
+  // no lock or a complete one, never an empty file from an interrupted write.
+  const temporary = file + '.' + randomUUID() + '.owner';
+  const handle = await open(temporary, 'wx', 0o600);
+  try {
+    try {
+      await handle.writeFile(owner);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    try {
+      await link(temporary, file);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') throw error;
+      if (!['EPERM', 'ENOTSUP', 'ENOSYS', 'EXDEV', 'EOPNOTSUPP'].includes(code ?? '')) throw error;
+    }
+    // File systems without hard links keep exclusive creation.
+    const fallback = await open(file, 'wx', 0o600);
+    try {
+      await fallback.writeFile(owner);
+      await fallback.sync();
+    } finally {
+      await fallback.close();
+    }
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
 export async function withLock<T>(file: string, action: () => Promise<T>): Promise<T> {
   await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const recovery = file + '.recovery';
@@ -101,6 +165,21 @@ export async function withLock<T>(file: string, action: () => Promise<T>): Promi
       owner = (await readJson(file)) as typeof owner;
     } catch {
       /* Incomplete ownership stays blocked. */
+    }
+    if (!owner || typeof owner !== 'object' || !Number.isInteger(owner.pid)) {
+      let age = 0;
+      try {
+        age = Date.now() - (await lstat(file)).mtimeMs;
+      } catch {
+        /* Released concurrently; exclusive creation below decides. */
+      }
+      if (age > LOCK_CORRUPT_AFTER_MS)
+        throw new Fault(
+          'LOCK_CORRUPT',
+          `Lock file ${file} has no readable owner (an interrupted earlier process left it). Confirm no apexrest operation is running on any host, then delete that file and retry.`,
+          5,
+          'conflict',
+        );
     }
     if (owner && owner.hostname === hostname() && Number.isInteger(owner.pid) && owner.pid > 0) {
       let dead = false;
@@ -124,9 +203,11 @@ export async function withLock<T>(file: string, action: () => Promise<T>): Promi
       }
     }
   }
-  let handle;
   try {
-    handle = await open(file, 'wx', 0o600);
+    await createLock(
+      file,
+      JSON.stringify({ pid: process.pid, hostname: hostname(), createdAt: new Date().toISOString() }),
+    );
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'EEXIST')
       throw new Fault(
@@ -138,13 +219,8 @@ export async function withLock<T>(file: string, action: () => Promise<T>): Promi
     throw e;
   }
   try {
-    await handle.writeFile(
-      JSON.stringify({ pid: process.pid, hostname: hostname(), createdAt: new Date().toISOString() }),
-    );
-    await handle.sync();
     return await action();
   } finally {
-    await handle.close();
     await rm(file, { force: true });
   }
 }

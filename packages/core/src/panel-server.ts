@@ -2,13 +2,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { contained, exists, readJson, writeJson, withLock } from './fs.ts';
 import { PanelService } from './panel.ts';
 import { panelActionSchema } from './panel-schema.ts';
-import { parse } from './config.ts';
+import { loadProject, parse, requireTrust } from './config.ts';
 import { Fault, failure } from './result.ts';
 import { resourceRoot } from './project.ts';
 
@@ -43,7 +43,7 @@ export async function panelDocument() {
       .replace('</body>', () => '<script>' + js!.replaceAll('</script', '<\\/script') + '</script>\n</body>')
   );
 }
-export async function startPanelServer(root: string, idleMs = 3600000) {
+export async function startPanelServer(root: string, idleMs = 3600000, graceMs = 2000) {
   const token = randomBytes(32).toString('hex');
   const service = new PanelService(root);
   let lastRequest = Date.now(),
@@ -132,17 +132,43 @@ export async function startPanelServer(root: string, idleMs = 3600000) {
     },
     Math.min(idleMs, 60000),
   );
-  const close = () => {
-    clearInterval(timer);
-    server.closeIdleConnections();
-    return new Promise<void>((resolve) => server.close(() => resolve()));
-  };
+  let closing: Promise<void> | undefined;
+  const close = () =>
+    (closing ??= (async () => {
+      clearInterval(timer);
+      // Keep-alive or stalled clients must not hold an idle worker open forever.
+      const force = setTimeout(() => server.closeAllConnections(), graceMs);
+      force.unref();
+      const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+      server.closeIdleConnections();
+      await closed;
+      clearTimeout(force);
+      await releaseSession(root, token);
+    })());
   return {
     session: { port: address.port, token, project: root, pid: process.pid } satisfies PanelSession,
     close,
   };
 }
+// Remove the discovery record only while it still describes this server; a
+// newer panel instance may already have replaced it.
+async function releaseSession(root: string, token: string) {
+  try {
+    const file = await contained(root, '.apexrest/panel/session.json');
+    const session = await readJson(file).catch(() => null);
+    if (validSession(session) && session.token === token && session.pid === process.pid)
+      await rm(file, { force: true });
+  } catch {
+    /* A missing or replaced session record needs no cleanup. */
+  }
+}
+// Panels serve only reviewed APEXREST projects; never create state elsewhere.
+async function requirePanelProject(root: string) {
+  await loadProject(root);
+  await requireTrust(root);
+}
 export async function servePanel(root: string) {
+  await requirePanelProject(root);
   const handle = await startPanelServer(root);
   await writeJson(await contained(root, '.apexrest/panel/session.json'), handle.session);
   process.once('SIGTERM', () => {
@@ -153,6 +179,7 @@ export async function servePanel(root: string) {
   });
 }
 export async function openPanel(root: string) {
+  await requirePanelProject(root);
   const file = await contained(root, '.apexrest/panel/session.json');
   const read = async () => {
     if (!(await exists(file))) return null;

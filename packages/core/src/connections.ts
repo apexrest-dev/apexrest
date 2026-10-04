@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { chmod, mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { chmod, constants, mkdir, open, rm, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { contained, exists, readJson, withLock, writeJson } from './fs.ts';
 import { managedHome, parse, refName } from './config.ts';
@@ -18,6 +18,8 @@ export const ordsUrl = z
     const url = new URL(value);
     return (
       ['http:', 'https:'].includes(url.protocol) &&
+      // Plaintext HTTP would expose the ORDS password; allow it for loopback only.
+      (url.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) &&
       !url.username &&
       !url.password &&
       !url.search &&
@@ -26,7 +28,7 @@ export const ordsUrl = z
       !url.pathname.replace(/\/+$/, '').endsWith('/_/sql') &&
       !/[\s"\x00-\x1f]/.test(value)
     );
-  }, 'Use the ORDS schema HTTP(S) URL ending in /, without credentials, query or fragment.');
+  }, 'Use the ORDS schema HTTPS URL ending in / (HTTP only for localhost), without credentials, query or fragment.');
 export const ordsUsername = z
   .string()
   .min(1)
@@ -140,6 +142,37 @@ export async function editConnection(name: string, value?: Connection) {
   });
 }
 
+/** A password file must be a private regular file; symlinks and shared files are rejected. */
+async function readPasswordFile(file: string) {
+  let handle;
+  try {
+    handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    throw new Fault(
+      'PASSWORD_FILE_UNSAFE',
+      code === 'ELOOP' || code === 'EMLINK'
+        ? 'The password file must not be a symbolic link.'
+        : 'The password file cannot be opened.',
+      2,
+    );
+  }
+  try {
+    const info = await handle.stat();
+    if (!info.isFile())
+      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file must be a regular file.', 2);
+    if (process.platform !== 'win32' && (info.mode & 0o077) !== 0)
+      throw new Fault(
+        'PASSWORD_FILE_UNSAFE',
+        'The password file must only be accessible by its owner (chmod 600).',
+        2,
+      );
+    return await handle.readFile('utf8');
+  } finally {
+    await handle.close();
+  }
+}
+
 export interface ConfigureConnection {
   sqlclName?: string | undefined;
   ordsUrl?: string | undefined;
@@ -168,7 +201,7 @@ export async function configureConnection(name: string, input: ConfigureConnecti
     let password = input.password;
     if (input.passwordFile) {
       if (password !== undefined) throw new Fault('INVALID_INPUT', 'Supply one local password source.', 2);
-      password = (await readFile(path.resolve(input.passwordFile), 'utf8')).replace(/\r?\n$/, '');
+      password = (await readPasswordFile(path.resolve(input.passwordFile))).replace(/\r?\n$/, '');
     }
     if (password !== undefined && !ords)
       throw new Fault(

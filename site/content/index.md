@@ -8,7 +8,7 @@ APEXREST brings application source, Oracle compilation, controlled imports and r
 
 [Install in Codex](install.md) · [Get started](../../docs/getting-started.md) · [Explore the source](https://github.com/apexrest-dev/apexrest-codex)
 
-Install the CLI with `npm install -g apexrest`, then run `apexrest` to install tools and register the Codex plugin. Release 1.2.0 adds a separate offline catalog of 58 UX patterns and 84 recipes (69 compiler-checked, 15 explicit gaps), alongside the component catalog of 109 families and 138 compiler-checked recipes. Use 18 MCP tools and 13 skills directly in your current Codex conversation; [release notes](../../docs/release-notes.md) track distribution and evidence.
+Install the CLI with `npm install -g apexrest`, then run `apexrest` to install tools and register the Codex plugin. Stable release 1.2.0 adds a separate offline catalog of 58 UX patterns and 84 recipes (69 compiler-checked, 15 explicit gaps), alongside the component catalog of 109 families and 138 compiler-checked recipes. Beta 1.3.0-beta.1 adds experimental Composer and single-editor working copies. Use its 21 MCP tools and 14 skills (18 and 13 in 1.2.0) directly in your current Codex conversation; [release notes](../../docs/release-notes.md) track distribution and evidence.
 
 ![APEXREST connects Codex to native APEX source, Oracle validation, controlled deployment and verification](../../docs/assets/overview.svg)
 

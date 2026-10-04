@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, stat } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
 import { managedHome, parse, refName } from './config.ts';
 import type { Environment, ProjectContext } from './config.ts';
 import type { Connection } from './connections.ts';
@@ -89,6 +89,15 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
     );
   return output;
 }
+/**
+ * SQLcl CLI restrict level for sessions that execute reviewed SQL files
+ * (migrations, packages, restores, SQL tests) and application imports. Level 2
+ * disables HOST/!/$/EDIT plus SPOOL/SAVE/STORE, so a script cannot run local
+ * programs or write client files. apexrest's own wrappers need only SET,
+ * WHENEVER, PROMPT, CONNECT and @/@@ (an Oracle SQL export and split scripts
+ * use @@), which level 3 would disable. SQLcl apex commands work at level 2.
+ */
+export const SCRIPT_RESTRICT_LEVEL = '2';
 export class OracleAdapter {
   private selectedTransport: Promise<SqlclConfig> | undefined;
   private selectedConnections = new Map<string, Promise<{ name?: string; ords?: OrdsCredentials }>>();
@@ -143,12 +152,33 @@ export class OracleAdapter {
     signal?: AbortSignal,
     cwd?: string,
     format: 'text' | 'json' = 'text',
+    restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
   ) {
     const work = cwd ?? (await this.stage());
+    try {
+      return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel);
+    } finally {
+      if (!cwd) await this.discardStage(work);
+    }
+  }
+  private async sessionIn(
+    work: string,
+    input: string,
+    connection: Connection | undefined,
+    mutation: boolean,
+    signal: AbortSignal | undefined,
+    format: 'text' | 'json',
+    restrictLevel: typeof SCRIPT_RESTRICT_LEVEL | undefined,
+  ) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
     const selected = connection ? await this.selectedConnection(connection) : undefined;
-    const args = ['-S', '-L', ...(selected?.name ? ['-name', selected.name] : ['/nolog'])];
+    const args = [
+      '-S',
+      '-L',
+      ...(restrictLevel ? ['-R', restrictLevel] : []),
+      ...(selected?.name ? ['-name', selected.name] : ['/nolog']),
+    ];
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       SQLPATH: '',
@@ -240,6 +270,13 @@ export class OracleAdapter {
     await mkdir(root, { recursive: true, mode: 0o700 });
     return mkdtemp(path.join(root, 'oracle-'));
   }
+  /** Remove a private staging directory created by stage(). Other paths are never removed. */
+  async discardStage(stage: string | undefined) {
+    if (!stage) return;
+    const relative = path.relative(path.join(managedHome(), 'staging'), path.resolve(stage));
+    if (!/^oracle-[^/\\]+$/.test(relative)) return;
+    await rm(stage, { recursive: true, force: true });
+  }
   async ordsBridge(job: OrdsBridgeJob, connection?: Connection, signal?: AbortSignal, stage?: string) {
     const settings = await this.settings();
     const selected = connection ? await this.selectedConnection(connection) : undefined;
@@ -250,7 +287,12 @@ export class OracleAdapter {
         3,
         'blocked',
       );
-    return runOrdsBridge(settings, job, selected?.ords, stage ?? (await this.stage()), signal, this.runner);
+    const work = stage ?? (await this.stage());
+    try {
+      return await runOrdsBridge(settings, job, selected?.ords, work, signal, this.runner);
+    } finally {
+      if (!stage) await this.discardStage(work);
+    }
   }
   private async capabilityKey(settings: Awaited<ReturnType<OracleAdapter['settings']>>, version: string) {
     // Only cache bundled help for an identifiable SQLcl installation. Bare PATH
@@ -282,14 +324,20 @@ export class OracleAdapter {
   }
   async capabilities(signal?: AbortSignal) {
     const settings = await this.settings();
-    const version = await this.runner({
-      executable: settings.executable,
-      args: ['-version'],
-      cwd: await this.stage(),
-      env: { ...process.env, JAVA_HOME: settings.javaHome },
-      timeoutMs: 15000,
-      ...(signal ? { signal } : {}),
-    });
+    const versionStage = await this.stage();
+    let version: ProcessResult;
+    try {
+      version = await this.runner({
+        executable: settings.executable,
+        args: ['-version'],
+        cwd: versionStage,
+        env: { ...process.env, JAVA_HOME: settings.javaHome },
+        timeoutMs: 15000,
+        ...(signal ? { signal } : {}),
+      });
+    } finally {
+      await this.discardStage(versionStage);
+    }
     oracleDiagnostics(version);
     const currentVersion = version.stdout.trim();
     const key = await this.capabilityKey(settings, currentVersion);
@@ -377,19 +425,20 @@ export class OracleAdapter {
       );
     const stage = await this.stage(),
       copy = path.join(stage, 'application');
-    await cp(source, copy, { recursive: true });
-    const result = await this.session(
-      `apex validate -input ${sqlclToken(copy)}`,
-      undefined,
-      false,
-      signal,
-      stage,
-    );
-    if (
-      !/validat(?:ion|ed).*?(?:success|complete)|successfully.*validat|compil(?:ation|ed).*?(?:success|complete)|successfully.*compil/is.test(
-        result.output,
-      )
-    )
+    let result;
+    try {
+      await cp(source, copy, { recursive: true });
+      result = await this.session(
+        `apex validate -input ${sqlclToken(copy)}`,
+        undefined,
+        false,
+        signal,
+        stage,
+      );
+    } finally {
+      await this.discardStage(stage);
+    }
+    if (!compilerSucceeded(result.output))
       throw new Fault(
         'VALIDATION_UNCONFIRMED',
         result.output.slice(0, 4000) || 'Compiler returned no success marker.',
@@ -443,7 +492,16 @@ export class OracleAdapter {
       (format === 'SQL' && !Object.keys(files).some((f) => f.endsWith('.sql')))
     )
       throw new Fault('EMPTY_BACKUP', 'Oracle export produced no usable files.', 1);
-    return { directory, files, digest: hash(canonical(files)), format, compiler, output: result.output };
+    // Callers own `stage` and remove it with discardStage() once copied or compared.
+    return {
+      directory,
+      files,
+      digest: hash(canonical(files)),
+      format,
+      compiler,
+      output: result.output,
+      stage,
+    };
   }
   async savedConnections(signal?: AbortSignal) {
     const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll('-', '')}`;
@@ -648,6 +706,19 @@ export class OracleAdapter {
   ) {
     await this.requireCapability('import', signal);
     const config = await this.nativeDeployment(ctx, env, source);
+    try {
+      return await this.importWith(env, connection, source, config, signal);
+    } finally {
+      await this.discardStage(path.dirname(config));
+    }
+  }
+  private async importWith(
+    env: Environment,
+    connection: Connection,
+    source: string,
+    config: string,
+    signal?: AbortSignal,
+  ) {
     if ((await this.settings()).databaseTransport === 'ords') {
       await this.requireMutationSupport();
       const result = await this.ordsBridge(
@@ -669,6 +740,9 @@ export class OracleAdapter {
       connection,
       true,
       signal,
+      undefined,
+      'text',
+      SCRIPT_RESTRICT_LEVEL,
     );
     if (!/import.*(?:success|complete)|successfully.*import/is.test(result.output))
       throw new Fault(
@@ -686,12 +760,43 @@ export class OracleAdapter {
       // Keep installation context and the complete non-split backup in one
       // server-side script request. Do not execute the setup as a separate call.
       const stage = await this.stage();
-      const input = path.join(stage, 'restore.sql');
-      await (await import('./fs.ts')).atomicWrite(input, setup + (await readFile(file, 'utf8')));
-      return this.ordsBridge({ operation: 'script', input }, connection, signal, stage);
+      try {
+        const input = path.join(stage, 'restore.sql');
+        await (await import('./fs.ts')).atomicWrite(input, setup + (await readFile(file, 'utf8')));
+        return await this.ordsBridge({ operation: 'script', input }, connection, signal, stage);
+      } finally {
+        await this.discardStage(stage);
+      }
     }
-    return this.session(setup + `@${sqlclToken(file)}`, connection, true, signal);
+    return this.session(
+      setup + `@${sqlclToken(file)}`,
+      connection,
+      true,
+      signal,
+      undefined,
+      'text',
+      SCRIPT_RESTRICT_LEVEL,
+    );
   }
+}
+/**
+ * SQLcl reports compiler errors as text while still exiting 0. Success needs a
+ * success marker and no error indication, including counted summaries such as
+ * "Validation completed with 3 errors".
+ */
+export function compilerSucceeded(output: string) {
+  const success =
+    /validat(?:ion|ed).*?(?:success|complete)|successfully.*validat|compil(?:ation|ed).*?(?:success|complete)|successfully.*compil/is.test(
+      output,
+    );
+  const counted = [...output.matchAll(/\b(\d+)\s+(?:errors?|failures?)\b/gi)].some(
+    (match) => Number(match[1]) > 0,
+  );
+  const failed =
+    /(?:^|\n)\s*(?:error\b|errors?:)|\bwith\s+errors?\b|compile\s+errors?|\bfail(?:ed|ure)\b|\bunsuccessful\b|\bnot\s+successful\b/i.test(
+      output,
+    );
+  return success && !counted && !failed;
 }
 export async function installSources(source: string, root: string, destination: string) {
   const target = await contained(root, destination);

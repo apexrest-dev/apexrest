@@ -24,6 +24,7 @@ const setup = {
   ...dependencies,
   from: z.string().optional(),
   codexHome: z.string().optional(),
+  codex: z.string().min(1).optional(),
   scope: z.enum(['user', 'project']).default('user'),
   version: z.string().optional(),
   nativeOnly: z.boolean().default(false),
@@ -53,6 +54,7 @@ export const schemas = {
   'plugin.uninstall': z.strictObject({
     ...base,
     home: z.string().optional(),
+    codex: z.string().min(1).optional(),
     keepRuntime: z.boolean().default(false),
   }),
   'project.init': z.strictObject({

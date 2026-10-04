@@ -10,9 +10,22 @@ const indent = (value: string, depth = 4) =>
 const group = (key: string, value: string) => `${key} {\n${indent(value)}\n}`;
 const node = (kind: string, key: string, value: string) => `${kind} ${key} (\n${indent(value)}\n)\n`;
 const scalar = (value: string) => {
-  if (/[\r\n\x00-\x1f{}()`]/.test(value))
+  if (/[\r\n\x00-\x1f\x7f{}()`]/.test(value))
     throw new Fault('PARAMETER_UNSUPPORTED', 'Labels must be single-line literal values.', 2);
+  // APEX renders titles and labels with substitutions and, for some templates, as HTML.
+  if (/[<>]|&[A-Za-z0-9_$#]+\.|#[A-Za-z0-9_$]+#|^\s*@/.test(value))
+    throw new Fault(
+      'LABEL_UNSAFE',
+      'Titles and labels cannot contain HTML, &ITEM. or #NAME# substitutions, or a leading @ reference.',
+      2,
+    );
   return value;
+};
+/** Shared guard for text embedded as a SQL string literal inside a generated code fence. */
+const sqlLiteral = (value: string) => {
+  if (/[\x00-\x1f\x7f`]/.test(value))
+    throw new Fault('LITERAL_UNSAFE', 'Literal values must be single-line text without backticks.', 2);
+  return "'" + value.replaceAll("'", "''") + "'";
 };
 const code = (language: string, source: string) =>
   `\n    \`\`\`${language}\n${indent(source, 4)}\n    \`\`\``;
@@ -110,7 +123,7 @@ export function summaryRegion(blueprint: Blueprint, instance: Instance, allocati
       `name: ${scalar(instance.parameters.title)}`,
       'type: cards',
       source(
-        `select ${field.column} ID, ${field.column} TITLE, to_char(count(*)) STATUS from ${entity.read.object} where ${predicate} group by ${field.column}`,
+        `select ${field.column} ID, ${field.column} TITLE, to_char(count(*)) STATUS from ${entity.read.object} where (${predicate}) group by ${field.column}`,
       ),
       layout(30),
       appearance('cards-container'),
@@ -255,8 +268,8 @@ export function render(
   const region = allocation.prefix + '-records',
     filterItem = `P${allocation.page}_FILTER`;
   const where = instance.parameters.filterField
-    ? `${predicate} and (${entity.read.fields[instance.parameters.filterField]!.column} = :${filterItem} or :${filterItem} is null)`
-    : predicate;
+    ? `(${predicate}) and (${entity.read.fields[instance.parameters.filterField]!.column} = :${filterItem} or :${filterItem} is null)`
+    : `(${predicate})`;
   const columns = fields
     .map(([name, field], i) =>
       node(
@@ -365,10 +378,7 @@ export function render(
         checks: string[] = [];
       if (!spec.nullable) checks.push(`${value} is null`);
       if (spec.maxLength) checks.push(`length(${value})>${spec.maxLength}`);
-      if (spec.enum?.length)
-        checks.push(
-          `${value} not in (${spec.enum.map((v) => "'" + v.replaceAll("'", "''") + "'").join(', ')})`,
-        );
+      if (spec.enum?.length) checks.push(`${value} not in (${spec.enum.map(sqlLiteral).join(', ')})`);
       if (['integer', 'decimal'].includes(spec.type))
         checks.push(
           `${value} is not null and not regexp_like(${value},'${spec.type === 'integer' ? '^[+-]?[0-9]+$' : '^[+-]?[0-9]+([.][0-9]+)?$'}')`,
@@ -424,10 +434,14 @@ export function render(
   variables.set(command.outputs.recordKey.from, 'l_key');
   variables.set(command.outputs.recordVersion.from, 'l_version');
   const saveName = allocation.prefix + '_SAVE';
-  const server = `declare\n  l_key ${entity.read.object}.${entity.read.fields[keys[0]!]!.column}%type;\n  l_authorized boolean;\n  l_version ${entity.read.object}.${entity.read.fields[version]!.column}%type;\nbegin\n  savepoint composer_save;\n  l_authorized := (${binding.writeExpression!});\n  if l_authorized is null or not l_authorized or not apex_authentication.is_authenticated then raise_application_error(-20001, 'Authorization denied'); end if;\n  l_key := ${inputExpression(keys[0]!)};\n  if apex_application.g_x01 = 'create' then\n    if ${instance.parameters.createEnabled ? 'false' : 'true'} or l_key is not null or :${itemName(version)} is not null then raise_application_error(-20002, 'Invalid create draft'); end if;\n  elsif apex_application.g_x01 = 'edit' then\n    if ${instance.parameters.editEnabled ? 'false' : 'true'} or l_key is null or :${itemName(version)} is null then raise_application_error(-20002, 'Invalid edit draft'); end if;\n  else raise_application_error(-20002, 'Invalid operation'); end if;\n  ${validation}\n  ${instance.extensions.beforeSaveValidation ?? ''}\n  ${command.package}.${command.procedure}(${[...variables].map(([argument, value]) => `${argument} => ${value}`).join(', ')});\n  if l_key is null or l_version is null then raise_application_error(-20004, 'API output contract violated'); end if;\n  ${instance.extensions.afterSaveNotification ?? ''}\n  apex_json.open_object; apex_json.write('ok',true); apex_json.write('recordKey',${['integer', 'decimal'].includes(entity.read.fields[keys[0]!]!.type) ? "to_char(l_key,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')" : 'l_key'}); apex_json.write('recordVersion',to_char(l_version,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')); apex_json.close_object;\nexception when others then\n  rollback to composer_save;\n  apex_json.open_object; apex_json.write('ok',false); apex_json.write('code',case sqlcode when -20001 then 'authorization' when -20002 then 'validation' when -20003 then 'conflict' else 'server-error' end); apex_json.write('message','Save failed. Review fields and reload after a conflict.'); apex_json.close_object;\nend;`;
+  const server = `declare\n  l_key ${entity.read.object}.${entity.read.fields[keys[0]!]!.column}%type;\n  l_authorized boolean;\n  l_visible pls_integer;\n  l_version ${entity.read.object}.${entity.read.fields[version]!.column}%type;\nbegin\n  savepoint composer_save;\n  l_authorized := (${binding.writeExpression!});\n  if l_authorized is null or not l_authorized or not apex_authentication.is_authenticated then raise_application_error(-20001, 'Authorization denied'); end if;\n  l_key := ${inputExpression(keys[0]!)};\n  if apex_application.g_x01 = 'create' then\n    if ${instance.parameters.createEnabled ? 'false' : 'true'} or l_key is not null or :${itemName(version)} is not null then raise_application_error(-20002, 'Invalid create draft'); end if;\n  elsif apex_application.g_x01 = 'edit' then\n    if ${instance.parameters.editEnabled ? 'false' : 'true'} or l_key is null or :${itemName(version)} is null then raise_application_error(-20002, 'Invalid edit draft'); end if;\n    select count(*) into l_visible from ${entity.read.object} where ${entity.read.fields[keys[0]!]!.column} = l_key and (${predicate}) and rownum = 1;\n    if l_visible = 0 then raise_application_error(-20001, 'Authorization denied'); end if;\n  else raise_application_error(-20002, 'Invalid operation'); end if;\n  ${validation}\n  ${instance.extensions.beforeSaveValidation ?? ''}\n  ${command.package}.${command.procedure}(${[...variables].map(([argument, value]) => `${argument} => ${value}`).join(', ')});\n  if l_key is null or l_version is null then raise_application_error(-20004, 'API output contract violated'); end if;\n  ${instance.extensions.afterSaveNotification ?? ''}\n  apex_json.open_object; apex_json.write('ok',true); apex_json.write('recordKey',${['integer', 'decimal'].includes(entity.read.fields[keys[0]!]!.type) ? "to_char(l_key,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')" : 'l_key'}); apex_json.write('recordVersion',to_char(l_version,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')); apex_json.close_object;\nexception when others then\n  rollback to composer_save;\n  apex_json.open_object; apex_json.write('ok',false); apex_json.write('code',case sqlcode when -20001 then 'authorization' when -20002 then 'validation' when -20003 then 'conflict' else 'server-error' end); apex_json.write('message','Save failed. Review fields and reload after a conflict.'); apex_json.close_object;\nend;`;
   form += process(saveName, 'ajaxCallback', server);
   const pageItems = mappedFields.map(([f]) => '#' + itemName(f)).join(',');
-  const js = `var button = this.triggeringElement; if (button.disabled) return; button.disabled = true;\napex.server.process(${JSON.stringify(saveName)}, {x01: apex.item(${JSON.stringify(itemName(keys[0]!))}).getValue() ? 'edit' : 'create', pageItems: ${JSON.stringify(pageItems)}}, {dataType: 'json', success: function(data) { if (data.ok) { apex.navigation.dialog.close(true, {entityRef: ${JSON.stringify(binding.entityRef)}, recordKey: data.recordKey, recordVersion: data.recordVersion, operation: apex.item(${JSON.stringify(itemName(keys[0]!))}).getValue() ? 'edit' : 'create', originInstance: ${JSON.stringify(id)}, correlationId: crypto.randomUUID()}); } else { apex.message.showErrors([{type:'error',location:'page',message:data.message,unsafe:false}]); } }, error: function() {apex.message.showErrors([{type:'error',location:'page',message:'Save request failed.',unsafe:false}]);}, complete: function() {button.disabled = false;} });`;
+  const correlation =
+    '(window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2))';
+  // Capture the operation once. After a successful create, bind the returned key and
+  // version before closing so any retry becomes a guarded edit, never a second insert.
+  const js = `var button = this.triggeringElement; if (button.disabled) return; button.disabled = true; var saved = false;\nvar keyItem = apex.item(${JSON.stringify(itemName(keys[0]!))}), operation = keyItem.getValue() ? 'edit' : 'create';\napex.server.process(${JSON.stringify(saveName)}, {x01: operation, pageItems: ${JSON.stringify(pageItems)}}, {dataType: 'json', success: function(data) { if (data.ok) { saved = true; try { keyItem.setValue(data.recordKey); apex.item(${JSON.stringify(itemName(version))}).setValue(data.recordVersion); } catch (e) {} try { apex.navigation.dialog.close(true, {entityRef: ${JSON.stringify(binding.entityRef)}, recordKey: data.recordKey, recordVersion: data.recordVersion, operation: operation, originInstance: ${JSON.stringify(id)}, correlationId: ${correlation}}); } catch (e) { apex.message.showErrors([{type:'error',location:'page',message:'Saved. Close this dialog and refresh the report.',unsafe:false}]); } } else { apex.message.showErrors([{type:'error',location:'page',message:data.message,unsafe:false}]); } }, error: function() {apex.message.showErrors([{type:'error',location:'page',message:'Save request failed.',unsafe:false}]);}, complete: function() { if (!saved) button.disabled = false; } });`;
   form += dynamic('save-dialog', 'click', 'selectionType: button\nbutton: @save', jsAction('save-api', js));
   result[file(dialog)] = page(allocation, instance.parameters.title, form, true);
   return result;

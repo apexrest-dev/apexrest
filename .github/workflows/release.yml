@@ -18,6 +18,10 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
       - name: Require immutable reviewed tag and enabled publisher
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -28,7 +32,7 @@ jobs:
       - run: node scripts/verify-local.mjs
       # Runner must provide externally retained, source-bound Oracle/platform evidence.
       - run: npm run check-release-readiness
-      - run: npm run release:dry-run
+      - run: npm run release:package
       - name: Require an externally signed release manifest
         run: node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync("dist/releases/release-manifest.json"));if(!m.signature)process.exit(3);'
       - name: Publish immutable artifacts after protected environment approval

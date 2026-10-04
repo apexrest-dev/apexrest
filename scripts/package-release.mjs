@@ -7,6 +7,31 @@ import { readiness } from './check-release-readiness.mjs';
 const pkg = JSON.parse(await readFile('package.json', 'utf8')),
   version = pkg.version,
   root = 'dist/releases';
+// Release bytes must come from the exact source tree they claim. Uncommitted
+// changes are accepted only for an explicit local --dry-run.
+const dryRun = process.argv.includes('--dry-run');
+const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8' });
+const dirty = status.status !== 0 || status.stdout.trim().length > 0;
+if (dirty && !dryRun) {
+  console.error(
+    'Refusing to package a dirty or unreadable working tree. Commit or stash changes, or pass --dry-run for unsigned local artifacts.',
+  );
+  process.exit(2);
+}
+const sourceBefore = await sourceDigest();
+// Never zip a stale dist/ or site-dist/: rebuild both from this source tree first.
+await rm('site-dist', { recursive: true, force: true });
+for (const script of ['scripts/build-plugin.mjs', 'scripts/build-site.mjs']) {
+  const built = spawnSync(process.execPath, [script], { stdio: 'inherit' });
+  if (built.status !== 0) {
+    console.error(`Release build failed: ${script}`);
+    process.exit(built.status ?? 1);
+  }
+}
+if ((await sourceDigest()) !== sourceBefore) {
+  console.error('Sources changed while building the release; nothing was packaged.');
+  process.exit(2);
+}
 await rm(root, { recursive: true, force: true });
 await mkdir(root, { recursive: true });
 const artifacts = [];
@@ -21,15 +46,17 @@ for (const profile of ['codex-compat'])
     'native-plugin',
     { profile, compatibility: 'codex-plugin' },
   );
-for (const platform of ['darwin-arm64', 'linux-x64', 'win32-x64']) {
-  const staging = 'dist/runtime-package-' + platform;
+// The runtime is platform-neutral JavaScript plus resources (no vendor binaries),
+// so one archive serves every supported platform.
+{
+  const staging = 'dist/runtime-package';
   await rm(staging, { recursive: true, force: true });
   await mkdir(staging, { recursive: true });
   for (const item of ['runtime', 'resources'])
     await cp('dist/' + item, staging + '/' + item, { recursive: true });
   for (const item of ['LICENSE', 'NOTICE']) await cp(item, staging + '/' + item);
-  await add(`apexrest-runtime-${version}-${platform}.zip`, await zipTree(staging, zipSync), 'runtime', {
-    platform,
+  await add(`apexrest-runtime-${version}.zip`, await zipTree(staging, zipSync), 'runtime', {
+    platforms: ['darwin-arm64', 'linux-x64', 'win32-x64'],
     containsVendorBinaries: false,
   });
 }
@@ -90,7 +117,6 @@ await writeFile(
 const report = await readiness();
 await writeFile(root + '/release-readiness.json', JSON.stringify(report, null, 2) + '\n');
 const git = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' });
-const dirty = spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).stdout.trim().length > 0;
 await add(
   'provenance.json',
   Buffer.from(
@@ -98,7 +124,7 @@ await add(
       {
         schemaVersion: 1,
         version,
-        sourceDigest: await sourceDigest(),
+        sourceDigest: sourceBefore,
         commit: git.status === 0 ? git.stdout.trim() : null,
         dirty,
         builder: 'scripts/package-release.mjs',

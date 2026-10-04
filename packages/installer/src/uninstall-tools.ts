@@ -3,7 +3,7 @@ import { lstat, rm } from 'node:fs/promises';
 import { exists, withLock, writeJson } from '../../core/src/fs.ts';
 import { managedHome } from '../../core/src/config.ts';
 import { Fault } from '../../core/src/result.ts';
-import { runtimeState } from './toolchain.ts';
+import { canonicalHome, runtimeState } from './toolchain.ts';
 
 interface Request {
   home?: string;
@@ -38,8 +38,31 @@ async function checkDirectory(home: string, directory: string) {
   }
 }
 
+/**
+ * Path of a recorded file below the managed home. Records may use another alias
+ * of the same home (for example /var vs /private/var); only the outermost
+ * ancestor that resolves to the home is canonicalized, so links below the home
+ * remain visible to the ownership checks.
+ */
+async function relativeToHome(home: string, file: string) {
+  const resolved = path.resolve(file);
+  const ancestors: string[] = [];
+  for (let current = path.dirname(resolved); ; current = path.dirname(current)) {
+    ancestors.unshift(current);
+    if (path.dirname(current) === current) break;
+  }
+  for (const ancestor of ancestors) {
+    try {
+      if ((await canonicalHome(ancestor)) === home) return path.relative(ancestor, resolved);
+    } catch {
+      /* Unreadable ancestors cannot identify the home. */
+    }
+  }
+  return undefined;
+}
+
 export async function uninstallTools(request: Request) {
-  const home = path.resolve(request.home ?? managedHome());
+  const home = await canonicalHome(request.home ?? managedHome());
   await checkDirectory(home, home);
   const perform = async () => {
     const state = await runtimeState(home);
@@ -47,7 +70,7 @@ export async function uninstallTools(request: Request) {
     for (const component of ['node', 'java', 'sqlcl', 'playwright'] as const) {
       const executable = state[component];
       if (!executable) continue;
-      const parts = path.relative(home, path.resolve(executable)).split(path.sep);
+      const parts = ((await relativeToHome(home, executable)) ?? '..').split(path.sep);
       const prefix = component === 'playwright' ? ['playwright'] : ['toolchains', component];
       if (!prefix.every((part, index) => parts[index] === part) || parts.length <= prefix.length + 1) {
         steps.push({ component, action: 'keep', reason: 'External runtime; not owned by APEXREST.' });

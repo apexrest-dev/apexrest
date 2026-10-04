@@ -66,7 +66,7 @@ Without `--saved`, the existing CLI behavior continues to use APEXREST connectio
 
 ## Installation and removal
 
-The TUI has no **Preview only** or **Approve changes** toggles. Configure any options, open review and press Enter to install or uninstall directly. That final Enter supplies technical approval (`yes=true`, `dryRun=false`); leaving review performs no action. Plugin installation and tool removal open review immediately; Esc returns to options. Oracle license consent and permission for system packages remain separate and default to off; the tools review shows the Oracle terms link. Ctrl+O expands advanced options. CLI `--dry-run` remains available.
+The TUI has no **Preview only** or **Approve changes** toggles. Configure any options, open review and press Enter to install or uninstall directly. That final Enter supplies technical approval (`yes=true`, `dryRun=false`); leaving review performs no action. Plugin installation and tool removal open review immediately; Esc returns to options. Oracle license consent and permission for system packages remain separate and default to off; the tools review shows the Oracle terms link. Ctrl+O expands advanced options. CLI `--dry-run` remains available; it reports an existing tool as `found, not probed` without executing it.
 
 Tool removal deletes only the recorded version under the managed directory. It refuses symbolic links in managed directory ancestors and serializes against managed installation. Node.js is kept when the running process, managed launcher or installation receipt needs it. It does not remove operating-system packages or the SQLcl connection store.
 

@@ -4,12 +4,15 @@ import {
 } from "./chunk-G3KR57BY.mjs";
 import {
   OracleAdapter,
+  SCRIPT_RESTRICT_LEVEL,
   environment,
   external_exports,
   identifier,
+  isProductionTarget,
   managedHome,
   parse,
   policy,
+  protectedProductionTrust,
   refName,
   relativePath,
   requireTrust,
@@ -18,8 +21,9 @@ import {
   runProcess,
   runtimeState,
   sqlLiteral,
-  sqlclToken
-} from "./chunk-EBBEN4AV.mjs";
+  sqlclToken,
+  targetDigest
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   __commonJS,
@@ -37,7 +41,7 @@ import {
   sanitized,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
@@ -7430,9 +7434,11 @@ var ArtifactService = class {
       throw new Fault("ARTIFACT_CHANGED", "Artifact integrity check failed.", 5);
     return artifactPage(content, metadata.format ?? "text", id, offset, limit);
   }
-  async prune() {
+  // `results` limits pruning to the managed MCP result archive, so automatic
+  // cleanup never scans a project-configured directory.
+  async prune(scope = "all") {
     const directories = [
-      await contained(this.ctx.root, this.ctx.config.artifacts.directory),
+      ...scope === "all" ? [await contained(this.ctx.root, this.ctx.config.artifacts.directory)] : [],
       await this.resultDirectory()
     ];
     let removed = 0;
@@ -7445,8 +7451,8 @@ var ArtifactService = class {
         continue;
       for (const file of await readdir(directory))
         if (/^[a-f0-9-]{36}\.json$/.test(file)) {
-          const metadata = await readJson(path.join(directory, file));
-          if (Date.parse(metadata.expiresAt) < Date.now()) {
+          const metadata = await readJson(path.join(directory, file)).catch(() => null);
+          if (typeof metadata?.expiresAt === "string" && Date.parse(metadata.expiresAt) < Date.now()) {
             await rm(path.join(directory, file));
             await rm(path.join(directory, file.replace(".json", ".txt")), { force: true });
             removed++;
@@ -7460,7 +7466,7 @@ var ArtifactService = class {
 // packages/core/src/deploy.ts
 import path7 from "node:path";
 import { readFile as readFile5, mkdir as mkdir5, cp as cp4, open as open3, rename } from "node:fs/promises";
-import { randomUUID as randomUUID3, verify } from "node:crypto";
+import { createPublicKey, randomUUID as randomUUID3, verify } from "node:crypto";
 
 // packages/core/src/deployment-control.ts
 import path2 from "node:path";
@@ -7625,16 +7631,6 @@ var syncStateSchema = external_exports.strictObject({
   status: external_exports.enum(["ready", "importing", "verification_failed", "outcome_unknown", "invalidated"]),
   importingRunId: external_exports.uuid().nullable()
 });
-function targetDigest(env) {
-  return hash(
-    canonical({
-      ...env.databaseIdentity,
-      workspace: env.workspace,
-      schema: env.parsingSchema,
-      applicationId: env.applicationId
-    })
-  );
-}
 async function syncPath(ctx, relative) {
   const file = await contained(ctx.root, relative);
   let probe = ctx.root;
@@ -7745,7 +7741,7 @@ var SyncStore = class {
   }
   async checkMapping(state) {
     const { readFile: readFile7 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile7(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || this.env.kind === "production")
+    if (state.projectRoot !== await realpath(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile7(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
       throw new Fault(
         "SYNC_MAPPING_CHANGED",
         "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
@@ -7848,7 +7844,9 @@ var digest2 = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var name = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
 var version = external_exports.string().regex(/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/);
 var blockId = external_exports.string().regex(/^block:[a-z0-9-]+\/[a-z0-9-]+$/);
-var text = external_exports.string().max(65536);
+var OWNED_TEXT_LIMIT = 1024 * 1024;
+var text = external_exports.string().max(OWNED_TEXT_LIMIT);
+var literalValue = external_exports.string().max(128).regex(/^[^\x00-\x1f\x7f`]*$/, "Enumerated values must be single-line text without backticks.");
 var fieldSchema = external_exports.strictObject({
   column: identifier,
   type: external_exports.enum(["string", "integer", "decimal", "date", "timestamp", "boolean"]),
@@ -7856,7 +7854,7 @@ var fieldSchema = external_exports.strictObject({
   maxLength: external_exports.number().int().positive().optional(),
   precision: external_exports.number().int().positive().optional(),
   scale: external_exports.number().int().optional(),
-  enum: external_exports.array(external_exports.string().max(128)).max(100).optional()
+  enum: external_exports.array(literalValue).max(100).optional()
 });
 var contractBase = {
   schemaVersion: external_exports.literal(1),
@@ -8145,9 +8143,11 @@ function canonical2(value) {
 }
 var documentText = (value) => JSON.stringify(JSON.parse(canonical2(value)), null, 2) + "\n";
 var semanticDigest = (value) => hash(canonical2(value));
-function parseDocumentData(source) {
-  if (Buffer.byteLength(source) > 1024 * 1024)
-    throw new Fault("DOCUMENT_LIMIT", "Document exceeds 1 MiB.", 2);
+var authoringLimits = { document: 1024 * 1024, scalar: 65536 };
+var planLimits = { document: 64 * 1024 * 1024, scalar: 1024 * 1024 };
+function parseDocumentData(source, limits = authoringLimits) {
+  if (Buffer.byteLength(source) > limits.document)
+    throw new Fault("DOCUMENT_LIMIT", `Document exceeds ${limits.document} bytes.`, 2);
   const doc = (0, import_yaml.parseDocument)(source, {
     version: "1.2",
     schema: "core",
@@ -8163,8 +8163,9 @@ function parseDocumentData(source) {
       2
     );
   let count = 0;
+  const nodes = limits === authoringLimits ? 1e4 : 1e6;
   function inspect(node, depth) {
-    if (++count > 1e4 || depth > 64)
+    if (++count > nodes || depth > 64)
       throw new Fault("DOCUMENT_LIMIT", "Document structure exceeds limits.", 2);
     if ((0, import_yaml.isAlias)(node)) throw new Fault("INVALID_DOCUMENT", "Aliases are unsupported.", 2);
     if (node && typeof node === "object" && "tag" in node && node.tag)
@@ -8176,8 +8177,8 @@ function parseDocumentData(source) {
         inspect(pair.value, depth + 1);
       }
     else if ((0, import_yaml.isSeq)(node)) for (const item of node.items) inspect(item, depth + 1);
-    else if ((0, import_yaml.isScalar)(node) && typeof node.value === "string" && node.value.length > 65536)
-      throw new Fault("DOCUMENT_LIMIT", "Scalar exceeds 64 KiB.", 2);
+    else if ((0, import_yaml.isScalar)(node) && typeof node.value === "string" && node.value.length > limits.scalar)
+      throw new Fault("DOCUMENT_LIMIT", `Scalar exceeds ${limits.scalar} characters.`, 2);
   }
   inspect(doc.contents, 0);
   const value = doc.toJS({ maxAliasCount: 0 });
@@ -8209,8 +8210,8 @@ async function safePath(root, relative) {
   }
   return file;
 }
-async function readDocument(root, file, schema) {
-  return validate(schema, parseDocumentData(await readFile2(await safePath(root, file), "utf8")));
+async function readDocument(root, file, schema, limits = authoringLimits) {
+  return validate(schema, parseDocumentData(await readFile2(await safePath(root, file), "utf8"), limits));
 }
 function planDigest(plan) {
   const { digest: _digest, ...payload } = plan;
@@ -8443,6 +8444,28 @@ function receiptFor(plan) {
     deployment: "not-run"
   };
 }
+function requireWriteScope(ctx, write, metadata = false) {
+  const sourceDir = ctx.config.application.sourceDir, base = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
+  if (!(write.path.startsWith(sourceDir + "/") || base && (write.after === null || write.after === base[1]) || metadata && [".apexrest-composer/state.json", ".apexrest-composer/lock.json"].includes(write.path)))
+    throw new Fault("COMPOSITION_SCOPE_DENIED", "Plan writes outside Composer ownership.", 5);
+  if (write.path.split("/").includes(".apex"))
+    throw new Fault("COMPOSITION_SCOPE_DENIED", "Oracle metadata cannot be overwritten.", 5);
+}
+async function requireFrozenPlan(ctx, plan) {
+  let frozen;
+  try {
+    frozen = await readDocument(
+      ctx.root,
+      `.apexrest/composer/plans/${plan.digest}.json`,
+      planSchema,
+      planLimits
+    );
+  } catch {
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan has no immutable reviewed plan record.", 5);
+  }
+  if (canonical2(frozen) !== canonical2(plan))
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan differs from its immutable reviewed record.", 5);
+}
 async function bytes(ctx, relative) {
   const file = await safePath(ctx.root, relative);
   return await exists(file) ? await readFile4(file) : null;
@@ -8478,6 +8501,7 @@ async function journal(ctx) {
   if (new Set(value.completed).size !== value.completed.length || value.completed.some((completed) => !paths.has(completed)))
     throw new Fault("JOURNAL_CORRUPT", "Journal checkpoints do not match its write set.", 5);
   for (const record of value.records) {
+    requireWriteScope(ctx, record, true);
     await safePath(ctx.root, record.path);
     const operation = value.plan.operations.find((op) => op.path === record.path);
     const metadata = record.path === ".apexrest-composer/state.json" ? value.plan.state : record.path === ".apexrest-composer/lock.json" ? value.plan.lock : null;
@@ -8529,10 +8553,7 @@ async function checkPreconditions(ctx, plan) {
   if (state && plan.kind === "composition" && state.lockDigest !== semanticDigest(await readDocument(ctx.root, ".apexrest-composer/lock.json", lockSchema)))
     throw new Fault("COMPOSITION_DRIFT", "Tracked lock differs from state.", 5);
   for (const op of plan.operations) {
-    if (!op.path.startsWith(ctx.config.application.sourceDir + "/") && !/^\.apexrest-composer\/bases\/[a-f0-9]{64}\.apx$/.test(op.path))
-      throw new Fault("COMPOSITION_SCOPE_DENIED", "Plan writes outside Composer ownership.", 5);
-    if (op.path.includes("/.apex/"))
-      throw new Fault("COMPOSITION_SCOPE_DENIED", "Oracle metadata cannot be overwritten.", 5);
+    requireWriteScope(ctx, op);
     const current = await bytes(ctx, op.path);
     if ((current ? hash(current) : null) !== op.before || (op.content === null ? null : hash(op.content)) !== op.after)
       throw new Fault("COMPOSITION_DRIFT", "Planned preimage or postimage changed.", 5);
@@ -8576,7 +8597,7 @@ async function freeze(ctx, plan, out) {
     );
   if (await exists(destination) && destination !== frozen) {
     try {
-      await readDocument(ctx.root, out, planSchema);
+      await readDocument(ctx.root, out, planSchema, planLimits);
     } catch {
       throw new Fault("COMPOSITION_SCOPE_DENIED", "Existing output is not a Composer plan.", 5);
     }
@@ -8584,10 +8605,15 @@ async function freeze(ctx, plan, out) {
   await atomicWrite(destination, text2);
 }
 async function readPlan(ctx, file, expectedDigest) {
-  const plan = await readDocument(ctx.root, file, planSchema);
+  const plan = await readDocument(ctx.root, file, planSchema, planLimits);
   if (plan.digest !== expectedDigest || planDigest(plan) !== plan.digest)
     throw new Fault("PLAN_TAMPERED", "Reviewed plan digest differs.", 5);
-  const frozen = await readDocument(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`, planSchema);
+  const frozen = await readDocument(
+    ctx.root,
+    `.apexrest/composer/plans/${plan.digest}.json`,
+    planSchema,
+    planLimits
+  );
   if (semanticDigest(frozen) !== semanticDigest(plan))
     throw new Fault("PLAN_TAMPERED", "Plan differs from its original immutable record.", 5);
   return plan;
@@ -8629,7 +8655,13 @@ async function materialize(ctx, plan, options = {}) {
     if (!requested.length) {
       const receiptFile = ".apexrest/composer/receipt.json", existing = await bytes(ctx, receiptFile);
       const receipt = receiptFor(plan);
-      if (!existing || JSON.parse(existing.toString("utf8")).qualification !== receipt.qualification)
+      let current = null;
+      try {
+        current = existing ? JSON.parse(existing.toString("utf8")) : null;
+      } catch {
+        current = null;
+      }
+      if (current === null || canonical2(current) !== canonical2(receipt))
         await durable(ctx, receiptFile, documentText(receipt));
       return {
         status: "no-op",
@@ -8730,6 +8762,7 @@ async function recoveryPlan(ctx, action) {
   const record = await journal(ctx);
   if (!record || record.phase === "completed")
     throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted composition requires recovery.", 5);
+  await requireFrozenPlan(ctx, record.plan);
   for (const entry of record.records) {
     const current = await bytes(ctx, entry.path), digest3 = current ? hash(current) : null;
     if (digest3 !== entry.before && digest3 !== entry.after)
@@ -8776,6 +8809,11 @@ async function applyRecovery(ctx, plan, record, options) {
     throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted journal.", 5);
   if (plan.recovery?.journalId !== record.id || plan.recovery.sourcePlanDigest !== record.plan.digest || plan.recovery.recordsDigest !== semanticDigest(record.records))
     throw new Fault("RECOVERY_CONFLICT", "Recovery plan binds another journal.", 5);
+  await requireFrozenPlan(ctx, record.plan);
+  for (const entry of record.records) requireWriteScope(ctx, entry, true);
+  for (const operation of plan.operations) requireWriteScope(ctx, operation, true);
+  if (canonical2(plan.operations.map((operation) => operation.path)) !== canonical2(record.records.map((entry) => entry.path)))
+    throw new Fault("RECOVERY_CONFLICT", "Recovery plan write set differs from its journal.", 5);
   await checkPreconditions(ctx, { ...plan, operations: [] });
   const restore = plan.kind === "recovery-restore";
   for (const entry of [...record.records].sort(
@@ -8829,6 +8867,12 @@ async function deploymentBinding(ctx) {
     return null;
   }
   const receipt = JSON.parse(await readFile4(file, "utf8"));
+  if (receipt.qualification !== "offline-compiler")
+    throw new Fault(
+      "COMPOSITION_UNQUALIFIED",
+      "Source-only Composer drafts cannot bind into deployment plans; replan with compiler validation.",
+      5
+    );
   const state = await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema);
   const blueprintDigest = semanticDigest(
     await readDocument(ctx.root, receipt.blueprintPath, blueprintSchema)
@@ -8907,8 +8951,9 @@ var legacyPlanSchema = external_exports.strictObject({
   approval: external_exports.literal("external-policy-required"),
   backupRequired: external_exports.boolean(),
   digest: digestSchema,
-  restore: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digestSchema }).optional()
+  restore: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digestSchema, alias: refName.optional() }).optional()
 });
+var PLAN_LIFETIME_MS = 30 * 6e4;
 var syncBindingSchema = external_exports.strictObject({
   syncId: external_exports.uuid(),
   revision: external_exports.number().int().nonnegative(),
@@ -8960,13 +9005,144 @@ function planDigest2(value) {
   const { digest: _digest, ...unsigned } = value;
   return hash(canonical(unsigned));
 }
+var clientCommands = [
+  ["host", 2],
+  ["start", 3],
+  ["spool", 3],
+  ["save", 3],
+  ["store", 3],
+  ["get", 3],
+  ["edit", 2],
+  ["connect", 4],
+  ["disconnect", 4],
+  ["password", 5],
+  ["exit", 4],
+  ["quit", 4],
+  ["script", 6],
+  ["javascript", 10],
+  ["cd", 2],
+  ["copy", 4],
+  ["alias", 5],
+  ["repeat", 6],
+  ["load", 4],
+  ["unload", 6],
+  ["liquibase", 9],
+  ["lb", 2],
+  ["sshtunnel", 9],
+  ["connmgr", 7],
+  ["apex", 4],
+  ["oci", 3],
+  ["datapump", 8],
+  ["dp", 2],
+  ["cloudstorage", 12],
+  ["cs", 2],
+  ["soda", 4],
+  ["mcp", 3]
+];
+var plsqlBlockStart = /^(?:begin|declare)\b|^create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable)\s+)?(?:and\s+(?:resolve|compile)\s+)?(?:noforce\s+)?(?:java|function|procedure|package|trigger|type|library)\b/i;
+function sqlclControlLines(sql) {
+  const found = [];
+  let block = false;
+  sql.split(/\r\n|\r|\n/).forEach((raw, index) => {
+    let line = raw;
+    for (; ; ) {
+      line = line.replace(/^\s+/, "");
+      if (!line.startsWith("/*")) break;
+      const end = line.indexOf("*/", 2);
+      line = end < 0 ? "" : line.slice(end + 2);
+    }
+    if (!line || line.startsWith("--")) return;
+    if (/^[/.]\s*$/.test(line)) {
+      block = false;
+      return;
+    }
+    if (/^[!$@]/.test(line)) {
+      found.push(index + 1);
+      return;
+    }
+    const word = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
+    if (!word) return;
+    const rest = line.slice(word.length).trimStart();
+    if (word.length >= 3 && "remark".startsWith(word)) return;
+    if (plsqlBlockStart.test(line)) block = true;
+    if ("start".startsWith(word) && word.length >= 3 && /^with\b/i.test(rest)) return;
+    if ("connect".startsWith(word) && word.length >= 4 && /^by\b/i.test(rest)) return;
+    if (block && word === "exit") return;
+    if (word === "whenever" && /\bcontinue\b/i.test(rest) || word === "set" && /^(?:logsource|editfile)\b/i.test(rest) || clientCommands.some(([name2, min]) => word.length >= min && name2.startsWith(word)))
+      found.push(index + 1);
+  });
+  return found;
+}
 function migrationRisk(sql) {
   const risks = [];
   if (/\b(?:drop|truncate|delete|revoke|grant)\b|\balter\s+(?:table|user|system|database)\b/i.test(sql))
     risks.push("destructive-or-privileged-sql");
-  if (/^\s*(?:host|!|connect|conn|start|@|@@|exit|quit|script|javascript)\b/im.test(sql))
-    risks.push("sqlcl-script-control");
+  if (sqlclControlLines(sql).length) risks.push("sqlcl-script-control");
   return risks;
+}
+var securityHeader = /^(?:(?:authentication|authorization)(?:[-_ ]?scheme)?\s*[:=]|(?:authentication|authorization)\s*(?:\{|[\w.-]+\s*\())/i;
+function securityAttributes(text2) {
+  const out = [];
+  let depth = 0;
+  for (const raw of text2.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (depth > 0) {
+      out.push(line);
+      depth += (line.match(/[{(]/g)?.length ?? 0) - (line.match(/[})]/g)?.length ?? 0);
+      continue;
+    }
+    if (!securityHeader.test(line)) continue;
+    out.push(line);
+    depth = Math.max(0, (line.match(/[{(]/g)?.length ?? 0) - (line.match(/[})]/g)?.length ?? 0));
+  }
+  return out;
+}
+async function securityChanged(local, server) {
+  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile5(await contained(root, file), "utf8"));
+  for (const file of /* @__PURE__ */ new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
+    if (local.files[file] === server.files[file]) continue;
+    if (/authenticat|authoriz/i.test(file)) return true;
+    if (canonical(await read(local.root, local.files, file)) !== canonical(await read(server.root, server.files, file)))
+      return true;
+  }
+  return false;
+}
+var attestationSchema = external_exports.strictObject({
+  planDigest: digestSchema,
+  planId: external_exports.uuid(),
+  projectId: refName,
+  targetDigest: digestSchema,
+  expiresAt: external_exports.iso.datetime(),
+  reviewer: external_exports.string().min(1),
+  signature: external_exports.string().min(1)
+});
+function publicKeyFingerprint(publicKey) {
+  return hash(createPublicKey(publicKey).export({ type: "spki", format: "der" }));
+}
+function verifyProductionApproval(trust, publicKey, value, plan, projectId) {
+  const fingerprint = publicKeyFingerprint(publicKey);
+  const key = trust.approvalKeys.find((k) => k.sha256 === fingerprint);
+  if (!key)
+    throw new Fault(
+      "APPROVAL_KEY_UNTRUSTED",
+      "The approval public key is not listed in the protected production trust file.",
+      4,
+      "blocked"
+    );
+  const attestation = parse(attestationSchema, value);
+  const { signature, ...payload } = attestation;
+  if (payload.planDigest !== plan.digest || payload.planId !== plan.id || payload.projectId !== plan.projectId || payload.projectId !== projectId || payload.targetDigest !== plan.targetDigest || key.reviewer !== void 0 && key.reviewer !== payload.reviewer || Date.parse(payload.expiresAt) <= Date.now() || !verify(
+    null,
+    Buffer.from(canonical(payload)),
+    createPublicKey(publicKey),
+    Buffer.from(signature, "base64")
+  ))
+    throw new Fault(
+      "APPROVAL_INVALID",
+      "External approval is invalid, expired or for another project/plan/target.",
+      4
+    );
+  return payload;
 }
 async function authorizePlan(ctx, plan, env) {
   await requireTrust(ctx.root);
@@ -8977,7 +9153,7 @@ async function authorizePlan(ctx, plan, env) {
       4,
       "blocked"
     );
-  if (env.kind === "production") {
+  if (await isProductionTarget(env, plan.targetDigest)) {
     if (process.env.CI !== "true" || !process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE || !process.env.APEXREST_APPROVAL_FILE)
       throw new Fault(
         "PRODUCTION_CI_REQUIRED",
@@ -8985,40 +9161,85 @@ async function authorizePlan(ctx, plan, env) {
         4,
         "blocked"
       );
-    const attestation = parse(
-      external_exports.strictObject({
-        planDigest: digestSchema,
-        targetDigest: digestSchema,
-        expiresAt: external_exports.iso.datetime(),
-        reviewer: external_exports.string().min(1),
-        signature: external_exports.string().min(1)
-      }),
-      await readJson(process.env.APEXREST_APPROVAL_FILE)
-    );
-    const { signature, ...payload } = attestation;
-    if (payload.planDigest !== plan.digest || payload.targetDigest !== plan.targetDigest || Date.parse(payload.expiresAt) <= Date.now() || !verify(
-      null,
-      Buffer.from(canonical(payload)),
+    const trust = await protectedProductionTrust();
+    verifyProductionApproval(
+      trust,
       await readFile5(process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE),
-      Buffer.from(signature, "base64")
-    ))
-      throw new Fault(
-        "APPROVAL_INVALID",
-        "External approval is invalid, expired or for another plan/target.",
-        4
-      );
+      await readJson(process.env.APEXREST_APPROVAL_FILE),
+      plan,
+      ctx.config.projectId
+    );
     return;
   }
   const grants = (await policy()).grants;
   if (!grants.some(
-    (g) => g.projectRoot === ctx.root && g.targetDigest === plan.targetDigest && g.operations.includes("deploy") && Date.parse(g.expiresAt) > Date.now() && (plan.restore ? g.planDigest === plan.digest : !g.planDigest || g.planDigest === plan.digest)
+    (g) => g.projectRoot === ctx.root && g.targetDigest === plan.targetDigest && g.operations.includes("deploy") && g.planDigest === plan.digest && Date.parse(g.expiresAt) > Date.now() && Date.parse(g.expiresAt) <= Date.parse(plan.expiresAt)
   ))
     throw new Fault(
       "DEPLOY_APPROVAL_REQUIRED",
-      "A user-owned development grant for this project and target is required.",
+      "A user-owned deploy grant for this project and target is required. It must carry planDigest equal to this plan digest and expire no later than the plan.",
       4,
       "blocked"
     );
+}
+var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
+var migrationVersion = (file) => BigInt(migrationName.exec(path7.basename(file))?.[1] ?? "-1");
+function operationOrder(a, b) {
+  const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
+  if (kind) return kind;
+  if (a.kind === "migration" && b.kind === "migration") {
+    const left = migrationVersion(a.file ?? ""), right = migrationVersion(b.file ?? "");
+    if (left !== right) return left < right ? -1 : 1;
+  }
+  return (a.file ?? "").localeCompare(b.file ?? "");
+}
+function checkMigrations(ctx, sources, history) {
+  const prefix = ctx.config.database.migrationsDir + "/";
+  const versions = /* @__PURE__ */ new Map();
+  const applied = new Set(history.map((row) => String(row.version)));
+  let highest = -1n;
+  for (const row of history) {
+    const match = migrationName.exec(String(row.version));
+    if (match && BigInt(match[1]) > highest) highest = BigInt(match[1]);
+  }
+  for (const file of Object.keys(sources)) {
+    if (!file.startsWith(prefix)) continue;
+    const name2 = file.slice(prefix.length);
+    if (name2.includes("/"))
+      throw new Fault(
+        "INVALID_MIGRATION_LAYOUT",
+        `Migration ${file} is in a subdirectory. Keep migrations directly in ${ctx.config.database.migrationsDir}.`,
+        2
+      );
+    const match = migrationName.exec(name2);
+    if (!match)
+      throw new Fault(
+        "INVALID_MIGRATION_NAME",
+        "Use ordered immutable migration names such as 0001__customers.sql.",
+        2
+      );
+    const version2 = BigInt(match[1]);
+    const duplicate = versions.get(version2);
+    if (duplicate)
+      throw new Fault(
+        "DUPLICATE_MIGRATION_VERSION",
+        `Migrations ${duplicate} and ${name2} share version ${match[1]}. Use one file per version.`,
+        2
+      );
+    versions.set(version2, name2);
+    if (!applied.has(name2) && version2 < highest)
+      throw new Fault(
+        "MIGRATION_OUT_OF_ORDER",
+        `New migration ${name2} is older than the highest applied version. Give it a higher version.`,
+        5
+      );
+  }
+}
+function applicationFiles(ctx, sources) {
+  const prefix = ctx.config.application.sourceDir + "/";
+  return Object.fromEntries(
+    Object.entries(sources).filter(([file]) => file.startsWith(prefix)).map(([file, sha]) => [file.slice(prefix.length), sha])
+  );
 }
 async function sourceInventory(ctx) {
   const files = {};
@@ -9109,7 +9330,7 @@ var DeploymentService = class {
         await store.validate(previous);
         return store.status();
       }
-      if (env.kind === "production")
+      if (await isProductionTarget(env))
         throw new Fault(
           "SYNC_SCOPE_UNSUPPORTED",
           "Working copies support existing development/test applications only.",
@@ -9252,6 +9473,8 @@ var DeploymentService = class {
         if (previous && previous.targetDigest !== state.targetDigest)
           await store.write({ ...previous, status: "invalidated", revision: previous.revision + 1 });
         await store.write(state);
+        await this.oracle.discardStage?.(exported.stage);
+        await this.oracle.discardStage?.(sql.stage);
         return store.status();
       } finally {
         if (heartbeat) clearInterval(heartbeat);
@@ -9307,6 +9530,7 @@ commit;`,
         "An earlier migration has an unresolved outcome. Reconcile it before any new deployment.",
         5
       );
+    checkMigrations(ctx, sources, current.history);
     for (const [file, sha256] of Object.entries(sources)) {
       const migration = file.startsWith(ctx.config.database.migrationsDir + "/");
       const pkg = file.startsWith(ctx.config.database.packagesDir + "/");
@@ -9340,18 +9564,22 @@ commit;`,
         5
       );
     if (current.exported) {
-      const prefix = ctx.config.application.sourceDir + "/";
-      const localApp = Object.fromEntries(
-        Object.entries(sources).filter(([file]) => file.startsWith(prefix)).map(([file, sha]) => [file.slice(prefix.length), sha])
-      );
-      for (const file of /* @__PURE__ */ new Set([...Object.keys(current.exported.files), ...Object.keys(localApp)]))
-        if (/authenticat|authoriz/i.test(file) && localApp[file] !== current.exported.files[file])
+      try {
+        if (await securityChanged(
+          {
+            root: await contained(ctx.root, ctx.config.application.sourceDir),
+            files: applicationFiles(ctx, sources)
+          },
+          { root: path7.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+        ))
           risks.push("authentication-or-authorization-change");
+      } finally {
+        if (!working) await this.oracle.discardStage?.(current.exported.stage);
+      }
     }
-    operations.sort(
-      (a, b) => (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1) || (a.file ?? "").localeCompare(b.file ?? "")
-    );
+    operations.sort(operationOrder);
     operations.push({ kind: "import" }, { kind: "verify" }, { kind: "test" });
+    const createdAt = Date.now();
     const plan = {
       schemaVersion: 2,
       mode: working ? "working-copy" : "full-export",
@@ -9361,8 +9589,8 @@ commit;`,
       projectId: ctx.config.projectId,
       projectRoot: ctx.root,
       environment: name2,
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 6e4).toISOString(),
+      createdAt: new Date(createdAt).toISOString(),
+      expiresAt: new Date(createdAt + PLAN_LIFETIME_MS).toISOString(),
       sourceDigest: hash(canonical(sources)),
       sources,
       configurationDigest: hash(canonical(ctx.config)),
@@ -9406,14 +9634,14 @@ commit;`,
           "Plan does not bind the current working-copy revision. Re-plan.",
           5
         );
-      const prefix = ctx.config.application.sourceDir + "/";
-      const before = checkpoint(state).files;
-      const local = Object.fromEntries(
-        Object.entries(plan.sources).filter(([file]) => file.startsWith(prefix)).map(([file, sha]) => [file.slice(prefix.length), sha])
-      );
-      if ([.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(local)])].some(
-        (file) => /authenticat|authoriz/i.test(file) && local[file] !== before[file]
-      ) && !plan.risks.includes("authentication-or-authorization-change"))
+      const reviewed = checkpoint(state);
+      if (!plan.risks.includes("authentication-or-authorization-change") && await securityChanged(
+        {
+          root: await contained(ctx.root, ctx.config.application.sourceDir),
+          files: applicationFiles(ctx, plan.sources)
+        },
+        { root: await syncPath(ctx, reviewed.directory), files: reviewed.files }
+      ))
         throw new Fault("PLAN_TAMPERED", "Plan omits an authentication or authorization change.", 5);
       await store.validate(state, !(permitImporting && state.status === "importing"));
       if (plan.operations.some((o) => ["migration", "package"].includes(o.kind)))
@@ -9443,6 +9671,9 @@ commit;`,
       throw new Fault("PLAN_TARGET_MISMATCH", "Plan project or target differs from the current request.", 5);
     if (Date.parse(plan.expiresAt) <= Date.now())
       throw new Fault("PLAN_EXPIRED", "Create and review a new plan.", 5);
+    const lifetime = Date.parse(plan.expiresAt) - Date.parse(plan.createdAt);
+    if (!(lifetime > 0 && lifetime <= PLAN_LIFETIME_MS) || Date.parse(plan.createdAt) > Date.now() + 6e4)
+      throw new Fault("PLAN_TAMPERED", "Plan lifetime exceeds the reviewed plan limit.", 5);
     if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile5(await contained(ctx.root, ctx.config.toolchain.lockFile))))
       throw new Fault("SOURCE_DRIFT", "Sources, configuration or toolchain lock changed after review.", 5);
     if (plan.backupRequired !== Boolean(plan.target.application))
@@ -9455,6 +9686,7 @@ commit;`,
       );
     const expected = [];
     if (!plan.restore) {
+      checkMigrations(ctx, plan.sources, plan.migrationHistory);
       const history = new Map(plan.migrationHistory.map((row) => [String(row.version), row]));
       for (const [file, sha256] of Object.entries(plan.sources)) {
         const kind = file.startsWith(ctx.config.database.migrationsDir + "/") ? "migration" : file.startsWith(ctx.config.database.packagesDir + "/") ? "package" : void 0;
@@ -9471,9 +9703,7 @@ commit;`,
         if (risks.some((r) => !plan.risks.includes(r)))
           throw new Fault("PLAN_TAMPERED", "Plan omits a SQL risk.", 5);
       }
-      expected.sort(
-        (a, b) => (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1) || (a.file ?? "").localeCompare(b.file ?? "")
-      );
+      expected.sort(operationOrder);
     }
     expected.push({ kind: "import" }, { kind: "verify" }, { kind: "test" });
     if (canonical(expected) !== canonical(plan.operations))
@@ -9540,10 +9770,27 @@ end;
       working ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env, readConnection),
       this.oracle.requireCapability("import")
     ]);
-    if (deployTargetCheck.status === "rejected") throw deployTargetCheck.reason;
-    if (fingerprintCheck.status === "rejected") throw fingerprintCheck.reason;
-    if (fingerprintCheck.value.fingerprint !== plan.fingerprint)
-      throw new Fault("TARGET_DRIFT", "Target or migration history changed after review.", 5);
+    const liveStage = !working && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
+    try {
+      if (deployTargetCheck.status === "rejected") throw deployTargetCheck.reason;
+      if (fingerprintCheck.status === "rejected") throw fingerprintCheck.reason;
+      const live = fingerprintCheck.value;
+      if (live.fingerprint !== plan.fingerprint)
+        throw new Fault("TARGET_DRIFT", "Target or migration history changed after review.", 5);
+      if (canonical(live.target) !== canonical(plan.target) || canonical(live.history) !== canonical(plan.migrationHistory))
+        throw new Fault("PLAN_TAMPERED", "Plan target or migration history differs from the live target.", 5);
+      if (!working && !plan.restore && live.exported && !plan.risks.includes("authentication-or-authorization-change") && await securityChanged(
+        {
+          root: await contained(ctx.root, ctx.config.application.sourceDir),
+          files: applicationFiles(ctx, plan.sources)
+        },
+        { root: live.exported.directory, files: live.exported.files }
+      ))
+        throw new Fault("PLAN_TAMPERED", "Plan omits an authentication or authorization change.", 5);
+    } finally {
+      await this.oracle.discardStage?.(liveStage);
+    }
+    const liveApplication = fingerprintCheck.value.target.application ?? deployTargetCheck.value.application;
     if (capabilityCheck.status === "rejected") throw capabilityCheck.reason;
     const capability = capabilityCheck.value;
     if (capability.version !== plan.compiler)
@@ -9552,7 +9799,7 @@ end;
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
     const runId = randomUUID3(), runs = path7.join(ctx.root, ".apexrest/deployments"), runDir = path7.join(runs, runId);
     await mkdir5(runDir, { recursive: true, mode: 448 });
-    let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false;
+    let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false, syncSucceeded = false;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -9597,26 +9844,33 @@ end;
       await record("backing_up");
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if (plan.backupRequired && !working) {
+      if ((plan.backupRequired || liveApplication) && !working) {
         const backup = await this.oracle.exportApplication(env, readConnection, "SQL");
-        const backupId = randomUUID3(), directory = path7.join(ctx.root, ".apexrest/backups", backupId);
-        await mkdir5(directory, { recursive: true, mode: 448 });
-        await cp4(backup.directory, path7.join(directory, "application"), { recursive: true });
-        const files = await inventory(path7.join(directory, "application"));
-        if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
-          throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-        await writeJson(path7.join(directory, "backup.json"), {
-          schemaVersion: 1,
-          backupId,
-          targetDigest: plan.targetDigest,
-          environment: plan.environment,
-          digest: backup.digest,
-          files,
-          restoreProcedure: "Reviewed SQL export import; application metadata only. Schema/data recovery is separate."
-        });
+        try {
+          const backupId = randomUUID3(), directory = path7.join(ctx.root, ".apexrest/backups", backupId);
+          await mkdir5(directory, { recursive: true, mode: 448 });
+          await privateCopy(backup.directory, path7.join(directory, "application"));
+          const files = await inventory(path7.join(directory, "application"));
+          if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
+            throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
+          await writeJson(path7.join(directory, "backup.json"), {
+            schemaVersion: 1,
+            backupId,
+            targetDigest: plan.targetDigest,
+            environment: plan.environment,
+            digest: backup.digest,
+            files,
+            ...typeof liveApplication?.alias === "string" ? { alias: liveApplication.alias } : {},
+            restoreProcedure: "Reviewed SQL export import; application metadata only. Schema/data recovery is separate."
+          });
+        } finally {
+          await this.oracle.discardStage?.(backup.stage);
+        }
       }
       await this.checkLocal(ctx, plan);
-      if ((working ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env, readConnection)).fingerprint !== plan.fingerprint)
+      const after = working ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env, readConnection);
+      if (!working) await this.oracle.discardStage?.(after.exported?.stage);
+      if (after.fingerprint !== plan.fingerprint)
         throw new Fault("TARGET_DRIFT", "Target changed during backup.", 5);
       const snapshot = path7.join(runDir, "snapshot");
       await mkdir5(snapshot, { mode: 448 });
@@ -9678,7 +9932,10 @@ commit;`,
 prompt APEXREST_SCRIPT_COMPLETE`,
           deployConnection,
           true,
-          controller.signal
+          controller.signal,
+          void 0,
+          "text",
+          SCRIPT_RESTRICT_LEVEL
         );
         if (operation.kind === "migration") {
           if (coordination(env).backend === "local")
@@ -9708,7 +9965,7 @@ commit;`,
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
         const frozen = path7.join(runDir, "restore");
-        await cp4(backupRoot, frozen, { recursive: true });
+        await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore copy changed.", 5);
@@ -9742,20 +9999,29 @@ commit;`,
         );
       }
       importConfirmed = true;
-      await record("verifying");
-      const target = await this.oracle.verifyTarget(env, readConnection);
-      if (!target.application || String(target.application.alias).toLowerCase() !== String(
-        plan.restore ? plan.target.application.alias : ctx.config.application.alias
-      ).toLowerCase())
-        throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
-      await record("testing");
-      if (ctx.config.tests.requiredSuites.length) {
-        if (!this.runTests)
-          throw new Fault("TEST_RUNNER_REQUIRED", "Required post-deploy tests are unavailable.", 3);
-        await this.checkLocal(ctx, plan, true);
-        const tests = await this.runTests(ctx, plan.environment);
-        if (!tests.ok)
-          throw new Fault("POST_DEPLOY_TEST_FAILED", "Required post-deploy suites did not pass.", 1);
+      let target;
+      try {
+        await record("verifying");
+        target = await this.oracle.verifyTarget(env, readConnection);
+        const expectedAlias = plan.restore ? plan.restore.alias ?? plan.target.application?.alias ?? ctx.config.application.alias : ctx.config.application.alias;
+        if (!target.application || String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase())
+          throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
+        await record("testing");
+        if (ctx.config.tests.requiredSuites.length) {
+          if (!this.runTests)
+            throw new Fault("TEST_RUNNER_REQUIRED", "Required post-deploy tests are unavailable.", 3);
+          await this.checkLocal(ctx, plan, true);
+          const tests = await this.runTests(ctx, plan.environment);
+          if (!tests.ok)
+            throw new Fault("POST_DEPLOY_TEST_FAILED", "Required post-deploy suites did not pass.", 1);
+        }
+      } catch (error) {
+        if (error instanceof Fault) throw error;
+        throw new Fault(
+          "POST_DEPLOY_VERIFICATION_FAILED",
+          `Import was confirmed but verification failed: ${error instanceof Error ? error.message : "unexpected error"}`,
+          1
+        );
       }
       if (working) {
         const metadata = await this.oracle.applicationMetadata(env, readConnection);
@@ -9776,6 +10042,7 @@ commit;`,
             lastSuccessfulImport: { at: (/* @__PURE__ */ new Date()).toISOString(), runId, snapshot: snapshot2 }
           });
         });
+        syncSucceeded = true;
       }
       await record("succeeded");
       return { runId, state, directory: runDir };
@@ -9787,11 +10054,10 @@ commit;`,
             const owned = await syncStore.read();
             if (!owned || owned.importingRunId !== runId && owned.lastSuccessfulImport?.runId !== runId)
               throw new Error("Sync ownership changed during failure recording.");
-            await syncStore.write({
-              ...working,
-              importingRunId: writeStarted ? runId : null,
-              status: unknown ? "outcome_unknown" : writeStarted ? "verification_failed" : "ready"
-            });
+            const status = unknown ? "outcome_unknown" : writeStarted ? "verification_failed" : "ready";
+            await syncStore.write(
+              syncSucceeded || owned.lastSuccessfulImport?.runId === runId ? { ...owned, status, importingRunId: status === "ready" ? null : runId } : { ...working, importingRunId: writeStarted ? runId : null, status }
+            );
           });
         } catch {
           state = "outcome_unknown";
@@ -9837,6 +10103,7 @@ commit;`,
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
     const plan = parse(deployPlanSchema, await readJson(path7.join(directory, "plan.json"))), env = environment(ctx, plan.environment);
     const current = await this.fingerprint(env, await resolveConnection(env.readConnectionRef));
+    await this.oracle.discardStage?.(current.exported?.stage);
     const state = await readJson(path7.join(directory, "state.json"));
     return {
       runId,
@@ -9867,7 +10134,12 @@ commit;`,
     const plan = await this.plan(ctx, backup.environment, true);
     if (plan.targetDigest !== backup.targetDigest)
       throw new Fault("BACKUP_TARGET_MISMATCH", "Backup belongs to another target.", 5);
-    plan.restore = { backupId, checksum: backup.digest };
+    const alias = typeof backup.alias === "string" ? backup.alias : plan.target.application?.alias;
+    plan.restore = {
+      backupId,
+      checksum: backup.digest,
+      ...typeof alias === "string" && refName.safeParse(alias).success ? { alias } : {}
+    };
     plan.risks = ["application-restore"];
     plan.operations = [{ kind: "import" }, { kind: "verify" }, { kind: "test" }];
     plan.digest = planDigest2(plan);
@@ -9909,7 +10181,7 @@ var TestService = class {
   async authorize(ctx, name2) {
     await requireTrust(ctx.root);
     const env = environment(ctx, name2);
-    if (env.kind === "production" || !ctx.config.tests.mutationAllowedEnvironments.includes(name2))
+    if (await isProductionTarget(env) || !ctx.config.tests.mutationAllowedEnvironments.includes(name2))
       throw new Fault(
         "TEST_MUTATION_DENIED",
         "Remote tests require a non-production environment explicitly allowed for mutations.",
@@ -9966,6 +10238,17 @@ var TestService = class {
       if (!envName) throw new Fault("ENVIRONMENT_REQUIRED", "Remote test suites require --env.", 2);
       const env = await this.authorize(ctx, envName);
       if (suite === "sql") {
+        const scripts = files.filter((f) => f.endsWith(".sql")).sort();
+        for (const file of scripts) {
+          const lines = sqlclControlLines(await readFile6(await contained(dir, file), "utf8"));
+          if (lines.length)
+            throw new Fault(
+              "SQL_TEST_SCRIPT_CONTROL",
+              `SQL test ${file} uses SQLcl client commands (line ${lines.join(", ")}). Tests may contain SQL and PL/SQL only.`,
+              4,
+              "blocked"
+            );
+        }
         await this.oracle.requireMutationSupport();
         const connection = await resolveConnection(env.deployConnectionRef);
         await this.oracle.verifyTarget(env, connection);
@@ -9982,8 +10265,16 @@ var TestService = class {
             skipped: 0,
             diagnostic: "utPLSQL is absent. Review a separate framework installation plan."
           };
-        for (const file of files.filter((f) => f.endsWith(".sql")).sort())
-          await this.oracle.session(`@${sqlclToken(await contained(dir, file))}`, connection, true, signal);
+        for (const file of scripts)
+          await this.oracle.session(
+            `@${sqlclToken(await contained(dir, file))}`,
+            connection,
+            true,
+            signal,
+            void 0,
+            "text",
+            SCRIPT_RESTRICT_LEVEL
+          );
         const result2 = await this.oracle.session(
           `set serveroutput on size unlimited
 begin
@@ -10200,12 +10491,15 @@ async function openVerificationBrowser(ctx, name2, launch = runProcess, browserM
 export {
   ArtifactService,
   digest2 as digest,
+  OWNED_TEXT_LIMIT,
   instanceSchema,
   blueprintSchema,
   stateSchema,
   planSchema,
   canonical2 as canonical,
+  documentText,
   semanticDigest,
+  planLimits,
   validate,
   safePath,
   readDocument,

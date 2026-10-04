@@ -16,7 +16,7 @@ import {
   redact,
   withLock,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -395,11 +395,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n2;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants3) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants);
+          this.rhs = optimizeExpr(this.rhs, names, constants3);
         return this;
       }
       get names() {
@@ -416,10 +416,10 @@ var require_codegen = __commonJS({
       render({ _n: _n2 }) {
         return `${this.lhs} = ${this.rhs};` + _n2;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants3) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants);
+        this.rhs = optimizeExpr(this.rhs, names, constants3);
         return this;
       }
       get names() {
@@ -480,8 +480,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants) {
-        this.code = optimizeExpr(this.code, names, constants);
+      optimizeNames(names, constants3) {
+        this.code = optimizeExpr(this.code, names, constants3);
         return this;
       }
       get names() {
@@ -510,12 +510,12 @@ var require_codegen = __commonJS({
         }
         return nodes.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants3) {
         const { nodes } = this;
         let i = nodes.length;
         while (i--) {
           const n = nodes[i];
-          if (n.optimizeNames(names, constants))
+          if (n.optimizeNames(names, constants3))
             continue;
           subtractNames(names, n.names);
           nodes.splice(i, 1);
@@ -568,12 +568,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants3) {
         var _a3;
-        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        if (!(super.optimizeNames(names, constants) || this.else))
+        this.else = (_a3 = this.else) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants3);
+        if (!(super.optimizeNames(names, constants3) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants);
+        this.condition = optimizeExpr(this.condition, names, constants3);
         return this;
       }
       get names() {
@@ -596,10 +596,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants3) {
+        if (!super.optimizeNames(names, constants3))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants);
+        this.iteration = optimizeExpr(this.iteration, names, constants3);
         return this;
       }
       get names() {
@@ -635,10 +635,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants) {
-        if (!super.optimizeNames(names, constants))
+      optimizeNames(names, constants3) {
+        if (!super.optimizeNames(names, constants3))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants);
+        this.iterable = optimizeExpr(this.iterable, names, constants3);
         return this;
       }
       get names() {
@@ -680,11 +680,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants) {
+      optimizeNames(names, constants3) {
         var _a3, _b;
-        super.optimizeNames(names, constants);
-        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants);
+        super.optimizeNames(names, constants3);
+        (_a3 = this.catch) === null || _a3 === void 0 ? void 0 : _a3.optimizeNames(names, constants3);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants3);
         return this;
       }
       get names() {
@@ -985,7 +985,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants) {
+    function optimizeExpr(expr, names, constants3) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -1000,14 +1000,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n) {
-        const c = constants[n.str];
+        const c = constants3[n.str];
         if (c === void 0 || names[n.str] !== 1)
           return n;
         delete names[n.str];
         return c;
       }
       function canOptimize(e) {
-        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants[c.str] !== void 0);
+        return e instanceof code_1._Code && e._items.some((c) => c instanceof code_1.Name && names[c.str] === 1 && constants3[c.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -3247,8 +3247,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path10) {
-      let input2 = path10;
+    function removeDotSegments(path11) {
+      let input2 = path11;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -3657,8 +3657,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
+        const path11 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path11 && path11 !== "/" ? path11 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -3717,7 +3717,7 @@ var require_schemes = __commonJS({
       urnComponent.nss = (uuidComponent.uuid || "").toLowerCase();
       return urnComponent;
     }
-    var http = (
+    var http2 = (
       /** @type {SchemeHandler} */
       {
         scheme: "http",
@@ -3730,7 +3730,7 @@ var require_schemes = __commonJS({
       /** @type {SchemeHandler} */
       {
         scheme: "https",
-        domainHost: http.domainHost,
+        domainHost: http2.domainHost,
         parse: httpParse,
         serialize: httpSerialize
       }
@@ -3774,7 +3774,7 @@ var require_schemes = __commonJS({
     var SCHEMES = (
       /** @type {Record<SchemeName, SchemeHandler>} */
       {
-        http,
+        http: http2,
         https,
         ws: ws2,
         wss,
@@ -4133,13 +4133,14 @@ var require_fast_uri = __commonJS({
         if (!malformedIPLiteral) {
           malformedHost = canonicalizeHost(parsed, options2, schemeHandler, isIP);
         }
-        if (!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) {
-          if (uri.indexOf("%") !== -1) {
-            if (parsed.host !== void 0 && !malformedIPLiteral) {
-              const host = isIP ? parsed.host : normalizePercentEncoding(parsed.host, true);
-              parsed.host = reescapeHostDelimiters(host, isIP);
-            }
+        if (uri.indexOf("%") !== -1 && parsed.host !== void 0 && !malformedIPLiteral) {
+          let host = isIP ? parsed.host : normalizePercentEncoding(parsed.host, true);
+          if (!isIP) {
+            host = normalizePercentEncoding(host.toLowerCase());
           }
+          parsed.host = reescapeHostDelimiters(host, isIP);
+        }
+        if (!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) {
           if (parsed.path) {
             parsed.path = normalizePathEncoding(parsed.path);
           }
@@ -7189,7 +7190,7 @@ var require_windows = __commonJS({
     module.exports = isexe;
     isexe.sync = sync;
     var fs2 = __require("fs");
-    function checkPathExt(path10, options2) {
+    function checkPathExt(path11, options2) {
       var pathext = options2.pathExt !== void 0 ? options2.pathExt : process.env.PATHEXT;
       if (!pathext) {
         return true;
@@ -7200,25 +7201,25 @@ var require_windows = __commonJS({
       }
       for (var i = 0; i < pathext.length; i++) {
         var p2 = pathext[i].toLowerCase();
-        if (p2 && path10.substr(-p2.length).toLowerCase() === p2) {
+        if (p2 && path11.substr(-p2.length).toLowerCase() === p2) {
           return true;
         }
       }
       return false;
     }
-    function checkStat(stat3, path10, options2) {
-      if (!stat3.isSymbolicLink() && !stat3.isFile()) {
+    function checkStat(stat5, path11, options2) {
+      if (!stat5.isSymbolicLink() && !stat5.isFile()) {
         return false;
       }
-      return checkPathExt(path10, options2);
+      return checkPathExt(path11, options2);
     }
-    function isexe(path10, options2, cb) {
-      fs2.stat(path10, function(er2, stat3) {
-        cb(er2, er2 ? false : checkStat(stat3, path10, options2));
+    function isexe(path11, options2, cb) {
+      fs2.stat(path11, function(er2, stat5) {
+        cb(er2, er2 ? false : checkStat(stat5, path11, options2));
       });
     }
-    function sync(path10, options2) {
-      return checkStat(fs2.statSync(path10), path10, options2);
+    function sync(path11, options2) {
+      return checkStat(fs2.statSync(path11), path11, options2);
     }
   }
 });
@@ -7229,21 +7230,21 @@ var require_mode = __commonJS({
     module.exports = isexe;
     isexe.sync = sync;
     var fs2 = __require("fs");
-    function isexe(path10, options2, cb) {
-      fs2.stat(path10, function(er2, stat3) {
-        cb(er2, er2 ? false : checkStat(stat3, options2));
+    function isexe(path11, options2, cb) {
+      fs2.stat(path11, function(er2, stat5) {
+        cb(er2, er2 ? false : checkStat(stat5, options2));
       });
     }
-    function sync(path10, options2) {
-      return checkStat(fs2.statSync(path10), options2);
+    function sync(path11, options2) {
+      return checkStat(fs2.statSync(path11), options2);
     }
-    function checkStat(stat3, options2) {
-      return stat3.isFile() && checkMode(stat3, options2);
+    function checkStat(stat5, options2) {
+      return stat5.isFile() && checkMode(stat5, options2);
     }
-    function checkMode(stat3, options2) {
-      var mod = stat3.mode;
-      var uid = stat3.uid;
-      var gid = stat3.gid;
+    function checkMode(stat5, options2) {
+      var mod = stat5.mode;
+      var uid = stat5.uid;
+      var gid = stat5.gid;
       var myUid = options2.uid !== void 0 ? options2.uid : process.getuid && process.getuid();
       var myGid = options2.gid !== void 0 ? options2.gid : process.getgid && process.getgid();
       var u2 = parseInt("100", 8);
@@ -7268,7 +7269,7 @@ var require_isexe = __commonJS({
     }
     module.exports = isexe;
     isexe.sync = sync;
-    function isexe(path10, options2, cb) {
+    function isexe(path11, options2, cb) {
       if (typeof options2 === "function") {
         cb = options2;
         options2 = {};
@@ -7278,7 +7279,7 @@ var require_isexe = __commonJS({
           throw new TypeError("callback not provided");
         }
         return new Promise(function(resolve, reject) {
-          isexe(path10, options2 || {}, function(er2, is2) {
+          isexe(path11, options2 || {}, function(er2, is2) {
             if (er2) {
               reject(er2);
             } else {
@@ -7287,7 +7288,7 @@ var require_isexe = __commonJS({
           });
         });
       }
-      core(path10, options2 || {}, function(er2, is2) {
+      core(path11, options2 || {}, function(er2, is2) {
         if (er2) {
           if (er2.code === "EACCES" || options2 && options2.ignoreErrors) {
             er2 = null;
@@ -7297,9 +7298,9 @@ var require_isexe = __commonJS({
         cb(er2, is2);
       });
     }
-    function sync(path10, options2) {
+    function sync(path11, options2) {
       try {
-        return core.sync(path10, options2 || {});
+        return core.sync(path11, options2 || {});
       } catch (er2) {
         if (options2 && options2.ignoreErrors || er2.code === "EACCES") {
           return false;
@@ -7315,7 +7316,7 @@ var require_isexe = __commonJS({
 var require_which = __commonJS({
   "node_modules/which/which.js"(exports, module) {
     var isWindows = process.platform === "win32" || process.env.OSTYPE === "cygwin" || process.env.OSTYPE === "msys";
-    var path10 = __require("path");
+    var path11 = __require("path");
     var COLON = isWindows ? ";" : ":";
     var isexe = require_isexe();
     var getNotFoundError = (cmd) => Object.assign(new Error(`not found: ${cmd}`), { code: "ENOENT" });
@@ -7353,7 +7354,7 @@ var require_which = __commonJS({
           return opt.all && found.length ? resolve(found) : reject(getNotFoundError(cmd));
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path10.join(pathPart, cmd);
+        const pCmd = path11.join(pathPart, cmd);
         const p2 = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
         resolve(subStep(p2, i, 0));
       });
@@ -7380,7 +7381,7 @@ var require_which = __commonJS({
       for (let i = 0; i < pathEnv.length; i++) {
         const ppRaw = pathEnv[i];
         const pathPart = /^".*"$/.test(ppRaw) ? ppRaw.slice(1, -1) : ppRaw;
-        const pCmd = path10.join(pathPart, cmd);
+        const pCmd = path11.join(pathPart, cmd);
         const p2 = !pathPart && /^\.[\\\/]/.test(cmd) ? cmd.slice(0, 2) + pCmd : pCmd;
         for (let j2 = 0; j2 < pathExt.length; j2++) {
           const cur = p2 + pathExt[j2];
@@ -7428,7 +7429,7 @@ var require_path_key = __commonJS({
 var require_resolveCommand = __commonJS({
   "node_modules/cross-spawn/lib/util/resolveCommand.js"(exports, module) {
     "use strict";
-    var path10 = __require("path");
+    var path11 = __require("path");
     var which = require_which();
     var getPathKey = require_path_key();
     function resolveCommandAttempt(parsed, withoutPathExt) {
@@ -7446,7 +7447,7 @@ var require_resolveCommand = __commonJS({
       try {
         resolved = which.sync(parsed.command, {
           path: env[getPathKey({ env })],
-          pathExt: withoutPathExt ? path10.delimiter : void 0
+          pathExt: withoutPathExt ? path11.delimiter : void 0
         });
       } catch (e) {
       } finally {
@@ -7455,14 +7456,14 @@ var require_resolveCommand = __commonJS({
         }
       }
       if (resolved) {
-        resolved = path10.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
+        resolved = path11.resolve(hasCustomCwd ? parsed.options.cwd : "", resolved);
       }
       return resolved;
     }
-    function resolveCommand(parsed) {
+    function resolveCommand2(parsed) {
       return resolveCommandAttempt(parsed) || resolveCommandAttempt(parsed, true);
     }
-    module.exports = resolveCommand;
+    module.exports = resolveCommand2;
   }
 });
 
@@ -7509,8 +7510,8 @@ var require_shebang_command = __commonJS({
       if (!match) {
         return null;
       }
-      const [path10, argument] = match[0].replace(/#! ?/, "").split(" ");
-      const binary = path10.split("/").pop();
+      const [path11, argument] = match[0].replace(/#! ?/, "").split(" ");
+      const binary = path11.split("/").pop();
       if (binary === "env") {
         return argument;
       }
@@ -7545,20 +7546,20 @@ var require_readShebang = __commonJS({
 var require_parse = __commonJS({
   "node_modules/cross-spawn/lib/parse.js"(exports, module) {
     "use strict";
-    var path10 = __require("path");
-    var resolveCommand = require_resolveCommand();
+    var path11 = __require("path");
+    var resolveCommand2 = require_resolveCommand();
     var escape2 = require_escape();
     var readShebang = require_readShebang();
     var isWin = process.platform === "win32";
     var isExecutableRegExp = /\.(?:com|exe)$/i;
     var isCmdShimRegExp = /node_modules[\\/].bin[\\/][^\\/]+\.cmd$/i;
     function detectShebang(parsed) {
-      parsed.file = resolveCommand(parsed);
+      parsed.file = resolveCommand2(parsed);
       const shebang = parsed.file && readShebang(parsed.file);
       if (shebang) {
         parsed.args.unshift(parsed.file);
         parsed.command = shebang;
-        return resolveCommand(parsed);
+        return resolveCommand2(parsed);
       }
       return parsed.file;
     }
@@ -7570,7 +7571,7 @@ var require_parse = __commonJS({
       const needsShell = !isExecutableRegExp.test(commandFile);
       if (parsed.options.forceShell || needsShell) {
         const needsDoubleEscapeMetaChars = isCmdShimRegExp.test(commandFile);
-        parsed.command = path10.normalize(parsed.command);
+        parsed.command = path11.normalize(parsed.command);
         parsed.command = escape2.command(parsed.command);
         parsed.args = parsed.args.map((arg) => escape2.argument(arg, needsDoubleEscapeMetaChars));
         const shellCommand = [parsed.command].concat(parsed.args).join(" ");
@@ -7660,7 +7661,7 @@ var require_cross_spawn = __commonJS({
     var cp4 = __require("child_process");
     var parse4 = require_parse();
     var enoent = require_enoent();
-    function spawn3(command, args, options2) {
+    function spawn4(command, args, options2) {
       const parsed = parse4(command, args, options2);
       const spawned = cp4.spawn(parsed.command, parsed.args, parsed.options);
       enoent.hookChildProcess(spawned, parsed);
@@ -7672,8 +7673,8 @@ var require_cross_spawn = __commonJS({
       result.error = result.error || enoent.verifyENOENTSync(result.status, parsed);
       return result;
     }
-    module.exports = spawn3;
-    module.exports.spawn = spawn3;
+    module.exports = spawn4;
+    module.exports.spawn = spawn4;
     module.exports.sync = spawnSync;
     module.exports._parse = parse4;
     module.exports._enoent = enoent;
@@ -8176,7 +8177,7 @@ var require_yauzl = __commonJS({
     var PassThrough2 = __require("stream").PassThrough;
     var Writable = __require("stream").Writable;
     var crc32 = typeof zlib.crc32 === "function" ? zlib.crc32 : require_crc32();
-    exports.open = open2;
+    exports.open = open4;
     exports.fromFd = fromFd;
     exports.fromBuffer = fromBuffer;
     exports.fromRandomAccessReader = fromRandomAccessReader;
@@ -8192,9 +8193,9 @@ var require_yauzl = __commonJS({
     exports.Entry = Entry;
     exports.LocalFileHeader = LocalFileHeader;
     exports.RandomAccessReader = RandomAccessReader;
-    function openPromise(path10, options2) {
+    function openPromise(path11, options2) {
       return new Promise((resolve, reject) => {
-        open2(path10, { ...options2, lazyEntries: true }, function(err, zipfile) {
+        open4(path11, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
           resolve(zipfile);
         });
@@ -8224,7 +8225,7 @@ var require_yauzl = __commonJS({
         });
       });
     }
-    function open2(path10, options2, callback) {
+    function open4(path11, options2, callback) {
       if (typeof options2 === "function") {
         callback = options2;
         options2 = null;
@@ -8236,7 +8237,7 @@ var require_yauzl = __commonJS({
       if (options2.validateEntrySizes == null) options2.validateEntrySizes = true;
       if (options2.strictFileNames == null) options2.strictFileNames = false;
       if (callback == null) callback = defaultCallback;
-      fs2.open(path10, "r", function(err, fd) {
+      fs2.open(path11, "r", function(err, fd) {
         if (err) return callback(err);
         fromFd(fd, options2, function(err2, zipfile) {
           if (err2) fs2.close(fd, defaultCallback);
@@ -9024,8 +9025,8 @@ var require_yauzl = __commonJS({
 });
 
 // packages/installer/src/toolchain.ts
-import path9 from "node:path";
-import { cp as cp3, mkdir as mkdir5, mkdtemp as mkdtemp2, rename as rename2, chmod as chmod2, statfs, realpath as realpath4 } from "node:fs/promises";
+import path10 from "node:path";
+import { cp as cp3, mkdir as mkdir6, mkdtemp as mkdtemp3, readdir as readdir3, readlink, rename as rename2, rm as rm5, chmod as chmod2, statfs, realpath as realpath5 } from "node:fs/promises";
 
 // node_modules/zod/v4/classic/external.js
 var external_exports = {};
@@ -9842,10 +9843,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path10) {
-  if (!path10)
+function getElementAtPath(obj, path11) {
+  if (!path11)
     return obj;
-  return path10.reduce((acc, key) => acc?.[key], obj);
+  return path11.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -10185,11 +10186,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path10, issues) {
+function prefixIssues(path11, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path10);
+    iss.path.unshift(path11);
     return iss;
   });
 }
@@ -10643,16 +10644,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path10 = []) => {
+  const processError = (error63, path11 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else {
-        const fullpath = [...path10, ...issue2.path];
+        const fullpath = [...path11, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -10691,17 +10692,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path10 = []) => {
+  const processError = (error63, path11 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path11, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path11, ...issue2.path]);
       } else {
-        const fullpath = [...path10, ...issue2.path];
+        const fullpath = [...path11, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -10740,8 +10741,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path10) {
+  const path11 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path11) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -27835,13 +27836,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path10 = ref.slice(1).split("/").filter(Boolean);
-  if (path10.length === 0) {
+  const path11 = ref.slice(1).split("/").filter(Boolean);
+  if (path11.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path10[0] === defsKey) {
-    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
+  if (path11[0] === defsKey) {
+    const key = path11[1] === void 0 ? void 0 : decodeJSONPointerSegment(path11[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -28705,7 +28706,7 @@ function date4(params) {
 // packages/core/src/config.ts
 import path from "node:path";
 import { homedir } from "node:os";
-import { realpath } from "node:fs/promises";
+import { access, constants, open as open2, realpath } from "node:fs/promises";
 var identifier = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/);
 var refName = external_exports.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/);
 var relativePath = external_exports.string().min(1).max(1024).refine(
@@ -28788,6 +28789,16 @@ function environment(ctx, name) {
   if (!env) throw new Fault("UNKNOWN_ENVIRONMENT", `Environment ${name} is not configured.`, 2);
   return env;
 }
+function targetDigest(env) {
+  return hash(
+    canonical({
+      ...env.databaseIdentity,
+      workspace: env.workspace,
+      schema: env.parsingSchema,
+      applicationId: env.applicationId
+    })
+  );
+}
 var policySchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   trustedProjects: external_exports.array(external_exports.string()),
@@ -28814,6 +28825,80 @@ async function requireTrust(root) {
       "blocked"
     );
 }
+var sha256 = external_exports.string().regex(/^[a-f0-9]{64}$/);
+var productionTrustSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  approvalKeys: external_exports.array(external_exports.strictObject({ sha256, reviewer: external_exports.string().min(1).optional() })),
+  productionTargets: external_exports.array(sha256)
+});
+var productionTrustFile = () => path.join(managedHome(), "production-trust.json");
+async function readProductionTrust(file2) {
+  try {
+    return parse3(productionTrustSchema, await readJson(file2));
+  } catch (error62) {
+    throw new Fault(
+      "PRODUCTION_TRUST_INVALID",
+      `Production trust file ${file2} is unreadable or invalid: ${error62 instanceof Error ? error62.message : "unknown error"}`,
+      4,
+      "blocked"
+    );
+  }
+}
+async function isProductionTarget(env, digest = targetDigest(env)) {
+  if (env.kind === "production") return true;
+  const file2 = productionTrustFile();
+  if (!await exists(file2)) return false;
+  return (await readProductionTrust(file2)).productionTargets.includes(digest);
+}
+async function protectedProductionTrust() {
+  const file2 = productionTrustFile();
+  if (process.platform === "win32" || typeof process.getuid !== "function")
+    throw new Fault(
+      "PRODUCTION_TRUST_UNSUPPORTED",
+      "Production approval requires a POSIX protected CI runner; Windows ACL verification is not implemented.",
+      4,
+      "blocked"
+    );
+  let handle;
+  try {
+    handle = await open2(file2, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error62) {
+    throw new Fault(
+      error62.code === "ELOOP" ? "PRODUCTION_TRUST_UNPROTECTED" : "PRODUCTION_TRUST_REQUIRED",
+      `Production approval requires an administrator-owned ${file2} listing trusted approval keys.`,
+      4,
+      "blocked"
+    );
+  }
+  try {
+    const info = await handle.stat();
+    let writable = true;
+    try {
+      await access(file2, constants.W_OK);
+    } catch {
+      writable = false;
+    }
+    if (!info.isFile() || info.uid === process.getuid() || writable || (info.mode & 18) !== 0)
+      throw new Fault(
+        "PRODUCTION_TRUST_UNPROTECTED",
+        `${file2} must be a regular file owned by another account (for example root), not writable by this process and not group/world writable.`,
+        4,
+        "blocked"
+      );
+    try {
+      return parse3(productionTrustSchema, JSON.parse(await handle.readFile("utf8")));
+    } catch (error62) {
+      throw new Fault(
+        "PRODUCTION_TRUST_INVALID",
+        `Production trust file ${file2} is unreadable or invalid: ${error62 instanceof Error ? error62.message : "unknown error"}`,
+        4,
+        "blocked"
+      );
+    }
+  } finally {
+    await handle.close();
+  }
+}
 
 // packages/core/src/project.ts
 import path6 from "node:path";
@@ -28823,16 +28908,17 @@ import { fileURLToPath } from "node:url";
 // packages/core/src/oracle.ts
 import path5 from "node:path";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir as mkdir2, mkdtemp, readFile as readFile2, readdir, realpath as realpath3, rename, stat as stat2 } from "node:fs/promises";
+import { cp, mkdir as mkdir2, mkdtemp, readFile, readdir, realpath as realpath3, rename, rm as rm3, stat as stat2 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
 import path2 from "node:path";
-import { chmod, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { chmod, constants as constants2, mkdir, open as open3, rm, stat } from "node:fs/promises";
 var savedConnectionName = external_exports.string().min(1).max(512).regex(/^[^\x00-\x1f\x7f-\x9f]+$/);
 var ordsUrl = external_exports.string().url().max(2048).refine((value) => {
   const url2 = new URL(value);
-  return ["http:", "https:"].includes(url2.protocol) && !url2.username && !url2.password && !url2.search && !url2.hash && url2.pathname.endsWith("/") && !url2.pathname.replace(/\/+$/, "").endsWith("/_/sql") && !/[\s"\x00-\x1f]/.test(value);
-}, "Use the ORDS schema HTTP(S) URL ending in /, without credentials, query or fragment.");
+  return ["http:", "https:"].includes(url2.protocol) && // Plaintext HTTP would expose the ORDS password; allow it for loopback only.
+  (url2.protocol === "https:" || ["localhost", "127.0.0.1", "[::1]"].includes(url2.hostname)) && !url2.username && !url2.password && !url2.search && !url2.hash && url2.pathname.endsWith("/") && !url2.pathname.replace(/\/+$/, "").endsWith("/_/sql") && !/[\s"\x00-\x1f]/.test(value);
+}, "Use the ORDS schema HTTPS URL ending in / (HTTP only for localhost), without credentials, query or fragment.");
 var ordsUsername = external_exports.string().min(1).max(128).regex(/^[^"\x00-\x1f\x7f-\x9f]+$/);
 var ordsSchema = external_exports.strictObject({ url: ordsUrl, username: ordsUsername });
 var connectionSchema = external_exports.strictObject({
@@ -28934,6 +29020,33 @@ async function editConnection(name, value) {
     return { name, status: value ? "configured" : "removed", credentialsDeleted };
   });
 }
+async function readPasswordFile(file2) {
+  let handle;
+  try {
+    handle = await open3(file2, constants2.O_RDONLY | (constants2.O_NOFOLLOW ?? 0));
+  } catch (error62) {
+    const code = error62.code;
+    throw new Fault(
+      "PASSWORD_FILE_UNSAFE",
+      code === "ELOOP" || code === "EMLINK" ? "The password file must not be a symbolic link." : "The password file cannot be opened.",
+      2
+    );
+  }
+  try {
+    const info = await handle.stat();
+    if (!info.isFile())
+      throw new Fault("PASSWORD_FILE_UNSAFE", "The password file must be a regular file.", 2);
+    if (process.platform !== "win32" && (info.mode & 63) !== 0)
+      throw new Fault(
+        "PASSWORD_FILE_UNSAFE",
+        "The password file must only be accessible by its owner (chmod 600).",
+        2
+      );
+    return await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+}
 async function configureConnection(name, input2) {
   parse3(refName, name);
   return withLock(path2.join(managedHome(), "connections.lock"), async () => {
@@ -28949,7 +29062,7 @@ async function configureConnection(name, input2) {
     let password = input2.password;
     if (input2.passwordFile) {
       if (password !== void 0) throw new Fault("INVALID_INPUT", "Supply one local password source.", 2);
-      password = (await readFile(path2.resolve(input2.passwordFile), "utf8")).replace(/\r?\n$/, "");
+      password = (await readPasswordFile(path2.resolve(input2.passwordFile))).replace(/\r?\n$/, "");
     }
     if (password !== void 0 && !ords)
       throw new Fault(
@@ -32910,6 +33023,7 @@ function oracleDiagnostics(r, mutation = false, format = "text") {
     );
   return output2;
 }
+var SCRIPT_RESTRICT_LEVEL = "2";
 var OracleAdapter = class {
   constructor(runner = runProcess, executable = process.env.APEXREST_SQLCL ?? "sql", mcpRunner = runSqlclMcp) {
     this.runner = runner;
@@ -32957,12 +33071,24 @@ var OracleAdapter = class {
     }
     return selected;
   }
-  async session(input2, connection, mutation = false, signal, cwd, format = "text") {
+  async session(input2, connection, mutation = false, signal, cwd, format = "text", restrictLevel) {
     const work = cwd ?? await this.stage();
+    try {
+      return await this.sessionIn(work, input2, connection, mutation, signal, format, restrictLevel);
+    } finally {
+      if (!cwd) await this.discardStage(work);
+    }
+  }
+  async sessionIn(work, input2, connection, mutation, signal, format, restrictLevel) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
     const selected = connection ? await this.selectedConnection(connection) : void 0;
-    const args = ["-S", "-L", ...selected?.name ? ["-name", selected.name] : ["/nolog"]];
+    const args = [
+      "-S",
+      "-L",
+      ...restrictLevel ? ["-R", restrictLevel] : [],
+      ...selected?.name ? ["-name", selected.name] : ["/nolog"]
+    ];
     const env = {
       ...process.env,
       SQLPATH: "",
@@ -33039,6 +33165,13 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     await mkdir2(root, { recursive: true, mode: 448 });
     return mkdtemp(path5.join(root, "oracle-"));
   }
+  /** Remove a private staging directory created by stage(). Other paths are never removed. */
+  async discardStage(stage) {
+    if (!stage) return;
+    const relative = path5.relative(path5.join(managedHome(), "staging"), path5.resolve(stage));
+    if (!/^oracle-[^/\\]+$/.test(relative)) return;
+    await rm3(stage, { recursive: true, force: true });
+  }
   async ordsBridge(job, connection, signal, stage) {
     const settings = await this.settings();
     const selected = connection ? await this.selectedConnection(connection) : void 0;
@@ -33049,7 +33182,12 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         3,
         "blocked"
       );
-    return runOrdsBridge(settings, job, selected?.ords, stage ?? await this.stage(), signal, this.runner);
+    const work = stage ?? await this.stage();
+    try {
+      return await runOrdsBridge(settings, job, selected?.ords, work, signal, this.runner);
+    } finally {
+      if (!stage) await this.discardStage(work);
+    }
   }
   async capabilityKey(settings, version2) {
     if (!path5.isAbsolute(settings.executable)) return;
@@ -33078,14 +33216,20 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
   }
   async capabilities(signal) {
     const settings = await this.settings();
-    const version2 = await this.runner({
-      executable: settings.executable,
-      args: ["-version"],
-      cwd: await this.stage(),
-      env: { ...process.env, JAVA_HOME: settings.javaHome },
-      timeoutMs: 15e3,
-      ...signal ? { signal } : {}
-    });
+    const versionStage = await this.stage();
+    let version2;
+    try {
+      version2 = await this.runner({
+        executable: settings.executable,
+        args: ["-version"],
+        cwd: versionStage,
+        env: { ...process.env, JAVA_HOME: settings.javaHome },
+        timeoutMs: 15e3,
+        ...signal ? { signal } : {}
+      });
+    } finally {
+      await this.discardStage(versionStage);
+    }
     oracleDiagnostics(version2);
     const currentVersion = version2.stdout.trim();
     const key = await this.capabilityKey(settings, currentVersion);
@@ -33169,17 +33313,20 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         3
       );
     const stage = await this.stage(), copy = path5.join(stage, "application");
-    await cp(source, copy, { recursive: true });
-    const result = await this.session(
-      `apex validate -input ${sqlclToken(copy)}`,
-      void 0,
-      false,
-      signal,
-      stage
-    );
-    if (!/validat(?:ion|ed).*?(?:success|complete)|successfully.*validat|compil(?:ation|ed).*?(?:success|complete)|successfully.*compil/is.test(
-      result.output
-    ))
+    let result;
+    try {
+      await cp(source, copy, { recursive: true });
+      result = await this.session(
+        `apex validate -input ${sqlclToken(copy)}`,
+        void 0,
+        false,
+        signal,
+        stage
+      );
+    } finally {
+      await this.discardStage(stage);
+    }
+    if (!compilerSucceeded(result.output))
       throw new Fault(
         "VALIDATION_UNCONFIRMED",
         result.output.slice(0, 4e3) || "Compiler returned no success marker.",
@@ -33190,7 +33337,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile2(path5.join(source, ".apex/apexlang.json"), "utf8")),
+      mmd: JSON.parse(await readFile(path5.join(source, ".apex/apexlang.json"), "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -33226,7 +33373,15 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     const files = await inventory(directory);
     if (!Object.keys(files).length || format === "SQL" && !Object.keys(files).some((f2) => f2.endsWith(".sql")))
       throw new Fault("EMPTY_BACKUP", "Oracle export produced no usable files.", 1);
-    return { directory, files, digest: hash(canonical(files)), format, compiler, output: result.output };
+    return {
+      directory,
+      files,
+      digest: hash(canonical(files)),
+      format,
+      compiler,
+      output: result.output,
+      stage
+    };
   }
   async savedConnections(signal) {
     const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll("-", "")}`;
@@ -33382,7 +33537,7 @@ ${sql};`,
   async nativeDeployment(ctx, env, source) {
     const output2 = path5.join(await this.stage(), "deployment.json");
     const defaults = path5.join(source, "deployments/default.json");
-    const native = await exists(defaults) ? JSON.parse(await readFile2(defaults, "utf8")) : {};
+    const native = await exists(defaults) ? JSON.parse(await readFile(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output2, {
       ...native,
@@ -33399,6 +33554,13 @@ ${sql};`,
   async importApplication(ctx, env, connection, source, signal) {
     await this.requireCapability("import", signal);
     const config2 = await this.nativeDeployment(ctx, env, source);
+    try {
+      return await this.importWith(env, connection, source, config2, signal);
+    } finally {
+      await this.discardStage(path5.dirname(config2));
+    }
+  }
+  async importWith(env, connection, source, config2, signal) {
     if ((await this.settings()).databaseTransport === "ords") {
       await this.requireMutationSupport();
       const result2 = await this.ordsBridge(
@@ -33419,7 +33581,10 @@ ${sql};`,
       `apex import -input ${sqlclToken(source)} -deployment ${sqlclToken(config2)} -workspace ${sqlclToken(env.workspace)} -schema ${sqlclToken(env.parsingSchema)} -id ${env.applicationId}`,
       connection,
       true,
-      signal
+      signal,
+      void 0,
+      "text",
+      SCRIPT_RESTRICT_LEVEL
     );
     if (!/import.*(?:success|complete)|successfully.*import/is.test(result.output))
       throw new Fault(
@@ -33441,13 +33606,37 @@ end;
     if ((await this.settings()).databaseTransport === "ords") {
       await this.requireMutationSupport();
       const stage = await this.stage();
-      const input2 = path5.join(stage, "restore.sql");
-      await (await import("./chunk-2VBZESVC.mjs")).atomicWrite(input2, setup + await readFile2(file2, "utf8"));
-      return this.ordsBridge({ operation: "script", input: input2 }, connection, signal, stage);
+      try {
+        const input2 = path5.join(stage, "restore.sql");
+        await (await import("./chunk-22GSEKCF.mjs")).atomicWrite(input2, setup + await readFile(file2, "utf8"));
+        return await this.ordsBridge({ operation: "script", input: input2 }, connection, signal, stage);
+      } finally {
+        await this.discardStage(stage);
+      }
     }
-    return this.session(setup + `@${sqlclToken(file2)}`, connection, true, signal);
+    return this.session(
+      setup + `@${sqlclToken(file2)}`,
+      connection,
+      true,
+      signal,
+      void 0,
+      "text",
+      SCRIPT_RESTRICT_LEVEL
+    );
   }
 };
+function compilerSucceeded(output2) {
+  const success2 = /validat(?:ion|ed).*?(?:success|complete)|successfully.*validat|compil(?:ation|ed).*?(?:success|complete)|successfully.*compil/is.test(
+    output2
+  );
+  const counted = [...output2.matchAll(/\b(\d+)\s+(?:errors?|failures?)\b/gi)].some(
+    (match) => Number(match[1]) > 0
+  );
+  const failed = /(?:^|\n)\s*(?:error\b|errors?:)|\bwith\s+errors?\b|compile\s+errors?|\bfail(?:ed|ure)\b|\bunsuccessful\b|\bnot\s+successful\b/i.test(
+    output2
+  );
+  return success2 && !counted && !failed;
+}
 async function installSources(source, root, destination) {
   const target = await contained(root, destination);
   if (await exists(target))
@@ -33536,9 +33725,9 @@ async function projectInit(directory, template, alias) {
         path6.join(root, config2.application.sourceDir),
         { recursive: true }
       );
-      const { readFile: readFile4 } = await import("node:fs/promises");
+      const { readFile: readFile2 } = await import("node:fs/promises");
       const file2 = path6.join(root, config2.application.sourceDir, "shared-components/lists.apx");
-      const lists = await readFile4(file2, "utf8"), index = lists.lastIndexOf(")");
+      const lists = await readFile2(file2, "utf8"), index = lists.lastIndexOf(")");
       if (index < 0 || !lists.includes("list navigation-menu ("))
         throw new Fault("UNSUPPORTED_TEMPLATE", "Starter navigation does not match the reviewed fixture.", 3);
       const entries = ["customers", "dashboard"].map(
@@ -33617,10 +33806,70 @@ async function projectInventory(ctx) {
 
 // packages/installer/src/download.ts
 import path7 from "node:path";
+import http from "node:http";
 import { createHash } from "node:crypto";
-async function download(artifact, cache, offline = false, fetcher = fetch) {
+import { lstat as lstat2, mkdir as mkdir4, realpath as realpath4, stat as stat3 } from "node:fs/promises";
+var proxyVariables = ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"];
+var proxyApplied = false;
+function proxyStatus(env = process.env, execArgv = process.execArgv) {
+  const variables = proxyVariables.filter((name) => env[name]);
+  const noProxy = Boolean(env.no_proxy || env.NO_PROXY);
+  const setGlobal = http.setGlobalProxyFromEnv;
+  const support = !variables.length ? "not-configured" : env.NODE_USE_ENV_PROXY === "1" || execArgv.includes("--use-env-proxy") ? "node-env-proxy" : proxyApplied ? "enabled-by-installer" : typeof setGlobal === "function" ? "available" : "unsupported";
+  return { configured: variables.length > 0, variables, noProxy, support };
+}
+function applyEnvironmentProxy() {
+  const status = proxyStatus();
+  if (status.support === "available") {
+    http.setGlobalProxyFromEnv();
+    proxyApplied = true;
+    return proxyStatus();
+  }
+  if (status.support === "unsupported")
+    throw new Fault(
+      "PROXY_UNSUPPORTED",
+      "A proxy is configured, but this Node.js cannot apply it to downloads. Run with NODE_USE_ENV_PROXY=1 (Node.js 24 or later), or preload the offline cache.",
+      3,
+      "blocked"
+    );
+  return status;
+}
+async function assertPrivateCache(cache, platform = process.platform) {
+  await mkdir4(cache, { recursive: true, mode: 448 });
+  if (platform === "win32") return;
+  const physical = (await lstat2(cache)).isSymbolicLink() ? await realpath4(cache) : cache;
+  const info = await stat3(physical);
+  if (!info.isDirectory() || info.mode & 18 || info.uid !== process.getuid?.())
+    throw new Fault(
+      "UNSAFE_CACHE_DIRECTORY",
+      `Download cache ${cache} must be a directory owned by the current user and not writable by group or others.`,
+      3,
+      "blocked"
+    );
+}
+var RetriableDownload = class extends Error {
+};
+var delay2 = (ms2) => new Promise((resolve) => setTimeout(resolve, ms2));
+async function withDeadline(work, ms2, controller, message) {
+  let timer;
+  try {
+    return await Promise.race([
+      work,
+      new Promise((_2, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new RetriableDownload(message));
+        }, ms2);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function download(artifact, cache, offline = false, fetcher = fetch, options2 = {}) {
   if (!/^[a-f0-9]{64}$/.test(artifact.sha256) || /(?:latest|main)(?:[./?]|$)/.test(artifact.url))
     throw new Fault("UNPINNED_ARTIFACT", "Downloads require an immutable version URL and SHA-256.", 2);
+  await assertPrivateCache(cache);
   const file2 = path7.join(cache, artifact.sha256);
   if (await exists(file2)) {
     if (await hashFile(file2) !== artifact.sha256)
@@ -33639,76 +33888,106 @@ async function download(artifact, cache, offline = false, fetcher = fetch) {
       3,
       "blocked"
     );
-  let url2 = new URL(artifact.url);
-  for (let redirect = 0; redirect < 6; redirect++) {
-    if (url2.protocol !== "https:" || url2.username || url2.password || !artifact.allowedHosts.includes(url2.hostname))
-      throw new Fault(
-        "DOWNLOAD_ORIGIN_DENIED",
-        "Download redirect left the vendor origin allowlist.",
-        4,
-        "blocked"
-      );
-    let response;
-    for (let attempt = 0; attempt < 3; attempt++) {
+  if (fetcher === globalThis.fetch) applyEnvironmentProxy();
+  const headersTimeoutMs = options2.headersTimeoutMs ?? 6e4, idleTimeoutMs = options2.idleTimeoutMs ?? 6e4, attempts = options2.attempts ?? 3, retryDelayMs = options2.retryDelayMs ?? 1e3;
+  const attempt = async () => {
+    let url2 = new URL(artifact.url);
+    for (let redirect = 0; redirect < 6; redirect++) {
+      if (url2.protocol !== "https:" || url2.username || url2.password || !artifact.allowedHosts.includes(url2.hostname))
+        throw new Fault(
+          "DOWNLOAD_ORIGIN_DENIED",
+          "Download redirect left the vendor origin allowlist.",
+          4,
+          "blocked"
+        );
+      const controller = new AbortController();
+      let response;
       try {
-        response = await fetcher(url2, { redirect: "manual", signal: AbortSignal.timeout(12e4) });
-        if (response.status < 500) break;
-        await response.body?.cancel();
-      } catch (e) {
-        if (attempt === 2)
+        response = await withDeadline(
+          fetcher(url2, { redirect: "manual", signal: controller.signal }),
+          headersTimeoutMs,
+          controller,
+          `Vendor did not respond within ${Math.round(headersTimeoutMs / 1e3)} s.`
+        );
+      } catch (error62) {
+        if (error62 instanceof Fault) throw error62;
+        throw new RetriableDownload(error62 instanceof Error ? error62.message : "Vendor download failed.");
+      }
+      if (response.status >= 500) {
+        await response.body?.cancel().catch(() => {
+        });
+        throw new RetriableDownload(`Vendor returned HTTP ${response.status}.`);
+      }
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const next = response.headers.get("location");
+        await response.body?.cancel().catch(() => {
+        });
+        if (!next) throw new Fault("DOWNLOAD_FAILED", "Missing redirect destination.", 3);
+        url2 = new URL(next, url2);
+        continue;
+      }
+      if (!response.ok || !response.body) {
+        await response.body?.cancel().catch(() => {
+        });
+        throw new Fault("DOWNLOAD_FAILED", `Vendor returned HTTP ${response.status}.`, 3, "blocked");
+      }
+      const reader = response.body.getReader();
+      async function* verifiedChunks() {
+        let size = 0;
+        const digest = createHash("sha256");
+        for (; ; ) {
+          let chunk;
+          try {
+            chunk = await withDeadline(
+              reader.read(),
+              idleTimeoutMs,
+              controller,
+              `Download stalled for ${Math.round(idleTimeoutMs / 1e3)} s.`
+            );
+          } catch (error62) {
+            if (error62 instanceof Fault || error62 instanceof RetriableDownload) throw error62;
+            throw new RetriableDownload(error62 instanceof Error ? error62.message : "Download interrupted.");
+          }
+          if (chunk.done) break;
+          size += chunk.value.length;
+          if (size > 512 * 1024 * 1024) throw new Fault("DOWNLOAD_LIMIT", "Download exceeds 512 MiB.", 3);
+          digest.update(chunk.value);
+          yield chunk.value;
+        }
+        if (digest.digest("hex") !== artifact.sha256)
           throw new Fault(
-            "DOWNLOAD_FAILED",
-            e instanceof Error ? e.message : "Vendor download failed.",
+            "INTEGRITY_FAILURE",
+            "Download SHA-256 does not match the trusted lock. Nothing was executed.",
             3,
             "blocked"
           );
       }
-    }
-    if (!response) throw new Fault("DOWNLOAD_FAILED", "No download response.", 3);
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const next = response.headers.get("location");
-      await response.body?.cancel();
-      if (!next) throw new Fault("DOWNLOAD_FAILED", "Missing redirect destination.", 3);
-      url2 = new URL(next, url2);
-      continue;
-    }
-    if (!response.ok || !response.body) {
-      await response.body?.cancel();
-      throw new Fault("DOWNLOAD_FAILED", `Vendor returned HTTP ${response.status}.`, 3, "blocked");
-    }
-    const body = response.body;
-    async function* verifiedChunks() {
-      let size = 0;
-      const digest = createHash("sha256");
-      for await (const value of body) {
-        size += value.length;
-        if (size > 512 * 1024 * 1024) throw new Fault("DOWNLOAD_LIMIT", "Download exceeds 512 MiB.", 3);
-        digest.update(value);
-        yield value;
+      try {
+        await atomicWrite(file2, verifiedChunks());
+      } finally {
+        await reader.cancel().catch(() => {
+        });
       }
-      if (digest.digest("hex") !== artifact.sha256)
-        throw new Fault(
-          "INTEGRITY_FAILURE",
-          "Download SHA-256 does not match the trusted lock. Nothing was executed.",
-          3,
-          "blocked"
-        );
+      return file2;
     }
+    throw new Fault("DOWNLOAD_REDIRECT_LIMIT", "Too many vendor redirects.", 3);
+  };
+  for (let index = 1; ; index++) {
     try {
-      await atomicWrite(file2, verifiedChunks());
-    } finally {
-      await body.cancel().catch(() => {
-      });
+      return await attempt();
+    } catch (error62) {
+      if (!(error62 instanceof RetriableDownload)) throw error62;
+      if (index >= attempts) throw new Fault("DOWNLOAD_FAILED", error62.message, 3, "blocked");
+      await delay2(retryDelayMs * index);
     }
-    return file2;
   }
-  throw new Fault("DOWNLOAD_REDIRECT_LIMIT", "Too many vendor redirects.", 3);
 }
 
 // packages/installer/src/archive.ts
 import path8 from "node:path";
-import { mkdir as mkdir4, lstat as lstat2, symlink, link } from "node:fs/promises";
-import { createWriteStream } from "node:fs";
+import { mkdir as mkdir5, mkdtemp as mkdtemp2, lstat as lstat3, rm as rm4, symlink, link } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { createHash as createHash2 } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 
 // node_modules/tar/dist/esm/index.min.js
@@ -36687,10 +36966,17 @@ var maxEntries = 5e4;
 function archivePath(name) {
   if (!name || name.includes("\\") || /^[A-Za-z]:/.test(name) || name.startsWith("/") || name.split("/").includes("..") || /[\x00-\x1f]/.test(name))
     throw new Fault("UNSAFE_ARCHIVE", "Archive entry escapes its extraction root.", 2);
-  return name.replace(/^\.\//, "");
+  const clean = name.replace(/^\.\//, "");
+  const segments = clean.replace(/\/$/, "").split("/");
+  if (clean && segments.some((segment) => segment === "" || segment === "."))
+    throw new Fault("UNSAFE_ARCHIVE", 'Archive entry has an empty or "." path segment.', 2);
+  return clean;
+}
+function entryKey(clean) {
+  return path8.posix.normalize(clean).replace(/\/$/, "");
 }
 async function extractArchive(file2, target, type, allowLinks = false) {
-  await mkdir4(target, { recursive: true, mode: 448 });
+  await mkdir5(target, { recursive: true, mode: 448 });
   let total = 0, count = 0;
   const seen = /* @__PURE__ */ new Set();
   const check2 = (name, size) => {
@@ -36699,12 +36985,15 @@ async function extractArchive(file2, target, type, allowLinks = false) {
     count++;
     if (total > maxExpanded || count > maxEntries || size > 512 * 1024 * 1024)
       throw new Fault("ARCHIVE_LIMIT", "Archive exceeds the expanded size or entry limit.", 2);
-    if (seen.has(clean)) throw new Fault("DUPLICATE_ARCHIVE_ENTRY", "Archive contains duplicate paths.", 2);
-    seen.add(clean);
+    if (!clean) return clean;
+    const key = entryKey(clean);
+    if (seen.has(key)) throw new Fault("DUPLICATE_ARCHIVE_ENTRY", "Archive contains duplicate paths.", 2);
+    seen.add(key);
     return clean;
   };
   if (type === "tar.gz") {
     const links = [];
+    const files = [];
     let invalid;
     await Ct({
       file: file2,
@@ -36720,16 +37009,23 @@ async function extractArchive(file2, target, type, allowLinks = false) {
             const linkTarget = entry.type === "Link" ? entry.linkpath : path8.posix.join(path8.posix.dirname(name), entry.linkpath);
             if (path8.isAbsolute(entry.linkpath))
               throw new Fault("UNSAFE_ARCHIVE", "Absolute link target.", 2);
-            archivePath(linkTarget);
-            links.push({ name, target: linkTarget, hard: entry.type === "Link" });
+            links.push({
+              name: entryKey(name),
+              target: entryKey(archivePath(path8.posix.normalize(linkTarget))),
+              hard: entry.type === "Link"
+            });
           } else if (!["File", "Directory", "OldFile", "ExtendedHeader", "GlobalExtendedHeader"].includes(entry.type))
             throw new Fault("UNSAFE_ARCHIVE", "Unsupported archive entry type.", 2);
+          else if (entry.type === "File" || entry.type === "OldFile") files.push(entryKey(name));
         } catch (error62) {
           invalid = error62;
         }
       }
     });
     if (invalid) throw invalid;
+    for (const entry of links)
+      if (files.some((name) => name.startsWith(entry.name + "/")))
+        throw new Fault("UNSAFE_ARCHIVE", "An archive link shadows a directory that contains files.", 2);
     await So({
       file: file2,
       cwd: target,
@@ -36738,12 +37034,24 @@ async function extractArchive(file2, target, type, allowLinks = false) {
       noChmod: false,
       filter: (_name, entry) => "type" in entry && ["File", "Directory", "OldFile"].includes(entry.type)
     });
-    for (const entry of links) {
-      const destination = await contained(target, entry.name), source = await contained(target, entry.target);
-      await lstat2(source);
-      await mkdir4(path8.dirname(destination), { recursive: true });
-      if (entry.hard) await link(source, destination);
-      else await symlink(path8.relative(path8.dirname(destination), source), destination);
+    let pending = links;
+    while (pending.length) {
+      const remaining = [];
+      for (const entry of pending) {
+        const destination = await contained(target, entry.name), source = await contained(target, entry.target);
+        try {
+          await lstat3(source);
+        } catch {
+          remaining.push(entry);
+          continue;
+        }
+        await mkdir5(path8.dirname(destination), { recursive: true });
+        if (entry.hard) await link(source, destination);
+        else await symlink(path8.relative(path8.dirname(destination), source), destination);
+      }
+      if (remaining.length === pending.length)
+        throw new Fault("UNSAFE_ARCHIVE", "Archive link target is missing or cyclic.", 2);
+      pending = remaining;
     }
     return;
   }
@@ -36765,10 +37073,10 @@ async function extractArchive(file2, target, type, allowLinks = false) {
           const mode = entry.externalFileAttributes >>> 16;
           if ((mode & 61440) === 40960 || entry.generalPurposeBitFlag & 1)
             throw new Fault("UNSAFE_ARCHIVE", "Encrypted entries and symlinks are not accepted.", 2);
-          const destination = await contained(target, name);
-          if (name.endsWith("/")) await mkdir4(destination, { recursive: true, mode: 448 });
+          const destination = await contained(target, name || ".");
+          if (!name || name.endsWith("/")) await mkdir5(destination, { recursive: true, mode: 448 });
           else {
-            await mkdir4(path8.dirname(destination), { recursive: true, mode: 448 });
+            await mkdir5(path8.dirname(destination), { recursive: true, mode: 448 });
             const stream = await new Promise(
               (res, rej) => zip.openReadStream(entry, (e, s3) => e || !s3 ? rej(e) : res(s3))
             );
@@ -36782,6 +37090,157 @@ async function extractArchive(file2, target, type, allowLinks = false) {
       });
       zip.readEntry();
     });
+  });
+}
+async function extractVerifiedArchive(file2, sha2562, target, type, allowLinks = false, privateRoot = path8.dirname(target)) {
+  await mkdir5(privateRoot, { recursive: true, mode: 448 });
+  const directory = await mkdtemp2(path8.join(privateRoot, ".archive-"));
+  try {
+    const copy = path8.join(directory, "archive");
+    const digest = createHash2("sha256");
+    await pipeline(
+      createReadStream(file2),
+      async function* (source) {
+        for await (const chunk of source) {
+          digest.update(chunk);
+          yield chunk;
+        }
+      },
+      createWriteStream(copy, { flags: "wx", mode: 384 })
+    );
+    if (digest.digest("hex") !== sha2562)
+      throw new Fault(
+        "INTEGRITY_FAILURE",
+        "Archive SHA-256 changed after verification. Nothing was extracted.",
+        3,
+        "blocked"
+      );
+    await extractArchive(copy, target, type, allowLinks);
+  } finally {
+    await rm4(directory, { recursive: true, force: true });
+  }
+}
+
+// packages/installer/src/command.ts
+import path9 from "node:path";
+import { spawn as spawn3 } from "node:child_process";
+import { stat as stat4 } from "node:fs/promises";
+var windowsExtensions = [".exe", ".cmd", ".bat"];
+var cmdUnsafe = /[&|<>^%"!\x00-\x1f]/;
+async function isFile(file2) {
+  try {
+    return (await stat4(file2)).isFile();
+  } catch {
+    return false;
+  }
+}
+function windowsSuffixes(env) {
+  const configured = (env.PATHEXT ?? env.Pathext ?? ".COM;.EXE;.BAT;.CMD").split(";").map((extension) => extension.trim().toLowerCase()).filter((extension) => windowsExtensions.includes(extension));
+  return configured.length ? [...new Set(configured)] : windowsExtensions;
+}
+async function searchPath(name, host = {}) {
+  const platform = host.platform ?? process.platform, env = host.env ?? process.env;
+  const windows = platform === "win32";
+  const pathValue = (windows ? env.Path ?? env.PATH ?? env.path : env.PATH) ?? "";
+  const suffixes = windows ? windowsExtensions.includes(path9.extname(name).toLowerCase()) ? [""] : windowsSuffixes(env) : [""];
+  for (const directory of pathValue.split(windows ? ";" : path9.delimiter)) {
+    const entry = directory.trim().replace(/^"(.*)"$/, "$1");
+    if (!entry || !(path9.isAbsolute(entry) || path9.win32.isAbsolute(entry))) continue;
+    for (const suffix of suffixes) {
+      const candidate = path9.join(entry, name + suffix);
+      if (await isFile(candidate)) return candidate;
+    }
+  }
+  return void 0;
+}
+function cmdQuote(value) {
+  if (cmdUnsafe.test(value))
+    throw new Fault(
+      "UNSAFE_COMMAND_ARGUMENT",
+      "A Windows batch command path or argument contains cmd.exe metacharacters. Nothing was run.",
+      2,
+      "blocked"
+    );
+  return '"' + value.replace(/(\\+)$/, "$1$1") + '"';
+}
+async function resolveCommand(command, args, host = {}) {
+  const platform = host.platform ?? process.platform, env = host.env ?? process.env;
+  if (platform !== "win32") return { executable: command, args, verbatim: false };
+  let resolved;
+  if (/[\\/]/.test(command) || path9.win32.isAbsolute(command)) {
+    const extension = path9.extname(command).toLowerCase();
+    for (const suffix of windowsExtensions.includes(extension) ? [""] : windowsSuffixes(env))
+      if (await isFile(command + suffix)) {
+        resolved = command + suffix;
+        break;
+      }
+  } else resolved = await searchPath(command, { platform, env });
+  if (!resolved) return { executable: command, args, verbatim: false };
+  if (![".cmd", ".bat"].includes(path9.extname(resolved).toLowerCase()))
+    return { executable: resolved, args, verbatim: false };
+  const line = [resolved, ...args].map(cmdQuote).join(" ");
+  return {
+    executable: env.ComSpec ?? env.COMSPEC ?? "cmd.exe",
+    args: ["/d", "/s", "/c", '"' + line + '"'],
+    verbatim: true
+  };
+}
+async function runCommand(request, host = {}) {
+  const command = await resolveCommand(request.executable, request.args, {
+    ...host,
+    ...request.env ? { env: { ...host.env ?? {}, ...request.env } } : {}
+  });
+  if (!command.verbatim) return runProcess({ ...request, ...command });
+  return new Promise((resolve, reject) => {
+    const child = spawn3(command.executable, command.args, {
+      cwd: request.cwd,
+      env: request.env ?? process.env,
+      shell: false,
+      stdio: "pipe",
+      windowsHide: true,
+      windowsVerbatimArguments: true
+    });
+    let stdout = "", stderr = "", bytes = 0, timedOut = false, truncated = false;
+    const max = request.maxBytes ?? 1024 * 1024;
+    const stop = () => {
+      child.kill("SIGTERM");
+      setTimeout(() => child.kill("SIGKILL"), 1500).unref();
+    };
+    const collect = (isError) => (data) => {
+      const room = Math.max(0, max - bytes);
+      bytes += data.length;
+      const text = data.subarray(0, room).toString();
+      if (isError) stderr += text;
+      else stdout += text;
+      if (bytes > max) {
+        truncated = true;
+        stop();
+      }
+    };
+    child.stdout.on("data", collect(false));
+    child.stderr.on("data", collect(true));
+    child.stdin.on("error", () => {
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stop();
+    }, request.timeoutMs ?? 3e4);
+    child.on("error", (error62) => {
+      clearTimeout(timer);
+      reject(new Fault("DEPENDENCY_MISSING", error62.message, 3, "dependency_missing"));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({
+        code,
+        stdout: redact(stdout),
+        stderr: redact(stderr),
+        timedOut,
+        cancelled: false,
+        truncated
+      });
+    });
+    child.stdin.end(request.input ?? "");
   });
 }
 
@@ -36805,8 +37264,19 @@ var lockSchema = external_exports.strictObject({
   playwright: external_exports.strictObject({ version: external_exports.string(), browsers: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())) }),
   provenance: external_exports.record(external_exports.string(), external_exports.unknown())
 });
+async function canonicalHome(home) {
+  let existing = path10.resolve(home);
+  const rest = [];
+  while (!await exists(existing)) {
+    const parent = path10.dirname(existing);
+    if (parent === existing) break;
+    rest.unshift(path10.basename(existing));
+    existing = parent;
+  }
+  return path10.join(await realpath5(existing), ...rest);
+}
 async function runtimeState(home = managedHome()) {
-  const file2 = path9.join(home, "runtime.json");
+  const file2 = path10.join(home, "runtime.json");
   return await exists(file2) ? await readJson(file2) : { schemaVersion: 1, components: {} };
 }
 function platformProfile(os2 = process.platform, arch = process.arch) {
@@ -36824,12 +37294,79 @@ function platformProfile(os2 = process.platform, arch = process.arch) {
   return { os: os2, arch, status: os2 === "darwin" ? "locally-tested" : "requires-platform-CI" };
 }
 async function findExecutable(name) {
-  for (const directory of (process.env.PATH ?? "").split(path9.delimiter))
-    for (const suffix of process.platform === "win32" ? ["", ".exe", ".cmd"] : [""]) {
-      const candidate = path9.join(directory, name + suffix);
-      if (await exists(candidate)) return realpath4(candidate);
+  const found = await searchPath(name);
+  return found ? realpath5(found) : void 0;
+}
+async function treeDigest(root) {
+  const entries = [];
+  async function walk(directory) {
+    for (const entry of await readdir3(directory, { withFileTypes: true })) {
+      const file2 = path10.join(directory, entry.name), name = path10.relative(root, file2).split(path10.sep).join("/");
+      if (entry.isSymbolicLink()) entries.push([name, "link:" + await readlink(file2)]);
+      else if (entry.isDirectory()) await walk(file2);
+      else if (entry.isFile()) entries.push([name, "file:" + await hashFile(file2)]);
+      else throw new Fault("SPECIAL_FILE_NOT_ALLOWED", "Toolchain trees accept files and links only.", 3);
     }
-  return void 0;
+  }
+  await walk(root);
+  entries.sort(([a], [b2]) => a < b2 ? -1 : a > b2 ? 1 : 0);
+  return hash(JSON.stringify(entries));
+}
+async function renameWithRetry(from, to2, platform = process.platform, attempts = 6) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await rename2(from, to2);
+      return;
+    } catch (error62) {
+      const code = error62.code;
+      if (platform !== "win32" || !["EPERM", "EBUSY", "EACCES"].includes(code ?? "") || attempt >= attempts)
+        throw error62;
+      await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+    }
+  }
+}
+async function moveAside(destination) {
+  const broken = `${destination}.broken-${Date.now()}`;
+  await renameWithRetry(destination, broken);
+  await rm5(broken, { recursive: true, force: true }).catch(() => {
+  });
+}
+async function intactInstallation(destination, executable, recorded) {
+  if (!await exists(executable)) return false;
+  if (!recorded || recorded.destination !== destination) return true;
+  try {
+    return await hashFile(executable) === recorded.executableSha256 && await treeDigest(destination) === recorded.treeSha256;
+  } catch {
+    return false;
+  }
+}
+async function installArtifact(artifact, destination, cache, offline) {
+  const file2 = await download(artifact, cache, offline);
+  await mkdir6(path10.dirname(destination), { recursive: true, mode: 448 });
+  const staging = await mkdtemp3(destination + ".staging-");
+  try {
+    await extractVerifiedArchive(file2, artifact.sha256, staging, artifact.type, artifact.id !== "sqlcl");
+    if (!await exists(path10.join(staging, artifact.executable)))
+      throw new Fault(
+        "ARTIFACT_LAYOUT_MISMATCH",
+        "Vendor executable is missing from the locked archive layout.",
+        3
+      );
+    await renameWithRetry(staging, destination);
+  } finally {
+    await rm5(staging, { recursive: true, force: true });
+  }
+}
+var browserDownloadVariables = [
+  "PLAYWRIGHT_DOWNLOAD_HOST",
+  "PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST",
+  "PLAYWRIGHT_CHROMIUM_HEADLESS_SHELL_DOWNLOAD_HOST"
+];
+function browserEnvironment(base, overrides, downloadHost) {
+  const env = { ...base, ...overrides };
+  for (const name of browserDownloadVariables) delete env[name];
+  if (downloadHost) env.PLAYWRIGHT_DOWNLOAD_HOST = downloadHost;
+  return env;
 }
 var ToolchainService = class {
   async inspect() {
@@ -36839,21 +37376,21 @@ var ToolchainService = class {
     const platform = platformProfile();
     const lock = parse3(
       lockSchema,
-      await readJson(path9.join(resourceRoot(), "toolchains/toolchain.lock.json"))
+      await readJson(path10.join(resourceRoot(), "toolchains/toolchain.lock.json"))
     );
-    const home = path9.resolve(r.home ?? managedHome()), cache = path9.resolve(r.cacheDir ?? path9.join(home, "cache"));
+    const home = await canonicalHome(r.home ?? managedHome()), cache = path10.resolve(r.cacheDir ?? path10.join(home, "cache"));
     const artifacts = lock.artifacts.filter((a) => a.os === platform.os && a.arch === platform.arch);
     const steps = await Promise.all(
       artifacts.map(async (artifact) => {
-        const candidate = artifact.id === "node" ? process.execPath : artifact.id === "sqlcl" ? process.env.APEXREST_SQLCL ?? await findExecutable("sql") : process.env.APEXREST_JAVA_HOME ? path9.join(
+        const candidate = artifact.id === "node" ? process.execPath : artifact.id === "sqlcl" ? process.env.APEXREST_SQLCL ?? await findExecutable("sql") : process.env.APEXREST_JAVA_HOME ? path10.join(
           process.env.APEXREST_JAVA_HOME,
           "bin",
           process.platform === "win32" ? "java.exe" : "java"
         ) : void 0;
         let reuse;
-        if (candidate) {
+        if (candidate && !r.dryRun) {
           try {
-            const result = await runProcess({
+            const result = await runCommand({
               executable: candidate,
               args: artifact.id === "node" ? ["--version"] : ["-version"],
               cwd: process.cwd(),
@@ -36866,16 +37403,18 @@ var ToolchainService = class {
           } catch {
           }
         }
-        const destination = path9.join(home, "toolchains", artifact.id, artifact.version);
+        const destination = path10.join(home, "toolchains", artifact.id, artifact.version);
         return {
           artifact,
           destination,
           reuse,
-          action: reuse ? "reuse" : await exists(path9.join(destination, artifact.executable)) ? "verify" : "download-install",
+          ...candidate && r.dryRun ? { candidate, candidateStatus: "found, not probed" } : {},
+          action: reuse ? "reuse" : await exists(path10.join(destination, artifact.executable)) ? "verify" : "download-install",
           consent: artifact.consentRequired && !r.acceptOracleLicense && !reuse ? "required" : "not-required"
         };
       })
     );
+    const chromium = lock.playwright.browsers.find((browser) => browser.name === "chromium");
     return {
       schemaVersion: 1,
       home,
@@ -36886,11 +37425,16 @@ var ToolchainService = class {
       browser: {
         action: r.skipBrowser ? "skip" : "install-verify",
         engine: "chromium",
-        installOsDeps: Boolean(r.installOsDeps && !r.skipBrowser)
+        installOsDeps: Boolean(r.installOsDeps && !r.skipBrowser),
+        revision: typeof chromium?.revision === "string" ? chromium.revision : void 0,
+        browserVersion: typeof chromium?.browserVersion === "string" ? chromium.browserVersion : void 0,
+        // Playwright selects the revision; its download is not checked against an APEXREST hash.
+        integrity: "playwright-revision-pinned; not hash-pinned by apexrest",
+        downloadHost: r.browserDownloadHost ?? "playwright-default"
       },
       offline: r.offline ?? false,
       elevation: r.installOsDeps ? "explicitly-requested" : "not-authorized",
-      proxy: Boolean(process.env.HTTPS_PROXY || process.env.https_proxy),
+      proxy: proxyStatus(),
       extraCA: Boolean(process.env.NODE_EXTRA_CA_CERTS)
     };
   }
@@ -36904,16 +37448,18 @@ var ToolchainService = class {
         4,
         "needs-user-action"
       );
-    await mkdir5(plan.home, { recursive: true, mode: 448 });
+    await mkdir6(plan.home, { recursive: true, mode: 448 });
     const disk = await statfs(plan.home);
     if (disk.bavail * disk.bsize < 1024 * 1024 * 1024)
       throw new Fault("INSUFFICIENT_DISK", "At least 1 GiB of free local space is required.", 3);
-    return withLock(path9.join(plan.home, "toolchain.lock"), async () => {
+    return withLock(path10.join(plan.home, "toolchain.lock"), async () => {
       const state = await runtimeState(plan.home);
       const actions = [];
       for (const step of plan.steps) {
         const artifact = step.artifact;
-        if (step.consent === "required" && step.action !== "verify") {
+        const executable = step.reuse ?? path10.join(step.destination, artifact.executable);
+        const intact = Boolean(step.reuse) || await intactInstallation(step.destination, executable, state.integrity?.[artifact.id]);
+        if (!intact && step.consent === "required") {
           state.components[artifact.id] = "needs-consent";
           actions.push({
             code: "ORACLE_LICENSE_CONSENT_REQUIRED",
@@ -36922,22 +37468,12 @@ var ToolchainService = class {
           });
           continue;
         }
-        const executable = step.reuse ?? path9.join(step.destination, artifact.executable);
-        if (!await exists(executable)) {
-          const file2 = await download(artifact, plan.cache, r.offline);
-          await mkdir5(path9.dirname(step.destination), { recursive: true });
-          const staging = await mkdtemp2(step.destination + ".staging-");
-          await extractArchive(file2, staging, artifact.type, artifact.id !== "sqlcl");
-          if (!await exists(path9.join(staging, artifact.executable)))
-            throw new Fault(
-              "ARTIFACT_LAYOUT_MISMATCH",
-              "Vendor executable is missing from the locked archive layout.",
-              3
-            );
-          await rename2(staging, step.destination);
+        if (!intact) {
+          if (await exists(step.destination)) await moveAside(step.destination);
+          await installArtifact(artifact, step.destination, plan.cache, r.offline);
         }
         if (process.platform !== "win32" && !step.reuse) await chmod2(executable, 448);
-        const javaHome = state.java ? path9.dirname(path9.dirname(state.java)) : void 0;
+        const javaHome = state.java ? path10.dirname(path10.dirname(state.java)) : void 0;
         const result = await runProcess({
           executable,
           args: artifact.id === "node" ? ["--version"] : ["-version"],
@@ -36951,30 +37487,43 @@ var ToolchainService = class {
           throw new Fault("TOOLCHAIN_PROBE_FAILED", `${artifact.id} did not report its locked version.`, 3);
         state[artifact.id] = executable;
         state.components[artifact.id] = "verified";
-        await writeJson(path9.join(plan.home, "runtime.json"), state);
+        if (step.reuse) delete state.integrity?.[artifact.id];
+        else
+          state.integrity = {
+            ...state.integrity,
+            [artifact.id]: {
+              destination: step.destination,
+              executableSha256: await hashFile(executable),
+              treeSha256: await treeDigest(step.destination)
+            }
+          };
+        await writeJson(path10.join(plan.home, "runtime.json"), state);
       }
       if (!r.skipBrowser && state.node) {
-        const browserHome = path9.join(plan.home, "playwright", plan.playwright), browserCache = path9.join(plan.home, "browsers");
-        await mkdir5(browserHome, { recursive: true });
+        const browserHome = path10.join(plan.home, "playwright", plan.playwright), browserCache = path10.join(plan.home, "browsers");
+        await mkdir6(browserHome, { recursive: true });
         await cp3(
-          path9.join(resourceRoot(), "playwright/package.json"),
-          path9.join(browserHome, "package.json")
+          path10.join(resourceRoot(), "playwright/package.json"),
+          path10.join(browserHome, "package.json")
         );
         await cp3(
-          path9.join(resourceRoot(), "playwright/package-lock.json"),
-          path9.join(browserHome, "package-lock.json")
+          path10.join(resourceRoot(), "playwright/package-lock.json"),
+          path10.join(browserHome, "package-lock.json")
         );
-        const npm = path9.resolve(
-          path9.dirname(state.node),
+        const npm = path10.resolve(
+          path10.dirname(state.node),
           process.platform === "win32" ? "node_modules/npm/bin/npm-cli.js" : "../lib/node_modules/npm/bin/npm-cli.js"
         );
-        const env = {
-          ...process.env,
-          PLAYWRIGHT_BROWSERS_PATH: browserCache,
-          npm_config_cache: path9.join(plan.cache, "npm"),
-          PATH: path9.dirname(state.node) + path9.delimiter + (process.env.PATH ?? "")
-        };
-        if (!await exists(path9.join(browserHome, "node_modules/@playwright/test/cli.js"))) {
+        const env = browserEnvironment(
+          process.env,
+          {
+            PLAYWRIGHT_BROWSERS_PATH: browserCache,
+            npm_config_cache: path10.join(plan.cache, "npm"),
+            PATH: path10.dirname(state.node) + path10.delimiter + (process.env.PATH ?? "")
+          },
+          r.browserDownloadHost
+        );
+        if (!await exists(path10.join(browserHome, "node_modules/@playwright/test/cli.js"))) {
           const installed = await runProcess({
             executable: state.node,
             args: [
@@ -36997,7 +37546,7 @@ var ToolchainService = class {
               "blocked"
             );
         }
-        const cli = path9.join(browserHome, "node_modules/@playwright/test/cli.js");
+        const cli = path10.join(browserHome, "node_modules/@playwright/test/cli.js");
         if (!r.offline) {
           const installed = await runProcess({
             executable: state.node,
@@ -37027,6 +37576,12 @@ var ToolchainService = class {
         } else {
           state.components.playwright = "verified";
           state.browser = smoke.stdout.trim();
+          if (plan.browser.browserVersion && state.browser !== plan.browser.browserVersion)
+            actions.push({
+              code: "BROWSER_VERSION_UNEXPECTED",
+              component: "chromium",
+              details: `Expected ${plan.browser.browserVersion} for Playwright ${plan.playwright}; found ${state.browser}.`
+            });
         }
         state.playwright = cli;
       } else {
@@ -37035,7 +37590,7 @@ var ToolchainService = class {
           actions.push({ code: "PLAYWRIGHT_SETUP_REQUIRED" });
         }
       }
-      await writeJson(path9.join(plan.home, "runtime.json"), state);
+      await writeJson(path10.join(plan.home, "runtime.json"), state);
       return {
         schemaVersion: 1,
         status: actions.length ? "needs-user-action" : "toolchain-verified",
@@ -37056,8 +37611,11 @@ export {
   parse3 as parse,
   loadProject,
   environment,
+  targetDigest,
   policy,
   requireTrust,
+  isProductionTarget,
+  protectedProductionTrust,
   savedConnectionName,
   ordsUrl,
   ordsUsername,
@@ -37124,10 +37682,16 @@ export {
   projectInspect,
   sqlclToken,
   sqlLiteral,
+  SCRIPT_RESTRICT_LEVEL,
   OracleAdapter,
   installSources,
+  runCommand,
   lockSchema,
+  canonicalHome,
   runtimeState,
   platformProfile,
+  treeDigest,
+  renameWithRetry,
+  browserEnvironment,
   ToolchainService
 };

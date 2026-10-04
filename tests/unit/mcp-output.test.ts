@@ -6,7 +6,8 @@ import { fixture } from '../fixtures/project.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
 import { success, failure, Fault, sanitized } from '../../packages/core/src/result.ts';
 import { toolOutput, panelResultKey } from '../../packages/mcp/src/output.ts';
-import { writeJson } from '../../packages/core/src/fs.ts';
+import { exists, hash, writeJson } from '../../packages/core/src/fs.ts';
+import { randomUUID } from 'node:crypto';
 
 async function isolated(t: import('node:test').TestContext) {
   const { ctx, plan } = await fixture();
@@ -102,25 +103,64 @@ test('JSON artifacts redact before pagination without corrupting quotes or split
   assert.doesNotMatch(content, /sensitive|hidden|Bearer private/);
 });
 
-test('automatic archives ignore source directories and repeated stable panel polls reuse a capture', async (t) => {
+test('automatic archives ignore source directories and repeated identical results reuse a capture', async (t) => {
   const { ctx } = await isolated(t);
   ctx.config.artifacts.directory = ctx.config.database.migrationsDir;
   await writeJson(path.join(ctx.root, 'apexrest.json'), ctx.config);
   const data = {
-    project: ctx.root,
-    jobs: Array.from({ length: 20 }, () => ({ status: 'failed', summary: 'x'.repeat(1000) })),
+    projectId: 'fixture',
+    sources: { apex: Object.fromEntries(Array.from({ length: 1000 }, (_, i) => [`p${i}.apx`, 'failed'])) },
   };
-  const first = JSON.parse(
-    (await toolOutput(success('panel.status', { ...data, updatedAt: 'first' }), ctx.root)).content[0]!.text,
-  );
-  const second = JSON.parse(
-    (await toolOutput(success('panel.status', { ...data, updatedAt: 'second' }), ctx.root)).content[0]!.text,
-  );
+  const first = JSON.parse((await toolOutput(success('project.inspect', data), ctx.root)).content[0]!.text);
+  const second = JSON.parse((await toolOutput(success('project.inspect', data), ctx.root)).content[0]!.text);
   assert.equal(first.data.output.artifactId, second.data.output.artifactId);
   assert.equal(first.data.output.capturedRunId, second.data.output.capturedRunId);
   const sources = await readdir(path.join(ctx.root, ctx.config.database.migrationsDir)).catch(() => []);
   assert.deepEqual(sources, []);
   assert.match((await new ArtifactService(ctx).read(first.data.output.artifactId)).content, /failed/);
+});
+
+test('panel status polls are never archived; their complete state stays in UI metadata', async (t) => {
+  const { ctx } = await isolated(t);
+  const data = {
+    project: ctx.root,
+    jobs: Array.from({ length: 20 }, () => ({ status: 'failed', summary: 'x'.repeat(1000) })),
+  };
+  for (const updatedAt of ['first', 'second', 'third']) {
+    const full = success('panel.status', { ...data, updatedAt });
+    const response = await toolOutput(full, ctx.root);
+    const compact = JSON.parse(response.content[0]!.text);
+    assert.equal(response.isError, false);
+    assert.deepEqual(compact.artifacts, []);
+    assert.equal(compact.data.output.recovery, 'panel-ui-metadata');
+    assert.match(compact.nextActions[0], /panel UI/);
+    assert.deepEqual(response._meta?.[panelResultKey], sanitized(full));
+  }
+  const results = path.join(process.env.APEXREST_HOME!, 'results');
+  assert.deepEqual(await readdir(results).catch(() => []), []);
+});
+
+test('archiving prunes expired result records at most once per hour per project', async (t) => {
+  const { ctx } = await isolated(t);
+  const service = new ArtifactService(ctx);
+  const expire = async () => {
+    const id = await service.saveJson({ fixture: true }, 'mcp-result');
+    const results = path.join(process.env.APEXREST_HOME!, 'results', hash(ctx.root));
+    await writeJson(path.join(results, id + '.json'), {
+      id,
+      kind: 'mcp-result',
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    return path.join(results, id + '.json');
+  };
+  const large = () =>
+    success('project.inspect', { sources: { apex: { 'a.apx': 'x'.repeat(9000) } }, nonce: randomUUID() });
+  const expired = await expire();
+  await toolOutput(large(), ctx.root);
+  assert.equal(await exists(expired), false, 'The first archive in a process prunes expired results');
+  const later = await expire();
+  await toolOutput(large(), ctx.root);
+  assert.equal(await exists(later), true, 'Pruning runs at most hourly');
 });
 
 test('escaped artifact pages shrink without creating another archive or losing the cursor', async (t) => {

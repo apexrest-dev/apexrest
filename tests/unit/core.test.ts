@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdir, symlink, readFile, readdir } from 'node:fs/promises';
+import { chmod, mkdir, symlink, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
 import { fixture } from '../fixtures/project.ts';
 import {
   parse,
@@ -15,19 +15,29 @@ import {
   hash,
   hashFile,
   contained,
+  containedChild,
   atomicWrite,
   writeJson,
   withLock,
   inventory,
 } from '../../packages/core/src/fs.ts';
 import { redact, Fault, failure } from '../../packages/core/src/result.ts';
-import { sqlclToken, sqlLiteral, oracleDiagnostics, installSources } from '../../packages/core/src/oracle.ts';
+import {
+  sqlclToken,
+  sqlLiteral,
+  oracleDiagnostics,
+  installSources,
+  compilerSucceeded,
+} from '../../packages/core/src/oracle.ts';
+import { configureConnection, ordsUrl } from '../../packages/core/src/connections.ts';
 import {
   DeploymentService,
   planDigest,
   assertTransition,
   migrationRisk,
   authorizePlan,
+  securityAttributes,
+  sqlclControlLines,
 } from '../../packages/core/src/deploy.ts';
 import { qualityGate, parseJUnit, allowedOrigin } from '../../packages/core/src/testing.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
@@ -272,4 +282,145 @@ test('process adapter enforces timeout without shell interpolation', async () =>
     cwd: ctx.root,
   });
   assert.equal(echo.stdout.trim(), arg);
+});
+test('SQLcl client-command tokenizer catches prefixes, abbreviations and leading comments', () => {
+  for (const sql of [
+    '!ls',
+    '  $ ls',
+    '@other.sql',
+    '@@nested.sql',
+    'ho ls',
+    'HOS ls',
+    '/* note */ host ls',
+    '/* a */ /* b */ sta other',
+    'spo out.txt',
+    'sav file',
+    'sto set settings',
+    'get file',
+    'ed',
+    'conn other/user',
+    'exit',
+    'quit',
+    'script evil.js',
+    'cd /tmp',
+    'set logsource /tmp',
+    'whenever sqlerror continue',
+    'begin null; end;\n/\nexit',
+  ])
+    assert.ok(migrationRisk(sql).includes('sqlcl-script-control'), sql);
+  for (const sql of [
+    'create table t(id number)',
+    'select * from t\nstart with id = 1\nconnect by prior id = parent_id;',
+    'savepoint before_load;',
+    'begin\n  loop\n    exit when true;\n    exit;\n  end loop;\nend;\n/',
+    '-- host comment only\nrem host ls\ninsert into t values (1);',
+    'whenever sqlerror exit failure rollback',
+  ])
+    assert.deepEqual(migrationRisk(sql), [], sql);
+  assert.deepEqual(sqlclControlLines('select 1 from dual;\n\n  @x.sql'), [3]);
+});
+test('compiler success needs a success marker and no error indication', () => {
+  assert.equal(compilerSucceeded('Validation successful.\n\n\n'), true);
+  for (const output of [
+    'Validation completed with 3 errors',
+    'Validation complete. 1 error',
+    'Compilation completed with errors',
+    'Validation successful.\nError: Missing property',
+    'APEXLang Compile Errors:\nValidation complete',
+    'Validation failed',
+    '',
+  ])
+    assert.equal(compilerSucceeded(output), false, output);
+});
+test('containedChild rejects the root itself, including symlinks to it', async () => {
+  const { ctx } = await fixture();
+  assert.equal(await containedChild(ctx.root, 'src'), path.join(ctx.root, 'src'));
+  await assert.rejects(containedChild(ctx.root, '.'), rejectCode('PATH_ESCAPE'));
+  await assert.rejects(containedChild(ctx.root, 'src/..'), rejectCode('PATH_ESCAPE'));
+  await symlink(ctx.root, path.join(ctx.root, 'self'));
+  await assert.rejects(containedChild(ctx.root, 'self'), rejectCode('PATH_ESCAPE'));
+  assert.equal(await contained(ctx.root, '.'), ctx.root);
+});
+test('locks publish complete owners and an old ownerless lock gives an actionable fault', async () => {
+  const { ctx } = await fixture();
+  const lock = path.join(ctx.root, 'owner.lock');
+  await withLock(lock, async () => {
+    assert.equal(JSON.parse(await readFile(lock, 'utf8')).pid, process.pid);
+  });
+  await atomicWrite(lock, '');
+  await assert.rejects(
+    withLock(lock, async () => 1),
+    rejectCode('LOCKED'),
+  );
+  const old = new Date(Date.now() - 120000);
+  await utimes(lock, old, old);
+  await assert.rejects(
+    withLock(lock, async () => 1),
+    (e: unknown) => e instanceof Fault && e.code === 'LOCK_CORRUPT' && e.message.includes(lock),
+  );
+  assert.deepEqual(
+    (await readdir(ctx.root)).filter((f) => f.includes('.owner')),
+    [],
+  );
+});
+test('APEXlang security attributes detect edits beyond security file names', () => {
+  const page = (auth: string) =>
+    `page 1 (\n    name: Home\n    security {\n        authorizationScheme: ${auth}\n        pageAccessProtection: argumentsMustHaveChecksum\n    }\n)`;
+  assert.deepEqual(securityAttributes(page('@admin')), ['authorizationScheme: @admin']);
+  assert.notDeepEqual(securityAttributes(page('@admin')), securityAttributes(page('@everyone')));
+  const app =
+    'application x (\n    authentication {\n        scheme: @accounts\n    }\n    runtime {\n        allowFeedback: true\n    }\n)';
+  assert.deepEqual(securityAttributes(app), ['authentication {', 'scheme: @accounts', '}']);
+  assert.deepEqual(
+    securityAttributes('page 2 (\n    name: Login\n    security {\n        authentication: public\n'),
+    ['authentication: public'],
+  );
+  assert.deepEqual(securityAttributes(':P1_X := apex_authentication.get_login_username_cookie;'), []);
+});
+test('ORDS URLs allow plaintext HTTP only for loopback hosts', () => {
+  for (const url of [
+    'https://ords.example.com/ords/app/',
+    'http://localhost:8080/ords/app/',
+    'http://127.0.0.1/ords/app/',
+    'http://[::1]:8080/ords/app/',
+  ])
+    assert.equal(ordsUrl.safeParse(url).success, true, url);
+  for (const url of ['http://ords.example.com/ords/app/', 'http://10.0.0.5/ords/app/'])
+    assert.equal(ordsUrl.safeParse(url).success, false, url);
+});
+test('password files must be private regular files and not symlinks', async () => {
+  const { ctx } = await fixture();
+  const old = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = path.join(ctx.root, 'home');
+  try {
+    const input = { ordsUrl: 'https://ords.example.com/ords/app/', ordsUsername: 'writer' };
+    const shared = path.join(ctx.root, 'shared.txt'),
+      owned = path.join(ctx.root, 'owned.txt'),
+      link = path.join(ctx.root, 'link.txt');
+    await writeFile(owned, 'secret\n', { mode: 0o600 });
+    await symlink(owned, link);
+    await assert.rejects(
+      configureConnection('deploy', { ...input, passwordFile: link }),
+      rejectCode('PASSWORD_FILE_UNSAFE'),
+    );
+    await assert.rejects(
+      configureConnection('deploy', { ...input, passwordFile: ctx.root }),
+      rejectCode('PASSWORD_FILE_UNSAFE'),
+    );
+    if (process.platform !== 'win32') {
+      await writeFile(shared, 'secret\n', { mode: 0o644 });
+      await chmod(shared, 0o644);
+      await assert.rejects(
+        configureConnection('deploy', { ...input, passwordFile: shared }),
+        rejectCode('PASSWORD_FILE_UNSAFE'),
+      );
+    }
+    assert.equal(
+      (await configureConnection('deploy', { ...input, passwordFile: owned })).status,
+      'configured',
+    );
+  } finally {
+    if (old === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = old;
+  }
 });

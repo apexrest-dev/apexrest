@@ -3,19 +3,20 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   dispatch,
   schemas
-} from "./chunk-HKJVCGQQ.mjs";
+} from "./chunk-A3TYG7T6.mjs";
 import {
-  executeJob
-} from "./chunk-2BBNJVKW.mjs";
-import "./chunk-YPLIIQ4Y.mjs";
+  executeJob,
+  failQueuedJob
+} from "./chunk-S7T3NE27.mjs";
+import "./chunk-JBCN5WYI.mjs";
 import "./chunk-G3KR57BY.mjs";
 import {
   loadProject
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   failure
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -30,6 +31,7 @@ var positional = {
   "jobs.cancel": ["id"],
   "artifacts.read": ["id"]
 };
+var variadic = { "docs.search": "query" };
 function operationFrom(args) {
   const first = args[0];
   if (["doctor", "version", "setup"].includes(first ?? "")) return { op: first, start: 1 };
@@ -38,6 +40,22 @@ function operationFrom(args) {
   return { op: args.slice(0, 2).join("."), start: 2 };
 }
 var selected = operationFrom(argv);
+function knownHelpTarget() {
+  const first = argv[0] ?? "";
+  return first.startsWith("-") || ["tui", "mcp", "test"].includes(first) || first === "panel" && argv[1] === "tui" || selected.op in schemas || // A command group alone (apexrest deploy --help) lists the general help.
+  (argv[1] ?? "-").startsWith("-") && Object.keys(schemas).some((op) => op.startsWith(first + "."));
+}
+function actionJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Fault(
+      "INVALID_INPUT",
+      `--action must be one JSON object, for example '{"kind":"validate"}'.`,
+      2
+    );
+  }
+}
 function help() {
   const key = selected.op;
   const lines = [
@@ -88,7 +106,8 @@ function help() {
   if (key === "panel.action")
     lines.push(
       "",
-      "Pass --action as one JSON object. Supported kinds: preferences, sqlcl, connection, cancel-job, validate, test, browser, plan.",
+      "Pass --action as one JSON object. Supported kinds: preferences, connection, saved-connections, cancel-job, validate, test, browser, plan.",
+      "Change SQLcl settings with apexrest sqlcl configure or the local dashboard.",
       `Example: apexrest panel action --action '{"kind":"validate"}' --project PATH --json`
     );
   if (key === "jobs.status")
@@ -141,28 +160,40 @@ function help() {
   console.log(lines.join("\n"));
 }
 try {
-  if (argv.includes("--help") || argv.includes("-h")) help();
-  else if (argv[0] === "tui" || !argv.length && process.stdin.isTTY && process.stdout.isTTY && process.env.TERM !== "dumb") {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    if (!knownHelpTarget())
+      throw new Fault(
+        "INVALID_INPUT",
+        `Unknown command: ${argv.filter((a) => !a.startsWith("-")).join(" ")}. Use apexrest --help.`,
+        2
+      );
+    help();
+  } else if (argv[0] === "tui" || !argv.length && process.stdin.isTTY && process.stdout.isTTY && process.env.TERM !== "dumb") {
     if (argv.length > 1 && (argv.length !== 3 || argv[1] !== "--project" || !argv[2] || argv[2].startsWith("--")))
       throw new Fault("INVALID_INPUT", "Usage: apexrest tui [--project PATH]", 2);
-    const { runTui } = await import("./chunk-RWGJITHZ.mjs");
+    const { runTui } = await import("./chunk-57EQRB72.mjs");
     await runTui(argv[2] ? { project: argv[2] } : {});
   } else if (!argv.length) help();
   else if (argv[0] === "panel" && argv[1] === "tui") {
     if (argv.length !== 2 && (argv.length !== 4 || argv[2] !== "--project" || !argv[3]))
       throw new Fault("INVALID_INPUT", "Usage: apexrest panel tui [--project PATH]", 2);
-    const { runPanelTui } = await import("./chunk-CYPFCUNE.mjs");
+    const { runPanelTui } = await import("./chunk-S3HS3SQX.mjs");
     await runPanelTui(argv[3] ?? process.cwd());
   } else if (argv[0] === "--panel-worker") {
     if (argv.length !== 2 || !argv[1]) throw new Fault("INVALID_INPUT", "Invalid panel worker request.", 2);
-    const { servePanel } = await import("./chunk-WXP75UUP.mjs");
+    const { servePanel } = await import("./chunk-RCBXRQOO.mjs");
     await servePanel(argv[1]);
   } else if (argv[0] === "--job-worker") {
     if (argv.length !== 3) throw new Fault("INVALID_INPUT", "Invalid internal job request.", 2);
-    await executeJob(await loadProject(argv[1]), argv[2], dispatch);
+    try {
+      await executeJob(await loadProject(argv[1]), argv[2], dispatch);
+    } catch (error) {
+      await failQueuedJob(argv[1], argv[2], error).catch(() => void 0);
+      throw error;
+    }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-5JI3XEAK.mjs");
+    const { startMcp } = await import("./chunk-WYMU4QKT.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -185,7 +216,7 @@ try {
       "workingCopy"
     ]);
     const numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds"]);
-    let index = 0;
+    let index = 0, rest;
     for (let i = selectedOp.start; i < argv.length; i++) {
       const token = argv[i];
       if (token.startsWith("--")) {
@@ -198,12 +229,16 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith("--"))
             throw new Fault("INVALID_INPUT", `Missing value for ${token}`, 2);
-          input[name] = name === "action" && selectedOp.op === "panel.action" ? JSON.parse(value) : numbers.has(name) ? Number(value) : value;
+          input[name] = name === "action" && selectedOp.op === "panel.action" ? actionJson(value) : numbers.has(name) ? Number(value) : value;
         }
       } else {
-        const field = positional[selectedOp.op]?.[index++];
-        if (!field || field in input) throw new Fault("INVALID_INPUT", `Unexpected argument: ${token}`, 2);
-        input[field] = token;
+        const field = positional[selectedOp.op]?.[index];
+        if (field && !(field in input)) {
+          index++;
+          input[field] = token;
+          if (variadic[selectedOp.op] === field) rest = field;
+        } else if (!field && rest) input[rest] = input[rest] + " " + token;
+        else throw new Fault("INVALID_INPUT", `Unexpected argument: ${token}`, 2);
       }
     }
     const result = await dispatch(selectedOp.op, input);

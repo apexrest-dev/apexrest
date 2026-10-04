@@ -2,7 +2,7 @@ import path from 'node:path';
 import { lstat, mkdir, readdir, realpath, open, cp, chmod } from 'node:fs/promises';
 import { z } from 'zod';
 import type { Environment, ProjectContext } from './config.ts';
-import { relativePath } from './config.ts';
+import { isProductionTarget, relativePath, targetDigest } from './config.ts';
 import { canonical, contained, exists, hash, inventory, readJson, withLock, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 import { LocalDeploymentControl, coordination } from './deployment-control.ts';
@@ -48,16 +48,7 @@ export const syncStateSchema = z.strictObject({
 export type SyncState = z.infer<typeof syncStateSchema>;
 export type SourceSnapshot = z.infer<typeof snapshotSchema>;
 export type ServerMetadata = z.infer<typeof serverMetadataSchema>;
-export function targetDigest(env: Environment) {
-  return hash(
-    canonical({
-      ...env.databaseIdentity,
-      workspace: env.workspace,
-      schema: env.parsingSchema,
-      applicationId: env.applicationId,
-    }),
-  );
-}
+export { targetDigest };
 
 /** Reject even contained symlinks: private durable records must not alias other project files. */
 export async function syncPath(ctx: ProjectContext, relative: string) {
@@ -205,7 +196,7 @@ export class SyncStore {
       state.runtimeVersion !== VERSION ||
       state.toolchainDigest !==
         hash(await readFile(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) ||
-      this.env.kind === 'production'
+      (await isProductionTarget(this.env))
     )
       throw new Fault(
         'SYNC_MAPPING_CHANGED',

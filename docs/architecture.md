@@ -2,7 +2,7 @@
 
 English | [Українська](architecture.uk.md)
 
-APEXREST uses one policy-aware core for the CLI and native Codex MCP server. Twelve skills guide work in the current session; eighteen MCP tools expose bounded operations. Both interfaces validate inputs against the same strict Zod schemas.
+APEXREST uses one policy-aware core for the CLI and native Codex MCP server. Fourteen skills guide work in the current session; twenty-one MCP tools expose bounded operations. Both interfaces validate inputs against the same strict Zod schemas.
 
 Implementation runs directly in the open Codex conversation. See [Codex integration](codex-integration.md) for ownership and host boundaries.
 

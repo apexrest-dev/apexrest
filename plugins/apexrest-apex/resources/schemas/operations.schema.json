@@ -121,56 +121,6 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "const": "sqlcl"
-              },
-              "settings": {
-                "type": "object",
-                "properties": {
-                  "schemaVersion": {
-                    "type": "number",
-                    "const": 1
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "cli",
-                      "mcp"
-                    ]
-                  },
-                  "mcpRestrictLevel": {
-                    "type": "string",
-                    "enum": [
-                      "1",
-                      "4"
-                    ]
-                  },
-                  "databaseTransport": {
-                    "type": "string",
-                    "enum": [
-                      "direct",
-                      "ords"
-                    ]
-                  }
-                },
-                "required": [
-                  "schemaVersion",
-                  "mode",
-                  "mcpRestrictLevel"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "required": [
-              "kind",
-              "settings"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
                 "const": "saved-connections"
               }
             },

@@ -11,7 +11,7 @@ import {
   panelActionSchema,
   panelReadSchema,
   publicPanelActionSchema
-} from "./chunk-2BBNJVKW.mjs";
+} from "./chunk-S7T3NE27.mjs";
 import {
   ArtifactService,
   DeploymentService,
@@ -20,7 +20,7 @@ import {
   catalogRead,
   catalogSearch,
   checkpoint
-} from "./chunk-YPLIIQ4Y.mjs";
+} from "./chunk-JBCN5WYI.mjs";
 import {
   VERSION
 } from "./chunk-G3KR57BY.mjs";
@@ -52,7 +52,7 @@ import {
   sqlclConfig,
   sqlclMode,
   sqlclRestriction
-} from "./chunk-EBBEN4AV.mjs";
+} from "./chunk-MU6I3KRM.mjs";
 import {
   Fault,
   artifactPage,
@@ -66,7 +66,7 @@ import {
   sanitized,
   success,
   writeJson
-} from "./chunk-2Z3BZF66.mjs";
+} from "./chunk-OX4ZKXO7.mjs";
 
 // packages/core/src/operations.ts
 var project = external_exports.string().min(1).max(4096).optional();
@@ -88,6 +88,7 @@ var setup = {
   ...dependencies,
   from: external_exports.string().optional(),
   codexHome: external_exports.string().optional(),
+  codex: external_exports.string().min(1).optional(),
   scope: external_exports.enum(["user", "project"]).default("user"),
   version: external_exports.string().optional(),
   nativeOnly: external_exports.boolean().default(false)
@@ -117,6 +118,7 @@ var schemas = {
   "plugin.uninstall": external_exports.strictObject({
     ...base,
     home: external_exports.string().optional(),
+    codex: external_exports.string().min(1).optional(),
     keepRuntime: external_exports.boolean().default(false)
   }),
   "project.init": external_exports.strictObject({
@@ -987,7 +989,7 @@ async function dispatch(operation, input = {}, signal) {
     let data;
     switch (operation) {
       case "panel.open": {
-        const { openPanel } = await import("./chunk-WXP75UUP.mjs");
+        const { openPanel } = await import("./chunk-RCBXRQOO.mjs");
         data = await openPanel(await realpath2(root));
         break;
       }
@@ -1024,30 +1026,32 @@ async function dispatch(operation, input = {}, signal) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-YQHHPRJH.mjs");
+        const { ToolchainService } = await import("./chunk-T6CMLVW2.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-33GE2NWZ.mjs");
+        const { uninstallTools } = await import("./chunk-G2ACHRI6.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-KQ5IDT7Z.mjs");
+        const { setup: setup2 } = await import("./chunk-YACCEGWY.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-KQ5IDT7Z.mjs");
+        const { validateNative } = await import("./chunk-YACCEGWY.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-KQ5IDT7Z.mjs");
-        data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime));
+        const { uninstallNative } = await import("./chunk-YACCEGWY.mjs");
+        data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
+          ...text("codex") ? { codex: text("codex") } : {}
+        });
         break;
       }
       case "project.init":
@@ -1112,6 +1116,7 @@ async function dispatch(operation, input = {}, signal) {
             data = await projectInspect(ctx, parsed.detail);
             break;
           case "metadata.read": {
+            await requireTrust(ctx.root);
             const env2 = environment(ctx, text("env"));
             const { project: _p, env: _e, ...request } = parsed;
             data = await metadataRead(oracle, env2, await resolveConnection(env2.readConnectionRef), request);
@@ -1211,9 +1216,11 @@ async function dispatch(operation, input = {}, signal) {
             );
             break;
           case "deploy.status":
+            await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text("run"));
             break;
           case "deploy.restore-plan": {
+            await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text("backup"));
             await writeJson(await contained(ctx.root, text("out")), plan);
             data = plan;
@@ -1262,7 +1269,7 @@ async function dispatch(operation, input = {}, signal) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-ESDVN7DS.mjs");
+            const { openVerificationBrowser } = await import("./chunk-FU2U6NYF.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),

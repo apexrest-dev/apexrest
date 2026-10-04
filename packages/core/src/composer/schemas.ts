@@ -5,7 +5,14 @@ export const digest = z.string().regex(/^[a-f0-9]{64}$/);
 export const name = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
 export const version = z.string().regex(/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/);
 export const blockId = z.string().regex(/^block:[a-z0-9-]+\/[a-z0-9-]+$/);
-const text = z.string().max(65536);
+/** Owned generated source and reviewed extension code. Kept in sync with plan read limits. */
+export const OWNED_TEXT_LIMIT = 1024 * 1024;
+const text = z.string().max(OWNED_TEXT_LIMIT);
+/** Enumerated values become SQL literals inside generated code fences. */
+export const literalValue = z
+  .string()
+  .max(128)
+  .regex(/^[^\x00-\x1f\x7f`]*$/, 'Enumerated values must be single-line text without backticks.');
 export const fieldSchema = z.strictObject({
   column: identifier,
   type: z.enum(['string', 'integer', 'decimal', 'date', 'timestamp', 'boolean']),
@@ -13,7 +20,7 @@ export const fieldSchema = z.strictObject({
   maxLength: z.number().int().positive().optional(),
   precision: z.number().int().positive().optional(),
   scale: z.number().int().optional(),
-  enum: z.array(z.string().max(128)).max(100).optional(),
+  enum: z.array(literalValue).max(100).optional(),
 });
 const contractBase = {
   schemaVersion: z.literal(1),

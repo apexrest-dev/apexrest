@@ -2,7 +2,7 @@
 
 English | [Українська](component-catalog.uk.md)
 
-Find a component, inspect its parameters and adapt its APEXlang recipe to your application. The catalog is bundled with APEXREST 1.1.0 and works offline, without a project or a connection to the reference application. It covers the Universal Theme 26.1 Reference application, including distinct component hosts and examples; it is not a claim to cover every capability of Oracle APEX.
+Find a component, inspect its parameters and adapt its APEXlang recipe to your application. The catalog is bundled with APEXREST since 1.1.0 and works offline, without a project or a connection to the reference application. It covers the Universal Theme 26.1 Reference application, including distinct component hosts and examples; it is not a claim to cover every capability of Oracle APEX.
 
 Browse the component list and examples in [Universal Theme Reference](https://apex.oracle.com/ut).
 

@@ -60,13 +60,15 @@ export const panelActionSchema = z.strictObject({
     z.strictObject({ kind: z.literal('plan'), env: z.string().min(1).max(100) }),
   ]),
 });
-// Only the local browser form accepts a password. MCP and CLI advertise and
-// validate a public schema without any credential entry field.
+// Only the local browser form accepts a password or changes the global SQLcl
+// execution mode and restriction level. MCP and CLI advertise and validate a
+// public schema without credential entry or SQLcl restriction changes.
+const [preferencesAction, ...otherActions] = panelActionSchema.shape.action.options;
 export const publicPanelActionSchema = panelActionSchema.extend({
   action: z.discriminatedUnion('kind', [
-    panelActionSchema.shape.action.options[0],
-    ...panelActionSchema.shape.action.options
-      .slice(1)
+    preferencesAction,
+    ...otherActions
+      .filter((option) => option.shape.kind.value !== 'sqlcl')
       .map((option) =>
         option.shape.kind.value === 'connection' ? connectionActionSchema.omit({ password: true }) : option,
       ),

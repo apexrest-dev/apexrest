@@ -17,7 +17,7 @@ npm ci --ignore-scripts
 npm run build
 ```
 
-After source, dependency, skill or resource changes, run `npm run plugin:sync`. It builds and refreshes the checked-in self-contained plugin bundle used by repository installations. Commit the resulting bundle with its source changes.
+After source, dependency, skill or resource changes, run `npm run plugin:sync`. It builds and refreshes the checked-in self-contained plugin bundle used by repository installations. Commit the resulting bundle with its source changes. `plugins/apexrest-apex/runtime/` and `plugins/apexrest-apex/resources/` are generated output, marked `linguist-generated` in `.gitattributes`; do not edit them by hand. Change the sources and rerun `npm run plugin:sync`.
 
 The normal build does not deploy an app or install Oracle binaries. Native-host setup, vendor downloads, connection onboarding and remote integration have their own prerequisites. See [getting started](docs/getting-started.md).
 
@@ -44,7 +44,7 @@ Run the checks relevant to the changed behavior, including build before packagin
 - Update documentation and the relevant acceptance/evidence records when behavior or verification changes.
 - Review dependency upgrades with pinned URLs/hashes, licensing, an architecture decision and actual compatibility evidence.
 
-Preserve `APEXREST_CODEX_PLUGIN_BUILD_SPEC.md` as historical input. Record authorized requirement amendments in the project rules and architecture decisions; do not rewrite the specification to make acceptance easier.
+Preserve `APEXREST_CODEX_PLUGIN_BUILD_SPEC.md` and the Ukrainian-only `APEXREST_COMPOSER_IMPLEMENTATION_PLAN.md` unchanged as historical input. Record authorized requirement amendments in the project rules and architecture decisions; do not rewrite the specification to make acceptance easier.
 
 ## Open a pull request
 
