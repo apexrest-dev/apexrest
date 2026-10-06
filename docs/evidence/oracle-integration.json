@@ -1,15 +1,307 @@
 {
-  "schemaVersion": 1,
-  "timestamp": "2026-09-12T12:40:08.289Z",
-  "sourceDigest": "735de337d3a4eb41131721579c303042a11310bee0545972bf6d97a2184bcd69",
+  "schemaVersion": 2,
+  "timestamp": "2026-10-06T19:19:24.809Z",
+  "sourceDigest": "eaa7baaa80aa1b9f5def8b0024bc5098bee7bca733c710181d57cd4149695633",
   "mock": false,
   "status": "blocked",
-  "checks": [],
+  "authorization": "ship-plan-bound-grant",
+  "checks": [
+    {
+      "name": "real-compiler",
+      "ok": true,
+      "runId": "10701cd5-56ad-42b3-b9be-206090f4e586",
+      "data": {
+        "status": "passed",
+        "compiler": {
+          "version": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+          "helpHash": "491b91846d2ffc6591cdd361c5a8633b037b3725c732081805f43b47958a3a0b"
+        },
+        "sourceDigest": "d51d035084589c1c330f89d7c69464dd0a8e95ac14e46f38f1d4aaa667a7b4fc",
+        "diagnostics": [],
+        "warningCount": 0,
+        "staticAnalysis": {
+          "status": "advisory",
+          "findings": [
+            {
+              "code": "APEX-002",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Non-public pages must have an authentication scheme and an authorization scheme at page or application scope.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-009",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Checksum protection is configured, but application session state protection is not enabled",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-024",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require positive idle and absolute session limits",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-025",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications and pages must disable session rejoin.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-026",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Pages must disable duplicate submissions.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-029",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require a centralized error handling function",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-031",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require exact substitution matching",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-005",
+              "file": "pages/p00010-customers.apx",
+              "line": 172,
+              "column": 4,
+              "message": "Component dynamic actions require an authorization scheme",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-005",
+              "file": "pages/p00080-customer.apx",
+              "line": 249,
+              "column": 4,
+              "message": "Component dynamic actions require an authorization scheme",
+              "severity": "warning"
+            }
+          ]
+        },
+        "upgradeAudit": {
+          "status": "advisory",
+          "targetRelease": "26.2",
+          "scannedFiles": 19,
+          "findings": [],
+          "skipped": [],
+          "traversalTruncated": false,
+          "limitation": "Source text review hints only; not a complete dependency, SQL, security or runtime audit."
+        },
+        "ms": 4884,
+        "output": "Validation successful.",
+        "outputTruncated": false
+      }
+    },
+    {
+      "name": "plan-identity",
+      "ok": true,
+      "runId": "c199a951-ee93-4363-b513-337d50254233",
+      "data": {
+        "mode": "plan",
+        "status": "planned",
+        "planId": "c4f609a5-9fbf-4d1b-84bf-c37052384121",
+        "planDigest": "81330a05a8bcd735c0b3107b5a834c64e1815886662407794b7a0dcc426ea0cb",
+        "environment": "dev",
+        "targetDigest": "0c648e2cf0baa0657245f0408060b83101ff7b09c141963df6e6ddc3708d55a4",
+        "planMode": "full-export",
+        "importSelection": {
+          "requestedMode": "auto",
+          "resolvedMode": "full",
+          "fileCount": 0,
+          "files": [],
+          "filesTruncated": false,
+          "dependencies": [],
+          "dependencyCount": 0,
+          "reasons": [
+            "trusted-sync-baseline-required"
+          ]
+        },
+        "backupRequired": true,
+        "compiler": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+        "createdAt": "2026-10-06T19:19:38.928Z",
+        "expiresAt": "2026-10-06T19:49:38.928Z",
+        "risks": [],
+        "approval": "external-policy-required",
+        "sources": {
+          "application": 26,
+          "pages": 6,
+          "pageFiles": [
+            "pages/p00000-global-page.apx",
+            "pages/p00001-home.apx",
+            "pages/p00010-customers.apx",
+            "pages/p00020-dashboard.apx",
+            "pages/p00080-customer.apx",
+            "pages/p09999-login.apx"
+          ],
+          "migrations": 0,
+          "packages": 2
+        },
+        "target": {
+          "identity": {
+            "db_unique_name": "FREE",
+            "service_name": "freepdb1",
+            "parsing_schema": "APEXREST_262_TEST"
+          },
+          "workspace": {
+            "workspace_id": 6800122899125013,
+            "workspace": "APEXREST_262_TEST"
+          },
+          "application": {
+            "application_id": 92620,
+            "alias": "CRM262",
+            "owner": "APEXREST_262_TEST",
+            "workspace": "APEXREST_262_TEST"
+          }
+        },
+        "planPath": ".apexrest/plans/ship-c4f609a5-9fbf-4d1b-84bf-c37052384121.json",
+        "phases": [
+          {
+            "phase": "planning",
+            "ms": 8813
+          }
+        ]
+      },
+      "resolvedMode": "full"
+    },
+    {
+      "name": "ship-apply-with-backup-and-required-tests",
+      "ok": false,
+      "runId": "339a2faa-2c69-403f-a2f7-a445cbaac327",
+      "classification": "post-deploy-e2e-after-full-import",
+      "importVerified": true,
+      "planDigest": "f54e045665f0f0048a90d1d2c05172468cf1c2bc57c3db55954c681554836b2e",
+      "testRunId": "d9d24d51-16f0-48fc-9f28-c083dfaf6612",
+      "suites": {
+        "unit": "empty",
+        "sql": "passed",
+        "api": "empty",
+        "e2e": "failed"
+      }
+    },
+    {
+      "name": "export-before-noop",
+      "ok": true,
+      "runId": "3dc29bf8-664f-45b0-85db-2171364d1c61",
+      "data": {
+        "directory": "/Users/oleksii/Code/apexrest-it/crm262/.apexrest/integration/3ac7ad14-540c-45b0-a144-ee283680c3fe/before",
+        "files": {
+          ".apex/apexlang.json": "1e4d481e2b249e9579fb0e21ec7534b535573b7534e53ec8d8f7b204d841a101",
+          "application.apx": "96691e31a803ef0368ee0f2aaae00ba885460a70932a4fd7013860694787ff99",
+          "deployments/default.json": "7ddc997ca34b69eeebe94be6d39dbac92b698a37543ec86be8d167a4a8d10e62",
+          "page-groups.apx": "46d760ce3168fd934b0ba382a31c4eb59187579edc85939cd0bfcef8832eee65",
+          "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+          "pages/p00001-home.apx": "4482e212c177394f3cb604c8ef44285b9d71890f14726a2911a3111a6b6c908d",
+          "pages/p00010-customers.apx": "d40c283a2363751ba2b5b7e455535d8e637663014f8dc811a59939d37d13fe88",
+          "pages/p00020-dashboard.apx": "2939ab643dadc996d84837473d2f10c083d8312901dc1dbeb290edfab65a289a",
+          "pages/p00080-customer.apx": "7d749e28113fb97ccba69dac0e99951fc739607fa6b5d3ebc64f4d4cf6f1237d",
+          "pages/p09999-login.apx": "1c79875130720f698a686b21f0c12486ca3e94021261b42d1301f1d46cdd363c",
+          "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+          "shared-components/authorizations.apx": "ebb959b32997340cbadedc08d1a97b5f5d3d6833cda33c24d47137024c76a57b",
+          "shared-components/breadcrumbs/breadcrumb.apx": "24de194b3601823b413812ef326f0d23d3ade448430b43046a5c3ab3493280ab",
+          "shared-components/build-options.apx": "7ef00e7965aa790792017617c083a91af4bd6f0f29e6a717c8792438c9a12b58",
+          "shared-components/component-settings.apx": "8b60ca2cd5c3a237ae14244a26d3625a803b8e8047cdba7d36a6690686e85a8d",
+          "shared-components/lists/navigation-bar.apx": "c350bc4d66a69f6e4fe3f3ca6b7aaf03c45f26612be179479085cb9e533fb2ef",
+          "shared-components/lists/navigation-menu.apx": "3647e2dea63831ca148c80dd9cf59d032391b6baf666efc7abf45a763bec2430",
+          "shared-components/lovs/boolean.apx": "6213b034c07f979b23105e6acf5f7db0f09a93c6b3cf00befc7347b57c2943db",
+          "shared-components/static-files.apx": "7daf77a6a4b8a68142c1e0975aa0ab4dffed3bf51416360ab9f5e3c95897ba01",
+          "shared-components/static-files/icons/app-icon-144-rounded.png": "e64510ad018f19d3b4fa1b6c69fde8f360b70cc293c5e0b4be11d7ccf8782413",
+          "shared-components/static-files/icons/app-icon-192.png": "2bd0bd59d22963217f1d004b4a58acfe26cc817423520d581b1a8fbb183e9b26",
+          "shared-components/static-files/icons/app-icon-256-rounded.png": "aa44a3286bd0332056ccd2aa024ede403aada4e1a969db6ff041d1f02daa0330",
+          "shared-components/static-files/icons/app-icon-32.png": "f5ec8aebab70584f41bea872e01d861ff9b9be7ca71c8d7320447dc895c624e9",
+          "shared-components/static-files/icons/app-icon-512.png": "e9bf5c145ecae5e30595661dc65fba04ebb77092905abd559905bc65b471cdc7",
+          "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1",
+          "supporting-objects/supporting-objects.apx": "204b24844dc09ea8ef656dbcd3e4416e57a37b91c531d990c2b297ac960819d0"
+        }
+      }
+    },
+    {
+      "name": "noop-ship-apply",
+      "ok": false,
+      "runId": "f8b0c6fa-2097-4355-83ed-6dcf6c9d1c01",
+      "classification": "post-deploy-e2e-after-full-import",
+      "importVerified": true,
+      "planDigest": "9c7f8a8c4bf37bd937b708c4bb958f8ef3984ce6232645dddbce225e70d58044",
+      "testRunId": "fe43b470-8a83-42ba-988c-3f1228870d05",
+      "suites": {
+        "unit": "empty",
+        "sql": "passed",
+        "api": "empty",
+        "e2e": "failed"
+      }
+    },
+    {
+      "name": "export-after-noop",
+      "ok": true,
+      "runId": "2bf9980b-c1d7-4cc0-911a-7db62241bea3",
+      "data": {
+        "directory": "/Users/oleksii/Code/apexrest-it/crm262/.apexrest/integration/3ac7ad14-540c-45b0-a144-ee283680c3fe/after",
+        "files": {
+          ".apex/apexlang.json": "1e4d481e2b249e9579fb0e21ec7534b535573b7534e53ec8d8f7b204d841a101",
+          "application.apx": "96691e31a803ef0368ee0f2aaae00ba885460a70932a4fd7013860694787ff99",
+          "deployments/default.json": "7ddc997ca34b69eeebe94be6d39dbac92b698a37543ec86be8d167a4a8d10e62",
+          "page-groups.apx": "46d760ce3168fd934b0ba382a31c4eb59187579edc85939cd0bfcef8832eee65",
+          "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+          "pages/p00001-home.apx": "4482e212c177394f3cb604c8ef44285b9d71890f14726a2911a3111a6b6c908d",
+          "pages/p00010-customers.apx": "d40c283a2363751ba2b5b7e455535d8e637663014f8dc811a59939d37d13fe88",
+          "pages/p00020-dashboard.apx": "2939ab643dadc996d84837473d2f10c083d8312901dc1dbeb290edfab65a289a",
+          "pages/p00080-customer.apx": "7d749e28113fb97ccba69dac0e99951fc739607fa6b5d3ebc64f4d4cf6f1237d",
+          "pages/p09999-login.apx": "1c79875130720f698a686b21f0c12486ca3e94021261b42d1301f1d46cdd363c",
+          "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+          "shared-components/authorizations.apx": "ebb959b32997340cbadedc08d1a97b5f5d3d6833cda33c24d47137024c76a57b",
+          "shared-components/breadcrumbs/breadcrumb.apx": "24de194b3601823b413812ef326f0d23d3ade448430b43046a5c3ab3493280ab",
+          "shared-components/build-options.apx": "7ef00e7965aa790792017617c083a91af4bd6f0f29e6a717c8792438c9a12b58",
+          "shared-components/component-settings.apx": "8b60ca2cd5c3a237ae14244a26d3625a803b8e8047cdba7d36a6690686e85a8d",
+          "shared-components/lists/navigation-bar.apx": "c350bc4d66a69f6e4fe3f3ca6b7aaf03c45f26612be179479085cb9e533fb2ef",
+          "shared-components/lists/navigation-menu.apx": "3647e2dea63831ca148c80dd9cf59d032391b6baf666efc7abf45a763bec2430",
+          "shared-components/lovs/boolean.apx": "6213b034c07f979b23105e6acf5f7db0f09a93c6b3cf00befc7347b57c2943db",
+          "shared-components/static-files.apx": "7daf77a6a4b8a68142c1e0975aa0ab4dffed3bf51416360ab9f5e3c95897ba01",
+          "shared-components/static-files/icons/app-icon-144-rounded.png": "e64510ad018f19d3b4fa1b6c69fde8f360b70cc293c5e0b4be11d7ccf8782413",
+          "shared-components/static-files/icons/app-icon-192.png": "2bd0bd59d22963217f1d004b4a58acfe26cc817423520d581b1a8fbb183e9b26",
+          "shared-components/static-files/icons/app-icon-256-rounded.png": "aa44a3286bd0332056ccd2aa024ede403aada4e1a969db6ff041d1f02daa0330",
+          "shared-components/static-files/icons/app-icon-32.png": "f5ec8aebab70584f41bea872e01d861ff9b9be7ca71c8d7320447dc895c624e9",
+          "shared-components/static-files/icons/app-icon-512.png": "e9bf5c145ecae5e30595661dc65fba04ebb77092905abd559905bc65b471cdc7",
+          "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1",
+          "supporting-objects/supporting-objects.apx": "204b24844dc09ea8ef656dbcd3e4416e57a37b91c531d990c2b297ac960819d0"
+        }
+      }
+    },
+    {
+      "name": "noop-complete-file-and-mmd-preservation",
+      "ok": true,
+      "files": 26
+    }
+  ],
+  "knownBlockers": [
+    "post-deploy-e2e-session-loss"
+  ],
   "prerequisites": [
     "APEXREST_INTEGRATION_PROJECT",
     "APEXREST_INTEGRATION_ENV",
     "APEXREST_INTEGRATION_ALLOW_WRITES=true",
-    "Named SQLcl connections, target grants, control tables, APEX 26.1+, utPLSQL, authenticated browser profile"
+    "Trusted project, existing test authorization, named SQLcl connections, APEX 26.1+, utPLSQL, dedicated E2E test user"
   ],
-  "blocker": "Error: Authorized disposable integration project/environment/write consent are not configured. No DB write attempted."
+  "target": {
+    "projectId": "crm262",
+    "environment": "dev",
+    "applicationId": 92620
+  },
+  "blocker": "Error: Post-deploy E2E failed after a full import and no interactive terminal is available to authenticate again; run `apexrest test auth` and `apexrest test all` manually."
 }
