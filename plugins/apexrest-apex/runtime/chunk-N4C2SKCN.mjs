@@ -1585,7 +1585,7 @@ async function protectedProductionTrust() {
 
 // packages/core/src/project.ts
 import path6 from "node:path";
-import { cp as cp2, mkdir as mkdir4, lstat, readdir as readdir2, writeFile, mkdtemp as mkdtemp2, rm as rm4, rename as rename2 } from "node:fs/promises";
+import { cp as cp2, mkdir as mkdir4, lstat as lstat2, readdir as readdir2, writeFile, mkdtemp as mkdtemp2, rm as rm4, rename as rename2 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // packages/core/src/oracle.ts
@@ -1611,7 +1611,7 @@ import { cp, mkdir as mkdir3, mkdtemp, readFile, readdir, realpath as realpath3,
 
 // packages/core/src/connections.ts
 import path2 from "node:path";
-import { chmod, constants as constants2, mkdir as mkdir2, open as open2, rm, stat } from "node:fs/promises";
+import { chmod, constants as constants2, lstat, mkdir as mkdir2, open as open2, rm, stat } from "node:fs/promises";
 var savedConnectionName = external_exports.string().min(1).max(512).regex(/^[^\x00-\x1f\x7f-\x9f]+$/);
 var ordsUrl = external_exports.string().url().max(2048).refine((value) => {
   const url = new URL(value);
@@ -1721,9 +1721,14 @@ async function editConnection(name, value) {
 }
 async function readPasswordFile(file) {
   let handle;
+  let before;
   try {
+    before = await lstat(file);
+    if (before.isSymbolicLink() || !before.isFile())
+      throw new Fault("PASSWORD_FILE_UNSAFE", "The password file must be a regular non-symlink file.", 2);
     handle = await open2(file, constants2.O_RDONLY | (constants2.O_NOFOLLOW ?? 0));
   } catch (error) {
+    if (error instanceof Fault) throw error;
     const code = error.code;
     throw new Fault(
       "PASSWORD_FILE_UNSAFE",
@@ -1733,8 +1738,9 @@ async function readPasswordFile(file) {
   }
   try {
     const info = await handle.stat();
-    if (!info.isFile())
-      throw new Fault("PASSWORD_FILE_UNSAFE", "The password file must be a regular file.", 2);
+    const current = await lstat(file);
+    if (!info.isFile() || !current.isFile() || current.isSymbolicLink() || before.dev !== info.dev || before.ino !== info.ino || current.dev !== info.dev || current.ino !== info.ino)
+      throw new Fault("PASSWORD_FILE_UNSAFE", "The password file changed or is not a regular file.", 2);
     if (process.platform !== "win32" && (info.mode & 63) !== 0)
       throw new Fault(
         "PASSWORD_FILE_UNSAFE",
@@ -2880,7 +2886,7 @@ async function projectInit(directory, template, alias) {
   await mkdir4(path6.dirname(destination), { recursive: true });
   return withLock(destination + ".init.lock", async () => {
     if (await exists(destination)) {
-      if (!(await lstat(destination)).isDirectory() || (await readdir2(destination)).length)
+      if (!(await lstat2(destination)).isDirectory() || (await readdir2(destination)).length)
         throw new Fault("LOCAL_EDITS_CONFLICT", "Project init requires an empty directory.", 5, "conflict");
     }
     const root = await mkdtemp2(destination + ".init-");
@@ -2892,7 +2898,7 @@ async function projectInit(directory, template, alias) {
         "conflict"
       );
       if (!await exists(root)) await mkdir4(root, { recursive: true, mode: 448 });
-      if (!(await lstat(root)).isDirectory() || (await readdir2(root)).length !== 0) throw conflict();
+      if (!(await lstat2(root)).isDirectory() || (await readdir2(root)).length !== 0) throw conflict();
       const createFile = async (file, content) => {
         try {
           await writeFile(file, content, { flag: "wx", mode: 384 });
@@ -3063,7 +3069,7 @@ async function projectInventory(ctx) {
 import path7 from "node:path";
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { lstat as lstat2, mkdir as mkdir5, realpath as realpath4, stat as stat3 } from "node:fs/promises";
+import { lstat as lstat3, mkdir as mkdir5, realpath as realpath4, stat as stat3 } from "node:fs/promises";
 var proxyVariables = ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"];
 var proxyApplied = false;
 function proxyStatus(env = process.env, execArgv = process.execArgv) {
@@ -3092,7 +3098,7 @@ function applyEnvironmentProxy() {
 async function assertPrivateCache(cache, platform = process.platform) {
   await mkdir5(cache, { recursive: true, mode: 448 });
   if (platform === "win32") return;
-  const physical = (await lstat2(cache)).isSymbolicLink() ? await realpath4(cache) : cache;
+  const physical = (await lstat3(cache)).isSymbolicLink() ? await realpath4(cache) : cache;
   const info = await stat3(physical);
   if (!info.isDirectory() || info.mode & 18 || info.uid !== process.getuid?.())
     throw new Fault(
@@ -3240,7 +3246,7 @@ async function download(artifact, cache, offline = false, fetcher = fetch, optio
 
 // packages/installer/src/archive.ts
 import path8 from "node:path";
-import { mkdir as mkdir6, mkdtemp as mkdtemp3, lstat as lstat3, rm as rm5, symlink, link } from "node:fs/promises";
+import { mkdir as mkdir6, mkdtemp as mkdtemp3, lstat as lstat4, rm as rm5, symlink, link } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -6295,7 +6301,7 @@ async function extractArchive(file, target, type, allowLinks = false) {
       for (const entry of pending) {
         const destination = await contained(target, entry.name), source = await contained(target, entry.target);
         try {
-          await lstat3(source);
+          await lstat4(source);
         } catch {
           remaining.push(entry);
           continue;

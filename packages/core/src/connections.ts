@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { chmod, constants, mkdir, open, rm, stat } from 'node:fs/promises';
+import { chmod, constants, lstat, mkdir, open, rm, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { contained, exists, readJson, withLock, writeJson } from './fs.ts';
 import { managedHome, parse, refName } from './config.ts';
@@ -145,9 +145,14 @@ export async function editConnection(name: string, value?: Connection) {
 /** A password file must be a private regular file; symlinks and shared files are rejected. */
 async function readPasswordFile(file: string) {
   let handle;
+  let before;
   try {
+    before = await lstat(file);
+    if (before.isSymbolicLink() || !before.isFile())
+      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file must be a regular non-symlink file.', 2);
     handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   } catch (error) {
+    if (error instanceof Fault) throw error;
     const code = (error as NodeJS.ErrnoException).code;
     throw new Fault(
       'PASSWORD_FILE_UNSAFE',
@@ -159,8 +164,17 @@ async function readPasswordFile(file: string) {
   }
   try {
     const info = await handle.stat();
-    if (!info.isFile())
-      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file must be a regular file.', 2);
+    const current = await lstat(file);
+    if (
+      !info.isFile() ||
+      !current.isFile() ||
+      current.isSymbolicLink() ||
+      before.dev !== info.dev ||
+      before.ino !== info.ino ||
+      current.dev !== info.dev ||
+      current.ino !== info.ino
+    )
+      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file changed or is not a regular file.', 2);
     if (process.platform !== 'win32' && (info.mode & 0o077) !== 0)
       throw new Fault(
         'PASSWORD_FILE_UNSAFE',

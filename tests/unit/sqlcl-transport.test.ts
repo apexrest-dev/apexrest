@@ -106,7 +106,7 @@ test('adapter uses the selected MCP runner with exact names, safe environment an
 // handshake and offline compilation are recorded separately in local evidence.
 test('MCP protocol supports legacy names, asynchronous results and confirmed errors; interruptions stay unknown', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-sqlcl-mcp-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const server = path.join(root, 'server.mjs');
   await writeFile(
     server,

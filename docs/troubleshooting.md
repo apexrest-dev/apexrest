@@ -46,7 +46,7 @@ Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent 
 | `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.                         |
 | Missing service tables                                                 | None are required: coordination and migration history are local under `APEXREST_HOME`.                                   |
 | A required suite is empty or blocked                                   | Supply its real tests or dependency, or resolve its authorized scope; do not count it as passed.                         |
-| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file readable only by its owner (`chmod 600`).                                       |
+| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                                       |
 
 Connection credentials belong in SQLcl's store or the private ORDS credential file. Do not put them in an issue or prompt. See [configuration](configuration.md) and the [safety skill](../plugins/apexrest-apex/skills/apexrest-safety/SKILL.md).
 
