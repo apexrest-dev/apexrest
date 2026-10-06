@@ -290,9 +290,13 @@ test('in-process jobs write the same state, heartbeat and phase as a detached wo
 test('workers record phases immediately and the composite job tool reads them', async (t) => {
   const ctx = await trusted(t);
   const jobs = new JobService(ctx);
+  // Hold the first phase until the test has read it; a fixed delay races slow runners.
+  let observed!: () => void;
+  const firstRead = new Promise<void>((resolve) => (observed = resolve));
+  t.after(() => observed());
   const started = await jobs.startInline('ship.apply', {}, async (_op, _input, _signal, progress) => {
     progress('backing_up');
-    await delay(30);
+    await firstRead;
     progress('importing');
     await delay(30);
     return failure('ship.apply', new Fault('IMPORT_FAILED', 'fixture', 1));
@@ -304,6 +308,7 @@ test('workers record phases immediately and the composite job tool reads them', 
   }
   assert.equal(first.operation, 'job');
   assert.equal((first.data as { phase: string }).phase, 'backing_up');
+  observed();
   const final = await dispatch('job', { project: ctx.root, jobId: started.jobId, waitSeconds: 5 });
   assert.equal((final.data as { status: string }).status, 'failed');
   assert.equal((final.data as { phase: string }).phase, 'importing');
