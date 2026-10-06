@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   allowedOrigin,
   browserPreferences
-} from "./chunk-L4XSFAMM.mjs";
+} from "./chunk-GKOCMBCK.mjs";
 import {
   environment,
   requireTrust,

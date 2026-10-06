@@ -30,7 +30,14 @@ Build with `npm run build` before checks that consume `dist/`. When the `claude`
 - Existing named SQLcl connections and explicit project trust and target policy.
 - A supported APEX 26.1 full-import target or the reviewed [APEX 26.2 profile](apex-26.2.md#requirements), plus dependencies required by the selected suites, including utPLSQL for the SQL suite.
 - `APEXREST_INTEGRATION_ALLOW_WRITES=true` before any apply, with independently authorized mutation scope.
-- Local interactive browser authentication and a dedicated test user when E2E is required.
+- Trusted project and existing test authorization for the environment (`ship` checks this before recording its grant).
+- Local interactive browser authentication and a dedicated test user when E2E is required, and an interactive terminal to authenticate again after full imports.
+
+The harness runs: compiler validation, `ship --mode plan` (plan identity), `ship --mode apply`, an export, a second (no-op) `ship --mode apply`, a second export compared file by file with the first (including MMD output), and a final `test all` that must pass SQL and E2E.
+
+Writes are authorized the same way as any other dev/test import (see [configuration](configuration.md)): `ship --mode apply --user-request TEXT` records the operator's consent as a deploy grant bound to the exact project, target and plan digest, expiring within ten minutes and no later than the plan, and removes it after the attempt. `APEXREST_INTEGRATION_ALLOW_WRITES=true` is that consent; the request text names the project, environment and application, and `APEXREST_INTEGRATION_USER_REQUEST` can replace it with the operator's own wording. The harness never writes grants. It reads `policy.json` after each attempt and fails if a ship grant for the project is still there. Production and risky plans are refused by `ship` before any grant is written. The harness does not use `deploy apply`, which needs a grant that already carries the digest of a plan created during the run.
+
+A full application import ends existing APEX sessions, so the required E2E suite inside `ship --mode apply` fails against saved browser state (a separate open task). The harness accepts only this exact case as a known blocker: the deployment journal reached `testing`, the plan was a full import, SQL passed and only E2E failed or was blocked. It records the check as `ok: false` with classification `post-deploy-e2e-after-full-import`; any other failure stops the run. Before the final `test all` it then runs `apexrest test auth` interactively. Without an interactive terminal (CI, agent shells) the run stops there as `blocked` after the no-op checks. Credentials are never scripted by the harness.
 
 The integration harness refuses production. Remote test suites are also refused for any target classified as production, including targets listed in the administrator's `production-trust.json`. Missing prerequisites produce blocked evidence and exit code 3; they do not count as passing skips. Deployment coordination is local and requires no service tables. The full release matrix also includes recovery and fault-injection scenarios beyond the happy-path harness.
 
@@ -63,6 +70,17 @@ The browser fixture uses a unique synthetic record, tests invalid input, exercis
 Authenticate locally with `apexrest test auth --project ./crm --env dev`. Auth state is private and expires after eight hours. Interactive login uses an ordinary browser without recording. Saving state does not prove that it works: required E2E still has to verify the application marker and its assertions. Origin checks are a guardrail, not an OS network sandbox for trusted test code.
 
 Saved state holds only the APEX session cookie, and E2E tests navigate without a session ID. The application must rejoin existing sessions (`sessionManagement.rejoinSessions: allSessions`, set by the 26.2 CRM template), and the APEX instance parameter `REJOIN_EXISTING_SESSIONS` must be `Y`; otherwise every navigation reaches the login page. A full application import ends existing sessions, so authenticate again after it before running E2E.
+
+### Sessions ended by a full import
+
+A full application import (`apex import`, the path for any plan with migrations or packages) replaces the APEX application and ends its existing sessions. Saved E2E state then opens the login page even though it has not expired. Before the E2E specs run, a read-only probe opens the base URL with the saved state; it enters nothing and records no screenshots, traces or cookies. When the configured `expectedMarker` is absent and a password field is visible, E2E is `blocked` with `reason: "reauth_required"` (`TEST_REAUTH_REQUIRED` from `test e2e`) and the specs do not run. If the probe sees the marker or cannot decide, the specs run and decide the result as before.
+
+This never passes the gate: a required E2E suite must still be `passed`. During `ship --mode apply` or `deploy apply`, when re-authentication is the only gap (every other required suite passed), the deployment stops in `awaiting_reauth` with `POST_DEPLOY_REAUTH_REQUIRED` (exit code 4, status `blocked`) instead of `POST_DEPLOY_TEST_FAILED`. It is not succeeded, its working-copy checkpoint is not advanced and local ownership is released. Then:
+
+1. The user runs `apexrest test auth --project ./crm --env dev` in a local interactive terminal. The agent never handles the password.
+2. Run `apexrest deploy verify --project ./crm --run <runId>`. It confirms that the target identity, application update metadata and local migration history are exactly as the import left them (otherwise `TARGET_DRIFT`), reruns all configured suites against the same gate and records `succeeded`, `failed` or `awaiting_reauth` again. It never imports.
+
+Do not reapply the plan to retry: another full import ends the renewed session again. A failing SQL suite, a failing spec or missing/expired state remain ordinary failures or blocks. Only a run in `awaiting_reauth` can resume.
 
 ## Diagnose and rerun
 

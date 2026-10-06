@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "status": "passed",
+  "mock": false,
+  "scope": "User-requested repro on the disposable local podman stack: detection of a saved browser session ended by a full application import, and the resumable awaiting_reauth deployment outcome",
+  "target": {
+    "database": "Oracle AI Database 26ai Free (FREEPDB1), podman",
+    "apexVersion": "26.2.0",
+    "ordsVersion": "26.3.0",
+    "workspace": "APEXREST_262_TEST",
+    "applicationId": 92620,
+    "project": "~/Code/apexrest-it/crm262",
+    "environment": "dev",
+    "transport": "direct",
+    "mode": "cli",
+    "runtime": "worktree build of 2.0.0 source with this change (not published)"
+  },
+  "finding": {
+    "source": "docs/evidence/crm262-local-integration.json noopShipApply run 040a7a46-7cfd-426c-860f-987e240fd74d",
+    "observed": "Post-deploy E2E with saved storageState reached the login page after a full import and ship reported POST_DEPLOY_TEST_FAILED although SQL passed 5/5"
+  },
+  "checks": {
+    "e2eProbe": {
+      "command": "apexrest test e2e --env dev",
+      "status": "blocked",
+      "reason": "reauth_required",
+      "specsRun": false,
+      "note": "Saved state (not expired by its metadata) was created before the earlier noop full import; the probe found the real APEX 26.2 login page instead of the apexrest-crm marker"
+    },
+    "shipApply": {
+      "runId": "faf257d5-d145-490a-8839-624a0d4a0fa0",
+      "importConfirmed": true,
+      "code": "POST_DEPLOY_REAUTH_REQUIRED",
+      "exitCode": 4,
+      "status": "blocked",
+      "journal": [
+        "approved",
+        "backing_up",
+        "migrating",
+        "importing",
+        "verifying",
+        "testing",
+        "awaiting_reauth"
+      ],
+      "postDeployTests": {
+        "sql": "passed 5/5",
+        "e2e": "blocked reauth_required",
+        "unit": "empty",
+        "api": "empty"
+      },
+      "note": "The session had already ended before this run; this run confirms classification and the stop state, not a new session loss"
+    },
+    "resumeWithoutLogin": {
+      "command": "apexrest deploy verify --run faf257d5-d145-490a-8839-624a0d4a0fa0",
+      "targetDriftCheck": "passed (identity, update metadata and local history matched the post-import record)",
+      "imported": false,
+      "result": "POST_DEPLOY_REAUTH_REQUIRED; journal testing -> awaiting_reauth"
+    },
+    "resumeAfterInteractiveLogin": {
+      "status": "passed",
+      "command": "apexrest deploy verify --run faf257d5-d145-490a-8839-624a0d4a0fa0",
+      "imported": false,
+      "postDeployTests": {
+        "sql": "passed 5/5",
+        "e2e": "passed 1/1",
+        "unit": "empty",
+        "api": "empty"
+      },
+      "journal": [
+        "awaiting_reauth",
+        "testing",
+        "succeeded"
+      ],
+      "authentication": "At the user's request, browser state was renewed by a scripted headless Playwright login with test credentials the user chose in chat (local test end user only), not by the interactive `apexrest test auth`; credentials are not recorded",
+      "probeNote": "This app shows its marker on the Customers page, not on the base URL, so with valid state the probe returned unknown and the specs decided the result"
+    },
+    "interactiveTestAuth": {
+      "status": "passed",
+      "command": "apexrest test auth --env dev (current worktree runtime, user's terminal)",
+      "result": "state stored by the user's interactive login; an earlier attempt timed out after the helper's 10-minute wait without Enter (AUTH_NOT_SAVED)",
+      "followUpE2E": "apexrest test e2e --env dev passed 1/1 with that state"
+    }
+  },
+  "localChecks": {
+    "unit": {
+      "tests": 368,
+      "passed": 367,
+      "skipped": 1,
+      "new": 9
+    },
+    "contracts": {
+      "tests": 61,
+      "passed": 61
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "pluginSync": "passed",
+    "docs": "passed",
+    "packaging": {
+      "tests": 27,
+      "passed": 27
+    }
+  },
+  "environmentChanges": [
+    "At the user's request, renamed the APEX end user CRM_TESTER to TEST in workspace APEXREST_262_TEST and reset its password (change on first use off, unlocked)"
+  ]
+}

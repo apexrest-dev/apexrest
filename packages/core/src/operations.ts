@@ -168,6 +168,7 @@ export const schemas = {
     .superRefine(checkImportOptions),
   'deploy.apply': z.strictObject({ ...base, plan: relativePath }),
   'deploy.status': z.strictObject({ ...base, run: z.uuid() }),
+  'deploy.verify': z.strictObject({ ...base, run: z.uuid() }),
   'deploy.restore-plan': z.strictObject({ ...base, backup: z.uuid(), out: relativePath }),
   'test.run': z.strictObject({
     ...base,

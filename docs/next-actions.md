@@ -2,11 +2,23 @@
 
 ## Customer CRM integration follow-up
 
-- Make post-deploy E2E survive a full application import: saved browser state loses its APEX session when the application is replaced, so required E2E inside `ship apply` reaches the login page. See [integration evidence](evidence/crm262-local-integration.json).
-- Rework `scripts/integration.mjs` so its apply step can be authorized: it creates its plan internally, while `deploy apply` needs a grant bound to that exact plan digest.
-- Decide how to document or check the instance-level `REJOIN_EXISTING_SESSIONS=Y` requirement for saved-state E2E; the application setting alone was insufficient on APEX 26.2.
+- Add an instance-level diagnostic for `REJOIN_EXISTING_SESSIONS=Y` before saved-state E2E; the application setting alone was insufficient on APEX 26.2. The requirement is documented in [testing](testing.md#automated-application-tests).
 - Treat the SQLcl 26.3 `arraysize` warning over the ORDS transport as non-fatal in connection tests.
 - The 26.1 CRM initialization does not yet set `rejoinSessions`; qualify it with a 26.1 compiler before changing it.
+
+## Post-deploy re-authentication
+
+- The resume path reached `succeeded` on the local 26.2 stack ([local record](evidence/post-deploy-reauth-local.json)) after a scripted login, and the user's interactive `apexrest test auth` with the current runtime produced state that passed E2E. An older global `apexrest` (0.1.0-beta.1) on `PATH` rejects 26.2 project configuration and has no `deploy verify`.
+- The probe checks the base URL. When an application shows its `expectedMarker` only on a deeper page (as crm262 does), a valid session is `unknown` and the specs decide; consider an optional probe path if earlier detection is needed.
+- `deploy verify` is CLI-only. Consider an MCP surface (for example an `apexrest_ship` verify mode) if agents without a shell need it; keep it import-free and gate-preserving.
+- The probe recognizes a login page by a visible password field without the marker. Applications using external SSO redirects without a password field fall back to ordinary E2E failures; extend detection only with real evidence from such a target.
+- Session rejoin (`REJOIN_EXISTING_SESSIONS`) did not keep sessions across a full import in the earlier run; do not rely on it as a workaround.
+
+## Integration harness
+
+- Run `npm run test:integration` from an interactive terminal against `crm262`/`dev` so that `test auth` can run after the full imports and the final standalone SQL+E2E check produces evidence. The ship-based authorization, imports, grant removal and no-op export preservation already ran on the local stack ([evidence](evidence/oracle-integration.json)).
+- Post-deploy E2E after a full import now stops in `awaiting_reauth` (`POST_DEPLOY_REAUTH_REQUIRED`) and resumes with `deploy verify` after `test auth` (see [testing](testing.md#sessions-ended-by-a-full-import)). The harness recognizes that blocked outcome. Add an import-free `deploy verify` step after interactive authentication so that the original deployment journal also reaches a verified terminal state; the current harness runs final standalone suites only.
+- CI runners have no interactive terminal; until post-deploy E2E survives full imports, `npm run test:integration` there ends `blocked` after the no-op checks.
 
 ## Claude Code
 

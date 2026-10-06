@@ -27,7 +27,7 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-L4XSFAMM.mjs";
+} from "./chunk-GKOCMBCK.mjs";
 import {
   OracleAdapter,
   SyncStore,
@@ -2146,6 +2146,7 @@ var schemas = {
   "deploy.plan": external_exports.strictObject({ ...base, env, out: relativePath, ...importOptions }).superRefine(checkImportOptions),
   "deploy.apply": external_exports.strictObject({ ...base, plan: relativePath }),
   "deploy.status": external_exports.strictObject({ ...base, run: external_exports.uuid() }),
+  "deploy.verify": external_exports.strictObject({ ...base, run: external_exports.uuid() }),
   "deploy.restore-plan": external_exports.strictObject({ ...base, backup: external_exports.uuid(), out: relativePath }),
   "test.run": external_exports.strictObject({
     ...base,
@@ -4183,6 +4184,10 @@ async function dispatch(operation, input = {}, signal, progress) {
             await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text("run"));
             break;
+          case "deploy.verify":
+            await requireTrust(ctx.root);
+            data = await deployment.resumeVerification(ctx, text("run"), signal);
+            break;
           case "deploy.restore-plan": {
             await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text("backup"));
@@ -4210,6 +4215,18 @@ async function dispatch(operation, input = {}, signal, progress) {
                 Boolean(parsed.headed)
               );
               data = result;
+              if (result.reason === "reauth_required")
+                return {
+                  ...failure(
+                    operation,
+                    new Fault("TEST_REAUTH_REQUIRED", result.diagnostic, 4, "blocked", {
+                      nextActions: [
+                        `Ask the user to run \`apexrest test auth --env ${text("env")}\` in a local interactive terminal; never handle the password.`
+                      ]
+                    })
+                  ),
+                  data
+                };
               if (result.status !== "passed")
                 return {
                   ...failure(
@@ -4233,7 +4250,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-EJENFS4Y.mjs");
+            const { openVerificationBrowser } = await import("./chunk-RQRLRM2K.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),
