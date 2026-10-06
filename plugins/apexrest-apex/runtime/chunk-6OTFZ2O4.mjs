@@ -1503,7 +1503,7 @@ async function requireTrust(root) {
   if (!(await policy()).trustedProjects.includes(await realpath(root)))
     throw new Fault(
       "PROJECT_TRUST_REQUIRED",
-      "Review this project and add its canonical path to the user-owned policy trustedProjects. Host trust is also required.",
+      "Ask the user to review this project and add its canonical path to trustedProjects in the user-owned APEXREST_HOME/policy.json. No other trust step is required.",
       4,
       "blocked"
     );

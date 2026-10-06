@@ -27,7 +27,7 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-BT6Z2G53.mjs";
+} from "./chunk-CQTCWKRC.mjs";
 import {
   OracleAdapter,
   SyncStore,
@@ -64,7 +64,7 @@ import {
   sqlclMode,
   sqlclRestriction,
   updatePolicy
-} from "./chunk-AULTRDUB.mjs";
+} from "./chunk-6OTFZ2O4.mjs";
 import {
   external_exports
 } from "./chunk-JYN3YHP3.mjs";
@@ -3933,29 +3933,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-PCMAQDJ4.mjs");
+        const { ToolchainService } = await import("./chunk-VGMU7F23.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-LQ5FA4XT.mjs");
+        const { uninstallTools } = await import("./chunk-NE7U5OV7.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-AMRWDVKA.mjs");
+        const { setup: setup2 } = await import("./chunk-5YPY6WEY.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-AMRWDVKA.mjs");
+        const { validateNative } = await import("./chunk-5YPY6WEY.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-AMRWDVKA.mjs");
+        const { uninstallNative } = await import("./chunk-5YPY6WEY.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -4233,7 +4233,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-H3NQU7BB.mjs");
+            const { openVerificationBrowser } = await import("./chunk-46JO2HWT.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),

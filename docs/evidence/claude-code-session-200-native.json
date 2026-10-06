@@ -46,7 +46,9 @@
   "toolCalls": [
     {
       "tool": "apexrest_status",
-      "input": { "detail": "doctor" },
+      "input": {
+        "detail": "doctor"
+      },
       "status": "succeeded",
       "observed": {
         "probes": {
@@ -60,7 +62,12 @@
     },
     {
       "tool": "apexrest_reference",
-      "input": { "mode": "search", "query": "interactive grid", "kind": "template", "limit": 3 },
+      "input": {
+        "mode": "search",
+        "query": "interactive grid",
+        "kind": "template",
+        "limit": 3
+      },
       "status": "succeeded",
       "observed": {
         "total": 34,
@@ -80,9 +87,51 @@
   "notRun": [
     "claude plugin marketplace add / claude plugin install from the repository marketplace",
     "interactive Claude Code session",
-    "apexrest_project init or inspect on a project",
-    "apexrest_apex_validate, apexrest_ship plan/apply and apexrest_job on any target",
+    "apexrest_ship plan/apply and apexrest_job on any target (offline apexrest_apex_validate passed; see offlineWorkCycle)",
     "apexrest_browser_open handoff to the Claude Code built-in browser or Claude in Chrome",
     "Linux and Windows"
-  ]
+  ],
+  "offlineWorkCycle": {
+    "status": "passed-offline",
+    "scope": "apexrest-work invoked as /apexrest:apexrest-work in two claude -p sessions with --plugin-dir on a new scratch blank-app project; ship, sync, tests, browser and Bash were disallowed. No database connection.",
+    "steps": [
+      {
+        "tool": "apexrest_project",
+        "input": {
+          "action": "init",
+          "template": "blank-app"
+        },
+        "status": "succeeded",
+        "runId": "675eea98-ba6f-4122-8a97-8d55ab5b07ad"
+      },
+      {
+        "tool": "Edit",
+        "file": "src/apex/app/pages/p00001-home.apx",
+        "change": "title: Home -> title: APEXREST Claude Code check",
+        "status": "applied"
+      },
+      {
+        "tool": "apexrest_apex_validate",
+        "status": "blocked",
+        "faultCode": "PROJECT_TRUST_REQUIRED",
+        "runId": "762f9c34-6511-4a44-98f5-3d1539bc619d",
+        "observed": "The session did not edit policy.json and asked the user to trust the project."
+      },
+      {
+        "action": "The user approved temporary trust; the scratch path was added to trustedProjects and policy.json was restored byte-identical after the run."
+      },
+      {
+        "tool": "apexrest_apex_validate",
+        "status": "succeeded",
+        "runId": "ebb32e7f-d7c8-4806-9bdc-00a60b2a7d53",
+        "diagnostics": [],
+        "compiler": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334",
+        "staticAnalysis": "unavailable (CodeScan qualified only for SQLcl 26.3)",
+        "upgradeAudit": "advisory, 0 findings, 16 files",
+        "output": "Validation successful."
+      }
+    ],
+    "notRun": ["apexrest_ship plan/apply", "apexrest_job", "apexrest_browser_open and browser verification"],
+    "reason": "The authorized APEX 26.2 test target (application 92620, workspace APEXREST_262_TEST) was not reachable: no saved connection and no local database listener."
+  }
 }

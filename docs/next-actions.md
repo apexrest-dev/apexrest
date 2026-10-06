@@ -2,7 +2,7 @@
 
 ## Claude Code
 
-- Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). Still open: install from the repository marketplace, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.
+- Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). The offline part of `/apexrest:apexrest-work` (init, edit, validate) also passed. Still open: install from the repository marketplace, restore a connection to the authorized 26.2 test application 92620, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.
 - Consider switching the stored default browser mode from `codex` to `host` in a later version; both are accepted today and behave identically.
 
 ## Version 2.0.0

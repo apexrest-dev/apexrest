@@ -9,7 +9,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-AULTRDUB.mjs";
+} from "./chunk-6OTFZ2O4.mjs";
 import {
   Client,
   ReadBuffer,
