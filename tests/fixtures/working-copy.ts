@@ -34,6 +34,7 @@ export async function workingCopyFixture() {
     metadata: { lastUpdatedOn: '2026-09-29T10:00:00', lastUpdatedBy: 'FIXTURE' },
     compilerVersion: 'mock SQLcl',
     testsPass: true,
+    reauthRequired: false,
     failImport: false,
     failMetadata: false,
     alias: 'fixture',
@@ -96,7 +97,11 @@ export async function workingCopyFixture() {
   };
   const service = new DeploymentService(oracle as unknown as OracleAdapter, async () => {
     calls.push('tests');
-    return { ok: controls.testsPass, data: { fixture: true } };
+    return {
+      ok: controls.testsPass,
+      ...(controls.reauthRequired ? { reauthRequired: true } : {}),
+      data: { fixture: true },
+    };
   });
   return { ctx, env, calls, controls, oracle, service, server };
 }

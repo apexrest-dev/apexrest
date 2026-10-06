@@ -1,5 +1,12 @@
 # Next actions and verification limits
 
+## Post-deploy re-authentication
+
+- Complete the resume path on the local 26.2 stack: the user runs `apexrest test auth --project ~/Code/apexrest-it/crm262 --env dev` interactively, then `apexrest deploy verify --run faf257d5-d145-490a-8839-624a0d4a0fa0`. Record whether E2E passes and the run reaches `succeeded` in the [local record](evidence/post-deploy-reauth-local.json).
+- `deploy verify` is CLI-only. Consider an MCP surface (for example an `apexrest_ship` verify mode) if agents without a shell need it; keep it import-free and gate-preserving.
+- The probe recognizes a login page by a visible password field without the marker. Applications using external SSO redirects without a password field fall back to ordinary E2E failures; extend detection only with real evidence from such a target.
+- Session rejoin (`REJOIN_EXISTING_SESSIONS`) did not keep sessions across a full import in the earlier run; do not rely on it as a workaround.
+
 ## Claude Code
 
 - Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). The offline part of `/apexrest:apexrest-work` (init, edit, validate) also passed. Still open: install from the repository marketplace, restore a connection to the authorized 26.2 test application 92620, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.

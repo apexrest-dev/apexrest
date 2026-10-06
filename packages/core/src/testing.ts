@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, readFile, cp, chmod } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { environment, isProductionTarget, managedHome, policy, requireTrust } from './config.ts';
-import type { ProjectContext } from './config.ts';
+import type { Environment, ProjectContext } from './config.ts';
 import { contained, exists, inventory, readJson, writeJson, atomicWrite } from './fs.ts';
 import { resolveConnection } from './connections.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlclToken, sqlLiteral } from './oracle.ts';
@@ -22,6 +22,8 @@ export interface SuiteResult {
   skipped: number;
   artifactId?: string;
   diagnostic?: string;
+  /** blocked only: the saved browser session no longer authenticates (for example after a full import). */
+  reason?: 'reauth_required';
 }
 export function qualityGate(results: SuiteResult[], required: Suite[]) {
   return (
@@ -38,6 +40,23 @@ export function qualityGate(results: SuiteResult[], required: Suite[]) {
     )
   );
 }
+/**
+ * The required gate is unchanged; this only classifies why it did not pass.
+ * True when every remaining suite would pass and the sole gap is an E2E run
+ * blocked by an ended browser session that only an interactive login can renew.
+ */
+export function reauthRequired(results: SuiteResult[], required: Suite[]) {
+  const ended = results.filter((r) => r.status === 'blocked' && r.reason === 'reauth_required');
+  return (
+    ended.some((r) => required.includes(r.suite)) &&
+    qualityGate(
+      results.filter((r) => !ended.includes(r)),
+      required.filter((s) => !ended.some((r) => r.suite === s)),
+    )
+  );
+}
+export const REAUTH_DIAGNOSTIC =
+  'The saved browser session no longer authenticates (the application shows its login page). A full application import ends existing APEX sessions. Run test auth interactively, then rerun E2E.';
 export function parseJUnit(xml: string) {
   if (/<!DOCTYPE|<!ENTITY/i.test(xml))
     throw new Fault('UNSAFE_REPORT', 'DTD/entities are not allowed in test reports.', 1);
@@ -229,6 +248,16 @@ export class TestService {
           skipped: 0,
           diagnostic: 'Authenticated browser state is missing or expired. Run test auth interactively.',
         };
+      if (suite === 'e2e' && (await this.sessionState(ctx, state, auth, env, signal)) === 'login')
+        return {
+          suite,
+          status: 'blocked',
+          reason: 'reauth_required',
+          tests: 0,
+          failures: 0,
+          skipped: 0,
+          diagnostic: REAUTH_DIAGNOSTIC,
+        };
       await atomicWrite(
         path.join(run, 'playwright.config.mjs'),
         `export default ${JSON.stringify({ testDir: './tests', forbidOnly: true, retries: 0, timeout: 30000, workers: 1, reporter: [['json', { outputFile: path.join(run, 'report.json') }]], use: { baseURL: env.baseUrl, browserName: 'chromium', serviceWorkers: 'block', trace: 'off', screenshot: 'off', video: 'off', ...(suite === 'e2e' ? { storageState: auth } : {}) } })};\n`,
@@ -302,22 +331,58 @@ export class TestService {
       };
     }
   }
+  /** Read-only probe of the saved state; any probe failure is 'unknown' and the suite runs as before. */
+  private async sessionState(
+    ctx: ProjectContext,
+    state: Awaited<ReturnType<typeof runtimeState>>,
+    auth: string,
+    env: Environment,
+    signal?: AbortSignal,
+  ): Promise<'authenticated' | 'login' | 'unknown'> {
+    try {
+      const helper = path.join(path.resolve(state.playwright!, '../../../..'), 'session-probe.mjs');
+      await cp(path.join(resourceRoot(), 'playwright/session-probe.mjs'), helper);
+      const result = await runProcess({
+        executable: state.node!,
+        args: [
+          helper,
+          auth,
+          env.baseUrl,
+          JSON.stringify([new URL(env.baseUrl).origin, ...env.allowedOrigins]),
+          env.expectedMarker ?? '',
+        ],
+        cwd: ctx.root,
+        env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: path.join(managedHome(), 'browsers') },
+        timeoutMs: 60000,
+        maxBytes: 4096,
+        ...(signal ? { signal } : {}),
+      });
+      if (result.code !== 0) return 'unknown';
+      const session = (JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '{}') as { session?: unknown })
+        .session;
+      return session === 'authenticated' || session === 'login' ? session : 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
   async all(ctx: ProjectContext, name: string, signal?: AbortSignal) {
     const results: SuiteResult[] = [];
     for (const suite of ['unit', 'sql', 'api', 'e2e'] as const)
       results.push(await this.run(ctx, suite, name, signal));
     const runId = randomUUID(),
-      ok = qualityGate(results, ctx.config.tests.requiredSuites);
+      ok = qualityGate(results, ctx.config.tests.requiredSuites),
+      reauth = !ok && reauthRequired(results, ctx.config.tests.requiredSuites);
     const report = {
       runId,
       ok,
+      ...(reauth ? { reauthRequired: true } : {}),
       environment: name,
       results,
       required: ctx.config.tests.requiredSuites,
       createdAt: new Date().toISOString(),
     };
     await writeJson(path.join(ctx.root, '.apexrest/test-runs', runId + '.json'), report);
-    return { ok, data: report };
+    return { ok, reauthRequired: reauth, data: report };
   }
   async auth(ctx: ProjectContext, name: string) {
     const env = await this.authorize(ctx, name),

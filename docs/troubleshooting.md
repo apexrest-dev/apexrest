@@ -43,6 +43,7 @@ Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent 
 | `APEX_VERSION_MISMATCH` or `SYNC_COMPILER_CHANGED`              | Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand.                         |
 | `IMPORT_CONFLICT` or `SYNC_SERVER_CHANGED`                      | Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict.                                    |
 | `POST_DEPLOY_CONTENT_FAILED` or `LOCAL_RECONCILIATION_REQUIRED` | The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again.                             |
+| `POST_DEPLOY_REAUTH_REQUIRED` or `TEST_REAUTH_REQUIRED`         | The saved APEX session ended (a full import ends sessions). Ask the user to run `apexrest test auth --env NAME` interactively, then `apexrest deploy verify --run UUID`; do not reapply. |
 
 The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allowed readback transformations. `OUTCOME_UNKNOWN` still requires the recovery procedure below.
 
