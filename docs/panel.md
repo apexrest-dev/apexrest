@@ -15,7 +15,7 @@ Use the application project containing `apexrest.json`, not the plugin source or
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `configuration`, `toolchain`     | Project/environment identity, required suites and the toolchain lock (read as-is, at most 128 KB)                                              |
 | `sqlcl`, `connections`           | Saved SQLcl execution mode, MCP restrict level, database transport and the plugin-level connection references (no secrets)                     |
-| `preferences`                    | `browserMode: codex\|external` for [browser verification](testing.md)                                                                          |
+| `preferences`                    | `browserMode: host\|codex\|external` for [browser verification](testing.md)                                                                    |
 | `changes`                        | `git status --porcelain` of the project, at most 80 entries; `unavailable` when Git is absent                                                  |
 | `sync`                           | Local working-copy sync state per environment; server freshness is `not-checked`                                                               |
 | `jobs`, `deployments`, `history` | The 12 newest job and deployment records with status, phase, diagnostics and artifacts, and how many older records were omitted                |
@@ -29,6 +29,6 @@ It cannot change settings, queue jobs, cancel jobs, grant trust or authorization
 
 Actual job failure remains failure after normal process exit: a job's reported status is the operation's own `failed`, `outcome_unknown` or `cancelled` outcome. A job whose worker never started is `failed`, not unknown, and needs a new job after its diagnostic is resolved. A lost heartbeat or mutation response can leave `outcome_unknown`; reconcile before retrying. Running jobs carry a `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `testing`, `syncing`) that is informative only.
 
-The verification browser preference is read from `.apexrest/panel/preferences.json` (`{"browserMode":"codex"}` by default). Unknown keys in that file are ignored.
+The verification browser preference is read from `.apexrest/panel/preferences.json` (`{"browserMode":"codex"}` by default; `codex` is the legacy alias of `host`). Unknown keys in that file are ignored.
 
 [Historical 1.0.0 local evidence](evidence/current-session-100-local.json) and [catalog evidence](evidence/component-catalog-local.json) describe the earlier interactive panel; they retain their original scope and do not describe this read-only snapshot.

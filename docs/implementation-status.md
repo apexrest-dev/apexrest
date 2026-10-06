@@ -1,5 +1,13 @@
 # Implementation status
 
+## Claude Code support review — local, 2026-10-06
+
+Implemented: the verification browser accepts the host-neutral `host` mode; `codex` remains the default and a legacy alias with identical behavior, and the `external` instruction no longer names Codex. The work and setup skills describe the Claude Code browser handoff and the doctor's informational `codex` probe correctly. README, getting-started, chat-workflow, testing, configuration, panel, troubleshooting and the site quickstart document `/apexrest:apexrest-work` invocation in Claude Code, its namespaced MCP tool names, the Node.js 24 requirement for the `node` that starts the plugin server and exporting `APEXREST_HOME` before starting `claude`.
+
+[Claude Code session record](evidence/claude-code-session-200-native.json): both manifests pass `claude plugin validate --strict`; a Claude Code 2.1.291 session with `--plugin-dir` discovered the five namespaced skills without duplicates and the eleven tools, and completed read-only `apexrest_status` (doctor) and `apexrest_reference` calls. This is partial native-host evidence: marketplace installation, project work, validate/ship/job on a target and the browser handoff in Claude Code remain NOT RUN.
+
+Local checks: typecheck, lint, 358 unit tests (one existing skip), 61 contract tests, packaging tests, plugin synchronization, repository plugin smoke and documentation checks.
+
 ## Version 2.0.0 — local source update, 2026-10-06
 
 The package, five workspace packages and plugin metadata are now `2.0.0`; generated runtime/manifests and the local documentation site carry that version. This version bump does not publish npm, create a Git tag or rerun Oracle qualification. Earlier evidence retains its original runtime version and source digest. Working copies are runtime-version bound: reconcile pending changes/outcomes, then explicitly refresh a clean baseline before using a previous-version working copy with 2.0.0.

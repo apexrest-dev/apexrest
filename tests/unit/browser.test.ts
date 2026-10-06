@@ -52,6 +52,19 @@ test('Codex browser route requires a host action and never launches a system bro
   assert.equal(result.url, ctx.config.environments.dev!.baseUrl);
 });
 
+test('host browser mode behaves like the Codex alias in every host', async (t) => {
+  const { ctx, preferences } = await setup(t);
+  await writeJson(preferences, { browserMode: 'host' });
+  assert.deepEqual(await browserPreferences(ctx.root), { browserMode: 'host' });
+  const result = await openVerificationBrowser(ctx, 'dev', async () => {
+    throw new Error('Unexpected external launch');
+  });
+  assert.equal(result.status, 'host_action_required');
+  assert.equal(result.browserMode, 'host');
+  assert.equal(result.verified, false);
+  assert.match(result.nextAction, /host-provided in-app browser/);
+});
+
 test('external browser selection dispatches the exact configured target and reports launch failure', async (t) => {
   const { ctx, preferences } = await setup(t);
   await writeJson(preferences, { browserMode: 'external' });

@@ -27,7 +27,7 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-UR7P4KY3.mjs";
+} from "./chunk-BT6Z2G53.mjs";
 import {
   OracleAdapter,
   SyncStore,
@@ -2155,7 +2155,11 @@ var schemas = {
   }),
   "test.report": external_exports.strictObject({ ...base, run: external_exports.uuid() }),
   "test.auth": external_exports.strictObject({ ...base, env }),
-  "browser.open": external_exports.strictObject({ ...base, env, browserMode: external_exports.enum(["codex", "external"]).optional() }),
+  "browser.open": external_exports.strictObject({
+    ...base,
+    env,
+    browserMode: external_exports.enum(["codex", "host", "external"]).optional()
+  }),
   "jobs.status": external_exports.strictObject({
     ...base,
     id: external_exports.uuid(),
@@ -4229,7 +4233,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-DM3WONKS.mjs");
+            const { openVerificationBrowser } = await import("./chunk-H3NQU7BB.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),

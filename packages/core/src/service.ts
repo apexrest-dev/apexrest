@@ -478,7 +478,7 @@ export async function dispatch(
               ctx,
               text('env'),
               undefined,
-              parsed.browserMode as 'codex' | 'external' | undefined,
+              parsed.browserMode as 'codex' | 'host' | 'external' | undefined,
             );
             break;
           }

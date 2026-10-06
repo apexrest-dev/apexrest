@@ -177,7 +177,11 @@ export const schemas = {
   }),
   'test.report': z.strictObject({ ...base, run: z.uuid() }),
   'test.auth': z.strictObject({ ...base, env }),
-  'browser.open': z.strictObject({ ...base, env, browserMode: z.enum(['codex', 'external']).optional() }),
+  'browser.open': z.strictObject({
+    ...base,
+    env,
+    browserMode: z.enum(['codex', 'host', 'external']).optional(),
+  }),
   'jobs.status': z.strictObject({
     ...base,
     id: z.uuid(),

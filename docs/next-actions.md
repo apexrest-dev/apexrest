@@ -1,5 +1,10 @@
 # Next actions and verification limits
 
+## Claude Code
+
+- Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). Still open: install from the repository marketplace, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.
+- Consider switching the stored default browser mode from `codex` to `host` in a later version; both are accepted today and behave identically.
+
 ## Version 2.0.0
 
 - The source and rebuilt bundle are `2.0.0`; npm publication and tagging remain separate, unperformed actions. Keep published 1.3.0 records and prior qualification receipts unchanged.
@@ -27,7 +32,7 @@
 [Redesign phase 1](implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) is implemented and checked locally only. Remaining work, in order:
 
 - **Connected verification of the pooled engine and ship.** On a separately authorized DEV target: run `apexrest_apex_validate`, `apexrest_ship` `mode:plan` and `mode:apply` through the MCP server, confirm the grant is recorded and removed, the phases `backing_up` → `testing` are reported by `apexrest_job`, connected SQLcl `mcp` batches use fresh sessions, and the ORDS `cli` path still imports. Record real Oracle results separately from the fixture results.
-- **Host sessions.** Load the 5-skill, 11-tool bundle in a live Codex session and in an end-to-end Claude Code session (`claude plugin marketplace add`, `claude plugin install apexrest@apexrest`, then a change through `$apexrest-work` that calls the tools). Record discovery, tool calls and browser handoff per host.
+- **Host sessions.** Load the 5-skill, 11-tool bundle in a live Codex session and in an end-to-end Claude Code session (`claude plugin marketplace add`, `claude plugin install apexrest@apexrest`, then a change through `/apexrest:apexrest-work` that calls the tools). Record discovery, tool calls and browser handoff per host.
 - **Phase 2 — verify loop.** Add the checks the work cycle still lacks: an APEXlang lint before compilation, a SQL precheck of source queries against the parsing schema, a page smoke test after import, reading APEX debug output for the changed page, and seed data for empty-state checks.
 - **Phase 3 — App Spec compiler.** Replace the experimental Composer blocks with a compiler from a reviewed application specification to APEXlang that feeds the same validate/ship cycle; retire `apexrest compose` afterwards.
 - **Windows and Linux.** Exercise the MCP server, the pooled engine and the installers on both platforms.

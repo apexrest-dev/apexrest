@@ -1,6 +1,6 @@
 # Configuration and connections
 
-Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (`codex` host browser or `external` system browser) is stored per project in `.apexrest/panel/preferences.json` as `{"browserMode":"codex"}`; `apexrest_browser_open` accepts `browserMode` to override it for one call, and `apexrest_status` `detail:project` reports the current value.
+Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (`host` in-app browser of Codex or Claude Code, or `external` system browser) is stored per project in `.apexrest/panel/preferences.json`; the default `{"browserMode":"codex"}` is the legacy name of `host` and behaves identically; `apexrest_browser_open` accepts `browserMode` to override it for one call, and `apexrest_status` `detail:project` reports the current value.
 
 A project has one `apexrest.json` and one pinned toolchain lock. `project init` creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.
 

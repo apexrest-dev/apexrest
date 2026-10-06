@@ -20,7 +20,7 @@ Check `APEXREST_SQLCL`, `APEXREST_JAVA_HOME` and `APEXREST_HOME` if tools were i
 
 ## The plugin is installed but tools are missing
 
-Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog. Check that the plugin is listed and enabled in the same profile: `codex plugin list --json`, or `claude plugin list`. The MCP server is `node <plugin-root>/runtime/mcp.mjs`, started by the host from the installed plugin directory with no downloads; do not add a second global MCP server to conceal a failed installation. In Claude Code, `claude plugin validate --strict <plugin-root>` checks the manifest.
+Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog. Check that the plugin is listed and enabled in the same profile: `codex plugin list --json`, or `claude plugin list`. The MCP server is `node <plugin-root>/runtime/mcp.mjs`, started by the host from the installed plugin directory with no downloads; do not add a second global MCP server to conceal a failed installation. In Claude Code, `claude plugin validate --strict <plugin-root>` checks the manifest and `/mcp` shows whether the `apexrest` server started. The server exits with `APEXREST requires Node.js 24 or newer.` when the `node` on the `PATH` of the shell that started `claude` is older (for example an older nvm default); switch Node before starting `claude`. Plugin MCP servers inherit that shell's environment, so export `APEXREST_HOME` there when you use a custom managed home.
 
 Project-scoped tools reject a missing or relative `project` argument: pass the absolute directory that contains `apexrest.json`, never the plugin directory. `PROJECT_TRUST_REQUIRED` means that path is not yet listed in `trustedProjects` of `$APEXREST_HOME/policy.json`; review the project code and add it yourself.
 
@@ -36,13 +36,13 @@ Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent 
 
 ### APEX 26.2 partial imports
 
-| Symptom | Action |
-| --- | --- |
-| `auto` resolves to `full` | Read `importSelection.reasons`. Confirm the trusted sync baseline and eligibility; do not switch to `files` just to bypass a full-import requirement. |
-| `PARTIAL_IMPORT_UNSUPPORTED` | Check the exact source/compiler/target tuple, selected files and direct SQLcl `cli` transport. The APEXREST MCP tool supports partial imports; SQLcl's own `mcp` transport does not. |
-| `APEX_VERSION_MISMATCH` or `SYNC_COMPILER_CHANGED` | Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand. |
-| `IMPORT_CONFLICT` or `SYNC_SERVER_CHANGED` | Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict. |
-| `POST_DEPLOY_CONTENT_FAILED` or `LOCAL_RECONCILIATION_REQUIRED` | The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again. |
+| Symptom                                                         | Action                                                                                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auto` resolves to `full`                                       | Read `importSelection.reasons`. Confirm the trusted sync baseline and eligibility; do not switch to `files` just to bypass a full-import requirement.                                |
+| `PARTIAL_IMPORT_UNSUPPORTED`                                    | Check the exact source/compiler/target tuple, selected files and direct SQLcl `cli` transport. The APEXREST MCP tool supports partial imports; SQLcl's own `mcp` transport does not. |
+| `APEX_VERSION_MISMATCH` or `SYNC_COMPILER_CHANGED`              | Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand.                         |
+| `IMPORT_CONFLICT` or `SYNC_SERVER_CHANGED`                      | Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict.                                    |
+| `POST_DEPLOY_CONTENT_FAILED` or `LOCAL_RECONCILIATION_REQUIRED` | The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again.                             |
 
 The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allowed readback transformations. `OUTCOME_UNKNOWN` still requires the recovery procedure below.
 
@@ -60,7 +60,7 @@ The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allow
 | `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.                         |
 | Missing service tables                                                 | None are required: coordination and migration history are local under `APEXREST_HOME`.                                   |
 | A required suite is empty or blocked                                   | Supply its real tests or dependency, or resolve its authorized scope; do not count it as passed.                         |
-| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                                       |
+| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                              |
 
 Connection credentials belong in SQLcl's store or the private ORDS credential file. Do not put them in an issue or prompt. See [configuration](configuration.md) and the [safety skill](../plugins/apexrest-apex/skills/apexrest-safety/SKILL.md).
 
@@ -72,7 +72,7 @@ Connection credentials belong in SQLcl's store or the private ORDS credential fi
 
 ## Browser verification or charts do not work
 
-`apexrest_browser_open` resolves the configured URL for the selected browser (`codex` returns a host handoff; `external` launches the system browser); opening a page is not verification. Complete login in that browser and check that the actual application page is accessible. Automated browser auth (`apexrest test auth`) and the verification browser are separate contexts; success in one does not prove the other is authenticated. Explicitly allow required SSO/CDN origins for automated tests.
+`apexrest_browser_open` resolves the configured URL for the selected browser (`host`, or its legacy alias `codex`, returns a host handoff; `external` launches the system browser); opening a page is not verification. Complete login in that browser and check that the actual application page is accessible. Automated browser auth (`apexrest test auth`) and the verification browser are separate contexts; success in one does not prove the other is authenticated. Explicitly allow required SSO/CDN origins for automated tests.
 
 Wait for asynchronous APEX chart regions to finish loading before judging an empty chart. After a filter action, verify that the relevant page items were submitted and every affected region refreshed. A loading overlay or an old tab with a pending navigation may require a fresh page inspection before changing source. Record an unavailable browser or deployed change as missing verification with a reason, following the [browser verification rule](testing.md#browser-verification).
 

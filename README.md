@@ -16,11 +16,11 @@ The plugin provides five skills and eleven MCP tools backed by one runtime that 
 
 **Update a page and its shared list of values without re-importing the rest of the application.** APEXREST can automatically select eligible changes or import an explicit list of `.apx` files. It compares the saved baseline, local edits and a fresh server export, preserves remote-only changes and blocks conflicts before writing.
 
-| Import mode | Use it for |
-| --- | --- |
+| Import mode      | Use it for                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | `auto` (default) | Let the planner select eligible changed pages/shared components and explain when a full import is required. |
-| `files` | Import an explicit list, including required changed dependencies; never expand it to a full import. |
-| `full` | Request the existing complete application import. |
+| `files`          | Import an explicit list, including required changed dependencies; never expand it to a full import.         |
+| `full`           | Request the existing complete application import.                                                           |
 
 > **Available in the 2.0.0 source bundle; not yet published to npm.** Partial imports require an existing dev/test app, a trusted sync baseline, APEX 26.2 sources and target, and the reviewed SQLcl 26.3 compiler using a direct connection. Both the CLI and `apexrest_ship` MCP tool support the feature. APEX 26.1 retains full imports.
 
@@ -65,7 +65,7 @@ Stable npm 1.3.0 includes the redesigned 11-tool surface but does not include th
 
 ## Work in one session
 
-Describe the change in the conversation or invoke `$apexrest-work`. The skill follows this cycle, with every project-scoped tool taking the absolute project directory as `project`:
+Describe the change in the conversation or invoke the work skill: `$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code. The skill follows this cycle, with every project-scoped tool taking the absolute project directory as `project`:
 
 1. **Project.** New app: `apexrest_project` `action:init` with `directory` and `template` (`blank-app` or `customer-crm`) generates real Oracle sources. Existing app: `action:inspect`; `apexrest_apex_sync` `action:status` shows a working copy.
 2. **References**, at most three lookups per change: `apexrest_reference` `mode:search` with short terms, `kind` and `limit:3`, then `mode:read` the chosen ID.
@@ -73,7 +73,7 @@ Describe the change in the conversation or invoke `$apexrest-work`. The skill fo
 4. **Validate** with `apexrest_apex_validate` until `diagnostics` is empty; each diagnostic names the file, line, column, type and a hint.
 5. **Plan** with `apexrest_ship` `mode:plan`, `env` and `userRequest` (your literal instruction); review `risks`, `sources`, `target` and `importSelection`. Use `importMode:auto`, or `files` with exact paths; inspect the resolved mode and any full-import reasons.
 6. **Apply** with `apexrest_ship` `mode:apply`, keeping the same `importMode`, `files` (when selected) and `userRequest`. Apply prepares a fresh plan before execution; use granular `deploy apply` to consume a specific saved plan. Your request must identify the dev/test application to change. The runtime records a deploy grant bound to that plan, backs up, imports, verifies, runs required suites and removes the grant. If the call is still running after `waitSeconds`, the agent reads `apexrest_job` with the returned `jobId` instead of rerunning.
-7. **Verify** visibly changed pages: `apexrest_browser_open` returns the URL, then the agent opens it with the selected browser (`codex` host browser or `external` system browser) and checks rendering, navigation and the changed interaction.
+7. **Verify** visibly changed pages: `apexrest_browser_open` returns the URL, then the agent opens it with the selected browser (`host` in-app browser of Codex or Claude Code, legacy alias `codex`, or `external` system browser) and checks rendering, navigation and the changed interaction.
 8. **Report** files changed, validation result, ship status and `runId`, pages verified in the browser, and anything not verified with its reason.
 
 An explicit request to create, update or import an identified development/test application is the authorization for step 6; the agent does not ask again. Production targets refuse `mode:apply` and need a signed external approval on a protected runner ([production approval](docs/deployment-safety.md#production-approval)). Blocked, failed or unknown outcomes follow `$apexrest-safety`; missing tools or connections follow `$apexrest-setup`.
@@ -87,9 +87,9 @@ An explicit request to create, update or import an identified development/test a
 | `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                        |
 | `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                   |
 | `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports, verifies and tests in a detached worker (phases `backing_up` → `testing`) |
-| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                           |
+| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                            |
 | `apexrest_test_run`      | `unit` locally; `sql`, `api`, `e2e` or `all` against a configured non-production environment                                                                           |
-| `apexrest_browser_open`  | Resolve the configured application URL for the `codex` or `external` verification browser; opening is not verification                                                 |
+| `apexrest_browser_open`  | Resolve the configured application URL for the `host` (alias `codex`) or `external` verification browser; opening is not verification                                  |
 | `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                     |
 | `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                       |
 | `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)   |
@@ -98,15 +98,15 @@ Validation, planning, references, metadata, sync and local unit tests run inside
 
 ## Skills
 
-| Skill                       | Use                                                                                                                                                |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `$apexrest-work`            | Create or change an application end to end: the eight-step cycle above                                                                             |
-| `$apexrest-apexlang`        | Write or edit APEXlang with pinned Oracle references, component and pattern recipes, contract notes and compiler validation                        |
-| `$apexrest-safety`          | Authorization, trust, plan drift, unknown outcomes and test policy when `apexrest_ship`, `apexrest_test_run` or `apexrest_job` is blocked or fails |
-| `$apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot                              |
-| `$apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                                                   |
+| Skill                      | Use                                                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest-work`            | Create or change an application end to end: the eight-step cycle above                                                                             |
+| `apexrest-apexlang`        | Write or edit APEXlang with pinned Oracle references, component and pattern recipes, contract notes and compiler validation                        |
+| `apexrest-safety`          | Authorization, trust, plan drift, unknown outcomes and test policy when `apexrest_ship`, `apexrest_test_run` or `apexrest_job` is blocked or fails |
+| `apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot                              |
+| `apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                                                   |
 
-The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Bundled offline catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](docs/component-catalog.md)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](docs/pattern-catalog.md)). Compiler readiness does not imply SQL, import or browser verification.
+Invoke a skill as `$apexrest-work` in Codex or `/apexrest:apexrest-work` in Claude Code, or describe the change and let the host select it. The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Bundled offline catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](docs/component-catalog.md)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](docs/pattern-catalog.md)). Compiler readiness does not imply SQL, import or browser verification.
 
 ## Oracle access
 
@@ -130,15 +130,15 @@ A plan binds sources, configuration, toolchain and target and expires after 30 m
 
 The [26.2 qualification](docs/evidence/apex262-connected.json) covers direct SQLcl full and partial imports plus browser observations on an isolated local test app. Earlier release records retain their original scope. Historical timing, ranking and size-baseline estimates are unverified; [local redesign measurements](docs/evidence/redesign-phase1-local.json) identify the actual measured inputs.
 
-| Area                | Available evidence                                                                                                            | Remaining scope                                                                         |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Native Codex plugin | Isolated installation, discovery, tool calls and lifecycle on Codex 0.154.0 / macOS arm64 for earlier releases                | Re-verification of the redesigned surface in a live host session; other hosts/platforms |
-| Claude Code plugin  | `claude plugin validate --strict` on both manifests and a local test install from a scratch marketplace                       | An end-to-end session that calls the tools; published marketplace install               |
-| Persistent engine   | Offline reuse covered by local fixtures; current timing qualification is NOT RUN         | Connected sessions on an authorized target; SQLcl `mcp` mode against a live database    |
-| Oracle APEXlang     | [Blank/CRM compilation on 26.1 and 26.2](docs/evidence/apex262-compatibility-local.json), plus six compiler-checked 26.2 recipes | Broader component and feature runtime coverage                                          |
-| APEX 26.2 partial import | [Full, page-only and page-plus-LOV imports](docs/evidence/apex262-connected.json); 21 unselected files preserved; browser check | ORDS partial imports, other platforms and native model-host sessions                     |
-| ORDS connectivity   | [Authorized unchanged export/import/export](docs/evidence/ords-connected.json) on an earlier release, 21 byte-identical files | The ORDS path is unchanged by the redesign but was not exercised again                  |
-| Local runtime       | Unit, CLI/MCP contract, installer and packaging checks with explicitly labelled fixtures                                      | Connected recovery, fault injection, SQL/CRUD integration, application browser checks   |
+| Area                     | Available evidence                                                                                                               | Remaining scope                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Native Codex plugin      | Isolated installation, discovery, tool calls and lifecycle on Codex 0.154.0 / macOS arm64 for earlier releases                   | Re-verification of the redesigned surface in a live host session; other hosts/platforms |
+| Claude Code plugin       | `claude plugin validate --strict` on both manifests and a local test install from a scratch marketplace                          | An end-to-end session that calls the tools; published marketplace install               |
+| Persistent engine        | Offline reuse covered by local fixtures; current timing qualification is NOT RUN                                                 | Connected sessions on an authorized target; SQLcl `mcp` mode against a live database    |
+| Oracle APEXlang          | [Blank/CRM compilation on 26.1 and 26.2](docs/evidence/apex262-compatibility-local.json), plus six compiler-checked 26.2 recipes | Broader component and feature runtime coverage                                          |
+| APEX 26.2 partial import | [Full, page-only and page-plus-LOV imports](docs/evidence/apex262-connected.json); 21 unselected files preserved; browser check  | ORDS partial imports, other platforms and native model-host sessions                    |
+| ORDS connectivity        | [Authorized unchanged export/import/export](docs/evidence/ords-connected.json) on an earlier release, 21 byte-identical files    | The ORDS path is unchanged by the redesign but was not exercised again                  |
+| Local runtime            | Unit, CLI/MCP contract, installer and packaging checks with explicitly labelled fixtures                                         | Connected recovery, fault injection, SQL/CRUD integration, application browser checks   |
 
 Unit tests, mocked failure scenarios, real Oracle operations and native-host checks are recorded separately. See the [acceptance matrix](docs/acceptance.json), [implementation status](docs/implementation-status.md) and [next actions](docs/next-actions.md). A missing or skipped integration suite is not a passing result.
 

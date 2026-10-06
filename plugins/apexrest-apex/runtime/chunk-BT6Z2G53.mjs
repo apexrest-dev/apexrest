@@ -10304,8 +10304,9 @@ end;
 };
 
 // packages/core/src/browser-preferences.ts
+var BROWSER_MODES = ["codex", "host", "external"];
 var browserPreferencesSchema = external_exports.strictObject({
-  browserMode: external_exports.enum(["codex", "external"]).default("codex")
+  browserMode: external_exports.enum(BROWSER_MODES).default("codex")
 });
 async function browserPreferences(root) {
   const file = await contained(root, ".apexrest/panel/preferences.json");

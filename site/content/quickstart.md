@@ -1,6 +1,6 @@
 # From source to a verified application
 
-Follow the canonical [Getting started guide](../../docs/getting-started.md) for plugin installation, toolchain setup and your first application. The `$apexrest-work` skill drives one cycle per change:
+Follow the canonical [Getting started guide](../../docs/getting-started.md) for plugin installation, toolchain setup and your first application. The `apexrest-work` skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change:
 
 ![Authorized deployment passes validation, target checks, backup, import and runtime verification](../../docs/assets/deployment-flow.svg)
 

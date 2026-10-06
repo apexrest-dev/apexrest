@@ -2,8 +2,13 @@ import { z } from 'zod';
 import { contained, exists, readJson } from './fs.ts';
 import { parse } from './config.ts';
 
+// `host` is the in-app browser of the current host (Codex or Claude Code); `codex` is
+// its original name and remains accepted with the same behavior.
+export const BROWSER_MODES = ['codex', 'host', 'external'] as const;
+export type BrowserMode = (typeof BROWSER_MODES)[number];
+
 export const browserPreferencesSchema = z.strictObject({
-  browserMode: z.enum(['codex', 'external']).default('codex'),
+  browserMode: z.enum(BROWSER_MODES).default('codex'),
 });
 
 export async function browserPreferences(root: string) {

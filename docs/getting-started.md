@@ -14,14 +14,14 @@ For a cloud task, follow [Run APEXREST in Codex Cloud](codex-cloud.md). It provi
 
 ## Prerequisites
 
-| Requirement                                                    | When it is needed                                                                      |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Codex with native plugin support, or Claude Code               | Plugin registration; Codex CLI 0.154.0 was exercised on macOS arm64 for earlier builds |
-| Node 24 LTS on `PATH` (supported range 24–26)                  | Starting the CLI and the MCP runtime                                                   |
-| Java 21 and matching SQLcl                                    | 26.1 uses SQLcl 26.1.2; [26.2](apex-26.2.md) uses SQLcl 26.3; ORDS needs a JDK with `jdk.compiler` |
-| Existing supported Oracle APEX target                          | APEX 26.1 full imports or qualified APEX 26.2 full/selected-file workflows               |
-| Saved direct SQLcl connection or plugin-local ORDS credentials | Authorized access to the configured target through the selected transport              |
-| Chromium and relevant test dependencies                        | Browser/API suites; utPLSQL only when a SQL suite requires it                          |
+| Requirement                                                    | When it is needed                                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Codex with native plugin support, or Claude Code               | Plugin registration; Codex CLI 0.154.0 was exercised on macOS arm64 for earlier builds             |
+| Node 24 LTS on `PATH` (supported range 24–26)                  | Starting the CLI and the MCP runtime                                                               |
+| Java 21 and matching SQLcl                                     | 26.1 uses SQLcl 26.1.2; [26.2](apex-26.2.md) uses SQLcl 26.3; ORDS needs a JDK with `jdk.compiler` |
+| Existing supported Oracle APEX target                          | APEX 26.1 full imports or qualified APEX 26.2 full/selected-file workflows                         |
+| Saved direct SQLcl connection or plugin-local ORDS credentials | Authorized access to the configured target through the selected transport                          |
+| Chromium and relevant test dependencies                        | Browser/API suites; utPLSQL only when a SQL suite requires it                                      |
 
 A clean APEX installation is enough for ordinary deployment. APEXREST service tables, utPLSQL and a provisioned sandbox are not prerequisites for an application-only import. Installation does not include Oracle binaries, browser credentials or a database account.
 
@@ -50,7 +50,9 @@ claude plugin marketplace add apexrest-dev/apexrest
 claude plugin install apexrest@apexrest
 ```
 
-For a local checkout, pass the checkout path to `marketplace add`. The manifest declares the five skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. Start a new Claude Code session after installation. Both manifests pass `claude plugin validate --strict`, and a local install from a scratch marketplace was checked; an end-to-end Claude Code session that calls the tools has not been recorded yet.
+For a local checkout, pass the checkout path to `marketplace add`; to try a checkout for one session without installing, start `claude --plugin-dir <checkout>/plugins/apexrest-apex`. The manifest declares the five skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. The `node` on the `PATH` of the shell that starts `claude` must be Node.js 24 or newer. Start a new Claude Code session after installation.
+
+In Claude Code the skills are namespaced by the plugin: invoke `/apexrest:apexrest-work`, `/apexrest:apexrest-setup` or `/apexrest:apexrest-safety`, or describe the change and let Claude select the skill. The tools appear as `mcp__plugin_apexrest_apexrest__apexrest_*`; `/mcp` shows the server state. Both manifests pass `claude plugin validate --strict`. A Claude Code 2.1.291 session discovered all five skills and eleven tools and completed read-only `apexrest_status` and `apexrest_reference` calls ([Claude Code session record](evidence/claude-code-session-200-native.json)); a full validate/ship/browser cycle in Claude Code has not been recorded yet.
 
 ## Check the setup
 

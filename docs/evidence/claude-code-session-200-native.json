@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "runtimeVersion": "2.0.0",
+  "status": "passed-partial",
+  "scope": "Native Claude Code discovery and read-only MCP calls for the checked-in 2.0.0 bundle loaded for one session with --plugin-dir. No marketplace installation, project, Oracle connection, validate/ship cycle or browser handoff.",
+  "host": {
+    "product": "Claude Code",
+    "version": "2.1.291",
+    "mode": "non-interactive (claude -p)",
+    "loading": "claude -p --plugin-dir plugins/apexrest-apex"
+  },
+  "platform": {
+    "os": "macOS 27.0.1",
+    "architecture": "arm64",
+    "node": "v25.9.0"
+  },
+  "manifestValidation": {
+    "command": "claude plugin validate --strict",
+    "targets": [".claude-plugin/marketplace.json", "plugins/apexrest-apex/.claude-plugin/plugin.json"],
+    "result": "passed"
+  },
+  "discovery": {
+    "skills": [
+      "apexrest:apexrest-apexlang",
+      "apexrest:apexrest-pattern-catalog",
+      "apexrest:apexrest-safety",
+      "apexrest:apexrest-setup",
+      "apexrest:apexrest-work"
+    ],
+    "duplicateSkills": false,
+    "mcpTools": [
+      "mcp__plugin_apexrest_apexrest__apexrest_apex_sync",
+      "mcp__plugin_apexrest_apexrest__apexrest_apex_validate",
+      "mcp__plugin_apexrest_apexrest__apexrest_artifact_read",
+      "mcp__plugin_apexrest_apexrest__apexrest_browser_open",
+      "mcp__plugin_apexrest_apexrest__apexrest_job",
+      "mcp__plugin_apexrest_apexrest__apexrest_metadata_read",
+      "mcp__plugin_apexrest_apexrest__apexrest_project",
+      "mcp__plugin_apexrest_apexrest__apexrest_reference",
+      "mcp__plugin_apexrest_apexrest__apexrest_ship",
+      "mcp__plugin_apexrest_apexrest__apexrest_status",
+      "mcp__plugin_apexrest_apexrest__apexrest_test_run"
+    ]
+  },
+  "toolCalls": [
+    {
+      "tool": "apexrest_status",
+      "input": { "detail": "doctor" },
+      "status": "succeeded",
+      "observed": {
+        "probes": {
+          "codex": "detected, informational",
+          "sqlcl": "detected, SQLcl 26.1.2.0 Production Build 26.1.2.132.1334",
+          "java": "detected, OpenJDK 21.0.12.1 LTS"
+        },
+        "database": "not-configured",
+        "nativeHost": "requires-host-verification"
+      }
+    },
+    {
+      "tool": "apexrest_reference",
+      "input": { "mode": "search", "query": "interactive grid", "kind": "template", "limit": 3 },
+      "status": "succeeded",
+      "observed": {
+        "total": 34,
+        "ids": [
+          "oracle:templates/region-components/interactive-grid/interactive-grid.standard",
+          "oracle:templates/page-examples/interactive-grid/interactive-grid.example",
+          "oracle:templates/business-logic/processes/processes.interactive-grid-automatic-row-processing"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "A first run with --allowedTools 'mcp__*' did not pre-approve plugin tools in -p mode; exact tool names were required. This is host permission behavior, not a plugin defect.",
+    "The session ran twice: on the pulled 7cdbfd5 bundle and again on the rebuilt bundle with the host browser alias and skill text changes; both runs reported identical discovery and tool results.",
+    "The tool results above are the model's reports of the MCP responses in that session; raw transcripts were not retained."
+  ],
+  "notRun": [
+    "claude plugin marketplace add / claude plugin install from the repository marketplace",
+    "interactive Claude Code session",
+    "apexrest_project init or inspect on a project",
+    "apexrest_apex_validate, apexrest_ship plan/apply and apexrest_job on any target",
+    "apexrest_browser_open handoff to the Claude Code built-in browser or Claude in Chrome",
+    "Linux and Windows"
+  ]
+}
