@@ -48,7 +48,8 @@ test('ship and deploy plan default to auto and require files only for explicit s
 test('MCP schema retains cross-field selection checks and the eleven-tool surface', () => {
   const schema = mcpSchemas.get('ship')!;
   const base = {
-    project: '/private/tmp/project',
+    // Windows requires a drive-letter or UNC path.
+    project: path.resolve('/private/tmp/project'),
     env: 'dev',
     userRequest: 'Deploy the selected application changes',
   };
