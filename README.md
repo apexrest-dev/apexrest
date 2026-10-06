@@ -1,5 +1,9 @@
 # APEXREST
 
+Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](docs/evidence/redesign-phase1-local.json).
+
+> The repository is now `apexrest-dev/apexrest` (renamed from `apexrest-codex`; GitHub redirects the old URLs).
+
 ![APEXREST pencil and ruler symbol](docs/assets/apexrest-logo.svg)
 
 [![Local quality gates](https://github.com/apexrest-dev/apexrest/actions/workflows/ci.yml/badge.svg)](https://github.com/apexrest-dev/apexrest/actions/workflows/ci.yml)
@@ -92,7 +96,7 @@ Validation, planning, references, metadata, sync and local unit tests run inside
 | `$apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot                              |
 | `$apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                                                   |
 
-The skills are host-neutral and total about 18 KB of `SKILL.md`; reference files load on demand. Bundled offline catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](docs/component-catalog.md)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](docs/pattern-catalog.md)). Compiler readiness does not imply SQL, import or browser verification.
+The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Bundled offline catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](docs/component-catalog.md)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](docs/pattern-catalog.md)). Compiler readiness does not imply SQL, import or browser verification.
 
 ## Oracle access
 
@@ -118,7 +122,7 @@ A plan binds sources, configuration, toolchain and target and expires after 30 m
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Native Codex plugin | Isolated installation, discovery, tool calls and lifecycle on Codex 0.154.0 / macOS arm64 for earlier releases                | Re-verification of the redesigned surface in a live host session; other hosts/platforms |
 | Claude Code plugin  | `claude plugin validate --strict` on both manifests and a local test install from a scratch marketplace                       | An end-to-end session that calls the tools; published marketplace install               |
-| Persistent engine   | Local measurements: `apex validate` 3.2 s cold → about 43 ms warm; capability probe 1.5 s → 0 ms after the first call         | Connected sessions on an authorized target; SQLcl `mcp` mode against a live database    |
+| Persistent engine   | Offline reuse covered by local fixtures; current timing qualification is NOT RUN         | Connected sessions on an authorized target; SQLcl `mcp` mode against a live database    |
 | Oracle APEXlang     | Real blank/CRM compilation with local SQLcl, without a database connection                                                    | Changed imports, broader component coverage                                             |
 | ORDS connectivity   | [Authorized unchanged export/import/export](docs/evidence/ords-connected.json) on an earlier release, 21 byte-identical files | The ORDS path is unchanged by the redesign but was not exercised again                  |
 | Local runtime       | Unit, CLI/MCP contract, installer and packaging checks with explicitly labelled fixtures                                      | Connected recovery, fault injection, SQL/CRUD integration, application browser checks   |

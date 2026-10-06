@@ -1,5 +1,7 @@
 # Build Oracle APEX applications with Codex or Claude Code
 
+> The repository is now `apexrest-dev/apexrest` (renamed from `apexrest-codex`; GitHub redirects the old URLs).
+
 APEXREST brings application source, Oracle compilation, controlled imports and runtime verification into one plugin for coding agents.
 
 **Open source · Apache-2.0 · Version {{version}}**

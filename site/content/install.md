@@ -1,5 +1,7 @@
 # Install APEXREST
 
+> The repository is now `apexrest-dev/apexrest` (renamed from `apexrest-codex`; GitHub redirects the old URLs).
+
 Register the plugin in Codex or Claude Code, let it install Java and SQLcl, then connect a target. The repository ships the built bundle under `plugins/apexrest-apex`; ordinary installation requires no TypeScript build. Keep Node.js 24 LTS on `PATH` (supported range: Node 24–26).
 
 ## 1. Register the plugin

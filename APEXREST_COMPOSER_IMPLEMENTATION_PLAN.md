@@ -6,7 +6,7 @@
 >
 > **Мова пояснень:** українська. **Мова коду, API, CLI help та інструкцій skills:** англійська, відповідно до правил репозиторію.
 >
-> **Канонічний репозиторій:** `apexrest-dev/apexrest-codex`.
+> **Канонічний репозиторій:** `apexrest-dev/apexrest`.
 >
 > **Перевірена опорна ревізія:** `b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a`, commit від 24.09.2026; у її `package.json` зазначено `apexrest@1.2.0`. Це знімок для планування, а не вимога повертати локальний проєкт на цю ревізію. [R1] [R2]
 >
@@ -2948,16 +2948,16 @@ GitHub-посилання прив'язані до опорного commit, що
 | [R12] | Oracle: `COMMIT` | Межі rollback навколо DDL |
 | [R13] | OpenAI: Build skills | SKILL.md та progressive disclosure |
 
-[R1]: https://github.com/apexrest-dev/apexrest-codex/commit/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a
-[R2]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/package.json
-[R3]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/AGENTS.md
-[R4]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/architecture.md
-[R5]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/codex-integration.md
-[R6]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/component-catalog.md
-[R7]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/pattern-catalog.md
-[R8]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/packages/core/src/metadata.ts
+[R1]: https://github.com/apexrest-dev/apexrest/commit/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a
+[R2]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/package.json
+[R3]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/AGENTS.md
+[R4]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/architecture.md
+[R5]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/codex-integration.md
+[R6]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/component-catalog.md
+[R7]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/pattern-catalog.md
+[R8]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/packages/core/src/metadata.ts
 [R9]: https://developers.openai.com/codex/guides/agents-md
-[R10]: https://github.com/apexrest-dev/apexrest-codex/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/deployment-safety.md
+[R10]: https://github.com/apexrest-dev/apexrest/blob/b24a8e3ae54ec4100dbf499c084069c6ff4e9d2a/docs/deployment-safety.md
 [R11]: https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/ALL_CONS_COLUMNS.html
 [R12]: https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/COMMIT.html
 [R13]: https://developers.openai.com/codex/skills

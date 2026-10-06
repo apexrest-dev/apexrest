@@ -1,14 +1,16 @@
 # Unreleased — redesign phase 1
 
+Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
+
 ## Source repository — 2026-10-04
 
 The working tree contains the first redesign phase, implemented and checked locally only; nothing is published. npm `latest` remains `1.2.0` and npm `beta` remains `1.3.0-beta.1`, both with the previous surface described below.
 
-- A persistent SQLcl engine: offline compiler work and SQLcl `mcp`-mode connections run on a pooled SQLcl server process for the MCP server's lifetime, with one capability probe per process. Measured locally: `apex validate` 3.2 s cold → about 43 ms warm; capability probe 1.5 s → 0 ms. Compiler results return structured diagnostics with file, line, column, type, message, valid values and hint.
-- Eleven MCP tools instead of 21 (`apexrest_project`, `apexrest_reference`, `apexrest_metadata_read`, `apexrest_apex_validate`, `apexrest_ship`, `apexrest_apex_sync`, `apexrest_test_run`, `apexrest_browser_open`, `apexrest_job`, `apexrest_artifact_read`, `apexrest_status`); the catalog shrinks from about 24 KB to 12.2 KB. `apexrest_ship` plans, records a plan-bound deploy grant from the user's explicit request, applies, verifies and removes the grant; production is refused.
-- Five host-neutral skills instead of 14 (`apexrest-work`, `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`), about 17.6 KB instead of 41 KB.
+- A persistent SQLcl engine: offline compiler work uses pooled SQLcl servers; connected `mcp` batches run on fresh SQLcl servers, with one capability probe per process. Connected timing qualification is NOT RUN; local offline measurements are recorded in the linked evidence. Compiler results return structured diagnostics with file, line, column, type, message, valid values and hint.
+- Eleven MCP tools instead of 21 (`apexrest_project`, `apexrest_reference`, `apexrest_metadata_read`, `apexrest_apex_validate`, `apexrest_ship`, `apexrest_apex_sync`, `apexrest_test_run`, `apexrest_browser_open`, `apexrest_job`, `apexrest_artifact_read`, `apexrest_status`); catalog bytes are measured in the linked local redesign evidence. `apexrest_ship` plans, records a plan-bound deploy grant from the user's explicit request, applies, verifies and removes the grant; production is refused.
+- Five host-neutral skills instead of 14 (`apexrest-work`, `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`), byte count in the linked local evidence.
 - Claude Code support through `.claude-plugin/plugin.json` and the repository marketplace (`claude plugin marketplace add apexrest-dev/apexrest`, `claude plugin install apexrest@apexrest`); the Codex route is unchanged.
-- Removed: the terminal UI, the panel server, worker, actions and MCP UI resource, database-backed deployment coordination, the Composer MCP tools and skill (Composer remains an experimental CLI), and Ukrainian documentation. The repository is renamed to `apexrest-dev/apexrest`.
+- Removed: the terminal UI, the panel server, worker, actions and MCP UI resource, database-backed deployment coordination, the Composer MCP tools and skill (Composer remains an experimental CLI), and Ukrainian documentation. The GitHub repository was renamed to `apexrest-dev/apexrest` (2026-10-06).
 
 See the [changelog](../CHANGELOG.md#unreleased--redesign-phase-1-security-hardening-and-review-fixes) for breaking changes and [implementation status](implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) for what was and was not verified.
 

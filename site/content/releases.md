@@ -1,13 +1,15 @@
 # Release {{version}}
 
+Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](../../docs/evidence/redesign-phase1-local.json).
+
 The source repository is at version {{version}}. The published packages are beta 1.3.0-beta.1 (npm `beta`) and stable 1.2.0 (npm `latest`). The redesign below is implemented in the repository and is not yet published.
 
 ## Unreleased: redesign phase 1
 
-- A persistent SQLcl engine keeps a pooled SQLcl server process for the MCP server's lifetime; measured locally, `apex validate` drops from 3.2 s cold to about 43 ms warm and the capability probe from 1.5 s to 0 ms. Compiler diagnostics are structured (file, line, column, type, message, valid values, hint).
+- A persistent SQLcl engine keeps a pooled SQLcl server process for the MCP server's lifetime; timing qualification is NOT RUN. Compiler diagnostics are structured (file, line, column, type, message, valid values, hint).
 - Eleven MCP tools replace 21, including `apexrest_ship`, which plans, records the user's explicit request as a plan-bound deploy grant, applies, verifies and removes the grant; production is refused. Five host-neutral skills replace 14.
 - The plugin installs into Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`, `claude plugin install apexrest@apexrest`) as well as Codex.
-- Removed: the terminal UI, the panel server and actions, database-backed coordination, the Composer MCP tools and skill (Composer remains an experimental CLI) and Ukrainian documentation. The repository is renamed to `apexrest-dev/apexrest`.
+- Removed: the terminal UI, the panel server and actions, database-backed coordination, the Composer MCP tools and skill (Composer remains an experimental CLI) and Ukrainian documentation. The GitHub repository was renamed to `apexrest-dev/apexrest`.
 
 See the [changelog](../../CHANGELOG.md) for breaking changes and [implementation status](../../docs/implementation-status.md) for the local verification scope; no Oracle connection, live host session or published package covers these changes yet.
 

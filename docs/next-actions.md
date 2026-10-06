@@ -1,17 +1,20 @@
 # Next actions and verification limits
 
+## Full review follow-up
+
+- Obtain reviewer approval of the prepared beta.2 source and synchronized bundle; publication is not authorized.
+- On an explicitly authorized DEV target, verify remote-suite preflight, fresh connected MCP sessions, error/unknown-outcome cleanup and CLI-only restricted scripts. Oracle/native-host/browser checks remain NOT RUN.
+- Timing samples in the local evidence are offline only; reproduce matched connected workloads before making production latency claims. Ranking and historical size baselines remain unverified.
+
 ## Redesign follow-up
 
 [Redesign phase 1](implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) is implemented and checked locally only. Remaining work, in order:
 
-- **Connected verification of the pooled engine and ship.** On a separately authorized DEV target: run `apexrest_apex_validate`, `apexrest_ship` `mode:plan` and `mode:apply` through the MCP server, confirm the grant is recorded and removed, the phases `backing_up` → `testing` are reported by `apexrest_job`, the warm-session timings hold with a saved connection in SQLcl `mcp` mode, and the ORDS `cli` path still imports. Record real Oracle results separately from the fixture results.
+- **Connected verification of the pooled engine and ship.** On a separately authorized DEV target: run `apexrest_apex_validate`, `apexrest_ship` `mode:plan` and `mode:apply` through the MCP server, confirm the grant is recorded and removed, the phases `backing_up` → `testing` are reported by `apexrest_job`, connected SQLcl `mcp` batches use fresh sessions, and the ORDS `cli` path still imports. Record real Oracle results separately from the fixture results.
 - **Host sessions.** Load the 5-skill, 11-tool bundle in a live Codex session and in an end-to-end Claude Code session (`claude plugin marketplace add`, `claude plugin install apexrest@apexrest`, then a change through `$apexrest-work` that calls the tools). Record discovery, tool calls and browser handoff per host.
 - **Phase 2 — verify loop.** Add the checks the work cycle still lacks: an APEXlang lint before compilation, a SQL precheck of source queries against the parsing schema, a page smoke test after import, reading APEX debug output for the changed page, and seed data for empty-state checks.
 - **Phase 3 — App Spec compiler.** Replace the experimental Composer blocks with a compiler from a reviewed application specification to APEXlang that feeds the same validate/ship cycle; retire `apexrest compose` afterwards.
-- **GitHub rename.** The `apexrest-dev` organization owner renames the repository from `apexrest-codex` to `apexrest` on GitHub (documentation, package metadata and CI references already use the new name); then update local remotes.
-- **Local directory rename.** Rename the local checkout directory from `apexrest-codex` to `apexrest` after the GitHub rename; evidence files that record the old path keep their historical content.
 - **Windows and Linux.** Exercise the MCP server, the pooled engine and the installers on both platforms.
-- **Generated plugin metadata.** Run `npm run plugin:sync` so the checked-in `plugins/apexrest-apex/.codex-plugin/plugin.json` carries the new starter prompts from `plugins/metadata.json` and the repository root `.claude-plugin/marketplace.json` exists.
 
 ## Review fixes follow-up
 
@@ -32,9 +35,9 @@ Close the local gaps recorded in the [audit](composer/audit.md): shared resource
 
 ## Composer runtime acceptance
 
-Keep the second-review regressions when expanding the adapters: nested mappings must remain deterministic, ownership transitions must use resulting source consumers, and recovery/panel retry must retain exact operation identity.
+Keep the second-review regressions when expanding the adapters: nested mappings must remain deterministic, ownership transitions must use resulting source consumers, and recovery/reconciliation must retain exact operation identity.
 
-Separately authorize an exact DEV target, fixture DDL/DML, metadata, app mapping/import and authenticated browser qualification. Verify create/edit/cancel, stale versions, denied roles, scoped reads, saved/refresh payloads and narrow screens. G4 and dependent release gates remain open. In a new Codex chat verify Composer tool/skill loading; beta CI passed on macOS, Ubuntu and Windows but does not establish native-host execution. Preserve [Composer ledger](composer/ledger.json) and [local evidence](evidence/composer-local.json).
+Separately authorize an exact DEV target, fixture DDL/DML, metadata, app mapping/import and authenticated browser qualification. Verify create/edit/cancel, stale versions, denied roles, scoped reads, saved/refresh payloads and narrow screens. G4 and dependent release gates remain open. In a new host session verify the work skill and reference tool; Composer remains CLI-only; beta CI passed on macOS, Ubuntu and Windows but does not establish native-host execution. Preserve [Composer ledger](composer/ledger.json) and [local evidence](evidence/composer-local.json).
 
 ## Working-copy connected acceptance
 
@@ -43,7 +46,7 @@ The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` bet
 - With a separately authorized existing DEV/test app, run initial APEXlang + SQL sync, three local edit/plan/apply cycles with restart between cycles, and verify actual export/import counters, target identity, required suites and authenticated browser behavior. These checks are NOT RUN now; historical targets are not authorization.
 - Run a separate checksum-bound initial SQL restore under exact approval. Verify invalidation before writes and actual restored state; intermediate applied snapshots do not provide automatic rollback.
 - Exercise real lost-response/crash reconciliation, retaining unknown ownership and no retry until resolved. Verify metadata query compatibility on the supported APEX versions and direct SQLcl/ORDS targets; unchanged metadata remains a single-editor assumption.
-- Verify working-copy connected panel flows on an authorized target. The local Composer update and in-app Catalog checks are recorded separately; fresh-chat tool discovery remains open.
+- Verify working-copy connected read-only status snapshots on an authorized target. The local Composer update and in-app Catalog checks are recorded separately; fresh-chat tool discovery remains open.
 - For token/cost or Oracle performance claims, measure matched connected cycles with real usage counters. Local wall time, call counts and UTF-8 bytes remain separately labeled.
 
 ## Beta release 1.3.0-beta.1
@@ -56,7 +59,7 @@ Registry integrity and clean local/global installs for `apexrest@1.2.0` on npm `
 
 ## Pattern catalog maintenance
 
-- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the other 12 skills aligned with the 1.2.0 package. A source/build check or npm publication is not an installed-cache update.
+- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the four other current skills aligned with the prepared beta.2 package. A source/build check or npm publication is not an installed-cache update.
 - Preserve the complete review of all 150 captured pages and 818 variants across both sources. On refresh, use stable source IDs, explicit replacement and `sourceReviews` bound to each page's `provenance.sha256`; re-review changed pages and their meaningful variants. Reject missing/stale reviews, orphan patterns, unknown source anchors, ID collisions and stale recipe evidence before packaging.
 - Preserve compiler evidence for all 69 ready recipes, including the 56 additions, and revalidate changed inputs. Keep the 15 unresolved variants/concepts visible; compiler readiness does not establish live behavior.
 - Verify adapted pattern SQL, imports and browser interactions on a separately authorized target. Optional form fixture scripts have not been installed by catalog compilation; the reference forms alone do not demonstrate working DML.
