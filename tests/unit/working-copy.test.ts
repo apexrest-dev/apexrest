@@ -2,8 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { chmod, readFile, rm, symlink, stat, rename } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { runTypeScriptChild } from './child-runner.ts';
 import { workingCopyFixture as baseFixture } from '../fixtures/working-copy.ts';
 import { SyncStore, checkpoint, syncPath } from '../../packages/core/src/sync.ts';
 import { DeploymentService, planDigest } from '../../packages/core/src/deploy.ts';
@@ -55,18 +54,12 @@ test('initial dual-format sync, restart/repeated init and local status never re-
   calls.length = 0;
   await service.sync(ctx, 'dev', 'init');
   assert.deepEqual(calls, []);
-  const child = spawnSync(
-    process.execPath,
-    [
-      ...(Number(process.versions.node.split('.')[0]) < 26 ? ['--experimental-transform-types'] : []),
-      '--input-type=module',
-      '-e',
-      `import {SyncStore} from ${JSON.stringify(pathToFileURL(path.resolve('packages/core/src/sync.ts')).href)};
-     import {DeploymentService} from ${JSON.stringify(pathToFileURL(path.resolve('packages/core/src/deploy.ts')).href)};
-     const ctx=${JSON.stringify(ctx)};console.log(JSON.stringify(await new DeploymentService({}).sync(ctx,'dev','init')));`,
-    ],
-    { encoding: 'utf8' },
-  );
+  const child = await runTypeScriptChild(`
+    import {SyncStore} from './packages/core/src/sync.ts';
+    import {DeploymentService} from './packages/core/src/deploy.ts';
+    const ctx=${JSON.stringify(ctx)};
+    console.log(JSON.stringify(await new DeploymentService({}).sync(ctx,'dev','init')));
+  `);
   assert.equal(child.status, 0, child.stderr);
   assert.equal(JSON.parse(child.stdout).syncId, state.syncId);
   assert.equal((await new SyncStore(ctx, env, 'dev').read())!.syncId, state.syncId);

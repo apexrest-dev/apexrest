@@ -5,7 +5,7 @@ import { chmod, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { generateKeyPairSync, randomUUID, sign as sign_ } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { hostname } from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { runTypeScriptChild } from './child-runner.ts';
 import { fixture } from '../fixtures/project.ts';
 import {
   DeploymentService,
@@ -323,21 +323,10 @@ test('a separate Node runner cannot acquire an active local schema owner', async
   const control = new LocalDeploymentControl(env);
   await control.acquire('parent');
   try {
-    const module = pathToFileURL(path.resolve('packages/core/src/deployment-control.ts')).href;
-    const script = `import {LocalDeploymentControl} from ${JSON.stringify(module)};
-      try { await new LocalDeploymentControl(JSON.parse(process.argv[1])).acquire('child'); process.exitCode=1; }
+    const script = `import {LocalDeploymentControl} from './packages/core/src/deployment-control.ts';
+      try { await new LocalDeploymentControl(JSON.parse(process.argv[2])).acquire('child'); process.exitCode=1; }
       catch(e) { if(e.code==='TARGET_LOCKED') console.log(e.code); else throw e; }`;
-    const child = spawnSync(
-      process.execPath,
-      [
-        ...(Number(process.versions.node.split('.')[0]) < 26 ? ['--experimental-transform-types'] : []),
-        '--input-type=module',
-        '-e',
-        script,
-        JSON.stringify(env),
-      ],
-      { encoding: 'utf8' },
-    );
+    const child = await runTypeScriptChild(script, [JSON.stringify(env)]);
     assert.equal(child.status, 0, child.stderr);
     assert.equal(child.stdout.trim(), 'TARGET_LOCKED');
   } finally {
