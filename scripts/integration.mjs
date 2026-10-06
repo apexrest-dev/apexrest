@@ -91,7 +91,8 @@ try {
   };
 
   // ship apply runs the required suites after import. A full application import ends
-  // existing APEX sessions, so saved-state E2E reaches the login page (separate task).
+  // existing APEX sessions, so saved-state E2E reaches the login page; ship then stops in
+  // awaiting_reauth (POST_DEPLOY_REAUTH_REQUIRED) until test auth and deploy verify.
   // Accept exactly that shape — import verified, SQL passed, only E2E failed after a
   // full import — as a known blocker; the final standalone suite run decides E2E.
   const ship = async (name) => {
@@ -115,7 +116,8 @@ try {
       return result;
     }
     const failure = `ship apply: ${codes.join(',') || r.error?.message || 'operation failed'}`;
-    if (!codes.includes('POST_DEPLOY_TEST_FAILED')) throw new Error(`${name}: ${failure}`);
+    if (!codes.some((code) => ['POST_DEPLOY_REAUTH_REQUIRED', 'POST_DEPLOY_TEST_FAILED'].includes(code)))
+      throw new Error(`${name}: ${failure}`);
     const newRuns = (await listDir(deployments)).filter((d) => !seenRuns.has(d)),
       newTests = (await listDir(testRuns)).filter((f) => !seenTests.has(f));
     if (newRuns.length !== 1 || newTests.length !== 1) throw new Error(`${name}: ${failure}`);
@@ -130,7 +132,7 @@ try {
     const fullImport = plan.schemaVersion !== 4 || plan.importSelection?.resolvedMode === 'full';
     if (
       !states.includes('testing') ||
-      states.at(-1) !== 'failed' ||
+      !['failed', 'awaiting_reauth'].includes(states.at(-1)) ||
       !fullImport ||
       suite('sql') !== 'passed' ||
       !['failed', 'blocked'].includes(suite('e2e')) ||

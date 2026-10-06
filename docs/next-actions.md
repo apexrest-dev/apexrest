@@ -1,9 +1,17 @@
 # Next actions and verification limits
 
+## Post-deploy re-authentication
+
+- The resume path reached `succeeded` on the local 26.2 stack ([local record](evidence/post-deploy-reauth-local.json)) after a scripted login, and the user's interactive `apexrest test auth` with the current runtime produced state that passed E2E. An older global `apexrest` (0.1.0-beta.1) on `PATH` rejects 26.2 project configuration and has no `deploy verify`.
+- The probe checks the base URL. When an application shows its `expectedMarker` only on a deeper page (as crm262 does), a valid session is `unknown` and the specs decide; consider an optional probe path if earlier detection is needed.
+- `deploy verify` is CLI-only. Consider an MCP surface (for example an `apexrest_ship` verify mode) if agents without a shell need it; keep it import-free and gate-preserving.
+- The probe recognizes a login page by a visible password field without the marker. Applications using external SSO redirects without a password field fall back to ordinary E2E failures; extend detection only with real evidence from such a target.
+- Session rejoin (`REJOIN_EXISTING_SESSIONS`) did not keep sessions across a full import in the earlier run; do not rely on it as a workaround.
+
 ## Integration harness
 
 - Run `npm run test:integration` from an interactive terminal against `crm262`/`dev` so that `test auth` can run after the full imports and the final standalone SQL+E2E check produces evidence. The ship-based authorization, imports, grant removal and no-op export preservation already ran on the local stack ([evidence](evidence/oracle-integration.json)).
-- Separate task: make required post-deploy E2E survive a full application import. Today the import ends the saved APEX session, so E2E inside `ship --mode apply` reaches the login page. Once that is fixed, remove the harness's known-blocker case so that any post-deploy failure stops the run.
+- Post-deploy E2E after a full import now stops in `awaiting_reauth` (`POST_DEPLOY_REAUTH_REQUIRED`) and resumes with `deploy verify` after `test auth` (see [testing](testing.md#sessions-ended-by-a-full-import)). Update the harness's known-blocker case to expect that code and resume, so that any other post-deploy failure stops the run.
 - CI runners have no interactive terminal; until post-deploy E2E survives full imports, `npm run test:integration` there ends `blocked` after the no-op checks.
 
 ## Claude Code

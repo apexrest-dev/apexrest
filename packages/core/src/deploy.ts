@@ -167,6 +167,7 @@ export type DeployState =
   | 'importing'
   | 'verifying'
   | 'testing'
+  | 'awaiting_reauth'
   | 'succeeded'
   | 'failed'
   | 'outcome_unknown';
@@ -177,7 +178,10 @@ const next: Record<DeployState, DeployState[]> = {
   migrating: ['importing'],
   importing: ['verifying'],
   verifying: ['testing'],
-  testing: ['succeeded'],
+  // An import that only lacks an authenticated browser session waits for an
+  // interactive login, then reruns the same required suites without importing.
+  testing: ['succeeded', 'awaiting_reauth'],
+  awaiting_reauth: ['testing'],
   succeeded: [],
   failed: [],
   outcome_unknown: [],
@@ -525,10 +529,47 @@ export async function sourceInventory(ctx: ProjectContext) {
       files[relative] = hash(await readFile(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
+const reauthRecordSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  postImport: z.strictObject({ target: z.unknown(), metadata: z.unknown(), history: z.unknown() }),
+  serverSnapshot: z
+    .strictObject({ directory: z.string(), files: z.record(z.string(), z.string()), digest: z.string() })
+    .nullable(),
+});
+/** Import confirmed, gate not passed: only an interactive login can renew the browser session. */
+function reauthFault(runId: string, envName: string) {
+  return new Fault(
+    'POST_DEPLOY_REAUTH_REQUIRED',
+    `Deployment ${runId} imported and verified the application, but required E2E reached the login page: the import ended the saved browser session. It is not succeeded yet.`,
+    4,
+    'blocked',
+    {
+      runId,
+      nextActions: [
+        `Ask the user to run \`apexrest test auth --env ${envName}\` in a local interactive terminal; never handle the password.`,
+        `Then run \`apexrest deploy verify --run ${runId}\` to rerun the required suites without importing again.`,
+        'Do not reapply the plan: another full import ends the renewed session again.',
+      ],
+    },
+  );
+}
+async function appendJournal(runDir: string, event: Record<string, unknown>) {
+  const journal = await open(path.join(runDir, 'journal.jsonl'), 'a', 0o600);
+  try {
+    await journal.writeFile(JSON.stringify(event) + '\n');
+    await journal.sync();
+  } finally {
+    await journal.close();
+  }
+  await writeJson(path.join(runDir, 'state.json'), event);
+}
 export class DeploymentService {
   constructor(
     private oracle = new OracleAdapter(),
-    private runTests?: (ctx: ProjectContext, env: string) => Promise<{ ok: boolean; data: unknown }>,
+    private runTests?: (
+      ctx: ProjectContext,
+      env: string,
+    ) => Promise<{ ok: boolean; reauthRequired?: boolean; data: unknown }>,
   ) {}
   async history(env: Environment, _connection: Connection) {
     // Migration history is local and durable; no Oracle control table is read.
@@ -1372,14 +1413,7 @@ export class DeploymentService {
         at: new Date().toISOString(),
         details,
       };
-      const journal = await open(path.join(runDir, 'journal.jsonl'), 'a', 0o600);
-      try {
-        await journal.writeFile(JSON.stringify(event) + '\n');
-        await journal.sync();
-      } finally {
-        await journal.close();
-      }
-      await writeJson(path.join(runDir, 'state.json'), event);
+      await appendJournal(runDir, event);
     };
     await writeJson(path.join(runDir, 'plan.json'), plan);
     await record('approved');
@@ -1606,6 +1640,15 @@ export class DeploymentService {
             throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
           await this.checkLocal(ctx, plan, true);
           const tests = await this.runTests(ctx, plan.environment);
+          if (!tests.ok && tests.reauthRequired) {
+            // Bind the resumable verification to the target exactly as this import left it.
+            await writeJson(path.join(runDir, 'reauth.json'), {
+              schemaVersion: 1,
+              postImport: await this.postImport(env, readConnection),
+              serverSnapshot,
+            });
+            throw reauthFault(runId, plan.environment);
+          }
           if (!tests.ok)
             throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
         }
@@ -1620,43 +1663,16 @@ export class DeploymentService {
         );
       }
       if (working) {
-        const metadata = await this.oracle.applicationMetadata(env, readConnection);
-        const directory = '.apexrest/deployments/' + runId + '/snapshot/' + ctx.config.application.sourceDir;
-        const files = await inventory(await syncPath(ctx, directory));
-        const snapshot = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
-        if (selection && serverSnapshot) {
-          try {
-            await rebaseAfterImport(
-              ctx,
-              runId,
-              applicationFiles(ctx, plan.sources),
-              checkpoint(working).files,
-              serverSnapshot,
-              selection.files,
-            );
-          } catch (error) {
-            if (error instanceof Fault) throw error;
-            throw new Fault(
-              'LOCAL_RECONCILIATION_REQUIRED',
-              'Import confirmed; local rebase failed. Inspect the retained source and server snapshots.',
-              5,
-            );
-          }
-        }
-        await syncStore.lock(async () => {
-          const state = await syncStore.read();
-          if (!state || state.importingRunId !== runId || state.revision !== working!.revision)
-            throw new Error('Sync ownership changed after import.');
-          await syncStore.write({
-            ...state,
-            status: 'ready',
-            revision: state.revision + 1,
-            importingRunId: null,
-            observedMetadata: metadata,
-            target,
-            lastSuccessfulImport: { at: new Date().toISOString(), runId, snapshot },
-          });
-        });
+        await this.completeWorkingCopy(
+          ctx,
+          plan,
+          env,
+          readConnection,
+          runId,
+          working,
+          target,
+          serverSnapshot,
+        );
         syncSucceeded = true;
       }
       await record('succeeded');
@@ -1688,7 +1704,8 @@ export class DeploymentService {
           );
         }
       }
-      await record(unknown ? 'outcome_unknown' : 'failed', {
+      const awaiting = !unknown && error instanceof Fault && error.code === 'POST_DEPLOY_REAUTH_REQUIRED';
+      await record(unknown ? 'outcome_unknown' : awaiting ? 'awaiting_reauth' : 'failed', {
         code: error instanceof Fault ? error.code : 'UNEXPECTED_FAILURE',
       });
       if (unknown)
@@ -1704,6 +1721,165 @@ export class DeploymentService {
       // An unknown outcome retains writing ownership until it is reconciled.
       if ((state as DeployState) !== 'outcome_unknown')
         await new LocalDeploymentControl(env).release(runId).catch(() => {});
+    }
+  }
+  /** Record a confirmed, verified import as the working copy's new successful checkpoint. */
+  private async completeWorkingCopy(
+    ctx: ProjectContext,
+    plan: DeployPlan,
+    env: Environment,
+    readConnection: Connection,
+    runId: string,
+    working: SyncState,
+    target: Awaited<ReturnType<OracleAdapter['verifyTarget']>>,
+    serverSnapshot: Awaited<ReturnType<typeof persistSnapshot>> | null,
+  ) {
+    const selection =
+      plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
+    const syncStore = new SyncStore(ctx, env, plan.environment);
+    const metadata = await this.oracle.applicationMetadata(env, readConnection);
+    const directory = '.apexrest/deployments/' + runId + '/snapshot/' + ctx.config.application.sourceDir;
+    const files = await inventory(await syncPath(ctx, directory));
+    const snapshot = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
+    if (selection && serverSnapshot) {
+      try {
+        await rebaseAfterImport(
+          ctx,
+          runId,
+          applicationFiles(ctx, plan.sources),
+          checkpoint(working).files,
+          serverSnapshot,
+          selection.files,
+        );
+      } catch (error) {
+        if (error instanceof Fault) throw error;
+        throw new Fault(
+          'LOCAL_RECONCILIATION_REQUIRED',
+          'Import confirmed; local rebase failed. Inspect the retained source and server snapshots.',
+          5,
+        );
+      }
+    }
+    await syncStore.lock(async () => {
+      const state = await syncStore.read();
+      if (!state || state.importingRunId !== runId || state.revision !== working.revision)
+        throw new Error('Sync ownership changed after import.');
+      await syncStore.write({
+        ...state,
+        status: 'ready',
+        revision: state.revision + 1,
+        importingRunId: null,
+        observedMetadata: metadata,
+        target,
+        lastSuccessfulImport: { at: new Date().toISOString(), runId, snapshot },
+      });
+    });
+  }
+  /** What a resumed verification must still observe: identity, update metadata and local history. */
+  private async postImport(env: Environment, connection: Connection) {
+    const [target, metadata, history] = await Promise.all([
+      this.oracle.verifyTarget(env, connection),
+      this.oracle.applicationMetadata(env, connection),
+      this.history(env, connection),
+    ]);
+    return { target, metadata, history };
+  }
+  /**
+   * Resume a deployment that is awaiting re-authentication: after the user renews
+   * browser state interactively, rerun the same required suites against the target
+   * exactly as the import left it. Nothing is imported; the required gate is unchanged.
+   */
+  async resumeVerification(ctx: ProjectContext, runId: string, signal?: AbortSignal) {
+    parse(z.uuid(), runId);
+    return withLock(await contained(ctx.root, '.apexrest/composer/ownership.lock'), () =>
+      this.resumeLocked(ctx, runId, signal),
+    );
+  }
+  private async resumeLocked(ctx: ProjectContext, runId: string, signal?: AbortSignal) {
+    const runDir = await contained(ctx.root, '.apexrest/deployments/' + runId);
+    const plan = parse(deployPlanSchema, await readJson(path.join(runDir, 'plan.json'))),
+      env = environment(ctx, plan.environment);
+    const current = (await readJson(path.join(runDir, 'state.json'))) as { state?: unknown; runId?: unknown };
+    if (current.runId !== runId || current.state !== 'awaiting_reauth')
+      throw new Fault(
+        'DEPLOY_NOT_AWAITING_REAUTH',
+        `Deployment ${runId} is ${String(current.state)}; only a run awaiting re-authentication can resume verification.`,
+        5,
+        'conflict',
+      );
+    const pending = parse(reauthRecordSchema, await readJson(path.join(runDir, 'reauth.json')));
+    if (!this.runTests)
+      throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
+    if (signal?.aborted)
+      throw new Fault('CANCELLED', 'Verification cancelled before it started.', 6, 'cancelled');
+    let state: DeployState = 'awaiting_reauth';
+    const record = async (nextState: DeployState, details: unknown = {}) => {
+      assertTransition(state, nextState);
+      state = nextState;
+      await appendJournal(runDir, {
+        runId,
+        planId: plan.id,
+        planDigest: plan.digest,
+        targetDigest: plan.targetDigest,
+        state,
+        at: new Date().toISOString(),
+        details,
+      });
+    };
+    const syncStore = new SyncStore(ctx, env, plan.environment);
+    const control = new LocalDeploymentControl(env);
+    // Serialize with any other runner on this schema while the suites execute.
+    await control.acquire(runId);
+    try {
+      const readConnection = await resolveConnection(env.readConnectionRef);
+      const observed = await this.postImport(env, readConnection);
+      if (canonical(observed) !== canonical(pending.postImport)) {
+        await record('failed', { code: 'TARGET_DRIFT' });
+        throw new Fault(
+          'TARGET_DRIFT',
+          'The target changed after the import that awaits re-authentication. Re-plan and apply again.',
+          5,
+        );
+      }
+      const working = await syncStore.read();
+      const owned = working?.importingRunId === runId ? working : null;
+      if (plan.schemaVersion !== 1 && plan.mode === 'working-copy' && owned?.status !== 'verification_failed')
+        throw new Fault(
+          'SYNC_BLOCKED',
+          'Working-copy ownership changed while awaiting re-authentication.',
+          5,
+        );
+      await record('testing');
+      const tests = await this.runTests(ctx, plan.environment);
+      if (!tests.ok && tests.reauthRequired) {
+        await record('awaiting_reauth', { code: 'POST_DEPLOY_REAUTH_REQUIRED' });
+        throw reauthFault(runId, plan.environment);
+      }
+      if (!tests.ok) {
+        await record('failed', { code: 'POST_DEPLOY_TEST_FAILED' });
+        throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
+      }
+      if (owned)
+        await this.completeWorkingCopy(
+          ctx,
+          plan,
+          env,
+          readConnection,
+          runId,
+          owned,
+          pending.postImport.target as Awaited<ReturnType<OracleAdapter['verifyTarget']>>,
+          pending.serverSnapshot,
+        );
+      await record('succeeded', { resumedAfterReauth: true });
+      return { runId, state, directory: runDir, tests: tests.data };
+    } catch (error) {
+      if ((state as DeployState) === 'testing')
+        await record('failed', { code: error instanceof Fault ? error.code : 'UNEXPECTED_FAILURE' }).catch(
+          () => {},
+        );
+      throw error;
+    } finally {
+      await control.release(runId).catch(() => {});
     }
   }
   async reconcile(ctx: ProjectContext, runId: string) {

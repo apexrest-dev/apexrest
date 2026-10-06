@@ -423,6 +423,11 @@ export async function dispatch(
             await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text('run'));
             break;
+          case 'deploy.verify':
+            // Resumes a run awaiting re-authentication: reruns required suites, never imports.
+            await requireTrust(ctx.root);
+            data = await deployment.resumeVerification(ctx, text('run'), signal);
+            break;
           case 'deploy.restore-plan': {
             await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text('backup'));
@@ -450,6 +455,18 @@ export async function dispatch(
                 Boolean(parsed.headed),
               );
               data = result;
+              if (result.reason === 'reauth_required')
+                return {
+                  ...failure(
+                    operation,
+                    new Fault('TEST_REAUTH_REQUIRED', result.diagnostic!, 4, 'blocked', {
+                      nextActions: [
+                        `Ask the user to run \`apexrest test auth --env ${text('env')}\` in a local interactive terminal; never handle the password.`,
+                      ],
+                    }),
+                  ),
+                  data,
+                };
               if (result.status !== 'passed')
                 return {
                   ...failure(

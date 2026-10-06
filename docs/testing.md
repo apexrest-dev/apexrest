@@ -69,6 +69,17 @@ The browser fixture uses a unique synthetic record, tests invalid input, exercis
 
 Authenticate locally with `apexrest test auth --project ./crm --env dev`. Auth state is private and expires after eight hours. Interactive login uses an ordinary browser without recording. Saving state does not prove that it works: required E2E still has to verify the application marker and its assertions. Origin checks are a guardrail, not an OS network sandbox for trusted test code.
 
+### Sessions ended by a full import
+
+A full application import (`apex import`, the path for any plan with migrations or packages) replaces the APEX application and ends its existing sessions. Saved E2E state then opens the login page even though it has not expired. Before the E2E specs run, a read-only probe opens the base URL with the saved state; it enters nothing and records no screenshots, traces or cookies. When the configured `expectedMarker` is absent and a password field is visible, E2E is `blocked` with `reason: "reauth_required"` (`TEST_REAUTH_REQUIRED` from `test e2e`) and the specs do not run. If the probe sees the marker or cannot decide, the specs run and decide the result as before.
+
+This never passes the gate: a required E2E suite must still be `passed`. During `ship --mode apply` or `deploy apply`, when re-authentication is the only gap (every other required suite passed), the deployment stops in `awaiting_reauth` with `POST_DEPLOY_REAUTH_REQUIRED` (exit code 4, status `blocked`) instead of `POST_DEPLOY_TEST_FAILED`. It is not succeeded, its working-copy checkpoint is not advanced and local ownership is released. Then:
+
+1. The user runs `apexrest test auth --project ./crm --env dev` in a local interactive terminal. The agent never handles the password.
+2. Run `apexrest deploy verify --project ./crm --run <runId>`. It confirms that the target identity, application update metadata and local migration history are exactly as the import left them (otherwise `TARGET_DRIFT`), reruns all configured suites against the same gate and records `succeeded`, `failed` or `awaiting_reauth` again. It never imports.
+
+Do not reapply the plan to retry: another full import ends the renewed session again. A failing SQL suite, a failing spec or missing/expired state remain ordinary failures or blocks. Only a run in `awaiting_reauth` can resume.
+
 ## Diagnose and rerun
 
 Classify the failure, read its bounded diagnostic artifact (`apexrest_artifact_read`) and inspect the affected source or dependency. Make one focused repair, rerun the affected compiler/test check, then the required gate. Do not repeat discovery, export or full imports without evidence that they are needed.
