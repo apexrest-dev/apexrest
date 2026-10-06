@@ -1,5 +1,13 @@
 # Next actions and verification limits
 
+## Customer CRM integration follow-up
+
+- Make post-deploy E2E survive a full application import: saved browser state loses its APEX session when the application is replaced, so required E2E inside `ship apply` reaches the login page. See [integration evidence](evidence/crm262-local-integration.json).
+- Rework `scripts/integration.mjs` so its apply step can be authorized: it creates its plan internally, while `deploy apply` needs a grant bound to that exact plan digest.
+- Decide how to document or check the instance-level `REJOIN_EXISTING_SESSIONS=Y` requirement for saved-state E2E; the application setting alone was insufficient on APEX 26.2.
+- Treat the SQLcl 26.3 `arraysize` warning over the ORDS transport as non-fatal in connection tests.
+- The 26.1 CRM initialization does not yet set `rejoinSessions`; qualify it with a 26.1 compiler before changing it.
+
 ## Claude Code
 
 - Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). The offline part of `/apexrest:apexrest-work` (init, edit, validate) also passed. Still open: install from the repository marketplace, restore a connection to the authorized 26.2 test application 92620, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.

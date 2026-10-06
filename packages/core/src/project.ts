@@ -129,6 +129,25 @@ export async function projectInit(
             )
             .join('');
           await atomicWrite(file, lists.slice(0, index) + entries + lists.slice(index));
+          if (release === '26.2') {
+            // Saved E2E browser state carries only the session cookie; URLs without a
+            // session ID start a new session unless the app rejoins existing sessions.
+            const appFile = path.join(root, config.application.sourceDir, 'application.apx');
+            const app = await readFile(appFile, 'utf8'),
+              end = app.lastIndexOf(')');
+            if (end < 0 || !app.startsWith('app ') || app.includes('sessionManagement {'))
+              throw new Fault(
+                'UNSUPPORTED_TEMPLATE',
+                'Starter application does not match the reviewed fixture.',
+                3,
+              );
+            await atomicWrite(
+              appFile,
+              app.slice(0, end) +
+                '    sessionManagement {\n        rejoinSessions: allSessions\n    }\n' +
+                app.slice(end),
+            );
+          }
         }
       }
       // Publish only after generation and all template checks succeeded.

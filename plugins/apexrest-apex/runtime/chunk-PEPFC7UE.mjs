@@ -3999,6 +3999,20 @@ async function projectInit(directory, template, alias) {
 `
           ).join("");
           await atomicWrite(file, lists.slice(0, index) + entries + lists.slice(index));
+          if (release === "26.2") {
+            const appFile = path12.join(root, config.application.sourceDir, "application.apx");
+            const app = await readFile6(appFile, "utf8"), end = app.lastIndexOf(")");
+            if (end < 0 || !app.startsWith("app ") || app.includes("sessionManagement {"))
+              throw new Fault(
+                "UNSUPPORTED_TEMPLATE",
+                "Starter application does not match the reviewed fixture.",
+                3
+              );
+            await atomicWrite(
+              appFile,
+              app.slice(0, end) + "    sessionManagement {\n        rejoinSessions: allSessions\n    }\n" + app.slice(end)
+            );
+          }
         }
       }
       if (await exists(destination)) {

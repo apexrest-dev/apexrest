@@ -1,5 +1,15 @@
 # Implementation status
 
+## Customer CRM integration on local APEX 26.2 — 2026-10-06
+
+A user-requested run on a disposable local podman stack (26ai Free 23.26.3, APEX 26.2.0, ORDS 26.3.0, SQLcl 26.3.0.260.1620, utPLSQL 3.2.3) imported the 26.2 customer-crm application 92620 into the isolated `APEXREST_262_TEST` workspace. [Integration evidence](evidence/crm262-local-integration.json) keeps each run, including failures.
+
+Passed against Oracle: the utPLSQL suite (5 tests) after a template fix, the authenticated browser CRUD suite (1 test covering validation, create, search, update and delete with cleanup) after two spec fixes, and no-op export preservation (26 identical files). Local checks: 359 unit tests with the real SQLcl 26.3 test enabled, 61 contract tests, lint, typecheck and Oracle smoke.
+
+Not passed: every `ship apply` recorded `POST_DEPLOY_TEST_FAILED`; the last one because the full import invalidated the saved APEX session. `npm run test:integration` is blocked at `deploy apply` with `DEPLOY_APPROVAL_REQUIRED` after the compiler and plan checks. Browser state was saved by a scripted login with the local test user at the user's request, not by an interactive `test auth` session.
+
+Source fixes: the CRM utPLSQL package separates `--%suite` from the first `--%test`; the E2E spec clears interactive report filters before each search and confirms deletion in the top-level dialog; 26.2 CRM initialization enables `rejoinSessions: allSessions`.
+
 ## Claude Code support review — local, 2026-10-06
 
 Implemented: the verification browser accepts the host-neutral `host` mode; `codex` remains the default and a legacy alias with identical behavior, and the `external` instruction no longer names Codex. The work and setup skills describe the Claude Code browser handoff and the doctor's informational `codex` probe correctly. README, getting-started, chat-workflow, testing, configuration, panel, troubleshooting and the site quickstart document `/apexrest:apexrest-work` invocation in Claude Code, its namespaced MCP tool names, the Node.js 24 requirement for the `node` that starts the plugin server and exporting `APEXREST_HOME` before starting `claude`.

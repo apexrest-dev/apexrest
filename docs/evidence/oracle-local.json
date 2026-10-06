@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "sourceDigest": "735de337d3a4eb41131721579c303042a11310bee0545972bf6d97a2184bcd69",
-  "timestamp": "2026-09-12T12:37:51.045Z",
+  "sourceDigest": "8b9696fc64cc6765e598788914fe36bce49b00dae4823f41ccf117fcdf39d326",
+  "timestamp": "2026-10-06T18:48:36.993Z",
   "platform": "darwin",
   "arch": "arm64",
-  "node": "v24.21.0",
-  "sqlcl": "<user-home>/sqlcl/bin/sql",
-  "javaHomeConfigured": true,
+  "node": "v25.9.0",
+  "sqlcl": "/Users/oleksii/sqlcl/bin/sql",
+  "javaHomeConfigured": false,
   "mock": false,
   "status": "passed",
   "runs": [
     {
       "template": "blank-app",
       "initialization": {
-        "root": "<temporary-directory>/apexrest-oracle-WlAuF1/blank-app",
+        "root": "/private/var/folders/x6/h7zldj_d6fqgd_bc2lxvjztm0000gn/T/apexrest-oracle-3uBOee/blank-app",
         "template": "blank-app",
         "configuration": {
           "schemaVersion": 1,
@@ -28,7 +28,8 @@
             "testsDir": "tests/sql"
           },
           "toolchain": {
-            "lockFile": "apexrest.toolchain.lock.json"
+            "lockFile": "apexrest.toolchain.lock.json",
+            "profile": "26.2"
           },
           "environments": {},
           "tests": {
@@ -52,21 +53,84 @@
       "validation": {
         "status": "passed",
         "compiler": {
-          "version": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334",
-          "helpHash": "80a2419c1511e15012d6c89948907e201fc26dd84734e888764b7d51adada61d"
+          "version": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+          "helpHash": "491b91846d2ffc6591cdd361c5a8633b037b3725c732081805f43b47958a3a0b"
         },
-        "mmd": {
-          "mmdVersion": "26.1.0+3102"
+        "sourceDigest": "201b702c22ff43665f81910d4038e7537ba09a19d76d3ee02d733c788c0384dc",
+        "diagnostics": [],
+        "warningCount": 0,
+        "staticAnalysis": {
+          "status": "advisory",
+          "findings": [
+            {
+              "code": "APEX-002",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Non-public pages must have an authentication scheme and an authorization scheme at page or application scope.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-009",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Checksum protection is configured, but application session state protection is not enabled",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-024",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require positive idle and absolute session limits",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-026",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Pages must disable duplicate submissions.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-029",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require a centralized error handling function",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-031",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require exact substitution matching",
+              "severity": "warning"
+            }
+          ]
         },
-        "sourceDigest": "b36f67aa8a4153e9c5ca5875d7d4fddca2161e678ef1290935e9489881bccd79",
-        "output": "Validation successful.\n\n\n"
+        "upgradeAudit": {
+          "status": "advisory",
+          "targetRelease": "26.2",
+          "scannedFiles": 17,
+          "findings": [],
+          "skipped": [],
+          "traversalTruncated": false,
+          "limitation": "Source text review hints only; not a complete dependency, SQL, security or runtime audit."
+        },
+        "ms": 4238,
+        "output": "Validation successful.",
+        "outputTruncated": false
       },
-      "mmdSha256": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c"
+      "mmdSha256": "1e4d481e2b249e9579fb0e21ec7534b535573b7534e53ec8d8f7b204d841a101"
     },
     {
       "template": "customer-crm",
       "initialization": {
-        "root": "<temporary-directory>/apexrest-oracle-WlAuF1/customer-crm",
+        "root": "/private/var/folders/x6/h7zldj_d6fqgd_bc2lxvjztm0000gn/T/apexrest-oracle-3uBOee/customer-crm",
         "template": "customer-crm",
         "configuration": {
           "schemaVersion": 1,
@@ -81,7 +145,8 @@
             "testsDir": "tests/sql"
           },
           "toolchain": {
-            "lockFile": "apexrest.toolchain.lock.json"
+            "lockFile": "apexrest.toolchain.lock.json",
+            "profile": "26.2"
           },
           "environments": {},
           "tests": {
@@ -108,34 +173,95 @@
       "validation": {
         "status": "passed",
         "compiler": {
-          "version": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334",
-          "helpHash": "80a2419c1511e15012d6c89948907e201fc26dd84734e888764b7d51adada61d"
+          "version": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+          "helpHash": "491b91846d2ffc6591cdd361c5a8633b037b3725c732081805f43b47958a3a0b"
         },
-        "mmd": {
-          "mmdVersion": "26.1.0+3102"
+        "sourceDigest": "5b7369b9382a5d52d5fe4f1c5925dec14aa4bb61742393898afcd8e8546779e5",
+        "diagnostics": [],
+        "warningCount": 0,
+        "staticAnalysis": {
+          "status": "advisory",
+          "findings": [
+            {
+              "code": "APEX-002",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Non-public pages must have an authentication scheme and an authorization scheme at page or application scope.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-009",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Checksum protection is configured, but application session state protection is not enabled",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-024",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require positive idle and absolute session limits",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-026",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Pages must disable duplicate submissions.",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-029",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require a centralized error handling function",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-031",
+              "file": "application.apx",
+              "line": 0,
+              "column": 0,
+              "message": "Applications require exact substitution matching",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-005",
+              "file": "pages/p00010-customers.apx",
+              "line": 141,
+              "column": 4,
+              "message": "Component dynamic actions require an authorization scheme",
+              "severity": "warning"
+            },
+            {
+              "code": "APEX-005",
+              "file": "pages/p00080-customer.apx",
+              "line": 169,
+              "column": 4,
+              "message": "Component dynamic actions require an authorization scheme",
+              "severity": "warning"
+            }
+          ]
         },
-        "sourceDigest": "1a41bb9e52cf967af8d0c71074acf2688d30efc7f2c6fe8ca1d43d68ca5436bc",
-        "output": "Validation successful.\n\n\n"
+        "upgradeAudit": {
+          "status": "advisory",
+          "targetRelease": "26.2",
+          "scannedFiles": 20,
+          "findings": [],
+          "skipped": [],
+          "traversalTruncated": false,
+          "limitation": "Source text review hints only; not a complete dependency, SQL, security or runtime audit."
+        },
+        "ms": 4585,
+        "output": "Validation successful.",
+        "outputTruncated": false
       },
-      "mmdSha256": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c"
+      "mmdSha256": "1e4d481e2b249e9579fb0e21ec7534b535573b7534e53ec8d8f7b204d841a101"
     }
-  ],
-  "publicationRedaction": {
-    "scope": "Local filesystem path prefixes only; evidence results and source/artifact hashes are unchanged.",
-    "originalFileSha256": "4c5506d3bc03bb3850c59c1b2520b2814b133c4fd9a0afb7353c6f2e28a1dcc2",
-    "redactedAt": "2026-09-12T14:59:35.469252+00:00",
-    "replacements": {
-      "user-home": "<user-home>/",
-      "temporary-directory": "<temporary-directory>/"
-    },
-    "occurrencesByCategory": {
-      "user-home": 1,
-      "macos-temporary": 2
-    },
-    "fields": [
-      ".sqlcl",
-      ".runs[0].initialization.root",
-      ".runs[1].initialization.root"
-    ]
-  }
+  ]
 }

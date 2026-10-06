@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "status": "partial",
+  "mock": false,
+  "scope": "User-requested full integration run on a disposable local podman stack; isolated test workspace/schema/application only",
+  "target": {
+    "database": "Oracle AI Database 26ai Free 23.26.3.0.0 (FREEPDB1), podman",
+    "apexVersion": "26.2.0",
+    "ordsVersion": "26.3.0",
+    "sqlclVersion": "26.3.0.260.1620",
+    "utplsqlVersion": "v.3.2.3.4508",
+    "workspace": "APEXREST_262_TEST",
+    "parsingSchema": "APEXREST_262_TEST",
+    "applicationId": 92620,
+    "template": "customer-crm",
+    "transport": "direct",
+    "mode": "cli",
+    "platform": "darwin-arm64"
+  },
+  "localChecks": {
+    "unit": { "tests": 359, "passed": 359, "skipped": 0, "note": "Includes the real SQLcl 26.3 generation test with APEXREST_TEST_SQLCL_263 and APEXREST_TEST_JAVA_HOME set" },
+    "contracts": { "tests": 61, "passed": 61 },
+    "oracleSmoke": "passed",
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "deploy": {
+    "initialShipApply": {
+      "runId": "1547d96c-11bf-4327-aa84-a0ebbe9fc2cf",
+      "importConfirmed": true,
+      "status": "failed",
+      "code": "POST_DEPLOY_TEST_FAILED",
+      "reason": "SQL suite executed 0 tests (template utPLSQL annotation defect); E2E blocked without saved browser state"
+    },
+    "rejoinShipApply": {
+      "runId": "13c3b44a-e8e5-47f9-bf75-96166369f2b9",
+      "importConfirmed": true,
+      "status": "failed",
+      "code": "POST_DEPLOY_TEST_FAILED",
+      "reason": "E2E blocked: browser state could only be saved after the application allowed session rejoin"
+    },
+    "noopShipApply": {
+      "runId": "040a7a46-7cfd-426c-860f-987e240fd74d",
+      "importConfirmed": true,
+      "status": "failed",
+      "code": "POST_DEPLOY_TEST_FAILED",
+      "postDeployTests": { "sql": "passed 5/5", "e2e": "failed: login page instead of marker" },
+      "reason": "The full application import invalidated the previously saved APEX session, so post-deploy E2E with storageState reached the login page"
+    },
+    "noopExportPreservation": { "status": "passed", "files": 26, "identical": true }
+  },
+  "suites": {
+    "sqlAfterAnnotationFix": { "runId": "c4aae83d-e36c-4104-bcce-9014245637b0", "status": "passed", "tests": 5, "failures": 0 },
+    "e2eFailedCumulativeIrFilters": { "runId": "b2fa08c4-a218-43c4-bfdd-129fa770f2bc", "status": "failed", "reason": "Interactive report searches add AND-combined filters; the search for the updated name returned no rows" },
+    "e2eFailedDeleteConfirmation": { "runId": "3cb05d22-190e-45bf-bb2a-514c391fcc3b", "status": "failed", "reason": "Delete confirmation is a top-level alertdialog, not inside the modal iframe" },
+    "e2ePassed": {
+      "runId": "08bb2c99-0a63-4c1c-9aa6-72531f282833",
+      "status": "passed",
+      "tests": 1,
+      "failures": 0,
+      "covers": "Authenticated create with invalid-email validation, search, update, delete with cleanup of its synthetic record"
+    }
+  },
+  "harness": {
+    "command": "npm run test:integration",
+    "status": "blocked",
+    "passedChecks": ["real-compiler", "plan-identity"],
+    "blocker": "deploy apply: DEPLOY_APPROVAL_REQUIRED",
+    "reason": "The harness creates its plan internally, while deploy apply requires a pre-recorded grant bound to that exact plan digest"
+  },
+  "environmentChanges": [
+    "Installed utPLSQL v3.2.3 (schema UT3) in FREEPDB1",
+    "Created APEX end user CRM_TESTER in workspace APEXREST_262_TEST",
+    "Set APEX instance parameter REJOIN_EXISTING_SESSIONS from P to Y on the local instance",
+    "Application 92620 rejoinSessions set to allSessions"
+  ],
+  "authentication": "Browser state was saved by a headless scripted login with the local test user at the user's request; `apexrest test auth` interactive login was started but not completed",
+  "sourceFixes": [
+    "templates/customer-crm/project/tests/sql/test_customers.sql: blank line separates the package --%suite annotation from the first --%test",
+    "templates/customer-crm/project/tests/e2e/customer-crud.spec.mjs: clear interactive report filters before each search; confirm delete in the top-level alertdialog",
+    "packages/core/src/project.ts: 26.2 customer-crm init enables rejoinSessions: allSessions"
+  ],
+  "openFindings": [
+    "Post-deploy E2E with saved browser state cannot pass after a full application import",
+    "scripts/integration.mjs cannot obtain a plan-bound deploy grant for its internally created plan",
+    "Session rejoin also requires instance-level REJOIN_EXISTING_SESSIONS=Y",
+    "ORDS transport connection test treats the SQLcl 26.3 arraysize warning as a failure"
+  ]
+}

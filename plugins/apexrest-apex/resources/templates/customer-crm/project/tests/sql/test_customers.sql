@@ -1,5 +1,6 @@
 create or replace package test_apexrest_customers as
     --%suite(Customer business rules)
+
     --%test(Creates a customer with a generated identifier)
     procedure creates_customer;
     --%test(Rejects missing customer names)

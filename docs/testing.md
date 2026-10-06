@@ -62,6 +62,8 @@ The browser fixture uses a unique synthetic record, tests invalid input, exercis
 
 Authenticate locally with `apexrest test auth --project ./crm --env dev`. Auth state is private and expires after eight hours. Interactive login uses an ordinary browser without recording. Saving state does not prove that it works: required E2E still has to verify the application marker and its assertions. Origin checks are a guardrail, not an OS network sandbox for trusted test code.
 
+Saved state holds only the APEX session cookie, and E2E tests navigate without a session ID. The application must rejoin existing sessions (`sessionManagement.rejoinSessions: allSessions`, set by the 26.2 CRM template), and the APEX instance parameter `REJOIN_EXISTING_SESSIONS` must be `Y`; otherwise every navigation reaches the login page. A full application import ends existing sessions, so authenticate again after it before running E2E.
+
 ## Diagnose and rerun
 
 Classify the failure, read its bounded diagnostic artifact (`apexrest_artifact_read`) and inspect the affected source or dependency. Make one focused repair, rerun the affected compiler/test check, then the required gate. Do not repeat discovery, export or full imports without evidence that they are needed.
