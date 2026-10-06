@@ -6,17 +6,15 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-5PCC7GZM.mjs";
+} from "./chunk-GITKODAT.mjs";
 import {
   ArtifactService
-} from "./chunk-TMSMKVRP.mjs";
+} from "./chunk-UR7P4KY3.mjs";
 import {
-  VERSION
-} from "./chunk-RBJJNQ5O.mjs";
-import {
+  VERSION,
   loadProject,
   parse
-} from "./chunk-N4C2SKCN.mjs";
+} from "./chunk-AULTRDUB.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -811,10 +809,30 @@ function preview(value, depth = 0) {
   if (data.lastSuccessfulImport && typeof data.lastSuccessfulImport === "object")
     result.lastSuccessfulImport = data.lastSuccessfulImport;
   if (data.workingCopy && typeof data.workingCopy === "object") result.workingCopy = data.workingCopy;
+  if (data.importSelection && typeof data.importSelection === "object") {
+    const selection = data.importSelection;
+    const files = Array.isArray(selection.files) ? selection.files.filter((file) => typeof file === "string") : [];
+    const shown = [];
+    for (const file of files.slice(0, 10)) {
+      if (JSON.stringify([...shown, file]).length > 1600) break;
+      shown.push(file);
+    }
+    const count = typeof selection.fileCount === "number" ? selection.fileCount : files.length;
+    result.importSelection = {
+      requestedMode: selection.requestedMode,
+      resolvedMode: selection.resolvedMode,
+      ...typeof selection.readbackPolicy === "string" ? { readbackPolicy: selection.readbackPolicy } : {},
+      fileCount: count,
+      files: shown,
+      filesTruncated: count > shown.length || selection.filesTruncated === true,
+      reasons: Array.isArray(selection.reasons) ? selection.reasons.slice(0, 5).map((reason) => String(reason).slice(0, 200)) : []
+    };
+  }
+  if (depth < 2 && data.plan && typeof data.plan === "object") result.plan = preview(data.plan, depth + 1);
   if (depth < 2 && data.result && typeof data.result === "object")
     result.result = preview(data.result, depth + 1);
   if (data.operation === "deploy.plan" && data.data && depth < 2) result.data = preview(data.data, depth + 1);
-  const plan = data.scope === "full-application-import" && typeof data.digest === "string";
+  const plan = ["full-application-import", "selected-file-import"].includes(String(data.scope)) && typeof data.digest === "string";
   if (plan) {
     const operations = data.operations;
     if (Array.isArray(operations))
@@ -890,7 +908,7 @@ async function toolOutput(original, project) {
     if (JSON.stringify(result).length > inlineLimit) {
       const data = result.data;
       result.data = Object.fromEntries(
-        ["id", "jobId", "status", "phase", "ok", "output"].filter((key) => data[key] !== void 0).map((key) => [key, data[key]])
+        ["id", "jobId", "status", "phase", "ok", "planPath", "planDigest", "importSelection", "output"].filter((key) => data[key] !== void 0).map((key) => [key, data[key]])
       );
       if (data.result && typeof data.result === "object") {
         const nested = data.result;
@@ -1025,16 +1043,16 @@ var projectOptional = /* @__PURE__ */ new Set(["reference", "status", "project"]
 var mcpSchemas = /* @__PURE__ */ new Map();
 for (const { operation, long } of toolCatalog) {
   const schema = schemas[operation];
-  const transportSchema = "project" in schema.shape ? schema.extend({
+  const transportSchema = "project" in schema.shape ? schema.safeExtend({
     project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject
   }) : schema;
-  const boundarySchema = operation === "project" ? transportSchema.extend({
+  const boundarySchema = operation === "project" ? transportSchema.safeExtend({
     directory: absoluteProject.describe("Absolute directory for init.").optional(),
     passwordFile: absoluteProject.describe("Absolute private password file.").optional()
   }) : transportSchema;
   mcpSchemas.set(
     operation,
-    long ? boundarySchema.extend({ waitSeconds: operation === "ship" ? shipWaitSeconds : jobWaitSeconds }) : boundarySchema
+    long ? boundarySchema.safeExtend({ waitSeconds: operation === "ship" ? shipWaitSeconds : jobWaitSeconds }) : boundarySchema
   );
 }
 function listTools() {

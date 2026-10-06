@@ -1,6 +1,18 @@
-# 1.3.0 — stable redesign release
+# Release notes
+
+## 2.0.0 source update — APEX 26.2 partial imports (unreleased)
+
+The `2.0.0` source bundle adds **partial APEXlang imports**: automatically select eligible changed pages/shared components, or supply an exact list using `importMode:files`. The planner compares the saved baseline, local edits and a fresh server export, preserves remote-only changes and blocks conflicts. Apply takes a fresh full SQL backup and records the verified server state.
+
+This feature supports the reviewed 26.2 target/compiler tuple over direct SQLcl CLI through both the CLI and APEXREST MCP tool. The existing 26.1 full-import workflow remains available. Source changes also add versioned references, separate starter templates, advisory CodeScan and read-only capability diagnostics.
+
+[Real local Oracle/browser evidence](evidence/apex262-connected.json) covers page-only and page-plus-LOV imports, with all 21 unselected files preserved in the final automatic import. Native model-host sessions and broader environments retain their open checks. **Published npm 1.3.0 does not include this update.** See the [partial-import guide](apex-26.2.md) and [implementation status](implementation-status.md).
 
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
+
+### Upgrade from a previous source bundle
+
+Working-copy state binds the exact APEXREST runtime version. After moving to 2.0.0, preserve and reconcile local edits and any unresolved import outcome, then refresh a clean checkpoint with `apexrest apex sync --env dev --action refresh --json` and create new deployment plans. Do not edit saved runtime versions or clear unknown ownership to bypass this check.
 
 ## Stable release — 2026-10-06
 

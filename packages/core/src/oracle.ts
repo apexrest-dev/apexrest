@@ -18,6 +18,12 @@ import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
 import { runPooledSqlcl } from './sqlcl-session.ts';
 import { runOrdsBridge, type OrdsBridgeJob } from './ords.ts';
+import {
+  evaluatePartialImportCompatibility,
+  sourceMmdVersion,
+  type TargetVersions,
+} from './compatibility.ts';
+import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
 export type Runner = (request: ProcessRequest) => Promise<ProcessResult>;
 export interface SqlclCapabilities {
   version: string;
@@ -195,6 +201,7 @@ export class OracleAdapter {
     cwd?: string,
     format: 'text' | 'json' = 'text',
     restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
+    isolated = false,
   ) {
     if (restrictLevel && (await this.settings()).mode === 'mcp')
       throw new Fault(
@@ -205,7 +212,7 @@ export class OracleAdapter {
       );
     const work = cwd ?? (await this.stage());
     try {
-      return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel);
+      return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated);
     } finally {
       if (!cwd) await this.discardStage(work);
     }
@@ -218,6 +225,7 @@ export class OracleAdapter {
     signal: AbortSignal | undefined,
     format: 'text' | 'json',
     restrictLevel: typeof SCRIPT_RESTRICT_LEVEL | undefined,
+    isolated: boolean,
   ) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
@@ -266,9 +274,10 @@ export class OracleAdapter {
     // sessions (saved name, ORDS) keep one process per call. MCP mode pools its
     // server per saved connection. Injected test runners keep the per-call path.
     const pooled =
-      settings.mode === 'mcp'
+      !isolated &&
+      (settings.mode === 'mcp'
         ? this.mcpRunner === runSqlclMcp
-        : this.runner === runProcess && !selected && settings.databaseTransport !== 'ords';
+        : this.runner === runProcess && !selected && settings.databaseTransport !== 'ords');
     const viaServer = settings.mode === 'mcp' || pooled;
     const raw = viaServer
       ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
@@ -398,6 +407,9 @@ export class OracleAdapter {
         lib: await mark(lib, true),
         apex: await mark(path.join(lib, 'dbtools-apex.jar'), false),
         apexlang: await mark(path.join(lib, 'apexlang-compiler.jar'), false),
+        ext: await mark(path.join(lib, 'ext'), false),
+        extApex: await mark(path.join(lib, 'ext/dbtools-apex.jar'), false),
+        extApexlang: await mark(path.join(lib, 'ext/apexlang-compiler.jar'), false),
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -458,6 +470,68 @@ export class OracleAdapter {
       throw new Fault('UNSUPPORTED_CAPABILITY', `This SQLcl does not advertise apex ${name}.`, 3, 'blocked');
     return { version: capabilities.version, helpHash: capabilities.helpHash };
   }
+  /** Inspect selected-file support without connecting or trusting the generic APEX help. */
+  async partialImportCapabilities(source: string, target: TargetVersions, signal?: AbortSignal) {
+    const compiler = await this.requireCapability('import', signal);
+    const settings = await this.settings();
+    const help = (await this.session('help apex import', undefined, false, signal)).output.replace(
+      /\x1b\[[0-9;]*m/g,
+      '',
+    );
+    return evaluatePartialImportCompatibility({
+      ...target,
+      compilerVersion: compiler.version,
+      mmdVersion: await sourceMmdVersion(source),
+      importFiles: /(?:^|\s)-files(?:\s|\|)/m.test(help),
+      mode: settings.mode,
+      databaseTransport: settings.databaseTransport ?? 'direct',
+      helpHash: hash(help),
+    });
+  }
+  async codeScan(
+    source: string,
+    signal?: AbortSignal,
+  ): Promise<{
+    status: 'advisory' | 'unavailable';
+    findings: AdvisoryFinding[];
+    reason?: string;
+  }> {
+    const compiler = await this.capabilities(signal);
+    if (!/Release 26\.3\./.test(compiler.version))
+      return {
+        status: 'unavailable',
+        findings: [],
+        reason: 'APEXlang CodeScan is qualified only for SQLcl 26.3.',
+      };
+    const stage = await this.stage(),
+      copy = path.join(stage, 'application');
+    try {
+      await cp(source, copy, { recursive: true });
+      const help = (await this.session('help codescan', undefined, false, signal)).output;
+      if (!/\.apx\b/i.test(help) || !/-extensions\b/i.test(help))
+        return {
+          status: 'unavailable',
+          findings: [],
+          reason: 'Selected SQLcl does not advertise APEXlang CodeScan.',
+        };
+      const result = await this.session(
+        `codescan -path ${sqlclToken(copy)} -extensions apx -format json`,
+        undefined,
+        false,
+        signal,
+      );
+      return { status: 'advisory', findings: parseCodeScan(result.output, copy) };
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Fault && error.code === 'CANCELLED')) throw error;
+      return {
+        status: 'unavailable',
+        findings: [],
+        reason: error instanceof Error ? error.message : 'CodeScan did not complete.',
+      };
+    } finally {
+      await this.discardStage(stage);
+    }
+  }
   async generate(name: string, alias: string) {
     const compiler = await this.requireCapability('generate');
     const stage = await this.stage();
@@ -467,6 +541,12 @@ export class OracleAdapter {
       false,
       undefined,
       stage,
+      'text',
+      undefined,
+      // SQLcl 26.3 rejects freshly generated MMD when generation and validation
+      // share a JVM. The cause is in the vendor process state. Keep
+      // generation disposable; do not close pools used by other callers.
+      /Release 26\.3\./.test(compiler.version),
     );
     const directory = await this.findApplication(stage);
     return { directory, compiler, output: result.output, files: await inventory(directory) };
@@ -702,6 +782,30 @@ export class OracleAdapter {
     if (rows.length !== 1) throw new Fault('IDENTITY_UNCONFIRMED', 'Database identity was not confirmed.', 3);
     return rows[0]!;
   }
+  /** Read-only release discovery, separate from identity checks for legacy callers. */
+  async targetVersions(connection: Connection, signal?: AbortSignal): Promise<TargetVersions> {
+    const rows = await this.jsonQuery(
+      "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'",
+      connection,
+      {},
+      signal,
+    );
+    const row = rows[0];
+    if (
+      rows.length !== 1 ||
+      typeof row?.apex_version !== 'string' ||
+      typeof row.database_version !== 'string' ||
+      !/^\d+\.\d+(?:\.\d+)*$/.test(row.apex_version) ||
+      !/^\d+\.\d+(?:\.\d+)*$/.test(row.database_version)
+    )
+      throw new Fault(
+        'TARGET_VERSION_UNCONFIRMED',
+        'APEX and database releases could not be confirmed.',
+        3,
+        'blocked',
+      );
+    return { apexVersion: row.apex_version, databaseVersion: row.database_version };
+  }
   async verifyTarget(env: Environment, connection: Connection) {
     // One read-only statement observes all target identifiers in the same live
     // SQLcl session. Never reuse this result between plan/apply/write checks.
@@ -772,22 +876,32 @@ export class OracleAdapter {
   async applicationMetadata(env: Environment, connection: Connection) {
     const rows = await this.jsonQuery(
       `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
-        last_updated_by from apex_applications
+        last_updated_by,
+        case when last_updated_on is null then 'Y' else 'N' end last_updated_on_is_null,
+        case when last_updated_by is null then 'Y' else 'N' end last_updated_by_is_null
+        from apex_applications
         where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`,
       connection,
       { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema },
     );
+    const row = rows[0];
+    // SQLcl 26.3 omits null-valued JSON properties. Explicit SQL flags
+    // distinguish a genuine database NULL from an incomplete result envelope.
+    if (row && !Object.hasOwn(row, 'last_updated_on') && row.last_updated_on_is_null === 'Y')
+      row.last_updated_on = null;
+    if (row && !Object.hasOwn(row, 'last_updated_by') && row.last_updated_by_is_null === 'Y')
+      row.last_updated_by = null;
     if (
       rows.length !== 1 ||
-      !Object.hasOwn(rows[0]!, 'last_updated_on') ||
-      !Object.hasOwn(rows[0]!, 'last_updated_by')
+      !row ||
+      !Object.hasOwn(row, 'last_updated_on') ||
+      !Object.hasOwn(row, 'last_updated_by')
     )
       throw new Fault(
         'SYNC_METADATA_UNCONFIRMED',
         'Application update metadata is absent or inaccessible.',
         5,
       );
-    const row = rows[0]!;
     if ([row.last_updated_on, row.last_updated_by].some((v) => v !== null && typeof v !== 'string'))
       throw new Fault('SYNC_METADATA_UNCONFIRMED', 'Unexpected application update metadata.', 5);
     return {
@@ -820,11 +934,66 @@ export class OracleAdapter {
     connection: Connection,
     source: string,
     signal?: AbortSignal,
+    selectedFiles?: string[],
   ) {
     await this.requireCapability('import', signal);
+    if (selectedFiles !== undefined) {
+      const settings = await this.settings();
+      if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct')
+        throw new Fault(
+          'PARTIAL_IMPORT_TRANSPORT_UNSUPPORTED',
+          'Partial import requires direct SQLcl CLI transport.',
+          3,
+          'blocked',
+        );
+      if (!selectedFiles.length || new Set(selectedFiles).size !== selectedFiles.length)
+        throw new Fault(
+          'PARTIAL_IMPORT_FILES_INVALID',
+          'Select a nonempty, unique list of APEXlang files.',
+          2,
+        );
+      for (const file of selectedFiles) {
+        if (
+          !/^[A-Za-z0-9_./-]+\.apx$/.test(file) ||
+          path.isAbsolute(file) ||
+          file.split('/').some((part) => !part || part === '.' || part === '..')
+        )
+          throw new Fault(
+            'PARTIAL_IMPORT_FILES_INVALID',
+            'Partial-import files must be literal contained APEXlang paths without globs.',
+            2,
+          );
+        let valid = false;
+        try {
+          const physical = await realpath(await contained(source, file));
+          valid =
+            path.relative(await realpath(source), physical).replaceAll(path.sep, '/') === file &&
+            (await stat(physical)).isFile();
+        } catch {
+          /* Missing or inaccessible files must fail before import. */
+        }
+        if (!valid)
+          throw new Fault(
+            'PARTIAL_IMPORT_FILES_INVALID',
+            'Partial-import files must be regular contained files without aliases.',
+            2,
+          );
+      }
+      const help = (await this.session('help apex import', undefined, false, signal)).output.replace(
+        /\x1b\[[0-9;]*m/g,
+        '',
+      );
+      if (!/(?:^|\s)-files(?:\s|\|)/m.test(help))
+        throw new Fault(
+          'PARTIAL_IMPORT_UNSUPPORTED',
+          'The selected SQLcl does not advertise apex import -files.',
+          3,
+          'blocked',
+        );
+    }
     const config = await this.nativeDeployment(ctx, env, source);
     try {
-      return await this.importWith(env, connection, source, config, signal);
+      return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
       await this.discardStage(path.dirname(config));
     }
@@ -835,6 +1004,7 @@ export class OracleAdapter {
     source: string,
     config: string,
     signal?: AbortSignal,
+    selectedFiles?: string[],
   ) {
     if ((await this.settings()).databaseTransport === 'ords') {
       await this.requireMutationSupport();
@@ -855,11 +1025,11 @@ export class OracleAdapter {
     let result;
     try {
       result = await this.session(
-        `apex import -input ${sqlclToken(source)} -deployment ${sqlclToken(config)} -workspace ${sqlclToken(env.workspace)} -schema ${sqlclToken(env.parsingSchema)} -id ${env.applicationId}`,
+        `apex import -input ${sqlclToken(source)} -deployment ${sqlclToken(config)} -workspace ${sqlclToken(env.workspace)} -schema ${sqlclToken(env.parsingSchema)} -id ${env.applicationId}${selectedFiles ? ' -files ' + selectedFiles.map((file) => sqlclToken(file)).join(' ') : ''}`,
         connection,
         true,
         signal,
-        undefined,
+        selectedFiles ? source : undefined,
         'text',
         SCRIPT_RESTRICT_LEVEL,
       );

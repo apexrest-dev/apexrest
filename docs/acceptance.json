@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "asOf": "2026-10-06",
-  "release": "1.3.0",
+  "release": "2.0.0",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -1191,6 +1191,59 @@
         "docs/evidence/composer-local.json"
       ],
       "blocker": "The complete local roadmap has not met acceptance."
+    },
+    {
+      "id": "APEX262-01",
+      "criterion": "Release-specific 26.1 and 26.2 toolchains, references, starter templates and read-only capability diagnostics",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "toolchains/compatibility.json",
+        "toolchains/toolchain-26.2.lock.json",
+        "docs/evidence/apex262-compatibility-local.json",
+        "docs/evidence/apex262-connected.json",
+        "tests/unit/reference-releases.test.ts",
+        "tests/unit/apex-capabilities.test.ts"
+      ],
+      "blocker": "Qualification is scoped to the recorded macOS/SQLcl builds; other platforms and arbitrary future builds remain unverified."
+    },
+    {
+      "id": "APEX262-02",
+      "criterion": "Automatic or explicit partial APEXlang import with three-way conflict control, exact plan binding, fresh backup and verified server checkpoint",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/partial-import.test.ts",
+        "tests/unit/apexlang-equivalence.test.ts",
+        "docs/evidence/apex262-connected.json",
+        "docs/evidence/apex262-browser.png"
+      ],
+      "blocker": "Direct SQLcl CLI on the reviewed 26.2 tuple only. ORDS partial imports and SQLcl MCP restricted imports remain unsupported. External editors are not serialized by local coordination."
+    },
+    {
+      "id": "APEX262-03",
+      "criterion": "26.2 AI/report/workflow/security authoring guidance, real offline recipe compilation and advisory CodeScan/upgrade diagnostics",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "resources/references/26.2/oracle-snapshot.json",
+        "resources/references/26.2/recipes/verification.json",
+        "tests/unit/apex262-compatibility.test.ts",
+        "docs/evidence/apex262-connected.json"
+      ],
+      "blocker": "Provider calls, DDS enforcement, OCI IAM/network provisioning, running-workflow migration and broader UI combinations are not runtime-qualified by compiler/metadata evidence."
+    },
+    {
+      "id": "APEX262-04",
+      "criterion": "Current native Codex and Claude Code host discovery and execution with the 26.2 package",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/contracts/mcp.test.mjs",
+        "scripts/repository-plugin-smoke.mjs",
+        "docs/evidence/apex262-connected.json"
+      ],
+      "blocker": "CLI/MCP contracts and package smoke are separate from fresh model-host discovery; both host model sessions remain unverified. No publication is authorized."
     }
   ],
   "amendments": [
@@ -1231,6 +1284,11 @@
       "date": "2026-10-04",
       "rule": "Redesign: the MCP surface is eleven composite tools (apexrest_project, apexrest_reference, apexrest_metadata_read, apexrest_apex_validate, apexrest_ship, apexrest_apex_sync, apexrest_test_run, apexrest_browser_open, apexrest_job, apexrest_artifact_read, apexrest_status) and five skills (apexrest-work, apexrest-apexlang, apexrest-safety, apexrest-setup, apexrest-pattern-catalog); the terminal UI, panel server, panel and Composer MCP tools, the database-control template and Ukrainian documentation are retired. Claude Code is packaged through .claude-plugin manifests beside the Codex manifest. Rows citing retired files keep their historical evidence under retiredEvidence/historicalEvidence and are not current verification.",
       "source": "packages/core/src/operations.ts"
+    },
+    {
+      "date": "2026-10-06",
+      "rule": "Retain 26.1 support and add qualified 26.2 automatic/explicit selected-file imports on direct SQLcl CLI. Three-way comparison, fresh backups, bound readback policy and actual server checkpoints supersede the no-export single-editor optimization for selected-file plans only. Preserve full import and original historical requirements elsewhere.",
+      "source": "docs/apex-26.2.md"
     }
   ]
 }

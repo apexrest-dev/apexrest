@@ -1,17 +1,29 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  VERSION
-} from "./chunk-RBJJNQ5O.mjs";
-import {
+  APEXLANG_EQUIVALENCE_POLICY,
+  LocalDeploymentControl,
   OracleAdapter,
   SCRIPT_RESTRICT_LEVEL,
+  SyncStore,
+  VERSION,
+  checkSnapshot,
+  checkSyncBackup,
+  checkpoint,
+  compareApplicationExports,
+  coordination,
+  databaseMeetsApex262Minimum,
   environment,
   identifier,
+  importOptions,
+  importSelectionSchema,
   isProductionTarget,
   managedHome,
   parse,
+  persistSnapshot,
   policy,
+  privateCopy,
   protectedProductionTrust,
+  rebaseAfterImport,
   refName,
   relativePath,
   requireTrust,
@@ -19,10 +31,14 @@ import {
   resourceRoot,
   runProcess,
   runtimeState,
+  selectImport,
+  sourceRelease,
   sqlLiteral,
   sqlclToken,
+  stageSelection,
+  syncPath,
   targetDigest
-} from "./chunk-N4C2SKCN.mjs";
+} from "./chunk-AULTRDUB.mjs";
 import {
   external_exports
 } from "./chunk-JYN3YHP3.mjs";
@@ -122,17 +138,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path9) {
-      const ctrl = callVisitor(key, node, visitor, path9);
+    function visit_(key, node, visitor, path7) {
+      const ctrl = callVisitor(key, node, visitor, path7);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path9, ctrl);
-        return visit_(key, ctrl, visitor, path9);
+        replaceNode(key, path7, ctrl);
+        return visit_(key, ctrl, visitor, path7);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path9 = Object.freeze(path9.concat(node));
+          path7 = Object.freeze(path7.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path9);
+            const ci = visit_(i, node.items[i], visitor, path7);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -143,13 +159,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path9 = Object.freeze(path9.concat(node));
-          const ck = visit_("key", node.key, visitor, path9);
+          path7 = Object.freeze(path7.concat(node));
+          const ck = visit_("key", node.key, visitor, path7);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path9);
+          const cv = visit_("value", node.value, visitor, path7);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -170,17 +186,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path9) {
-      const ctrl = await callVisitor(key, node, visitor, path9);
+    async function visitAsync_(key, node, visitor, path7) {
+      const ctrl = await callVisitor(key, node, visitor, path7);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path9, ctrl);
-        return visitAsync_(key, ctrl, visitor, path9);
+        replaceNode(key, path7, ctrl);
+        return visitAsync_(key, ctrl, visitor, path7);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path9 = Object.freeze(path9.concat(node));
+          path7 = Object.freeze(path7.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path9);
+            const ci = await visitAsync_(i, node.items[i], visitor, path7);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -191,13 +207,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path9 = Object.freeze(path9.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path9);
+          path7 = Object.freeze(path7.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path7);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path9);
+          const cv = await visitAsync_("value", node.value, visitor, path7);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -224,23 +240,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path9) {
+    function callVisitor(key, node, visitor, path7) {
       if (typeof visitor === "function")
-        return visitor(key, node, path9);
+        return visitor(key, node, path7);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path9);
+        return visitor.Map?.(key, node, path7);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path9);
+        return visitor.Seq?.(key, node, path7);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path9);
+        return visitor.Pair?.(key, node, path7);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path9);
+        return visitor.Scalar?.(key, node, path7);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path9);
+        return visitor.Alias?.(key, node, path7);
       return void 0;
     }
-    function replaceNode(key, path9, node) {
-      const parent = path9[path9.length - 1];
+    function replaceNode(key, path7, node) {
+      const parent = path7[path7.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -852,10 +868,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path9, value) {
+    function collectionFromPath(schema, path7, value) {
       let v = value;
-      for (let i = path9.length - 1; i >= 0; --i) {
-        const k = path9[i];
+      for (let i = path7.length - 1; i >= 0; --i) {
+        const k = path7[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -874,7 +890,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path9) => path9 == null || typeof path9 === "object" && !!path9[Symbol.iterator]().next().done;
+    var isEmptyPath = (path7) => path7 == null || typeof path7 === "object" && !!path7[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -904,11 +920,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path9, value) {
-        if (isEmptyPath(path9))
+      addIn(path7, value) {
+        if (isEmptyPath(path7))
           this.add(value);
         else {
-          const [key, ...rest] = path9;
+          const [key, ...rest] = path7;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -922,8 +938,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path9) {
-        const [key, ...rest] = path9;
+      deleteIn(path7) {
+        const [key, ...rest] = path7;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -937,8 +953,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path9, keepScalar) {
-        const [key, ...rest] = path9;
+      getIn(path7, keepScalar) {
+        const [key, ...rest] = path7;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -956,8 +972,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path9) {
-        const [key, ...rest] = path9;
+      hasIn(path7) {
+        const [key, ...rest] = path7;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -967,8 +983,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path9, value) {
-        const [key, ...rest] = path9;
+      setIn(path7, value) {
+        const [key, ...rest] = path7;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3483,9 +3499,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path9, value) {
+      addIn(path7, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path9, value);
+          this.contents.addIn(path7, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3560,14 +3576,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path9) {
-        if (Collection.isEmptyPath(path9)) {
+      deleteIn(path7) {
+        if (Collection.isEmptyPath(path7)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path9) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path7) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3582,10 +3598,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path9, keepScalar) {
-        if (Collection.isEmptyPath(path9))
+      getIn(path7, keepScalar) {
+        if (Collection.isEmptyPath(path7))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path9, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path7, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3596,10 +3612,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path9) {
-        if (Collection.isEmptyPath(path9))
+      hasIn(path7) {
+        if (Collection.isEmptyPath(path7))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path9) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path7) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3616,13 +3632,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path9, value) {
-        if (Collection.isEmptyPath(path9)) {
+      setIn(path7, value) {
+        if (Collection.isEmptyPath(path7)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path9), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path7), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path9, value);
+          this.contents.setIn(path7, value);
         }
       }
       /**
@@ -5583,9 +5599,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path9) => {
+    visit.itemAtPath = (cst, path7) => {
       let item = cst;
-      for (const [field, index] of path9) {
+      for (const [field, index] of path7) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5594,23 +5610,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path9) => {
-      const parent = visit.itemAtPath(cst, path9.slice(0, -1));
-      const field = path9[path9.length - 1][0];
+    visit.parentCollection = (cst, path7) => {
+      const parent = visit.itemAtPath(cst, path7.slice(0, -1));
+      const field = path7[path7.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path9, item, visitor) {
-      let ctrl = visitor(item, path9);
+    function _visit(path7, item, visitor) {
+      let ctrl = visitor(item, path7);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path9.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path7.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5621,10 +5637,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path9);
+            ctrl = ctrl(item, path7);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path9) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path7) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7376,9 +7392,9 @@ var require_dist = __commonJS({
 });
 
 // packages/core/src/testing.ts
-import path8 from "node:path";
+import path6 from "node:path";
 import { spawn } from "node:child_process";
-import { mkdir as mkdir6, readFile as readFile6, cp as cp5, chmod as chmod2 } from "node:fs/promises";
+import { mkdir as mkdir5, readFile as readFile6, cp as cp4, chmod } from "node:fs/promises";
 import { randomUUID as randomUUID4 } from "node:crypto";
 
 // packages/core/src/artifacts.ts
@@ -7447,7 +7463,7 @@ var ArtifactService = class {
     for (const directory of directories) {
       if (!directory || !await exists(directory)) continue;
       const relative = path.relative(this.ctx.root, directory).split(path.sep).join("/");
-      if ([".apexrest/sync", ".apexrest/backups", ".apexrest/deployments"].some(
+      if ([".apexrest/sync", ".apexrest/backups", ".apexrest/deployments", ".apexrest/plans"].some(
         (root) => relative === root || relative.startsWith(root + "/")
       ))
         continue;
@@ -7466,378 +7482,17 @@ var ArtifactService = class {
 };
 
 // packages/core/src/deploy.ts
-import path7 from "node:path";
-import { readFile as readFile5, mkdir as mkdir5, cp as cp4, open as open3, rename } from "node:fs/promises";
+import path5 from "node:path";
+import { readFile as readFile5, mkdir as mkdir4, cp as cp3, open as open2, rename, rm as rm3 } from "node:fs/promises";
 import { createPublicKey, randomUUID as randomUUID3, verify } from "node:crypto";
 
-// packages/core/src/deployment-control.ts
-import path2 from "node:path";
-import { hostname } from "node:os";
-import { rm as rm2 } from "node:fs/promises";
-function coordination(env) {
-  return {
-    backend: "local",
-    scope: "managed-home-schema",
-    // Bind plans to the history store. Moving a plan to a fresh home is not migration recovery.
-    storeDigest: hash(canonical({ home: managedHome(), ...env.databaseIdentity, schema: env.parsingSchema }))
-  };
-}
-var ownerSchema = external_exports.strictObject({
-  runId: external_exports.string(),
-  pid: external_exports.number().int().positive(),
-  hostname: external_exports.string(),
-  phase: external_exports.enum(["preparing", "writing"]),
-  createdAt: external_exports.string()
-});
-var historySchema = external_exports.array(
-  external_exports.strictObject({
-    version: external_exports.string(),
-    checksum: external_exports.string().regex(/^[a-f0-9]{64}$/),
-    status: external_exports.enum(["started", "succeeded"]),
-    run_id: external_exports.string()
-  })
-);
-var LocalDeploymentControl = class {
-  directory;
-  constructor(env) {
-    const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
-    this.directory = path2.join(managedHome(), "deployment-control", key);
-  }
-  file(name2) {
-    return path2.join(this.directory, name2);
-  }
-  async history() {
-    const file = this.file("history.json");
-    return await exists(file) ? parse(historySchema, await readJson(file)) : [];
-  }
-  async owner() {
-    const file = this.file("active.json");
-    try {
-      return parse(ownerSchema, await readJson(file));
-    } catch (error) {
-      if (error.code === "ENOENT") return void 0;
-      throw error;
-    }
-  }
-  async acquire(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      const owner = await this.owner();
-      if (owner) {
-        let dead = false;
-        if (owner.hostname === hostname()) {
-          try {
-            process.kill(owner.pid, 0);
-          } catch (e) {
-            dead = e.code === "ESRCH";
-          }
-        }
-        if (!dead || owner.phase === "writing")
-          throw new Fault(
-            "TARGET_LOCKED",
-            "A runner owns this schema or an interrupted write needs reconciliation. Preserve its control state.",
-            5,
-            "conflict"
-          );
-      }
-      await writeJson(this.file("active.json"), {
-        runId,
-        pid: process.pid,
-        hostname: hostname(),
-        phase: "preparing",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    });
-  }
-  async assertOwner(runId) {
-    const owner = await this.owner();
-    if (owner?.runId !== runId || owner.pid !== process.pid || owner.hostname !== hostname())
-      throw new Fault(
-        "LEASE_LOST",
-        "Local deployment ownership is no longer confirmed.",
-        6,
-        "outcome_unknown"
-      );
-    return owner;
-  }
-  async markWriting(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      await writeJson(this.file("active.json"), { ...await this.assertOwner(runId), phase: "writing" });
-    });
-  }
-  async migration(runId, version2, checksum, status) {
-    await withLock(this.file("control.lock"), async () => {
-      await this.assertOwner(runId);
-      const history = await this.history(), previous = history.find((row) => row.version === version2);
-      if (status === "started" ? Boolean(previous) : !previous || previous.run_id !== runId || previous.checksum !== checksum || previous.status !== "started")
-        throw new Fault(
-          "MIGRATION_HISTORY_CONFLICT",
-          "Migration history requires reconciliation; it cannot be replayed or overwritten.",
-          5
-        );
-      const next2 = history.filter((row) => row.version !== version2);
-      next2.push({ version: version2, checksum, status, run_id: runId });
-      await writeJson(
-        this.file("history.json"),
-        next2.sort((a, b) => a.version.localeCompare(b.version))
-      );
-    });
-  }
-  async release(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      await this.assertOwner(runId);
-      await rm2(this.file("active.json"));
-    });
-  }
-};
-
-// packages/core/src/sync.ts
-import path3 from "node:path";
-import { lstat, mkdir as mkdir2, readdir as readdir2, realpath, open, cp, chmod } from "node:fs/promises";
-var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var snapshotSchema = external_exports.strictObject({
-  directory: relativePath,
-  files: external_exports.record(relativePath, digest),
-  digest
-});
-var serverMetadataSchema = external_exports.strictObject({
-  lastUpdatedOn: external_exports.string().nullable(),
-  lastUpdatedBy: external_exports.string().nullable()
-});
-var syncStateSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  syncId: external_exports.uuid(),
-  revision: external_exports.number().int().nonnegative(),
-  projectRoot: external_exports.string(),
-  projectId: external_exports.string(),
-  environment: external_exports.string(),
-  targetDigest: digest,
-  target: external_exports.record(external_exports.string(), external_exports.unknown()),
-  sourceDir: relativePath,
-  toolchainDigest: digest,
-  runtimeVersion: external_exports.string(),
-  compilerVersion: external_exports.string().min(1),
-  exportedAt: external_exports.iso.datetime(),
-  baseline: snapshotSchema,
-  backup: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digest }),
-  observedMetadata: serverMetadataSchema,
-  lastSuccessfulImport: external_exports.strictObject({
-    at: external_exports.iso.datetime(),
-    runId: external_exports.uuid(),
-    snapshot: snapshotSchema
-  }).nullable(),
-  status: external_exports.enum(["ready", "importing", "verification_failed", "outcome_unknown", "invalidated"]),
-  importingRunId: external_exports.uuid().nullable()
-});
-async function syncPath(ctx, relative) {
-  const file = await contained(ctx.root, relative);
-  let probe = ctx.root;
-  for (const part of path3.relative(ctx.root, file).split(path3.sep).filter(Boolean)) {
-    probe = path3.join(probe, part);
-    if (await exists(probe)) {
-      if ((await lstat(probe)).isSymbolicLink())
-        throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
-    }
-  }
-  return file;
-}
-async function privateCopy(source, destination) {
-  await cp(source, destination, { recursive: true });
-  async function secure(directory) {
-    await chmod(directory, 448);
-    for (const entry of await readdir2(directory, { withFileTypes: true })) {
-      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
-      const file = path3.join(directory, entry.name);
-      if (entry.isDirectory()) await secure(file);
-      else if (entry.isFile()) await chmod(file, 384);
-      else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
-    }
-  }
-  await secure(destination);
-}
-async function checkSnapshot(ctx, snapshot) {
-  if (!snapshot.directory.startsWith(".apexrest/"))
-    throw new Fault("SYNC_ARTIFACT_INVALID", "Snapshot must be private project storage.", 5);
-  const actual = await inventory(await syncPath(ctx, snapshot.directory));
-  if (!Object.keys(actual).length || canonical(actual) !== canonical(snapshot.files) || hash(canonical(actual)) !== snapshot.digest)
-    throw new Fault("SYNC_ARTIFACT_INVALID", "Working-copy snapshot checksum verification failed.", 5);
-  return actual;
-}
-async function checkSyncBackup(ctx, backup, envDigest, environmentName) {
-  const directory = await syncPath(ctx, ".apexrest/backups/" + backup.backupId);
-  const metadata = await readJson(
-    await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/backup.json")
-  );
-  const files = await inventory(await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/application"));
-  if (metadata.schemaVersion !== 1 || metadata.environment !== environmentName || metadata.backupId !== backup.backupId || metadata.targetDigest !== envDigest || metadata.digest !== backup.checksum || hash(canonical(files)) !== backup.checksum || canonical(metadata.files) !== canonical(files) || !Object.keys(files).length)
-    throw new Fault("BACKUP_INVALID", "Initial SQL backup checksum or target verification failed.", 5);
-}
-function checkpoint(state) {
-  return state.lastSuccessfulImport?.snapshot ?? state.baseline;
-}
-var SyncStore = class {
-  constructor(ctx, env, name2) {
-    this.ctx = ctx;
-    this.env = env;
-    this.name = name2;
-  }
-  ctx;
-  env;
-  name;
-  async file(key = targetDigest(this.env)) {
-    return syncPath(this.ctx, ".apexrest/sync/" + key + "/state.json");
-  }
-  async lock(action) {
-    return withLock(await syncPath(this.ctx, ".apexrest/sync/state.lock"), action);
-  }
-  /** Scan environment records so a changed target cannot silently become a legacy project. */
-  async read(allowMappingChange = false) {
-    const base = await syncPath(this.ctx, ".apexrest/sync");
-    if (!await exists(base)) return null;
-    const matches = [];
-    for (const entry of await readdir2(base, { withFileTypes: true })) {
-      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Sync storage contains a symlink.", 5);
-      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
-      const file = await this.file(entry.name);
-      if (!await exists(file)) {
-        if (await exists(await syncPath(this.ctx, ".apexrest/sync/" + entry.name + "/journal.jsonl")))
-          throw new Fault(
-            "SYNC_STATE_INVALID",
-            "A durable sync journal exists but its state is missing. Recover it explicitly; no export fallback.",
-            5
-          );
-        continue;
-      }
-      let state2;
-      try {
-        state2 = syncStateSchema.parse(await readJson(file));
-      } catch {
-        throw new Fault(
-          "SYNC_STATE_INVALID",
-          "Corrupt working-copy state requires explicit recovery; no export fallback.",
-          5
-        );
-      }
-      if (state2.targetDigest !== entry.name)
-        throw new Fault("SYNC_STATE_INVALID", "Sync record storage key differs from its target.", 5);
-      if (state2.targetDigest === targetDigest(this.env) && state2.environment !== this.name && state2.status !== "invalidated")
-        throw new Fault(
-          "SYNC_MAPPING_CHANGED",
-          "This target is bound to another environment. Explicitly invalidate the previous mapping first.",
-          5
-        );
-      if (state2.environment === this.name && state2.status !== "invalidated") matches.push(state2);
-      else if (state2.targetDigest === targetDigest(this.env) && state2.environment === this.name)
-        matches.push(state2);
-    }
-    const active = matches.filter((s) => s.status !== "invalidated");
-    if (active.length > 1)
-      throw new Fault("SYNC_STATE_INVALID", "Multiple active records require reconciliation.", 5);
-    const state = active[0] ?? matches[0] ?? null;
-    if (state && state.status !== "invalidated" && !allowMappingChange) await this.checkMapping(state);
-    return state;
-  }
-  async checkMapping(state) {
-    const { readFile: readFile7 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile7(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
-      throw new Fault(
-        "SYNC_MAPPING_CHANGED",
-        "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
-        5
-      );
-  }
-  async validate(state, ready = true) {
-    await this.checkMapping(state);
-    if (ready && state.status !== "ready")
-      throw new Fault(
-        "SYNC_BLOCKED",
-        `Working copy is ${state.status}. Inspect the existing run and reconcile before writes.`,
-        5
-      );
-    if (state.baseline.directory !== ".apexrest/sync/" + state.targetDigest + "/baselines/" + state.syncId + "/application" || state.lastSuccessfulImport && state.lastSuccessfulImport.snapshot.directory !== ".apexrest/deployments/" + state.lastSuccessfulImport.runId + "/snapshot/" + state.sourceDir)
-      throw new Fault(
-        "SYNC_ARTIFACT_INVALID",
-        "Snapshot reference does not match its sync or deployment owner.",
-        5
-      );
-    if (state.status === "ready" && (await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
-      throw new Fault("SYNC_BLOCKED", "A writing owner must complete or be reconciled before reuse.", 5);
-    await checkSnapshot(this.ctx, state.baseline);
-    if (state.lastSuccessfulImport) await checkSnapshot(this.ctx, state.lastSuccessfulImport.snapshot);
-    await checkSyncBackup(this.ctx, state.backup, state.targetDigest, this.name);
-  }
-  async write(state) {
-    const valid = syncStateSchema.parse(state);
-    const file = await this.file(valid.targetDigest);
-    await mkdir2(path3.dirname(file), { recursive: true, mode: 448 });
-    const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
-    const journal2 = await open(journalFile, "a", 384);
-    try {
-      await journal2.writeFile(
-        JSON.stringify({
-          at: (/* @__PURE__ */ new Date()).toISOString(),
-          syncId: valid.syncId,
-          revision: valid.revision,
-          status: valid.status,
-          importingRunId: valid.importingRunId,
-          baseline: valid.baseline.directory,
-          backupId: valid.backup.backupId,
-          latestApplied: valid.lastSuccessfulImport?.snapshot.directory ?? null
-        }) + "\n"
-      );
-      await journal2.sync();
-    } finally {
-      await journal2.close();
-    }
-    await writeJson(file, valid);
-    const directory = process.platform !== "win32" ? await open(path3.dirname(file), "r") : null;
-    try {
-      await directory?.sync();
-    } finally {
-      await directory?.close();
-    }
-  }
-  async status() {
-    const state = await this.read(true);
-    if (!state) return { mode: "full-export", status: "absent", serverFreshness: "not-checked" };
-    let blockedReason = null;
-    try {
-      await this.validate(state, false);
-    } catch (error) {
-      blockedReason = error instanceof Fault ? error.code : "SYNC_ARTIFACT_INVALID";
-    }
-    if ((await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
-      blockedReason = "SYNC_BLOCKED";
-    const source = await syncPath(this.ctx, state.sourceDir);
-    const files = await exists(source) ? await inventory(source) : {};
-    return {
-      mode: state.status === "invalidated" ? "full-export" : "working-copy",
-      syncId: state.syncId,
-      revision: state.revision,
-      status: state.status,
-      exportedAt: state.exportedAt,
-      lastSuccessfulImport: state.lastSuccessfulImport ? {
-        at: state.lastSuccessfulImport.at,
-        runId: state.lastSuccessfulImport.runId,
-        digest: state.lastSuccessfulImport.snapshot.digest
-      } : null,
-      backupId: state.backup.backupId,
-      importingRunId: state.importingRunId,
-      dirty: canonical(files) !== canonical(checkpoint(state).files),
-      blocked: !!blockedReason || !["ready", "invalidated"].includes(state.status),
-      blockedReason,
-      serverFreshness: "not-checked",
-      assumption: "single-editor"
-    };
-  }
-};
-
 // packages/core/src/composer/materializer.ts
-import path6 from "node:path";
-import { readFile as readFile4, mkdir as mkdir4, cp as cp3, rm as rm3, open as open2 } from "node:fs/promises";
+import path4 from "node:path";
+import { readFile as readFile4, mkdir as mkdir3, cp as cp2, rm as rm2, open } from "node:fs/promises";
 import { randomUUID as randomUUID2 } from "node:crypto";
 
 // packages/core/src/composer/schemas.ts
-var digest2 = external_exports.string().regex(/^[a-f0-9]{64}$/);
+var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var name = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,63}$/);
 var version = external_exports.string().regex(/^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/);
 var blockId = external_exports.string().regex(/^block:[a-z0-9-]+\/[a-z0-9-]+$/);
@@ -8015,34 +7670,34 @@ var rendererSchema = external_exports.strictObject({
     external_exports.literal("correlationId")
   ])
 });
-var ownerSchema2 = external_exports.strictObject({
+var ownerSchema = external_exports.strictObject({
   instanceId: name,
   blockId,
   version,
   mode: external_exports.enum(["managed", "extended", "detached"]),
-  files: external_exports.record(relativePath, digest2),
-  bases: external_exports.record(relativePath, digest2),
+  files: external_exports.record(relativePath, digest),
+  bases: external_exports.record(relativePath, digest),
   allocation: allocationSchema,
   consumers: external_exports.array(name),
-  provenance: digest2
+  provenance: digest
 });
 var stateSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   generatorVersion: external_exports.literal("1"),
-  generationDigest: digest2,
-  blueprintDigest: digest2,
-  lockDigest: digest2,
-  owners: external_exports.record(name, ownerSchema2)
+  generationDigest: digest,
+  blueprintDigest: digest,
+  lockDigest: digest,
+  owners: external_exports.record(name, ownerSchema)
 });
 var lockSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   generatorVersion: external_exports.literal("1"),
   resolverPolicyVersion: external_exports.literal("1"),
-  blueprintSemanticDigest: digest2,
-  catalogDigest: digest2,
+  blueprintSemanticDigest: digest,
+  catalogDigest: digest,
   compatibilityProfile: external_exports.string(),
-  packages: external_exports.record(external_exports.string(), digest2),
-  contractDigest: digest2
+  packages: external_exports.record(external_exports.string(), digest),
+  contractDigest: digest
 });
 var diagnosticSchema = external_exports.strictObject({
   code: external_exports.string(),
@@ -8051,8 +7706,8 @@ var diagnosticSchema = external_exports.strictObject({
 });
 var operationSchema = external_exports.strictObject({
   path: relativePath,
-  before: digest2.nullable(),
-  after: digest2.nullable(),
+  before: digest.nullable(),
+  after: digest.nullable(),
   content: text.nullable(),
   reason: external_exports.string()
 });
@@ -8063,15 +7718,15 @@ var planSchema = external_exports.strictObject({
   status: external_exports.enum(["materializable", "blocked"]),
   projectId: external_exports.string(),
   blueprintPath: relativePath,
-  blueprintDigest: digest2,
-  catalogDigest: digest2,
-  configurationDigest: digest2,
-  toolchainDigest: digest2,
-  sourceInventory: external_exports.record(relativePath, digest2),
-  stateDigest: digest2.nullable(),
+  blueprintDigest: digest,
+  catalogDigest: digest,
+  configurationDigest: digest,
+  toolchainDigest: digest,
+  sourceInventory: external_exports.record(relativePath, digest),
+  stateDigest: digest.nullable(),
   validation: external_exports.enum(["compiler", "source-only"]),
   mode: external_exports.enum(["offline", "connected"]),
-  contextDigest: digest2,
+  contextDigest: digest,
   environment: external_exports.string().nullable(),
   review: external_exports.strictObject({
     entities: external_exports.record(name, entitySchema),
@@ -8080,7 +7735,7 @@ var planSchema = external_exports.strictObject({
     packages: external_exports.record(
       external_exports.string(),
       external_exports.strictObject({
-        digest: digest2,
+        digest,
         origin: external_exports.string(),
         license: external_exports.string(),
         effects: blockSchema.shape.effects,
@@ -8088,13 +7743,13 @@ var planSchema = external_exports.strictObject({
       })
     )
   }),
-  recovery: external_exports.strictObject({ journalId: external_exports.uuid(), sourcePlanDigest: digest2, recordsDigest: digest2 }).optional(),
+  recovery: external_exports.strictObject({ journalId: external_exports.uuid(), sourcePlanDigest: digest, recordsDigest: digest }).optional(),
   allocations: external_exports.record(name, allocationSchema),
   operations: external_exports.array(operationSchema).max(2048),
   state: stateSchema.nullable(),
   lock: lockSchema.nullable(),
   diagnostics: external_exports.array(diagnosticSchema),
-  digest: digest2
+  digest
 });
 var evidenceSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
@@ -8112,10 +7767,10 @@ var evidenceSchema = external_exports.strictObject({
     "packaging"
   ]),
   status: external_exports.enum(["passed", "failed", "not-run", "blocked", "stale"]),
-  sourceDigest: digest2,
-  generatorDigest: digest2,
-  configurationDigest: digest2,
-  fixtureDigest: digest2,
+  sourceDigest: digest,
+  generatorDigest: digest,
+  configurationDigest: digest,
+  fixtureDigest: digest,
   profile: external_exports.string(),
   tool: external_exports.string(),
   runner: external_exports.enum(["local", "mock", "oracle", "native-host"]),
@@ -8126,8 +7781,8 @@ var evidenceSchema = external_exports.strictObject({
 
 // packages/core/src/composer/formats.ts
 var import_yaml = __toESM(require_dist(), 1);
-import { readFile as readFile2, lstat as lstat2, realpath as realpath2 } from "node:fs/promises";
-import path4 from "node:path";
+import { readFile as readFile2, lstat, realpath } from "node:fs/promises";
+import path2 from "node:path";
 function canonical2(value) {
   if (Array.isArray(value)) return "[" + value.map(canonical2).join(",") + "]";
   if (value && typeof value === "object")
@@ -8188,15 +7843,15 @@ function validate(schema, value) {
   return result.data;
 }
 async function safePath(root, relative) {
-  if (path4.isAbsolute(relative) || relative.split(/[\\/]/).includes(".."))
+  if (path2.isAbsolute(relative) || relative.split(/[\\/]/).includes(".."))
     throw new Fault("COMPOSER_PATH_UNSAFE", "Expected a contained relative path.", 2);
   const file = await contained(root, relative);
-  let probe = await realpath2(root);
-  for (const part of path4.relative(probe, file).split(path4.sep).filter(Boolean)) {
-    probe = path4.join(probe, part);
+  let probe = await realpath(root);
+  for (const part of path2.relative(probe, file).split(path2.sep).filter(Boolean)) {
+    probe = path2.join(probe, part);
     let info;
     try {
-      info = await lstat2(probe);
+      info = await lstat(probe);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
@@ -8216,10 +7871,10 @@ function planDigest(plan) {
 }
 
 // packages/core/src/composer/catalog.ts
-import path5 from "node:path";
-import { readFile as readFile3, readdir as readdir3, cp as cp2, mkdir as mkdir3 } from "node:fs/promises";
+import path3 from "node:path";
+import { readFile as readFile3, readdir as readdir2, cp, mkdir as mkdir2 } from "node:fs/promises";
 async function loadCatalog(project, cachePayloads = true) {
-  const root = path5.join(resourceRoot(), "blocks");
+  const root = path3.join(resourceRoot(), "blocks");
   const index = JSON.parse(await readFile3(await safePath(root, "manifest.json"), "utf8"));
   if (index.schemaVersion !== 1 || !Array.isArray(index.packages) || index.packages.length > 1e3)
     throw new Fault("CATALOG_INVALID", "Unsupported block registry.", 2);
@@ -8228,16 +7883,16 @@ async function loadCatalog(project, cachePayloads = true) {
   if (!Array.isArray(revocations)) throw new Fault("CATALOG_INVALID", "Invalid revocation registry.", 5);
   const packages = /* @__PURE__ */ new Map();
   async function add(base, relative, expected) {
-    const directory = await safePath(base, relative), files = await inventory(directory), digest3 = semanticDigest(files);
-    if (expected && expected !== digest3)
+    const directory = await safePath(base, relative), files = await inventory(directory), digest2 = semanticDigest(files);
+    if (expected && expected !== digest2)
       throw new Fault("PACKAGE_CORRUPT", "Block package integrity check failed.", 5);
     if (project && cachePayloads) {
-      const cache = await safePath(project, `.apexrest/composer/cache/${digest3}`);
+      const cache = await safePath(project, `.apexrest/composer/cache/${digest2}`);
       if (!await exists(cache)) {
-        await mkdir3(path5.dirname(cache), { recursive: true, mode: 448 });
-        await cp2(directory, cache, { recursive: true, errorOnExist: true, force: false });
+        await mkdir2(path3.dirname(cache), { recursive: true, mode: 448 });
+        await cp(directory, cache, { recursive: true, errorOnExist: true, force: false });
       }
-      if (semanticDigest(await inventory(cache)) !== digest3)
+      if (semanticDigest(await inventory(cache)) !== digest2)
         throw new Fault("PACKAGE_CORRUPT", "Cached immutable package changed.", 5);
     }
     const manifest = await readDocument(directory, "block.yaml", blockSchema), key = manifest.id + "@" + manifest.version;
@@ -8246,12 +7901,12 @@ async function loadCatalog(project, cachePayloads = true) {
     if (!expected && project) {
       const policyFile = await safePath(project, ".apexrest-composer/registry-policy.json");
       const policy2 = await exists(policyFile) ? JSON.parse(await readFile3(policyFile, "utf8")) : { reviewedPackages: {} };
-      if (policy2.reviewedPackages?.[key] !== digest3) manifest.status = "draft";
+      if (policy2.reviewedPackages?.[key] !== digest2) manifest.status = "draft";
       else if (manifest.status === "draft") manifest.status = "experimental";
     }
     if (packages.has(key))
       throw new Fault("MUTABLE_VERSION_CONFLICT", "Duplicate block ID/version is unsupported.", 5);
-    if (revocations.some((r) => r.id === key && r.digest === digest3)) manifest.status = "revoked";
+    if (revocations.some((r) => r.id === key && r.digest === digest2)) manifest.status = "revoked";
     const descriptor = await readDocument(directory, "renderer.json", rendererSchema);
     if (descriptor.renderer !== manifest.renderer)
       throw new Fault("PACKAGE_INVALID", "Renderer contract differs from manifest.", 5);
@@ -8266,12 +7921,12 @@ async function loadCatalog(project, cachePayloads = true) {
     const evidence = await exists(evidenceFile) ? validate(evidenceSchema.array().max(100), JSON.parse(await readFile3(evidenceFile, "utf8"))) : [];
     packages.set(key, {
       manifest,
-      digest: digest3,
+      digest: digest2,
       directory,
       files,
       evidence: evidence.map((e) => ({
         ...e,
-        status: e.sourceDigest === digest3 && e.generatorDigest === generator.runtimeSourceDigest ? e.status : "stale"
+        status: e.sourceDigest === digest2 && e.generatorDigest === generator.runtimeSourceDigest ? e.status : "stale"
       }))
     });
   }
@@ -8279,7 +7934,7 @@ async function loadCatalog(project, cachePayloads = true) {
     await add(root, entry.path, entry.digest);
   if (project && await exists(await safePath(project, ".apexrest-composer/blocks"))) {
     const local = await safePath(project, ".apexrest-composer/blocks");
-    for (const entry of (await readdir3(local, { withFileTypes: true })).sort(
+    for (const entry of (await readdir2(local, { withFileTypes: true })).sort(
       (a, b) => a.name < b.name ? -1 : 1
     )) {
       if (!entry.isDirectory())
@@ -8326,7 +7981,7 @@ function resolvePackages(catalog, selectors, profile) {
 }
 async function catalogSearch(query, options = {}) {
   if (options.corpus === "blueprints") {
-    const root = path5.join(resourceRoot(), "blueprints"), entries = JSON.parse(await readFile3(path5.join(root, "index.json"), "utf8"));
+    const root = path3.join(resourceRoot(), "blueprints"), entries = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
     const hits = entries.filter((e) => (e.id + " " + e.title).toLowerCase().includes(query.toLowerCase()));
     return {
       totalMatches: hits.length,
@@ -8370,7 +8025,7 @@ async function catalogSearch(query, options = {}) {
 async function catalogRead(id, offset = 0, limit = 4096, project) {
   let content;
   if (id.startsWith("blueprint:")) {
-    const root = path5.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path5.join(root, "index.json"), "utf8"));
+    const root = path3.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
     const entry = index.find((e) => e.id === id);
     if (!entry) throw new Fault("REFERENCE_NOT_FOUND", "Unknown blueprint.", 2);
     content = await readFile3(await safePath(root, entry.path), "utf8");
@@ -8469,11 +8124,11 @@ async function bytes(ctx, relative) {
 }
 async function durable(ctx, relative, content) {
   const file = await safePath(ctx.root, relative);
-  await mkdir4(path6.dirname(file), { recursive: true, mode: 448 });
-  if (content === null) await rm3(file, { force: true });
+  await mkdir3(path4.dirname(file), { recursive: true, mode: 448 });
+  if (content === null) await rm2(file, { force: true });
   else await atomicWrite(file, content);
   try {
-    const handle = await open2(path6.dirname(file), "r");
+    const handle = await open(path4.dirname(file), "r");
     try {
       await handle.sync();
     } finally {
@@ -8558,15 +8213,15 @@ async function checkPreconditions(ctx, plan) {
 }
 async function stagePlan(ctx, plan) {
   const relative = `.apexrest/composer/staging/${plan.digest}`, base = await safePath(ctx.root, relative);
-  await mkdir4(base, { recursive: true, mode: 448 });
-  const application = path6.join(base, "application");
-  await rm3(application, { recursive: true, force: true });
-  await cp3(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
+  await mkdir3(base, { recursive: true, mode: 448 });
+  const application = path4.join(base, "application");
+  await rm2(application, { recursive: true, force: true });
+  await cp2(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
   for (const op of plan.operations.filter(
     (op2) => op2.path.startsWith(ctx.config.application.sourceDir + "/")
   )) {
     const file = await safePath(application, op.path.slice(ctx.config.application.sourceDir.length + 1));
-    if (op.content === null) await rm3(file, { force: true });
+    if (op.content === null) await rm2(file, { force: true });
     else await atomicWrite(file, op.content);
   }
   return { directory: application, sourceDigest: semanticDigest(await inventory(application)) };
@@ -8761,8 +8416,8 @@ async function recoveryPlan(ctx, action) {
     throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted composition requires recovery.", 5);
   await requireFrozenPlan(ctx, record.plan);
   for (const entry of record.records) {
-    const current = await bytes(ctx, entry.path), digest3 = current ? hash(current) : null;
-    if (digest3 !== entry.before && digest3 !== entry.after)
+    const current = await bytes(ctx, entry.path), digest2 = current ? hash(current) : null;
+    if (digest2 !== entry.before && digest2 !== entry.after)
       throw new Fault("RECOVERY_CONFLICT", "Recovery cannot overwrite an unrecognized concurrent edit.", 5);
   }
   const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
@@ -8881,9 +8536,9 @@ async function deploymentBinding(ctx) {
     throw new Fault("COMPOSITION_DRIFT", "Composition receipt, blueprint, state or lock changed.", 5);
   for (const owner of Object.values(state.owners))
     if (owner.mode !== "detached")
-      for (const [file2, digest3] of Object.entries(owner.files)) {
+      for (const [file2, digest2] of Object.entries(owner.files)) {
         const source = await bytes(ctx, ctx.config.application.sourceDir + "/" + file2);
-        if (!source || hash(source) !== digest3)
+        if (!source || hash(source) !== digest2)
           throw new Fault(
             "COMPOSITION_DRIFT",
             "Managed source changed after materialization; replan before deployment.",
@@ -8971,7 +8626,20 @@ var planV3Schema = planV2Object.extend({ schemaVersion: external_exports.literal
   if (plan.mode === "working-copy" !== (plan.backupStrategy === "initial-backup") || plan.mode === "working-copy" !== (plan.workingCopy !== null))
     ctx.addIssue({ code: "custom", message: "Plan mode, backup strategy and sync binding must agree." });
 });
-var deployPlanSchema = external_exports.union([legacyPlanSchema, planV2Schema, planV3Schema]);
+var planV4Schema = planV2Object.extend({
+  schemaVersion: external_exports.literal(4),
+  scope: external_exports.enum(["full-application-import", "selected-file-import"]),
+  composer: composerBindingSchema.nullable(),
+  importSelection: importSelectionSchema
+}).superRefine((plan, ctx) => {
+  const partial = plan.importSelection.resolvedMode === "files";
+  if (partial && !!plan.restore || plan.importSelection.requestedMode === "files" && !partial || plan.importSelection.requestedMode === "full" && partial || !partial && plan.mode === "working-copy" !== (plan.backupStrategy === "initial-backup") || plan.mode === "working-copy" !== (plan.workingCopy !== null) || partial && (!plan.importSelection.files.length || !plan.importSelection.before || !plan.importSelection.effective || plan.backupStrategy !== "fresh-export" || !plan.workingCopy) || partial !== (plan.scope === "selected-file-import") || !partial && (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
+    ctx.addIssue({
+      code: "custom",
+      message: "Import selection, scope, snapshots and backup strategy must agree."
+    });
+});
+var deployPlanSchema = external_exports.union([legacyPlanSchema, planV2Schema, planV3Schema, planV4Schema]);
 var next = {
   planned: ["approved"],
   approved: ["backing_up"],
@@ -9170,7 +8838,7 @@ async function authorizePlan(ctx, plan, env) {
     );
 }
 var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
-var migrationVersion = (file) => BigInt(migrationName.exec(path7.basename(file))?.[1] ?? "-1");
+var migrationVersion = (file) => BigInt(migrationName.exec(path5.basename(file))?.[1] ?? "-1");
 function operationOrder(a, b) {
   const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
   if (kind) return kind;
@@ -9249,7 +8917,7 @@ async function sourceInventory(ctx) {
     "playwright.config.ts",
     "playwright.config.mjs"
   ])
-    if (await exists(path7.join(ctx.root, relative)))
+    if (await exists(path5.join(ctx.root, relative)))
       files[relative] = hash(await readFile5(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
@@ -9354,13 +9022,13 @@ var DeploymentService = class {
         const syncId = randomUUID3(), backupId = randomUUID3();
         const baselineDir = ".apexrest/sync/" + targetDigest(env) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
-        await mkdir5(path7.dirname(baselineRoot), { recursive: true, mode: 448 });
+        await mkdir4(path5.dirname(baselineRoot), { recursive: true, mode: 448 });
         await privateCopy(exported.directory, baselineRoot);
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
-        await mkdir5(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(sql.directory, path7.join(backupRoot, "application"));
-        await writeJson(path7.join(backupRoot, "backup.json"), {
+        await mkdir4(backupRoot, { recursive: true, mode: 448 });
+        await privateCopy(sql.directory, path5.join(backupRoot, "application"));
+        await writeJson(path5.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env),
@@ -9432,7 +9100,7 @@ var DeploymentService = class {
             }
           }
         } else {
-          await mkdir5(path7.dirname(source), { recursive: true });
+          await mkdir4(path5.dirname(source), { recursive: true });
           const replacement = await syncPath(
             ctx,
             ".apexrest/sync/" + targetDigest(env) + "/baselines/" + syncId + "/new-working-copy"
@@ -9455,7 +9123,179 @@ var DeploymentService = class {
   async releaseLease(env, runId) {
     await new LocalDeploymentControl(env).release(runId);
   }
-  async plan(ctx, name2, restore = false) {
+  async plan(ctx, name2, options = {}) {
+    if (typeof options === "boolean") return this.legacyPlan(ctx, name2, options);
+    const requested = importOptions(options);
+    await requireTrust(ctx.root);
+    const source = await contained(ctx.root, ctx.config.application.sourceDir);
+    const release = await sourceRelease(source);
+    if (release !== "26.2") {
+      if (requested.importMode === "files")
+        throw new Fault(
+          "PARTIAL_IMPORT_UNSUPPORTED",
+          "File import requires an Oracle-exported 26.2 source tree.",
+          3
+        );
+      return this.legacyPlan(ctx, name2);
+    }
+    const versions = await this.oracle.targetVersions(
+      await resolveConnection(environment(ctx, name2).readConnectionRef)
+    );
+    if (!/^26\.2(?:\.|$)/.test(versions.apexVersion) || !databaseMeetsApex262Minimum(versions.databaseVersion))
+      throw new Fault(
+        "APEX_VERSION_MISMATCH",
+        "APEX 26.2 sources require a qualified 26.2 target and supported database release.",
+        3,
+        "blocked"
+      );
+    const partial = requested.importMode === "full" ? { reasons: ["full-import-requested"] } : await this.planFiles(ctx, name2, requested);
+    if ("plan" in partial && partial.plan) return partial.plan;
+    if (requested.importMode === "files")
+      throw new Fault("PARTIAL_IMPORT_UNSUPPORTED", partial.reasons.join("; "), 3, "blocked", {
+        reasons: partial.reasons
+      });
+    const full = await this.legacyPlan(ctx, name2);
+    const plan = {
+      ...full,
+      schemaVersion: 4,
+      mode: full.schemaVersion === 1 ? "full-export" : full.mode,
+      backupStrategy: full.schemaVersion === 1 ? "fresh-export" : full.backupStrategy,
+      workingCopy: full.schemaVersion === 1 ? null : full.workingCopy,
+      composer: full.schemaVersion === 3 ? full.composer : null,
+      importSelection: {
+        requestedMode: requested.importMode,
+        resolvedMode: "full",
+        files: [],
+        reasons: partial.reasons,
+        dependencies: [],
+        before: null,
+        effective: null,
+        capabilities: { ...versions }
+      }
+    };
+    plan.digest = planDigest2(plan);
+    return plan;
+  }
+  async planFiles(ctx, name2, options) {
+    const env = environment(ctx, name2);
+    if (await isProductionTarget(env)) return { reasons: ["production-requires-full-import"] };
+    const store = new SyncStore(ctx, env, name2), working = await store.read();
+    if (!working || working.status === "invalidated") return { reasons: ["trusted-sync-baseline-required"] };
+    await store.validate(working);
+    const source = await syncPath(ctx, ctx.config.application.sourceDir);
+    const sources = await sourceInventory(ctx), local = applicationFiles(ctx, sources);
+    const connection = await resolveConnection(env.readConnectionRef);
+    const versions = await this.oracle.targetVersions(connection);
+    const capabilities = await this.oracle.partialImportCapabilities(source, versions);
+    if (capabilities.compilerVersion !== working.compilerVersion)
+      throw new Fault(
+        "SYNC_COMPILER_CHANGED",
+        "Refresh the working copy explicitly after a compiler upgrade.",
+        5
+      );
+    const current = await this.fingerprint(env, connection);
+    try {
+      if (!current.exported) return { reasons: ["existing-application-required"] };
+      if (canonical(current.target) !== canonical(working.target))
+        throw new Fault("SYNC_SERVER_CHANGED", "Application identity changed since the sync baseline.", 5);
+      const selected = selectImport(checkpoint(working).files, local, current.exported.files, options);
+      const fallback = (reasons) => {
+        if (selected.remoteChanges.length)
+          throw new Fault(
+            "SYNC_SERVER_CHANGED",
+            "The server has changed and this selection needs a full import. Reconcile the observed remote changes before making a full plan.",
+            5
+          );
+        return { reasons };
+      };
+      if (!capabilities.supported) return fallback(capabilities.reasons);
+      if (selected.reasons.length) return fallback(selected.reasons);
+      for (const file of selected.files) sqlclToken(file);
+      if (current.history.some((row) => row.status !== "succeeded"))
+        throw new Fault(
+          "MIGRATION_HISTORY_CONFLICT",
+          "Resolve earlier migration outcomes before deployment.",
+          5
+        );
+      checkMigrations(ctx, sources, current.history);
+      const history = new Map(current.history.map((row) => [String(row.version), row]));
+      for (const [file, sha] of Object.entries(sources)) {
+        if (file.startsWith(ctx.config.database.packagesDir + "/"))
+          return fallback(["database-operations-require-full-import"]);
+        if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
+          const old = history.get(path5.basename(file));
+          if (!old) return fallback(["database-operations-require-full-import"]);
+          if (old.checksum !== sha)
+            throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
+        }
+      }
+      const id = randomUUID3(), root = ".apexrest/plans/" + id;
+      const before = await persistSnapshot(ctx, current.exported.directory, root + "/before");
+      const effective = await stageSelection(
+        ctx,
+        before,
+        source,
+        selected.files,
+        selected.effective,
+        root + "/effective"
+      );
+      const validation = await this.oracle.validate(await syncPath(ctx, effective.directory));
+      if (validation.compiler.version !== working.compilerVersion)
+        throw new Fault("SYNC_COMPILER_CHANGED", "Compiler changed while validating the import.", 5);
+      if (canonical(await sourceInventory(ctx)) !== canonical(sources))
+        throw new Fault("SOURCE_DRIFT", "Sources changed during selected-file planning.", 5);
+      const risks = await securityChanged(
+        { root: await syncPath(ctx, effective.directory), files: effective.files },
+        { root: await syncPath(ctx, before.directory), files: before.files }
+      ) ? ["authentication-or-authorization-change"] : [];
+      const createdAt = Date.now();
+      const plan = {
+        schemaVersion: 4,
+        mode: "working-copy",
+        backupStrategy: "fresh-export",
+        workingCopy: this.syncBinding(working),
+        composer: await deploymentBinding(ctx),
+        id,
+        projectId: ctx.config.projectId,
+        projectRoot: ctx.root,
+        environment: name2,
+        createdAt: new Date(createdAt).toISOString(),
+        expiresAt: new Date(createdAt + PLAN_LIFETIME_MS).toISOString(),
+        sourceDigest: hash(canonical(sources)),
+        sources,
+        configurationDigest: hash(canonical(ctx.config)),
+        toolchainDigest: hash(await readFile5(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+        compiler: validation.compiler.version,
+        targetDigest: targetDigest(env),
+        target: current.target,
+        fingerprint: current.fingerprint,
+        migrationHistory: current.history,
+        coordination: coordination(env),
+        scope: "selected-file-import",
+        operations: [{ kind: "import" }, { kind: "verify" }, { kind: "test" }],
+        risks,
+        approval: "external-policy-required",
+        backupRequired: true,
+        digest: "0".repeat(64),
+        importSelection: {
+          requestedMode: options.importMode,
+          resolvedMode: "files",
+          files: selected.files,
+          reasons: [],
+          dependencies: selected.files.filter((file) => file.startsWith("shared-components/")),
+          before,
+          effective,
+          capabilities,
+          readbackPolicy: APEXLANG_EQUIVALENCE_POLICY
+        }
+      };
+      plan.digest = planDigest2(plan);
+      return { plan, reasons: [] };
+    } finally {
+      await this.oracle.discardStage?.(current.exported?.stage);
+    }
+  }
+  async legacyPlan(ctx, name2, restore = false) {
     await requireTrust(ctx.root);
     const env = environment(ctx, name2), connection = await resolveConnection(env.readConnectionRef);
     const syncStore = new SyncStore(ctx, env, name2), stored = await syncStore.read();
@@ -9503,7 +9343,7 @@ var DeploymentService = class {
       const sql = await readFile5(await contained(ctx.root, file), "utf8");
       risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
-        const version2 = path7.basename(file);
+        const version2 = path5.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version2))
           throw new Fault(
             "INVALID_MIGRATION_NAME",
@@ -9533,7 +9373,7 @@ var DeploymentService = class {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
             files: applicationFiles(ctx, sources)
           },
-          { root: path7.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+          { root: path5.resolve(ctx.root, current.exported.directory), files: current.exported.files }
         ))
           risks.push("authentication-or-authorization-change");
       } finally {
@@ -9598,7 +9438,7 @@ var DeploymentService = class {
           5
         );
       const reviewed = checkpoint(state);
-      if (!plan.risks.includes("authentication-or-authorization-change") && await securityChanged(
+      if (!plan.risks.includes("authentication-or-authorization-change") && !(plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files") && await securityChanged(
         {
           root: await contained(ctx.root, ctx.config.application.sourceDir),
           files: applicationFiles(ctx, plan.sources)
@@ -9622,7 +9462,7 @@ var DeploymentService = class {
   async checkLocal(ctx, value, permitImporting = false) {
     const plan = parse(deployPlanSchema, value), env = environment(ctx, plan.environment);
     const composer = await deploymentBinding(ctx);
-    if (canonical(composer) !== canonical(plan.schemaVersion === 3 ? plan.composer : null))
+    if (canonical(composer) !== canonical(plan.schemaVersion === 3 || plan.schemaVersion === 4 ? plan.composer : null))
       throw new Fault(
         "COMPOSITION_REPLAN_REQUIRED",
         "Deployment plan must bind the current materialized Composer generation.",
@@ -9656,7 +9496,7 @@ var DeploymentService = class {
         if (!kind) continue;
         if (!file.endsWith(".sql"))
           throw new Fault("UNSUPPORTED_DB_SOURCE", "Database sources must be SQL files.", 5);
-        const previous = history.get(path7.basename(file));
+        const previous = history.get(path5.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
         if (kind !== "migration" || !previous) expected.push({ kind, file, sha256 });
@@ -9676,6 +9516,35 @@ var DeploymentService = class {
         5
       );
     await this.checkWorkingPlan(ctx, plan, permitImporting);
+    if (plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files") {
+      const selection = plan.importSelection;
+      if (selection.before.directory !== ".apexrest/plans/" + plan.id + "/before" || selection.effective.directory !== ".apexrest/plans/" + plan.id + "/effective")
+        throw new Fault("PLAN_TAMPERED", "Selected-import artifacts must belong to this plan.", 5);
+      await checkSnapshot(ctx, selection.before);
+      await checkSnapshot(ctx, selection.effective);
+      const working = await this.checkWorkingPlan(ctx, plan, permitImporting);
+      const selected = selectImport(
+        checkpoint(working).files,
+        applicationFiles(ctx, plan.sources),
+        selection.before.files,
+        {
+          importMode: selection.requestedMode,
+          ...selection.requestedMode === "files" ? { files: selection.files } : {}
+        }
+      );
+      if (selected.reasons.length || canonical(selected.files) !== canonical(selection.files) || canonical(selected.effective) !== canonical(selection.effective.files))
+        throw new Fault("PLAN_TAMPERED", "Selected files do not match the reviewed three-way comparison.", 5);
+      if (await securityChanged(
+        { root: await syncPath(ctx, selection.effective.directory), files: selection.effective.files },
+        { root: await syncPath(ctx, selection.before.directory), files: selection.before.files }
+      ))
+        throw new Fault(
+          "RECOVERY_REVIEW_REQUIRED",
+          "Selected import changes authentication or authorization.",
+          4,
+          "blocked"
+        );
+    }
     return { plan, env };
   }
   /** Acquire or re-confirm local schema ownership. No Oracle objects are touched. */
@@ -9695,6 +9564,7 @@ var DeploymentService = class {
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before execution.", 6, "cancelled");
     const { plan, env } = await this.checkLocal(ctx, value);
+    const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
     await authorizePlan(ctx, plan, env);
     await this.oracle.requireMutationSupport();
     const readConnection = await resolveConnection(env.readConnectionRef), deployConnection = await resolveConnection(env.deployConnectionRef);
@@ -9702,10 +9572,10 @@ var DeploymentService = class {
     const syncStore = new SyncStore(ctx, env, plan.environment);
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
       this.oracle.verifyTarget(env, deployConnection),
-      working ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env, readConnection),
+      working && !selection ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env, readConnection),
       this.oracle.requireCapability("import")
     ]);
-    const liveStage = !working && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
+    const liveStage = (!working || selection) && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
     try {
       if (deployTargetCheck.status === "rejected") throw deployTargetCheck.reason;
       if (fingerprintCheck.status === "rejected") throw fingerprintCheck.reason;
@@ -9730,11 +9600,25 @@ var DeploymentService = class {
     const capability = capabilityCheck.value;
     if (capability.version !== plan.compiler)
       throw new Fault("COMPILER_DRIFT", "SQLcl version changed after plan.", 5);
+    if (plan.schemaVersion === 4 && !selection && plan.importSelection.capabilities.apexVersion) {
+      const versions = await this.oracle.targetVersions(readConnection);
+      if (canonical(versions) !== canonical(plan.importSelection.capabilities))
+        throw new Fault("TARGET_DRIFT", "Target release changed after the full-import plan.", 5);
+    }
+    if (selection) {
+      const observed = await this.oracle.partialImportCapabilities(
+        await syncPath(ctx, selection.effective.directory),
+        await this.oracle.targetVersions(readConnection)
+      );
+      if (!observed.supported || canonical(observed) !== canonical(selection.capabilities))
+        throw new Fault("COMPILER_DRIFT", "Selected-import capabilities changed after planning.", 5);
+    }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runId = randomUUID3(), runs = path7.join(ctx.root, ".apexrest/deployments"), runDir = path7.join(runs, runId);
-    await mkdir5(runDir, { recursive: true, mode: 448 });
+    const runId = randomUUID3(), runs = path5.join(ctx.root, ".apexrest/deployments"), runDir = path5.join(runs, runId);
+    await mkdir4(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false, syncSucceeded = false;
+    let freshBackupId = null;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
@@ -9755,34 +9639,36 @@ var DeploymentService = class {
         at: (/* @__PURE__ */ new Date()).toISOString(),
         details
       };
-      const journal2 = await open3(path7.join(runDir, "journal.jsonl"), "a", 384);
+      const journal2 = await open2(path5.join(runDir, "journal.jsonl"), "a", 384);
       try {
         await journal2.writeFile(JSON.stringify(event) + "\n");
         await journal2.sync();
       } finally {
         await journal2.close();
       }
-      await writeJson(path7.join(runDir, "state.json"), event);
+      await writeJson(path5.join(runDir, "state.json"), event);
     };
-    await writeJson(path7.join(runDir, "plan.json"), plan);
+    await writeJson(path5.join(runDir, "plan.json"), plan);
     await record("approved");
     await this.lease(env, runId, true);
     try {
       await record("backing_up");
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if ((plan.backupRequired || liveApplication) && !working) {
+      if ((plan.backupRequired || liveApplication) && (!working || selection)) {
         const backup = await this.oracle.exportApplication(env, readConnection, "SQL");
         try {
-          const backupId = randomUUID3(), directory = path7.join(ctx.root, ".apexrest/backups", backupId);
-          await mkdir5(directory, { recursive: true, mode: 448 });
-          await privateCopy(backup.directory, path7.join(directory, "application"));
-          const files = await inventory(path7.join(directory, "application"));
+          const backupId = randomUUID3(), directory = path5.join(ctx.root, ".apexrest/backups", backupId);
+          await mkdir4(directory, { recursive: true, mode: 448 });
+          await privateCopy(backup.directory, path5.join(directory, "application"));
+          const files = await inventory(path5.join(directory, "application"));
           if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-          await writeJson(path7.join(directory, "backup.json"), {
+          await writeJson(path5.join(directory, "backup.json"), {
             schemaVersion: 1,
             backupId,
+            runId,
+            planDigest: plan.digest,
             targetDigest: plan.targetDigest,
             environment: plan.environment,
             digest: backup.digest,
@@ -9790,23 +9676,38 @@ var DeploymentService = class {
             ...typeof liveApplication?.alias === "string" ? { alias: liveApplication.alias } : {},
             restoreProcedure: "Reviewed SQL export import; application metadata only. Schema/data recovery is separate."
           });
+          freshBackupId = backupId;
+          await writeJson(path5.join(runDir, "backup.json"), {
+            backupId,
+            checksum: backup.digest,
+            targetDigest: plan.targetDigest
+          });
         } finally {
           await this.oracle.discardStage?.(backup.stage);
         }
       }
       await this.checkLocal(ctx, plan);
-      const after = working ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env, readConnection);
-      if (!working) await this.oracle.discardStage?.(after.exported?.stage);
+      const after = working && !selection ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env, readConnection);
+      if (!working || selection)
+        await this.oracle.discardStage?.(after.exported?.stage);
       if (after.fingerprint !== plan.fingerprint)
         throw new Fault("TARGET_DRIFT", "Target changed during backup.", 5);
-      const snapshot = path7.join(runDir, "snapshot");
-      await mkdir5(snapshot, { mode: 448 });
+      const snapshot = path5.join(runDir, "snapshot");
+      await mkdir4(snapshot, { mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source = await contained(ctx.root, file), destination = await contained(snapshot, file);
-        await mkdir5(path7.dirname(destination), { recursive: true });
-        await cp4(source, destination);
+        await mkdir4(path5.dirname(destination), { recursive: true });
+        await cp3(source, destination);
         if (hash(await readFile5(destination)) !== sha)
           throw new Fault("SOURCE_DRIFT", "Source changed while freezing deployment.", 5);
+      }
+      if (selection) {
+        await checkSnapshot(ctx, selection.effective);
+        const application = path5.join(snapshot, ctx.config.application.sourceDir);
+        await rm3(application, { recursive: true });
+        await privateCopy(await syncPath(ctx, selection.effective.directory), application);
+        if (canonical(await inventory(application)) !== canonical(selection.effective.files))
+          throw new Fault("SOURCE_DRIFT", "Selected source changed while freezing deployment.", 5);
       }
       if (controller.signal.aborted)
         throw new Fault("CANCELLED", "Deployment cancelled before writes.", 6, "cancelled");
@@ -9832,7 +9733,7 @@ var DeploymentService = class {
         if (operation.kind === "migration")
           await new LocalDeploymentControl(env).migration(
             runId,
-            path7.basename(file),
+            path5.basename(file),
             operation.sha256,
             "started"
           );
@@ -9850,7 +9751,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         if (operation.kind === "migration")
           await new LocalDeploymentControl(env).migration(
             runId,
-            path7.basename(file),
+            path5.basename(file),
             operation.sha256,
             "succeeded"
           );
@@ -9865,7 +9766,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         );
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        const frozen = path7.join(runDir, "restore");
+        const frozen = path5.join(runDir, "restore");
         await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
@@ -9886,20 +9787,26 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         await this.oracle.restoreApplication(
           env,
           deployConnection,
-          path7.join(frozen, main[0]),
+          path5.join(frozen, main[0]),
           controller.signal
         );
       } else {
+        if (selection && canonical(await inventory(path5.join(snapshot, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
+          throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
+        if (controller.signal.aborted)
+          throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
         writeStarted = true;
         await this.oracle.importApplication(
           ctx,
           env,
           deployConnection,
-          path7.join(snapshot, ctx.config.application.sourceDir),
-          controller.signal
+          path5.join(snapshot, ctx.config.application.sourceDir),
+          controller.signal,
+          selection?.files
         );
       }
       importConfirmed = true;
+      let serverSnapshot = null;
       let target;
       try {
         await record("verifying");
@@ -9907,6 +9814,36 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         const expectedAlias = plan.restore ? plan.restore.alias ?? plan.target.application?.alias ?? ctx.config.application.alias : ctx.config.application.alias;
         if (!target.application || String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase())
           throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
+        if (selection) {
+          const observed = await this.oracle.exportApplication(env, readConnection, "APEXLANG");
+          try {
+            serverSnapshot = await persistSnapshot(
+              ctx,
+              observed.directory,
+              ".apexrest/deployments/" + runId + "/server/" + ctx.config.application.sourceDir
+            );
+            const comparison = selection.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY ? await compareApplicationExports(
+              await syncPath(ctx, selection.effective.directory),
+              await syncPath(ctx, serverSnapshot.directory),
+              selection.effective.files,
+              serverSnapshot.files,
+              selection.files
+            ) : {
+              equivalent: canonical(serverSnapshot.files) === canonical(selection.effective.files),
+              policy: "exact-bytes",
+              normalizations: []
+            };
+            await writeJson(path5.join(runDir, "readback-verification.json"), comparison);
+            if (!comparison.equivalent)
+              throw new Fault(
+                "POST_DEPLOY_CONTENT_FAILED",
+                "Import confirmed but readback differs from the reviewed result; reconcile the retained server snapshot.",
+                5
+              );
+          } finally {
+            await this.oracle.discardStage?.(observed.stage);
+          }
+        }
         await record("testing");
         if (ctx.config.tests.requiredSuites.length) {
           if (!this.runTests)
@@ -9928,7 +9865,26 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         const metadata = await this.oracle.applicationMetadata(env, readConnection);
         const directory = ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
         const files = await inventory(await syncPath(ctx, directory));
-        const snapshot2 = { directory, files, digest: hash(canonical(files)) };
+        const snapshot2 = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
+        if (selection && serverSnapshot) {
+          try {
+            await rebaseAfterImport(
+              ctx,
+              runId,
+              applicationFiles(ctx, plan.sources),
+              checkpoint(working).files,
+              serverSnapshot,
+              selection.files
+            );
+          } catch (error) {
+            if (error instanceof Fault) throw error;
+            throw new Fault(
+              "LOCAL_RECONCILIATION_REQUIRED",
+              "Import confirmed; local rebase failed. Inspect the retained source and server snapshots.",
+              5
+            );
+          }
+        }
         await syncStore.lock(async () => {
           const state2 = await syncStore.read();
           if (!state2 || state2.importingRunId !== runId || state2.revision !== working.revision)
@@ -9946,7 +9902,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         syncSucceeded = true;
       }
       await record("succeeded");
-      return { runId, state, directory: runDir };
+      return { runId, state, directory: runDir, ...freshBackupId ? { backupId: freshBackupId } : {} };
     } catch (error) {
       const unknown = writeStarted && (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
       if (working && syncMarked) {
@@ -9991,24 +9947,47 @@ prompt APEXREST_SCRIPT_COMPLETE`,
   async reconcile(ctx, runId) {
     parse(external_exports.uuid(), runId);
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
-    const plan = parse(deployPlanSchema, await readJson(path7.join(directory, "plan.json"))), env = environment(ctx, plan.environment);
+    const plan = parse(deployPlanSchema, await readJson(path5.join(directory, "plan.json"))), env = environment(ctx, plan.environment);
     const current = await this.fingerprint(env, await resolveConnection(env.readConnectionRef));
-    await this.oracle.discardStage?.(current.exported?.stage);
-    const state = await readJson(path7.join(directory, "state.json"));
+    const state = await readJson(path5.join(directory, "state.json"));
+    const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
+    let comparison = null;
+    try {
+      if (selection?.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY && current.exported) {
+        await checkSnapshot(ctx, selection.effective);
+        comparison = await compareApplicationExports(
+          await syncPath(ctx, selection.effective.directory),
+          current.exported.directory,
+          selection.effective.files,
+          current.exported.files,
+          selection.files
+        );
+      }
+    } finally {
+      await this.oracle.discardStage?.(current.exported?.stage);
+    }
     return {
       runId,
       state,
       currentTarget: current.target,
       currentFingerprint: current.fingerprint,
       comparisonProvenance: "explicit-live-export",
-      targetUnchanged: plan.schemaVersion !== 1 && plan.mode === "working-copy" ? canonical(current.target) === canonical(plan.target) && canonical(current.history) === canonical(plan.migrationHistory) && current.exported?.digest === plan.workingCopy.checkpointDigest : current.fingerprint === plan.fingerprint,
-      importedSourcesMatch: current.exported ? canonical(current.exported.files) === canonical(
-        Object.fromEntries(
+      targetUnchanged: selection ? current.fingerprint === plan.fingerprint : plan.schemaVersion !== 1 && plan.mode === "working-copy" ? canonical(current.target) === canonical(plan.target) && canonical(current.history) === canonical(plan.migrationHistory) && current.exported?.digest === plan.workingCopy.checkpointDigest : current.fingerprint === plan.fingerprint,
+      importedSourcesMatch: comparison ? comparison.equivalent : current.exported ? canonical(current.exported.files) === canonical(
+        selection ? selection.effective.files : Object.fromEntries(
           Object.entries(plan.sources).filter(([file]) => file.startsWith(ctx.config.application.sourceDir + "/")).map(([file, sha]) => [file.slice(ctx.config.application.sourceDir.length + 1), sha])
         )
       ) : false,
       history: current.history,
       retryAllowed: false,
+      ...selection ? {
+        importMode: "files",
+        selectedFiles: selection.files,
+        beforeDigest: selection.before.digest,
+        expectedDigest: selection.effective.digest,
+        actualDigest: current.exported?.digest ?? null,
+        readbackComparison: comparison
+      } : {},
       nextActions: [
         "Review target export and migration history. Reconciliation does not assume process termination rolled back Oracle."
       ]
@@ -10017,8 +9996,8 @@ prompt APEXREST_SCRIPT_COMPLETE`,
   async restorePlan(ctx, backupId) {
     parse(external_exports.uuid(), backupId);
     const directory = await contained(ctx.root, ".apexrest/backups/" + backupId);
-    const backup = await readJson(path7.join(directory, "backup.json"));
-    const files = await inventory(path7.join(directory, "application"));
+    const backup = await readJson(path5.join(directory, "backup.json"));
+    const files = await inventory(path5.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
     const plan = await this.plan(ctx, backup.environment, true);
@@ -10110,7 +10089,7 @@ var TestService = class {
             "--experimental-strip-types",
             "--test",
             "--test-reporter=junit",
-            ...tests.map((f) => path8.join(dir, f))
+            ...tests.map((f) => path6.join(dir, f))
           ],
           cwd: ctx.root,
           ...signal ? { signal } : {},
@@ -10193,11 +10172,11 @@ end;
           skipped: 0,
           diagnostic: "Run apexrest setup to install pinned Playwright and Chromium."
         };
-      const runId = randomUUID4(), runnerRoot = path8.resolve(state.playwright, "../../../.."), run = path8.join(runnerRoot, "runs", runId);
-      await mkdir6(run, { recursive: true, mode: 448 });
-      await cp5(dir, path8.join(run, "tests"), { recursive: true });
-      await cp5(path8.join(resourceRoot(), "testkit"), path8.join(run, "testkit"), { recursive: true });
-      const auth = path8.join(ctx.root, ".apexrest/auth", envName, "state.json"), authMeta = auth + ".meta.json";
+      const runId = randomUUID4(), runnerRoot = path6.resolve(state.playwright, "../../../.."), run = path6.join(runnerRoot, "runs", runId);
+      await mkdir5(run, { recursive: true, mode: 448 });
+      await cp4(dir, path6.join(run, "tests"), { recursive: true });
+      await cp4(path6.join(resourceRoot(), "testkit"), path6.join(run, "testkit"), { recursive: true });
+      const auth = path6.join(ctx.root, ".apexrest/auth", envName, "state.json"), authMeta = auth + ".meta.json";
       if (suite === "e2e" && (!await exists(auth) || !await exists(authMeta) || Date.parse((await readJson(authMeta)).expiresAt) < Date.now()))
         return {
           suite,
@@ -10208,8 +10187,8 @@ end;
           diagnostic: "Authenticated browser state is missing or expired. Run test auth interactively."
         };
       await atomicWrite(
-        path8.join(run, "playwright.config.mjs"),
-        `export default ${JSON.stringify({ testDir: "./tests", forbidOnly: true, retries: 0, timeout: 3e4, workers: 1, reporter: [["json", { outputFile: path8.join(run, "report.json") }]], use: { baseURL: env.baseUrl, browserName: "chromium", serviceWorkers: "block", trace: "off", screenshot: "off", video: "off", ...suite === "e2e" ? { storageState: auth } : {} } })};
+        path6.join(run, "playwright.config.mjs"),
+        `export default ${JSON.stringify({ testDir: "./tests", forbidOnly: true, retries: 0, timeout: 3e4, workers: 1, reporter: [["json", { outputFile: path6.join(run, "report.json") }]], use: { baseURL: env.baseUrl, browserName: "chromium", serviceWorkers: "block", trace: "off", screenshot: "off", video: "off", ...suite === "e2e" ? { storageState: auth } : {} } })};
 `
       );
       const result = await runProcess({
@@ -10218,20 +10197,20 @@ end;
           state.playwright,
           "test",
           "--config",
-          path8.join(run, "playwright.config.mjs"),
+          path6.join(run, "playwright.config.mjs"),
           ...headed ? ["--headed"] : []
         ],
         cwd: run,
         env: {
           ...process.env,
-          PLAYWRIGHT_BROWSERS_PATH: path8.join(managedHome(), "browsers"),
+          PLAYWRIGHT_BROWSERS_PATH: path6.join(managedHome(), "browsers"),
           APEXREST_ALLOWED_ORIGINS: JSON.stringify([new URL(env.baseUrl).origin, ...env.allowedOrigins]),
           APEXREST_EXPECTED_MARKER: env.expectedMarker ?? ""
         },
         timeoutMs: 3e5,
         ...signal ? { signal } : {}
       });
-      const reportFile = path8.join(run, "report.json");
+      const reportFile = path6.join(run, "report.json");
       if (!await exists(reportFile))
         return {
           suite,
@@ -10278,7 +10257,7 @@ end;
       required: ctx.config.tests.requiredSuites,
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    await writeJson(path8.join(ctx.root, ".apexrest/test-runs", runId + ".json"), report);
+    await writeJson(path6.join(ctx.root, ".apexrest/test-runs", runId + ".json"), report);
     return { ok, data: report };
   }
   async auth(ctx, name2) {
@@ -10291,10 +10270,10 @@ end;
         "Run test auth in a local interactive terminal. Do not send passwords to Codex.",
         4
       );
-    const destination = path8.join(ctx.root, ".apexrest/auth", name2, "state.json");
-    await mkdir6(path8.dirname(destination), { recursive: true, mode: 448 });
-    const helper = path8.join(path8.resolve(state.playwright, "../../../.."), "auth.mjs");
-    await cp5(path8.join(resourceRoot(), "playwright/auth.mjs"), helper);
+    const destination = path6.join(ctx.root, ".apexrest/auth", name2, "state.json");
+    await mkdir5(path6.dirname(destination), { recursive: true, mode: 448 });
+    const helper = path6.join(path6.resolve(state.playwright, "../../../.."), "auth.mjs");
+    await cp4(path6.join(resourceRoot(), "playwright/auth.mjs"), helper);
     const code = await new Promise((resolve, reject) => {
       const child = spawn(
         state.node,
@@ -10306,7 +10285,7 @@ end;
         ],
         {
           cwd: ctx.root,
-          env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: path8.join(managedHome(), "browsers") },
+          env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: path6.join(managedHome(), "browsers") },
           stdio: ["inherit", "ignore", "inherit"]
         }
       );
@@ -10315,7 +10294,7 @@ end;
     });
     if (code !== 0 || !await exists(destination))
       throw new Fault("AUTH_NOT_SAVED", "Login did not save browser state.", 4);
-    await chmod2(destination, 384);
+    await chmod(destination, 384);
     await writeJson(destination + ".meta.json", {
       expiresAt: new Date(Date.now() + 8 * 36e5).toISOString(),
       origin: new URL(env.baseUrl).origin
@@ -10335,7 +10314,7 @@ async function browserPreferences(root) {
 
 export {
   ArtifactService,
-  digest2 as digest,
+  digest,
   OWNED_TEXT_LIMIT,
   blueprintSchema,
   stateSchema,
@@ -10357,8 +10336,6 @@ export {
   readPlan,
   materialize,
   recoveryPlan,
-  checkpoint,
-  SyncStore,
   deployPlanSchema,
   DeploymentService,
   allowedOrigin,

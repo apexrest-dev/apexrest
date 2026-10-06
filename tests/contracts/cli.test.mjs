@@ -50,6 +50,8 @@ test('merged CLI commands map onto the granular operations', () => {
   const ship = run('ship', '--help');
   assert.equal(ship.status, 0);
   assert.match(ship.stdout, /--user-request/);
+  assert.match(ship.stdout, /--import-mode auto\|full\|files defaults to auto/);
+  assert.match(ship.stdout, /--files PATH1 PATH2/);
   assert.match(ship.stdout, /mode apply: non-production only/);
   const status = run('status', '--help');
   assert.match(status.stdout, /--detail/);
@@ -65,6 +67,36 @@ test('merged CLI commands map onto the granular operations', () => {
   const doctor = run('status', '--detail', 'doctor', '--json');
   assert.equal(doctor.status, 0, doctor.stdout);
   assert.equal(JSON.parse(doctor.stdout).operation, 'status');
+});
+
+test('CLI parses explicit file lists and rejects ambiguous import scopes before project access', async (t) => {
+  const project = await mkdtemp(path.join(tmpdir(), 'apexrest-import-interface-'));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const base = ['ship', '--project', project, '--env', 'dev', '--user-request', 'Deploy the selected pages'];
+  const valid = run(
+    ...base,
+    '--import-mode',
+    'files',
+    '--files',
+    'pages/p00010.apx',
+    'shared_components/lovs/status.apx',
+    '--json',
+  );
+  assert.equal(
+    JSON.parse(valid.stdout).diagnostics[0].code,
+    'PROJECT_NOT_CONFIGURED',
+    'Both file paths reach dispatch as one array',
+  );
+  for (const flags of [
+    ['--import-mode', 'files'],
+    ['--import-mode', 'full', '--files', 'pages/p00010.apx'],
+    ['--import-mode', 'files', '--files', '../outside.apx'],
+    ['--import-mode', 'files', '--files'],
+  ]) {
+    const result = run(...base, ...flags, '--json');
+    assert.equal(result.status, 2, result.stdout);
+    assert.equal(JSON.parse(result.stdout).diagnostics[0].code, 'INVALID_INPUT');
+  }
 });
 
 test('explicit commands preserve JSON output and core failures', () => {

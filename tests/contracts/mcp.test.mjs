@@ -34,6 +34,9 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.equal(ship.inputSchema.properties.waitSeconds.default, 25);
   assert.equal(ship.inputSchema.properties.waitSeconds.maximum, 120);
   assert.ok(ship.inputSchema.required.includes('userRequest'));
+  assert.equal(ship.inputSchema.properties.importMode.default, 'auto');
+  assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files']);
+  assert.equal(ship.inputSchema.properties.files.type, 'array');
   assert.equal(ship.annotations.destructiveHint, true);
   const validate = catalog.tools.find((tool) => tool.name === 'apexrest_apex_validate');
   assert.equal(validate.inputSchema.properties.waitSeconds, undefined, 'validate runs in-process');
@@ -145,6 +148,17 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   });
   assert.equal(JSON.parse(invalid.content[0].text).exitCode, 2);
   assert.equal(invalid.isError, true);
+  for (const selection of [
+    { importMode: 'files' },
+    { importMode: 'full', files: ['pages/p00010.apx'] },
+    { importMode: 'files', files: ['../outside.apx'] },
+  ]) {
+    const refusedSelection = await client.callTool({
+      name: 'apexrest_ship',
+      arguments: { project: '/private/tmp', env: 'dev', userRequest: 'Deploy page ten to dev', ...selection },
+    });
+    assert.equal(JSON.parse(refusedSelection.content[0].text).diagnostics[0].code, 'INVALID_INPUT');
+  }
   const noProject = await client.callTool({
     name: 'apexrest_ship',
     arguments: { env: 'dev', userRequest: 'Deploy page ten to dev', mode: 'apply', project: '/private/tmp' },

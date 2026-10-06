@@ -4,6 +4,7 @@ import type { Environment } from './config.ts';
 import type { Connection } from './connections.ts';
 import { OracleAdapter } from './oracle.ts';
 import { Fault } from './result.ts';
+import { apexCapabilitiesQuery } from './apex-capabilities.ts';
 const metadataOffset = z.number().int().min(0).max(100000);
 const metadataLimit = z.number().int().min(1).max(100);
 export const metadataRequest = z.strictObject({
@@ -15,6 +16,7 @@ export const metadataRequest = z.strictObject({
     'signatures',
     'applications',
     'pages',
+    'apex-capabilities',
   ]),
   schema: identifier,
   name: identifier.optional(),
@@ -34,6 +36,7 @@ export const metadataInputSchema = z.strictObject({
   requests: metadataRequests.optional(),
 });
 const queries = {
+  'apex-capabilities': apexCapabilitiesQuery,
   objects:
     "select object_name, object_type from all_objects where owner=:p_owner and object_type in ('TABLE','VIEW','PACKAGE') and (:p_name is null or object_name=:p_name) order by object_name, object_type",
   columns:

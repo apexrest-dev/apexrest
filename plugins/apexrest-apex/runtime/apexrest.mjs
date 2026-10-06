@@ -6,12 +6,11 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-5PCC7GZM.mjs";
-import "./chunk-TMSMKVRP.mjs";
-import "./chunk-RBJJNQ5O.mjs";
+} from "./chunk-GITKODAT.mjs";
+import "./chunk-UR7P4KY3.mjs";
 import {
   loadProject
-} from "./chunk-N4C2SKCN.mjs";
+} from "./chunk-AULTRDUB.mjs";
 import "./chunk-JYN3YHP3.mjs";
 import {
   Fault,
@@ -111,6 +110,13 @@ function help() {
       "user's literal --user-request, imports with backup/drift/identity checks, verifies, runs required suites, then",
       "removes the grant. Production targets require the protected CI approval path (deploy apply)."
     );
+  if (key === "ship" || key === "deploy.plan")
+    lines.push(
+      "",
+      "--import-mode auto|full|files defaults to auto: select eligible changed APEXlang files, or review full-import reasons.",
+      "full forces whole-application import. files requires --files PATH1 PATH2; paths are relative to the application source directory.",
+      "The plan records the exact import scope. Apply never expands a reviewed file selection to a full import."
+    );
   if (key === "status")
     lines.push(
       "",
@@ -183,7 +189,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-QKYF6N6U.mjs");
+    const { startMcp } = await import("./chunk-NWIHG766.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -220,7 +226,11 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith("--"))
             throw new Fault("INVALID_INPUT", `Missing value for ${token}`, 2);
-          input[name] = numbers.has(name) ? Number(value) : value;
+          if (name === "files") {
+            const files = [value];
+            while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
+            input[name] = files;
+          } else input[name] = numbers.has(name) ? Number(value) : value;
         }
       } else {
         const field = positional[selectedOp.op]?.[index];

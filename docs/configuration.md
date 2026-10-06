@@ -4,6 +4,8 @@ Implementation uses the current host session (Codex or Claude Code) and its perm
 
 A project has one `apexrest.json` and one pinned toolchain lock. `project init` creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.
 
+Optional `toolchain.profile` selects `26.1` or `26.2` authoring references. Existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See [APEX 26.2 support](apex-26.2.md) for the matching compiler lock and partial-import requirements.
+
 ## Configure an environment
 
 Add an entry such as `environments.dev` to the generated `apexrest.json`:

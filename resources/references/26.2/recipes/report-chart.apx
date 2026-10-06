@@ -1,0 +1,102 @@
+page 402 (
+    name: Report and Chart
+    alias: REPORT-CHART
+    title: Report and Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    region sample-report (
+        name: Sample Report
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 100 amount, 60 probability from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        genAI {
+            naturalLanguageSupport: true
+        }
+        column AMOUNT (
+            type: plainText
+            heading {
+                heading: Amount
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+        column PROBABILITY (
+            type: plainText
+            heading {
+                heading: Probability
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+        savedReport primary (
+            visibility: primaryDefault
+            displayColumn AMOUNT (
+                sequence: 10
+            )
+            displayColumn PROBABILITY (
+                sequence: 20
+            )
+        )
+    )
+    region sample-chart (
+        name: Sample Chart
+        type: chart
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        chart {
+            type: pie
+        }
+        performance {
+            lazyLoading: false
+        }
+        series sample (
+            name: Sample
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Sample' label, 100 value from dual
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+        )
+    )
+)

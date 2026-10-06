@@ -1,0 +1,54 @@
+page 20 (
+    name: Dashboard
+    alias: DASHBOARD
+    title: Customer Dashboard
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region customers-by-status (
+        name: Customers by Status
+        type: chart
+        layout {
+            sequence: 10
+            slot: BODY
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        chart {
+            type: pie
+        }
+        title {
+            title: Customers by Status
+        }
+        legend {
+            show: true
+        }
+        series customer-count (
+            name: Customers
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select status as label, count(*) as value
+                    from apexrest_customers group by status
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+            label {
+                show: true
+            }
+        )
+    )
+)

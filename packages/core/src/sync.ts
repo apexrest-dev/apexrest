@@ -216,8 +216,11 @@ export class SyncStore {
       state.baseline.directory !==
         '.apexrest/sync/' + state.targetDigest + '/baselines/' + state.syncId + '/application' ||
       (state.lastSuccessfulImport &&
-        state.lastSuccessfulImport.snapshot.directory !==
-          '.apexrest/deployments/' + state.lastSuccessfulImport.runId + '/snapshot/' + state.sourceDir)
+        !['snapshot', 'server'].some(
+          (kind) =>
+            state.lastSuccessfulImport!.snapshot.directory ===
+            '.apexrest/deployments/' + state.lastSuccessfulImport!.runId + '/' + kind + '/' + state.sourceDir,
+        ))
     )
       throw new Fault(
         'SYNC_ARTIFACT_INVALID',

@@ -36,7 +36,7 @@ export const projectSchema = z.strictObject({
     packagesDir: relativePath,
     testsDir: relativePath,
   }),
-  toolchain: z.strictObject({ lockFile: relativePath }),
+  toolchain: z.strictObject({ lockFile: relativePath, profile: z.enum(['26.1', '26.2']).optional() }),
   environments: z.record(refName, environmentSchema),
   tests: z.strictObject({
     unitDir: relativePath,

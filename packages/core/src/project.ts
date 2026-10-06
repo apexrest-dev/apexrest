@@ -6,6 +6,7 @@ import { loadProject, parse, refName } from './config.ts';
 import type { ProjectContext, ProjectConfig } from './config.ts';
 import { Fault } from './result.ts';
 import { OracleAdapter, installSources } from './oracle.ts';
+import { sourceRelease } from './partial-import.ts';
 export function resourceRoot() {
   return (
     process.env.APEXREST_RESOURCES ??
@@ -85,15 +86,34 @@ export async function projectInit(
       if (template !== 'existing-app') {
         const generated = await new OracleAdapter().generate(alias, alias);
         await installSources(generated.directory, root, config.application.sourceDir);
+        const release = await sourceRelease(path.join(root, config.application.sourceDir));
+        if (release === '26.2') {
+          config.toolchain.profile = '26.2';
+          await cp(
+            path.join(resourceRoot(), 'toolchains/toolchain-26.2.lock.json'),
+            path.join(root, config.toolchain.lockFile),
+          );
+          await atomicWrite(path.join(root, 'apexrest.json'), JSON.stringify(config, null, 2) + '\n');
+        }
         if (template === 'customer-crm') {
           await cp(path.join(resourceRoot(), 'templates/customer-crm/project'), root, { recursive: true });
           await cp(
-            path.join(resourceRoot(), 'templates/customer-crm/apex-overlay'),
+            path.join(
+              resourceRoot(),
+              'templates/customer-crm',
+              release === '26.2' ? 'apex-overlay-26.2' : 'apex-overlay',
+            ),
             path.join(root, config.application.sourceDir),
             { recursive: true },
           );
           const { readFile } = await import('node:fs/promises');
-          const file = path.join(root, config.application.sourceDir, 'shared-components/lists.apx');
+          const file = path.join(
+            root,
+            config.application.sourceDir,
+            release === '26.2'
+              ? 'shared-components/lists/navigation-menu.apx'
+              : 'shared-components/lists.apx',
+          );
           const lists = await readFile(file, 'utf8'),
             index = lists.lastIndexOf(')');
           if (index < 0 || !lists.includes('list navigation-menu ('))

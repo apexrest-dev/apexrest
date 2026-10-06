@@ -37,13 +37,13 @@ for (const { operation, long } of toolCatalog) {
   const schema = schemas[operation];
   const transportSchema =
     'project' in schema.shape
-      ? schema.extend({
+      ? schema.safeExtend({
           project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject,
         })
       : schema;
   const boundarySchema =
     operation === 'project'
-      ? transportSchema.extend({
+      ? transportSchema.safeExtend({
           directory: absoluteProject.describe('Absolute directory for init.').optional(),
           passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
         })
@@ -51,7 +51,7 @@ for (const { operation, long } of toolCatalog) {
   mcpSchemas.set(
     operation,
     long
-      ? boundarySchema.extend({ waitSeconds: operation === 'ship' ? shipWaitSeconds : jobWaitSeconds })
+      ? boundarySchema.safeExtend({ waitSeconds: operation === 'ship' ? shipWaitSeconds : jobWaitSeconds })
       : boundarySchema,
   );
 }

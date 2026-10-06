@@ -1,9 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  VERSION
-} from "./chunk-RBJJNQ5O.mjs";
-import {
   ToolchainService,
+  VERSION,
   canonicalHome,
   managedHome,
   renameWithRetry,
@@ -11,7 +9,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-N4C2SKCN.mjs";
+} from "./chunk-AULTRDUB.mjs";
 import {
   Client,
   ReadBuffer,

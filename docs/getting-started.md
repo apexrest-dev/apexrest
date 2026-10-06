@@ -4,7 +4,9 @@
 
 Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or `npm ci` is needed for installation.
 
-`apexrest@1.3.0` is published under npm `latest` with the redesigned surface described here. The older `1.3.0-beta.1` remains under `beta` with the previous 21-tool surface. Connected Oracle and native-host qualification remain open; see [release notes](release-notes.md) and [implementation status](implementation-status.md).
+`apexrest@1.3.0` is published under npm `latest` with the redesigned 11-tool/5-skill surface. **APEX 26.2 partial imports are in the unreleased 2.0.0 source bundle and are not in that npm release.** They have scoped local Oracle/browser evidence; current native model-host sessions and broader platform/feature qualification remain open. See [release notes](release-notes.md) and [implementation status](implementation-status.md).
+
+Already using APEX 26.2? Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.
 
 ## Codex Cloud
 
@@ -16,8 +18,8 @@ For a cloud task, follow [Run APEXREST in Codex Cloud](codex-cloud.md). It provi
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Codex with native plugin support, or Claude Code               | Plugin registration; Codex CLI 0.154.0 was exercised on macOS arm64 for earlier builds |
 | Node 24 LTS on `PATH` (supported range 24–26)                  | Starting the CLI and the MCP runtime                                                   |
-| Java 21 and reviewed SQLcl 26.1.2                              | Oracle generation, validation, export and import; ORDS needs a JDK with `jdk.compiler` |
-| Existing supported Oracle APEX target                          | Connected workflows require APEX 26.1+                                                 |
+| Java 21 and matching SQLcl                                    | 26.1 uses SQLcl 26.1.2; [26.2](apex-26.2.md) uses SQLcl 26.3; ORDS needs a JDK with `jdk.compiler` |
+| Existing supported Oracle APEX target                          | APEX 26.1 full imports or qualified APEX 26.2 full/selected-file workflows               |
 | Saved direct SQLcl connection or plugin-local ORDS credentials | Authorized access to the configured target through the selected transport              |
 | Chromium and relevant test dependencies                        | Browser/API suites; utPLSQL only when a SQL suite requires it                          |
 
@@ -131,6 +133,8 @@ The agent calls `apexrest_project` `action:init` with `directory` and `template`
 Adoption (`action:adopt` with `env`, `appId` and `workingCopy`) exports into a new local directory and fails rather than overwrite local edits. Keep the generated Oracle metadata under version control and reuse the working source for later changes; see [existing applications](existing-app.md). The CLI equivalents are `apexrest project init DIR --template existing-app` and `apexrest project adopt --env dev --app-id ID --working-copy --json`.
 
 ## Edit, validate, ship and verify
+
+For an existing qualified APEX 26.2 application, initialize a sync baseline before editing, then use `importMode:auto` to select eligible changed files or `importMode:files` with an explicit page/dependency list. Review `importSelection.resolvedMode`, selected files and any full-import reasons before applying. The [partial-import guide](apex-26.2.md) gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.
 
 The `$apexrest-work` skill drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, open the changed pages with `apexrest_browser_open` and report. The steps are listed in the [README](../README.md#work-in-one-session).
 

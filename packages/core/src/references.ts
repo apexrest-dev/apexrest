@@ -23,7 +23,7 @@ import {
   type CodeBlock,
 } from './reference-index.ts';
 import { resourceRoot } from './project.ts';
-import { managedHome } from './config.ts';
+import { loadProject, managedHome } from './config.ts';
 import { readJson, exists, writeJson, canonical, hash } from './fs.ts';
 import { Fault } from './result.ts';
 import { catalogSearch, catalogRead } from './composer/catalog.ts';
@@ -42,6 +42,8 @@ export type Reference = {
   requires?: string[];
   related?: string[];
   sha256?: string;
+  /** Reviewed source or compiler evidence; never implies a deployed runtime check. */
+  verification?: string;
 };
 /** A resolved link: the agent can choose the next read without fetching the target first. */
 export type ReferenceLink = { id: string; title: string | null; kind: string | null };
@@ -64,8 +66,11 @@ function versionMatches(actual: string, requested?: string) {
   // A release selector includes its pinned snapshot. An explicit snapshot remains exact.
   return actual === requested || (!requested.includes('@') && actual.split('@')[0] === requested);
 }
-function indexReferences(upstream: Reference[], file?: string, digest?: string) {
-  const entries = [...references, ...upstream];
+function indexReferences(upstream: Reference[], file?: string, digest?: string, release = '26.1') {
+  const builtins = references.filter(
+    (entry) => entry.version === release || entry.id === 'deployment-safety',
+  );
+  const entries = [...builtins, ...upstream];
   const byId = new Map<string, Reference>();
   const bySymbol = new Map<string, string>();
   const positionById = new Map<string, number>();
@@ -113,12 +118,9 @@ function indexReferences(upstream: Reference[], file?: string, digest?: string) 
                 ),
             )
           ) {
-            const result = buildReferencePostings(references);
+            const result = buildReferencePostings(builtins);
             for (const [term, list] of Object.entries(prebuilt.postings as Record<string, number[]>))
-              result[term] = [
-                ...(result[term] ?? []),
-                ...list.map((position) => position + references.length),
-              ];
+              result[term] = [...(result[term] ?? []), ...list.map((position) => position + builtins.length)];
             return result;
           }
         } catch {
@@ -166,27 +168,67 @@ function indexReferences(upstream: Reference[], file?: string, digest?: string) 
     queries: new Map<string, number[]>(),
   };
 }
-let cached: { file: string; stamp: string; pending: Promise<ReturnType<typeof indexReferences>> } | undefined;
-async function referenceIndex() {
-  const file = path.join(resourceRoot(), 'references/index.json');
+const cached = new Map<string, { stamp: string; pending: Promise<ReturnType<typeof indexReferences>> }>();
+/** Explicit selectors win; absent project/profile keeps the established 26.1 default. */
+export async function resolveReferenceVersion(project?: string, version?: string) {
+  if (version) return version;
+  return project ? ((await loadProject(project)).config.toolchain.profile ?? '26.1') : '26.1';
+}
+async function referenceIndex(version = '26.1') {
+  const release = version.split('@')[0] === '26.2' ? '26.2' : '26.1';
+  const file = path.join(resourceRoot(), 'references', ...(release === '26.2' ? ['26.2'] : []), 'index.json');
   let info;
   try {
     info = await stat(file, { bigint: true });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    cached = undefined;
-    return indexReferences([]);
+    cached.delete(file);
+    return indexReferences([], undefined, undefined, release);
   }
-  const stamp = `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
-  if (cached?.file === file && cached.stamp === stamp) return cached.pending;
-  const pending = readFile(file, 'utf8').then((raw) =>
-    indexReferences(JSON.parse(raw) as Reference[], file, hash(raw)),
-  );
-  cached = { file, stamp, pending };
+  let stamp = `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+  if (release === '26.2') {
+    const manifestInfo = await stat(path.join(path.dirname(file), 'oracle-snapshot.json'), { bigint: true });
+    stamp += `:${manifestInfo.ino}:${manifestInfo.size}:${manifestInfo.mtimeNs}:${manifestInfo.ctimeNs}`;
+  }
+  const prior = cached.get(file);
+  if (prior?.stamp === stamp) return prior.pending;
+  const pending = readFile(file, 'utf8').then(async (raw) => {
+    const entries = JSON.parse(raw) as Reference[];
+    if (release === '26.2') {
+      const manifest = (await readJson(path.join(path.dirname(file), 'oracle-snapshot.json'))) as {
+        release?: string;
+        indexSha256?: string;
+        records?: number;
+      };
+      if (
+        manifest.release !== release ||
+        manifest.indexSha256 !== hash(raw) ||
+        manifest.records !== entries.length ||
+        new Set(entries.map((entry) => entry.id)).size !== entries.length ||
+        entries.some(
+          (entry) =>
+            !entry.id.startsWith('oracle:26.2:') ||
+            !versionMatches(entry.version, release) ||
+            typeof entry.text !== 'string' ||
+            entry.text.length > 600_000 ||
+            entry.sha256 !== hash(entry.text),
+        )
+      )
+        throw new Fault(
+          'REFERENCE_CATALOG_INVALID',
+          'The reviewed 26.2 reference snapshot failed integrity checks.',
+          3,
+        );
+    }
+    return indexReferences(entries, file, hash(raw), release);
+  });
+  // Keep a bounded cache even when callers switch many resource roots during tests.
+  if (cached.size >= 8) cached.delete(cached.keys().next().value!);
+  cached.set(file, { stamp, pending });
   try {
     return await pending;
   } catch (error) {
-    if (cached?.pending === pending) cached = undefined;
+    if (cached.get(file)?.pending === pending) cached.delete(file);
     throw error;
   }
 }
@@ -226,6 +268,13 @@ function snippet(text: string, lower: string, query: string, terms: string[]) {
   };
 }
 export async function referenceSearch(query: string, version?: string, options: SearchOptions = {}) {
+  const selectedVersion = await resolveReferenceVersion(
+    options.project,
+    version ?? (query.trim().startsWith('oracle:26.2:') ? '26.2' : undefined),
+  );
+  if (query.trim().startsWith('oracle:26.2:') && selectedVersion.split('@')[0] !== '26.2') return [];
+  // The separate release corpus also preserves custom fixture versions in the legacy index.
+  const filterVersion = version || (options.project ? selectedVersion : undefined);
   if (options.corpus === 'blocks' || options.corpus === 'blueprints') {
     const found = await catalogSearch(query, { ...options, ...(version ? { version } : {}) });
     return found.results.map((hit) => ({
@@ -244,12 +293,12 @@ export async function referenceSearch(query: string, version?: string, options: 
       nextResultOffset: found.nextResultOffset,
     }));
   }
-  if (options.corpus === 'components') return componentSearch(query, version, options);
-  if (options.corpus === 'patterns') return patternSearch(query, version, options);
+  if (options.corpus === 'components') return componentSearch(query, selectedVersion, options);
+  if (options.corpus === 'patterns') return patternSearch(query, selectedVersion, options);
   const terms = referenceQueryTerms(query);
   if (!terms.length) return [];
-  const index = await referenceIndex();
-  const key = JSON.stringify([query.trim(), version, options.kind, options.family]);
+  const index = await referenceIndex(selectedVersion);
+  const key = JSON.stringify([query.trim(), filterVersion, options.kind, options.family]);
   let ranked = index.queries.get(key);
   if (!ranked) {
     // Per-term membership from postings alone: an alternative with several stems is an
@@ -326,7 +375,7 @@ export async function referenceSearch(query: string, version?: string, options: 
       const r = index.searchable[position]!.reference;
       if (counts[position]! < half && r !== exactId) continue;
       if (
-        !versionMatches(r.version, version) ||
+        !versionMatches(r.version, filterVersion) ||
         (options.kind && r.kind !== options.kind) ||
         (options.family && r.family !== options.family && !r.family?.startsWith(options.family + '/'))
       )
@@ -376,6 +425,7 @@ export async function referenceSearch(query: string, version?: string, options: 
       source: r.source,
       kind: r.kind ?? 'guide',
       family: r.family ?? 'workflow',
+      ...(r.verification ? { verification: r.verification } : {}),
       ...snippet(r.text, (entry.lower ??= r.text.toLowerCase()), query, words),
       ...(code ? { code: boundCode(code, CODE_LIMIT) } : {}),
       requires,
@@ -389,13 +439,25 @@ export async function referenceSearch(query: string, version?: string, options: 
   });
   return fitResults(results, Math.min(16000, 2500 * limit), (page) => JSON.stringify(page).length);
 }
-export async function referenceRead(id: string, offset: number, limit: number, project?: string) {
+export async function referenceRead(
+  id: string,
+  offset: number,
+  limit: number,
+  project?: string,
+  version?: string,
+) {
   if (id.startsWith('block:') || id.startsWith('blueprint:')) return catalogRead(id, offset, limit, project);
-  if (id.startsWith('component:')) return componentRead(id, offset, limit);
-  if (id.startsWith('pattern:')) return patternRead(id, offset, limit);
-  const index = await referenceIndex();
+  const qualifiedVersion = id.startsWith('oracle:26.2:') ? '26.2' : undefined;
+  if (version && qualifiedVersion && !versionMatches(version, qualifiedVersion))
+    throw new Fault('REFERENCE_NOT_FOUND', 'The reference ID belongs to a different APEX release.', 2);
+  const selectedVersion = await resolveReferenceVersion(project, version ?? qualifiedVersion);
+  if (id === 'apexlang-lifecycle' && selectedVersion.split('@')[0] === '26.2')
+    id = 'oracle:26.2:guide/file-import';
+  if (id.startsWith('component:')) return componentRead(id, offset, limit, selectedVersion);
+  if (id.startsWith('pattern:')) return patternRead(id, offset, limit, selectedVersion);
+  const index = await referenceIndex(selectedVersion);
   const item = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, '')) ?? '');
-  if (!item)
+  if (!item || (version && !versionMatches(item.version, version)))
     throw new Fault('REFERENCE_NOT_FOUND', 'No registered reference with this ID or grammar symbol.', 2);
   const content = item.text.slice(offset, offset + limit);
   // Resolve only links in the returned window; no recursive context expansion.
@@ -415,6 +477,7 @@ export async function referenceRead(id: string, offset: number, limit: number, p
     version: item.version,
     source: item.source,
     kind: item.kind ?? 'guide',
+    ...(item.verification ? { verification: item.verification } : {}),
     content,
     offset,
     length: item.text.length,
@@ -430,7 +493,7 @@ export async function referenceRead(id: string, offset: number, limit: number, p
   };
 }
 export async function referenceSync(version: string, dryRun: boolean) {
-  const entries = (await referenceIndex()).upstream.filter((r) => versionMatches(r.version, version));
+  const entries = (await referenceIndex(version)).upstream.filter((r) => versionMatches(r.version, version));
   if (!entries.length)
     throw new Fault(
       'REFERENCE_VERSION_UNAVAILABLE',

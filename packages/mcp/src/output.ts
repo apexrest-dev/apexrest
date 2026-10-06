@@ -113,10 +113,36 @@ function preview(value: unknown, depth = 0): unknown {
   if (data.lastSuccessfulImport && typeof data.lastSuccessfulImport === 'object')
     result.lastSuccessfulImport = data.lastSuccessfulImport;
   if (data.workingCopy && typeof data.workingCopy === 'object') result.workingCopy = data.workingCopy;
+  if (data.importSelection && typeof data.importSelection === 'object') {
+    const selection = data.importSelection as Record<string, unknown>;
+    const files = Array.isArray(selection.files)
+      ? selection.files.filter((file): file is string => typeof file === 'string')
+      : [];
+    const shown: string[] = [];
+    for (const file of files.slice(0, 10)) {
+      if (JSON.stringify([...shown, file]).length > 1600) break;
+      shown.push(file);
+    }
+    const count = typeof selection.fileCount === 'number' ? selection.fileCount : files.length;
+    result.importSelection = {
+      requestedMode: selection.requestedMode,
+      resolvedMode: selection.resolvedMode,
+      ...(typeof selection.readbackPolicy === 'string' ? { readbackPolicy: selection.readbackPolicy } : {}),
+      fileCount: count,
+      files: shown,
+      filesTruncated: count > shown.length || selection.filesTruncated === true,
+      reasons: Array.isArray(selection.reasons)
+        ? selection.reasons.slice(0, 5).map((reason) => String(reason).slice(0, 200))
+        : [],
+    };
+  }
+  if (depth < 2 && data.plan && typeof data.plan === 'object') result.plan = preview(data.plan, depth + 1);
   if (depth < 2 && data.result && typeof data.result === 'object')
     result.result = preview(data.result, depth + 1);
   if (data.operation === 'deploy.plan' && data.data && depth < 2) result.data = preview(data.data, depth + 1);
-  const plan = data.scope === 'full-application-import' && typeof data.digest === 'string';
+  const plan =
+    ['full-application-import', 'selected-file-import'].includes(String(data.scope)) &&
+    typeof data.digest === 'string';
   if (plan) {
     const operations = data.operations;
     if (Array.isArray(operations))
@@ -204,7 +230,7 @@ export async function toolOutput(original: Result, project?: string) {
     if (JSON.stringify(result).length > inlineLimit) {
       const data = result.data as Record<string, unknown>;
       result.data = Object.fromEntries(
-        ['id', 'jobId', 'status', 'phase', 'ok', 'output']
+        ['id', 'jobId', 'status', 'phase', 'ok', 'planPath', 'planDigest', 'importSelection', 'output']
           .filter((key) => data[key] !== undefined)
           .map((key) => [key, data[key]]),
       );

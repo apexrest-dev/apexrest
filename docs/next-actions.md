@@ -1,5 +1,21 @@
 # Next actions and verification limits
 
+## Version 2.0.0
+
+- The source and rebuilt bundle are `2.0.0`; npm publication and tagging remain separate, unperformed actions. Keep published 1.3.0 records and prior qualification receipts unchanged.
+- Reconcile pending outcomes/local edits before explicitly refreshing working copies from a previous runtime version. Do not bypass the runtime-version binding by editing stored state.
+
+## APEX 26.2 follow-up
+
+- Documentation review completed: partial imports are prominent in the README, docs index and site navigation/search, with coherent command examples. Keep the source-only availability notice until a separately verified publication includes this update. Documentation/site builds are not new Oracle acceptance evidence.
+- Direct SQLcl partial-import qualification is recorded in [connected evidence](evidence/apex262-connected.json), with actual browser observations separate from automated suites. Preserve the historical strict-readback failure and its artifacts; do not relabel it as a passed run.
+- Refresh native model-host discovery and execution in Codex and Claude Code for the rebuilt bundle; CLI/stdio MCP smoke does not establish that scope. Qualify Linux/Windows and live 26.2 ORDS full imports before broadening support claims.
+- Keep the managed default at 26.1 until broader qualification is complete. Existing project locks and the original specification remain unchanged. A 26.2 project uses the reviewed explicit SQLcl/profile/lock.
+- ORDS selected-file import requires a separate verified transport implementation. Current automatic planning reports a full-import reason; explicit file mode refuses it.
+- Extend readback equivalence only with Oracle evidence and negative tests. Today the only semantic default rule is the proven native select-list startNewRow default, and only selected .apx files may normalize; all other files stay byte-exact.
+- Provider access, DDS enforcement, OCI IAM/network setup and running-workflow migration need their own operator-managed prerequisites and runtime evidence. Offline recipe compilation and visible APIs are not those checks.
+- Release publication and any additional database/environment changes need their applicable authorization. The isolated authorized qualification application remains available; no broader target authorization is implied.
+
 ## Full review follow-up
 
 - `1.3.0` was explicitly selected for npm `latest` despite open connected Oracle and native-host gates. Complete those gates before claiming full release qualification; the protected artifact publisher stays disabled.
@@ -59,7 +75,7 @@ Registry integrity and clean local/global installs for the former npm `latest`, 
 
 ## Pattern catalog maintenance
 
-- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the four other current skills aligned with the 1.3.0 package. A source/build check or npm publication is not an installed-cache update.
+- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the four other current skills aligned with the 2.0.0 source package. A source/build check or npm publication is not an installed-cache update.
 - Preserve the complete review of all 150 captured pages and 818 variants across both sources. On refresh, use stable source IDs, explicit replacement and `sourceReviews` bound to each page's `provenance.sha256`; re-review changed pages and their meaningful variants. Reject missing/stale reviews, orphan patterns, unknown source anchors, ID collisions and stale recipe evidence before packaging.
 - Preserve compiler evidence for all 69 ready recipes, including the 56 additions, and revalidate changed inputs. Keep the 15 unresolved variants/concepts visible; compiler readiness does not establish live behavior.
 - Verify adapted pattern SQL, imports and browser interactions on a separately authorized target. Optional form fixture scripts have not been installed by catalog compilation; the reference forms alone do not demonstrate working DML.

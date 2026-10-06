@@ -1,0 +1,15 @@
+genAIService review-service (
+    name: Review Service
+    provider: openai
+    advanced {
+
+        modelName: example-model
+        providerApi: responses
+    }
+    authentication {
+        credentials: @provider-key
+    }
+    endpointUrl {
+        url: https://api.openai.com/v1
+    }
+)

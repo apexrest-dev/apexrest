@@ -2,7 +2,13 @@
 
 ![APEXREST pencil and ruler symbol](assets/apexrest-logo.svg)
 
-APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. `apexrest@1.3.0` is published under npm `latest` with this redesigned surface. The older `1.3.0-beta.1` remains under `beta` with the previous 21-tool surface. Connected Oracle, browser and native-host qualification remain open. [Implementation status](implementation-status.md) and [next actions](next-actions.md) track the remaining checks.
+APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. Published npm `1.3.0` includes this redesigned surface; the `2.0.0` source bundle adds unreleased APEX 26.2 partial imports. [Implementation status](implementation-status.md) separates the recorded local Oracle/browser verification from remaining host, platform and feature qualification.
+
+## APEX 26.2: partial imports
+
+**Import only the changed page and supported shared components.** Choose automatic selection or an explicit file list, preserve unrelated server changes and review conflicts before applying. Full imports remain available, including the existing 26.1 workflow.
+
+[Start the partial-import guide](apex-26.2.md) for prerequisites, matching plan/apply examples, `auto` / `files` / `full` modes and [actual Oracle verification](apex-26.2.md#verified-results). This source feature requires a qualified 26.2 application and a direct SQLcl CLI connection; it is available through both the APEXREST CLI and MCP tools.
 
 ## Start here
 

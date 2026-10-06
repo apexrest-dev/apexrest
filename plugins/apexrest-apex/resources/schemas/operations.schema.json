@@ -756,6 +756,9 @@
         "type": "string",
         "maxLength": 200
       },
+      "version": {
+        "type": "string"
+      },
       "offset": {
         "default": 0,
         "type": "integer",
@@ -805,7 +808,8 @@
           "constraint-columns",
           "signatures",
           "applications",
-          "pages"
+          "pages",
+          "apex-capabilities"
         ]
       },
       "schema": {
@@ -842,7 +846,8 @@
                 "constraint-columns",
                 "signatures",
                 "applications",
-                "pages"
+                "pages",
+                "apex-capabilities"
               ]
             },
             "schema": {
@@ -1051,6 +1056,26 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 1024
+      },
+      "importMode": {
+        "default": "auto",
+        "type": "string",
+        "enum": [
+          "auto",
+          "full",
+          "files"
+        ]
+      },
+      "files": {
+        "description": "files mode: explicit file paths relative to the application source directory",
+        "minItems": 1,
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
       }
     },
     "required": [
@@ -1561,6 +1586,26 @@
           "plan",
           "apply"
         ]
+      },
+      "importMode": {
+        "default": "auto",
+        "type": "string",
+        "enum": [
+          "auto",
+          "full",
+          "files"
+        ]
+      },
+      "files": {
+        "description": "files mode: explicit file paths relative to the application source directory",
+        "minItems": 1,
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
       },
       "userRequest": {
         "type": "string",

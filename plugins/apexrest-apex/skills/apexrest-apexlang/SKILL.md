@@ -10,7 +10,7 @@ Pass the absolute project directory as `project`. Reuse source already read; ret
 ## Retrieval
 
 - Known entry: `apexrest_reference` `mode:read` with the ID. `oracle:` is a complete document, `grammar:production-name` one production, `component:`/`pattern:` a bundled recipe. Follow only the `requires` and `related` links you need; page with `offset`/`nextOffset`.
-- Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` from the table below and `limit:3`. `version` `26.1` is the bundled snapshot. Empty results do not prove a feature absent.
+- Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` from the table below and `limit:3`. `version` selects `26.1` or `26.2`; otherwise the project profile selects it, defaulting to 26.1. Pass the same version on reads. Empty results do not prove a feature absent.
 - Reusable component: `mode:search`, `corpus:components`, `kind:template`, English or Ukrainian name, `limit:3`; read the `component:` recipe and its parameter contract. `ready` proves offline compilation only.
 - UX flow across components: `corpus:patterns` the same way; read the `pattern:` recipe and its required `component:`/`oracle:` contracts and keep its page, item and action relationships.
 
@@ -27,6 +27,8 @@ Entry IDs are `oracle:templates/<family>/<name>._index`; `family` is the search 
 Other families: search the English type with `kind:contract`, then use the returned `family`. Read the owning component production to establish valid nesting; grammar presence does not prove that a combination compiles.
 
 ## Contract notes
+
+For 26.2, start with `oracle:26.2:guide/file-import` or search the versioned inventory/recipe entries. Existing component/pattern catalogs remain 26.1. Keep source MMD intact; a major-version upgrade needs a reviewed export refresh. Partial import uses direct SQLcl CLI on a qualified 26.2 target; include changed dependencies and preserve unselected local/server work.
 
 Read the family section in [component contracts](references/component-contracts.md) before Media List, Comments, Metric Card, Cards, Smart Filters/Search or Region Display Selector. Key points: Media List and Comments need column metadata for every projection and one source variant (never mix named and unnamed columns); partial regions need a provably single-row source; Smart Filters need the results region mapped and submitted items on every dependent source; Region Display Selector lists only regions on the same page; Cards and Metric Card bind title/value/icon columns explicitly. Theme option inventories and release notes do not prove compiler support.
 

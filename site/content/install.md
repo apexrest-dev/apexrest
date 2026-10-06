@@ -37,7 +37,7 @@ node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run -
 node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --accept-oracle-license --json
 ```
 
-Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html), before the second command; `--accept-oracle-license` records that separate consent. `--skip-browser` omits Playwright and Chromium; `--install-os-deps` is a separate, explicit permission for browser system packages. Tools install under `~/.apexrest` (or `APEXREST_HOME`).
+Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html), before the second command; `--accept-oracle-license` records that separate consent. `--skip-browser` omits Playwright and Chromium; `--install-os-deps` is a separate, explicit permission for browser system packages. Tools install under `~/.apexrest` (or `APEXREST_HOME`). The managed SQLcl default is for 26.1; select the reviewed SQLcl 26.3 compiler separately for [26.2 partial imports](../../docs/apex-26.2.md#requirements).
 
 ## 3. Optional: the `apexrest` command
 
@@ -48,7 +48,7 @@ npm install -g apexrest     # npm latest = 1.3.0; apexrest@1.3.0-beta.1 for the 
 apexrest --help
 ```
 
-The published packages still carry the previous surface; from a checkout, `node plugins/apexrest-apex/runtime/apexrest.mjs --help` lists the current commands. Managed installation (`apexrest setup`) also installs the tools, registers Codex and creates `~/.apexrest/bin/apexrest` (or `apexrest.ps1` and `apexrest.cmd` on Windows):
+Stable npm 1.3.0 has the redesigned 11-tool surface but does not include the unreleased [26.2 partial-import update](../../docs/apex-26.2.md). Use the updated checkout runtime for that feature: `node plugins/apexrest-apex/runtime/apexrest.mjs --help`. Managed installation (`apexrest setup`) also installs the tools, registers Codex and creates `~/.apexrest/bin/apexrest` (or `apexrest.ps1` and `apexrest.cmd` on Windows):
 
 ```sh
 export PATH="$HOME/.apexrest/bin:$PATH"

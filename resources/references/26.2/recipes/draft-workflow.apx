@@ -1,0 +1,16 @@
+workflow review-flow (
+    name: Review Flow
+    title: Review Flow
+    version 1 (
+        settings {
+            state: inDevelopment
+        }
+        activity pending-design (
+            name: Pending Design
+            type: draftGeneric
+            layout {
+                sequence: 10
+            }
+        )
+    )
+)

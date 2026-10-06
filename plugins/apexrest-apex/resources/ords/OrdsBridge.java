@@ -15,8 +15,8 @@ import oracle.dbtools.extension.apex.core.apexlang.APEXLangTranspiler;
 import oracle.dbtools.extension.apex.core.apexlang.APEXLangDeploymentFile;
 import oracle.dbtools.extension.apex.core.apexlang.APEXSessionProperty;
 import oracle.dbtools.extension.apex.utility.APEXLangUtils;
-import oracle.apexlang.APEXLangCompiler;
 import oracle.apexlang.core.DeploymentValue;
+import oracle.apexlang.core.DeploymentFileProperty;
 
 /** Runs against the Oracle compiler and OREST driver distributed with SQLcl 26.1+.
  * Credentials arrive only on stdin. Jobs and reports must never contain passwords.
@@ -128,6 +128,19 @@ public class OrdsBridge {
         return connection;
     }
 
+    // SQLcl 26.3 moved the compiler into .core; support the pinned 26.1 layout too.
+    static List<DeploymentFileProperty> deploymentProperties(String version) throws Exception {
+        Class<?> compiler;
+        try { compiler = Class.forName("oracle.apexlang.core.APEXLangCompiler"); }
+        catch (ClassNotFoundException oldLayout) { compiler = Class.forName("oracle.apexlang.APEXLangCompiler"); }
+        Object instance = compiler.getMethod("getInstance", String.class).invoke(null, version);
+        Object value = compiler.getMethod("getDeploymentFileProperties").invoke(instance);
+        if (!(value instanceof List<?> list)) throw new IllegalStateException("Unsupported deployment property contract");
+        List<DeploymentFileProperty> properties = new ArrayList<>();
+        for (Object item : list) properties.add(DeploymentFileProperty.class.cast(item));
+        return properties;
+    }
+
     static List<String> compile(JsonNode job, ObjectNode result) throws Exception {
         Path input = Path.of(required(job, "input")).toRealPath();
         Path deployment = Path.of(required(job, "deployment")).toRealPath();
@@ -137,7 +150,7 @@ public class OrdsBridge {
         APEXLangTranspiler transpiler = new APEXLangTranspiler(version);
         Map<String, DeploymentValue> values = new HashMap<>();
         APEXLangUtils.populateDeploymentInfo(values, List.of("subscription.masterApps", "subscription.mode"),
-            APEXSessionProperty.getAPEXSessionProperties(APEXLangCompiler.getInstance(version).getDeploymentFileProperties()),
+            APEXSessionProperty.getAPEXSessionProperties(deploymentProperties(version)),
             new APEXLangDeploymentFile(deployment), null, null, null);
         var compilation = transpiler.transpile(input, values);
         result.put("compilerMmdVersion", transpiler.getCompilerMmdVersion());

@@ -1,5 +1,9 @@
 # Release {{version}}
 
+## 2.0.0 (unreleased): APEX 26.2 partial imports
+
+The `2.0.0` source bundle can import selected pages and supported shared components, preserving unrelated changes. This feature has [local Oracle/browser evidence](../../docs/evidence/apex262-connected.json) and is **not included in published npm 1.3.0**. Use the [partial-import guide](../../docs/apex-26.2.md) for exact prerequisites and examples.
+
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](../../docs/evidence/redesign-phase1-local.json).
 
 The source repository is at version {{version}}. The stable `apexrest@1.3.0` release is published under npm `latest` with the redesign below. The older `1.3.0-beta.1` remains under npm `beta`.

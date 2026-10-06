@@ -8,11 +8,18 @@ import {
   type PolicyGrant,
   type ProjectContext,
 } from './config.ts';
-import { DeploymentService, deployPlanSchema, type DeployPlan, type DeployState } from './deploy.ts';
+import {
+  DeploymentService,
+  deployPlanSchema,
+  type DeployPlan,
+  type DeployState,
+  type DeploymentPlanOptions,
+} from './deploy.ts';
 import type { OracleAdapter } from './oracle.ts';
 import { TestService } from './testing.ts';
 import type { JobPhase } from './jobs.ts';
 import { Fault, type StructuredDiagnostic } from './result.ts';
+import { auditUpgradeSource } from './upgrade-audit.ts';
 
 // apexrest_ship: validate -> plan -> (apply) record a plan-bound grant -> deploy
 // -> verify -> remove the grant. The grant records the user's literal request
@@ -90,10 +97,36 @@ export async function validateApplication(
   }
   const { output, mmd: _mmd, ...rest } = validated;
   const warnings = parseDiagnostics(output).filter((d) => d.severity === 'warning');
+  const advisory = async <T>(action: () => Promise<T>) => {
+    try {
+      return await action();
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Fault && error.code === 'CANCELLED')) throw error;
+      return {
+        status: 'unavailable' as const,
+        findings: [],
+        reason: error instanceof Error ? error.message : 'Advisory analysis did not complete.',
+      };
+    }
+  };
+  const [staticAnalysis, upgradeAudit] = await Promise.all([
+    advisory(async () =>
+      typeof oracle.codeScan === 'function'
+        ? oracle.codeScan(source, signal)
+        : {
+            status: 'unavailable' as const,
+            findings: [],
+            reason: 'The selected adapter does not provide CodeScan.',
+          },
+    ),
+    advisory(() => auditUpgradeSource(source)),
+  ]);
   return {
     ...rest,
     diagnostics: warnings.slice(0, 50),
     warningCount: warnings.length,
+    staticAnalysis,
+    upgradeAudit,
     ms: Date.now() - started,
     output: output.length > 4000 ? output.slice(0, 4000) : output,
     outputTruncated: output.length > 4000,
@@ -114,13 +147,40 @@ function sourceCounts(ctx: ProjectContext, plan: DeployPlan) {
 }
 
 /** Bounded plan preview for review; the full plan is the written file. */
-export function planPreview(ctx: ProjectContext, plan: DeployPlan) {
+export function planPreview(ctx: ProjectContext, plan: DeployPlan, options?: DeploymentPlanOptions) {
+  const selection =
+    plan.schemaVersion === 4
+      ? plan.importSelection
+      : {
+          requestedMode: options?.importMode ?? 'full',
+          resolvedMode: 'full' as const,
+          files: [] as string[],
+          dependencies: [] as string[],
+          reasons: [
+            (ctx.config.toolchain.profile ?? '26.1') === '26.1'
+              ? 'apex-26.1-full-import'
+              : 'legacy-full-application-plan',
+          ],
+        };
   return {
     planId: plan.id,
     planDigest: plan.digest,
     environment: plan.environment,
     targetDigest: plan.targetDigest,
     planMode: plan.schemaVersion === 1 ? 'full-export' : plan.mode,
+    importSelection: {
+      requestedMode: selection.requestedMode,
+      resolvedMode: selection.resolvedMode,
+      fileCount: selection.files.length,
+      files: selection.files.slice(0, 50),
+      filesTruncated: selection.files.length > 50,
+      dependencies: selection.dependencies.slice(0, 50),
+      dependencyCount: selection.dependencies.length,
+      reasons: selection.reasons,
+      ...(plan.schemaVersion === 4 && plan.importSelection.readbackPolicy
+        ? { readbackPolicy: plan.importSelection.readbackPolicy }
+        : {}),
+    },
     backupRequired: plan.backupRequired,
     compiler: plan.compiler,
     createdAt: plan.createdAt,
@@ -148,6 +208,7 @@ export async function shipPlan(
   deployment: DeploymentService,
   parseDiagnostics: DiagnosticParser,
   progress?: (phase: JobPhase) => void,
+  options: DeploymentPlanOptions = { importMode: 'auto' },
 ) {
   await reconcileShipGrants();
   const started = Date.now();
@@ -156,14 +217,14 @@ export async function shipPlan(
   try {
     // Planning compiles the sources and reads the target in parallel; a
     // compiler failure is reported as structured validation diagnostics.
-    plan = await deployment.plan(ctx, name);
+    plan = await deployment.plan(ctx, name, options);
   } catch (error) {
     throw compilerFault(error, parseDiagnostics);
   }
   const planPath = '.apexrest/plans/ship-' + plan.id + '.json';
   await writeJson(await contained(ctx.root, planPath), plan);
   const phases: ShipPhase[] = [{ phase: 'planning', ms: Date.now() - started }];
-  return { plan, planPath, phases, preview: planPreview(ctx, plan) };
+  return { plan, planPath, phases, preview: planPreview(ctx, plan, options) };
 }
 
 const phaseFor: Partial<Record<DeployState, JobPhase>> = {

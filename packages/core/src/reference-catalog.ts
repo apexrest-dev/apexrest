@@ -234,16 +234,16 @@ export function createReferenceCatalog<
     const ranked = index.searchable
       .filter(
         ({ entry }) =>
-          entry.id === exactId ||
-          ((!version ||
+          (!version ||
             entry.version === version ||
             (!version.includes('@') && entry.version.split('@')[0] === version)) &&
-            (!options.kind || entry.kind === options.kind) &&
-            (!options.family ||
-              entry.family === options.family ||
-              entry.family.startsWith(options.family + '/')) &&
-            // Unresolved records have no usable recipe; they stay discoverable on request.
-            (options.includeUnresolved || entry.readiness !== 'unresolved')),
+          (entry.id === exactId ||
+            ((!options.kind || entry.kind === options.kind) &&
+              (!options.family ||
+                entry.family === options.family ||
+                entry.family.startsWith(options.family + '/')) &&
+              // Unresolved records have no usable recipe; they stay discoverable on request.
+              (options.includeUnresolved || entry.readiness !== 'unresolved'))),
       )
       .map((candidate) => ({
         entry: candidate.entry,
@@ -336,10 +336,15 @@ export function createReferenceCatalog<
     return candidate.code ? boundCode(candidate.code, CODE_LIMIT) : undefined;
   }
 
-  async function read(id: string, offset: number, limit: number) {
+  async function read(id: string, offset: number, limit: number, version?: string) {
     const index = await catalogIndex();
     const entry = index.byId.get(id);
-    if (!entry)
+    if (
+      !entry ||
+      (version &&
+        entry.version !== version &&
+        (version.includes('@') || entry.version.split('@')[0] !== version))
+    )
       throw new Fault(
         'REFERENCE_NOT_FOUND',
         `No registered ${definition.label.toLowerCase()} reference with this ID.`,

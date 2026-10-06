@@ -1,0 +1,71 @@
+[
+  {
+    "name": "file-import",
+    "title": "APEXlang 26.2 selected-file import and deployment metadata",
+    "family": "lifecycle",
+    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/understanding-apexlang-deployment-files.html",
+    "related": [
+      "oracle:26.2:guide/upgrade-audit",
+      "oracle:26.2:guide/working-copies"
+    ]
+  },
+  {
+    "name": "ai-provider-effort",
+    "title": "AI services, reasoning effort and secure assistant navigation in 26.2",
+    "family": "ai",
+    "source": "https://blogs.oracle.com/apex/working-with-generative-ai-provider-apis-and-reasoning-effort",
+    "related": [
+      "oracle:26.2:inventory/app/ai-agent/ai-agent",
+      "oracle:26.2:inventory/gen-aiservice/gen-aiservice",
+      "oracle:26.2:guide/security-credentials"
+    ]
+  },
+  {
+    "name": "reports-charts",
+    "title": "Interactive Reports, charts and Universal Theme 26.2",
+    "family": "reports",
+    "source": "https://blogs.oracle.com/apex/whats-new-in-interactive-reports-and-ai-interactive-reports",
+    "related": [
+      "oracle:26.2:inventory/app/page/region/plugin-variants/interactive-report/interactive-report",
+      "oracle:26.2:inventory/app/page/region/plugin-variants/chart/chart"
+    ]
+  },
+  {
+    "name": "workflow-tasks",
+    "title": "Draft workflows, task outcomes and instance migration in 26.2",
+    "family": "workflow",
+    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/new-features.html",
+    "related": [
+      "oracle:26.2:inventory/app/workflow/workflow",
+      "oracle:26.2:inventory/app/workflow/version/activity/activity",
+      "oracle:26.2:inventory/app/task-definition/task-definition"
+    ]
+  },
+  {
+    "name": "security-credentials",
+    "title": "Deep Data Security, OCI credentials and workspace ACLs in 26.2",
+    "family": "security",
+    "source": "https://blogs.oracle.com/apex/using-dbms_cloud-credentials-with-resource-principal-and-dbtools-identity",
+    "related": [
+      "oracle:26.2:inventory/web-credential/web-credential"
+    ]
+  },
+  {
+    "name": "upgrade-audit",
+    "title": "APEX 26.2 source upgrade and removed/deprecated features",
+    "family": "migration",
+    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/changed-behavior.html",
+    "related": [
+      "oracle:26.2:guide/file-import"
+    ]
+  },
+  {
+    "name": "working-copies",
+    "title": "Application locks and Working Copies in 26.2",
+    "family": "lifecycle",
+    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/aeapi/APEX_APPLICATION_ADMIN.CREATE_WORKING_COPY-Function.html",
+    "related": [
+      "oracle:26.2:guide/file-import"
+    ]
+  }
+]

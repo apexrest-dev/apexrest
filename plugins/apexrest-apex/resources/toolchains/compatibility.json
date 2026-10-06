@@ -3,7 +3,7 @@
   "baseline": {
     "node": "24.21.0",
     "sqlcl": "26.1.2.132.1334",
-    "apex": "26.1+",
+    "apex": "26.1",
     "mmd": "26.1.0+3102"
   },
   "platforms": [
@@ -46,5 +46,38 @@
       "status": "retired-codex-only-product",
       "historicalResult": "mcp-not-discovered"
     }
-  }
+  },
+  "profiles": [
+    {
+      "id": "apex261-sqlcl261-mmd3102",
+      "apex": "26.1",
+      "sqlcl": "26.1.2.132.1334",
+      "mmd": "26.1.0+3102",
+      "qualification": "historical-offline-compiler",
+      "connectedQualification": "not-run-current-release"
+    },
+    {
+      "id": "apex262-sqlcl263-mmd3479",
+      "apex": "26.2",
+      "sqlcl": "26.3.0.260.1620",
+      "mmd": "26.2.0+3479",
+      "qualification": "partial-local",
+      "connectedQualification": "local-direct-cli-full-page-and-shared-lov-import",
+      "partialImport": {
+        "transport": "direct",
+        "mode": "cli",
+        "helpVerified": true,
+        "databaseImportVerified": true,
+        "scope": "Isolated local APEX26.2.0/DB23.26.3.0.0 fixture; explicit page and auto page/LOV imports verified, remote sibling bytes preserved, selected default omission recorded"
+      },
+      "sqlclArtifact": {
+        "url": "https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-26.3.0.260.1620.zip",
+        "sha256": "eb0dca2becc30e9aa1c700ae71e5df6efde8a33d098d7d23405b6558bbb81a81",
+        "vendorSha1": "c858adea26aca18496a8b638b953285839fecbce",
+        "verification": "Downloaded official ZIP; SHA1 matched vendor page; SHA256 locally measured, not a vendor signature",
+        "asOf": "2026-10-06"
+      },
+      "connectedEvidence": "docs/evidence/apex262-connected.json"
+    }
+  ]
 }

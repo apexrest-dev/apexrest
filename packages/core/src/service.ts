@@ -84,7 +84,7 @@ function routeReference(parsed: Record<string, unknown>) {
     if (typeof id !== 'string') throw new Fault('INVALID_INPUT', 'id: required for mode read', 2);
     return {
       operation: 'docs.read',
-      input: { project: rest.project, id, offset, ...(limit ? { limit } : {}) },
+      input: { project: rest.project, version: rest.version, id, offset, ...(limit ? { limit } : {}) },
     };
   }
   if (typeof query !== 'string') throw new Fault('INVALID_INPUT', 'query: required for mode search', 2);
@@ -237,7 +237,13 @@ export async function dispatch(
         data = await referenceSearch(text('query'), text('version'), schemas['docs.search'].parse(parsed));
         break;
       case 'docs.read':
-        data = await referenceRead(text('id'), Number(parsed.offset), Number(parsed.limit), text('project'));
+        data = await referenceRead(
+          text('id'),
+          Number(parsed.offset),
+          Number(parsed.limit),
+          text('project'),
+          text('version'),
+        );
         break;
       case 'docs.sync':
         data = await referenceSync(text('version'), Boolean(parsed.dryRun));
@@ -320,7 +326,10 @@ export async function dispatch(
             );
             break;
           case 'ship': {
-            const planned = await shipPlan(ctx, text('env'), deployment, parseDiagnostics, progress);
+            const planned = await shipPlan(ctx, text('env'), deployment, parseDiagnostics, progress, {
+              importMode: parsed.importMode as 'auto' | 'full' | 'files',
+              ...(parsed.files ? { files: parsed.files as string[] } : {}),
+            });
             if (parsed.mode !== 'apply') {
               data = {
                 mode: 'plan',
@@ -394,7 +403,10 @@ export async function dispatch(
             data = await deployment.plan(ctx, text('env'));
             break;
           case 'deploy.plan': {
-            const plan = await deployment.plan(ctx, text('env'));
+            const plan = await deployment.plan(ctx, text('env'), {
+              importMode: parsed.importMode as 'auto' | 'full' | 'files',
+              ...(parsed.files ? { files: parsed.files as string[] } : {}),
+            });
             await writeJson(await contained(ctx.root, text('out')), plan);
             data = plan;
             break;

@@ -10,5 +10,14 @@
   "schemas": {
     "plugin.schema.json": "0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883",
     "mcp.schema.json": "6539175bfcdf43085855183e86da40ea94b166547a72b47ae9a0a390516d3acb"
+  },
+  "oracleSkills26_2": {
+    "repository": "https://github.com/oracle/skills",
+    "commit": "03ee10d02273bc4002fd527089e7fbb5884f94c4",
+    "license": "UPL-1.0",
+    "mode": "reviewed versioned inventory and examples; no upstream executable or global skill sync",
+    "archiveSha256": "5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343",
+    "indexSha256": "efb423137897c06bc681ac989662e18aad84516db664cc224fd8e39fc4253dcc",
+    "snapshot": "references/26.2/oracle-snapshot.json"
   }
 }

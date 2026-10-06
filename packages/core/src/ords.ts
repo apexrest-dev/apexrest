@@ -138,7 +138,12 @@ export async function runOrdsBridge(
   env.JAVA_HOME = java.javaHome;
   const processResult = await runner({
     executable: java.executable,
-    args: ['-cp', path.join(home, 'lib', '*'), helper, jobFile],
+    args: [
+      '-cp',
+      [path.join(home, 'lib', '*'), path.join(home, 'lib', 'ext', '*')].join(path.delimiter),
+      helper,
+      jobFile,
+    ],
     cwd: stage,
     env,
     input: credentials ? JSON.stringify(credentials) : '',

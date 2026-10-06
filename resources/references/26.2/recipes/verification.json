@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "evidenceKind": "oracle-offline-compiler",
+  "sqlclVersion": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+  "mmdVersion": "26.2.0+3479",
+  "scope": "Generated baseline and six recipe files compiled together using SQLcl /nolog; no Oracle database, provider, import, browser, credentials or workflow execution verified.",
+  "baseline": "passed",
+  "files": {
+    "ai-service.apx": "fd198585e7d035de55bb9292e7a437093d664860aeb4857939a21160176ba2ad",
+    "ai-agent.apx": "488cfdc8f593b23809f8a4bd5d378ade209ad5a8d8fbf7d1d2b23b0764e38c4c",
+    "oci-credential.apx": "71c7806f3889bb114db12e78312449c1fd022c9f68024ab2bac38b28093814bf",
+    "draft-workflow.apx": "29d81682d72337bd1872b276a38e27779e44b998daf54dd4bcb86a68bfc8d455",
+    "report-chart.apx": "ddf40c6d2f3c8624b69a81e0b00320ba47d7cfd6c36fc8237635660671b2f655",
+    "provider-key.apx": "33fadd36c4d8f265611481781f1dc9b3bceedfa07a48aa000e93a826066c0b6d"
+  },
+  "generationOutputSha256": "2b65be938f5a66719a9030fccf322512f9ad11b7bd6f581a25dc20ef16680546",
+  "validationOutput": "Validation successful.",
+  "validationOutputSha256": "06921e970ace612f5c19904ffcb4546f5cb3332c872c644089fea27c089419ce"
+}

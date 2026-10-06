@@ -26,13 +26,27 @@ Project-scoped tools reject a missing or relative `project` argument: pass the a
 
 ## SQLcl is present but compilation fails
 
-The reviewed local combination is SQLcl 26.1.2.132.1334 with Java 21. The system Java can differ; managed setup or `APEXREST_JAVA_HOME` selects the intended JRE. `apexrest_apex_validate` returns structured `diagnostics` (file, line, column, type, message, `validValues`, hint): repair the named file and line and rerun. SQLcl can print an error and still exit zero, so validation requires a success marker and no error indication; otherwise it reports `VALIDATION_UNCONFIRMED` with the compiler output.
+Select the compiler for the source profile: SQLcl `26.1.2.132.1334` for the reviewed 26.1 workflow, or `26.3.0.260.1620` with MMD `26.2.0+3479` for [26.2 partial imports](apex-26.2.md). The managed Java baseline is 21; `APEXREST_JAVA_HOME` selects an existing compatible runtime. `apexrest_apex_validate` returns structured `diagnostics` (file, line, column, type, message, `validValues`, hint): repair the named file and line and rerun. SQLcl can print an error and still exit zero, so validation requires a success marker and no error indication; otherwise it reports `VALIDATION_UNCONFIRMED` with the compiler output.
 
-Offline compiler work runs on a pooled SQLcl server process that lives as long as the MCP server. A timed-out, cancelled or failed command kills its session and the next call starts a fresh one; a session idle for ten minutes is reaped. If the pool itself cannot start (for example after replacing the SQLcl installation), restart the host session so the MCP server restarts.
+Offline validation and help reuse a pooled SQLcl process. Generation on 26.3 is isolated to avoid a verified compiler-state issue; 26.1 retains its established pooling behavior. A timed-out, cancelled or failed command kills its session and the next call starts a fresh one; a session idle for ten minutes is reaped. If the pool itself cannot start (for example after replacing the SQLcl installation), restart the host session so the MCP server restarts.
 
 Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent an MMD version or edit internal APEX tables to work around a compiler incompatibility. Use the references for the selected toolchain version and make a focused source correction.
 
 ## Ship, target or policy checks fail
+
+### APEX 26.2 partial imports
+
+| Symptom | Action |
+| --- | --- |
+| `auto` resolves to `full` | Read `importSelection.reasons`. Confirm the trusted sync baseline and eligibility; do not switch to `files` just to bypass a full-import requirement. |
+| `PARTIAL_IMPORT_UNSUPPORTED` | Check the exact source/compiler/target tuple, selected files and direct SQLcl `cli` transport. The APEXREST MCP tool supports partial imports; SQLcl's own `mcp` transport does not. |
+| `APEX_VERSION_MISMATCH` or `SYNC_COMPILER_CHANGED` | Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand. |
+| `IMPORT_CONFLICT` or `SYNC_SERVER_CHANGED` | Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict. |
+| `POST_DEPLOY_CONTENT_FAILED` or `LOCAL_RECONCILIATION_REQUIRED` | The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again. |
+
+The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allowed readback transformations. `OUTCOME_UNKNOWN` still requires the recovery procedure below.
+
+### General deployment checks
 
 | Symptom                                                                | Action                                                                                                                   |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |

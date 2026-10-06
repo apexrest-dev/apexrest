@@ -1,0 +1,7 @@
+webCredential provider-key (
+    name: Provider Key
+    type: httpHeader
+    authentication {
+        credentialName: Authorization
+    }
+)

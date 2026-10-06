@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0 — APEX 26.2 and partial imports (unreleased)
+
+- Retain 26.1 profiles and add reviewed 26.2 toolchains, references, starter templates and read-only prerequisite diagnostics.
+- Add automatic or explicit selected-file imports on qualified 26.2 direct SQLcl targets, with three-way conflict checks, fresh full backups, plan-bound scope, conservative export verification and actual server checkpoints.
+- Add advisory APEXlang CodeScan and upgrade hints; isolate SQLcl 26.3 generation to avoid a verified pooled compiler-state defect. Adapt the ORDS bridge to both vendor library layouts.
+- Record real local application import/browser evidence separately from offline compilation, mocked failure coverage, native-host qualification and publication. See [26.2 support](docs/apex-26.2.md) and [implementation status](docs/implementation-status.md).
+
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](docs/evidence/redesign-phase1-local.json).
 
 ## 1.3.0 — redesign phase 1, security hardening and review fixes

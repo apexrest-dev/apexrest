@@ -38,6 +38,13 @@ if (check) {
   console.log(`Repository plugin ${packageVersion}: source, integrity and fresh build verified.`);
 } else {
   for (const marketplace of ['.agents/plugins/marketplace.json', '.claude-plugin/marketplace.json']) {
+    const desired = await readFile(`dist/codex-compat/${marketplace}`);
+    const existing = await readFile(marketplace).catch((error) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    // Preserve identical manifests (including read-only host configuration).
+    if (existing?.equals(desired)) continue;
     await mkdir(path.dirname(marketplace), { recursive: true });
     await cp(`dist/codex-compat/${marketplace}`, marketplace);
   }

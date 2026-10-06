@@ -22,7 +22,7 @@ test(
   async (t) => {
     const directory = await mkdtemp(path.join(tmpdir(), 'apexrest-ords-protocol-'));
     t.after(() => rm(directory, { recursive: true, force: true }));
-    const classpath = path.join(sqlclHome, 'lib/*');
+    const classpath = [path.join(sqlclHome, 'lib/*'), path.join(sqlclHome, 'lib/ext/*')].join(path.delimiter);
     const compiled = spawnSync(
       'javac',
       ['-cp', classpath, '-d', directory, 'resources/ords/OrdsBridge.java'],

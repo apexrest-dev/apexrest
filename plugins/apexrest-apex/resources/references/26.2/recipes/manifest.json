@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "mmdVersion": "26.2.0+3479",
+  "files": [
+    {
+      "file": "ai-service.apx",
+      "target": "workspace-components/generative-ai-services/review-service.apx"
+    },
+    {
+      "file": "ai-agent.apx",
+      "target": "shared-components/ai-agents/release-review.apx"
+    },
+    {
+      "file": "oci-credential.apx",
+      "target": "workspace-components/credentials/managed-oci.apx"
+    },
+    {
+      "file": "draft-workflow.apx",
+      "target": "shared-components/workflows/review-flow.apx"
+    },
+    {
+      "file": "report-chart.apx",
+      "target": "pages/p00402-report-chart.apx"
+    },
+    {
+      "file": "provider-key.apx",
+      "target": "workspace-components/credentials/provider-key.apx"
+    }
+  ],
+  "scope": "Offline syntax fixtures; no database, provider, credential, workflow execution or browser verification."
+}

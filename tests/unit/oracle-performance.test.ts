@@ -157,6 +157,24 @@ test('replacing SQLcl libraries invalidates cached help even when the reported v
   assert.equal(probes, 2);
 });
 
+test('SQLcl 26.3 lib/ext compiler replacement invalidates the capability cache', async () => {
+  let help = 'apex generate export validate import',
+    probes = 0;
+  const { oracle, library } = await adapter(async (request) => {
+    if (request.args[0] === '-version') return result('SQLcl: Release 26.3.0');
+    probes++;
+    return result(help);
+  });
+  const compiler = path.join(path.dirname(library), 'ext/apexlang-compiler.jar');
+  await mkdir(path.dirname(compiler), { recursive: true });
+  await writeFile(compiler, 'original compiler');
+  await oracle.requireCapability('import');
+  await writeFile(compiler, 'replaced compiler with changed help');
+  help = 'apex generate export validate';
+  await assert.rejects(oracle.requireCapability('import'), { code: 'UNSUPPORTED_CAPABILITY' });
+  assert.equal(probes, 2);
+});
+
 test('concurrent capability checks share one probe and evict a failed shared probe', async () => {
   let versions = 0;
   let helps = 0;

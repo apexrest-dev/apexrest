@@ -81,7 +81,7 @@ export class ArtifactService {
       // Durable working-copy/backup/import sources are never result archives.
       const relative = path.relative(this.ctx.root, directory).split(path.sep).join('/');
       if (
-        ['.apexrest/sync', '.apexrest/backups', '.apexrest/deployments'].some(
+        ['.apexrest/sync', '.apexrest/backups', '.apexrest/deployments', '.apexrest/plans'].some(
           (root) => relative === root || relative.startsWith(root + '/'),
         )
       )

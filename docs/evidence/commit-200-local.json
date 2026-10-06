@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "runtimeVersion": "2.0.0",
+  "status": "passed-offline",
+  "scope": "Real offline SQLcl compilation after removing one trailing space caught by the staged whitespace check. No database login, SQL execution, import or browser check.",
+  "file": "templates/customer-crm/apex-overlay-26.2/pages/p00080-customer.apx",
+  "previousSha256": "40c5631c0da3b58fe1b23d403438947164bcb316a78d538579c409bb095d265a",
+  "sha256": "279e0452acb503ff8e4b30a3477b61e64550feb629b6b2d04edfa7d9b8540679",
+  "compiler": {
+    "version": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+    "helpHash": "491b91846d2ffc6591cdd361c5a8633b037b3725c732081805f43b47958a3a0b"
+  },
+  "mmdVersion": "26.2.0+3479",
+  "output": "Validation successful."
+}

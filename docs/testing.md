@@ -28,7 +28,7 @@ Build with `npm run build` before checks that consume `dist/`. When the `claude`
 
 - `APEXREST_INTEGRATION_PROJECT` and `APEXREST_INTEGRATION_ENV` identifying a reviewed test project.
 - Existing named SQLcl connections and explicit project trust and target policy.
-- A supported APEX 26.1+ target and the dependencies required by its selected suites, including utPLSQL for the SQL suite.
+- A supported APEX 26.1 full-import target or the reviewed [APEX 26.2 profile](apex-26.2.md#requirements), plus dependencies required by the selected suites, including utPLSQL for the SQL suite.
 - `APEXREST_INTEGRATION_ALLOW_WRITES=true` before any apply, with independently authorized mutation scope.
 - Local interactive browser authentication and a dedicated test user when E2E is required.
 

@@ -1,0 +1,14 @@
+aiAgent release-review (
+    name: Release Review
+    advanced {
+
+        reasoningEffort: medium
+    }
+    responseFormat {
+        type: text
+    }
+    genAI {
+        service: @review-service
+        systemPrompt: Review the provided release dependencies. Do not execute actions.
+    }
+)

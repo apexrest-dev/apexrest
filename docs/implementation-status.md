@@ -1,5 +1,29 @@
 # Implementation status
 
+## Version 2.0.0 — local source update, 2026-10-06
+
+The package, five workspace packages and plugin metadata are now `2.0.0`; generated runtime/manifests and the local documentation site carry that version. This version bump does not publish npm, create a Git tag or rerun Oracle qualification. Earlier evidence retains its original runtime version and source digest. Working copies are runtime-version bound: reconcile pending changes/outcomes, then explicitly refresh a clean baseline before using a previous-version working copy with 2.0.0.
+
+[Version checks](evidence/version-200-local.json) passed: package/workspace/lock/plugin consistency, CLI `2.0.0`, four packaging checks, two working-copy upgrade safeguards, package smoke, generated-bundle integrity, documentation and site build.
+
+Commit preflight removed one trailing space from the new 26.2 CRM overlay; [fresh offline compiler validation](evidence/commit-200-local.json) passed on the corrected source. Earlier qualification hashes remain historical in their receipts.
+
+## APEX 26.2 documentation review — 2026-10-06
+
+The README, documentation index and site overview now lead with partial imports; the site has a dedicated navigation/search route for the 26.2 guide. The guide includes matching plan/apply examples, import-mode selection, exact prerequisites, exclusions and links to existing Oracle/browser evidence. Workflow, support, release and troubleshooting pages distinguish the unreleased source update from npm 1.3.0 and qualify legacy full-import-only descriptions. Documentation checks passed for 64 documents, the local site built 16 pages, and all eight site-rendering/link tests passed. The Codex in-app browser confirmed that search returns the new partial-import page and that its navigation, mode table and source-release notice render correctly. This documentation review does not add or rerun Oracle application/browser or native-host qualification.
+
+## APEX 26.2 support — source implementation, 2026-10-06
+
+Implemented dual release profiles and reference routing, a separate 26.2 SQLcl lock and CRM overlay, target/prerequisite diagnostics, advisory CodeScan and upgrade hints, and automatic/explicit partial imports through the existing CLI/MCP ship surface. Selected-file plans bind a three-way comparison, exact selection, fresh full SQL backup and conservative readback policy; actual server exports become checkpoints while unselected local work stays dirty. Fresh backup/run linkage, conflict and source-drift protections, unknown-outcome handling and local reconciliation are covered by dedicated tests.
+
+[Connected qualification](evidence/apex262-connected.json) records real full, page-only and automatic page-plus-LOV imports on the explicitly authorized isolated local APEX 26.2.0 application 92620, SQLcl 26.3.0.260.1620/MMD 26.2.0+3479. The final run preserved all 21 unselected files, including a separately edited remote sibling. [Browser evidence](evidence/apex262-browser.png) shows the final page and working shared LOV in the Codex in-app browser. The initial strict readback failure remains recorded; new plans accept only proven selected-source formatting/default transformations with per-file hash receipts. No automated SQL/E2E suites were claimed passed for this application-only fixture.
+
+[Offline compatibility evidence](evidence/apex262-compatibility-local.json) separately verifies blank/CRM generation and compilation for both releases, all 138 existing component and 69 pattern recipes with a clean pinned 26.1 compiler, and the bounded 26.2 corpus recipes. Generation on SQLcl 26.3 uses a disposable process because a real regression exposed compiler state leaking into validation in a shared JVM; later validations still share one process. The ORDS Java bridge handles both vendor library layouts; its loopback tests are simulated server evidence, not live ORDS qualification.
+
+Managed installation continues to default to 26.1; new projects generated with the explicitly selected 26.2 compiler record the matching profile/lock. ORDS partial imports, broader platform/provider/security/workflow runtime coverage and fresh native Codex/Claude Code model sessions remain open. The package has not been published. See [26.2 usage and boundaries](apex-26.2.md) and the new APEX262 acceptance rows; historical records below retain their original scope.
+
+[Final local checks](evidence/apex262-local-checks.json): 357 unit tests passed with one existing host-specific skip, 61 CLI/MCP contracts, 46 installer tests and 27 packaging tests passed. Typecheck, lint, documentation/site checks, package smoke and rebuilt-plugin integrity checks passed. The real SQLcl 26.3 generate/three-validations regression ran successfully; it is distinct from the historical skipped test.
+
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
 
 ## Full review corrections — local implementation, 2026-10-05

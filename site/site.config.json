@@ -31,6 +31,13 @@
       "key": "getting-started"
     },
     {
+      "slug": "apex-26.2",
+      "title": "APEX 26.2 partial imports",
+      "source": "docs/apex-26.2.md",
+      "lang": "en",
+      "key": "apex-26.2"
+    },
+    {
       "slug": "codex-cloud",
       "title": "Codex Cloud",
       "source": "docs/codex-cloud.md",

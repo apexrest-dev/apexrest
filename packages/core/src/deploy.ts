@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readFile, mkdir, cp, open, rename } from 'node:fs/promises';
+import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
 import { createPublicKey, randomUUID, verify } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
@@ -31,6 +31,20 @@ import {
 import type { SyncState } from './sync.ts';
 import { deploymentBinding } from './composer/materializer.ts';
 import { VERSION } from './version.ts';
+import { APEXLANG_EQUIVALENCE_POLICY, compareApplicationExports } from './apexlang-equivalence.ts';
+import { databaseMeetsApex262Minimum } from './compatibility.ts';
+import {
+  importOptions,
+  importSelectionSchema,
+  sourceRelease,
+  selectImport,
+  persistSnapshot,
+  stageSelection,
+  rebaseAfterImport,
+  type ImportOptions,
+} from './partial-import.ts';
+export type { ImportOptions } from './partial-import.ts';
+export type DeploymentPlanOptions = ImportOptions;
 export { targetDigest } from './sync.ts';
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const filesSchema = z.record(z.string(), digestSchema);
@@ -113,7 +127,37 @@ const planV3Schema = planV2Object
     )
       ctx.addIssue({ code: 'custom', message: 'Plan mode, backup strategy and sync binding must agree.' });
   });
-export const deployPlanSchema = z.union([legacyPlanSchema, planV2Schema, planV3Schema]);
+const planV4Schema = planV2Object
+  .extend({
+    schemaVersion: z.literal(4),
+    scope: z.enum(['full-application-import', 'selected-file-import']),
+    composer: composerBindingSchema.nullable(),
+    importSelection: importSelectionSchema,
+  })
+  .superRefine((plan, ctx) => {
+    const partial = plan.importSelection.resolvedMode === 'files';
+    if (
+      (partial && !!plan.restore) ||
+      (plan.importSelection.requestedMode === 'files' && !partial) ||
+      (plan.importSelection.requestedMode === 'full' && partial) ||
+      (!partial && (plan.mode === 'working-copy') !== (plan.backupStrategy === 'initial-backup')) ||
+      (plan.mode === 'working-copy') !== (plan.workingCopy !== null) ||
+      (partial &&
+        (!plan.importSelection.files.length ||
+          !plan.importSelection.before ||
+          !plan.importSelection.effective ||
+          plan.backupStrategy !== 'fresh-export' ||
+          !plan.workingCopy)) ||
+      partial !== (plan.scope === 'selected-file-import') ||
+      (!partial &&
+        (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Import selection, scope, snapshots and backup strategy must agree.',
+      });
+  });
+export const deployPlanSchema = z.union([legacyPlanSchema, planV2Schema, planV3Schema, planV4Schema]);
 export type DeployPlan = z.infer<typeof deployPlanSchema>;
 export type DeployState =
   | 'planned'
@@ -711,7 +755,195 @@ export class DeploymentService {
   async releaseLease(env: Environment, runId: string) {
     await new LocalDeploymentControl(env).release(runId);
   }
-  async plan(ctx: ProjectContext, name: string, restore = false): Promise<DeployPlan> {
+  async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
+    if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
+    const requested = importOptions(options);
+    await requireTrust(ctx.root);
+    const source = await contained(ctx.root, ctx.config.application.sourceDir);
+    const release = await sourceRelease(source);
+    if (release !== '26.2') {
+      if (requested.importMode === 'files')
+        throw new Fault(
+          'PARTIAL_IMPORT_UNSUPPORTED',
+          'File import requires an Oracle-exported 26.2 source tree.',
+          3,
+        );
+      return this.legacyPlan(ctx, name);
+    }
+    const versions = await this.oracle.targetVersions(
+      await resolveConnection(environment(ctx, name).readConnectionRef),
+    );
+    if (
+      !/^26\.2(?:\.|$)/.test(versions.apexVersion) ||
+      !databaseMeetsApex262Minimum(versions.databaseVersion)
+    )
+      throw new Fault(
+        'APEX_VERSION_MISMATCH',
+        'APEX 26.2 sources require a qualified 26.2 target and supported database release.',
+        3,
+        'blocked',
+      );
+    const partial =
+      requested.importMode === 'full'
+        ? { reasons: ['full-import-requested'] }
+        : await this.planFiles(ctx, name, requested);
+    if ('plan' in partial && partial.plan) return partial.plan;
+    if (requested.importMode === 'files')
+      throw new Fault('PARTIAL_IMPORT_UNSUPPORTED', partial.reasons.join('; '), 3, 'blocked', {
+        reasons: partial.reasons,
+      });
+    const full = await this.legacyPlan(ctx, name);
+    const plan: DeployPlan = {
+      ...full,
+      schemaVersion: 4,
+      mode: full.schemaVersion === 1 ? 'full-export' : full.mode,
+      backupStrategy: full.schemaVersion === 1 ? 'fresh-export' : full.backupStrategy,
+      workingCopy: full.schemaVersion === 1 ? null : full.workingCopy,
+      composer: full.schemaVersion === 3 ? full.composer : null,
+      importSelection: {
+        requestedMode: requested.importMode,
+        resolvedMode: 'full',
+        files: [],
+        reasons: partial.reasons,
+        dependencies: [],
+        before: null,
+        effective: null,
+        capabilities: { ...versions },
+      },
+    };
+    plan.digest = planDigest(plan);
+    return plan;
+  }
+  private async planFiles(
+    ctx: ProjectContext,
+    name: string,
+    options: Required<ImportOptions>,
+  ): Promise<{ plan?: DeployPlan; reasons: string[] }> {
+    const env = environment(ctx, name);
+    if (await isProductionTarget(env)) return { reasons: ['production-requires-full-import'] };
+    const store = new SyncStore(ctx, env, name),
+      working = await store.read();
+    if (!working || working.status === 'invalidated') return { reasons: ['trusted-sync-baseline-required'] };
+    await store.validate(working);
+    const source = await syncPath(ctx, ctx.config.application.sourceDir);
+    const sources = await sourceInventory(ctx),
+      local = applicationFiles(ctx, sources);
+    const connection = await resolveConnection(env.readConnectionRef);
+    const versions = await this.oracle.targetVersions(connection);
+    const capabilities = await this.oracle.partialImportCapabilities(source, versions);
+    if (capabilities.compilerVersion !== working.compilerVersion)
+      throw new Fault(
+        'SYNC_COMPILER_CHANGED',
+        'Refresh the working copy explicitly after a compiler upgrade.',
+        5,
+      );
+    const current = await this.fingerprint(env, connection);
+    try {
+      if (!current.exported) return { reasons: ['existing-application-required'] };
+      if (canonical(current.target) !== canonical(working.target))
+        throw new Fault('SYNC_SERVER_CHANGED', 'Application identity changed since the sync baseline.', 5);
+      const selected = selectImport(checkpoint(working).files, local, current.exported.files, options);
+      const fallback = (reasons: string[]) => {
+        if (selected.remoteChanges.length)
+          throw new Fault(
+            'SYNC_SERVER_CHANGED',
+            'The server has changed and this selection needs a full import. Reconcile the observed remote changes before making a full plan.',
+            5,
+          );
+        return { reasons };
+      };
+      // Conflicts are checked before falling back; full import must not conceal a conflict.
+      if (!capabilities.supported) return fallback(capabilities.reasons);
+      if (selected.reasons.length) return fallback(selected.reasons);
+      for (const file of selected.files) sqlclToken(file);
+      if (current.history.some((row) => row.status !== 'succeeded'))
+        throw new Fault(
+          'MIGRATION_HISTORY_CONFLICT',
+          'Resolve earlier migration outcomes before deployment.',
+          5,
+        );
+      checkMigrations(ctx, sources, current.history);
+      const history = new Map(current.history.map((row) => [String(row.version), row]));
+      for (const [file, sha] of Object.entries(sources)) {
+        if (file.startsWith(ctx.config.database.packagesDir + '/'))
+          return fallback(['database-operations-require-full-import']);
+        if (file.startsWith(ctx.config.database.migrationsDir + '/')) {
+          const old = history.get(path.basename(file));
+          if (!old) return fallback(['database-operations-require-full-import']);
+          if (old.checksum !== sha)
+            throw new Fault('MIGRATION_HISTORY_CONFLICT', 'Applied migration changed.', 5);
+        }
+      }
+      const id = randomUUID(),
+        root = '.apexrest/plans/' + id;
+      const before = await persistSnapshot(ctx, current.exported.directory, root + '/before');
+      const effective = await stageSelection(
+        ctx,
+        before,
+        source,
+        selected.files,
+        selected.effective,
+        root + '/effective',
+      );
+      const validation = await this.oracle.validate(await syncPath(ctx, effective.directory));
+      if (validation.compiler.version !== working.compilerVersion)
+        throw new Fault('SYNC_COMPILER_CHANGED', 'Compiler changed while validating the import.', 5);
+      if (canonical(await sourceInventory(ctx)) !== canonical(sources))
+        throw new Fault('SOURCE_DRIFT', 'Sources changed during selected-file planning.', 5);
+      const risks = (await securityChanged(
+        { root: await syncPath(ctx, effective.directory), files: effective.files },
+        { root: await syncPath(ctx, before.directory), files: before.files },
+      ))
+        ? ['authentication-or-authorization-change']
+        : [];
+      const createdAt = Date.now();
+      const plan: DeployPlan = {
+        schemaVersion: 4,
+        mode: 'working-copy',
+        backupStrategy: 'fresh-export',
+        workingCopy: this.syncBinding(working),
+        composer: await deploymentBinding(ctx),
+        id,
+        projectId: ctx.config.projectId,
+        projectRoot: ctx.root,
+        environment: name,
+        createdAt: new Date(createdAt).toISOString(),
+        expiresAt: new Date(createdAt + PLAN_LIFETIME_MS).toISOString(),
+        sourceDigest: hash(canonical(sources)),
+        sources,
+        configurationDigest: hash(canonical(ctx.config)),
+        toolchainDigest: hash(await readFile(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+        compiler: validation.compiler.version,
+        targetDigest: targetDigest(env),
+        target: current.target,
+        fingerprint: current.fingerprint,
+        migrationHistory: current.history,
+        coordination: coordination(env),
+        scope: 'selected-file-import',
+        operations: [{ kind: 'import' }, { kind: 'verify' }, { kind: 'test' }],
+        risks,
+        approval: 'external-policy-required',
+        backupRequired: true,
+        digest: '0'.repeat(64),
+        importSelection: {
+          requestedMode: options.importMode,
+          resolvedMode: 'files',
+          files: selected.files,
+          reasons: [],
+          dependencies: selected.files.filter((file) => file.startsWith('shared-components/')),
+          before,
+          effective,
+          capabilities,
+          readbackPolicy: APEXLANG_EQUIVALENCE_POLICY,
+        },
+      };
+      plan.digest = planDigest(plan);
+      return { plan, reasons: [] };
+    } finally {
+      await this.oracle.discardStage?.(current.exported?.stage);
+    }
+  }
+  private async legacyPlan(ctx: ProjectContext, name: string, restore = false): Promise<DeployPlan> {
     await requireTrust(ctx.root);
     const env = environment(ctx, name),
       connection = await resolveConnection(env.readConnectionRef);
@@ -870,6 +1102,7 @@ export class DeploymentService {
       const reviewed = checkpoint(state);
       if (
         !plan.risks.includes('authentication-or-authorization-change') &&
+        !(plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files') &&
         (await securityChanged(
           {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
@@ -896,7 +1129,10 @@ export class DeploymentService {
     const plan = parse(deployPlanSchema, value),
       env = environment(ctx, plan.environment);
     const composer = await deploymentBinding(ctx);
-    if (canonical(composer) !== canonical(plan.schemaVersion === 3 ? plan.composer : null))
+    if (
+      canonical(composer) !==
+      canonical(plan.schemaVersion === 3 || plan.schemaVersion === 4 ? plan.composer : null)
+    )
       throw new Fault(
         'COMPOSITION_REPLAN_REQUIRED',
         'Deployment plan must bind the current materialized Composer generation.',
@@ -966,6 +1202,44 @@ export class DeploymentService {
         5,
       );
     await this.checkWorkingPlan(ctx, plan, permitImporting);
+    if (plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files') {
+      const selection = plan.importSelection;
+      if (
+        selection.before!.directory !== '.apexrest/plans/' + plan.id + '/before' ||
+        selection.effective!.directory !== '.apexrest/plans/' + plan.id + '/effective'
+      )
+        throw new Fault('PLAN_TAMPERED', 'Selected-import artifacts must belong to this plan.', 5);
+      await checkSnapshot(ctx, selection.before!);
+      await checkSnapshot(ctx, selection.effective!);
+      const working = await this.checkWorkingPlan(ctx, plan, permitImporting);
+      const selected = selectImport(
+        checkpoint(working!).files,
+        applicationFiles(ctx, plan.sources),
+        selection.before!.files,
+        {
+          importMode: selection.requestedMode,
+          ...(selection.requestedMode === 'files' ? { files: selection.files } : {}),
+        },
+      );
+      if (
+        selected.reasons.length ||
+        canonical(selected.files) !== canonical(selection.files) ||
+        canonical(selected.effective) !== canonical(selection.effective!.files)
+      )
+        throw new Fault('PLAN_TAMPERED', 'Selected files do not match the reviewed three-way comparison.', 5);
+      if (
+        await securityChanged(
+          { root: await syncPath(ctx, selection.effective!.directory), files: selection.effective!.files },
+          { root: await syncPath(ctx, selection.before!.directory), files: selection.before!.files },
+        )
+      )
+        throw new Fault(
+          'RECOVERY_REVIEW_REQUIRED',
+          'Selected import changes authentication or authorization.',
+          4,
+          'blocked',
+        );
+    }
     return { plan, env };
   }
   /** Acquire or re-confirm local schema ownership. No Oracle objects are touched. */
@@ -994,6 +1268,8 @@ export class DeploymentService {
     if (signal?.aborted)
       throw new Fault('CANCELLED', 'Deployment cancelled before execution.', 6, 'cancelled');
     const { plan, env } = await this.checkLocal(ctx, value);
+    const selection =
+      plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
     await authorizePlan(ctx, plan, env);
     await this.oracle.requireMutationSupport();
     const readConnection = await resolveConnection(env.readConnectionRef),
@@ -1002,13 +1278,13 @@ export class DeploymentService {
     const syncStore = new SyncStore(ctx, env, plan.environment);
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
       this.oracle.verifyTarget(env, deployConnection),
-      working
+      working && !selection
         ? this.workingFingerprint(ctx, plan.environment, working)
         : this.fingerprint(env, readConnection),
       this.oracle.requireCapability('import'),
     ]);
     const liveStage =
-      !working && fingerprintCheck.status === 'fulfilled'
+      (!working || selection) && fingerprintCheck.status === 'fulfilled'
         ? (fingerprintCheck.value.exported as { stage?: string } | null)?.stage
         : undefined;
     try {
@@ -1049,6 +1325,19 @@ export class DeploymentService {
     const capability = capabilityCheck.value;
     if (capability.version !== plan.compiler)
       throw new Fault('COMPILER_DRIFT', 'SQLcl version changed after plan.', 5);
+    if (plan.schemaVersion === 4 && !selection && plan.importSelection.capabilities.apexVersion) {
+      const versions = await this.oracle.targetVersions(readConnection);
+      if (canonical(versions) !== canonical(plan.importSelection.capabilities))
+        throw new Fault('TARGET_DRIFT', 'Target release changed after the full-import plan.', 5);
+    }
+    if (selection) {
+      const observed = await this.oracle.partialImportCapabilities(
+        await syncPath(ctx, selection.effective!.directory),
+        await this.oracle.targetVersions(readConnection),
+      );
+      if (!observed.supported || canonical(observed) !== canonical(selection.capabilities))
+        throw new Fault('COMPILER_DRIFT', 'Selected-import capabilities changed after planning.', 5);
+    }
     if (signal?.aborted)
       throw new Fault('CANCELLED', 'Deployment cancelled before lease acquisition.', 6, 'cancelled');
     const runId = randomUUID(),
@@ -1060,6 +1349,7 @@ export class DeploymentService {
       importConfirmed = false,
       syncMarked = false,
       syncSucceeded = false;
+    let freshBackupId: string | null = null;
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
@@ -1098,7 +1388,7 @@ export class DeploymentService {
       await record('backing_up');
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if ((plan.backupRequired || liveApplication) && !working) {
+      if ((plan.backupRequired || liveApplication) && (!working || selection)) {
         const backup = await this.oracle.exportApplication(env, readConnection, 'SQL');
         try {
           const backupId = randomUUID(),
@@ -1111,6 +1401,8 @@ export class DeploymentService {
           await writeJson(path.join(directory, 'backup.json'), {
             schemaVersion: 1,
             backupId,
+            runId,
+            planDigest: plan.digest,
             targetDigest: plan.targetDigest,
             environment: plan.environment,
             digest: backup.digest,
@@ -1119,15 +1411,23 @@ export class DeploymentService {
             restoreProcedure:
               'Reviewed SQL export import; application metadata only. Schema/data recovery is separate.',
           });
+          freshBackupId = backupId;
+          await writeJson(path.join(runDir, 'backup.json'), {
+            backupId,
+            checksum: backup.digest,
+            targetDigest: plan.targetDigest,
+          });
         } finally {
           await this.oracle.discardStage?.((backup as { stage?: string }).stage);
         }
       }
       await this.checkLocal(ctx, plan);
-      const after = working
-        ? await this.workingFingerprint(ctx, plan.environment, working)
-        : await this.fingerprint(env, readConnection);
-      if (!working) await this.oracle.discardStage?.((after.exported as { stage?: string } | null)?.stage);
+      const after =
+        working && !selection
+          ? await this.workingFingerprint(ctx, plan.environment, working)
+          : await this.fingerprint(env, readConnection);
+      if (!working || selection)
+        await this.oracle.discardStage?.((after.exported as { stage?: string } | null)?.stage);
       if (after.fingerprint !== plan.fingerprint)
         throw new Fault('TARGET_DRIFT', 'Target changed during backup.', 5);
       // Execute a frozen copy. A later working-tree edit cannot alter reviewed bytes.
@@ -1140,6 +1440,14 @@ export class DeploymentService {
         await cp(source, destination);
         if (hash(await readFile(destination)) !== sha)
           throw new Fault('SOURCE_DRIFT', 'Source changed while freezing deployment.', 5);
+      }
+      if (selection) {
+        await checkSnapshot(ctx, selection.effective!);
+        const application = path.join(snapshot, ctx.config.application.sourceDir);
+        await rm(application, { recursive: true });
+        await privateCopy(await syncPath(ctx, selection.effective!.directory), application);
+        if (canonical(await inventory(application)) !== canonical(selection.effective!.files))
+          throw new Fault('SOURCE_DRIFT', 'Selected source changed while freezing deployment.', 5);
       }
       if (controller.signal.aborted)
         throw new Fault('CANCELLED', 'Deployment cancelled before writes.', 6, 'cancelled');
@@ -1224,6 +1532,14 @@ export class DeploymentService {
           controller.signal,
         );
       } else {
+        if (
+          selection &&
+          canonical(await inventory(path.join(snapshot, ctx.config.application.sourceDir))) !==
+            canonical(selection.effective!.files)
+        )
+          throw new Fault('SOURCE_DRIFT', 'Frozen selected source changed before import.', 5);
+        if (controller.signal.aborted)
+          throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
         await this.oracle.importApplication(
           ctx,
@@ -1231,9 +1547,11 @@ export class DeploymentService {
           deployConnection,
           path.join(snapshot, ctx.config.application.sourceDir),
           controller.signal,
+          selection?.files,
         );
       }
       importConfirmed = true;
+      let serverSnapshot: Awaited<ReturnType<typeof persistSnapshot>> | null = null;
       let target: Awaited<ReturnType<OracleAdapter['verifyTarget']>>;
       try {
         await record('verifying');
@@ -1249,6 +1567,39 @@ export class DeploymentService {
           String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase()
         )
           throw new Fault('POST_DEPLOY_IDENTITY_FAILED', 'Expected imported app was not found.', 1);
+        if (selection) {
+          const observed = await this.oracle.exportApplication(env, readConnection, 'APEXLANG');
+          try {
+            serverSnapshot = await persistSnapshot(
+              ctx,
+              observed.directory,
+              '.apexrest/deployments/' + runId + '/server/' + ctx.config.application.sourceDir,
+            );
+            const comparison =
+              selection.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY
+                ? await compareApplicationExports(
+                    await syncPath(ctx, selection.effective!.directory),
+                    await syncPath(ctx, serverSnapshot.directory),
+                    selection.effective!.files,
+                    serverSnapshot.files,
+                    selection.files,
+                  )
+                : {
+                    equivalent: canonical(serverSnapshot.files) === canonical(selection.effective!.files),
+                    policy: 'exact-bytes',
+                    normalizations: [],
+                  };
+            await writeJson(path.join(runDir, 'readback-verification.json'), comparison);
+            if (!comparison.equivalent)
+              throw new Fault(
+                'POST_DEPLOY_CONTENT_FAILED',
+                'Import confirmed but readback differs from the reviewed result; reconcile the retained server snapshot.',
+                5,
+              );
+          } finally {
+            await this.oracle.discardStage?.(observed.stage);
+          }
+        }
         await record('testing');
         if (ctx.config.tests.requiredSuites.length) {
           if (!this.runTests)
@@ -1272,7 +1623,26 @@ export class DeploymentService {
         const metadata = await this.oracle.applicationMetadata(env, readConnection);
         const directory = '.apexrest/deployments/' + runId + '/snapshot/' + ctx.config.application.sourceDir;
         const files = await inventory(await syncPath(ctx, directory));
-        const snapshot = { directory, files, digest: hash(canonical(files)) };
+        const snapshot = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
+        if (selection && serverSnapshot) {
+          try {
+            await rebaseAfterImport(
+              ctx,
+              runId,
+              applicationFiles(ctx, plan.sources),
+              checkpoint(working).files,
+              serverSnapshot,
+              selection.files,
+            );
+          } catch (error) {
+            if (error instanceof Fault) throw error;
+            throw new Fault(
+              'LOCAL_RECONCILIATION_REQUIRED',
+              'Import confirmed; local rebase failed. Inspect the retained source and server snapshots.',
+              5,
+            );
+          }
+        }
         await syncStore.lock(async () => {
           const state = await syncStore.read();
           if (!state || state.importingRunId !== runId || state.revision !== working!.revision)
@@ -1290,7 +1660,7 @@ export class DeploymentService {
         syncSucceeded = true;
       }
       await record('succeeded');
-      return { runId, state, directory: runDir };
+      return { runId, state, directory: runDir, ...(freshBackupId ? { backupId: freshBackupId } : {}) };
     } catch (error) {
       const unknown = writeStarted && (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
       if (working && syncMarked) {
@@ -1342,32 +1712,63 @@ export class DeploymentService {
     const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json'))),
       env = environment(ctx, plan.environment);
     const current = await this.fingerprint(env, await resolveConnection(env.readConnectionRef));
-    await this.oracle.discardStage?.((current.exported as { stage?: string } | null)?.stage);
     const state = await readJson(path.join(directory, 'state.json'));
+    const selection =
+      plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
+    let comparison: Awaited<ReturnType<typeof compareApplicationExports>> | null = null;
+    try {
+      if (selection?.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY && current.exported) {
+        await checkSnapshot(ctx, selection.effective!);
+        comparison = await compareApplicationExports(
+          await syncPath(ctx, selection.effective!.directory),
+          current.exported.directory,
+          selection.effective!.files,
+          current.exported.files,
+          selection.files,
+        );
+      }
+    } finally {
+      await this.oracle.discardStage?.((current.exported as { stage?: string } | null)?.stage);
+    }
     return {
       runId,
       state,
       currentTarget: current.target,
       currentFingerprint: current.fingerprint,
       comparisonProvenance: 'explicit-live-export',
-      targetUnchanged:
-        plan.schemaVersion !== 1 && plan.mode === 'working-copy'
+      targetUnchanged: selection
+        ? current.fingerprint === plan.fingerprint
+        : plan.schemaVersion !== 1 && plan.mode === 'working-copy'
           ? canonical(current.target) === canonical(plan.target) &&
             canonical(current.history) === canonical(plan.migrationHistory) &&
             current.exported?.digest === plan.workingCopy!.checkpointDigest
           : current.fingerprint === plan.fingerprint,
-      importedSourcesMatch: current.exported
-        ? canonical(current.exported.files) ===
-          canonical(
-            Object.fromEntries(
-              Object.entries(plan.sources)
-                .filter(([file]) => file.startsWith(ctx.config.application.sourceDir + '/'))
-                .map(([file, sha]) => [file.slice(ctx.config.application.sourceDir.length + 1), sha]),
-            ),
-          )
-        : false,
+      importedSourcesMatch: comparison
+        ? comparison.equivalent
+        : current.exported
+          ? canonical(current.exported.files) ===
+            canonical(
+              selection
+                ? selection.effective!.files
+                : Object.fromEntries(
+                    Object.entries(plan.sources)
+                      .filter(([file]) => file.startsWith(ctx.config.application.sourceDir + '/'))
+                      .map(([file, sha]) => [file.slice(ctx.config.application.sourceDir.length + 1), sha]),
+                  ),
+            )
+          : false,
       history: current.history,
       retryAllowed: false,
+      ...(selection
+        ? {
+            importMode: 'files',
+            selectedFiles: selection.files,
+            beforeDigest: selection.before!.digest,
+            expectedDigest: selection.effective!.digest,
+            actualDigest: current.exported?.digest ?? null,
+            readbackComparison: comparison,
+          }
+        : {}),
       nextActions: [
         'Review target export and migration history. Reconciliation does not assume process termination rolled back Oracle.',
       ],
