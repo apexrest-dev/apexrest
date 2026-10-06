@@ -27,6 +27,7 @@
 
 ## Version 2.0.0
 
+- PRs #1 and #2, the pending CRM fixes and all additional worktree tips are integrated into `main`; local source, bundle and packaging gates passed. Continue with the connected and native-host qualification below; Git integration does not close those acceptance gaps.
 - The source and rebuilt bundle are `2.0.0`; npm publication and tagging remain separate, unperformed actions. Keep published 1.3.0 records and prior qualification receipts unchanged.
 - Reconcile pending outcomes/local edits before explicitly refreshing working copies from a previous runtime version. Do not bypass the runtime-version binding by editing stored state.
 
