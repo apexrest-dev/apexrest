@@ -7,6 +7,9 @@ import { tmpdir } from 'node:os';
 import { fixture } from '../fixtures/project.ts';
 import { exists, writeJson } from '../../packages/core/src/fs.ts';
 import { PanelService } from '../../packages/core/src/panel.ts';
+import { runProcess } from '../../packages/core/src/process.ts';
+import { success } from '../../packages/core/src/result.ts';
+import { toolOutput } from '../../packages/mcp/src/output.ts';
 import { dispatch } from '../../packages/core/src/service.ts';
 import { schemas, toolCatalog } from '../../packages/core/src/operations.ts';
 
@@ -143,3 +146,34 @@ test('one unreadable job status does not hide the snapshot', async (t) => {
   ]);
   assert.equal(snapshot.jobs.find((job) => job.id === healthy)?.status, 'failed');
 });
+
+test('status returns only the lock digest and preserves essential fields after compaction', async (t) => {
+  const { ctx, service } = await setup(t);
+  await writeJson(path.join(ctx.root, ctx.config.toolchain.lockFile), { payload: 'x'.repeat(6500) });
+  const snapshot = await service.snapshot();
+  assert.match((snapshot.toolchain as { digest: string }).digest, /^[a-f0-9]{64}$/);
+  assert.ok(JSON.stringify(snapshot.toolchain).length < 100);
+  const output = await toolOutput(
+    success('status', { ...snapshot, jobs: [{ summary: 'x'.repeat(20000) }] }),
+    ctx.root,
+  );
+  const data = JSON.parse(output.content[0]!.text).data as Record<string, unknown>;
+  for (const key of ['connections', 'permissions', 'changes', 'toolchain']) assert.ok(key in data, key);
+});
+
+test(
+  'untrusted Git status disables a configured fsmonitor hook',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { ctx, service } = await setup(t, false);
+    const launch = (args: string[]) => runProcess({ executable: 'git', args, cwd: ctx.root });
+    assert.equal((await launch(['init'])).code, 0);
+    const marker = path.join(ctx.root, 'hook-ran');
+    const hook = path.join(ctx.root, 'fsmonitor');
+    await writeFile(hook, '#!/bin/sh\ntouch "' + marker + '"\n', { mode: 0o755 });
+    assert.equal((await launch(['config', 'core.fsmonitor', hook])).code, 0);
+    const snapshot = await service.snapshot();
+    assert.equal(snapshot.changes.status, 'available');
+    assert.equal(await exists(marker), false);
+  },
+);

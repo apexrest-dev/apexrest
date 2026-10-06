@@ -16,8 +16,8 @@ export const shipWaitSeconds = z
   .int()
   .min(0)
   .max(120)
-  .default(60)
-  .describe('Wait for the result or return the existing jobId; default 60 seconds, 0 queues immediately.');
+  .default(25)
+  .describe('Wait for the result or return the existing jobId; default 25 seconds, 0 queues immediately.');
 
 const completedResultSchema: z.ZodType<Result> = z.object({
   schemaVersion: z.literal(1),

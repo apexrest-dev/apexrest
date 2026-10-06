@@ -3,7 +3,7 @@ import {
   external_exports,
   runPooledSqlcl,
   runSqlclMcp
-} from "./chunk-Z5TALD4Z.mjs";
+} from "./chunk-JYN3YHP3.mjs";
 import {
   Fault,
   __commonJS,
@@ -1368,7 +1368,7 @@ var require_yauzl = __commonJS({
 
 // packages/installer/src/toolchain.ts
 import path10 from "node:path";
-import { cp as cp3, mkdir as mkdir7, mkdtemp as mkdtemp3, readdir as readdir3, readlink, rename as rename2, rm as rm5, chmod as chmod2, statfs, realpath as realpath5 } from "node:fs/promises";
+import { cp as cp3, mkdir as mkdir7, mkdtemp as mkdtemp4, readdir as readdir3, readlink, rename as rename3, rm as rm6, chmod as chmod2, statfs, realpath as realpath5 } from "node:fs/promises";
 
 // packages/core/src/config.ts
 import path from "node:path";
@@ -1412,6 +1412,8 @@ var projectSchema = external_exports.strictObject({
     defaultBrowser: external_exports.literal("chromium"),
     mutationAllowedEnvironments: external_exports.array(refName)
   }),
+  // Legacy local coordination is now the default; retained for old project files.
+  deploymentControl: external_exports.literal("local").optional(),
   composer: external_exports.strictObject({ allowSourceOnly: external_exports.boolean().default(false) }).optional(),
   artifacts: external_exports.strictObject({ directory: relativePath, retentionDays: external_exports.number().int().min(1).max(365) })
 });
@@ -1479,7 +1481,8 @@ var policySchema = external_exports.strictObject({
       // and its origin so the authorization record stays auditable.
       note: external_exports.string().max(2e3).optional(),
       grantedBy: external_exports.enum(["user", "ship"]).optional(),
-      grantedAt: external_exports.iso.datetime().optional()
+      grantedAt: external_exports.iso.datetime().optional(),
+      workerPid: external_exports.number().int().positive().optional()
     })
   )
 });
@@ -1582,7 +1585,7 @@ async function protectedProductionTrust() {
 
 // packages/core/src/project.ts
 import path6 from "node:path";
-import { cp as cp2, mkdir as mkdir4, lstat, readdir as readdir2, writeFile } from "node:fs/promises";
+import { cp as cp2, mkdir as mkdir4, lstat, readdir as readdir2, writeFile, mkdtemp as mkdtemp2, rm as rm4, rename as rename2 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // packages/core/src/oracle.ts
@@ -1785,6 +1788,7 @@ async function configureConnection(name, input) {
 
 // packages/core/src/process.ts
 import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 async function runProcess(r) {
   if (r.signal?.aborted)
     return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
@@ -1797,6 +1801,7 @@ async function runProcess(r) {
       windowsHide: true
     });
     let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false;
+    const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
     const max = r.maxBytes ?? 1024 * 1024;
     const stop = () => {
       child.kill("SIGTERM");
@@ -1806,7 +1811,7 @@ async function runProcess(r) {
     const collect = (isError) => (data) => {
       const room = Math.max(0, max - bytes);
       bytes += data.length;
-      const s3 = data.subarray(0, room).toString();
+      const s3 = decoders[isError ? 1 : 0].write(data.subarray(0, room));
       if (isError) stderr += s3;
       else stdout += s3;
       if (bytes > max) {
@@ -1836,7 +1841,14 @@ async function runProcess(r) {
     child.on("close", (code) => {
       clearTimeout(timer);
       r.signal?.removeEventListener("abort", abort);
-      resolve({ code, stdout: redact(stdout), stderr: redact(stderr), timedOut, cancelled, truncated });
+      resolve({
+        code,
+        stdout: stdout + (truncated ? "" : decoders[0].end()),
+        stderr: redact(stderr + (truncated ? "" : decoders[1].end())),
+        timedOut,
+        cancelled,
+        truncated
+      });
     });
     child.stdin.end(r.input ?? "");
   });
@@ -2128,6 +2140,13 @@ var OracleAdapter = class {
     return selected;
   }
   async session(input, connection, mutation = false, signal, cwd, format = "text", restrictLevel) {
+    if (restrictLevel && (await this.settings()).mode === "mcp")
+      throw new Fault(
+        "SQLCL_MCP_SCRIPT_RESTRICT_UNAVAILABLE",
+        "Restricted script operations require SQLcl CLI mode with -R 2; MCP does not provide an equivalent restriction.",
+        3,
+        "blocked"
+      );
     const work = cwd ?? await this.stage();
     try {
       return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel);
@@ -2181,9 +2200,10 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       // CLI's final EXIT commits on success. Preserve that transaction
       // boundary before acknowledging a write over a persistent session.
       input: (settings.mode === "cli" ? preamble.replace(/exit failure rollback/g, "continue") : preamble) + // Persistent servers keep SET state between batches; start neutral.
-      "set sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + `prompt ${marker}
+      (selected?.name ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n" : "") + "set serveroutput off\nset sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + `prompt ${marker}
 `,
       mutation,
+      completionMarker: marker,
       ...selected?.name ? { connectionName: selected.name } : {}
     }) : await this.runner(request);
     const secret = selected?.ords?.password;
@@ -2856,78 +2876,90 @@ function resourceRoot() {
 }
 async function projectInit(directory, template, alias) {
   parse(refName, alias);
-  const root = path6.resolve(directory);
-  const conflict = () => new Fault(
-    "LOCAL_EDITS_CONFLICT",
-    "Project init requires an empty folder or a new directory. Existing files were left unchanged.",
-    5,
-    "conflict"
-  );
-  if (!await exists(root)) await mkdir4(root, { recursive: true, mode: 448 });
-  if (!(await lstat(root)).isDirectory() || (await readdir2(root)).length !== 0) throw conflict();
-  const createFile = async (file, content) => {
-    try {
-      await writeFile(file, content, { flag: "wx", mode: 384 });
-    } catch (error) {
-      if (error.code === "EEXIST") throw conflict();
-      throw error;
+  const destination = path6.resolve(directory);
+  await mkdir4(path6.dirname(destination), { recursive: true });
+  return withLock(destination + ".init.lock", async () => {
+    if (await exists(destination)) {
+      if (!(await lstat(destination)).isDirectory() || (await readdir2(destination)).length)
+        throw new Fault("LOCAL_EDITS_CONFLICT", "Project init requires an empty directory.", 5, "conflict");
     }
-  };
-  const config = {
-    schemaVersion: 1,
-    projectId: alias,
-    application: { sourceDir: "src/apex/" + alias, alias },
-    database: {
-      migrationsDir: "src/database/migrations",
-      packagesDir: "src/database/packages",
-      testsDir: "tests/sql"
-    },
-    toolchain: { lockFile: "apexrest.toolchain.lock.json" },
-    environments: {},
-    tests: {
-      unitDir: "tests/unit",
-      apiDir: "tests/api",
-      e2eDir: "tests/e2e",
-      requiredSuites: template === "customer-crm" ? ["sql", "e2e"] : [],
-      defaultBrowser: "chromium",
-      mutationAllowedEnvironments: []
-    },
-    artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
-  };
-  await createFile(path6.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
-  await createFile(
-    path6.join(root, ".gitignore"),
-    ".apexrest/\nnode_modules/\n.env\nplaywright/.auth/\ntest-results/\n"
-  );
-  for (const dir of [
-    ...Object.values(config.database),
-    config.tests.unitDir,
-    config.tests.apiDir,
-    config.tests.e2eDir
-  ])
-    await mkdir4(path6.join(root, dir), { recursive: true });
-  await cp2(
-    path6.join(resourceRoot(), "toolchains/toolchain.lock.json"),
-    path6.join(root, config.toolchain.lockFile),
-    { force: false, errorOnExist: true }
-  );
-  if (template !== "existing-app") {
-    const generated = await new OracleAdapter().generate(alias, alias);
-    await installSources(generated.directory, root, config.application.sourceDir);
-    if (template === "customer-crm") {
-      await cp2(path6.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
-      await cp2(
-        path6.join(resourceRoot(), "templates/customer-crm/apex-overlay"),
-        path6.join(root, config.application.sourceDir),
-        { recursive: true }
+    const root = await mkdtemp2(destination + ".init-");
+    try {
+      const conflict = () => new Fault(
+        "LOCAL_EDITS_CONFLICT",
+        "Project init requires an empty folder or a new directory. Existing files were left unchanged.",
+        5,
+        "conflict"
       );
-      const { readFile: readFile2 } = await import("node:fs/promises");
-      const file = path6.join(root, config.application.sourceDir, "shared-components/lists.apx");
-      const lists = await readFile2(file, "utf8"), index = lists.lastIndexOf(")");
-      if (index < 0 || !lists.includes("list navigation-menu ("))
-        throw new Fault("UNSUPPORTED_TEMPLATE", "Starter navigation does not match the reviewed fixture.", 3);
-      const entries = ["customers", "dashboard"].map(
-        (label, i) => `    entry ${label} (
+      if (!await exists(root)) await mkdir4(root, { recursive: true, mode: 448 });
+      if (!(await lstat(root)).isDirectory() || (await readdir2(root)).length !== 0) throw conflict();
+      const createFile = async (file, content) => {
+        try {
+          await writeFile(file, content, { flag: "wx", mode: 384 });
+        } catch (error) {
+          if (error.code === "EEXIST") throw conflict();
+          throw error;
+        }
+      };
+      const config = {
+        schemaVersion: 1,
+        projectId: alias,
+        application: { sourceDir: "src/apex/" + alias, alias },
+        database: {
+          migrationsDir: "src/database/migrations",
+          packagesDir: "src/database/packages",
+          testsDir: "tests/sql"
+        },
+        toolchain: { lockFile: "apexrest.toolchain.lock.json" },
+        environments: {},
+        tests: {
+          unitDir: "tests/unit",
+          apiDir: "tests/api",
+          e2eDir: "tests/e2e",
+          requiredSuites: template === "customer-crm" ? ["sql", "e2e"] : [],
+          defaultBrowser: "chromium",
+          mutationAllowedEnvironments: []
+        },
+        artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
+      };
+      await createFile(path6.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+      await createFile(
+        path6.join(root, ".gitignore"),
+        ".apexrest/\nnode_modules/\n.env\nplaywright/.auth/\ntest-results/\n"
+      );
+      for (const dir of [
+        ...Object.values(config.database),
+        config.tests.unitDir,
+        config.tests.apiDir,
+        config.tests.e2eDir
+      ])
+        await mkdir4(path6.join(root, dir), { recursive: true });
+      await cp2(
+        path6.join(resourceRoot(), "toolchains/toolchain.lock.json"),
+        path6.join(root, config.toolchain.lockFile),
+        { force: false, errorOnExist: true }
+      );
+      if (template !== "existing-app") {
+        const generated = await new OracleAdapter().generate(alias, alias);
+        await installSources(generated.directory, root, config.application.sourceDir);
+        if (template === "customer-crm") {
+          await cp2(path6.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
+          await cp2(
+            path6.join(resourceRoot(), "templates/customer-crm/apex-overlay"),
+            path6.join(root, config.application.sourceDir),
+            { recursive: true }
+          );
+          const { readFile: readFile2 } = await import("node:fs/promises");
+          const file = path6.join(root, config.application.sourceDir, "shared-components/lists.apx");
+          const lists = await readFile2(file, "utf8"), index = lists.lastIndexOf(")");
+          if (index < 0 || !lists.includes("list navigation-menu ("))
+            throw new Fault(
+              "UNSUPPORTED_TEMPLATE",
+              "Starter navigation does not match the reviewed fixture.",
+              3
+            );
+          const entries = ["customers", "dashboard"].map(
+            (label, i) => `    entry ${label} (
         label: ${label[0].toUpperCase() + label.slice(1)}
         layout {
             sequence: ${(i + 2) * 10}
@@ -2939,19 +2971,46 @@ async function projectInit(directory, template, alias) {
         }
     )
 `
-      ).join("");
-      await atomicWrite(file, lists.slice(0, index) + entries + lists.slice(index));
+          ).join("");
+          await atomicWrite(file, lists.slice(0, index) + entries + lists.slice(index));
+        }
+      }
+      if (await exists(destination)) {
+        if ((await readdir2(destination)).length) throw conflict();
+        const moved = [];
+        try {
+          for (const entry of await readdir2(root)) {
+            await rename2(path6.join(root, entry), path6.join(destination, entry));
+            moved.push(entry);
+          }
+        } catch (error) {
+          for (const entry of moved.reverse())
+            await rename2(path6.join(destination, entry), path6.join(root, entry));
+          throw error;
+        }
+      } else await rename2(root, destination);
+      return {
+        root: destination,
+        template,
+        configuration: config,
+        nextActions: [
+          "Configure explicit target identity and connection references.",
+          "Review project code and grant project trust before running it."
+        ]
+      };
+    } finally {
+      await rm4(root, { recursive: true, force: true });
     }
-  }
-  return {
-    root,
-    template,
-    configuration: config,
-    nextActions: [
-      "Configure explicit target identity and connection references.",
-      "Review project code and grant project trust before running it."
-    ]
-  };
+  }).catch((error) => {
+    if (error instanceof Fault && error.code === "LOCKED")
+      throw new Fault(
+        "LOCAL_EDITS_CONFLICT",
+        "Another project initialization owns this directory.",
+        5,
+        "conflict"
+      );
+    throw error;
+  });
 }
 function projectSummary(ctx) {
   const environments = Object.entries(ctx.config.environments);
@@ -3181,7 +3240,7 @@ async function download(artifact, cache, offline = false, fetcher = fetch, optio
 
 // packages/installer/src/archive.ts
 import path8 from "node:path";
-import { mkdir as mkdir6, mkdtemp as mkdtemp2, lstat as lstat3, rm as rm4, symlink, link } from "node:fs/promises";
+import { mkdir as mkdir6, mkdtemp as mkdtemp3, lstat as lstat3, rm as rm5, symlink, link } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -6290,7 +6349,7 @@ async function extractArchive(file, target, type, allowLinks = false) {
 }
 async function extractVerifiedArchive(file, sha2562, target, type, allowLinks = false, privateRoot = path8.dirname(target)) {
   await mkdir6(privateRoot, { recursive: true, mode: 448 });
-  const directory = await mkdtemp2(path8.join(privateRoot, ".archive-"));
+  const directory = await mkdtemp3(path8.join(privateRoot, ".archive-"));
   try {
     const copy = path8.join(directory, "archive");
     const digest = createHash2("sha256");
@@ -6313,7 +6372,7 @@ async function extractVerifiedArchive(file, sha2562, target, type, allowLinks = 
       );
     await extractArchive(copy, target, type, allowLinks);
   } finally {
-    await rm4(directory, { recursive: true, force: true });
+    await rm5(directory, { recursive: true, force: true });
   }
 }
 
@@ -6511,7 +6570,7 @@ async function treeDigest(root) {
 async function renameWithRetry(from, to2, platform = process.platform, attempts = 6) {
   for (let attempt = 1; ; attempt++) {
     try {
-      await rename2(from, to2);
+      await rename3(from, to2);
       return;
     } catch (error) {
       const code = error.code;
@@ -6524,12 +6583,13 @@ async function renameWithRetry(from, to2, platform = process.platform, attempts 
 async function moveAside(destination) {
   const broken = `${destination}.broken-${Date.now()}`;
   await renameWithRetry(destination, broken);
-  await rm5(broken, { recursive: true, force: true }).catch(() => {
+  await rm6(broken, { recursive: true, force: true }).catch(() => {
   });
 }
 async function intactInstallation(destination, executable, recorded) {
   if (!await exists(executable)) return false;
-  if (!recorded || recorded.destination !== destination) return true;
+  if (recorded && recorded.destination !== destination) return false;
+  if (!recorded) return true;
   try {
     return await hashFile(executable) === recorded.executableSha256 && await treeDigest(destination) === recorded.treeSha256;
   } catch {
@@ -6539,7 +6599,7 @@ async function intactInstallation(destination, executable, recorded) {
 async function installArtifact(artifact, destination, cache, offline) {
   const file = await download(artifact, cache, offline);
   await mkdir7(path10.dirname(destination), { recursive: true, mode: 448 });
-  const staging = await mkdtemp3(destination + ".staging-");
+  const staging = await mkdtemp4(destination + ".staging-");
   try {
     await extractVerifiedArchive(file, artifact.sha256, staging, artifact.type, artifact.id !== "sqlcl");
     if (!await exists(path10.join(staging, artifact.executable)))
@@ -6550,7 +6610,7 @@ async function installArtifact(artifact, destination, cache, offline) {
       );
     await renameWithRetry(staging, destination);
   } finally {
-    await rm5(staging, { recursive: true, force: true });
+    await rm6(staging, { recursive: true, force: true });
   }
 }
 var browserDownloadVariables = [

@@ -1,13 +1,9 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
-import {
-  startMcp
-} from "./chunk-UXRMIYCU.mjs";
-import "./chunk-IV5KLHWM.mjs";
-import "./chunk-GSPRURYR.mjs";
-import "./chunk-JRODHLRL.mjs";
-import "./chunk-HIFCMPCL.mjs";
-import "./chunk-Z5TALD4Z.mjs";
-import "./chunk-WPS3CSQJ.mjs";
 
 // packages/mcp/src/main.ts
+if (Number(process.versions.node.split(".")[0]) < 24) {
+  process.stderr.write("APEXREST requires Node.js 24 or newer.\n");
+  process.exit(3);
+}
+var { startMcp } = await import("./chunk-GGGZS7SX.mjs");
 await startMcp();

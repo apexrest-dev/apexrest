@@ -26,11 +26,12 @@ export async function doctor() {
         });
         return {
           command: exe,
+          informational: exe === 'codex',
           state: r.code === 0 ? 'detected' : 'unavailable',
           version: (r.stdout + r.stderr).trim().slice(0, 500),
         };
       } catch {
-        return { command: exe, state: 'missing' };
+        return { command: exe, state: 'missing', informational: exe === 'codex' };
       }
     }),
   );

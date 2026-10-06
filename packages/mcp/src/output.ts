@@ -94,6 +94,22 @@ function preview(value: unknown, depth = 0): unknown {
       result[key] = data[key].slice(0, 4).map((entry) => String(entry).slice(0, 200));
       result[key + 'Omitted'] = Math.max(0, data[key].length - 4);
     }
+  // Keep status essentials even when histories force a compacted envelope.
+  for (const key of ['connections', 'permissions', 'changes', 'toolchain'])
+    if (data[key] && typeof data[key] === 'object') {
+      const value = data[key] as Record<string, unknown>;
+      if (JSON.stringify(value).length <= 1200) result[key] = value;
+      else if (key === 'connections') result.connections = { count: Object.keys(value).length };
+      else if (key === 'permissions')
+        result.permissions = {
+          activeGrantCount: Array.isArray(value.activeGrants) ? value.activeGrants.length : 0,
+        };
+      else if (key === 'changes')
+        result.changes = {
+          status: value.status,
+          fileCount: Array.isArray(value.files) ? value.files.length : 0,
+        };
+    }
   if (data.lastSuccessfulImport && typeof data.lastSuccessfulImport === 'object')
     result.lastSuccessfulImport = data.lastSuccessfulImport;
   if (data.workingCopy && typeof data.workingCopy === 'object') result.workingCopy = data.workingCopy;

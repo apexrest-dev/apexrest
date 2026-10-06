@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sourceDigest": "622cba54242d263a116de0592fb896409b702517e9b442ee14a89ef215e75fdc",
+  "asOf": "2026-10-05",
+  "release": "1.3.0-beta.2",
+  "scope": "Local source measurements and optional offline compiler only; no connected Oracle or native-host calls.",
+  "command": "node scripts/measure-redesign-local.mjs",
+  "node": "v25.9.0",
+  "measurements": {
+    "toolCount": 11,
+    "toolCatalogUtf8Bytes": 12471,
+    "skillFiles": {
+      "apexrest-apexlang": 4459,
+      "apexrest-pattern-catalog": 4843,
+      "apexrest-safety": 2777,
+      "apexrest-setup": 3041,
+      "apexrest-work": 2510
+    },
+    "skillUtf8Bytes": 17630
+  },
+  "unverifiedHistoricalEstimates": {
+    "coldValidateMs": 3200,
+    "warmValidateMs": 43,
+    "coldProbeMs": 1500,
+    "warmProbeMs": 0,
+    "oldCatalogBytesApprox": 24000,
+    "oldSkillBytesApprox": 41000,
+    "precisionAt1": "16 to 48; no reproducible matched benchmark available"
+  },
+  "limitations": [
+    "Timing and ranking estimates have no reproducible source-bound record and are UNVERIFIED; not reproduced in this review.",
+    "Historical size baseline is UNVERIFIED; current exact UTF-8 source byte counts only.",
+    "Connected Oracle: NOT RUN.",
+    "Native host Codex/Claude Code: NOT RUN.",
+    "Generated release readiness and site manifests are regenerated artifacts, not committed qualification."
+  ],
+  "offlineCompiler": {
+    "command": "APEXREST_SQLCL=\"/Users/oleksii/sqlcl/bin/sql\" APEXREST_JAVA_HOME=\"/Users/oleksii/.apexrest/toolchains/java/21.0.12+101.0.LTS/jdk-21.0.12.1+1-jre/Contents/Home\" node scripts/measure-redesign-local.mjs --offline-compiler",
+    "version": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334",
+    "inputDigest": "c05977a381d20d9364481fe8dec8b1c863b500fb5487faf42cd5318704d6333d",
+    "probeColdMs": 1520.38,
+    "probeWarmMs": 0.34,
+    "validateMs": [
+      6907.69,
+      273.27,
+      228.65,
+      316.9
+    ],
+    "method": "Fresh isolated home; cold capability check then cached check. Generate scaffold, close pooled servers, validate once on a fresh server and three times on the reused server. Four sequential samples, not a statistical benchmark or connected performance claim.",
+    "loadContext": "Recorded while local test suites ran; timings are illustrative samples under concurrent machine load, not a controlled benchmark."
+  }
+}

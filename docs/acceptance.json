@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-10-04",
-  "release": "1.3.0-beta.1",
+  "asOf": "2026-10-05",
+  "release": "1.3.0-beta.2",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -15,43 +15,58 @@
       "id": "A01",
       "criterion": "Native Codex and Claude Code packages declare their manifests, skill/MCP paths and product routing",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
         "tests/packaging/packages.test.mjs",
         "docs/evidence/local-checks.json",
-        "docs/evidence/apexlang-codex.json",
-        "docs/evidence/dependency-command-native.json",
-        "docs/evidence/plugin-menu-native.json"
+        "docs/evidence/redesign-phase1-local.json",
+        "tests/unit/sqlcl-transport.test.ts",
+        "tests/contracts/mcp.test.mjs"
       ],
-      "blocker": "2026-10-04 redesign: apexrest-install-dependencies skill retired (five skills remain); Claude Code .claude-plugin manifests are checked by tests/packaging/packages.test.mjs. Native-host (Codex/Claude Code) discovery of the redesigned package is not re-verified.",
+      "blocker": "2026-10-04 redesign: apexrest-install-dependencies skill retired (five skills remain); Claude Code .claude-plugin manifests are checked by tests/packaging/packages.test.mjs. Native-host (Codex/Claude Code) discovery of the redesigned package is not re-verified. 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
       "retiredEvidence": [
-        "plugins/apexrest-apex/skills/apexrest-install-dependencies/SKILL.md"
+        "plugins/apexrest-apex/skills/apexrest-install-dependencies/SKILL.md",
+        "docs/evidence/dependency-command-native.json"
+      ],
+      "historicalEvidence": [
+        "docs/evidence/apexlang-codex.json",
+        "docs/evidence/plugin-menu-native.json"
       ]
     },
     {
       "id": "A02",
       "criterion": "The Codex host lists the plugin and supports enable/disable without a manual skills-only installation",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
+        "docs/evidence/redesign-phase1-local.json",
+        "tests/unit/sqlcl-transport.test.ts",
+        "tests/contracts/mcp.test.mjs"
+      ],
+      "blocker": "Verified only on Codex 0.154.0 macOS arm64; portable MCP not discovered. 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
+      "historicalEvidence": [
         "docs/evidence/native-codex-compat.json",
         "docs/evidence/native-repository.json",
         "docs/evidence/apexlang-codex.json",
         "docs/evidence/plugin-menu-installed.json"
-      ],
-      "blocker": "Verified only on Codex 0.154.0 macOS arm64; portable MCP not discovered."
+      ]
     },
     {
       "id": "A03",
       "criterion": "MCP runs from the native installation location outside the monorepo",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
+        "docs/evidence/redesign-phase1-local.json",
+        "tests/unit/sqlcl-transport.test.ts",
+        "tests/contracts/mcp.test.mjs"
+      ],
+      "blocker": " 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
+      "historicalEvidence": [
         "docs/evidence/native-codex-compat.json",
         "docs/evidence/native-repository.json",
         "docs/evidence/apexlang-codex.json"
-      ],
-      "blocker": null
+      ]
     },
     {
       "id": "A04",
@@ -122,22 +137,29 @@
         "scripts/verify-setup-registration.mjs",
         "docs/evidence/setup-registration-local.json",
         "packages/installer/src/uninstall-tools.ts",
-        "tests/installers/uninstall-tools.test.ts",
-        "docs/evidence/tui-focused-local.json"
+        "tests/installers/uninstall-tools.test.ts"
       ],
-      "blocker": "Unrelated Codex setting and reused runtimes checked; foreign plugin and every upgrade/failure path require additional fixture coverage."
+      "blocker": "Unrelated Codex setting and reused runtimes checked; foreign plugin and every upgrade/failure path require additional fixture coverage.",
+      "retiredEvidence": [
+        "docs/evidence/tui-focused-local.json"
+      ]
     },
     {
       "id": "A08",
       "criterion": "The new-app template passes real Oracle compiler validation",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
-        "docs/evidence/oracle-local.json",
-        "docs/evidence/native-codex-compat.json",
-        "docs/evidence/apexlang-compiler.json"
+        "docs/evidence/redesign-phase1-local.json",
+        "tests/unit/sqlcl-transport.test.ts",
+        "tests/contracts/mcp.test.mjs"
       ],
-      "blocker": null
+      "blocker": " 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
+      "historicalEvidence": [
+        "docs/evidence/native-codex-compat.json",
+        "docs/evidence/oracle-local.json",
+        "docs/evidence/apexlang-compiler.json"
+      ]
     },
     {
       "id": "A09",
@@ -317,7 +339,6 @@
         "packages/core/src/service.ts",
         "docs/evidence/local-checks.json",
         "docs/evidence/optimization-local.json",
-        "docs/evidence/tui-local.json",
         "packages/installer/src/package-source.ts",
         "tests/contracts/setup-source.test.mjs",
         "tests/installers/native-source.test.ts",
@@ -325,11 +346,7 @@
         "packages/installer/src/registration.ts",
         "scripts/verify-setup-registration.mjs",
         "docs/evidence/setup-registration-local.json",
-        "docs/evidence/tui-simplified-local.json",
         "tests/unit/saved-connections.test.ts",
-        "docs/evidence/tui-focused-local.json",
-        "docs/evidence/tui-direct-run-local.json",
-        "docs/evidence/tui-apexlang-dashboard-local.json",
         "packages/core/src/sqlcl-config.ts",
         "packages/core/src/sqlcl-mcp.ts",
         "tests/unit/sqlcl-transport.test.ts",
@@ -347,7 +364,12 @@
         "packages/cli/src/tui-view.ts",
         "packages/cli/src/tui-apexlang.ts",
         "packages/cli/src/tui-home.ts",
-        "tests/unit/tui-apexlang.test.ts"
+        "tests/unit/tui-apexlang.test.ts",
+        "docs/evidence/tui-local.json",
+        "docs/evidence/tui-simplified-local.json",
+        "docs/evidence/tui-focused-local.json",
+        "docs/evidence/tui-direct-run-local.json",
+        "docs/evidence/tui-apexlang-dashboard-local.json"
       ]
     },
     {
@@ -364,10 +386,12 @@
         "scripts/verify-setup-registration.mjs",
         "docs/evidence/setup-registration-local.json",
         "packages/installer/src/uninstall-tools.ts",
-        "tests/installers/uninstall-tools.test.ts",
-        "docs/evidence/tui-focused-local.json"
+        "tests/installers/uninstall-tools.test.ts"
       ],
-      "blocker": "Product uninstall checked in clean profile; full cross-version/platform update/rollback coverage incomplete."
+      "blocker": "Product uninstall checked in clean profile; full cross-version/platform update/rollback coverage incomplete.",
+      "retiredEvidence": [
+        "docs/evidence/tui-focused-local.json"
+      ]
     },
     {
       "id": "A24",
@@ -376,10 +400,13 @@
       "verification": "passed",
       "evidence": [
         "scripts/package-release.mjs",
+        "docs/evidence/redesign-phase1-local.json"
+      ],
+      "blocker": "Local artifact/site versions and checksums verified. Public GitHub source distribution is available; no signed GitHub release or apex.rest site deployment is claimed. Generated dist/site-dist records are regenerated by release:dry-run/site:build, not committed evidence. Publication and current native/Oracle qualification are NOT RUN.",
+      "regeneratedEvidence": [
         "dist/releases/release-manifest.json",
         "site-dist/releases/manifest.json"
-      ],
-      "blocker": "Local artifact/site versions and checksums verified. Public GitHub source distribution is available; no signed GitHub release or apex.rest site deployment is claimed."
+      ]
     },
     {
       "id": "A25",
@@ -388,9 +415,12 @@
       "verification": "passed",
       "evidence": [
         "scripts/check-release-readiness.mjs",
-        "dist/releases/release-readiness.json"
+        "docs/evidence/redesign-phase1-local.json"
       ],
-      "blocker": null
+      "blocker": " Generated dist/site-dist records are regenerated by release:dry-run/site:build, not committed evidence. Publication and current native/Oracle qualification are NOT RUN.",
+      "regeneratedEvidence": [
+        "dist/releases/release-readiness.json"
+      ]
     },
     {
       "id": "A26",
@@ -403,39 +433,43 @@
         "toolchains/compatibility.json",
         "README.md",
         "scripts/check-docs.mjs",
-        "docs/evidence/documentation-bilingual.json",
         "docs/evidence/dependency-command-local.json",
         "docs/evidence/plugin-menu-local.json",
-        "docs/evidence/tui-local.json",
         "tests/unit/saved-connections.test.ts",
-        "docs/evidence/tui-focused-local.json",
-        "docs/evidence/tui-direct-run-local.json",
-        "docs/evidence/installation-documentation-local.json",
-        "docs/evidence/tui-apexlang-dashboard-local.json"
+        "docs/evidence/installation-documentation-local.json"
       ],
       "blocker": "2026-10-04 redesign: documentation is English only (README.uk.md, docs/*.uk.md retired; docs/evidence/documentation-bilingual.json is historical) and docs/tui.md is retired with the terminal UI; the redesigned docs set has not been re-verified against the status matrix.",
       "retiredEvidence": [
         "README.uk.md",
         "docs/tui.md",
-        "docs/tui.uk.md"
+        "docs/tui.uk.md",
+        "docs/evidence/documentation-bilingual.json",
+        "docs/evidence/tui-local.json",
+        "docs/evidence/tui-focused-local.json",
+        "docs/evidence/tui-direct-run-local.json",
+        "docs/evidence/tui-apexlang-dashboard-local.json"
       ]
     },
     {
       "id": "A27",
       "criterion": "Startup does not load the complete Oracle manual, schema or traces into context",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": [
         "packages/core/src/references.ts",
         "packages/mcp/src/server.ts",
         "tests/contracts/mcp.test.mjs",
-        "docs/evidence/native-codex-compat.json",
         "docs/evidence/optimization-local.json",
-        "docs/evidence/apexlang-codex.json",
         "docs/evidence/apexlang-retrieval.json",
-        "tests/unit/apexlang-corpus.test.ts"
+        "tests/unit/apexlang-corpus.test.ts",
+        "docs/evidence/redesign-phase1-local.json",
+        "tests/unit/sqlcl-transport.test.ts"
       ],
-      "blocker": null
+      "blocker": " 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
+      "historicalEvidence": [
+        "docs/evidence/native-codex-compat.json",
+        "docs/evidence/apexlang-codex.json"
+      ]
     },
     {
       "id": "A28",
@@ -517,8 +551,6 @@
         "tests/unit/ords-bridge.test.ts",
         "tests/unit/ords-protocol.test.ts",
         "docs/evidence/ords-local.json",
-        "docs/evidence/ords-panel-local.json",
-        "docs/evidence/ords-panel-codex.json",
         "docs/evidence/connection-settings-local.json",
         "docs/evidence/connection-settings-native.json",
         "docs/evidence/ords-native.json",
@@ -526,7 +558,9 @@
       ],
       "blocker": "Authorized live CLI no-op import/export and SQL backup verified on a private test target: deterministic pre-import exports and all 21 files identical after import. Changed imports, additional component/static-file/MMD variants, SQL restore, live interruption/reconciliation, remote rollback and Windows remain open. Application browser verification is explicitly deferred by the user. Native-host settings evidence is separate from connected CLI operation evidence. 2026-10-04 redesign: the Ukrainian companion document is retired; English documentation only.",
       "retiredEvidence": [
-        "docs/ords.uk.md"
+        "docs/ords.uk.md",
+        "docs/evidence/ords-panel-local.json",
+        "docs/evidence/ords-panel-codex.json"
       ]
     },
     {
@@ -668,7 +702,7 @@
     },
     {
       "id": "CMP000",
-      "criterion": "Аудит checkout і карта інтеграції",
+      "criterion": "Checkout audit and integration map",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -679,7 +713,7 @@
     },
     {
       "id": "CMP001",
-      "criterion": "Baseline перевірок і журнал виконання",
+      "criterion": "Baseline checks and execution log",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -690,7 +724,7 @@
     },
     {
       "id": "CMP002",
-      "criterion": "ADR, threat model і acceptance IDs",
+      "criterion": "ADR, threat model and acceptance IDs",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -701,7 +735,7 @@
     },
     {
       "id": "CMP003",
-      "criterion": "Strict schemas та contract dialect",
+      "criterion": "Strict schemas and contract dialect",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -712,7 +746,7 @@
     },
     {
       "id": "CMP004",
-      "criterion": "Безпечне читання YAML/JSON і package paths",
+      "criterion": "Safe YAML/JSON reading and package paths",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -723,7 +757,7 @@
     },
     {
       "id": "CMP005",
-      "criterion": "Canonical snapshots і content digests",
+      "criterion": "Canonical snapshots and content digests",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -734,7 +768,7 @@
     },
     {
       "id": "CMP006",
-      "criterion": "Tracked state, base store і runtime journal model",
+      "criterion": "Tracked state, base store and runtime journal model",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -745,7 +779,7 @@
     },
     {
       "id": "CMP007",
-      "criterion": "Executable block registry поверх існуючих каталогів",
+      "criterion": "Executable block registry over existing catalogs",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -756,7 +790,7 @@
     },
     {
       "id": "CMP008",
-      "criterion": "Пошук, filters і explainable shortlist",
+      "criterion": "Search, filters and explainable shortlist",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -767,7 +801,7 @@
     },
     {
       "id": "CMP009",
-      "criterion": "Compatibility profiles та evidence policy",
+      "criterion": "Compatibility profiles and evidence policy",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -778,7 +812,7 @@
     },
     {
       "id": "CMP010",
-      "criterion": "Immutable local cache і index lifecycle",
+      "criterion": "Immutable local cache and index lifecycle",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -789,7 +823,7 @@
     },
     {
       "id": "CMP011",
-      "criterion": "Project inventory і reader adapter",
+      "criterion": "Project inventory and reader adapter",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -800,7 +834,7 @@
     },
     {
       "id": "CMP012",
-      "criterion": "Oracle metadata для keys, types і signatures",
+      "criterion": "Oracle metadata for keys, types and signatures",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -811,7 +845,7 @@
     },
     {
       "id": "CMP013",
-      "criterion": "Dataset contracts і entity binding",
+      "criterion": "Dataset contracts and entity binding",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -822,7 +856,7 @@
     },
     {
       "id": "CMP014",
-      "criterion": "Commands, auth contracts і transaction semantics",
+      "criterion": "Commands, authorization contracts and transaction semantics",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -833,7 +867,7 @@
     },
     {
       "id": "CMP015",
-      "criterion": "Deterministic dependency і capability resolver",
+      "criterion": "Deterministic dependency and capability resolver",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -844,7 +878,7 @@
     },
     {
       "id": "CMP016",
-      "criterion": "Stable allocator і shared resource ownership",
+      "criterion": "Stable allocator and shared resource ownership",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -855,7 +889,7 @@
     },
     {
       "id": "CMP017",
-      "criterion": "Typed event, action і route wiring",
+      "criterion": "Typed event, action and route wiring",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -866,7 +900,7 @@
     },
     {
       "id": "CMP018",
-      "criterion": "Composition plan і diagnostics",
+      "criterion": "Composition plan and diagnostics",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -888,7 +922,7 @@
     },
     {
       "id": "CMP020",
-      "criterion": "Journaled local materialization і recovery",
+      "criterion": "Journaled local materialization and recovery",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -899,7 +933,7 @@
     },
     {
       "id": "CMP021",
-      "criterion": "Idempotence та базові ownership modes",
+      "criterion": "Idempotence and basic ownership modes",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -910,7 +944,7 @@
     },
     {
       "id": "CMP022",
-      "criterion": "Binding із чинним deployment pipeline",
+      "criterion": "Binding to the existing deployment pipeline",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -921,7 +955,7 @@
     },
     {
       "id": "CMP023",
-      "criterion": "Ізольований CRM fixture і API contract",
+      "criterion": "Isolated CRM fixture and API contract",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -935,7 +969,7 @@
     },
     {
       "id": "CMP024",
-      "criterion": "Перший runnable read-only список",
+      "criterion": "First runnable read-only list",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -949,7 +983,7 @@
     },
     {
       "id": "CMP025",
-      "criterion": "Модальна форма зі збереженням через API",
+      "criterion": "Modal form saved through an API",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -963,7 +997,7 @@
     },
     {
       "id": "CMP026",
-      "criterion": "Summary block і міжблокові refresh events",
+      "criterion": "Summary block and inter-block refresh events",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -977,7 +1011,7 @@
     },
     {
       "id": "CMP027",
-      "criterion": "Наскрізна Oracle/browser кваліфікація",
+      "criterion": "End-to-end Oracle/browser qualification",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1003,27 +1037,31 @@
     },
     {
       "id": "CMP029",
-      "criterion": "MCP tools, jobs і artifacts",
-      "implementation": "implemented",
-      "verification": "passed",
-      "evidence": [
+      "criterion": "Retired: Composer MCP tools, jobs and artifacts",
+      "implementation": "retired",
+      "verification": "not_applicable",
+      "blocker": "2026-10-04 redesign removed Composer MCP tools and skill; CLI remains covered by CMP028.",
+      "historicalCriterion": "Composer MCP tools, jobs and artifacts",
+      "retiredEvidence": [
         "tests/unit/composer.test.ts",
         "tests/contracts/composer.test.mjs",
         "docs/evidence/composer-local.json"
       ],
-      "blocker": null
+      "evidence": []
     },
     {
       "id": "CMP030",
-      "criterion": "Focused Codex skills і task routing",
-      "implementation": "implemented",
-      "verification": "passed",
-      "evidence": [
+      "criterion": "Retired: Composer focused skill and task routing",
+      "implementation": "retired",
+      "verification": "not_applicable",
+      "blocker": "2026-10-04 redesign removed Composer MCP tools and skill; CLI remains covered by CMP028.",
+      "historicalCriterion": "Focused Composer skills and task routing",
+      "retiredEvidence": [
         "tests/unit/composer.test.ts",
         "tests/contracts/composer.test.mjs",
         "docs/evidence/composer-local.json"
       ],
-      "blocker": null
+      "evidence": []
     },
     {
       "id": "CMP031",
@@ -1036,11 +1074,11 @@
         "docs/evidence/composer-local.json"
       ],
       "blocker": "2026-10-04 redesign: panel server and Composer MCP tools (apexrest_compose_*) removed; Composer remains a CLI/local workflow (scripts/composer-author.mjs, scripts/verify-composer.mjs) and tests/unit/composer-panel.test.ts is retired.",
-      "historicalCriterion": "Catalog panel із reviewable blueprint changes"
+      "historicalCriterion": "Focused Composer skills and task routing"
     },
     {
       "id": "CMP032",
-      "criterion": "Version upgrade і structural three-way merge",
+      "criterion": "Version upgrade and structural three-way merge",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -1051,7 +1089,7 @@
     },
     {
       "id": "CMP033",
-      "criterion": "Remove/detach, dependency cleanup і migration seam",
+      "criterion": "Remove/detach, dependency cleanup and migration seam",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1062,7 +1100,7 @@
     },
     {
       "id": "CMP034",
-      "criterion": "Розширення бібліотеки і два application blueprints",
+      "criterion": "Library expansion and two application blueprints",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
@@ -1076,7 +1114,7 @@
     },
     {
       "id": "CMP035",
-      "criterion": "Локальне авторство та захоплення готового блока",
+      "criterion": "Local authoring and capture of a finished block",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1088,7 +1126,7 @@
     },
     {
       "id": "CMP036",
-      "criterion": "Trust, provenance і supply-chain hardening",
+      "criterion": "Trust, provenance and supply-chain hardening",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -1110,7 +1148,7 @@
     },
     {
       "id": "CMP038",
-      "criterion": "Benchmarks і agent workflow evaluation",
+      "criterion": "Benchmarks and agent workflow evaluation",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1122,7 +1160,7 @@
     },
     {
       "id": "CMP039",
-      "criterion": "Bundling і clean-install перевірки",
+      "criterion": "Bundling and clean-install checks",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -1134,7 +1172,7 @@
     },
     {
       "id": "CMP040",
-      "criterion": "Cross-platform CI і release gates",
+      "criterion": "Cross-platform CI and release gates",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1145,7 +1183,7 @@
     },
     {
       "id": "CMP041",
-      "criterion": "Документація, приймання і release readiness",
+      "criterion": "Documentation, acceptance and release readiness",
       "implementation": "partial",
       "verification": "partial",
       "evidence": [
@@ -1169,7 +1207,9 @@
     {
       "date": "2026-09-12",
       "rule": "The plugin targets Codex exclusively; retire experimental portable artifacts and optimize APEXlang authoring for Codex.",
-      "source": "docs/adr/001-packaging.md"
+      "source": "docs/adr/001-packaging.md",
+      "status": "superseded",
+      "supersededBy": "2026-10-04 Codex and Claude Code support"
     },
     {
       "date": "2026-09-17",

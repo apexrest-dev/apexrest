@@ -5,7 +5,7 @@ description: Check and set up the APEXREST toolchain and connections - doctor, N
 
 # Setup
 
-Call `apexrest_status` `detail:doctor` first. It probes Codex, SQLcl and Java without downloads or database calls and reports `sqlcl.mode` (`cli` direct SQLcl, `mcp` the official SQLcl stdio server) and `databaseTransport` (`direct` or `ords`). A detected tool is not a validated compiler or a live connection; say which was observed.
+Call `apexrest_status` `detail:doctor` first. It probes SQLcl and Java; Codex availability is informational for Claude Code without downloads or database calls and reports `sqlcl.mode` (`cli` direct SQLcl, `mcp` the official SQLcl stdio server) and `databaseTransport` (`direct` or `ords`). A detected tool is not a validated compiler or a live connection; say which was observed.
 
 Dependencies. Missing SQLcl or Java is a reason to install, not to stop. Use the bundled CLI at `../../runtime/apexrest.mjs` relative to this skill directory, resolved to an absolute path and run with `node` from the user's project directory (native installation adds nothing to PATH):
 

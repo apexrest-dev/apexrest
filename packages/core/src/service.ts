@@ -38,33 +38,13 @@ const engine = oracleModule as unknown as {
 export const parseDiagnostics: DiagnosticParser = (output) =>
   (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
 
-// One OracleAdapter per managed-home settings digest for the whole process:
-// the engine's session pool and capability caches are reused across tool
-// calls, while a changed SQLcl mode, transport or runtime selects a new adapter.
-const adapters = new Map<string, OracleAdapter>();
+// Resolve settings and connection credentials for each operation. The SQLcl pool
+// and capability cache live independently of this adapter.
 export async function sharedOracle() {
-  const home = managedHome();
-  const runtimeFile = path.join(home, 'runtime.json');
-  const key = hash(
-    canonical({
-      home,
-      sqlcl: process.env.APEXREST_SQLCL ?? null,
-      java: process.env.APEXREST_JAVA_HOME ?? null,
-      runtime: (await exists(runtimeFile)) ? await readJson(runtimeFile) : null,
-      config: await sqlclConfig(),
-    }),
-  );
-  let adapter = adapters.get(key);
-  if (!adapter) {
-    adapter = new OracleAdapter();
-    adapters.set(key, adapter);
-    if (adapters.size > 4) adapters.delete(adapters.keys().next().value!);
-  }
-  return adapter;
+  return new OracleAdapter();
 }
 /** Close pooled SQLcl sessions on process exit; safe when the engine has no pool. */
 export async function shutdownOracle() {
-  adapters.clear();
   const close =
     engine.closeSqlclSessions ??
     (

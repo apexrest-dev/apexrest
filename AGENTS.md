@@ -23,7 +23,7 @@ For an application-only change, use checks appropriate to that change: Oracle co
 
 # In-app browser verification rule (user amendment, 2026-09-12)
 
-For user-visible application changes, verify the affected pages and behavior in the selected verification browser (`codex` by default, or `external` when selected in plugin settings) when its controls are available. The development dashboard stays inside Codex. Follow the browser verification rule in plugins/apexrest-apex/skills/apexrest-test/SKILL.md. Record actual observations separately from automated test results; if browser access or the deployed change is unavailable, report the missing verification and its reason.
+For user-visible application changes, verify the affected pages and behavior in the selected verification browser (`codex` by default, or `external` when selected in plugin settings) when its controls are available. Follow the browser verification rule in plugins/apexrest-apex/skills/apexrest-work/SKILL.md, step 7. Record actual observations separately from automated test results; if browser access or the deployed change is unavailable, report the missing verification and its reason.
 
 # Clean APEX deployment rule (user amendment, 2026-09-12)
 

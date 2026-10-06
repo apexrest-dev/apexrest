@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { readdir, realpath, stat } from 'node:fs/promises';
 import { z } from 'zod';
-import { contained, exists, readJson } from './fs.ts';
+import { canonical, hash, contained, exists, readJson } from './fs.ts';
 import { loadProject, policy } from './config.ts';
 import { sanitized, Fault } from './result.ts';
 import { sqlclConfig } from './sqlcl-config.ts';
@@ -132,7 +132,15 @@ export class PanelService {
     try {
       const git = await runProcess({
         executable: 'git',
-        args: ['status', '--porcelain=v1', '--untracked-files=normal'],
+        args: [
+          '-c',
+          'core.fsmonitor=false',
+          '-c',
+          'core.untrackedCache=false',
+          'status',
+          '--porcelain=v1',
+          '--untracked-files=normal',
+        ],
         cwd: this.root,
         timeoutMs: 3000,
       });
@@ -145,7 +153,7 @@ export class PanelService {
     if (ctx) {
       const file = await contained(this.root, ctx.config.toolchain.lockFile);
       if (await exists(file)) {
-        if ((await stat(file)).size <= 128000) toolchain = await readJson(file);
+        if ((await stat(file)).size <= 128000) toolchain = { digest: hash(canonical(await readJson(file))) };
       }
     }
     const sync = ctx

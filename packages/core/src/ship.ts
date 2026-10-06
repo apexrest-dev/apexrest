@@ -10,6 +10,7 @@ import {
 } from './config.ts';
 import { DeploymentService, deployPlanSchema, type DeployPlan, type DeployState } from './deploy.ts';
 import type { OracleAdapter } from './oracle.ts';
+import { TestService } from './testing.ts';
 import type { JobPhase } from './jobs.ts';
 import { Fault, type StructuredDiagnostic } from './result.ts';
 
@@ -148,6 +149,7 @@ export async function shipPlan(
   parseDiagnostics: DiagnosticParser,
   progress?: (phase: JobPhase) => void,
 ) {
+  await reconcileShipGrants();
   const started = Date.now();
   progress?.('validating');
   let plan: DeployPlan;
@@ -177,12 +179,30 @@ export function shipGrant(ctx: ProjectContext, plan: DeployPlan, userRequest: st
     projectRoot: ctx.root,
     targetDigest: plan.targetDigest,
     planDigest: plan.digest,
-    expiresAt: plan.expiresAt,
+    expiresAt: new Date(Math.min(Date.parse(plan.expiresAt), Date.now() + 10 * 60 * 1000)).toISOString(),
+    workerPid: process.pid,
     operations: ['deploy'],
     note: userRequest.slice(0, 2000),
     grantedBy: 'ship',
     grantedAt: new Date().toISOString(),
   };
+}
+/** Revoke expired grants and grants left behind by a dead worker. Legacy ship
+ * grants have no worker identity and cannot safely authorize another attempt. */
+export async function reconcileShipGrants() {
+  await updatePolicy((p) => ({
+    ...p,
+    grants: p.grants.filter((g) => {
+      if (g.grantedBy !== 'ship') return true;
+      if (Date.parse(g.expiresAt) <= Date.now() || !g.workerPid) return false;
+      try {
+        process.kill(g.workerPid, 0);
+        return true;
+      } catch (error) {
+        return (error as NodeJS.ErrnoException).code === 'EPERM';
+      }
+    }),
+  }));
 }
 const ownGrant = (ctx: ProjectContext, plan: DeployPlan) => (g: PolicyGrant) =>
   g.grantedBy === 'ship' && g.projectRoot === ctx.root && g.planDigest === plan.digest;
@@ -205,6 +225,19 @@ export async function checkShipTarget(ctx: ProjectContext, plan: DeployPlan) {
       'blocked',
       { nextActions: plan.risks.map((r) => 'Review risk: ' + r) },
     );
+  if (ctx.config.tests.requiredSuites.some((suite) => suite !== 'unit')) {
+    try {
+      await new TestService().authorize(ctx, plan.environment);
+    } catch (error) {
+      throw new Fault(
+        'TEST_APPROVAL_REQUIRED',
+        'Required remote suites need existing test authorization and a mutation-allowed environment before shipping.',
+        4,
+        'blocked',
+        { reason: error instanceof Fault ? error.code : 'TEST_AUTHORIZATION_FAILED' },
+      );
+    }
+  }
   return env;
 }
 
@@ -219,6 +252,7 @@ export async function shipApply(
 ) {
   const plan = parse(deployPlanSchema, planValue);
   await checkShipTarget(ctx, plan);
+  await reconcileShipGrants();
   const phases: ShipPhase[] = [];
   let current: { phase: JobPhase; at: number } | undefined;
   const mark = (phase: JobPhase) => {

@@ -31,7 +31,7 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
     assert.ok(!tool.inputSchema.required.includes('waitSeconds'));
   }
   const ship = catalog.tools.find((tool) => tool.name === 'apexrest_ship');
-  assert.equal(ship.inputSchema.properties.waitSeconds.default, 60);
+  assert.equal(ship.inputSchema.properties.waitSeconds.default, 25);
   assert.equal(ship.inputSchema.properties.waitSeconds.maximum, 120);
   assert.ok(ship.inputSchema.required.includes('userRequest'));
   assert.equal(ship.annotations.destructiveHint, true);

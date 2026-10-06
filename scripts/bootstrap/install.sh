@@ -48,7 +48,7 @@ if [[ -z "$apexrest_node" ]] || [[ "$("$apexrest_node" -p 'process.versions.node
       mv "$cache.part" "$cache"
     fi
     if command -v sha256sum >/dev/null; then actual="$(sha256sum "$cache" | cut -d ' ' -f 1)"; else actual="$(shasum -a 256 "$cache" | cut -d ' ' -f 1)"; fi
-    [[ "$actual" == "$expected" ]] || { echo 'Node integrity failure; nothing was executed.' >&2; exit 3; }
+    [[ "$actual" == "$expected" ]] || { rm -f "$cache"; echo "Node integrity failure; removed corrupt cache: $cache; nothing was executed." >&2; exit 3; }
     if tar -tzf "$cache" | LC_ALL=C grep -Eq '(^/|(^|/)\.\.(/|$))'; then echo 'Unsafe Node archive.' >&2; exit 3; fi
     stage="$(mktemp -d "$(dirname -- "$runtime")/node-stage.XXXXXX")"
     tar -xzf "$cache" -C "$stage"

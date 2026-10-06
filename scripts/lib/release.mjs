@@ -21,9 +21,26 @@ export function isGeneratedPluginFile(file) {
 export async function files(root, prefix = '') {
   const found = [];
   for (const entry of (await readdir(path.join(root, prefix), { withFileTypes: true })).sort((a, b) =>
-    a.name.localeCompare(b.name),
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
   )) {
-    if (entry.name === 'node_modules') continue;
+    if (
+      entry.name === 'node_modules' ||
+      [
+        '.DS_Store',
+        '.git',
+        '.cache',
+        '.apexrest',
+        '.idea',
+        '.vscode',
+        'coverage',
+        'test-results',
+        'playwright-report',
+      ].includes(entry.name) ||
+      /\.(?:log|tgz|wallet)$/.test(entry.name) ||
+      entry.name === '.env' ||
+      (entry.name.startsWith('.env.') && entry.name !== '.env.example')
+    )
+      continue;
     const file = path.posix.join(prefix, entry.name);
     if (entry.isSymbolicLink()) throw new Error(`Symlink in release source: ${file}`);
     if (entry.isDirectory()) found.push(...(await files(root, file)));

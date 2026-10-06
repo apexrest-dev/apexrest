@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   VERSION
-} from "./chunk-JRODHLRL.mjs";
+} from "./chunk-Z55FEV2C.mjs";
 import {
   ToolchainService,
   canonicalHome,
@@ -11,7 +11,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-HIFCMPCL.mjs";
+} from "./chunk-K3F2WA3X.mjs";
 import {
   Client,
   ReadBuffer,
@@ -32,7 +32,7 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-Z5TALD4Z.mjs";
+} from "./chunk-JYN3YHP3.mjs";
 import {
   Fault,
   __commonJS,

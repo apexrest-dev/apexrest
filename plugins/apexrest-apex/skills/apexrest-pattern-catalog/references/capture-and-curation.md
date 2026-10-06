@@ -78,7 +78,7 @@ Source redistribution rights must be evaluated independently for each applicatio
 
 The verifier must compile every recipe declared `ready` with its complete local dependency set and the exact scaffold/MMD. Review diagnostics about ignored behavior. A positive compiler result does not establish that a query runs, navigation reaches a real target, or a dynamic action behaves correctly in a browser.
 
-Keep SQL/import/browser results separate and retain `not-run` with a reason when unavailable. Do not import into the source application to establish catalog readiness. A runtime verification request needs its own identified authorized target and the existing [deployment workflow](../../apexrest-deploy/SKILL.md).
+Keep SQL/import/browser results separate and retain `not-run` with a reason when unavailable. Do not import into the source application to establish catalog readiness. A runtime verification request needs its own identified authorized target and the existing [deployment workflow](../../apexrest-work/SKILL.md).
 
 After review, rebuild the catalog and validate deterministic output, ID/link integrity, source isolation, evidence hashes and search/read bounds. Use the repository's normal build, packaging and plugin synchronization checks. Ordinary retrieval uses `apexrest_reference` `mode:search` with `corpus: "patterns"`, then `mode:read` for a returned `pattern:` ID; it must work offline outside the source checkout.
 

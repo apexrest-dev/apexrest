@@ -6,17 +6,17 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-IV5KLHWM.mjs";
+} from "./chunk-2EKCYC5T.mjs";
 import {
   ArtifactService
-} from "./chunk-GSPRURYR.mjs";
+} from "./chunk-6HMVZFAH.mjs";
 import {
   VERSION
-} from "./chunk-JRODHLRL.mjs";
+} from "./chunk-Z55FEV2C.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-HIFCMPCL.mjs";
+} from "./chunk-K3F2WA3X.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -46,7 +46,7 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-Z5TALD4Z.mjs";
+} from "./chunk-JYN3YHP3.mjs";
 import {
   Fault,
   failure,
@@ -793,6 +793,21 @@ function preview(value, depth = 0) {
       result[key] = data[key].slice(0, 4).map((entry) => String(entry).slice(0, 200));
       result[key + "Omitted"] = Math.max(0, data[key].length - 4);
     }
+  for (const key of ["connections", "permissions", "changes", "toolchain"])
+    if (data[key] && typeof data[key] === "object") {
+      const value2 = data[key];
+      if (JSON.stringify(value2).length <= 1200) result[key] = value2;
+      else if (key === "connections") result.connections = { count: Object.keys(value2).length };
+      else if (key === "permissions")
+        result.permissions = {
+          activeGrantCount: Array.isArray(value2.activeGrants) ? value2.activeGrants.length : 0
+        };
+      else if (key === "changes")
+        result.changes = {
+          status: value2.status,
+          fileCount: Array.isArray(value2.files) ? value2.files.length : 0
+        };
+    }
   if (data.lastSuccessfulImport && typeof data.lastSuccessfulImport === "object")
     result.lastSuccessfulImport = data.lastSuccessfulImport;
   if (data.workingCopy && typeof data.workingCopy === "object") result.workingCopy = data.workingCopy;
@@ -895,7 +910,7 @@ async function toolOutput(original, project) {
 
 // packages/mcp/src/job-tools.ts
 var jobWaitSeconds = external_exports.number().int().min(0).max(30).default(25).describe("Wait for the result or return the existing jobId; default 25 seconds, 0 queues immediately.");
-var shipWaitSeconds = external_exports.number().int().min(0).max(120).default(60).describe("Wait for the result or return the existing jobId; default 60 seconds, 0 queues immediately.");
+var shipWaitSeconds = external_exports.number().int().min(0).max(120).default(25).describe("Wait for the result or return the existing jobId; default 25 seconds, 0 queues immediately.");
 var completedResultSchema = external_exports.object({
   schemaVersion: external_exports.literal(1),
   ok: external_exports.boolean(),
@@ -1013,9 +1028,13 @@ for (const { operation, long } of toolCatalog) {
   const transportSchema = "project" in schema.shape ? schema.extend({
     project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject
   }) : schema;
+  const boundarySchema = operation === "project" ? transportSchema.extend({
+    directory: absoluteProject.describe("Absolute directory for init.").optional(),
+    passwordFile: absoluteProject.describe("Absolute private password file.").optional()
+  }) : transportSchema;
   mcpSchemas.set(
     operation,
-    long ? transportSchema.extend({ waitSeconds: operation === "ship" ? shipWaitSeconds : jobWaitSeconds }) : transportSchema
+    long ? boundarySchema.extend({ waitSeconds: operation === "ship" ? shipWaitSeconds : jobWaitSeconds }) : boundarySchema
   );
 }
 function listTools() {
@@ -1112,10 +1131,9 @@ async function startMcp() {
     void shutdown().finally(() => process.exit(0));
   };
 }
-
 export {
-  mcpSchemas,
-  listTools,
   detachedJob,
+  listTools,
+  mcpSchemas,
   startMcp
 };

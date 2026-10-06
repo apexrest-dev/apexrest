@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { zipSync } from 'fflate';
-import { exists, hash, readJson } from '../../packages/core/src/fs.ts';
+import { exists, hash, readJson, writeJson } from '../../packages/core/src/fs.ts';
 import { assertPrivateCache, download, proxyStatus } from '../../packages/installer/src/download.ts';
 import type { Artifact } from '../../packages/installer/src/download.ts';
 import { archivePath, extractArchive, extractVerifiedArchive } from '../../packages/installer/src/archive.ts';
@@ -481,3 +481,19 @@ test('Windows launchers include a cmd shim and restore APEXREST_HOME in PowerShe
   });
   assert.deepEqual(Object.keys(launcherScripts('/h', '/n', '/c', 'linux')), ['apexrest']);
 });
+
+test(
+  'an integrity record for another destination cannot authorize a cached install',
+  { skip: posixOnly },
+  async (t) => {
+    const f = await toolchainFixture(t);
+    await f.apply();
+    const state = await runtimeState(f.home);
+    state.integrity!.node!.destination = path.join(f.root, 'other-destination');
+    await writeJson(path.join(f.home, 'runtime.json'), state);
+    await writeFile(path.join(f.destination, 'tool/lib/data.txt'), 'tampered');
+    await f.apply();
+    assert.equal(await readFile(path.join(f.destination, 'tool/lib/data.txt'), 'utf8'), 'library');
+    assert.equal((await runtimeState(f.home)).integrity!.node!.destination, f.destination);
+  },
+);

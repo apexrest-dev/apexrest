@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { JOB_WAIT_MAX_SECONDS } from './jobs.ts';
 import { composePlanInput, composeMaterializeInput } from './composer/service.ts';
 import { metadataInputSchema } from './metadata.ts';
 import { refName, relativePath } from './config.ts';
@@ -143,7 +144,7 @@ export const schemas = {
   'jobs.status': z.strictObject({
     ...base,
     id: z.uuid(),
-    waitSeconds: z.number().int().min(0).max(30).default(0),
+    waitSeconds: z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0),
   }),
   'jobs.cancel': z.strictObject({ ...base, id: z.uuid() }),
   'artifacts.read': z.strictObject({
@@ -224,7 +225,7 @@ export const schemas = {
     ...base,
     action: z.enum(['status', 'cancel']).default('status'),
     jobId: z.uuid(),
-    waitSeconds: z.number().int().min(0).max(120).default(0),
+    waitSeconds: z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0),
   }),
   status: z.strictObject({ ...base, detail: z.enum(['doctor', 'project']).default('project') }),
 };

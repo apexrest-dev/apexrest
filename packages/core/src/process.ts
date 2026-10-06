@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { Fault, redact } from './result.ts';
 export interface ProcessRequest {
   executable: string;
@@ -35,6 +36,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       timedOut = false,
       cancelled = false,
       truncated = false;
+    const decoders = [new StringDecoder('utf8'), new StringDecoder('utf8')];
     const max = r.maxBytes ?? 1024 * 1024;
     const stop = () => {
       child.kill('SIGTERM');
@@ -44,7 +46,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
     const collect = (isError: boolean) => (data: Buffer) => {
       const room = Math.max(0, max - bytes);
       bytes += data.length;
-      const s = data.subarray(0, room).toString();
+      const s = decoders[isError ? 1 : 0]!.write(data.subarray(0, room));
       if (isError) stderr += s;
       else stdout += s;
       if (bytes > max) {
@@ -73,7 +75,14 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
     child.on('close', (code) => {
       clearTimeout(timer);
       r.signal?.removeEventListener('abort', abort);
-      resolve({ code, stdout: redact(stdout), stderr: redact(stderr), timedOut, cancelled, truncated });
+      resolve({
+        code,
+        stdout: stdout + (truncated ? '' : decoders[0]!.end()),
+        stderr: redact(stderr + (truncated ? '' : decoders[1]!.end())),
+        timedOut,
+        cancelled,
+        truncated,
+      });
     });
     child.stdin.end(r.input ?? '');
   });

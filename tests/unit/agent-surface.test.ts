@@ -25,6 +25,7 @@ const parseDiagnostics = fallbackCompilerDiagnostics;
 
 test('ship plan validates, plans and writes a reviewable plan without touching policy', async (t) => {
   const f = await workingCopyFixture();
+  f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
   const before = await policy();
   const planned = await shipPlan(f.ctx, 'dev', f.service, parseDiagnostics);
@@ -41,6 +42,7 @@ test('ship plan validates, plans and writes a reviewable plan without touching p
 
 test('ship apply records a plan-bound grant, imports, verifies and removes the grant', async (t) => {
   const f = await workingCopyFixture();
+  f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
   const planned = await shipPlan(f.ctx, 'dev', f.service, parseDiagnostics);
   const phases: string[] = [];
@@ -67,10 +69,11 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     projectRoot: f.ctx.root,
     targetDigest: planned.plan.targetDigest,
     planDigest: planned.plan.digest,
-    expiresAt: planned.plan.expiresAt,
+    expiresAt: (observedGrant as { expiresAt: string }).expiresAt,
     operations: ['deploy'],
     note: 'Deploy the customers page to dev',
     grantedBy: 'ship',
+    workerPid: process.pid,
     grantedAt: (observedGrant as { grantedAt: string }).grantedAt,
   });
   const after = await policy();
@@ -83,7 +86,7 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
   assert.deepEqual(result.grant, {
     recorded: true,
     removed: true,
-    expiresAt: planned.plan.expiresAt,
+    expiresAt: (observedGrant as { expiresAt: string }).expiresAt,
     planDigest: planned.plan.digest,
   });
   assert.deepEqual(phases, ['backing_up', 'migrating', 'importing', 'verifying', 'testing']);
@@ -96,7 +99,7 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     id: 123,
     alias: 'fixture',
     workspace: 'FIXTURE',
-    url: 'https://test.example.invalid/ords/f?p=123',
+    url: 'https://localhost/ords/f?p=123',
   });
   assert.deepEqual(result.tests, { fixture: true });
   assert.ok(f.calls.includes('import'));
@@ -105,6 +108,7 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
 
 test('ship apply removes its grant after a failed import and refuses production before any grant', async (t) => {
   const f = await workingCopyFixture();
+  f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
   const planned = await shipPlan(f.ctx, 'dev', f.service, parseDiagnostics);
   f.controls.failImport = true;
@@ -143,6 +147,7 @@ test('ship apply removes its grant after a failed import and refuses production 
 
 test('ship schemas require the literal user request and refuse production apply through dispatch', async (t) => {
   const f = await workingCopyFixture();
+  f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
   assert.equal(schemas.ship.safeParse({ env: 'dev', userRequest: 'short' }).success, false);
   assert.equal(schemas.ship.parse({ env: 'dev', userRequest: 'Deploy page ten' }).mode, 'plan');
@@ -356,7 +361,7 @@ test('MCP catalog is eleven tools with correct annotations and a bounded footpri
     properties: Record<string, { default?: unknown; maximum?: number; minLength?: number }>;
     required: string[];
   };
-  assert.equal(ship.properties.waitSeconds!.default, 60);
+  assert.equal(ship.properties.waitSeconds!.default, 25);
   assert.equal(ship.properties.waitSeconds!.maximum, 120);
   assert.equal(ship.properties.userRequest!.minLength, 10);
   assert.ok(

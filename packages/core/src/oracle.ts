@@ -196,6 +196,13 @@ export class OracleAdapter {
     format: 'text' | 'json' = 'text',
     restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
   ) {
+    if (restrictLevel && (await this.settings()).mode === 'mcp')
+      throw new Fault(
+        'SQLCL_MCP_SCRIPT_RESTRICT_UNAVAILABLE',
+        'Restricted script operations require SQLcl CLI mode with -R 2; MCP does not provide an equivalent restriction.',
+        3,
+        'blocked',
+      );
     const work = cwd ?? (await this.stage());
     try {
       return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel);
@@ -280,11 +287,15 @@ export class OracleAdapter {
           input:
             (settings.mode === 'cli' ? preamble.replace(/exit failure rollback/g, 'continue') : preamble) +
             // Persistent servers keep SET state between batches; start neutral.
-            'set sqlformat default\n' +
+            (selected?.name
+              ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n"
+              : '') +
+            'set serveroutput off\nset sqlformat default\n' +
             input +
             (mutation ? '\ncommit;\n' : '\n') +
             `prompt ${marker}\n`,
           mutation,
+          completionMarker: marker,
           ...(selected?.name ? { connectionName: selected.name } : {}),
         })
       : await this.runner(request);

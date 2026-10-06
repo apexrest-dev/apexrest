@@ -28,7 +28,7 @@ if (!$nodePath -or (& $nodePath -p 'process.versions.node') -ne '24.21.0') {
       Invoke-WebRequest -Uri "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip" -MaximumRedirection 0 -OutFile "$cache.part"
       Move-Item "$cache.part" $cache
     }
-    if ((Get-FileHash $cache -Algorithm SHA256).Hash.ToLowerInvariant() -ne '158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541') { throw 'Node archive integrity failure.' }
+    if ((Get-FileHash $cache -Algorithm SHA256).Hash.ToLowerInvariant() -ne '158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541') { Remove-Item -Force $cache; throw "Node archive integrity failure; removed corrupt cache: $cache" }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [IO.Compression.ZipFile]::OpenRead($cache)
     try { foreach ($entry in $archive.Entries) { if ($entry.FullName -match '(^[/\\]|(^|[/\\])\.\.([/\\]|$)|^[A-Za-z]:)') { throw 'Unsafe archive entry.' } } } finally { $archive.Dispose() }

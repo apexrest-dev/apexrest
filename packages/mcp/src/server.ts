@@ -41,11 +41,18 @@ for (const { operation, long } of toolCatalog) {
           project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject,
         })
       : schema;
+  const boundarySchema =
+    operation === 'project'
+      ? transportSchema.extend({
+          directory: absoluteProject.describe('Absolute directory for init.').optional(),
+          passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
+        })
+      : transportSchema;
   mcpSchemas.set(
     operation,
     long
-      ? transportSchema.extend({ waitSeconds: operation === 'ship' ? shipWaitSeconds : jobWaitSeconds })
-      : transportSchema,
+      ? boundarySchema.extend({ waitSeconds: operation === 'ship' ? shipWaitSeconds : jobWaitSeconds })
+      : boundarySchema,
   );
 }
 export function listTools(): Tool[] {

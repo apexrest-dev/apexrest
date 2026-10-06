@@ -159,7 +159,7 @@ export class SqlclMcpClient {
         6,
         uncertain ? 'outcome_unknown' : 'failed',
       );
-    return redact(output);
+    return output;
   }
   private async call(
     name: string,

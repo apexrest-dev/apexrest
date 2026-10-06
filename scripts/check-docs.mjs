@@ -8,7 +8,7 @@ import { renderMarkdown } from './lib/site-markdown.mjs';
 // Human documentation is English only. Historical specifications, machine-readable
 // evidence, third-party notices and agent skills retain their sources.
 const documents = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md'];
-for (const root of ['docs', 'site/content', 'templates']) {
+for (const root of ['docs', 'site/content', 'templates', 'plugins/apexrest-apex/skills']) {
   for (const file of await files(root)) {
     if (file.endsWith('.md')) documents.push(root + '/' + file);
   }

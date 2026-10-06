@@ -46,6 +46,8 @@ export const projectSchema = z.strictObject({
     defaultBrowser: z.literal('chromium'),
     mutationAllowedEnvironments: z.array(refName),
   }),
+  // Legacy local coordination is now the default; retained for old project files.
+  deploymentControl: z.literal('local').optional(),
   composer: z.strictObject({ allowSourceOnly: z.boolean().default(false) }).optional(),
   artifacts: z.strictObject({ directory: relativePath, retentionDays: z.number().int().min(1).max(365) }),
 });
@@ -124,6 +126,7 @@ export const policySchema = z.strictObject({
       note: z.string().max(2000).optional(),
       grantedBy: z.enum(['user', 'ship']).optional(),
       grantedAt: z.iso.datetime().optional(),
+      workerPid: z.number().int().positive().optional(),
     }),
   ),
 });

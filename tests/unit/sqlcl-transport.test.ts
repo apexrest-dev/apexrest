@@ -268,6 +268,8 @@ for await (const line of createInterface({input:process.stdin})) {
    const sqlcl=r.params.arguments.sqlcl;
    if(sqlcl.includes('HANG')) continue;
    if(sqlcl.includes('CRASH')) process.exit(1);
+   if(sqlcl.includes('ORA_FAILURE')) { process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result:{isError:true,content:[{type:'text',text:'ORA-03113: lost connection'}]}})+'\\n'); continue; }
+   if(sqlcl.includes('INCOMPLETE')) { process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:r.id,result:{content:[{type:'text',text:'no confirmation'}]}})+'\\n'); continue; }
    const lines=sqlcl.split('\\n').flatMap(l=>l.startsWith('prompt ')?[l.slice(7)]:l.startsWith('select ')?['{"results":[{"items":[{"n":1,"c":"'+connected+'"}]}]}']:[]);
    result={content:[{type:'text',text:lines.join('\\n')+'\\n'}]};
   }
@@ -288,6 +290,7 @@ for await (const line of createInterface({input:process.stdin})) {
   });
   return {
     oracle,
+    launcher,
     starts: async () => (await readFile(starts, 'utf8').catch(() => '')).split('\n').filter(Boolean),
   };
 }
@@ -328,7 +331,7 @@ test(
 );
 
 test(
-  'MCP mode pools its server per saved connection and answers query batches in one session',
+  'MCP mode isolates connected batches and answers a query batch in one session',
   { skip: process.platform === 'win32' },
   async (t) => {
     const { oracle, starts } = await pooledFixture(t);
@@ -347,7 +350,65 @@ test(
     );
     await oracle.jsonQuery('select 1 n from dual', { kind: 'sqlcl-store', name: 'fixture-other' });
     const started = await starts();
-    assert.equal(started.filter((args) => args === '-mcp').length, 2, 'one server per saved connection');
+    assert.equal(started.filter((args) => args === '-mcp').length, 3, 'fresh server per connected batch');
+  },
+);
+
+test(
+  'failed or incomplete batches discard their servers before the next call',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle, starts } = await pooledFixture(t);
+    for (const [input, code] of [
+      ['prompt ORA_FAILURE', 'ORACLE_COMMAND_FAILED'],
+      ['prompt INCOMPLETE', 'SQLCL_MCP_INCOMPLETE'],
+    ] as const) {
+      await assert.rejects(oracle.session(input), { code });
+      const before = (await starts()).length;
+      assert.equal((await oracle.session('prompt recovered')).output, 'recovered');
+      assert.equal((await starts()).length, before + 1);
+      await closeSqlclSessions();
+    }
+  },
+);
+
+test(
+  'connected mutation batches start fresh, reset state and close after completion',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle, starts } = await pooledFixture(t);
+    const settings = await oracle.settings();
+    oracle.settings = async () => ({ ...settings, mode: 'mcp', mcpRestrictLevel: '1' });
+    const connection = { kind: 'sqlcl-store', name: 'fixture-dev' } as const;
+    await oracle.session('prompt changed', connection, true);
+    assert.deepEqual(sqlclSessionStats(), []);
+    await oracle.session('prompt another', connection, true);
+    assert.equal((await starts()).length, 2);
+    await assert.rejects(
+      oracle.session('prompt script', connection, true, undefined, undefined, 'text', '2'),
+      { code: 'SQLCL_MCP_SCRIPT_RESTRICT_UNAVAILABLE' },
+    );
+    assert.equal((await starts()).length, 2, 'refused before opening a server');
+  },
+);
+
+test(
+  'closing a pool wakes queued callers instead of hanging',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle } = await pooledFixture(t);
+    const first = oracle.session('prompt HANG').catch((error: unknown) => error);
+    const second = oracle.session('prompt HANG').catch((error: unknown) => error);
+    for (let i = 0; i < 100 && !sqlclSessionStats().some((s) => s.busy === 2); i++)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.ok(sqlclSessionStats().some((s) => s.busy === 2));
+    const waiting = oracle.session('prompt waiting').catch((error: unknown) => error);
+    for (let i = 0; i < 100 && !sqlclSessionStats().some((s) => s.waiting); i++)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.ok(sqlclSessionStats().some((s) => s.waiting));
+    await closeSqlclSessions();
+    const results = await Promise.all([first, second, waiting]);
+    assert.equal((results[2] as { code: string }).code, 'CANCELLED');
   },
 );
 

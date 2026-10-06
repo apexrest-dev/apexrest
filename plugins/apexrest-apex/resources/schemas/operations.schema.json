@@ -709,6 +709,18 @@
           "uk"
         ]
       },
+      "include": {
+        "description": "search: code on all hits or none",
+        "type": "string",
+        "enum": [
+          "code",
+          "metadata"
+        ]
+      },
+      "includeUnresolved": {
+        "default": false,
+        "type": "boolean"
+      },
       "cursor": {
         "type": "string",
         "pattern": "^[a-f0-9]{64}$"
@@ -1229,7 +1241,7 @@
         "default": 0,
         "type": "integer",
         "minimum": 0,
-        "maximum": 30
+        "maximum": 120
       }
     },
     "required": [
@@ -1415,8 +1427,7 @@
       }
     },
     "required": [
-      "action",
-      "env"
+      "action"
     ],
     "additionalProperties": false
   },
@@ -1495,6 +1506,18 @@
           "en",
           "uk"
         ]
+      },
+      "include": {
+        "description": "search: code on all hits or none",
+        "type": "string",
+        "enum": [
+          "code",
+          "metadata"
+        ]
+      },
+      "includeUnresolved": {
+        "default": false,
+        "type": "boolean"
       },
       "cursor": {
         "type": "string",

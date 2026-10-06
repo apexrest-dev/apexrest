@@ -29,10 +29,10 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-GSPRURYR.mjs";
+} from "./chunk-6HMVZFAH.mjs";
 import {
   VERSION
-} from "./chunk-JRODHLRL.mjs";
+} from "./chunk-Z55FEV2C.mjs";
 import {
   OracleAdapter,
   configureConnection,
@@ -65,10 +65,10 @@ import {
   sqlclMode,
   sqlclRestriction,
   updatePolicy
-} from "./chunk-HIFCMPCL.mjs";
+} from "./chunk-K3F2WA3X.mjs";
 import {
   external_exports
-} from "./chunk-Z5TALD4Z.mjs";
+} from "./chunk-JYN3YHP3.mjs";
 import {
   Fault,
   artifactPage,
@@ -84,6 +84,209 @@ import {
   success,
   writeJson
 } from "./chunk-WPS3CSQJ.mjs";
+
+// packages/core/src/jobs.ts
+import path from "node:path";
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+var JOB_WAIT_MAX_SECONDS = 120;
+var jobOperations = [
+  "compose.plan",
+  "compose.materialize",
+  "apex.sync",
+  "apex.generate",
+  "apex.export",
+  "apex.validate",
+  "deploy.plan",
+  "deploy.apply",
+  "ship.apply",
+  "test.run"
+];
+var JobService = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  ctx;
+  async enqueue(operation, input) {
+    await requireTrust(this.ctx.root);
+    if (!jobOperations.includes(operation))
+      throw new Fault("INVALID_JOB_OPERATION", "Operation cannot run as a background job.", 2);
+    const id = randomUUID(), root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
+    await writeJson(path.join(root, "request.json"), {
+      id,
+      operation,
+      input: { ...input, project: this.ctx.root }
+    });
+    await writeJson(path.join(root, "state.json"), {
+      id,
+      status: "queued",
+      operation,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return id;
+  }
+  /**
+   * Run a job inside this process: same request/state files and heartbeat as a
+   * detached worker, so apexrest_job observes it identically, but the warm
+   * SQLcl session pool and capability caches are reused. Use only for work
+   * whose interruption leaves no database write unresolved.
+   */
+  async startInline(operation, input, execute) {
+    const id = await this.enqueue(operation, input);
+    const run = executeJob(this.ctx, id, execute).catch(async (error) => {
+      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
+    });
+    inlineJobs.set(id, run);
+    void run.finally(() => inlineJobs.delete(id));
+    return {
+      jobId: id,
+      status: "queued",
+      runner: "in-process",
+      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results."
+    };
+  }
+  async start(operation, input, runtime) {
+    const id = await this.enqueue(operation, input);
+    try {
+      const worker = spawn(process.execPath, [runtime, "--job-worker", this.ctx.root, id], {
+        cwd: this.ctx.root,
+        env: process.env,
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true
+      });
+      await new Promise((resolve, reject) => {
+        worker.once("spawn", resolve);
+        worker.once("error", reject);
+      });
+      worker.unref();
+    } catch (error) {
+      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
+      throw error;
+    }
+    return {
+      jobId: id,
+      status: "queued",
+      runner: "detached-worker",
+      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results. Cancellation does not imply database rollback."
+    };
+  }
+  async status(id, waitSeconds = 0, signal) {
+    parse(external_exports.uuid(), id);
+    parse(external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS), waitSeconds);
+    const root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
+    const deadline = Date.now() + waitSeconds * 1e3;
+    for (; ; ) {
+      const state = await readJson(path.join(root, "state.json"));
+      if (!["queued", "running"].includes(state.status)) return state;
+      if (Date.parse(state.updatedAt) + 6e4 < Date.now())
+        return {
+          ...state,
+          status: "outcome_unknown",
+          nextAction: "Worker heartbeat expired. Reconcile target before retrying."
+        };
+      const remaining = deadline - Date.now();
+      if (remaining <= 0 || signal?.aborted) return state;
+      await delay(Math.min(250, remaining), void 0, { signal }).catch((error) => {
+        if (!signal?.aborted) throw error;
+      });
+    }
+  }
+  async cancel(id) {
+    await requireTrust(this.ctx.root);
+    parse(external_exports.uuid(), id);
+    const state = await this.status(id);
+    if (!["queued", "running"].includes(state.status)) return state;
+    await writeJson(await contained(this.ctx.root, ".apexrest/jobs/" + id + "/cancel.json"), {
+      requestedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return { jobId: id, status: "cancellation_requested", rollbackConfirmed: false };
+  }
+};
+var inlineJobs = /* @__PURE__ */ new Map();
+async function settleInlineJobs() {
+  await Promise.allSettled([...inlineJobs.values()]);
+}
+async function failQueuedJob(projectRoot, id, error) {
+  parse(external_exports.uuid(), id);
+  const file = await contained(projectRoot, ".apexrest/jobs/" + id + "/state.json");
+  if (!await exists(file)) return false;
+  const state = await readJson(file);
+  if (state.status !== "queued") return false;
+  const operation = typeof state.operation === "string" ? state.operation : "job";
+  await writeJson(file, {
+    id,
+    operation,
+    status: "failed",
+    result: failure(operation, error),
+    nextAction: "The worker did not start this operation. Resolve the diagnostic, then start a new job.",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  return true;
+}
+function jobOutcome(result) {
+  const value = result;
+  if (!value || typeof value !== "object" || value.ok !== false) return "completed";
+  return typeof value.status === "string" && !["queued", "running", "completed", "succeeded"].includes(value.status) ? value.status : "failed";
+}
+async function executeJob(ctx, id, execute) {
+  await requireTrust(ctx.root);
+  parse(external_exports.uuid(), id);
+  const root = await contained(ctx.root, ".apexrest/jobs/" + id);
+  const request = await readJson(path.join(root, "request.json"));
+  const controller = new AbortController();
+  let done = false;
+  let phase;
+  const pulse = async () => {
+    if (done) return;
+    if (await exists(path.join(root, "cancel.json"))) controller.abort();
+    if (!done)
+      await writeJson(path.join(root, "state.json"), {
+        id,
+        operation: request.operation,
+        status: "running",
+        ...phase ? { phase } : {},
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+  };
+  await pulse();
+  let pending = Promise.resolve();
+  const schedule = () => {
+    pending = pending.then(pulse).catch(() => {
+      controller.abort();
+    });
+  };
+  const timer = setInterval(schedule, 2e3), timeout = setTimeout(() => controller.abort(), 9e5);
+  const progress = (next) => {
+    phase = next;
+    schedule();
+  };
+  try {
+    let result;
+    try {
+      result = await execute(request.operation, request.input, controller.signal, progress);
+    } catch (error) {
+      result = failure(request.operation, error);
+    }
+    done = true;
+    clearInterval(timer);
+    clearTimeout(timeout);
+    await pending;
+    await writeJson(path.join(root, "state.json"), {
+      id,
+      operation: request.operation,
+      status: jobOutcome(result),
+      ...phase ? { phase } : {},
+      result,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } finally {
+    done = true;
+    clearInterval(timer);
+    clearTimeout(timeout);
+  }
+}
 
 // packages/core/src/composer/service.ts
 import { readFile as readFile2 } from "node:fs/promises";
@@ -1865,7 +2068,7 @@ var schemas = {
   "jobs.status": external_exports.strictObject({
     ...base,
     id: external_exports.uuid(),
-    waitSeconds: external_exports.number().int().min(0).max(30).default(0)
+    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0)
   }),
   "jobs.cancel": external_exports.strictObject({ ...base, id: external_exports.uuid() }),
   "artifacts.read": external_exports.strictObject({
@@ -1933,7 +2136,7 @@ var schemas = {
     ...base,
     action: external_exports.enum(["status", "cancel"]).default("status"),
     jobId: external_exports.uuid(),
-    waitSeconds: external_exports.number().int().min(0).max(120).default(0)
+    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0)
   }),
   status: external_exports.strictObject({ ...base, detail: external_exports.enum(["doctor", "project"]).default("project") })
 };
@@ -2023,209 +2226,6 @@ var toolCatalog = [
   }
 ];
 
-// packages/core/src/jobs.ts
-import path from "node:path";
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
-var JOB_WAIT_MAX_SECONDS = 120;
-var jobOperations = [
-  "compose.plan",
-  "compose.materialize",
-  "apex.sync",
-  "apex.generate",
-  "apex.export",
-  "apex.validate",
-  "deploy.plan",
-  "deploy.apply",
-  "ship.apply",
-  "test.run"
-];
-var JobService = class {
-  constructor(ctx) {
-    this.ctx = ctx;
-  }
-  ctx;
-  async enqueue(operation, input) {
-    await requireTrust(this.ctx.root);
-    if (!jobOperations.includes(operation))
-      throw new Fault("INVALID_JOB_OPERATION", "Operation cannot run as a background job.", 2);
-    const id = randomUUID(), root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
-    await writeJson(path.join(root, "request.json"), {
-      id,
-      operation,
-      input: { ...input, project: this.ctx.root }
-    });
-    await writeJson(path.join(root, "state.json"), {
-      id,
-      status: "queued",
-      operation,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    return id;
-  }
-  /**
-   * Run a job inside this process: same request/state files and heartbeat as a
-   * detached worker, so apexrest_job observes it identically, but the warm
-   * SQLcl session pool and capability caches are reused. Use only for work
-   * whose interruption leaves no database write unresolved.
-   */
-  async startInline(operation, input, execute) {
-    const id = await this.enqueue(operation, input);
-    const run = executeJob(this.ctx, id, execute).catch(async (error) => {
-      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
-    });
-    inlineJobs.set(id, run);
-    void run.finally(() => inlineJobs.delete(id));
-    return {
-      jobId: id,
-      status: "queued",
-      runner: "in-process",
-      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results."
-    };
-  }
-  async start(operation, input, runtime) {
-    const id = await this.enqueue(operation, input);
-    try {
-      const worker = spawn(process.execPath, [runtime, "--job-worker", this.ctx.root, id], {
-        cwd: this.ctx.root,
-        env: process.env,
-        detached: true,
-        stdio: "ignore",
-        windowsHide: true
-      });
-      await new Promise((resolve, reject) => {
-        worker.once("spawn", resolve);
-        worker.once("error", reject);
-      });
-      worker.unref();
-    } catch (error) {
-      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
-      throw error;
-    }
-    return {
-      jobId: id,
-      status: "queued",
-      runner: "detached-worker",
-      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results. Cancellation does not imply database rollback."
-    };
-  }
-  async status(id, waitSeconds = 0, signal) {
-    parse(external_exports.uuid(), id);
-    parse(external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS), waitSeconds);
-    const root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
-    const deadline = Date.now() + waitSeconds * 1e3;
-    for (; ; ) {
-      const state = await readJson(path.join(root, "state.json"));
-      if (!["queued", "running"].includes(state.status)) return state;
-      if (Date.parse(state.updatedAt) + 6e4 < Date.now())
-        return {
-          ...state,
-          status: "outcome_unknown",
-          nextAction: "Worker heartbeat expired. Reconcile target before retrying."
-        };
-      const remaining = deadline - Date.now();
-      if (remaining <= 0 || signal?.aborted) return state;
-      await delay(Math.min(250, remaining), void 0, { signal }).catch((error) => {
-        if (!signal?.aborted) throw error;
-      });
-    }
-  }
-  async cancel(id) {
-    await requireTrust(this.ctx.root);
-    parse(external_exports.uuid(), id);
-    const state = await this.status(id);
-    if (!["queued", "running"].includes(state.status)) return state;
-    await writeJson(await contained(this.ctx.root, ".apexrest/jobs/" + id + "/cancel.json"), {
-      requestedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    return { jobId: id, status: "cancellation_requested", rollbackConfirmed: false };
-  }
-};
-var inlineJobs = /* @__PURE__ */ new Map();
-async function settleInlineJobs() {
-  await Promise.allSettled([...inlineJobs.values()]);
-}
-async function failQueuedJob(projectRoot, id, error) {
-  parse(external_exports.uuid(), id);
-  const file = await contained(projectRoot, ".apexrest/jobs/" + id + "/state.json");
-  if (!await exists(file)) return false;
-  const state = await readJson(file);
-  if (state.status !== "queued") return false;
-  const operation = typeof state.operation === "string" ? state.operation : "job";
-  await writeJson(file, {
-    id,
-    operation,
-    status: "failed",
-    result: failure(operation, error),
-    nextAction: "The worker did not start this operation. Resolve the diagnostic, then start a new job.",
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-  });
-  return true;
-}
-function jobOutcome(result) {
-  const value = result;
-  if (!value || typeof value !== "object" || value.ok !== false) return "completed";
-  return typeof value.status === "string" && !["queued", "running", "completed", "succeeded"].includes(value.status) ? value.status : "failed";
-}
-async function executeJob(ctx, id, execute) {
-  await requireTrust(ctx.root);
-  parse(external_exports.uuid(), id);
-  const root = await contained(ctx.root, ".apexrest/jobs/" + id);
-  const request = await readJson(path.join(root, "request.json"));
-  const controller = new AbortController();
-  let done = false;
-  let phase;
-  const pulse = async () => {
-    if (done) return;
-    if (await exists(path.join(root, "cancel.json"))) controller.abort();
-    if (!done)
-      await writeJson(path.join(root, "state.json"), {
-        id,
-        operation: request.operation,
-        status: "running",
-        ...phase ? { phase } : {},
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-  };
-  await pulse();
-  let pending = Promise.resolve();
-  const schedule = () => {
-    pending = pending.then(pulse).catch(() => {
-      controller.abort();
-    });
-  };
-  const timer = setInterval(schedule, 2e3), timeout = setTimeout(() => controller.abort(), 9e5);
-  const progress = (next) => {
-    phase = next;
-    schedule();
-  };
-  try {
-    let result;
-    try {
-      result = await execute(request.operation, request.input, controller.signal, progress);
-    } catch (error) {
-      result = failure(request.operation, error);
-    }
-    done = true;
-    clearInterval(timer);
-    clearTimeout(timeout);
-    await pending;
-    await writeJson(path.join(root, "state.json"), {
-      id,
-      operation: request.operation,
-      status: jobOutcome(result),
-      ...phase ? { phase } : {},
-      result,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-  } finally {
-    done = true;
-    clearInterval(timer);
-    clearTimeout(timeout);
-  }
-}
-
 // packages/core/src/service.ts
 import path6 from "node:path";
 
@@ -2253,11 +2253,12 @@ async function doctor() {
         });
         return {
           command: exe,
+          informational: exe === "codex",
           state: r.code === 0 ? "detected" : "unavailable",
           version: (r.stdout + r.stderr).trim().slice(0, 500)
         };
       } catch {
-        return { command: exe, state: "missing" };
+        return { command: exe, state: "missing", informational: exe === "codex" };
       }
     })
   );
@@ -3354,7 +3355,15 @@ var PanelService = class {
     try {
       const git = await runProcess({
         executable: "git",
-        args: ["status", "--porcelain=v1", "--untracked-files=normal"],
+        args: [
+          "-c",
+          "core.fsmonitor=false",
+          "-c",
+          "core.untrackedCache=false",
+          "status",
+          "--porcelain=v1",
+          "--untracked-files=normal"
+        ],
         cwd: this.root,
         timeoutMs: 3e3
       });
@@ -3366,7 +3375,7 @@ var PanelService = class {
     if (ctx) {
       const file = await contained(this.root, ctx.config.toolchain.lockFile);
       if (await exists(file)) {
-        if ((await stat3(file)).size <= 128e3) toolchain = await readJson(file);
+        if ((await stat3(file)).size <= 128e3) toolchain = { digest: hash(canonical(await readJson(file))) };
       }
     }
     const sync = ctx ? await Promise.all(
@@ -3505,6 +3514,7 @@ function applicationLink(ctx, name) {
   };
 }
 async function shipPlan(ctx, name, deployment, parseDiagnostics2, progress) {
+  await reconcileShipGrants();
   const started = Date.now();
   progress?.("validating");
   let plan;
@@ -3530,12 +3540,28 @@ function shipGrant(ctx, plan, userRequest) {
     projectRoot: ctx.root,
     targetDigest: plan.targetDigest,
     planDigest: plan.digest,
-    expiresAt: plan.expiresAt,
+    expiresAt: new Date(Math.min(Date.parse(plan.expiresAt), Date.now() + 10 * 60 * 1e3)).toISOString(),
+    workerPid: process.pid,
     operations: ["deploy"],
     note: userRequest.slice(0, 2e3),
     grantedBy: "ship",
     grantedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
+}
+async function reconcileShipGrants() {
+  await updatePolicy((p) => ({
+    ...p,
+    grants: p.grants.filter((g) => {
+      if (g.grantedBy !== "ship") return true;
+      if (Date.parse(g.expiresAt) <= Date.now() || !g.workerPid) return false;
+      try {
+        process.kill(g.workerPid, 0);
+        return true;
+      } catch (error) {
+        return error.code === "EPERM";
+      }
+    })
+  }));
 }
 var ownGrant = (ctx, plan) => (g) => g.grantedBy === "ship" && g.projectRoot === ctx.root && g.planDigest === plan.digest;
 async function checkShipTarget(ctx, plan) {
@@ -3555,11 +3581,25 @@ async function checkShipTarget(ctx, plan) {
       "blocked",
       { nextActions: plan.risks.map((r) => "Review risk: " + r) }
     );
+  if (ctx.config.tests.requiredSuites.some((suite) => suite !== "unit")) {
+    try {
+      await new TestService().authorize(ctx, plan.environment);
+    } catch (error) {
+      throw new Fault(
+        "TEST_APPROVAL_REQUIRED",
+        "Required remote suites need existing test authorization and a mutation-allowed environment before shipping.",
+        4,
+        "blocked",
+        { reason: error instanceof Fault ? error.code : "TEST_AUTHORIZATION_FAILED" }
+      );
+    }
+  }
   return env2;
 }
 async function shipApply(ctx, planValue, userRequest, deployment, lastTests, signal, progress) {
   const plan = parse(deployPlanSchema, planValue);
   await checkShipTarget(ctx, plan);
+  await reconcileShipGrants();
   const phases = [];
   let current;
   const mark = (phase) => {
@@ -3607,30 +3647,11 @@ async function shipApply(ctx, planValue, userRequest, deployment, lastTests, sig
 // packages/core/src/service.ts
 var engine = oracle_exports;
 var parseDiagnostics = (output) => (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
-var adapters = /* @__PURE__ */ new Map();
 async function sharedOracle() {
-  const home = managedHome();
-  const runtimeFile = path6.join(home, "runtime.json");
-  const key = hash(
-    canonical({
-      home,
-      sqlcl: process.env.APEXREST_SQLCL ?? null,
-      java: process.env.APEXREST_JAVA_HOME ?? null,
-      runtime: await exists(runtimeFile) ? await readJson(runtimeFile) : null,
-      config: await sqlclConfig()
-    })
-  );
-  let adapter = adapters.get(key);
-  if (!adapter) {
-    adapter = new OracleAdapter();
-    adapters.set(key, adapter);
-    if (adapters.size > 4) adapters.delete(adapters.keys().next().value);
-  }
-  return adapter;
+  return new OracleAdapter();
 }
 async function shutdownOracle() {
-  adapters.clear();
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-GTGFKGVW.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-BVPAS3TD.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -3735,29 +3756,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-TGNGD7MJ.mjs");
+        const { ToolchainService } = await import("./chunk-GC3MAZ24.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-46O5UPZR.mjs");
+        const { uninstallTools } = await import("./chunk-HZLFNU52.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-EDROHXRF.mjs");
+        const { setup: setup2 } = await import("./chunk-BJ4LLJ3O.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-EDROHXRF.mjs");
+        const { validateNative } = await import("./chunk-BJ4LLJ3O.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-EDROHXRF.mjs");
+        const { uninstallNative } = await import("./chunk-BJ4LLJ3O.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -4023,7 +4044,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-SAMMHNF5.mjs");
+            const { openVerificationBrowser } = await import("./chunk-GU4CMR2T.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),
@@ -4057,13 +4078,13 @@ async function dispatch(operation, input = {}, signal, progress) {
 }
 
 export {
-  schemas,
-  internalOperations,
-  toolCatalog,
   JobService,
   settleInlineJobs,
   failQueuedJob,
   executeJob,
+  schemas,
+  internalOperations,
+  toolCatalog,
   shutdownOracle,
   dispatch
 };

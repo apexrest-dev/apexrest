@@ -150,7 +150,8 @@ async function intactInstallation(
 ) {
   if (!(await exists(executable))) return false;
   // Installations from earlier releases have no record; their probe decides and a record is added.
-  if (!recorded || recorded.destination !== destination) return true;
+  if (recorded && recorded.destination !== destination) return false;
+  if (!recorded) return true;
   try {
     return (
       (await hashFile(executable)) === recorded.executableSha256 &&

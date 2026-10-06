@@ -30360,7 +30360,7 @@ var SqlclMcpClient = class {
         6,
         uncertain ? "outcome_unknown" : "failed"
       );
-    return redact(output2);
+    return output2;
   }
   async call(name, args, options, uncertain = false) {
     const result = await this.client.callTool(
@@ -30492,6 +30492,7 @@ var PooledSession = class {
 };
 var pools = /* @__PURE__ */ new Map();
 var exitHook = false;
+var shutdownGeneration = 0;
 function sqlclSessionKey(request) {
   return hash(
     canonical({
@@ -30511,7 +30512,7 @@ function pool(key) {
 function release(session) {
   const p = pool(session.key);
   session.busy = false;
-  session.lastUsed = Date.now();
+  if (session.alive) session.lastUsed = Date.now();
   if (session.alive) {
     session.client.transport.setActive(false);
     clearTimeout(session.idleTimer);
@@ -30530,8 +30531,10 @@ function discard(session) {
   if (!p.sessions.length && !p.waiters.length) pools.delete(session.key);
 }
 async function acquire(request, key) {
+  const generation = shutdownGeneration;
   const limit = request.limit ?? (request.connectionName ? 1 : 2);
   for (; ; ) {
+    if (generation !== shutdownGeneration) throw new Fault("CANCELLED", "SQLcl pool closed.", 6, "cancelled");
     if (request.signal?.aborted) throw new Fault("CANCELLED", "SQLcl session cancelled.", 6, "cancelled");
     const p = pool(key);
     const idle = p.sessions.find((s) => !s.busy && s.alive);
@@ -30590,19 +30593,36 @@ async function runPooledSqlcl(request) {
   if (request.signal?.aborted)
     return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
   const key = sqlclSessionKey(request);
-  const session = await acquire(request, key);
+  let session = await acquire(request, key);
+  if (request.mutation && session.client.alive) {
+    session.kill();
+    release(session);
+    session = await acquire(request, key);
+  }
   const deadline = Date.now() + (request.timeoutMs ?? 18e4);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
   try {
-    const failed = await prepare(session, request, options);
+    let failed;
+    try {
+      failed = await prepare(session, request, options);
+    } catch (error62) {
+      if (!session.client.alive || request.signal?.aborted || Date.now() >= deadline) throw error62;
+      session.kill();
+      release(session);
+      session = await acquire(request, key);
+      failed = await prepare(session, request, options);
+    }
     if (failed) {
       session.kill();
       return failed;
     }
     submitted = true;
     const result = await session.client.execute(request.input ?? "", options(), () => request.mutation);
-    return mcpResult(result, session.client.text(result, request.mutation));
+    const output2 = session.client.text(result, request.mutation);
+    if (request.connectionName || request.mutation || result.isError || /(?:ORA-|SP2-|PLS-)\d+/i.test(output2) || request.completionMarker && !output2.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
+      session.kill();
+    return mcpResult(result, output2);
   } catch (error62) {
     session.kill();
     if (error62 instanceof Fault) throw error62;
@@ -30622,6 +30642,8 @@ async function runPooledSqlcl(request) {
   }
 }
 async function closeSqlclSessions() {
+  shutdownGeneration++;
+  for (const p of pools.values()) for (const wake of [...p.waiters]) wake();
   const sessions = [...pools.values()].flatMap((p) => p.sessions);
   pools.clear();
   await Promise.all(sessions.map((session) => session.client.close()));

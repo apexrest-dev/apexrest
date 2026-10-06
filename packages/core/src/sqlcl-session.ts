@@ -18,6 +18,7 @@ export const PROBE_AFTER_MS = 30 * 1000;
 export interface SqlclSessionRequest extends SqlclMcpRequest {
   /** Sessions per key (default 1 for connected sessions, 2 for /nolog). */
   limit?: number;
+  completionMarker?: string;
 }
 class PooledSession {
   busy = true;
@@ -46,6 +47,7 @@ interface Pool {
 }
 const pools = new Map<string, Pool>();
 let exitHook = false;
+let shutdownGeneration = 0;
 
 export function sqlclSessionKey(request: SqlclSessionRequest) {
   return hash(
@@ -66,7 +68,7 @@ function pool(key: string) {
 function release(session: PooledSession) {
   const p = pool(session.key);
   session.busy = false;
-  session.lastUsed = Date.now();
+  if (session.alive) session.lastUsed = Date.now();
   if (session.alive) {
     session.client.transport.setActive(false);
     clearTimeout(session.idleTimer);
@@ -85,8 +87,10 @@ function discard(session: PooledSession) {
   if (!p.sessions.length && !p.waiters.length) pools.delete(session.key);
 }
 async function acquire(request: SqlclSessionRequest, key: string): Promise<PooledSession> {
+  const generation = shutdownGeneration;
   const limit = request.limit ?? (request.connectionName ? 1 : 2);
   for (;;) {
+    if (generation !== shutdownGeneration) throw new Fault('CANCELLED', 'SQLcl pool closed.', 6, 'cancelled');
     if (request.signal?.aborted) throw new Fault('CANCELLED', 'SQLcl session cancelled.', 6, 'cancelled');
     const p = pool(key);
     const idle = p.sessions.find((s) => !s.busy && s.alive);
@@ -150,19 +154,44 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
   if (request.signal?.aborted)
     return { code: null, stdout: '', stderr: '', timedOut: false, cancelled: true, truncated: false };
   const key = sqlclSessionKey(request);
-  const session = await acquire(request, key);
+  let session = await acquire(request, key);
+  if (request.mutation && session.client.alive) {
+    session.kill();
+    release(session);
+    session = await acquire(request, key);
+  }
   const deadline = Date.now() + (request.timeoutMs ?? 180000);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
   try {
-    const failed = await prepare(session, request, options);
+    let failed;
+    try {
+      failed = await prepare(session, request, options);
+    } catch (error) {
+      // A failed idle probe has submitted no user batch; reconnect once.
+      if (!session.client.alive || request.signal?.aborted || Date.now() >= deadline) throw error;
+      session.kill();
+      release(session);
+      session = await acquire(request, key);
+      failed = await prepare(session, request, options);
+    }
     if (failed) {
       session.kill();
       return failed;
     }
     submitted = true;
     const result = await session.client.execute(request.input ?? '', options(), () => request.mutation);
-    return mcpResult(result, session.client.text(result, request.mutation));
+    const output = session.client.text(result, request.mutation);
+    if (
+      request.connectionName ||
+      request.mutation ||
+      result.isError ||
+      /(?:ORA-|SP2-|PLS-)\d+/i.test(output) ||
+      (request.completionMarker &&
+        !output.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
+    )
+      session.kill();
+    return mcpResult(result, output);
   } catch (error) {
     session.kill();
     if (error instanceof Fault) throw error;
@@ -190,6 +219,8 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
 }
 /** Kill every pooled SQLcl server (process exit, tests, explicit shutdown). */
 export async function closeSqlclSessions() {
+  shutdownGeneration++;
+  for (const p of pools.values()) for (const wake of [...p.waiters]) wake();
   const sessions = [...pools.values()].flatMap((p) => p.sessions);
   pools.clear();
   await Promise.all(sessions.map((session) => session.client.close()));

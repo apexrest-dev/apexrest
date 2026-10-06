@@ -1,5 +1,7 @@
 # Programmatic automation for the agent surface
 
+Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
+
 The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its [11 MCP tools](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports, tests and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.
 
 ## What runs without AI
@@ -30,12 +32,12 @@ Measured on the previous surface: a page edit needed 14–21 tool calls and ~55 
 | Edit an existing page    | `project inspect` → ≤3 `reference` → edit files → `apex_validate` (×1–2) → `ship plan` → `ship apply` → `browser_open` = 8–10 |
 | Create a new application | `project init` → ≤3 `reference` → edit files → `apex_validate` (×1–2) → `ship plan` → `ship apply` → `browser_open` = 8–10    |
 
-Instruction bytes: the tool catalog is about 12.2 KB (11 tools) and the five skills total about 18 KB of `SKILL.md`, with reference files loaded only on demand.
+Instruction bytes: the linked local evidence reports the exact UTF-8 size of the eleven-tool catalog and five `SKILL.md` files. Reference files load only on demand.
 
 ## Implemented reductions
 
 - `apex_validate` runs in-process (no job, no polling) and returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete. Domain faults carry `nextActions` (for example `VALIDATION_FAILED`, `SOURCE_DRIFT`, `DEPLOY_APPROVAL_REQUIRED`, `PROJECT_TRUST_REQUIRED`).
-- `ship` folds validate, plan, grant, apply, verify and tests into one call. `mode:plan` runs in-process; `mode:apply` validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to `waitSeconds` (default 60, maximum 120). Job status carries `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `testing`).
+- `ship` folds validate, plan, grant, apply, verify and tests into one call. `mode:plan` runs in-process; `mode:apply` validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to `waitSeconds` (default 25, maximum 120). Job status carries `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `testing`).
 - Jobs for `apex_sync` and local `test_run` suites run inside the MCP process (same `state.json` and heartbeat, so `job` observes them identically) and reuse one `OracleAdapter` per managed-home settings digest, keeping the SQLcl session pool and capability cache warm. Remote test suites and the ship apply phase keep the detached worker.
 - `metadata_read` accepts `requests` containing 1–8 scoped requests; `project inspect` defaults to `detail: "summary"`.
 - Tool annotations: `destructiveHint` only for `ship` and `job`; `readOnlyHint`/`idempotentHint` for `reference`, `apex_validate`, `metadata_read`, `artifact_read` and `status`; `openWorldHint` only for tools that can reach the database, a browser or the network.

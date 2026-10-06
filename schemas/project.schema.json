@@ -208,6 +208,10 @@
       ],
       "additionalProperties": false
     },
+    "deploymentControl": {
+      "type": "string",
+      "const": "local"
+    },
     "composer": {
       "type": "object",
       "properties": {

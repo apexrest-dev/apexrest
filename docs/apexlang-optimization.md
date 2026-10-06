@@ -1,5 +1,7 @@
 # APEXlang authoring in Codex
 
+> Amendment, 2026-10-04: both Codex and Claude Code are supported hosts. Earlier Codex-only decisions below are historical and superseded.
+
 APEXREST targets Codex exclusively. The build emits the native `codex-compat` package with `.codex-plugin/plugin.json`; the generated marketplace restricts the product to `codex`. The previous experimental portable artifact is retired. Existing historical evidence and the original build specification are retained.
 
 ## Retrieval and authoring
