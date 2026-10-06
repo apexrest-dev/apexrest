@@ -28,3 +28,5 @@ For user-visible application changes, verify the affected pages and behavior in 
 # Clean APEX deployment rule (user amendment, 2026-09-12)
 
 Deploy must work with a clean supported APEX installation. APEXREST control tables are not prerequisites: use local durable migration history and local coordination by default. Do not ask to create service tables merely to unblock a normal plan/apply. Database-backed coordination is an explicit optional environment mode. Explain local versus cross-machine coordination accurately. Preserve identity, backup, approval, drift and unknown-outcome protections. This user amendment supersedes the original specification's mandatory control-table assumption; preserve the original specification as historical input.
+
+Coordination amendment (user decision, 2026-10-06): database-backed coordination was removed in 1.3.0 and stays removed. Plan/apply always use local durable coordination; a legacy `deploymentControl: "local"` is accepted and ignored. Explain that independent machines or managed homes are not coordinated and must be serialized externally. This supersedes the optional database-backed coordination mode described above.

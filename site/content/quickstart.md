@@ -4,7 +4,7 @@ Follow the canonical [Getting started guide](../../docs/getting-started.md) for 
 
 ![Authorized deployment passes validation, target checks, backup, import and runtime verification](../../docs/assets/deployment-flow.svg)
 
-1. Inspect the project (`apexrest_project`) or create it from a template.
+1. Inspect the project (`apexrest_project`) or create it from a template. A new project must be added to `trustedProjects` in `$APEXREST_HOME/policy.json` by you before validation; see [getting started](../../docs/getting-started.md#create-or-adopt-a-project).
 2. Read at most three references (`apexrest_reference`).
 3. Edit the `.apx` sources, preserving Oracle IDs and `.apex` metadata.
 4. Validate with the real Oracle compiler (`apexrest_apex_validate`) until there are no diagnostics.

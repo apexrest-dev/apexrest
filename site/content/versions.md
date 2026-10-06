@@ -4,9 +4,9 @@ The source bundle is version {{version}}; this APEX 26.2 update has not been pub
 
 ## APEX release profiles
 
-| Profile | Reviewed compiler and source metadata | Import support |
-| --- | --- | --- |
-| APEX 26.1 | SQLcl `26.1.2.132.1334`, MMD `26.1.0+3102` | Existing full-application workflow; managed install default. |
+| Profile   | Reviewed compiler and source metadata      | Import support                                                                               |
+| --------- | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| APEX 26.1 | SQLcl `26.1.2.132.1334`, MMD `26.1.0+3102` | Existing full-application workflow; managed install default.                                 |
 | APEX 26.2 | SQLcl `26.3.0.260.1620`, MMD `26.2.0+3479` | Full imports and qualified partial imports for existing dev/test apps over direct SQLcl CLI. |
 
 Node 24 LTS is the baseline (supported range 24–26). Oracle operations need the matching Java/SQLcl toolchain; the managed Java baseline is 21. ORDS APEXlang operations require a JDK 21+ containing `jdk.compiler`; the managed JRE alone is insufficient for the Java bridge. Playwright is pinned at 1.63.0 with its matching browser revisions. Use the [26.2 partial-import guide](../../docs/apex-26.2.md) for exact prerequisites and mode selection; the capability gate does not accept arbitrary future compiler/MMD versions.
@@ -18,7 +18,7 @@ APEXREST works directly in the existing Codex or Claude Code session; the host c
 - Windows x64: locked client artifacts and PowerShell bootstrap; hosted quality gates are configured, while native client and Oracle integration remain unverified. Production approval is not supported on Windows.
 - WSL2: separate environment; no inherited Windows verification claim.
 - Codex compatibility profile: exercised on 0.154.0 for earlier builds; the redesigned surface has not been re-verified in a live host session.
-- Claude Code: manifest validation and a local scratch-marketplace install only; no end-to-end session recorded.
+- Claude Code: manifest validation; a [2.1.291 session](../../docs/evidence/claude-code-session-200-native.json) with the 2.0.0 bundle passed discovery, read-only tool calls and an offline init/edit/validate cycle. Marketplace installation, ship/job on a target and the browser handoff are not yet recorded.
 - APEXREST-managed sandbox lifecycle: unsupported. The isolated local instance used for 26.2 qualification was independently provisioned.
 
 ## Connected partial-import evidence

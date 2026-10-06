@@ -7,7 +7,7 @@ Composer builds local APEXlang source from exact executable blocks and explicit 
 ## Use a block
 
 ```sh
-apexrest docs search "форма" --corpus blocks --limit 3
+apexrest docs search "report dialog" --corpus blocks --limit 3
 apexrest docs read --id block:crud/report-dialog@1.0.0
 apexrest docs read --id blueprint:crm@1.0.0
 apexrest compose plan --blueprint app.blueprint.yaml --out plans/composition.json

@@ -22,6 +22,8 @@ Commit the example scripts and ignore rules to the repository's default branch u
 
 The [version file](examples/codex-cloud/version.sh) pins a built distribution at Git commit `d8405d935d621d021523d4a17d9dd3d5e959fcb5`, with manifest version `0.2.0-beta.1+codex.20260919143707`. Setup verifies both values and uses `plugins/apexrest-apex/runtime/apexrest.mjs`; it needs neither an npm release nor a TypeScript build. Review and change both pins together when adopting a later build.
 
+> **Pinned build predates the current command surface.** `0.2.0-beta.1` has no `ship`, `status` or `job` commands. The work-cycle commands below require a build of `1.3.0` or later: re-pin `version.sh` to a reviewed commit and manifest version of that build before using them. Until Cloud is re-verified with such a build, treat those commands as unverified in Cloud.
+
 ## 2. Configure the Cloud environment
 
 Select your application repository in Codex Cloud environment settings. Select **Node.js 24** and **Java 21** under package versions. Java must be a **JDK with `jdk.compiler`**, not just a JRE. Git and Bash must also be available.
@@ -111,7 +113,7 @@ Before application work, configure the target in `apexrest.json`, including work
 
 The example keeps local deployment history under `APEXREST_HOME`. Cloud caches are not durable backup storage or cross-container coordination: preserve private backups/history outside an expiring container and serialize runners before authorizing deployments. Do not reset away an unresolved operation's records or silently start fresh history against the same schema.
 
-Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work` or automatic skill/MCP discovery work in Cloud; the CLI equivalents of the work cycle are `apexrest apex validate`, `apexrest ship --mode plan|apply --user-request TEXT` and `apexrest job status`. Use the launcher for the documented flow and report unavailable checks explicitly.
+Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work` or automatic skill/MCP discovery work in Cloud; with a re-pinned `1.3.0`-or-later build, the CLI equivalents of the work cycle are `apexrest apex validate`, `apexrest ship --mode plan|apply --user-request TEXT` and `apexrest job status`. Use the launcher for the documented flow and report unavailable checks explicitly.
 
 ## Troubleshooting
 

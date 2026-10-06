@@ -8,9 +8,14 @@ import { tmpdir } from 'node:os';
 
 const sql = spawnSync('which', ['sql'], { encoding: 'utf8' }).stdout?.trim();
 const sqlclHome = process.env.APEXREST_TEST_SQLCL_HOME || (sql ? path.dirname(path.dirname(sql)) : '');
+// SQLcl 26.1 ships the compiler in lib/, 26.3 in lib/ext/; the bridge classpath covers both.
 const available =
-  existsSync(path.join(sqlclHome, 'lib/apexlang-compiler.jar')) &&
-  spawnSync('javac', ['-version']).status === 0;
+  ['lib/apexlang-compiler.jar', 'lib/ext/apexlang-compiler.jar'].some((jar) =>
+    existsSync(path.join(sqlclHome, jar)),
+  ) && spawnSync('javac', ['-version']).status === 0;
+const classpath = [path.join(sqlclHome, 'lib', '*'), path.join(sqlclHome, 'lib', 'ext', '*')].join(
+  path.delimiter,
+);
 
 test(
   'ORDS bridge uses the real Oracle compiler and preserves one-request import payloads',
@@ -18,7 +23,6 @@ test(
   async (t) => {
     const directory = await mkdtemp(path.join(tmpdir(), 'apexrest-ords-bridge-'));
     t.after(() => rm(directory, { recursive: true, force: true }));
-    const classpath = path.join(sqlclHome, 'lib/*');
     const compiled = spawnSync(
       'javac',
       ['-cp', classpath, '-d', directory, 'resources/ords/OrdsBridge.java'],
@@ -133,7 +137,6 @@ public class ArchiveChecks {
   }
 }`,
     );
-    const classpath = path.join(sqlclHome, 'lib/*');
     const compile = spawnSync(
       'javac',
       ['-cp', classpath, '-d', directory, 'resources/ords/OrdsBridge.java', harness],

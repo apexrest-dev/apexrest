@@ -5,6 +5,9 @@
 - Retain 26.1 profiles and add reviewed 26.2 toolchains, references, starter templates and read-only prerequisite diagnostics.
 - Add automatic or explicit selected-file imports on qualified 26.2 direct SQLcl targets, with three-way conflict checks, fresh full backups, plan-bound scope, conservative export verification and actual server checkpoints.
 - Add advisory APEXlang CodeScan and upgrade hints; isolate SQLcl 26.3 generation to avoid a verified pooled compiler-state defect. Adapt the ORDS bridge to both vendor library layouts.
+- Accept the host-neutral verification browser mode `host`; `codex` remains the default and a legacy alias with identical behavior.
+- Clarify `PROJECT_TRUST_REQUIRED`: adding the canonical path to `trustedProjects` in `APEXREST_HOME/policy.json` is the only trust step.
+- Document Claude Code invocation (`/apexrest:apexrest-work`), namespaced tool names, the Node.js 24 requirement and `APEXREST_HOME` export; record a partial [Claude Code session](docs/evidence/claude-code-session-200-native.json).
 - Record real local application import/browser evidence separately from offline compilation, mocked failure coverage, native-host qualification and publication. See [26.2 support](docs/apex-26.2.md) and [implementation status](docs/implementation-status.md).
 
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](docs/evidence/redesign-phase1-local.json).

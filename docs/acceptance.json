@@ -21,9 +21,10 @@
         "docs/evidence/local-checks.json",
         "docs/evidence/redesign-phase1-local.json",
         "tests/unit/sqlcl-transport.test.ts",
-        "tests/contracts/mcp.test.mjs"
+        "tests/contracts/mcp.test.mjs",
+        "docs/evidence/claude-code-session-200-native.json"
       ],
-      "blocker": "2026-10-04 redesign: apexrest-install-dependencies skill retired (five skills remain); Claude Code .claude-plugin manifests are checked by tests/packaging/packages.test.mjs. Native-host (Codex/Claude Code) discovery of the redesigned package is not re-verified. 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical.",
+      "blocker": "2026-10-04 redesign: apexrest-install-dependencies skill retired (five skills remain); Claude Code .claude-plugin manifests are checked by tests/packaging/packages.test.mjs. Native-host (Codex/Claude Code) discovery of the redesigned package is not re-verified. 2026-10-04 redesign: current Codex/Claude Code discovery and Oracle execution are NOT RUN; earlier native/Oracle evidence is historical. 2026-10-06: Claude Code 2.1.291 (--plugin-dir, 2.0.0): discovery of 5 skills/11 tools, read-only tool calls and an offline init/edit/validate cycle passed; marketplace install, ship/job and browser handoff in Claude Code and current Codex sessions are NOT RUN.",
       "retiredEvidence": [
         "plugins/apexrest-apex/skills/apexrest-install-dependencies/SKILL.md",
         "docs/evidence/dependency-command-native.json"
@@ -1241,9 +1242,10 @@
       "evidence": [
         "tests/contracts/mcp.test.mjs",
         "scripts/repository-plugin-smoke.mjs",
-        "docs/evidence/apex262-connected.json"
+        "docs/evidence/apex262-connected.json",
+        "docs/evidence/claude-code-session-200-native.json"
       ],
-      "blocker": "CLI/MCP contracts and package smoke are separate from fresh model-host discovery; both host model sessions remain unverified. No publication is authorized."
+      "blocker": "CLI/MCP contracts and package smoke are separate from fresh model-host discovery. 2026-10-06: Claude Code 2.1.291 (--plugin-dir, 2.0.0): discovery of 5 skills/11 tools, read-only tool calls and an offline init/edit/validate cycle passed (partial). Ship/job and browser handoff in Claude Code and a current Codex session remain NOT RUN. No publication is authorized."
     }
   ],
   "amendments": [

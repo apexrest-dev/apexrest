@@ -51,7 +51,7 @@ The observed sources and original recipes have concrete limits:
 
 ## Add patterns from another application
 
-Invoke `$apexrest-pattern-catalog` to add or refresh catalog entries from an identified APEX application. The skill handles catalog maintenance; ordinary use of an existing pattern follows `$apexrest-apexlang`.
+Invoke `$apexrest-pattern-catalog` (Codex) or `/apexrest:apexrest-pattern-catalog` (Claude Code) to add or refresh catalog entries from an identified APEX application. The skill handles catalog maintenance; ordinary use of an existing pattern follows `$apexrest-apexlang`.
 
 Maintainer capture/build helpers run from the [APEXREST source repository](https://github.com/apexrest-dev/apexrest). An installed plugin can search existing patterns without that checkout. Do not edit the installed plugin cache or assume repository scripts are bundled beside its skills.
 

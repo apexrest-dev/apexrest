@@ -4,7 +4,7 @@
 
 Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or `npm ci` is needed for installation.
 
-`apexrest@1.3.0` is published under npm `latest` with the redesigned 11-tool/5-skill surface. **APEX 26.2 partial imports are in the unreleased 2.0.0 source bundle and are not in that npm release.** They have scoped local Oracle/browser evidence; current native model-host sessions and broader platform/feature qualification remain open. See [release notes](release-notes.md) and [implementation status](implementation-status.md).
+`apexrest@1.3.0` is published under npm `latest` with the redesigned 11-tool/5-skill surface. **APEX 26.2 partial imports are in the unreleased 2.0.0 source bundle and are not in that npm release.** They have scoped local Oracle/browser evidence; a Claude Code session passed discovery, read-only calls and offline validation; current Codex sessions, Claude Code ship/browser checks and broader platform/feature qualification remain open. See [release notes](release-notes.md) and [implementation status](implementation-status.md).
 
 Already using APEX 26.2? Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.
 
@@ -39,7 +39,7 @@ codex plugin list --json
 
 This registers the repository's `apexrest` marketplace (`.agents/plugins/marketplace.json`) and its `apexrest-apex` plugin in the selected Codex profile. For a local checkout, pass the checkout path to `marketplace add`. Start a new Codex task after installation. Native plugin installation of an earlier build was verified with Codex 0.154.0, Node 24.21.0 and macOS arm64; the [native installation report](evidence/native-repository.json) records that scope. Managed-workspace plugin availability can be restricted by the workspace administrator.
 
-To find the installed plugin in the desktop app, open **Plugins** and look for **APEXREST for Codex**; use `@` in the message box or `$apexrest-work` to invoke a skill. The plugin adds no sidebar or menu button. If the tools are not listed, see [troubleshooting](troubleshooting.md#the-plugin-is-installed-but-tools-are-missing).
+To find the installed plugin in the desktop app, open **Plugins** and look for **APEXREST for Codex and Claude Code**; use `@` in the message box or `$apexrest-work` to invoke a skill. The plugin adds no sidebar or menu button. If the tools are not listed, see [troubleshooting](troubleshooting.md#the-plugin-is-installed-but-tools-are-missing).
 
 ## Install in Claude Code
 
@@ -52,7 +52,7 @@ claude plugin install apexrest@apexrest
 
 For a local checkout, pass the checkout path to `marketplace add`; to try a checkout for one session without installing, start `claude --plugin-dir <checkout>/plugins/apexrest-apex`. The manifest declares the five skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. The `node` on the `PATH` of the shell that starts `claude` must be Node.js 24 or newer. Start a new Claude Code session after installation.
 
-In Claude Code the skills are namespaced by the plugin: invoke `/apexrest:apexrest-work`, `/apexrest:apexrest-setup` or `/apexrest:apexrest-safety`, or describe the change and let Claude select the skill. The tools appear as `mcp__plugin_apexrest_apexrest__apexrest_*`; `/mcp` shows the server state. Both manifests pass `claude plugin validate --strict`. A Claude Code 2.1.291 session discovered all five skills and eleven tools and completed read-only `apexrest_status` and `apexrest_reference` calls ([Claude Code session record](evidence/claude-code-session-200-native.json)); a full validate/ship/browser cycle in Claude Code has not been recorded yet.
+In Claude Code the skills are namespaced by the plugin: invoke `/apexrest:apexrest-work`, `/apexrest:apexrest-setup` or `/apexrest:apexrest-safety`, or describe the change and let Claude select the skill. The tools appear as `mcp__plugin_apexrest_apexrest__apexrest_*`; `/mcp` shows the server state. Both manifests pass `claude plugin validate --strict`. A Claude Code 2.1.291 session discovered all five skills and eleven tools and completed read-only `apexrest_status` and `apexrest_reference` calls ([Claude Code session record](evidence/claude-code-session-200-native.json)); an offline init/edit/validate cycle also passed. Ship/job on a target and the browser handoff in Claude Code have not been recorded yet.
 
 ## Check the setup
 
@@ -64,7 +64,7 @@ The agent calls `apexrest_status` with `detail: "doctor"`, which probes the host
 
 ## Install Java, SQLcl and browser tools
 
-Missing SQLcl or Java is a reason to install, not to stop. The `$apexrest-setup` skill runs the bundled installer; you can run it yourself from a checkout or the installed plugin directory:
+Missing SQLcl or Java is a reason to install, not to stop. The setup skill (`$apexrest-setup` in Codex, `/apexrest:apexrest-setup` in Claude Code) runs the bundled installer; you can run it yourself from a checkout or the installed plugin directory:
 
 ```sh
 node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run --json
@@ -134,11 +134,13 @@ The agent calls `apexrest_project` `action:init` with `directory` and `template`
 
 Adoption (`action:adopt` with `env`, `appId` and `workingCopy`) exports into a new local directory and fails rather than overwrite local edits. Keep the generated Oracle metadata under version control and reuse the working source for later changes; see [existing applications](existing-app.md). The CLI equivalents are `apexrest project init DIR --template existing-app` and `apexrest project adopt --env dev --app-id ID --working-copy --json`.
 
+**Trust the project.** Validation, ship and browser tools refuse an untrusted project with `PROJECT_TRUST_REQUIRED`. Review the generated project, then add its canonical path (`apexrest status --detail project` shows it; on macOS `/tmp` resolves to `/private/tmp`) to `trustedProjects` in `$APEXREST_HOME/policy.json` yourself. The agent asks for this step and never writes the policy; see [configuration](configuration.md).
+
 ## Edit, validate, ship and verify
 
 For an existing qualified APEX 26.2 application, initialize a sync baseline before editing, then use `importMode:auto` to select eligible changed files or `importMode:files` with an explicit page/dependency list. Review `importSelection.resolvedMode`, selected files and any full-import reasons before applying. The [partial-import guide](apex-26.2.md) gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.
 
-The `$apexrest-work` skill drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, open the changed pages with `apexrest_browser_open` and report. The steps are listed in the [README](../README.md#work-in-one-session).
+The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, open the changed pages with `apexrest_browser_open` and report. The steps are listed in the [README](../README.md#work-in-one-session).
 
 Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies, runs the required suites and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see [deployment safety](deployment-safety.md).
 

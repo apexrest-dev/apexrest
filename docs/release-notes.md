@@ -6,7 +6,7 @@ The `2.0.0` source bundle adds **partial APEXlang imports**: automatically selec
 
 This feature supports the reviewed 26.2 target/compiler tuple over direct SQLcl CLI through both the CLI and APEXREST MCP tool. The existing 26.1 full-import workflow remains available. Source changes also add versioned references, separate starter templates, advisory CodeScan and read-only capability diagnostics.
 
-[Real local Oracle/browser evidence](evidence/apex262-connected.json) covers page-only and page-plus-LOV imports, with all 21 unselected files preserved in the final automatic import. Native model-host sessions and broader environments retain their open checks. **Published npm 1.3.0 does not include this update.** See the [partial-import guide](apex-26.2.md) and [implementation status](implementation-status.md).
+[Real local Oracle/browser evidence](evidence/apex262-connected.json) covers page-only and page-plus-LOV imports, with all 21 unselected files preserved in the final automatic import. Native model-host sessions and broader environments retain their open checks. Claude Code guidance is updated: invoke `/apexrest:apexrest-work`, select the host-neutral `host` browser mode (`codex` stays as an alias) and see a clearer `PROJECT_TRUST_REQUIRED` message. A [Claude Code session](evidence/claude-code-session-200-native.json) passed discovery, read-only calls and offline validation. **Published npm 1.3.0 does not include this update.** See the [partial-import guide](apex-26.2.md) and [implementation status](implementation-status.md).
 
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
 

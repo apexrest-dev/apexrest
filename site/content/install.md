@@ -30,7 +30,7 @@ In the new session, ask the agent to check your setup:
 
 > Use APEXREST to check my setup. Report the compiler, connection and target checks that still need attention.
 
-`$apexrest-setup` runs the doctor and, when tools are missing, the bundled installer. You can also run it yourself from a checkout:
+The setup skill (`$apexrest-setup` in Codex, `/apexrest:apexrest-setup` in Claude Code) runs the doctor and, when tools are missing, the bundled installer. You can also run it yourself from a checkout:
 
 ```sh
 node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run --json

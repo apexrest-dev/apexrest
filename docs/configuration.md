@@ -79,7 +79,7 @@ Production requires the external signature workflow and the administrator-owned 
 
 Coordination is always local and is not configurable: durable migration history and schema ownership live in `$APEXREST_HOME/deployment-control/`, scoped to the database identity and parsing schema. No APEXREST service tables are needed or created. Plans bind the store identity. Deleting the local history or silently switching to a fresh home is not a recovery procedure.
 
-The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. A former `deploymentControl` field is no longer accepted; remove it from `apexrest.json`.
+The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. Database-backed coordination was removed. For older project files, `deploymentControl` is still accepted only with the value `"local"` and has no effect; any other value is rejected. Remove the field when convenient.
 
 ## Select test scope
 

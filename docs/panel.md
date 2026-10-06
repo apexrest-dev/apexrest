@@ -11,15 +11,15 @@ Use the application project containing `apexrest.json`, not the plugin source or
 
 ## Snapshot content
 
-| Field                            | Content                                                                                                                                        |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `configuration`, `toolchain`     | Project/environment identity, required suites and the toolchain lock (read as-is, at most 128 KB)                                              |
-| `sqlcl`, `connections`           | Saved SQLcl execution mode, MCP restrict level, database transport and the plugin-level connection references (no secrets)                     |
-| `preferences`                    | `browserMode: host\|codex\|external` for [browser verification](testing.md)                                                                    |
-| `changes`                        | `git status --porcelain` of the project, at most 80 entries; `unavailable` when Git is absent                                                  |
-| `sync`                           | Local working-copy sync state per environment; server freshness is `not-checked`                                                               |
-| `jobs`, `deployments`, `history` | The 12 newest job and deployment records with status, phase, diagnostics and artifacts, and how many older records were omitted                |
-| `permissions.activeGrants`       | Unexpired local deploy grants for this project (operations, expiry, exact-plan flag); grants recorded by `ship` are removed after each attempt |
+| Field                            | Content                                                                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configuration`, `toolchain`     | Project/environment identity, required suites and the toolchain lock digest                                                                               |
+| `sqlcl`, `connections`           | Saved SQLcl execution mode, MCP restrict level, database transport and the plugin-level connection references (no secrets)                                |
+| `preferences`                    | `browserMode: host\|codex\|external` for [browser verification](testing.md)                                                                               |
+| `changes`                        | `git status --porcelain` of the project, at most 80 entries; `unavailable` when Git is absent                                                             |
+| `sync`                           | Local working-copy sync state per environment; server freshness is `not-checked`                                                                          |
+| `jobs`, `deployments`, `history` | The 12 newest job and deployment records with status, phase, diagnostics and artifacts, and how many older records were omitted                           |
+| `permissions.activeGrants`       | Unexpired local grants for this project (deploy and test) (operations, expiry, exact-plan flag); grants recorded by `ship` are removed after each attempt |
 
 Job and deployment history considers the newest 2000 records of each kind. Records over 2 MB or unreadable records are listed as `unavailable` so one broken record never hides the rest. Secrets are redacted from every field. The snapshot does not call Oracle, read the SQLcl connection store or verify target identity. A snapshot larger than the inline MCP limit is archived like any other result and readable through `apexrest_artifact_read`.
 

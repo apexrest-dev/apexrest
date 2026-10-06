@@ -4,7 +4,7 @@ The user amended the plugin rules on 2026-09-12: missing APEXREST service tables
 
 ## Implemented
 
-- Plan and apply always use local durable coordination. No APEXREST control table is queried or created; there is no database-backed coordination mode and no `deploymentControl` setting.
+- Plan and apply always use local durable coordination. No APEXREST control table is queried or created; there is no database-backed coordination mode. A legacy `deploymentControl: "local"` in old project files is accepted and ignored; other values are rejected.
 - Local migration history records checksums and `started` before SQL execution. Successful migrations are not replayed; changed checksums and unresolved history stop a subsequent plan.
 - Local ownership serializes apps sharing a DB/service/parsing schema within one managed home. A dead preparing owner may recover; writing ownership after an unknown outcome requires reconciliation.
 - Plans bind the coordination scope and local store identity. Source/target drift, authorization, backups, required tests and restore policy are retained.

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "version": "2.0.0",
-  "sourceDigest": "bee551e0a4f229c6dc83703ff2f4cd9c33bf14182f89ad06810236678404ab73",
+  "sourceDigest": "8b9696fc64cc6765e598788914fe36bce49b00dae4823f41ccf117fcdf39d326",
   "files": {
     ".claude-plugin/plugin.json": "e4fb5dc9a9035a4ac666e130e68ad9683e244c4b67df980c5b23569ed4214dff",
     ".codex-plugin/plugin.json": "59e2caaee85895f6fb5f0713a4d6df278734b36aaaf78027b6c079515ccc706b",
@@ -1425,7 +1425,7 @@
     "skills/apexrest-safety/agents/openai.yaml": "545403b60d72f8d1c40d2752c6007676446eabb692f3b8dff6a6b0248e24a211",
     "skills/apexrest-setup/SKILL.md": "6a64734acb4b066aa3af0ab1d390451ec25041e7e20bc3dfdb9a9de425c1804a",
     "skills/apexrest-setup/agents/openai.yaml": "82ff47fc3d21c46552b84f1f1e22996172628e801cddc0df7dfba83febdf0c9e",
-    "skills/apexrest-setup/references/ords.md": "01b5b6ef683481837c38e71119a8554fd7b0e344bd57fdbd9a23e5f7118e59e7",
+    "skills/apexrest-setup/references/ords.md": "2d3510393762315a6948e839bfe213987fe07eb69dcc2c09348220ce615a5db2",
     "skills/apexrest-work/SKILL.md": "56e9881ec7031962344dbbdadc5cb5ec69376bab8c099e97c97277998a2f2c79",
     "skills/apexrest-work/agents/openai.yaml": "ed03f80f5528023b79b36fd9d9ac340c833f61176b304c0ab7c2b6204566d71f"
   }

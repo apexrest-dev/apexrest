@@ -24,12 +24,12 @@ Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest
 
 ## Create, change and verify
 
-| Your task              | The plugin workflow                                                                                                    |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Start an application   | `apexrest_project` generates a blank application or CRM from native APEXlang templates.                                |
-| Change an existing app | Adopt it as a working copy, make a focused edit and validate with the real Oracle compiler (`apexrest_apex_validate`). |
+| Your task              | The plugin workflow                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Start an application   | `apexrest_project` generates a blank application or CRM from native APEXlang templates.                                  |
+| Change an existing app | Adopt it as a working copy, make a focused edit and validate with the real Oracle compiler (`apexrest_apex_validate`).   |
 | Ship the change        | `apexrest_ship` selects `auto`, `files` or `full`, then plans, backs up, imports and verifies under the authorized plan. |
-| Check the result       | `apexrest_browser_open` resolves the page; the agent verifies the changed behavior in the selected browser.            |
+| Check the result       | `apexrest_browser_open` resolves the page; the agent verifies the changed behavior in the selected browser.              |
 
 ## Offline catalogs
 
@@ -41,4 +41,4 @@ Plans bind sources, toolchain and target and expire after 30 minutes. Apply re-c
 
 ## Evidence you can inspect
 
-The current source has [direct SQLcl full/partial import and browser evidence](../../docs/evidence/apex262-connected.json) for an isolated local APEX 26.2 test app, plus [offline compiler checks for both releases](../../docs/evidence/apex262-compatibility-local.json). Earlier native Codex installation and Claude Code manifest checks retain their original scope; current native model-host sessions and other platforms remain unqualified. Use the [support matrix](versions.md), [implementation status](../../docs/implementation-status.md) and [release process](releases.md) to assess your environment. APEXREST is independent tooling, not an official Oracle, OpenAI or Anthropic product.
+The current source has [direct SQLcl full/partial import and browser evidence](../../docs/evidence/apex262-connected.json) for an isolated local APEX 26.2 test app, plus [offline compiler checks for both releases](../../docs/evidence/apex262-compatibility-local.json). Earlier native Codex installation checks retain their original scope. A [Claude Code session](../../docs/evidence/claude-code-session-200-native.json) passed discovery, read-only calls and offline validation; current Codex sessions, Claude Code ship/browser checks and other platforms remain unqualified. Use the [support matrix](versions.md), [implementation status](../../docs/implementation-status.md) and [release process](releases.md) to assess your environment. APEXREST is independent tooling, not an official Oracle, OpenAI or Anthropic product.

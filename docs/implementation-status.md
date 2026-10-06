@@ -4,7 +4,7 @@
 
 Implemented: the verification browser accepts the host-neutral `host` mode; `codex` remains the default and a legacy alias with identical behavior, and the `external` instruction no longer names Codex. The work and setup skills describe the Claude Code browser handoff and the doctor's informational `codex` probe correctly. README, getting-started, chat-workflow, testing, configuration, panel, troubleshooting and the site quickstart document `/apexrest:apexrest-work` invocation in Claude Code, its namespaced MCP tool names, the Node.js 24 requirement for the `node` that starts the plugin server and exporting `APEXREST_HOME` before starting `claude`.
 
-[Claude Code session record](evidence/claude-code-session-200-native.json): both manifests pass `claude plugin validate --strict`; a Claude Code 2.1.291 session with `--plugin-dir` discovered the five namespaced skills without duplicates and the eleven tools, and completed read-only `apexrest_status` (doctor) and `apexrest_reference` calls. An offline `/apexrest:apexrest-work` cycle in Claude Code initialized a blank-app project, edited the Home title, stopped correctly on `PROJECT_TRUST_REQUIRED` without editing the policy and, after user-approved temporary trust, passed real SQLcl 26.1.2 validation with no diagnostics. This is partial native-host evidence: marketplace installation, ship/job on a target and the browser handoff in Claude Code remain NOT RUN because the authorized 26.2 test target was not reachable.
+[Claude Code session record](evidence/claude-code-session-200-native.json): both manifests pass `claude plugin validate --strict`; a Claude Code 2.1.291 session with `--plugin-dir` discovered the five namespaced skills without duplicates and the eleven tools, and completed read-only `apexrest_status` (doctor) and `apexrest_reference` calls. An offline `/apexrest:apexrest-work` cycle in Claude Code initialized a blank-app project, edited the Home title, stopped correctly on `PROJECT_TRUST_REQUIRED` without editing the policy and, after user-approved temporary trust, passed real SQLcl 26.1.2 validation with no diagnostics. This is partial native-host evidence: ship/job on a target and the browser handoff in Claude Code remain NOT RUN because the authorized 26.2 test target was not reachable; installation from the repository marketplace was not attempted because it changes the user's Claude Code configuration.
 
 The `PROJECT_TRUST_REQUIRED` message no longer mentions a nonexistent host trust step; the offline session had inferred one from it.
 
@@ -114,7 +114,9 @@ The unchanged [component catalog](component-catalog.md), introduced in 1.1.0, pr
 
 The [acceptance matrix](acceptance.json) distinguishes current criteria, retired requirements, available evidence and open verification. The original [build specification](../APEXREST_CODEX_PLUGIN_BUILD_SPEC.md) remains unchanged as historical input. Historical JSON reports are retained for provenance, including reports of removed functionality; they are not a description of 1.2.0.
 
-## Distribution and remaining checks
+## Distribution and remaining checks (historical, 1.2.0)
+
+This section records the 1.2.0 distribution state. Current state: npm `latest` is `1.3.0`; the `2.0.0` source is unpublished.
 
 `apexrest@1.3.0-beta.1` is published under npm `beta`, with registry integrity, clean local/global installs and [CI](https://github.com/apexrest-dev/apexrest/actions/runs/36689253006) on macOS, Ubuntu and Windows verified in the [beta publication record](evidence/npm-130-beta1-publication.json). The beta remains the previous 21-tool release. Updating the active Codex plugin cache and establishing live Oracle behavior require separate work.
 

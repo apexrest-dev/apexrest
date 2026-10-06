@@ -17,7 +17,7 @@ The equivalent MCP call is `apexrest_reference` with `mode: "search"`:
 {
   "mode": "search",
   "corpus": "components",
-  "query": "картка показника",
+  "query": "metric card",
   "kind": "template",
   "version": "26.1",
   "limit": 3
@@ -63,4 +63,4 @@ npm run build
 
 The reviewed package contains factual metadata, original explanations, reusable examples and source attribution. It excludes raw application exports, deployment credentials, private URLs and the compiler bundle. A new source snapshot is reviewed through its inventory and content diff before it replaces the bundled revision. Preserve existing IDs where their meaning is unchanged.
 
-See [implementation status](implementation-status.md), the [acceptance matrix](acceptance.json) and [next actions](next-actions.md) for verification and distribution limits. `apexrest@1.1.0` is published as npm `latest`; the [publication record](evidence/npm-110-publication.json) confirms registry integrity and clean local/global installs. Publication does not establish browser behavior.
+See [implementation status](implementation-status.md), the [acceptance matrix](acceptance.json) and [next actions](next-actions.md) for verification and distribution limits. The catalog was first published in `apexrest@1.1.0` ([publication record](evidence/npm-110-publication.json)); the current npm `latest` is `1.3.0` ([publication record](evidence/npm-130-publication.json)). Publication does not establish browser behavior.
