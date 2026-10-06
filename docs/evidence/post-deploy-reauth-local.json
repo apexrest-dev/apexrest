@@ -74,6 +74,12 @@
       ],
       "authentication": "At the user's request, browser state was renewed by a scripted headless Playwright login with test credentials the user chose in chat (local test end user only), not by the interactive `apexrest test auth`; credentials are not recorded",
       "probeNote": "This app shows its marker on the Customers page, not on the base URL, so with valid state the probe returned unknown and the specs decided the result"
+    },
+    "interactiveTestAuth": {
+      "status": "passed",
+      "command": "apexrest test auth --env dev (current worktree runtime, user's terminal)",
+      "result": "state stored by the user's interactive login; an earlier attempt timed out after the helper's 10-minute wait without Enter (AUTH_NOT_SAVED)",
+      "followUpE2E": "apexrest test e2e --env dev passed 1/1 with that state"
     }
   },
   "localChecks": {
