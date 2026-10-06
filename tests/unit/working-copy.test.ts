@@ -58,7 +58,7 @@ test('initial dual-format sync, restart/repeated init and local status never re-
   const child = spawnSync(
     process.execPath,
     [
-      '--experimental-transform-types',
+      ...(Number(process.versions.node.split('.')[0]) < 26 ? ['--experimental-transform-types'] : []),
       '--input-type=module',
       '-e',
       `import {SyncStore} from ${JSON.stringify(pathToFileURL(path.resolve('packages/core/src/sync.ts')).href)};

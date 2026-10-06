@@ -329,7 +329,13 @@ test('a separate Node runner cannot acquire an active local schema owner', async
       catch(e) { if(e.code==='TARGET_LOCKED') console.log(e.code); else throw e; }`;
     const child = spawnSync(
       process.execPath,
-      ['--experimental-transform-types', '--input-type=module', '-e', script, JSON.stringify(env)],
+      [
+        ...(Number(process.versions.node.split('.')[0]) < 26 ? ['--experimental-transform-types'] : []),
+        '--input-type=module',
+        '-e',
+        script,
+        JSON.stringify(env),
+      ],
       { encoding: 'utf8' },
     );
     assert.equal(child.status, 0, child.stderr);
