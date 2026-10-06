@@ -1,6 +1,6 @@
 # Host integration: Codex and Claude Code
 
-APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. `1.3.0` on npm `latest` carries this redesigned bundle; the older `1.3.0-beta.1` on `beta` retains the previous 21-tool, 14-skill surface and Codex-only manifests. Native-host qualification of 1.3.0 remains open; see [release notes](release-notes.md).
+APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. Current host qualification requirements are listed in [next actions](next-actions.md).
 
 ## Ownership
 
@@ -23,8 +23,3 @@ Every project-scoped tool takes the absolute project directory as `project` beca
 ## Host boundaries and verification
 
 A listed plugin, a valid manifest or a returned URL is not proof that a host rendered a skill, loaded the tools or showed a page. Browser observations, installed-plugin CLI/stdio checks and live Oracle operations are recorded separately.
-
-- Codex: isolated installation, discovery, tool calls and lifecycle were exercised on Codex 0.154.0 / macOS arm64 for earlier builds ([native installation report](evidence/native-repository.json)). The redesigned surface has not been re-verified in a live Codex session.
-- Claude Code: both manifests pass `claude plugin validate --strict` (also run by `npm run test:packaging` when the `claude` CLI is present) A [Claude Code 2.1.291 session](evidence/claude-code-session-200-native.json) loaded the 2.0.0 bundle with `--plugin-dir`, discovered the 5 skills and 11 tools, completed read-only calls and an offline init/edit/validate cycle. Marketplace installation, ship/job on a target and the browser handoff remain NOT RUN.
-
-The original [build specification](../APEXREST_CODEX_PLUGIN_BUILD_SPEC.md) is preserved as historical input. It is not the current product contract; the [acceptance matrix](acceptance.json) records the current scope and superseded requirements. See [implementation status](implementation-status.md) and [open checks](next-actions.md).

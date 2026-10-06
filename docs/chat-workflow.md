@@ -2,7 +2,7 @@
 
 Describe an Oracle APEX change in the current Codex or Claude Code conversation, or invoke the work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code). The [work skill](../plugins/apexrest-apex/skills/apexrest-work/SKILL.md) implements it in that conversation with its existing context, model and permissions. There is no plugin task registration, startup call or panel.
 
-The [APEX 26.2 workflow](apex-26.2.md) in this source checkout adds partial imports for page and supported shared-component changes. It is not included in the published npm `1.3.0` package. Existing 26.1 projects keep their full-import behavior.
+The [APEX 26.2 workflow](apex-26.2.md) in this source checkout adds partial imports for page and supported shared-component changes. Existing 26.1 projects keep their full-import behavior.
 
 1. **Project.** New app: `apexrest_project` `action:init` with `directory` and `template` (`blank-app` or `customer-crm`); it generates real Oracle sources. Existing app: `action:inspect` (summary) for source directories and environments; `apexrest_apex_sync` `action:status` shows a working copy. For 26.2 partial imports, establish a trusted checkpoint with `action:init` before editing. Configured identities and local sync status are not verified live targets.
 2. **References**, at most three lookups per change: `apexrest_reference` `mode:search` with short English terms, `kind` and `limit:3`, then `mode:read` the chosen ID. Use the project's release profile, or explicit `version: "26.2"` for 26.2 sources. Routes and contracts are in the [APEXlang skill](../plugins/apexrest-apex/skills/apexrest-apexlang/SKILL.md).

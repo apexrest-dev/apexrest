@@ -1,10 +1,8 @@
 # Getting started
 
-> The repository is now `apexrest-dev/apexrest` (renamed from `apexrest-codex`; GitHub redirects the old URLs).
-
 Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or `npm ci` is needed for installation.
 
-`apexrest@1.3.0` is published under npm `latest` with the redesigned 11-tool/5-skill surface. **APEX 26.2 partial imports are in the unreleased 2.0.0 source bundle and are not in that npm release.** They have scoped local Oracle/browser evidence; a Claude Code session passed discovery, read-only calls and offline validation; current Codex sessions, Claude Code ship/browser checks and broader platform/feature qualification remain open. See [release notes](release-notes.md) and [implementation status](implementation-status.md).
+This guide describes the current 2.0.0 source bundle, including APEX 26.2 partial imports. Install from the source repository for these features; check the version and capabilities of a separately published npm package. See [release notes](release-notes.md) and [implementation status](implementation-status.md) for the current scope and qualification requirements.
 
 Already using APEX 26.2? Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.
 
@@ -16,7 +14,7 @@ For a cloud task, follow [Run APEXREST in Codex Cloud](codex-cloud.md). It provi
 
 | Requirement                                                    | When it is needed                                                                                  |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Codex with native plugin support, or Claude Code               | Plugin registration; Codex CLI 0.154.0 was exercised on macOS arm64 for earlier builds             |
+| Codex with native plugin support, or Claude Code               | Plugin registration and the host-provided browser controls             |
 | Node 24 LTS on `PATH` (supported range 24–26)                  | Starting the CLI and the MCP runtime                                                               |
 | Java 21 and matching SQLcl                                     | 26.1 uses SQLcl 26.1.2; [26.2](apex-26.2.md) uses SQLcl 26.3; ORDS needs a JDK with `jdk.compiler` |
 | Existing supported Oracle APEX target                          | APEX 26.1 full imports or qualified APEX 26.2 full/selected-file workflows                         |
@@ -37,8 +35,6 @@ codex plugin add apexrest-apex@apexrest
 codex plugin list --json
 ```
 
-This registers the repository's `apexrest` marketplace (`.agents/plugins/marketplace.json`) and its `apexrest-apex` plugin in the selected Codex profile. For a local checkout, pass the checkout path to `marketplace add`. Start a new Codex task after installation. Native plugin installation of an earlier build was verified with Codex 0.154.0, Node 24.21.0 and macOS arm64; the [native installation report](evidence/native-repository.json) records that scope. Managed-workspace plugin availability can be restricted by the workspace administrator.
-
 To find the installed plugin in the desktop app, open **Plugins** and look for **APEXREST for Codex and Claude Code**; use `@` in the message box or `$apexrest-work` to invoke a skill. The plugin adds no sidebar or menu button. If the tools are not listed, see [troubleshooting](troubleshooting.md#the-plugin-is-installed-but-tools-are-missing).
 
 ## Install in Claude Code
@@ -51,8 +47,6 @@ claude plugin install apexrest@apexrest
 ```
 
 For a local checkout, pass the checkout path to `marketplace add`; to try a checkout for one session without installing, start `claude --plugin-dir <checkout>/plugins/apexrest-apex`. The manifest declares the five skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. The `node` on the `PATH` of the shell that starts `claude` must be Node.js 24 or newer. Start a new Claude Code session after installation.
-
-In Claude Code the skills are namespaced by the plugin: invoke `/apexrest:apexrest-work`, `/apexrest:apexrest-setup` or `/apexrest:apexrest-safety`, or describe the change and let Claude select the skill. The tools appear as `mcp__plugin_apexrest_apexrest__apexrest_*`; `/mcp` shows the server state. Both manifests pass `claude plugin validate --strict`. A Claude Code 2.1.291 session discovered all five skills and eleven tools and completed read-only `apexrest_status` and `apexrest_reference` calls ([Claude Code session record](evidence/claude-code-session-200-native.json)); an offline init/edit/validate cycle also passed. Ship/job on a target and the browser handoff in Claude Code have not been recorded yet.
 
 ## Check the setup
 

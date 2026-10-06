@@ -22,13 +22,11 @@ The plugin provides five skills and eleven MCP tools backed by one runtime that 
 | `files`          | Import an explicit list, including required changed dependencies; never expand it to a full import.         |
 | `full`           | Request the existing complete application import.                                                           |
 
-> **Available in the 2.0.0 source bundle; not yet published to npm.** Partial imports require an existing dev/test app, a trusted sync baseline, APEX 26.2 sources and target, and the reviewed SQLcl 26.3 compiler using a direct connection. Both the CLI and `apexrest_ship` MCP tool support the feature. APEX 26.1 retains full imports.
-
-**Verified on real Oracle:** page-only and automatic page-plus-LOV imports passed on local APEX 26.2, preserving all **21 unselected files**, including a separate client's change. The changed page and shared LOV were checked in the Codex in-app browser. [Read the evidence](docs/evidence/apex262-connected.json) or [follow the partial-import guide](docs/apex-26.2.md).
+> **Available in the 2.0.0 source bundle.** Partial imports require an existing dev/test app, a trusted sync baseline, APEX 26.2 sources and target, and the reviewed SQLcl 26.3 compiler using a direct connection. Both the CLI and `apexrest_ship` MCP tool support the feature. APEX 26.1 retains full imports.
 
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
-> **Release status.** `apexrest@1.3.0` is the stable npm `latest` release with 11 tools and 5 skills. The `2.0.0` source bundle adds the unreleased APEX 26.2 support described above; the older `1.3.0-beta.1` retains its previous 21-tool surface. A [Claude Code session](docs/evidence/claude-code-session-200-native.json) passed discovery, read-only calls and offline validation; current Codex sessions, Claude Code ship/browser checks, other platforms and broader Oracle workflows remain unqualified. See the [publication record](docs/evidence/npm-130-publication.json), [changelog](CHANGELOG.md) and [release notes](docs/release-notes.md). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
+> **Source version:** 2.0.0. Registry packages are a separate distribution path; use the repository bundle for its current features. See [current release notes](docs/release-notes.md). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
 
 ## Install
 
@@ -57,11 +55,11 @@ The agent calls `apexrest_status` (`detail: "doctor"`) and, when Java or SQLcl i
 **CLI from npm** (optional; the same runtime without a host plugin):
 
 ```sh
-npm install -g apexrest   # latest = 1.3.0; apexrest@1.3.0-beta.1 for the old beta
+npm install -g apexrest
 apexrest --help
 ```
 
-Stable npm 1.3.0 includes the redesigned 11-tool surface but does not include this unreleased 26.2 update. Use the updated checkout's bundled runtime for partial imports: `node plugins/apexrest-apex/runtime/apexrest.mjs --help`. The [installation guide](docs/getting-started.md) covers connections, managed installation and removal.
+Use the current checkout's bundled runtime for the features documented here: `node plugins/apexrest-apex/runtime/apexrest.mjs --help`. The [installation guide](docs/getting-started.md) covers connections, managed installation and removal.
 
 ## Work in one session
 
@@ -126,19 +124,7 @@ A plan binds sources, configuration, toolchain and target and expires after 30 m
 
 ![Deployment flow: inspect once, edit coherent changes, validate, review the bound plan, back up and import, then verify.](docs/assets/deployment-flow.svg)
 
-## What has been verified
-
-The [26.2 qualification](docs/evidence/apex262-connected.json) covers direct SQLcl full and partial imports plus browser observations on an isolated local test app. Earlier release records retain their original scope. Historical timing, ranking and size-baseline estimates are unverified; [local redesign measurements](docs/evidence/redesign-phase1-local.json) identify the actual measured inputs.
-
-| Area                     | Available evidence                                                                                                                                                                  | Remaining scope                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Native Codex plugin      | Isolated installation, discovery, tool calls and lifecycle on Codex 0.154.0 / macOS arm64 for earlier releases                                                                      | Re-verification of the redesigned surface in a live host session; other hosts/platforms |
-| Claude Code plugin       | `claude plugin validate --strict` on both manifests; [Claude Code 2.1.291 session](docs/evidence/claude-code-session-200-native.json): discovery, read-only calls, offline validate | Marketplace install, ship/job on a target and browser handoff in Claude Code            |
-| Persistent engine        | Offline reuse covered by local fixtures; current timing qualification is NOT RUN                                                                                                    | Connected sessions on an authorized target; SQLcl `mcp` mode against a live database    |
-| Oracle APEXlang          | [Blank/CRM compilation on 26.1 and 26.2](docs/evidence/apex262-compatibility-local.json), plus six compiler-checked 26.2 recipes                                                    | Broader component and feature runtime coverage                                          |
-| APEX 26.2 partial import | [Full, page-only and page-plus-LOV imports](docs/evidence/apex262-connected.json); 21 unselected files preserved; browser check                                                     | ORDS partial imports, other platforms and native model-host sessions                    |
-| ORDS connectivity        | [Authorized unchanged export/import/export](docs/evidence/ords-connected.json) on an earlier release, 21 byte-identical files                                                       | The ORDS path is unchanged by the redesign but was not exercised again                  |
-| Local runtime            | Unit, CLI/MCP contract, installer and packaging checks with explicitly labelled fixtures                                                                                            | Connected recovery, fault injection, SQL/CRUD integration, application browser checks   |
+## Verification
 
 Unit tests, mocked failure scenarios, real Oracle operations and native-host checks are recorded separately. See the [acceptance matrix](docs/acceptance.json), [implementation status](docs/implementation-status.md) and [next actions](docs/next-actions.md). A missing or skipped integration suite is not a passing result.
 

@@ -1,7 +1,5 @@
 # Programmatic automation for the agent surface
 
-Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
-
 The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its [11 MCP tools](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports, tests and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.
 
 ## What runs without AI
@@ -25,7 +23,7 @@ The CLI keeps its granular commands (`project init|adopt|inspect`, `connection .
 
 ## Partial imports through the agent surface
 
-The source checkout supports [APEX 26.2 partial imports](apex-26.2.md) through the same `apexrest_ship` MCP tool used by Codex and Claude Code, and through the CLI. The published npm `1.3.0` package does not contain this addition; 26.1 sources retain the legacy full-import path. Direct SQLcl CLI transport is required inside the runtime, with the reviewed SQLcl `26.3.0.260.1620` / MMD `26.2.0+3479` tuple and a compatible 26.2 target. This does not prevent the host from calling APEXREST over MCP.
+The source checkout supports [APEX 26.2 partial imports](apex-26.2.md) through the same `apexrest_ship` MCP tool used by Codex and Claude Code, and through the CLI. APEX 26.1 sources use full imports. Direct SQLcl CLI transport is required inside the runtime, with the reviewed SQLcl `26.3.0.260.1620` / MMD `26.2.0+3479` tuple and a compatible 26.2 target. This does not prevent the host from calling APEXREST over MCP.
 
 For an existing dev/test application, initialize a trusted checkpoint with `apexrest_apex_sync` `action: "init"`, edit a page and its shared LOV, then pass one of these selections to both the plan and apply calls:
 
@@ -39,14 +37,14 @@ The model reviews `importSelection.requestedMode`, `resolvedMode`, `files`, `dep
 
 ## Round trips
 
-Measured on the previous surface: a page edit needed 14–21 tool calls and ~55 KB of instructions (41 KB skills plus 17–24 KB tool catalog); creating an application needed 22–32 calls. With the merged surface:
+A typical work cycle uses the following operations; actual calls depend on the change and required repairs:
 
 | Task                     | Calls                                                                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | Edit an existing page    | `project inspect` → ≤3 `reference` → edit files → `apex_validate` (×1–2) → `ship plan` → `ship apply` → `browser_open` = 8–10 |
 | Create a new application | `project init` → ≤3 `reference` → edit files → `apex_validate` (×1–2) → `ship plan` → `ship apply` → `browser_open` = 8–10    |
 
-Instruction bytes: the linked local evidence reports the exact UTF-8 size of the eleven-tool catalog and five `SKILL.md` files. Reference files load only on demand.
+Reference files load on demand. Validation repairs, authorization requirements and browser observations can add steps.
 
 ## Implemented reductions
 
@@ -59,7 +57,3 @@ Instruction bytes: the linked local evidence reports the exact UTF-8 size of the
 ## Authorization recorded by ship
 
 An explicit user request to create, update or import an identified development/test application authorizes that import. `ship apply` requires `userRequest` (the user's literal instruction) and records it in the user policy as a grant bound to the canonical project root, target digest and plan digest, deploy only, expiring with the plan and marked `grantedBy: "ship"`. The grant is removed after the attempt whether it succeeded or failed; a removal failure is reported in `grant.removed`. Production targets (`kind: production` or listed in the administrator-owned production trust file) and plans with unreviewed risks are refused before any grant is written. Trust, backup, identity, drift, coordination and unknown-outcome protections are unchanged.
-
-## Scope
-
-Local call-count and UTF-8 measurements do not establish native end-to-end latency, billed-token savings or live Oracle correctness. Those require separately recorded matched host tasks and authorized connected checks. Earlier evidence files under `evidence/` describe previous catalogs and retain their original scope.

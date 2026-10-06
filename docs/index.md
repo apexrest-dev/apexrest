@@ -2,13 +2,13 @@
 
 ![APEXREST pencil and ruler symbol](assets/apexrest-logo.svg)
 
-APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. Published npm `1.3.0` includes this redesigned surface; the `2.0.0` source bundle adds unreleased APEX 26.2 partial imports. [Implementation status](implementation-status.md) separates the recorded local Oracle/browser verification from remaining host, platform and feature qualification.
+APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. The current source bundle is 2.0.0 and supports APEX 26.2 partial imports. [Implementation status](implementation-status.md) separates implemented behavior from remaining connected, host and platform qualification.
 
 ## APEX 26.2: partial imports
 
 **Import only the changed page and supported shared components.** Choose automatic selection or an explicit file list, preserve unrelated server changes and review conflicts before applying. Full imports remain available, including the existing 26.1 workflow.
 
-[Start the partial-import guide](apex-26.2.md) for prerequisites, matching plan/apply examples, `auto` / `files` / `full` modes and [actual Oracle verification](apex-26.2.md#verified-results). This source feature requires a qualified 26.2 application and a direct SQLcl CLI connection; it is available through both the APEXREST CLI and MCP tools.
+[Start the partial-import guide](apex-26.2.md) for prerequisites, matching plan/apply examples, `auto` / `files` / `full` modes and [verification requirements](implementation-status.md#verification). This source feature requires a qualified 26.2 application and a direct SQLcl CLI connection; it is available through both the APEXREST CLI and MCP tools.
 
 ## Start here
 
@@ -24,7 +24,7 @@ APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies O
 | Configure environments, connections and policy                 | [Configuration](configuration.md)                 |
 | Connect over HTTP(S) when the Oracle listener is unavailable   | [SQL through ORDS](ords.md)                       |
 | Learn the plan, grant, import and recovery model               | [Deployment safety](deployment-safety.md)         |
-| Read the read-only development status snapshot                 | [Development status](panel.md)                    |
+| Read the read-only development status snapshot                 | [Development status](status.md)                    |
 | Deploy without service tables                                  | [Clean APEX deployment](clean-apex-deployment.md) |
 | Select the checks appropriate to a change, verify in a browser | [Testing](testing.md)                             |
 | Resolve setup, compiler, ship or job failures                  | [Troubleshooting](troubleshooting.md)             |
@@ -35,20 +35,15 @@ APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies O
 - [Architecture](architecture.md): packages, the persistent SQLcl engine, jobs and durable state.
 - [Host integration](codex-integration.md): Codex and Claude Code manifests, ownership and verification scope.
 - [Programmatic automation](codex-automation.md): what each tool executes without a model.
-- [Optimization review](optimization-review.md) and [APEXlang optimization](apexlang-optimization.md): historical measurements.
 - [Contributing](../CONTRIBUTING.md): local workflow, validation and review requirements.
 - [Security and privacy](../SECURITY.md): credentials, code trust, reports and recovery.
-- [Research](research.md): reviewed upstream material and compatibility decisions.
-- [Architecture decisions](adr/): the rationale for supported implementation choices.
 
-## Inspect the evidence
+## Current status
 
-- [Implementation status](implementation-status.md): what exists and what was actually exercised.
+- [Implementation status](implementation-status.md): implemented capabilities and verification limits.
 - [Acceptance matrix](acceptance.json): implementation, verification, evidence and blockers for each requirement.
-- [Next actions](next-actions.md): open gates and follow-up phases.
+- [Next actions](next-actions.md): open qualification and implementation work.
 - [Changelog](../CHANGELOG.md) and [release notes](release-notes.md): changes, breaking changes and distribution.
-
-Historical reports retain their original source digest and scope. A later success does not relabel an earlier blocked run, and an earlier blocked run does not erase a separately recorded later result.
 
 ## Prepare a release
 

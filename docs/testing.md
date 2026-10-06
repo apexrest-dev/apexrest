@@ -47,7 +47,7 @@ The integration harness refuses production. Remote test suites are also refused 
 
 For a page or dashboard change, validate with the real Oracle compiler (`apexrest_apex_validate` until `diagnostics` is empty), reconcile the source queries through authorized read-only checks (`apexrest_metadata_read`) and inspect the imported page in the selected verification browser. `apexrest_ship` validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.
 
-CRUD and utPLSQL are required when the change or the configured suite scope calls for them. An explicitly authorized isolated application-only profile can declare no automated suites and record its source/browser checks separately. Preserve the established profile and historical failures; changing an established required-suite scope needs user authorization. Do not install utPLSQL or add empty suites just to import a page. No configured suites means no automated SQL/E2E tests ran.
+CRUD and utPLSQL are required when the change or the configured suite scope calls for them. An explicitly authorized isolated application-only profile can declare no automated suites and record its source/browser checks separately. Preserve the established profile and unresolved suite failures; changing an established required-suite scope needs user authorization. Do not install utPLSQL or add empty suites just to import a page. No configured suites means no automated SQL/E2E tests ran.
 
 ## Browser verification
 

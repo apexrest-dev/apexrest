@@ -2,8 +2,6 @@
 
 Find a reusable Oracle APEX UX composition and adapt its APEXlang recipe to your application. The pattern catalog is separate from the [component catalog](component-catalog.md): components describe individual building blocks; patterns preserve the layout, data flow and interaction between them. Both are local resources used by the agent through the existing reference tools. Pattern lookup needs no database connection, catalog UI or automatic insertion step.
 
-This catalog and its maintenance skill are published in `apexrest@1.2.0`. The [1.2.0 publication record](evidence/npm-120-publication.json) confirms registry integrity and clean installs; the [1.1.0 publication record](evidence/npm-110-publication.json) describes the previous component-catalog release. Updating an installed plugin cache remains a separate action.
-
 ## Search and use
 
 ```sh
@@ -35,9 +33,7 @@ Read coverage with `pattern:source/<sourceId>/review`, then a page decision with
 
 The catalog reviews two sources on APEX 26.1.4 and Universal Theme 26.1: [Universal Theme Reference](https://apex.oracle.com/ut), with 122 pages, and Oracle APEX UX Pattern Catalog, with 28 pages. Every captured page has an explicit review of its structural and behavioral variants. Individual components, visual options, documentation, inert controls and empty concepts remain distinct from reusable compositions. Public records contain safe source attribution, compatibility and content hashes. Raw exports and private target details stay outside the package. Redistribution rights are unverified; the catalog uses factual metadata and original recipes without copying source prose, JavaScript or assets.
 
-The [local manifest](../resources/patterns/manifest.json) records 150 reviewed pages, 818 variant decisions, 58 pattern contracts and 84 recipes. Sixty-nine recipes contain original implementations; 15 remain explicit unresolved variants or concepts. All 69 implemented recipes have real offline SQLcl compiler evidence without warnings; the merged verification adds 56 implementations to the 13 existing proofs. These counts describe the published 1.2.0 bundle; publication and clean-install checks are recorded separately.
-
-The broader inventory does not imply changes to either source application. The UX export digest matches its preceding capture, and all 147 previously captured Universal Theme source files retain their hashes. The new capture also inventories 53 binary/static resources as facts without redistributing them. The reader now retains anonymous declarations, quoted keys and repeated keys in their declaration context: the UX source has 1,099 objects including 102 shared components, with 15 formerly missed anonymous declarations; the Universal Theme source retains all seven anonymous branches.
+The [local manifest](../resources/patterns/manifest.json) records 150 reviewed pages, 818 variant decisions, 58 pattern contracts and 84 recipes. Sixty-nine recipes contain original implementations and bound offline SQLcl compiler evidence; 15 remain explicit unresolved variants or concepts. Source attribution and compiler records remain part of the functional catalog.
 
 A `ready` recipe has a complete declared local dependency set and real offline compiler evidence for its scaffold and MMD. Source inspection, compilation, SQL execution, import and browser verification are separate results. `not-run` does not imply a pass. Unsupported behavior or unresolved dependencies remain explicit. Synthetic examples establish an input shape, not the user's business schema or a runtime guarantee.
 

@@ -2,7 +2,7 @@
 
 **Import a changed page and its shared list of values without re-importing the rest of the application.** APEXREST selects eligible `.apx` files automatically or accepts an explicit list, checks their dependencies against the current server application, and preserves unrelated remote changes.
 
-> **Release availability:** this feature is implemented in the `2.0.0` source bundle, which has not been published to npm. Published `1.3.0` does not include it. Use that checkout's bundled runtime or plugin. Existing APEX 26.1 projects retain their full-import workflow.
+> **Source version:** this guide describes the `2.0.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
 
 ## Choose an import mode
 
@@ -30,7 +30,7 @@ Select the matching compiler through `APEXREST_SQLCL`. The managed installer sti
 
 ## Quick start from an updated checkout
 
-The following examples assume a configured, trusted application project with an environment named `dev`. Replace the absolute paths and example page/LOV filenames with your project's values. These commands use the checkout runtime so they do not accidentally invoke the older npm package.
+The following examples assume a configured, trusted application project with an environment named `dev`. Replace the absolute paths and example page/LOV filenames with your project's values. These commands use the checkout runtime described in this guide.
 
 ```sh
 APEXREST_CLI="/absolute/path/to/apexrest/plugins/apexrest-apex/runtime/apexrest.mjs"
@@ -67,12 +67,6 @@ The planner compares the **saved baseline**, **local edits** and **fresh server 
 Review `importSelection.requestedMode`, `resolvedMode`, `files`, supporting-component selections and `reasons`. The compact preview shows at most 50 selected paths; use the full saved plan for a longer list.
 
 Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are excluded from partial import. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit `files` mode never becomes `full`. Existing working-copy restrictions on database operations and separate production approval remain in force.
-
-## Verified results
-
-[Connected Oracle evidence](evidence/apex262-connected.json) records full, page-only and automatic page-plus-LOV imports on an isolated local APEX 26.2.0 test app using the reviewed SQLcl/MMD tuple. The successful final partial import preserved all **21 unselected files**, including a separately edited remote page. [Browser evidence](evidence/apex262-browser.png) records the visible updated page and working shared LOV.
-
-[Offline compatibility checks](evidence/apex262-compatibility-local.json) and [local test results](evidence/apex262-local-checks.json) are separate evidence. The earlier strict-readback failure remains in the connected record; later success does not relabel it. Automated SQL/E2E suites were not run for that application-only fixture. Current native model-host sessions, other platforms and wider feature/runtime combinations remain unqualified.
 
 ## Backup, verification and recovery
 

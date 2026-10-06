@@ -5,8 +5,7 @@ import { marked } from 'marked';
 import { files } from './lib/release.mjs';
 import { renderMarkdown } from './lib/site-markdown.mjs';
 
-// Human documentation is English only. Historical specifications, machine-readable
-// evidence, third-party notices and agent skills retain their sources.
+// Human documentation is English only; functional references, licenses and agent skills retain their sources.
 const documents = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md'];
 for (const root of ['docs', 'site/content', 'templates', 'plugins/apexrest-apex/skills']) {
   for (const file of await files(root)) {
@@ -71,11 +70,14 @@ for (const file of allDocuments) {
     assert.ok(Object.hasOwn(npmScripts, name), `${file}: missing npm script: npm run ${name}`);
   }
 }
-// Historical working inputs keep their original form and language; they are not
-// translated or rewritten, but must remain present.
-for (const file of ['APEXREST_CODEX_PLUGIN_BUILD_SPEC.md', 'APEXREST_COMPOSER_IMPLEMENTATION_PLAN.md']) {
-  assert.ok(!documents.includes(file), `${file}: historical input must not be a translated document`);
-  assert.ok(await stat(file).catch(() => null), `${file}: missing historical input`);
+// Required current repository contracts must remain present.
+for (const file of [
+  'AGENTS.md',
+  'docs/acceptance.json',
+  'docs/implementation-status.md',
+  'docs/next-actions.md',
+]) {
+  assert.ok(await stat(file).catch(() => null), `${file}: missing current repository contract`);
 }
 console.log(
   `Documentation: ${allDocuments.length} documents; local targets/anchors and documented script commands verified.`,

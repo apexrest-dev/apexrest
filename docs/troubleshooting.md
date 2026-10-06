@@ -10,7 +10,7 @@ Start with `apexrest status --detail doctor --json` (or `apexrest_status` with `
 node plugins/apexrest-apex/runtime/apexrest.mjs --help
 ```
 
-`apexrest` without arguments prints help; the earlier interactive terminal menu no longer exists. If a checkout still offers menus or `tui` commands, it predates the redesign: pull the current source and run `npm run plugin:sync`. If managed plugin files were removed, their launcher has no runtime to start; install again from a checkout or npm.
+`apexrest` without arguments prints help. Use the current source bundle and run `npm run plugin:sync` after changing runtime source. If managed plugin files were removed, their launcher has no runtime to start; install again from a checkout or npm.
 
 ## Saved connections are missing or fail their test
 

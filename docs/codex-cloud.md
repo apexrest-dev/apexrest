@@ -20,9 +20,7 @@ Add these entries to the application's `.gitignore` before running setup:
 
 Commit the example scripts and ignore rules to the repository's default branch used for Cloud cache preparation, and ensure they are also present on the task branch. Cloud checks out the task branch when resuming the cache; see [container caching](https://learn.chatgpt.com/docs/environments/cloud-environment). Generated tools, credentials, logs, plans and backups must remain private. The scripts are documentation examples, not files automatically installed by the plugin or its npm package.
 
-The [version file](examples/codex-cloud/version.sh) pins a built distribution at Git commit `d8405d935d621d021523d4a17d9dd3d5e959fcb5`, with manifest version `0.2.0-beta.1+codex.20260919143707`. Setup verifies both values and uses `plugins/apexrest-apex/runtime/apexrest.mjs`; it needs neither an npm release nor a TypeScript build. Review and change both pins together when adopting a later build.
-
-> **Pinned build predates the current command surface.** `0.2.0-beta.1` has no `ship`, `status` or `job` commands. The work-cycle commands below require a build of `1.3.0` or later: re-pin `version.sh` to a reviewed commit and manifest version of that build before using them. Until Cloud is re-verified with such a build, treat those commands as unverified in Cloud.
+The [version file](examples/codex-cloud/version.sh) pins a reviewed immutable checkout with manifest version `2.0.0`. Setup verifies the commit and version, then uses `plugins/apexrest-apex/runtime/apexrest.mjs`; it needs neither an npm release nor a TypeScript build. Review and change both pins together when adopting another build. The bootstrap and connected workflow require verification in the actual Cloud environment.
 
 ## 2. Configure the Cloud environment
 
@@ -113,7 +111,7 @@ Before application work, configure the target in `apexrest.json`, including work
 
 The example keeps local deployment history under `APEXREST_HOME`. Cloud caches are not durable backup storage or cross-container coordination: preserve private backups/history outside an expiring container and serialize runners before authorizing deployments. Do not reset away an unresolved operation's records or silently start fresh history against the same schema.
 
-Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work` or automatic skill/MCP discovery work in Cloud; with a re-pinned `1.3.0`-or-later build, the CLI equivalents of the work cycle are `apexrest apex validate`, `apexrest ship --mode plan|apply --user-request TEXT` and `apexrest job status`. Use the launcher for the documented flow and report unavailable checks explicitly.
+Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that `$apexrest-work` or automatic skill/MCP discovery work in Cloud; the CLI equivalents of the work cycle are `apexrest apex validate`, `apexrest ship --mode plan|apply --user-request TEXT` and `apexrest job status`. Use the launcher for the documented flow and report unavailable checks explicitly.
 
 ## Troubleshooting
 
@@ -128,4 +126,4 @@ Browser dependencies are skipped. Browser checks require separately configured t
 
 ## Verification scope
 
-This guide and its generalized scripts were checked locally; an actual Codex Cloud setup/resume, native plugin discovery, connected Oracle operation and browser session were not run for this documentation change. The existing [ORDS evidence](ords.md#prerequisites-and-verification) retains its original target and execution scope. Record fresh Cloud evidence after completing the checks above; see [implementation status](implementation-status.md) and [next actions](next-actions.md).
+Local script syntax and package checks do not establish an actual Cloud setup/resume, connected Oracle operation, native plugin discovery or browser session. Complete the checks above on the intended environment and record the resulting scope; see [implementation status](implementation-status.md) and [next actions](next-actions.md).

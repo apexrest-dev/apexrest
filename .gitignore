@@ -16,3 +16,6 @@ playwright-report/
 coverage/
 output/
 tmp/
+
+# Generated verification output is not repository history.
+docs/evidence/

@@ -1,7 +1,5 @@
 # Install APEXREST
 
-> The repository is now `apexrest-dev/apexrest` (renamed from `apexrest-codex`; GitHub redirects the old URLs).
-
 Register the plugin in Codex or Claude Code, let it install Java and SQLcl, then connect a target. The repository ships the built bundle under `plugins/apexrest-apex`; ordinary installation requires no TypeScript build. Keep Node.js 24 LTS on `PATH` (supported range: Node 24–26).
 
 ## 1. Register the plugin
@@ -44,11 +42,11 @@ Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/
 The CLI exposes the same operations for scripts and Codex Cloud:
 
 ```sh
-npm install -g apexrest     # npm latest = 1.3.0; apexrest@1.3.0-beta.1 for the old beta
+npm install -g apexrest
 apexrest --help
 ```
 
-Stable npm 1.3.0 has the redesigned 11-tool surface but does not include the unreleased [26.2 partial-import update](../../docs/apex-26.2.md). Use the updated checkout runtime for that feature: `node plugins/apexrest-apex/runtime/apexrest.mjs --help`. Managed installation (`apexrest setup`) also installs the tools, registers Codex and creates `~/.apexrest/bin/apexrest` (or `apexrest.ps1` and `apexrest.cmd` on Windows):
+Check the installed npm version for feature compatibility. Use the current checkout runtime for the [26.2 partial-import workflow](../../docs/apex-26.2.md): `node plugins/apexrest-apex/runtime/apexrest.mjs --help`. Managed installation (`apexrest setup`) also installs the tools, registers Codex and creates `~/.apexrest/bin/apexrest` (or `apexrest.ps1` and `apexrest.cmd` on Windows):
 
 ```sh
 export PATH="$HOME/.apexrest/bin:$PATH"
@@ -89,4 +87,4 @@ npm run site:build
 npm run release:dry-run
 ```
 
-`dist/releases/install-local.txt` contains generated local bundle hashes and Bash/PowerShell installation commands. Packaging does not publish a release. [Implementation status](../../docs/implementation-status.md) separates local fixtures and earlier native checks from unverified live connections and remaining platforms.
+`dist/releases/install-local.txt` contains generated local bundle hashes and Bash/PowerShell installation commands. Packaging does not publish a release. [Implementation status](../../docs/implementation-status.md) describes local checks and the required connected, host and platform qualification.

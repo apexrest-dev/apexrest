@@ -1,6 +1,6 @@
 # Development status
 
-`apexrest_status` with `detail: "project"` (CLI: `apexrest status --detail project` or `apexrest panel status`) returns one read-only snapshot of the local development state for an application project. `detail: "doctor"` probes the local toolchain instead. There is no panel application, local HTTP server, background panel worker, terminal UI or MCP UI resource: the snapshot is plain JSON for the host agent and the CLI. Implementation continues in the [current conversation](chat-workflow.md).
+`apexrest_status` with `detail: "project"` (CLI: `apexrest status --detail project` or `apexrest panel status`) returns one read-only snapshot of the local development state for an application project. `detail: "doctor"` probes the local toolchain instead. The snapshot is plain JSON for the host agent and the CLI. Implementation continues in the [current conversation](chat-workflow.md).
 
 ```sh
 apexrest status --detail project --project /absolute/application --json
@@ -30,5 +30,3 @@ It cannot change settings, queue jobs, cancel jobs, grant trust or authorization
 Actual job failure remains failure after normal process exit: a job's reported status is the operation's own `failed`, `outcome_unknown` or `cancelled` outcome. A job whose worker never started is `failed`, not unknown, and needs a new job after its diagnostic is resolved. A lost heartbeat or mutation response can leave `outcome_unknown`; reconcile before retrying. Running jobs carry a `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `testing`, `syncing`) that is informative only.
 
 The verification browser preference is read from `.apexrest/panel/preferences.json` (`{"browserMode":"codex"}` by default; `codex` is the legacy alias of `host`). Unknown keys in that file are ignored.
-
-[Historical 1.0.0 local evidence](evidence/current-session-100-local.json) and [catalog evidence](evidence/component-catalog-local.json) describe the earlier interactive panel; they retain their original scope and do not describe this read-only snapshot.

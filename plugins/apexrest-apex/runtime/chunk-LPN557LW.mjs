@@ -2979,7 +2979,7 @@ var references = [
   {
     id: "deployment-safety",
     version: "1.0.0",
-    source: "docs/adr/007-clean-apex-deployment.md",
+    source: "docs/clean-apex-deployment.md",
     text: "Use an explicit environment. Plans bind source hashes and target identity. Recheck drift, acquire local coordination and create an export backup before writes. Clean APEX deployment needs no service tables. Local runners must share one managed home; independent machines need external serialization. DDL cannot be generally rolled back. Interrupted writes require reconciliation. Production requires an external approval boundary."
   }
 ];

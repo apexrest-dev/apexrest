@@ -1,7 +1,5 @@
 # Architecture
 
-Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](evidence/redesign-phase1-local.json).
-
 APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for Codex and Claude Code, the `apexrest` CLI and five skills that tell the host agent how to use them. Eleven MCP tools expose bounded operations; the CLI keeps granular commands. Both surfaces validate inputs against the same strict Zod schemas in `packages/core/src/operations.ts`.
 
 Implementation runs in the user's open conversation. See [host integration](codex-integration.md) for ownership and host boundaries.
@@ -37,7 +35,7 @@ Short operations return one structured result (`ok`, `status`, `runId`, `diagnos
 
 SQLcl executes a piped script only after stdin EOF, so a long-lived engine uses SQLcl's own server mode (`sql -mcp`). `packages/core/src/sqlcl-session.ts` keeps one server process per key (executable, Java home, server arguments, connection name, working directory) for the lifetime of the MCP server process. Commands on one session are serialized; a key opens at most a configured number of sessions (two for `/nolog` work, one per saved connection) and queues the rest. A timed-out, cancelled, truncated or failed command kills its session; idle sessions are unref'd, reaped after ten minutes and killed at exit, so a one-shot CLI call still exits naturally.
 
-`cli` mode pools offline validation and help; 26.1 generation keeps its established pooling behavior, while 26.3 generation uses a disposable process to avoid the verified compiler-state leak. Connected sessions use one process per call (saved `-name` connections and ORDS `connect -orest`); `mcp` mode isolates connected batches in fresh servers. The capability probe (`help apex`, compiler version) runs once per SQLcl installation per process and is invalidated when the installation changes. Connected timing qualification is NOT RUN; local offline measurements are recorded in the linked evidence. Compiler output is parsed into structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`).
+`cli` mode pools offline validation and help; 26.1 generation keeps its established pooling behavior, while 26.3 generation uses a disposable process to avoid the verified compiler-state leak. Connected sessions use one process per call (saved `-name` connections and ORDS `connect -orest`); `mcp` mode isolates connected batches in fresh servers. The capability probe (`help apex`, compiler version) runs once per SQLcl installation per process and is invalidated when the installation changes. Connected timing requires separate qualification. Compiler output is parsed into structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`).
 
 ## Oracle boundary
 
@@ -47,7 +45,7 @@ The adapter combines target identity fields in one fresh query, never caches liv
 
 ## Deployment boundary
 
-A plan binds source, configuration, compiler/toolchain, target identity, target content and migration history and expires after 30 minutes. Both `apexrest_ship` and granular CLI planning accept `importMode: auto|files|full` (`--import-mode` in the CLI). `auto` selects eligible 26.2 changed files or records full-import reasons; `files` binds explicit application-relative paths without expansion or full fallback; `full` forces a complete application import. The preview exposes requested/resolved mode, selected files, selected shared-component dependencies and reasons. These 26.2 additions are in the source checkout and are not part of published npm `1.3.0`; 26.1 retains its full-import behavior.
+A plan binds source, configuration, compiler/toolchain, target identity, target content and migration history and expires after 30 minutes. Both `apexrest_ship` and granular CLI planning accept `importMode: auto|files|full` (`--import-mode` in the CLI). `auto` selects eligible 26.2 changed files or records full-import reasons; `files` binds explicit application-relative paths without expansion or full fallback; `full` forces a complete application import. The preview exposes requested/resolved mode, selected files, selected shared-component dependencies and reasons. APEX 26.1 uses full imports.
 
 Partial planning requires an existing dev/test application and trusted sync checkpoint, the reviewed APEX 26.2 / SQLcl `26.3.0.260.1620` / MMD `26.2.0+3479` profile, and direct SQLcl CLI transport inside the adapter. A host can invoke it through APEXREST's MCP server; this transport restriction concerns SQLcl's own MCP mode and ORDS. `partial-import.ts` compares baseline, local and fresh server inventories, blocks conflicting local/server edits, and stages selected local files over the server tree. Whole-tree compilation checks a selected page with its shared LOV and other dependencies. Unselected remote edits are preserved; missing local dependencies are never silently added. Unsupported changes can require a full plan, but observed remote changes must be reconciled before an automatic full fallback.
 

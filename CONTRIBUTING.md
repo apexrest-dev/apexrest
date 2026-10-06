@@ -2,7 +2,7 @@
 
 APEXREST is developed in [apexrest-dev/apexrest](https://github.com/apexrest-dev/apexrest). Code, CLI help, agent skill instructions, public documentation and diagrams use English. Keep changes focused and make claims match the evidence.
 
-Keep executable examples, configuration keys, paths, version numbers and evidence boundaries accurate in every guide. Machine-readable evidence, third-party notices and the original build specification retain their original content. Run `npm run docs:check` and the site checks after documentation changes.
+Keep executable examples, configuration keys, paths, version numbers and evidence boundaries accurate in every guide. Keep functional catalog provenance, third-party notices and pinned source locks intact. Generated verification reports belong in ignored `docs/evidence/` and do not substitute for required live checks. Run `npm run docs:check` and the site checks after documentation changes.
 
 ## Set up a checkout
 
@@ -42,7 +42,7 @@ Run the checks relevant to the changed behavior, including build before packagin
 - Update documentation and the relevant acceptance/evidence records when behavior or verification changes.
 - Review dependency upgrades with pinned URLs/hashes, licensing, an architecture decision and actual compatibility evidence.
 
-Preserve `APEXREST_CODEX_PLUGIN_BUILD_SPEC.md` and the Ukrainian-only `APEXREST_COMPOSER_IMPLEMENTATION_PLAN.md` unchanged as historical input. Record authorized requirement amendments in the project rules and architecture decisions; do not rewrite the specification to make acceptance easier.
+Keep repository documentation focused on the current contract. Do not commit obsolete plans, rollout archives or generated verification history. Record active requirements in `AGENTS.md`, the acceptance matrix and the relevant guide.
 
 ## Open a pull request
 
@@ -52,6 +52,6 @@ Use a `codex/` branch for Codex-created work unless the maintainer requests a di
 
 ## Release work
 
-Before packaging a release, run `npm run plugin:sync`, then `npm run plugin:check`, and verify the native repository installation with `npm run test:repository-plugin`. `npm run release:dry-run` creates unsigned local beta artifacts and a readiness report. Stable readiness requires current evidence bound to the exact immutable source. Publishing requires the separate protected workflow and maintainer authorization; it is not part of a normal build or pull request. See [publisher setup](docs/publishing.md).
+Before packaging a release, run `npm run plugin:sync`, then `npm run plugin:check`, and verify the native repository installation with `npm run test:repository-plugin`. `npm run release:dry-run` creates unsigned local artifacts and a readiness report. Stable readiness requires current evidence bound to the exact immutable source. Publishing requires the separate protected workflow and maintainer authorization; it is not part of a normal build or pull request. See [publisher setup](docs/publishing.md).
 
 Report security issues using [SECURITY.md](SECURITY.md), not public issue attachments containing secrets.
