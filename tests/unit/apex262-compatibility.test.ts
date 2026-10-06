@@ -124,8 +124,10 @@ test('selected-file import stays rooted in frozen source and rejects unbounded s
   await oracle.importApplication(ctx, env, { kind: 'sqlcl-store', name: 'fixture' }, root, undefined, [
     'pages/p00001.apx',
   ]);
+  // SQLcl tokens always use forward slashes, including Windows paths.
+  const sqlRoot = root.replaceAll('\\', '/');
   assert.deepEqual(calls.at(-1), {
-    input: `apex import -input "${root}" -deployment "${root}/deployment.json" -workspace "TEST" -schema "TEST" -id 92620 -files "pages/p00001.apx"`,
+    input: `apex import -input "${sqlRoot}" -deployment "${sqlRoot}/deployment.json" -workspace "TEST" -schema "TEST" -id 92620 -files "pages/p00001.apx"`,
     cwd: root,
     mutation: true,
     restriction: '2',
