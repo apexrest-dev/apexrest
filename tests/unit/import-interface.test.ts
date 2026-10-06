@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 import { schemas } from '../../packages/core/src/operations.ts';
 import { projectSchema } from '../../packages/core/src/config.ts';
 import {
@@ -49,8 +48,8 @@ test('ship and deploy plan default to auto and require files only for explicit s
 test('MCP schema retains cross-field selection checks and the eleven-tool surface', () => {
   const schema = mcpSchemas.get('ship')!;
   const base = {
-    // The MCP boundary requires a platform absolute path (a drive or UNC root on Windows).
-    project: path.resolve(tmpdir(), 'project'),
+    // Windows requires a drive-letter or UNC path.
+    project: path.resolve('/private/tmp/project'),
     env: 'dev',
     userRequest: 'Deploy the selected application changes',
   };

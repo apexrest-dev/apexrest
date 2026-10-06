@@ -8,6 +8,12 @@
 - The probe recognizes a login page by a visible password field without the marker. Applications using external SSO redirects without a password field fall back to ordinary E2E failures; extend detection only with real evidence from such a target.
 - Session rejoin (`REJOIN_EXISTING_SESSIONS`) did not keep sessions across a full import in the earlier run; do not rely on it as a workaround.
 
+## Integration harness
+
+- Run `npm run test:integration` from an interactive terminal against `crm262`/`dev` so that `test auth` can run after the full imports and the final standalone SQL+E2E check produces evidence. The ship-based authorization, imports, grant removal and no-op export preservation already ran on the local stack ([evidence](evidence/oracle-integration.json)).
+- Post-deploy E2E after a full import now stops in `awaiting_reauth` (`POST_DEPLOY_REAUTH_REQUIRED`) and resumes with `deploy verify` after `test auth` (see [testing](testing.md#sessions-ended-by-a-full-import)). Update the harness's known-blocker case to expect that code and resume, so that any other post-deploy failure stops the run.
+- CI runners have no interactive terminal; until post-deploy E2E survives full imports, `npm run test:integration` there ends `blocked` after the no-op checks.
+
 ## Claude Code
 
 - Discovery and read-only tool calls are recorded in the [Claude Code session record](evidence/claude-code-session-200-native.json). The offline part of `/apexrest:apexrest-work` (init, edit, validate) also passed. Still open: install from the repository marketplace, restore a connection to the authorized 26.2 test application 92620, run one authorized dev/test change through `/apexrest:apexrest-work` (validate, ship plan/apply, job status) and record the browser handoff with the Claude Code built-in browser or Claude in Chrome.
