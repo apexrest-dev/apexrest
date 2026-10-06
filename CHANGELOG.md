@@ -2,13 +2,9 @@
 
 Historical redesign timing, ranking and size-baseline estimates are unverified. Current exact sizes and fresh offline SQLcl timings are recorded in [local redesign evidence](docs/evidence/redesign-phase1-local.json).
 
-## 1.3.0-beta.2 — prepared, not published
+## 1.3.0 — redesign phase 1, security hardening and review fixes
 
-Review fixes for the redesigned host-neutral bundle; a new version avoids reusing the published beta.1 payload identity. The GitHub repository is now `apexrest-dev/apexrest`. Oracle and native-host verification: NOT RUN.
-
-## Unreleased — redesign phase 1, security hardening and review fixes
-
-These changes are implemented in the working tree and checked locally only; they are not verified against Oracle, APEX or ORDS. See [implementation status](docs/implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) and the [review fixes record](docs/implementation-status.md#review-fixes--local-implementation-2026-10-04).
+This release promotes the reviewed `1.3.0-beta.2` source to stable npm `latest` with the redesigned host-neutral bundle. The GitHub repository is now `apexrest-dev/apexrest`. These changes are checked locally but are not verified against connected Oracle, APEX, ORDS or native Codex/Claude Code sessions. See [publication evidence](docs/evidence/npm-130-publication.json), [implementation status](docs/implementation-status.md#redesign-phase-1--local-implementation-2026-10-04) and the [review fixes record](docs/implementation-status.md#review-fixes--local-implementation-2026-10-04).
 
 **Breaking changes (redesign):** the MCP catalog is reduced from 21 tools to 11; removed tool names are `apexrest_doctor`, `apexrest_project_inspect`, `apexrest_reference_search`, `apexrest_reference_read`, `apexrest_apex_generate`, `apexrest_apex_export`, `apexrest_deploy_plan`, `apexrest_deploy_apply`, `apexrest_job_status`, `apexrest_job_cancel`, `apexrest_panel_open`, `apexrest_panel_status`, `apexrest_panel_action`, `apexrest_compose_plan` and `apexrest_compose_materialize` (their operations continue under `apexrest_project`, `apexrest_reference`, `apexrest_ship`, `apexrest_job`, `apexrest_status` or the CLI). Skills are reduced from 14 to 5; `$apexrest-menu`, `$apexrest-panel`, `$apexrest-compose`, `$apexrest-deploy`, `$apexrest-debug`, `$apexrest-database`, `$apexrest-test`, `$apexrest-project`, `$apexrest-review` and `$apexrest-install-dependencies` no longer exist. The terminal UI (`apexrest`, `apexrest tui`, `apexrest panel tui`), the panel HTTP server and worker, panel actions and the MCP UI resource are removed; `apexrest` without arguments prints help. The `deploymentControl` configuration field and database-backed coordination are removed; coordination is always local. Ukrainian `.uk.md` documentation and `.uk.svg` diagrams are removed. The repository moved to `apexrest-dev/apexrest`.
 
@@ -70,7 +66,7 @@ These changes are implemented in the working tree and checked locally only; they
 - Add single-editor working copies for existing applications: explicit `apex sync`, immutable local baselines, source-bound plans and imports from frozen local source. The legacy full-export path remains available.
 - The package contains 21 MCP tools and 14 focused skills, including `$apexrest-compose`. The [Composer audit](docs/composer/audit.md) records unfinished CMP-000–041 requirements; live Oracle import, roles, authenticated browser behavior and new-chat native loading remain open.
 
-`apexrest@1.3.0-beta.1` is published under the npm `beta` tag; stable `latest` remains `1.2.0`. The [publication record](docs/evidence/npm-130-beta1-publication.json) confirms registry integrity, clean local/global installs and CI success on macOS, Ubuntu and Windows. No Git tag or production deployment is claimed.
+`apexrest@1.3.0-beta.1` was published under the npm `beta` tag; it retains the previous surface. The [beta publication record](docs/evidence/npm-130-beta1-publication.json) confirms registry integrity, clean local/global installs and CI success on macOS, Ubuntu and Windows for that version. No Git tag or production deployment is claimed for 1.3.0.
 
 ## 1.2.0 — reusable APEX pattern catalog
 
@@ -78,7 +74,7 @@ These changes are implemented in the working tree and checked locally only; they
 - Review 150 source pages and 818 meaningful variants from Universal Theme Reference and Oracle APEX UX Pattern Catalog, with coverage records bound to exact source hashes.
 - Add the `$apexrest-pattern-catalog` skill for extending the catalog from identified APEX applications. The plugin provided 18 MCP tools and 13 skills in this release. See the [pattern catalog guide](docs/pattern-catalog.md).
 
-The existing component catalog, `apexlang` default and Oracle reference IDs are preserved. `apexrest@1.2.0` is published as npm `latest`; the [publication record](docs/evidence/npm-120-publication.json) confirms registry integrity and clean local/global installs.
+The existing component catalog, `apexlang` default and Oracle reference IDs are preserved. `apexrest@1.2.0` was published as npm `latest` at its release; the [publication record](docs/evidence/npm-120-publication.json) confirms registry integrity and clean local/global installs.
 
 ## 1.1.0 — component catalog
 

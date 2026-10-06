@@ -1,6 +1,6 @@
 # Supported versions and evidence
 
-Release {{version}} is packaged as `apexrest@{{version}}` and available through the source repository. `npm install -g apexrest` installs the stable npm `latest` release (1.2.0); pin `apexrest@{{version}}` to install this exact version. [Release notes](../../docs/release-notes.md) record distribution status and npm dist-tags. The redesigned surface (11 MCP tools, 5 skills, persistent SQLcl engine, Claude Code support) exists in the source repository and is not yet published; the published 1.3.0-beta.1 provides 21 MCP tools and 14 skills and stable 1.2.0 provides 18 and 13.
+Release {{version}} is packaged as `apexrest@{{version}}` and available through the source repository. `npm install -g apexrest` installs the stable npm `latest` release (1.3.0); pin `apexrest@{{version}}` to install this exact version. [Release notes](../../docs/release-notes.md) record distribution status and npm dist-tags. The stable 1.3.0 release includes the redesigned surface (11 MCP tools, 5 skills, persistent SQLcl engine, Claude Code support). The older 1.3.0-beta.1 provides 21 MCP tools and 14 skills.
 
 The supported toolchain targets Node 24 LTS (supported range: Node 24–26), SQLcl 26.1.2.132.1334, Java 21 and APEX 26.1+. ORDS APEXlang operations require a JDK 21+ containing `jdk.compiler`; SQLcl's managed JRE alone is insufficient for the Java bridge. Local generated MMD: 26.1.0+3102. Playwright is pinned at 1.63.0 with its matching browser revisions.
 

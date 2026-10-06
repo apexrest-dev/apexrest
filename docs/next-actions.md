@@ -2,7 +2,7 @@
 
 ## Full review follow-up
 
-- Obtain reviewer approval of the prepared beta.2 source and synchronized bundle; publication is not authorized.
+- `1.3.0` was explicitly selected for npm `latest` despite open connected Oracle and native-host gates. Complete those gates before claiming full release qualification; the protected artifact publisher stays disabled.
 - On an explicitly authorized DEV target, verify remote-suite preflight, fresh connected MCP sessions, error/unknown-outcome cleanup and CLI-only restricted scripts. Oracle/native-host/browser checks remain NOT RUN.
 - Timing samples in the local evidence are offline only; reproduce matched connected workloads before making production latency claims. Ranking and historical size baselines remain unverified.
 
@@ -51,15 +51,15 @@ The [working-copy change](existing-app.md) is included in the `1.3.0-beta.1` bet
 
 ## Beta release 1.3.0-beta.1
 
-The [publication record](evidence/npm-130-beta1-publication.json) verifies the `beta` registry tag, tarball integrity and clean local/global installs. `latest` remains at the stable 1.2.0 release. Next verify the installed plugin in a new Codex conversation and complete the connected Oracle qualification; the beta package does not close the Composer roadmap.
+The [publication record](evidence/npm-130-beta1-publication.json) verifies the `beta` registry tag, tarball integrity and clean local/global installs. `latest` is now the stable 1.3.0 release; see its [publication record](evidence/npm-130-publication.json). Next verify the installed plugin in a new Codex conversation and complete the connected Oracle qualification; the beta package does not close the Composer roadmap.
 
 ## Release 1.2.0
 
-Registry integrity and clean local/global installs for `apexrest@1.2.0` on npm `latest` are recorded in the [1.2.0 publication record](evidence/npm-120-publication.json). Use the [current catalog evidence](evidence/pattern-catalog-local.json) and [release notes](release-notes.md) for the exact checks and distribution state. The [previous 1.1.0 publication record](evidence/npm-110-publication.json) remains historical evidence. Verify the installed plugin in a new Codex conversation after update. Keep npm metadata, the checked-in native bundle and canonical GitHub source aligned; a registry clean install does not establish desktop behavior or Oracle correctness.
+Registry integrity and clean local/global installs for the former npm `latest`, `apexrest@1.2.0`, are recorded in the [1.2.0 publication record](evidence/npm-120-publication.json). Use the [current catalog evidence](evidence/pattern-catalog-local.json) and [release notes](release-notes.md) for the exact checks and distribution state. The [previous 1.1.0 publication record](evidence/npm-110-publication.json) remains historical evidence. Verify the installed plugin in a new Codex conversation after update. Keep npm metadata, the checked-in native bundle and canonical GitHub source aligned; a registry clean install does not establish desktop behavior or Oracle correctness.
 
 ## Pattern catalog maintenance
 
-- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the four other current skills aligned with the prepared beta.2 package. A source/build check or npm publication is not an installed-cache update.
+- Keep the [pattern catalog](pattern-catalog.md), its maintenance skill and the four other current skills aligned with the 1.3.0 package. A source/build check or npm publication is not an installed-cache update.
 - Preserve the complete review of all 150 captured pages and 818 variants across both sources. On refresh, use stable source IDs, explicit replacement and `sourceReviews` bound to each page's `provenance.sha256`; re-review changed pages and their meaningful variants. Reject missing/stale reviews, orphan patterns, unknown source anchors, ID collisions and stale recipe evidence before packaging.
 - Preserve compiler evidence for all 69 ready recipes, including the 56 additions, and revalidate changed inputs. Keep the 15 unresolved variants/concepts visible; compiler readiness does not establish live behavior.
 - Verify adapted pattern SQL, imports and browser interactions on a separately authorized target. Optional form fixture scripts have not been installed by catalog compilation; the reference forms alone do not demonstrate working DML.

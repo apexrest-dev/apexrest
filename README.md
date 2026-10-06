@@ -18,7 +18,7 @@ The plugin provides five skills and eleven MCP tools backed by one runtime that 
 
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
-> **Release status.** npm `latest` is `1.2.0`; the npm `beta` tag is `1.3.0-beta.1` (21 tools, 14 skills, experimental Composer). The redesigned surface described in this README (11 tools, 5 skills, persistent SQLcl engine, Claude Code support) is implemented in the source repository and verified locally only; it is **not yet published**. See the [changelog](CHANGELOG.md) and [release notes](docs/release-notes.md). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
+> **Release status.** `apexrest@1.3.0` is the stable npm `latest` release with 11 tools, 5 skills, a persistent SQLcl engine and Claude Code support. The older `1.3.0-beta.1` remains available under npm `beta` with its previous 21-tool surface. Local checks passed; connected Oracle, authenticated browser and native-host Codex/Claude Code qualification remain open. See the [publication record](docs/evidence/npm-130-publication.json), [changelog](CHANGELOG.md) and [release notes](docs/release-notes.md). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
 
 ## Install
 
@@ -47,7 +47,7 @@ The agent calls `apexrest_status` (`detail: "doctor"`) and, when Java or SQLcl i
 **CLI from npm** (optional; the same runtime without a host plugin):
 
 ```sh
-npm install -g apexrest   # latest = 1.2.0; apexrest@1.3.0-beta.1 for the beta
+npm install -g apexrest   # latest = 1.3.0; apexrest@1.3.0-beta.1 for the old beta
 apexrest --help
 ```
 

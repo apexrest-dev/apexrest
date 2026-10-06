@@ -4,7 +4,7 @@
 
 Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or `npm ci` is needed for installation.
 
-The published packages are `apexrest@1.2.0` (npm `latest`) and `apexrest@1.3.0-beta.1` (npm `beta`); they carry the previous 21-tool surface. This guide describes the redesigned surface in the source repository, which is verified locally only; see [release notes](release-notes.md) and [implementation status](implementation-status.md).
+`apexrest@1.3.0` is published under npm `latest` with the redesigned surface described here. The older `1.3.0-beta.1` remains under `beta` with the previous 21-tool surface. Connected Oracle and native-host qualification remain open; see [release notes](release-notes.md) and [implementation status](implementation-status.md).
 
 ## Codex Cloud
 

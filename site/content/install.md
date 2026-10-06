@@ -44,7 +44,7 @@ Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/
 The CLI exposes the same operations for scripts and Codex Cloud:
 
 ```sh
-npm install -g apexrest     # npm latest = 1.2.0; apexrest@1.3.0-beta.1 for the beta
+npm install -g apexrest     # npm latest = 1.3.0; apexrest@1.3.0-beta.1 for the old beta
 apexrest --help
 ```
 

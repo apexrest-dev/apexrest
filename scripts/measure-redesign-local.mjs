@@ -25,8 +25,8 @@ for (const name of (await readdir('plugins/apexrest-apex/skills')).sort())
 const evidence = {
   schemaVersion: 1,
   sourceDigest: await sourceDigest(),
-  asOf: '2026-10-05',
-  release: '1.3.0-beta.2',
+  asOf: new Date().toISOString().slice(0, 10),
+  release: JSON.parse(await readFile('package.json', 'utf8')).version,
   scope:
     'Local source measurements and optional offline compiler only; no connected Oracle or native-host calls.',
   command: 'node scripts/measure-redesign-local.mjs',

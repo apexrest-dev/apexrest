@@ -1,6 +1,6 @@
 # Host integration: Codex and Claude Code
 
-APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. The published packages (`1.2.0` on npm `latest`, `1.3.0-beta.1` on `beta`) still carry the previous 21-tool, 14-skill surface and Codex-only manifests; see [release notes](release-notes.md).
+APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. `1.3.0` on npm `latest` carries this redesigned bundle; the older `1.3.0-beta.1` on `beta` retains the previous 21-tool, 14-skill surface and Codex-only manifests. Native-host qualification of 1.3.0 remains open; see [release notes](release-notes.md).
 
 ## Ownership
 

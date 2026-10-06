@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   VERSION
-} from "./chunk-Z55FEV2C.mjs";
+} from "./chunk-RBJJNQ5O.mjs";
 import {
   ToolchainService,
   canonicalHome,

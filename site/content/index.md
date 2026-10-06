@@ -8,7 +8,7 @@ APEXREST brings application source, Oracle compilation, controlled imports and r
 
 [Install](install.md) · [Get started](../../docs/getting-started.md) · [Explore the source](https://github.com/apexrest-dev/apexrest)
 
-Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides five skills and eleven MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Published packages: stable 1.2.0 (npm `latest`) and beta 1.3.0-beta.1 (npm `beta`), which still carry the previous 21-tool, 14-skill surface; [release notes](../../docs/release-notes.md) track distribution and evidence.
+Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides five skills and eleven MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Published packages: stable 1.3.0 (npm `latest`) with the redesigned surface and the older 1.3.0-beta.1 (npm `beta`) with the previous 21-tool, 14-skill surface; [release notes](../../docs/release-notes.md) track distribution and evidence.
 
 ![APEXREST connects an agent to native APEX source, Oracle validation, controlled deployment and verification](../../docs/assets/overview.svg)
 

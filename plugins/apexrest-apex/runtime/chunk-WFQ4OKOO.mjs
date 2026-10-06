@@ -29,10 +29,10 @@ import {
   stagePlan,
   stateSchema,
   validate
-} from "./chunk-6HMVZFAH.mjs";
+} from "./chunk-E52XRLV5.mjs";
 import {
   VERSION
-} from "./chunk-Z55FEV2C.mjs";
+} from "./chunk-RBJJNQ5O.mjs";
 import {
   OracleAdapter,
   configureConnection,
@@ -3768,17 +3768,17 @@ async function dispatch(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-BJ4LLJ3O.mjs");
+        const { setup: setup2 } = await import("./chunk-PQNCKWO2.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-BJ4LLJ3O.mjs");
+        const { validateNative } = await import("./chunk-PQNCKWO2.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-BJ4LLJ3O.mjs");
+        const { uninstallNative } = await import("./chunk-PQNCKWO2.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -4044,7 +4044,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             data = await tests.auth(ctx, text("env"));
             break;
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-GU4CMR2T.mjs");
+            const { openVerificationBrowser } = await import("./chunk-IL7BXHHY.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),

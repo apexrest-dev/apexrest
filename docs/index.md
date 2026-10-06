@@ -2,7 +2,7 @@
 
 ![APEXREST pencil and ruler symbol](assets/apexrest-logo.svg)
 
-APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. The published packages are `apexrest@1.2.0` (npm `latest`) and `apexrest@1.3.0-beta.1` (npm `beta`), which still carry the previous 21-tool surface; the redesigned surface described here is implemented in the source repository and verified locally only. [Implementation status](implementation-status.md) and [next actions](next-actions.md) track the remaining checks.
+APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. `apexrest@1.3.0` is published under npm `latest` with this redesigned surface. The older `1.3.0-beta.1` remains under `beta` with the previous 21-tool surface. Connected Oracle, browser and native-host qualification remain open. [Implementation status](implementation-status.md) and [next actions](next-actions.md) track the remaining checks.
 
 ## Start here
 
