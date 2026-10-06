@@ -9,6 +9,8 @@ permissions:
   contents: read
 jobs:
   release:
+    # Repository deployment is disabled; retain the reviewed workflow for reference.
+    if: ${{ false }}
     environment: apexrest-release
     runs-on: [self-hosted, apexrest-release-trusted]
     permissions:

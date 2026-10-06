@@ -1,10 +1,16 @@
 # Implementation status
 
+## Repository automation — 2026-10-06
+
+At the user's request, removed the `pull_request` trigger from `.github/workflows/ci.yml` and restricted its `push` trigger to `main`. The cross-platform quality jobs still run on `main`. Disabled the trusted Oracle/native evidence and release workflows through GitHub; both report `disabled_manually` and have no active runs. Their checked-in jobs also use `if: ${{ false }}`. Publisher configuration remains disabled (`enabled: false`, `npmEnabled: false`); this repository has no GitHub Pages site. Workflow YAML, trigger/job scope, lint and documentation links were checked locally. Existing PR check results remain historical evidence.
+
 ## Main integration — 2026-10-06
 
 Integrated GitHub PRs [#1](https://github.com/apexrest-dev/apexrest/pull/1) and [#2](https://github.com/apexrest-dev/apexrest/pull/2), the pending CRM template fixes and all five additional worktree tips into `main`. The three older Codex tips were already ancestors; the PR #1 worktree history is now retained alongside its earlier squash merge. Rebuilt the checked-in plugin from the combined source and reconciled the documentation without changing the original build specification. The [pre-ship harness failure](evidence/oracle-integration-pre-ship.json) remains separate from the later [ship-based run](evidence/oracle-integration.json).
 
 Local validation passed: lint, documentation links, typecheck, Composer catalog, plugin integrity/fresh-build comparison, 367 unit tests (one real SQLcl 26.3 test skipped because its opt-in environment was absent), 61 contract tests, 46 installer tests, 27 packaging tests, site build, release dry-run and repository plugin smoke. Both PR #2 CI runs passed on Ubuntu (Node 24 and 26), macOS and Windows (Node 24). This integration did not rerun live Oracle/application/browser or native model-host qualification; the existing receipts keep their original scope and source digests. No npm publication or tag was created.
+
+The merged `main` at `87d3d2f` also passed the complete [cross-platform CI run](https://github.com/apexrest-dev/apexrest/actions/runs/37524969882) before the repository automation settings were changed.
 
 ## Customer CRM integration on local APEX 26.2 — 2026-10-06
 

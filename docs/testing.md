@@ -18,6 +18,8 @@ Choose checks that establish the behavior being changed, then record what actual
 
 Build with `npm run build` before checks that consume `dist/`. When the `claude` CLI is installed, the packaging tests also run `claude plugin validate --strict` on the plugin and the marketplace. The [implementation status](implementation-status.md) records dated results; this command list does not imply that every current release platform or Oracle scenario has passed.
 
+The GitHub `Local quality gates` workflow runs automatically only for pushes to `main`. Pull requests and pushes to other branches do not trigger CI. The trusted Oracle/native evidence and release workflows are disabled in GitHub, and their checked-in jobs are gated off. Run the relevant local checks before integrating changes into `main`.
+
 ## Host and Oracle checks
 
 `npm run test:repository-plugin` installs the bundled plugin into an isolated Codex profile and checks registration plus installed CLI/stdio MCP behavior. It does not invoke a model or prove that a host loaded the skills or tools in a conversation; those observations require a real Codex or Claude Code session.

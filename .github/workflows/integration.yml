@@ -5,7 +5,8 @@ permissions:
   contents: read
 jobs:
   trusted-target:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    # Repository deployment is disabled; retain the reviewed workflow for reference.
+    if: ${{ false }}
     environment: apexrest-integration
     runs-on: [self-hosted, apexrest-trusted]
     steps:
