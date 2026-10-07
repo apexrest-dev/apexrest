@@ -12,7 +12,7 @@ import {
   contained,
 } from '../../core/src/fs.ts';
 import { Fault } from '../../core/src/result.ts';
-import { nativeMarketplace, resolveNativePlugin } from './package-source.ts';
+import { nativeMarketplace, resolveNativePlugin, validateNative } from './package-source.ts';
 import { checkCodex, codexInvoke, inspectRegistration, listMarketplaces } from './registration.ts';
 import { canonicalHome, renameWithRetry } from './toolchain.ts';
 export interface NativeInstallRequest {
@@ -24,8 +24,27 @@ export interface NativeInstallRequest {
   dryRun?: boolean;
   expectedRegistration?: string;
 }
+interface ClaudeManifest {
+  name: string;
+  version: string;
+  description?: string;
+  author?: { name: string; url?: string };
+  mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
+}
+const claudeFile = '.claude-plugin/plugin.json';
+/** Normalize only installer-owned launch bindings; metadata remains part of payload integrity. */
+function normalizeClaude(manifest: ClaudeManifest) {
+  const server = manifest.mcpServers?.apexrest;
+  if (manifest.name !== 'apexrest' || !server || Object.keys(manifest.mcpServers).length !== 1)
+    throw new Fault('INVALID_PACKAGE', 'Claude Code must expose the same apexrest MCP server.', 2);
+  server.command = 'node';
+  server.args = ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'];
+  delete server.env;
+  return manifest;
+}
 export async function installNative(r: NativeInstallRequest) {
   const source = await resolveNativePlugin(r.source);
+  await validateNative(source);
   const payload = Object.fromEntries(
     Object.entries(await inventory(source)).map(([file, digest]) => [
       'plugins/apexrest-apex/' + file,
@@ -33,11 +52,38 @@ export async function installNative(r: NativeInstallRequest) {
     ]),
   );
   payload['.agents/plugins/marketplace.json'] = hash(JSON.stringify(nativeMarketplace, null, 2) + '\n');
+  const claude = (await exists(path.join(source, claudeFile)))
+    ? ((await readJson(path.join(source, claudeFile))) as ClaudeManifest)
+    : undefined;
+  const claudeMarketplace = claude
+    ? {
+        name: 'apexrest',
+        owner: claude.author ?? { name: 'APEXREST' },
+        metadata: { description: 'Oracle APEX development, deployment and testing', version: claude.version },
+        plugins: [
+          {
+            name: claude.name,
+            source: './plugins/apexrest-apex',
+            description: claude.description,
+            version: claude.version,
+            category: 'productivity',
+          },
+        ],
+      }
+    : undefined;
+  if (claudeMarketplace)
+    payload['.claude-plugin/marketplace.json'] = hash(JSON.stringify(claudeMarketplace, null, 2) + '\n');
   const copyDigest = hash(canonical(payload));
   const sourceMcpFile = (await exists(path.join(source, 'plugin.json'))) ? 'mcp.json' : '.mcp.json';
   const mcpKey = 'plugins/apexrest-apex/' + sourceMcpFile;
-  // The installer rewrites only the MCP binding after copying; everything else must match.
-  const expectedFiles = canonical({ ...payload, [mcpKey]: undefined });
+  const claudeKey = 'plugins/apexrest-apex/' + claudeFile;
+  // Both hosts share the managed Node/home. Only their launch bindings may differ from source.
+  const expectedFiles = canonical({
+    ...payload,
+    [mcpKey]: undefined,
+    ...(claude ? { [claudeKey]: undefined } : {}),
+  });
+  const expectedClaude = claude ? canonical(normalizeClaude(claude)) : undefined;
   const sourceMcp = (await readJson(path.join(source, sourceMcpFile))) as {
     mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
   };
@@ -49,6 +95,7 @@ export async function installNative(r: NativeInstallRequest) {
   sourceServer.args = ['runtime/mcp.mjs'];
   delete sourceServer.env;
   payload[mcpKey] = hash(JSON.stringify(sourceMcp, null, 2) + '\n');
+  if (claude) payload[claudeKey] = hash(JSON.stringify(claude, null, 2) + '\n');
   const digest = hash(canonical(payload));
   if (!r.dryRun) {
     await mkdir(r.home, { recursive: true, mode: 0o700 });
@@ -98,7 +145,8 @@ export async function installNative(r: NativeInstallRequest) {
     const stamp = Date.now();
     const configBackup = path.join(home, 'config-before-install-' + stamp + '.toml');
     if (await exists(config)) await cp(config, configBackup);
-    const repaired = (await exists(destination)) && !(await reusable(destination, expectedFiles, mcpKey));
+    const repaired =
+      (await exists(destination)) && !(await reusable(destination, expectedFiles, mcpKey, expectedClaude));
     if (repaired) {
       // A content-addressed directory that no longer matches its address is rebuilt, never reused.
       const broken = `${destination}.broken-${stamp}`;
@@ -112,6 +160,8 @@ export async function installNative(r: NativeInstallRequest) {
       await mkdir(path.join(staging, 'plugins'), { recursive: true });
       await cp(source, path.join(staging, 'plugins/apexrest-apex'), { recursive: true });
       await writeJson(path.join(staging, '.agents/plugins/marketplace.json'), nativeMarketplace);
+      if (claudeMarketplace)
+        await writeJson(path.join(staging, '.claude-plugin/marketplace.json'), claudeMarketplace);
       if (hash(canonical(await inventory(staging))) !== copyDigest)
         throw new Fault('PACKAGE_COPY_INVALID', 'Native package copy changed.', 5);
       await renameWithRetry(staging, destination);
@@ -127,6 +177,15 @@ export async function installNative(r: NativeInstallRequest) {
     server.args = [path.join(root, 'runtime/mcp.mjs')];
     server.env = { APEXREST_HOME: home };
     await writeJson(mcpPath, mcp);
+    if (claude) {
+      const installedClaude = normalizeClaude(
+        (await readJson(path.join(root, claudeFile))) as ClaudeManifest,
+      );
+      installedClaude.mcpServers.apexrest!.command = node;
+      installedClaude.mcpServers.apexrest!.env = { APEXREST_HOME: home };
+      // Claude expands its cache root; do not bind it to Codex's installation directory.
+      await writeJson(path.join(root, claudeFile), installedClaude);
+    }
     // Repairing the payload that is itself the registered marketplace changes its file
     // fingerprint; the repaired, verified content becomes the baseline under the lock.
     if (repaired && registration.previousRoot === destination) registration = await inspect();
@@ -264,10 +323,20 @@ export async function installationState(home: string) {
   return readJson(path.join(home, 'installation.json'));
 }
 
-async function reusable(destination: string, expectedFiles: string, mcpKey: string) {
+async function reusable(destination: string, expectedFiles: string, mcpKey: string, expectedClaude?: string) {
   try {
     const files: Record<string, string | undefined> = await inventory(destination);
     if (!files[mcpKey]) return false;
+    if (expectedClaude) {
+      const claudeKey = 'plugins/apexrest-apex/' + claudeFile;
+      if (!files[claudeKey]) return false;
+      if (
+        canonical(normalizeClaude((await readJson(path.join(destination, claudeKey))) as ClaudeManifest)) !==
+        expectedClaude
+      )
+        return false;
+      files[claudeKey] = undefined;
+    }
     return canonical({ ...files, [mcpKey]: undefined }) === expectedFiles;
   } catch {
     return false;

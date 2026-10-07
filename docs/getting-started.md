@@ -55,7 +55,7 @@ In a new session, ask:
 
 The agent calls `apexrest_status` with `detail: "doctor"`, which probes the host, SQLcl and Java without downloads or database calls and reports the SQLcl mode (`cli` or `mcp`) and database transport (`direct` or `ords`). A detected tool is not a validated compiler or a live connection; a successful registration or plugin listing alone does not prove that the MCP server started.
 
-## Install Java, SQLcl and browser tools
+## Install Java and SQLcl
 
 Missing SQLcl or Java is a reason to install, not to stop. The setup skill (`$apexrest-setup` in Codex, `/apexrest:apexrest-setup` in Claude Code) runs the bundled installer; you can run it yourself from a checkout or the installed plugin directory:
 
@@ -82,7 +82,7 @@ export PATH="$HOME/.apexrest/bin:$PATH"
 apexrest --help
 ```
 
-In PowerShell, invoke `& "$env:USERPROFILE\.apexrest\bin\apexrest.ps1"`. `npm install -g apexrest` provides the same command through npm's global `bin` directory. Managed setup registers Codex only; register Claude Code with the `claude plugin` commands above.
+In PowerShell, invoke `& "$env:USERPROFILE\.apexrest\bin\apexrest.ps1"`. `npm install -g apexrest` provides the same command through npm's global `bin` directory. Managed setup registers Codex only, but its payload contains both host manifests and marketplaces. To reuse it in Claude Code, add the `native.destination` returned by setup as the marketplace path, then install `apexrest@apexrest`. Both MCP bindings use the managed Node executable and home; Claude resolves its own cached runtime path. Direct repository installations instead inherit `APEXREST_HOME` from the launching shell.
 
 ## Connect and configure
 
@@ -133,11 +133,11 @@ Adoption (`action:adopt` with `env`, `appId` and `workingCopy`) exports into a n
 
 For an existing qualified APEX 26.2 application, initialize a sync baseline before editing, then use `importMode:auto` to select eligible changed files or `importMode:files` with an explicit page/dependency list. Review `importSelection.resolvedMode`, selected files and any full-import reasons before applying. The [partial-import guide](apex-26.2.md) gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.
 
-The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, optionally inspect requested pages with `apexrest_browser_open` and report server completion. Browser checks run only when requested. The steps are listed in the [README](../README.md#work-in-one-session).
+The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references, edit the `.apx` sources and use one `apexrest_ship mode:apply` call to compile, plan and apply. Standalone validation is for diagnostics and a separate plan is for explicit review. Report confirmed server completion and inspect requested pages with the selected browser. Browser checks run only when requested. The steps are listed in the [README](../README.md#work-in-one-session).
 
 Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see [deployment safety](deployment-safety.md).
 
-For a page or dashboard, the agent reconciles the read-only source queries and inspects the imported page in the selected verification browser. Browser observations are recorded separately from compiler and import results. Application verification uses the host in-app browser. See [testing](testing.md).
+For a page or dashboard, the agent reconciles the read-only sources and confirmed server import. It inspects the imported page in the selected browser only when requested. Browser observations are recorded separately from compiler and import results. Application verification uses the host in-app browser. See [testing](testing.md).
 
 ## Use the CLI
 
@@ -147,14 +147,14 @@ Every MCP operation has a CLI command with `--json` output and the same exit cod
 apexrest status --detail doctor --json
 apexrest project inspect --project ./crm --detail summary --json
 apexrest reference search metric card --corpus components --limit 3 --json
-apexrest apex validate --project ./crm --json
-apexrest ship --project ./crm --env dev --mode plan --user-request "Add the order status report to the dev app" --json
+# One ordinary authorized ship call compiles and plans before applying.
 apexrest ship --project ./crm --env dev --mode apply --user-request "Add the order status report to the dev app" --json
 apexrest job status JOB_ID --wait-seconds 30 --project ./crm --json
+# Only when browser verification was requested:
 apexrest browser open --project ./crm --env dev --json
 ```
 
-`ship --mode plan` validates with the Oracle compiler, reads the target and writes `.apexrest/plans/ship-<id>.json` for review; `--mode apply` is refused for production targets, which use `deploy apply` with the protected approval path. The granular commands (`deploy plan|apply|status|restore-plan`, `apex export|generate|sync|diff`, `jobs status|cancel`, `compose plan|materialize`, `panel status`) remain available. The CRM template includes schema changes, so its import needs authorization for that schema scope; verify its interactions in the host in-app browser.
+`ship --mode plan` validates with the Oracle compiler, reads the target and writes `.apexrest/plans/ship-<id>.json` for review; `--mode apply` and granular deploy/restore refuse production targets. The granular commands (`deploy plan|apply|status|restore-plan`, `apex export|generate|sync|diff`, `jobs status|cancel`, `compose plan|materialize`, `status`) remain available. The CRM template includes schema changes, so its import needs authorization for that schema scope; verify its interactions in the selected browser when requested.
 
 When calling project-scoped MCP tools, pass the absolute application project directory as `project`: the MCP server starts in its plugin directory and rejects missing or relative paths. CLI examples resolve `--project` from the terminal's working directory.
 

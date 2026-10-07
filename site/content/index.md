@@ -8,13 +8,13 @@ APEXREST brings application source, Oracle compilation, controlled imports and r
 
 ## APEX 26.2: ship a page without re-importing the whole app
 
-Change a page and its shared list of values, then import just those `.apx` files. **Automatic selection** finds eligible local changes; **explicit file selection** keeps the import limited to your list. A three-way comparison preserves remote-only changes and blocks conflicts, with a fresh SQL backup and server readback around each partial import.
+Change a page and its shared list of values, then import just those `.apx` files. **Automatic selection** finds eligible local changes; **explicit file selection** keeps the import limited to your list. A three-way comparison preserves remote-only changes and blocks conflicts, with a scoped APEXlang backup and readback around each partial import. Pages use native partial exports; shared files disclose full APEXlang observation through the same Codex and Claude Code runtime.
 
 > **Available in the 2.0.0 source bundle.** Requires an existing development/test app, a trusted sync baseline, 26.2 sources/target and reviewed SQLcl 26.3 using a direct connection. The APEXREST CLI and MCP tool both support it; 26.1 keeps full imports.
 
 [Get started with partial imports](../../docs/apex-26.2.md#quick-start-from-an-updated-checkout) · [Compare import modes](../../docs/apex-26.2.md#choose-an-import-mode)
 
-Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides five skills and ten MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Use the current source bundle for the features described here; see [release notes](../../docs/release-notes.md).
+Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides six skills and ten MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Use the current source bundle for the features described here; see [release notes](../../docs/release-notes.md).
 
 ![APEXREST connects an agent to native APEX source, Oracle validation, controlled deployment and verification](../../docs/assets/overview.svg)
 

@@ -66,7 +66,7 @@ export async function validateNative(source?: string) {
   const portable = await exists(path.join(root, 'plugin.json'));
   const manifest = (await readJson(
     path.join(root, portable ? 'plugin.json' : '.codex-plugin/plugin.json'),
-  )) as { name: string; version: string; mcpServers?: string };
+  )) as { name: string; version: string; skills?: string; mcpServers?: string };
   if (
     manifest.name !== 'apexrest-apex' ||
     !/^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(manifest.version)
@@ -92,6 +92,29 @@ export async function validateNative(source?: string) {
         throw new Fault('MANIFEST_SCHEMA_INVALID', ajv.errorsText(), 2);
   } else if (manifest.mcpServers !== './.mcp.json')
     throw new Fault('MANIFEST_SCHEMA_INVALID', 'Compatibility manifest must use the companion .mcp.json.', 2);
+  // Legacy Codex-only payloads remain valid; a dual-host payload must bind the same flow.
+  if (await exists(path.join(root, '.claude-plugin/plugin.json'))) {
+    const claude = (await readJson(path.join(root, '.claude-plugin/plugin.json'))) as {
+      name: string;
+      version: string;
+      skills: string;
+      mcpServers: typeof mcp.mcpServers;
+    };
+    if (
+      claude.name !== 'apexrest' ||
+      claude.version !== manifest.version ||
+      claude.skills !== (manifest.skills ?? './skills/') ||
+      !claude.mcpServers?.apexrest ||
+      Object.keys(claude.mcpServers).length !== 1 ||
+      JSON.stringify(claude.mcpServers.apexrest.args) !==
+        JSON.stringify(['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'])
+    )
+      throw new Fault(
+        'MANIFEST_SCHEMA_INVALID',
+        'Claude Code must use the same version, skills and runtime as Codex.',
+        2,
+      );
+  }
   for (const file of ['runtime/mcp.mjs', 'runtime/apexrest.mjs', 'skills/apexrest-setup/SKILL.md'])
     if (!(await exists(path.join(root, file)))) throw new Fault('INCOMPLETE_PACKAGE', `Missing ${file}`, 2);
   return { status: 'valid', profile: portable ? 'portable' : 'codex-compat', version: manifest.version };

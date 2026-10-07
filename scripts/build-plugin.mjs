@@ -60,7 +60,7 @@ await build({
   },
 });
 for (const name of ['apexrest', 'mcp']) await chmod(`dist/runtime/${name}.mjs`, 0o755);
-// Codex is the only product target. Remove the former generated experimental package.
+// One payload serves both hosts. Keep the historical profile name for package compatibility.
 await rm('dist/portable', { recursive: true, force: true });
 const profile = 'codex-compat';
 const root = `dist/${profile}/plugins/apexrest-apex`;

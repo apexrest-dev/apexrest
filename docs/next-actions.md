@@ -2,7 +2,7 @@
 
 ## Connected and host qualification
 
-- Exercise the current six-skill/ten-tool bundle in fresh Codex and Claude Code sessions: discovery, a change through the work skill, ship/job behavior and browser handoff.
+- Exercise the shared six-skill/ten-tool bundle in fresh Codex and Claude Code sessions: skill/tool discovery and the one-call scoped ship/job flow. Manifest-driven subprocess parity and managed binding checks are local evidence only; request browser verification separately when needed. Confirm a shared managed home or externally serialize independent homes.
 - On an explicitly authorized development/test target, verify full and selected-file imports, source preservation, authenticated browser CRUD, denied actions, stale versions and narrow screens. Record compiler, import and browser observations separately.
 - Qualify Linux/Windows/WSL2 native installations and connected SQLcl/ORDS behavior. Hosted build tests do not establish native host or Oracle behavior.
 - Qualify native selected export for shared-component files; current isolated component imports disclose full APEXlang observation. The local page/LOV/dashboard and selected-page restore checks passed; broader families, independent machines and target builds remain separate qualification.

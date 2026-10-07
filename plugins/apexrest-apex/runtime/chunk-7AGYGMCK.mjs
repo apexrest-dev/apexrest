@@ -14548,17 +14548,17 @@ async function dispatch(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-A5YPFB6V.mjs");
+        const { setup: setup2 } = await import("./chunk-3XOM7VZK.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-A5YPFB6V.mjs");
+        const { validateNative } = await import("./chunk-3XOM7VZK.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-A5YPFB6V.mjs");
+        const { uninstallNative } = await import("./chunk-3XOM7VZK.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

@@ -845,6 +845,20 @@
         "docs/oracle-apexlang-coverage.md"
       ],
       "blocker": "This criterion covers the pinned source inventory and local packaged retrieval only. Oracle target behavior, new release qualification and native host/browser behavior remain separate."
+    },
+    {
+      "id": "HOST-PARITY-01",
+      "criterion": "Codex and Claude Code use one canonical skill/runtime flow, equivalent scoped ship contracts and the same managed Node/home bindings; both marketplaces remain installable",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/contracts/host-parity.test.mjs",
+        "tests/installers/native-source.test.ts",
+        "tests/packaging/packages.test.mjs",
+        "tests/unit/partial-import.test.ts",
+        "docs/evidence/host-parity/latest.json"
+      ],
+      "blocker": "Manifest-driven subprocess and installer fixtures do not prove fresh native model-host skill/tool execution. Managed setup registers Codex only; Claude uses its native plugin registration commands. No new Oracle or browser run is authorized by host parity work."
     }
   ]
 }

@@ -18,11 +18,11 @@ import {
 import { atomicWrite, inventory, readJson, writeJson } from '../../packages/core/src/fs.ts';
 import { installNative } from '../../packages/installer/src/native.ts';
 import { uninstallNative } from '../../packages/installer/src/setup.ts';
-import { nativeMarketplace } from '../../packages/installer/src/package-source.ts';
+import { nativeMarketplace, validateNative } from '../../packages/installer/src/package-source.ts';
 
 const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
 
-async function fixture(t: TestContext) {
+async function fixture(t: TestContext, dualHost = false) {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-native-source-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = path.join(root, 'checkout');
@@ -41,6 +41,15 @@ async function fixture(t: TestContext) {
   await writeJson(path.join(plugin, '.mcp.json'), {
     mcpServers: { apexrest: { command: 'node', args: ['runtime/mcp.mjs'], cwd: '.' } },
   });
+  if (dualHost)
+    await writeJson(path.join(plugin, '.claude-plugin/plugin.json'), {
+      name: 'apexrest',
+      version: '0.1.0-test',
+      description: 'Dual-host installer fixture',
+      author: { name: 'APEXREST' },
+      skills: './skills/',
+      mcpServers: { apexrest: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'] } },
+    });
   for (const file of [
     'runtime/mcp.mjs',
     'runtime/apexrest.mjs',
@@ -183,6 +192,57 @@ if (command === 'plugin marketplace list') {
     },
   };
 }
+
+test(
+  'dual-host installation binds the same managed Node/home and remains portable and reinstallable (local fixture)',
+  { skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false },
+  async (t) => {
+    const f = await fixture(t, true);
+    const before = await inventory(f.plugin);
+    const installed = await installNative(f.request);
+    assert.ok('root' in installed);
+    const codex = (await readJson(path.join(installed.root, '.mcp.json'))) as {
+      mcpServers: Record<string, { command: string; args: string[]; env: object }>;
+    };
+    const claude = (await readJson(path.join(installed.root, '.claude-plugin/plugin.json'))) as {
+      mcpServers: typeof codex.mcpServers;
+    };
+    assert.equal(claude.mcpServers.apexrest!.command, codex.mcpServers.apexrest!.command);
+    assert.deepEqual(claude.mcpServers.apexrest!.env, { APEXREST_HOME: f.home });
+    assert.deepEqual(claude.mcpServers.apexrest!.env, codex.mcpServers.apexrest!.env);
+    assert.deepEqual(claude.mcpServers.apexrest!.args, ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs']);
+    const market = (await readJson(path.join(installed.destination, '.claude-plugin/marketplace.json'))) as {
+      plugins: { name: string; version: string; source: string }[];
+    };
+    assert.deepEqual(
+      market.plugins.map(({ name, version, source }) => ({ name, version, source })),
+      [{ name: 'apexrest', version: '0.1.0-test', source: './plugins/apexrest-apex' }],
+    );
+    assert.equal((await validateNative(installed.root)).status, 'valid');
+    const repeat = await installNative({ ...f.request, source: installed.root, dryRun: true });
+    assert.equal(repeat.sourceDigest, installed.sourceDigest);
+    assert.equal(repeat.destination, installed.destination);
+    await f.assertSourceUnchanged(before);
+  },
+);
+
+test(
+  'dual-host validation refuses different skills, versions or runtime entrypoints',
+  { skip: process.platform === 'win32' ? 'Fixture uses POSIX links.' : false },
+  async (t) => {
+    const f = await fixture(t, true);
+    const file = path.join(f.plugin, '.claude-plugin/plugin.json');
+    const original = (await readJson(file)) as Record<string, unknown>;
+    for (const patch of [
+      { version: '0.2.0' },
+      { skills: './other-skills/' },
+      { mcpServers: { apexrest: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/runtime/other.mjs'] } } },
+    ]) {
+      await writeJson(file, { ...original, ...patch });
+      await assert.rejects(validateNative(f.plugin), { code: 'MANIFEST_SCHEMA_INVALID' });
+    }
+  },
+);
 
 test(
   'native install copies only the selected plugin and own marketplace (local Codex fixture)',
@@ -469,7 +529,7 @@ test(
     skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false,
   },
   async (t) => {
-    const f = await fixture(t);
+    const f = await fixture(t, true);
     const previousNode = path.join(f.root, 'node-before');
     const nextNode = path.join(f.root, 'node-after');
     const first = await installNative({ ...f.request, node: previousNode });
@@ -498,6 +558,15 @@ test(
     };
     assert.equal(oldMcp.mcpServers.apexrest.command, previousNode);
     assert.equal(nextMcp.mcpServers.apexrest.command, nextNode);
+    for (const [root, node] of [
+      [first.root, previousNode],
+      [second.root, nextNode],
+    ]) {
+      const claude = (await readJson(path.join(root!, '.claude-plugin/plugin.json'))) as {
+        mcpServers: { apexrest: { command: string } };
+      };
+      assert.equal(claude.mcpServers.apexrest.command, node);
+    }
     const state = (await readJson(f.stubState)) as { marketplaces: { name: string; root: string }[] };
     assert.equal(state.marketplaces.find((market) => market.name === 'apexrest')!.root, second.destination);
   },
@@ -509,7 +578,7 @@ test(
     skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false,
   },
   async (t) => {
-    const f = await fixture(t);
+    const f = await fixture(t, true);
     const first = await installNative(f.request);
     assert.ok('root' in first);
     const expected = await inventory(first.destination);
@@ -527,6 +596,17 @@ test(
     const third = await installNative(f.request);
     assert.ok('root' in third);
     assert.deepEqual(await inventory(third.destination), expected);
+    const claudePath = path.join(third.root, '.claude-plugin/plugin.json');
+    const claude = (await readJson(claudePath)) as { description: string };
+    claude.description = 'Modified manifest metadata';
+    await writeJson(claudePath, claude);
+    const repairedClaude = await installNative(f.request);
+    assert.ok('root' in repairedClaude);
+    assert.deepEqual(
+      await inventory(repairedClaude.destination),
+      expected,
+      'Claude metadata is integrity checked, not ignored with its launch binding',
+    );
   },
 );
 

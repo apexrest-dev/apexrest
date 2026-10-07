@@ -11,14 +11,14 @@ These commands verify the repository implementation, not applications through th
 | `npm run lint`            | Formatting and source conventions                           |
 | `npm run typecheck`       | TypeScript consistency                                      |
 | `npm run test:unit`       | Core and failure/concurrency fixtures                       |
-| `npm run test:contracts`  | CLI and stdio MCP contracts, including the ten-tool catalog |
+| `npm run test:contracts`  | CLI/MCP contracts, both host manifest launches and tool parity |
 | `npm run test:installers` | Download, archive, integrity and platform fixtures          |
 | `npm run test:packaging`  | Package schemas, containment, manifests and site checks     |
 | `npm run docs:check`      | Links, anchors and documented commands                      |
 | `npm run plugin:check`    | Checked-in bundle matches a fresh build                     |
 | `npm run site:build`      | Local documentation site generation                         |
 
-Build with `npm run build` before checks that consume `dist/`. Packaging validates Claude Code manifests when its CLI is available. GitHub local quality gates run only on pushes to `main`; release and Oracle integration workflows remain disabled.
+Build with `npm run build` before checks that consume `dist/`. Packaging validates Claude Code manifests when its CLI is available. The host-parity contract resolves each manifest launcher from a relocated payload, compares the scoped ship/tool contracts and references, and checks shared managed connection state. Installer fixtures check both Node/home bindings and payload integrity. These do not start model sessions or import an application. GitHub local quality gates run only on pushes to `main`; release and Oracle integration workflows remain disabled.
 
 ## Host and Oracle checks
 
@@ -30,7 +30,7 @@ The integration harness uses `ship --mode apply --user-request TEXT` to bind the
 
 ## Application-only changes
 
-For a page or dashboard change, validate with the real Oracle compiler (`apexrest_apex_validate` until `diagnostics` is empty), reconcile the source queries through authorized read-only checks (`apexrest_metadata_read`) and report confirmed server completion. Inspect the page in the selected browser only when the user requests it. `apexrest_ship` validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.
+For an ordinary authorized page or dashboard change, use one `apexrest_ship mode:apply` call; it validates with the real Oracle compiler before import. Use standalone `apexrest_apex_validate` for editing diagnostics, reconcile source queries through authorized read-only checks (`apexrest_metadata_read`) when needed and report confirmed server completion. Inspect the page in the selected browser only when the user requests it. `apexrest_ship` validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.
 
 When browser verification is requested, exercise the requested positive and negative interactions through the built-in or user-selected browser. Application writes need their own authorized scope and disposable test data. Compiler and metadata checks do not establish authenticated UI behavior.
 

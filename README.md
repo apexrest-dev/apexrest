@@ -6,7 +6,7 @@
 
 **Build and change Oracle APEX applications with Codex or Claude Code, from source to a verified import.**
 
-Oracle APEX is a platform for building business web applications (forms, dashboards, reports and internal tools) on Oracle Database. APEXREST is a plugin for coding agents: a request such as "add an order status report" becomes APEXlang source changes, a real Oracle compiler check, a reviewed deployment plan, an authorized import into a development or test application and a browser check of the result.
+Oracle APEX is a platform for building business web applications (forms, dashboards, reports and internal tools) on Oracle Database. APEXREST is a plugin for coding agents: a request such as "add an order status report" becomes APEXlang source changes, a real Oracle compiler check, a reviewed deployment plan, an authorized import into a development or test application and, when requested, a browser check of the result.
 
 The plugin provides six skills and ten MCP tools backed by one runtime that runs Oracle SQLcl. The same bundle installs into Codex (desktop and CLI) and Claude Code, and the `apexrest` CLI exposes the same operations for scripts and Codex Cloud.
 
@@ -68,13 +68,13 @@ Describe the change in the conversation or invoke the work skill: `$apexrest-wor
 1. **Project.** New app: `apexrest_project` `action:init` with `directory` and `template` (`blank-app` or `customer-crm`) generates real Oracle sources. Existing app: `action:inspect`; `apexrest_apex_sync` `action:status` shows a working copy.
 2. **References**, at most three lookups per change: `apexrest_reference` `mode:search` with short terms, `kind` and `limit:3`, then `mode:read` the chosen ID.
 3. **Edit** `.apx` files under the application source directory, keeping `.apex/apexlang.json`, Oracle IDs, authentication and authorization.
-4. **Validate** with `apexrest_apex_validate` until `diagnostics` is empty; each diagnostic names the file, line, column, type and a hint.
-5. **Plan** with `apexrest_ship` `mode:plan`, `env` and `userRequest` (your literal instruction); review `risks`, `sources`, `target` and `importSelection`. Use `importMode:auto`, or `files` with exact paths; inspect the resolved mode and any full-import reasons.
-6. **Apply** with `apexrest_ship` `mode:apply`, keeping the same `importMode`, `files` (when selected) and `userRequest`. Apply prepares a fresh plan before execution; use granular `deploy apply` to consume a specific saved plan. Your request must identify the dev/test application to change. The runtime records a deploy grant bound to that plan, backs up, imports, verifies and removes the grant. If the call is still running after `waitSeconds`, the agent reads `apexrest_job` with the returned `jobId` instead of rerunning.
+4. **Ship** ordinary authorized edits with one `apexrest_ship` `mode:apply` call, `env` and `userRequest` (your literal instruction). The shared runtime compiles, plans, records an exact-plan grant, backs up, imports, verifies and removes the grant. `importMode:auto` selects eligible changed pages/shared files; `files` binds exact paths; other/global changes use the full application.
+5. **Review when needed.** Use standalone `apexrest_apex_validate` for diagnostics or `mode:plan` for an explicit review; omit these duplicate calls during ordinary edits. A separate `mode:apply` prepares a fresh plan; granular `deploy apply` consumes a particular saved plan after review.
+6. **Wait for completion.** If the call is still running after `waitSeconds`, read `apexrest_job` with the returned `jobId`; never rerun ship to fetch a result.
 7. **When requested, verify** visibly changed pages: `apexrest_browser_open` returns the URL, then the agent opens it with the selected browser (`host`, legacy alias `codex`) and checks rendering, navigation and the changed interaction.
 8. **Report** files changed, validation result, ship status and `runId`, pages verified in the browser, and anything not verified with its reason.
 
-An explicit request to create, update or import an identified DEV/QA/TEST application is the authorization for step 6; the agent does not ask again. Production targets always block deployment/restore. Actual local DEV/QA/TEST targets allow all task-scoped DB changes; remote dangerous operations require human confirmation of the exact reviewed plan. Read the canonical [safety rules](https://apexrest-dev.github.io/apexrest/deployment/). Blocked, failed or unknown outcomes follow `$apexrest-safety`; missing tools or connections follow `$apexrest-setup`.
+An explicit request to create, update or import an identified DEV/QA/TEST application is the authorization for step 4; the agent does not ask again. Production targets always block deployment/restore. Actual local DEV/QA/TEST targets allow all task-scoped DB changes; remote dangerous operations require human confirmation of the exact reviewed plan. Read the canonical [safety rules](https://apexrest-dev.github.io/apexrest/deployment/). Blocked, failed or unknown outcomes follow `$apexrest-safety`; missing tools or connections follow `$apexrest-setup`.
 
 ## Tools
 
@@ -120,7 +120,7 @@ ORDS also enables the [Codex Cloud setup](https://apexrest-dev.github.io/apexres
 
 ## Deployment boundary
 
-A plan binds sources, configuration, toolchain and target and expires after 30 minutes. Apply re-checks identity and drift, takes a checksummed SQL backup of an existing application, freezes the sources and records migration history and ownership in a local durable store under `APEXREST_HOME`. A clean supported APEX installation is sufficient: no APEXREST service tables exist or are created. Coordination is local to one managed home; independent machines need external serialization (for example one CI deploy job). An unknown outcome is never retried blindly. Read [deployment safety](https://apexrest-dev.github.io/apexrest/deployment/).
+A plan binds sources, configuration, toolchain and target and expires after 30 minutes. Apply re-checks identity and drift, retains a checksummed APEXlang snapshot of the selected scope or full application, freezes the sources and records migration history and ownership in a local durable store under `APEXREST_HOME`. A clean supported APEX installation is sufficient: no APEXREST service tables exist or are created. Coordination is local to one managed home; independent machines need external serialization (for example one CI deploy job). An unknown outcome is never retried blindly. Read [deployment safety](https://apexrest-dev.github.io/apexrest/deployment/).
 
 ![Deployment flow: inspect once, edit coherent changes, validate, review the bound plan, back up and import, then verify.](docs/assets/deployment-flow.svg)
 

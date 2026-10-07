@@ -1,6 +1,6 @@
 # Source version {{version}}
 
-The repository plugin provides five skills and ten composite tools for Codex and Claude Code. It supports APEX 26.1 full imports and [APEX 26.2 partial imports](../../docs/apex-26.2.md), release-specific references, source validation and guarded deployment.
+The repository plugin provides six skills and ten composite tools for Codex and Claude Code. It supports APEX 26.1 full imports and [APEX 26.2 partial imports](../../docs/apex-26.2.md), release-specific references, source validation and guarded deployment.
 
 Application verification uses the host in-app browser, separately from compiler and import results. The plugin installs no browser and provides no automatic application test suites.
 

@@ -1623,6 +1623,15 @@ async function validateNative(source) {
         throw new Fault("MANIFEST_SCHEMA_INVALID", ajv.errorsText(), 2);
   } else if (manifest.mcpServers !== "./.mcp.json")
     throw new Fault("MANIFEST_SCHEMA_INVALID", "Compatibility manifest must use the companion .mcp.json.", 2);
+  if (await exists(path.join(root, ".claude-plugin/plugin.json"))) {
+    const claude = await readJson(path.join(root, ".claude-plugin/plugin.json"));
+    if (claude.name !== "apexrest" || claude.version !== manifest.version || claude.skills !== (manifest.skills ?? "./skills/") || !claude.mcpServers?.apexrest || Object.keys(claude.mcpServers).length !== 1 || JSON.stringify(claude.mcpServers.apexrest.args) !== JSON.stringify(["${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs"]))
+      throw new Fault(
+        "MANIFEST_SCHEMA_INVALID",
+        "Claude Code must use the same version, skills and runtime as Codex.",
+        2
+      );
+  }
   for (const file of ["runtime/mcp.mjs", "runtime/apexrest.mjs", "skills/apexrest-setup/SKILL.md"])
     if (!await exists(path.join(root, file))) throw new Fault("INCOMPLETE_PACKAGE", `Missing ${file}`, 2);
   return { status: "valid", profile: portable ? "portable" : "codex-compat", version: manifest.version };
@@ -1734,8 +1743,19 @@ async function inspectRegistration(markets, home, codexHome, destination) {
 // packages/installer/src/native.ts
 import path3 from "node:path";
 import { cp, mkdir, readFile, rm, chmod } from "node:fs/promises";
+var claudeFile = ".claude-plugin/plugin.json";
+function normalizeClaude(manifest) {
+  const server = manifest.mcpServers?.apexrest;
+  if (manifest.name !== "apexrest" || !server || Object.keys(manifest.mcpServers).length !== 1)
+    throw new Fault("INVALID_PACKAGE", "Claude Code must expose the same apexrest MCP server.", 2);
+  server.command = "node";
+  server.args = ["${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs"];
+  delete server.env;
+  return manifest;
+}
 async function installNative(r) {
   const source = await resolveNativePlugin(r.source);
+  await validateNative(source);
   const payload = Object.fromEntries(
     Object.entries(await inventory(source)).map(([file, digest2]) => [
       "plugins/apexrest-apex/" + file,
@@ -1743,10 +1763,33 @@ async function installNative(r) {
     ])
   );
   payload[".agents/plugins/marketplace.json"] = hash(JSON.stringify(nativeMarketplace, null, 2) + "\n");
+  const claude = await exists(path3.join(source, claudeFile)) ? await readJson(path3.join(source, claudeFile)) : void 0;
+  const claudeMarketplace = claude ? {
+    name: "apexrest",
+    owner: claude.author ?? { name: "APEXREST" },
+    metadata: { description: "Oracle APEX development, deployment and testing", version: claude.version },
+    plugins: [
+      {
+        name: claude.name,
+        source: "./plugins/apexrest-apex",
+        description: claude.description,
+        version: claude.version,
+        category: "productivity"
+      }
+    ]
+  } : void 0;
+  if (claudeMarketplace)
+    payload[".claude-plugin/marketplace.json"] = hash(JSON.stringify(claudeMarketplace, null, 2) + "\n");
   const copyDigest = hash(canonical(payload));
   const sourceMcpFile = await exists(path3.join(source, "plugin.json")) ? "mcp.json" : ".mcp.json";
   const mcpKey = "plugins/apexrest-apex/" + sourceMcpFile;
-  const expectedFiles = canonical({ ...payload, [mcpKey]: void 0 });
+  const claudeKey = "plugins/apexrest-apex/" + claudeFile;
+  const expectedFiles = canonical({
+    ...payload,
+    [mcpKey]: void 0,
+    ...claude ? { [claudeKey]: void 0 } : {}
+  });
+  const expectedClaude = claude ? canonical(normalizeClaude(claude)) : void 0;
   const sourceMcp = await readJson(path3.join(source, sourceMcpFile));
   const sourceServer = sourceMcp.mcpServers.apexrest;
   if (!sourceServer) throw new Fault("INVALID_PACKAGE", "Native package has no apexrest MCP server.", 2);
@@ -1754,6 +1797,7 @@ async function installNative(r) {
   sourceServer.args = ["runtime/mcp.mjs"];
   delete sourceServer.env;
   payload[mcpKey] = hash(JSON.stringify(sourceMcp, null, 2) + "\n");
+  if (claude) payload[claudeKey] = hash(JSON.stringify(claude, null, 2) + "\n");
   const digest = hash(canonical(payload));
   if (!r.dryRun) {
     await mkdir(r.home, { recursive: true, mode: 448 });
@@ -1799,7 +1843,7 @@ async function installNative(r) {
     const stamp = Date.now();
     const configBackup = path3.join(home, "config-before-install-" + stamp + ".toml");
     if (await exists(config)) await cp(config, configBackup);
-    const repaired = await exists(destination) && !await reusable(destination, expectedFiles, mcpKey);
+    const repaired = await exists(destination) && !await reusable(destination, expectedFiles, mcpKey, expectedClaude);
     if (repaired) {
       const broken = `${destination}.broken-${stamp}`;
       await renameWithRetry(destination, broken);
@@ -1812,6 +1856,8 @@ async function installNative(r) {
       await mkdir(path3.join(staging, "plugins"), { recursive: true });
       await cp(source, path3.join(staging, "plugins/apexrest-apex"), { recursive: true });
       await writeJson(path3.join(staging, ".agents/plugins/marketplace.json"), nativeMarketplace);
+      if (claudeMarketplace)
+        await writeJson(path3.join(staging, ".claude-plugin/marketplace.json"), claudeMarketplace);
       if (hash(canonical(await inventory(staging))) !== copyDigest)
         throw new Fault("PACKAGE_COPY_INVALID", "Native package copy changed.", 5);
       await renameWithRetry(staging, destination);
@@ -1825,6 +1871,14 @@ async function installNative(r) {
     server.args = [path3.join(root, "runtime/mcp.mjs")];
     server.env = { APEXREST_HOME: home };
     await writeJson(mcpPath, mcp);
+    if (claude) {
+      const installedClaude = normalizeClaude(
+        await readJson(path3.join(root, claudeFile))
+      );
+      installedClaude.mcpServers.apexrest.command = node;
+      installedClaude.mcpServers.apexrest.env = { APEXREST_HOME: home };
+      await writeJson(path3.join(root, claudeFile), installedClaude);
+    }
     if (repaired && registration.previousRoot === destination) registration = await inspect();
     const current = await inspect();
     if (current.fingerprint !== registration.fingerprint)
@@ -1930,10 +1984,17 @@ async function installNative(r) {
 async function installationState(home) {
   return readJson(path3.join(home, "installation.json"));
 }
-async function reusable(destination, expectedFiles, mcpKey) {
+async function reusable(destination, expectedFiles, mcpKey, expectedClaude) {
   try {
     const files = await inventory(destination);
     if (!files[mcpKey]) return false;
+    if (expectedClaude) {
+      const claudeKey = "plugins/apexrest-apex/" + claudeFile;
+      if (!files[claudeKey]) return false;
+      if (canonical(normalizeClaude(await readJson(path3.join(destination, claudeKey)))) !== expectedClaude)
+        return false;
+      files[claudeKey] = void 0;
+    }
     return canonical({ ...files, [mcpKey]: void 0 }) === expectedFiles;
   } catch {
     return false;
