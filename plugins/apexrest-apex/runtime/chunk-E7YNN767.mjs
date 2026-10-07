@@ -47,7 +47,7 @@ import {
   stageSelection,
   supportedFile,
   syncPath
-} from "./chunk-ECD4GI4G.mjs";
+} from "./chunk-VSHK3GM5.mjs";
 import {
   browserModeSchema,
   browserPreferences
@@ -14536,29 +14536,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-7CYWCKEX.mjs");
+        const { ToolchainService } = await import("./chunk-NDD4SOGD.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-FJPDAWNK.mjs");
+        const { uninstallTools } = await import("./chunk-FIYHNVUJ.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-3XOM7VZK.mjs");
+        const { setup: setup2 } = await import("./chunk-MKNRVNCU.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-3XOM7VZK.mjs");
+        const { validateNative } = await import("./chunk-MKNRVNCU.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-3XOM7VZK.mjs");
+        const { uninstallNative } = await import("./chunk-MKNRVNCU.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

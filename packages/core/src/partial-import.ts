@@ -120,7 +120,7 @@ export function selectImport(base: FileMap, local: FileMap, remote: FileMap, opt
   if (conflicts.length)
     throw new Fault(
       'IMPORT_CONFLICT',
-      'Local and server changes overlap; reconcile before planning.',
+      `Local and server changes overlap; reconcile before planning: ${conflicts.join(', ')}`,
       5,
       'blocked',
       { conflicts },

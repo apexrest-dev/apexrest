@@ -9,6 +9,7 @@ const pageDefaultRule = 'page.security.pageAccessProtection:argumentsMustHaveChe
 const regionDefaultRule = 'region.layout.startNewRow:true-default';
 const chartDefaultRule = 'region.chart.type:bar-default';
 const orderRule = 'explicit-unique-region-and-chart-component-order';
+const columnOrderRule = 'explicit-unique-report-column-order';
 const limit = 8 * 1024 * 1024;
 
 type Node =
@@ -204,7 +205,13 @@ function normalizeExport(
             node.children.some(
               (child) => child.kind === 'property' && child.name === 'type' && child.value === 'chart',
             ) &&
-            ['axis', 'series'].includes(entry.name))),
+            ['axis', 'series'].includes(entry.name)) ||
+          (node.name === 'region' &&
+            node.children.some(
+              (child) =>
+                child.kind === 'property' && child.name === 'type' && child.value === 'classicReport',
+            ) &&
+            entry.name === 'column')),
     );
     if (sortable.length > 1) {
       const sequence = (entry: Node) => {
@@ -212,7 +219,7 @@ function normalizeExport(
         if (entry.name === 'axis') return entry.key === 'x' || entry.key === 'y' ? entry.key : undefined;
         const group = entry.children.find(
           (child) =>
-            child.kind === 'group' && child.name === (entry.name === 'region' ? 'layout' : 'execution'),
+            child.kind === 'group' && child.name === (entry.name === 'series' ? 'execution' : 'layout'),
         );
         const value =
           group && 'children' in group
@@ -231,7 +238,9 @@ function normalizeExport(
         );
         let index = 0;
         children = children.map((entry) => (sortable.includes(entry) ? sorted[index++]! : entry));
-        rules.add(orderRule);
+        rules.add(
+          sortable.some((entry) => 'name' in entry && entry.name === 'column') ? columnOrderRule : orderRule,
+        );
       }
     }
     return { ...node, children };

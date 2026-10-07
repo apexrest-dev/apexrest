@@ -2583,6 +2583,7 @@ var pageDefaultRule = "page.security.pageAccessProtection:argumentsMustHaveCheck
 var regionDefaultRule = "region.layout.startNewRow:true-default";
 var chartDefaultRule = "region.chart.type:bar-default";
 var orderRule = "explicit-unique-region-and-chart-component-order";
+var columnOrderRule = "explicit-unique-report-column-order";
 var limit = 8 * 1024 * 1024;
 function readStructure(source) {
   if (Buffer.byteLength(source) > limit) throw new Error("Source exceeds the comparison limit.");
@@ -2711,14 +2712,16 @@ function normalizeExport(nodes, rules, parent) {
     const sortable = children.filter(
       (entry) => entry.kind === "component" && (node.name === "page" && entry.name === "region" || node.name === "region" && node.children.some(
         (child) => child.kind === "property" && child.name === "type" && child.value === "chart"
-      ) && ["axis", "series"].includes(entry.name))
+      ) && ["axis", "series"].includes(entry.name) || node.name === "region" && node.children.some(
+        (child) => child.kind === "property" && child.name === "type" && child.value === "classicReport"
+      ) && entry.name === "column")
     );
     if (sortable.length > 1) {
       const sequence = (entry) => {
         if (!("children" in entry)) return void 0;
         if (entry.name === "axis") return entry.key === "x" || entry.key === "y" ? entry.key : void 0;
         const group = entry.children.find(
-          (child) => child.kind === "group" && child.name === (entry.name === "region" ? "layout" : "execution")
+          (child) => child.kind === "group" && child.name === (entry.name === "series" ? "execution" : "layout")
         );
         const value = group && "children" in group ? group.children.find((child) => child.kind === "property" && child.name === "sequence") : void 0;
         return value?.kind === "property" && /^\d+$/.test(value.value) ? entry.name + ":" + value.value : void 0;
@@ -2730,7 +2733,9 @@ function normalizeExport(nodes, rules, parent) {
         );
         let index = 0;
         children = children.map((entry) => sortable.includes(entry) ? sorted[index++] : entry);
-        rules.add(orderRule);
+        rules.add(
+          sortable.some((entry) => "name" in entry && entry.name === "column") ? columnOrderRule : orderRule
+        );
       }
     }
     return { ...node, children };
@@ -2896,7 +2901,7 @@ function selectImport(base, local, remote, options2) {
   if (conflicts.length)
     throw new Fault(
       "IMPORT_CONFLICT",
-      "Local and server changes overlap; reconcile before planning.",
+      `Local and server changes overlap; reconcile before planning: ${conflicts.join(", ")}`,
       5,
       "blocked",
       { conflicts }

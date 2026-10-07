@@ -165,7 +165,10 @@ test('overlapping local and remote edits block before import rather than becomin
   const f = await initialized(t);
   await f.edit(page, 'local conflict');
   await f.edit(page, 'remote conflict', true);
-  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'IMPORT_CONFLICT' });
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), {
+    code: 'IMPORT_CONFLICT',
+    message: `Local and server changes overlap; reconcile before planning: ${page}`,
+  });
   assert.deepEqual(f.imports, []);
   assert.equal(await f.content(page, true), 'remote conflict');
   assert.equal((await f.store.read())!.status, 'ready');

@@ -20,7 +20,7 @@
 
 - Keep the managed installer default at 26.1 until broader qualification is complete. A 26.2 project needs its explicit profile, compiler and lock.
 - ORDS and SQLcl MCP-mode selected-file imports require a separate transport implementation; explicit file mode must continue refusing unsupported transports.
-- Extend readback equivalence only with actual Oracle results and negative tests. Selected-scope checks do not establish unselected server freshness; full audits remain separate.
+- Keep report-column order normalization restricted to classic reports with unique explicit sequences. Broader region types and child families need their own Oracle results and negative tests; the latest classic-report readback is session-reported, not independently repeated in the follow-up review. Selected-scope checks do not establish unselected server freshness; full audits remain separate.
 - Qualify provider calls, DDS, OCI IAM/network prerequisites and workflow migration independently of offline recipes and metadata visibility.
 
 ## Runtime and Composer

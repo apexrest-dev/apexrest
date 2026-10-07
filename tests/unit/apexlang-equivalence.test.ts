@@ -211,3 +211,41 @@ test('Oracle dashboard default elision and explicitly sequenced region order are
   ])
     assert.equal(compareApexlangSource(changed, exported).equivalent, false);
 });
+
+const report = (reverse = false) => {
+  const columns = [
+    `column TOTAL (\n reportColumnQueryId: 1\n layout {\n sequence: 10\n }\n )`,
+    `column ACTIVE (\n reportColumnQueryId: 2\n layout {\n sequence: 20\n }\n )`,
+  ];
+  return `page 70 (\n region kpis (\n type: classicReport\n layout {\n sequence: 10\n }\n ${(reverse ? columns.reverse() : columns).join('\n')}\n )\n)\n`;
+};
+test('Oracle key-ordered report columns with explicit unique sequences are equivalent', () => {
+  const authored = report();
+  assert.equal(compareApexlangSource(authored, report(true)).equivalent, true);
+  assert.ok(
+    compareApexlangSource(authored, report(true)).rules.includes('explicit-unique-report-column-order'),
+  );
+  for (const changed of [
+    authored.replace('sequence: 20', 'sequence: 10'),
+    authored.replace('reportColumnQueryId: 2', 'reportColumnQueryId: 3'),
+    authored.replace('column ACTIVE', 'column INACTIVE'),
+  ])
+    assert.equal(compareApexlangSource(changed, report(true)).equivalent, false);
+});
+
+test('report column order remains strict outside qualified classic reports and explicit unique sequences', () => {
+  for (const type of ['interactiveReport', 'interactiveGrid', 'chart', 'customPlugin']) {
+    const authored = report().replace('type: classicReport', `type: ${type}`);
+    const exported = report(true).replace('type: classicReport', `type: ${type}`);
+    assert.equal(compareApexlangSource(authored, exported).equivalent, false, type);
+  }
+  for (const [from, to] of [
+    ['sequence: 20', 'sequence: 10'],
+    ['sequence: 20', ''],
+    ['sequence: 20', 'sequence: invalid'],
+  ])
+    assert.equal(
+      compareApexlangSource(report().replace(from!, to!), report(true).replace(from!, to!)).equivalent,
+      false,
+    );
+});
