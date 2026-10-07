@@ -4,5 +4,9 @@
   "basePath": "/apexrest/",
   "siteOrigin": "https://apexrest-dev.github.io",
   "githubRepository": "apexrest-dev/apexrest",
-  "npmEnabled": true
+  "npmEnabled": true,
+  "npmReadiness": {
+    "version": "2.0.0",
+    "qualification": "local"
+  }
 }

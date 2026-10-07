@@ -32,12 +32,12 @@
 
 ## Release and repository policy
 
-Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. Publisher configuration opts into the authorized npm target; all mandatory current source-bound evidence remains required. Do not treat absent reports as passed gates.
+Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The authorized 2.0.0 npm exception retains three mandatory current local reports and treats the six external reports as advisory for npm only. Full qualification still requires all nine reports. Do not treat absent reports as passed gates.
 
 - Complete the authorized 2.0.0 npm publication after current readiness gates pass. Local checks, offline Oracle compilation and clean local-tarball CLI/MCP checks passed; registry publication and registry clean-install verification remain pending.
-- Offline Composer compilation, materialization and repeat no-op now pass with the explicit 26.2 profile. Obtain the required Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration evidence on permitted targets; narrower or older reports do not replace those gates. Keep original 26.1 records separate from the new block compiler proofs.
-- Confirm the Windows hosted regression after the host-parity teardown fix: close MCP clients before removing their working directory. The focused macOS regression passed; hosted CI is separate from native model-host qualification. Preserve `.github/workflows/ci.yml` and every mandatory release gate.
-- Complete standard ChatGPT login in the isolated native Codex test profile, and provide accessible dedicated Linux x64 and Windows x64 native test hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
+- Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The current npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
+- Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
+- Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
 
 Preserve functional catalog provenance, licensing and compiler bindings. Preserve private application baselines, APEXlang and legacy SQL backups, migration history and unresolved journals; repository cleanup does not authorize removing active deployment state.
 

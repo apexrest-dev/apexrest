@@ -2,9 +2,13 @@
 
 [apexrest-dev/apexrest](https://github.com/apexrest-dev/apexrest) is the canonical source repository. Git commits, registry packages, signed release artifacts and a deployed website are separate distribution outcomes.
 
-The authorized 2.0.0 npm publication opts in through publisher configuration: `enabled` satisfies the existing readiness opt-in and `npmEnabled` records the npm target. These settings run no publication command. The release and trusted Oracle/native integration workflows remain disabled in GitHub, and their jobs use `if: ${{ false }}`. CI runs automatically only on pushes to `main`. GitHub release/tag and integration execution require separate authorization.
+The authorized 2.0.0 npm publication requires both publisher opt-ins, `enabled` and `npmEnabled`. Its explicit `npmReadiness` exception is bound to version `2.0.0`: the three current local reports (`composer-local.json`, `local-checks.json`, `oracle-local.json`) block npm when missing, failed or stale. The six external Composer runtime/new-chat, native macOS/Linux/Windows and connected Oracle reports are advisory for this npm version. Their actual missing, blocked and stale states remain visible; they still block full qualification. A different package version does not inherit this exception.
 
-An authorized release requires current evidence bound to its exact immutable source, archive integrity, protected target/approval settings and an externally managed signing key where required. Missing, blocked or stale evidence fails readiness. Registry publication also requires verified package ownership and clean-install checks; it does not establish Oracle or native-host qualification.
+Run `npm run check-release-readiness -- --npm` for npm eligibility. The default `npm run check-release-readiness` continues to require all nine reports for full qualification and signed release packaging. Both commands report `npmReady`, `stableReady`, qualification status and each report's required scope. npm eligibility does not establish full Oracle/native qualification.
+
+These settings run no publication command. Keep local checks, successful CI on the final source, package inventory/integrity, verified registry ownership and fresh registry installation with CLI/MCP/reference checks. The release and trusted Oracle/native integration workflows remain disabled in GitHub, and their jobs use `if: ${{ false }}`. CI runs automatically only on pushes to `main`. GitHub release/tag and integration execution require separate authorization.
+
+Full qualification and signed releases require current evidence bound to the exact immutable source, archive integrity, protected target/approval settings and an externally managed signing key where required. Missing, blocked or stale required evidence fails its applicable gate. Database deployment safeguards, production refusal and unknown-outcome recovery are unchanged.
 
 ## Documentation on GitHub Pages
 
