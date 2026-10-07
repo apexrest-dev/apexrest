@@ -36,7 +36,8 @@ Run relevant local checks before integrating changes; CI runs only on `main`. Re
 
 - Complete the authorized 2.0.0 npm publication after current readiness gates pass. Local checks, offline Oracle compilation and clean local-tarball CLI/MCP checks passed; registry publication and registry clean-install verification remain pending.
 - Offline Composer compilation, materialization and repeat no-op now pass with the explicit 26.2 profile. Obtain the required Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration evidence on permitted targets; narrower or older reports do not replace those gates. Keep original 26.1 records separate from the new block compiler proofs.
-- Review the Windows host-parity cleanup order before a new hosted verification run. The read-only CI inventory identifies `.github/workflows/ci.yml` as the active quality workflow; branch-hosted Pages is separate. No workflow or release gate has been changed by this preflight.
+- Confirm the Windows hosted regression after the host-parity teardown fix: close MCP clients before removing their working directory. The focused macOS regression passed; hosted CI is separate from native model-host qualification. Preserve `.github/workflows/ci.yml` and every mandatory release gate.
+- Complete standard ChatGPT login in the isolated native Codex test profile, and provide accessible dedicated Linux x64 and Windows x64 native test hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
 
 Preserve functional catalog provenance, licensing and compiler bindings. Preserve private application baselines, APEXlang and legacy SQL backups, migration history and unresolved journals; repository cleanup does not authorize removing active deployment state.
 

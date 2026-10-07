@@ -11,7 +11,14 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 // This is a subprocess contract, not a native agent session or Oracle import.
 test('both host manifests launch the same scoped ship contract, references and managed state outside the checkout', async (t) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-host-parity-')));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  const clients = [];
+  t.after(async () => {
+    // Windows cannot remove a directory while an MCP process uses it as its cwd.
+    const closed = await Promise.allSettled(clients.map((client) => client.close()));
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    const failure = closed.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
+  });
   const plugin = path.join(root, 'plugin cache with spaces café');
   const project = path.join(root, 'application');
   const home = path.join(root, 'shared managed home');
@@ -43,7 +50,6 @@ test('both host manifests launch the same scoped ship contract, references and m
     codex: { ...shared.mcpServers.apexrest, cwd: plugin },
     claude: { ...shared.mcpServers, ...claude.mcpServers }.apexrest,
   };
-  const clients = [];
   for (const [host, server] of Object.entries(launches)) {
     const args = server.args.map((arg) => arg.replaceAll('${CLAUDE_PLUGIN_ROOT}', plugin));
     assert.equal(
@@ -51,7 +57,7 @@ test('both host manifests launch the same scoped ship contract, references and m
       path.join(plugin, 'runtime/mcp.mjs'),
     );
     const client = new Client({ name: `host-parity-${host}`, version: '1' });
-    t.after(() => client.close());
+    clients.push(client);
     await client.connect(
       new StdioClientTransport({
         ...server,
@@ -61,7 +67,6 @@ test('both host manifests launch the same scoped ship contract, references and m
         stderr: 'pipe',
       }),
     );
-    clients.push(client);
   }
   const catalogs = await Promise.all(clients.map((client) => client.listTools()));
   assert.deepEqual(catalogs[0], catalogs[1]);
