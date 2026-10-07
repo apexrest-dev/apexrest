@@ -141,7 +141,7 @@ test('restricted MCP deployment stops before target reads or coordination writes
 
 for (const fault of ['IDENTITY_MISMATCH', 'TARGET_DRIFT', 'COMPILER_DRIFT'] as const) {
   test(
-    `concurrent apply preflight joins every read and blocks writes on ${fault}`,
+    `owned apply preflight joins every read and blocks Oracle writes on ${fault}`,
     { timeout: 5000 },
     async () => {
       const { ctx, plan, oracle, service, fingerprint } = await prepared();
@@ -185,11 +185,11 @@ for (const fault of ['IDENTITY_MISMATCH', 'TARGET_DRIFT', 'COMPILER_DRIFT'] as c
       await allStarted.promise;
       await new Promise(setImmediate);
       assert.equal(settled, false);
-      assert.equal(writes, 0);
+      assert.equal(writes, 1, 'local ownership precedes the live comparison');
       release.resolve();
       await assert.rejects(pending, { code: fault });
       assert.equal(finished.size, 3);
-      assert.equal(writes, 0);
+      assert.equal(writes, 1, 'local ownership precedes the live comparison');
     },
   );
 }

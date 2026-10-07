@@ -4,13 +4,13 @@ These are the current APEXREST product rules for application and database work. 
 
 ## Environments and precedence
 
-| Target | Application deployment | Database changes |
-| --- | --- | --- |
-| DEV (`development` or `dev`) | The identified application task authorizes plan/apply | Remote dangerous operations require exact-plan human confirmation |
-| QA (`qa`) | Same application workflow as DEV | Same remote confirmation rule |
-| TEST (`test`) | Same application workflow as DEV | Same remote confirmation rule |
-| Actually local DEV/QA/TEST server | The identified task authorizes deployment | All database/schema operations, including destructive changes, are allowed within the task without a separate risk prompt |
-| Production-marked target, including a local server | Deployment and restore are blocked | No deployment through this plugin |
+| Target                                             | Application deployment                                | Database changes                                                                                                          |
+| -------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| DEV (`development` or `dev`)                       | The identified application task authorizes plan/apply | Remote dangerous operations require exact-plan human confirmation                                                         |
+| QA (`qa`)                                          | Same application workflow as DEV                      | Same remote confirmation rule                                                                                             |
+| TEST (`test`)                                      | Same application workflow as DEV                      | Same remote confirmation rule                                                                                             |
+| Actually local DEV/QA/TEST server                  | The identified task authorizes deployment             | All database/schema operations, including destructive changes, are allowed within the task without a separate risk prompt |
+| Production-marked target, including a local server | Deployment and restore are blocked                    | No deployment through this plugin                                                                                         |
 
 Production takes precedence over locality. A target is production when `apexrest.json` marks its environment `kind: production` or its exact target digest appears in `productionTargets` in `$APEXREST_HOME/production-trust.json`. Changing an environment label does not remove a registered production mark. APEXREST reads this classification file and never edits it. Legacy approval keys may be present but are ignored: neither a signature, `CI=true`, a local grant nor human confirmation enables production deployment. Authorized read-only diagnostics and browser inspection remain available.
 
@@ -36,15 +36,15 @@ Migration and package inputs remain contained, frozen SQL/PLSQL files. Names, im
 
 ## Backups and coordination
 
-Existing applications retain the safe SQL backup workflow. Backups are checksummed, target-bound and private. Restore uses a separate exact plan and a fresh backup; production restore is blocked. Backups restore APEX metadata, not unrelated business data.
+Ordinary imports use checksummed, target-bound, private APEXlang snapshots. Page changes retain only the selected pages; full imports retain the full application. Restore uses a separate exact plan and a fresh snapshot; production restore is blocked. Existing legacy SQL backups remain explicitly restorable. Application backups restore APEX metadata, not business data. A creation snapshot records absence and cannot undo creation through an empty import; deletion requires a separately reviewed operation.
 
 Clean supported APEX requires no APEXREST control tables. Local durable migration history and schema ownership live under `$APEXREST_HOME/deployment-control/`. Runners sharing that home are serialized. Independent homes/machines require external serialization; changing or deleting durable history is not recovery. Preserve foreign/live ownership and unrelated local or server changes.
 
 ## APEX 26.2 partial imports
 
-Eligible partial plans bind an exact page/shared-component file list, baseline, fresh server snapshot and validated effective tree. The runtime creates a fresh full SQL backup, freezes sources and executes one supported SQLcl `apex import -files` call. It never silently expands explicit file selection to a full import. A page file is the import unit; this does not claim child-region granularity.
+Eligible partial plans bind an exact page/shared-component file list, baseline, fresh server snapshot and validated effective tree. Pages use native selected export. Oracle 26.2 rejects native APEXlang LOV/list export selectors, so shared-component imports explicitly bind a full APEXlang source observation while retaining backups and readback comparisons only for the selected files. The runtime reuses its pre-apply observation as the backup source, freezes sources and executes one SQLcl `apex import -files` call. It never silently expands an explicit file import to a full import. A page file is the import unit; this does not claim child-region granularity.
 
-Complete server readback checks selected and unselected files. Unselected content stays exact; selected files may use only the documented qualified formatting/default equivalence rules. Both hashes and comparison details are retained. A real content mismatch remains an error and enters reconciliation; successful command output does not mask a different imported result. See [APEX 26.2 support](apex-26.2.md).
+Readback checks selected files using the qualified formatting/default equivalence rules. Scalar values, fenced code, nondefault security and ambiguous identities remain strict. Both hashes, normalization rules and observation scope are retained. Unselected server freshness is not established by a selected comparison. A real mismatch remains a verification failure and enters reconciliation; successful command output does not mask a different result. Same-component conflicts block; other-component changes are preserved by selected import. Managed-home ownership is acquired before the fresh drift check; independent machines/homes require external serialization. See [APEX 26.2 support](apex-26.2.md).
 
 ## Interrupted imports and recovery
 

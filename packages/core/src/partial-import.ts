@@ -21,6 +21,7 @@ export const importSelectionSchema = z.strictObject({
   effective: snapshotSchema.nullable(),
   capabilities: z.record(z.string(), z.unknown()),
   readbackPolicy: z.literal(APEXLANG_EQUIVALENCE_POLICY).optional(),
+  exportScope: z.enum(['selected', 'full']).optional(),
 });
 export type ImportSelection = z.infer<typeof importSelectionSchema>;
 export function importOptions(value: ImportOptions = {}): Required<ImportOptions> {
@@ -71,6 +72,32 @@ export function supportedFile(file: string) {
         file,
       ))
   );
+}
+/** Native page selectors have a qualified one-file identity mapping. Oracle 26.2 rejects APEXlang LOV/list selectors. */
+export function scopedExportFile(file: string) {
+  return /^pages\/p\d{5}[-\w]*\.apx$/.test(file);
+}
+export function pickFiles(files: FileMap, selected: readonly string[]): FileMap {
+  return Object.fromEntries(selected.filter((file) => files[file]).map((file) => [file, files[file]!]));
+}
+/** Retain local dependency context; only selected files are observed on the server. */
+export async function overlaySelection(
+  source: string,
+  exported: string,
+  files: readonly string[],
+  destination: string,
+) {
+  await privateCopy(source, destination);
+  const observed = await inventory(exported);
+  for (const file of files) {
+    const target = await contained(destination, file);
+    if (!observed[file]) await rm(target, { force: true });
+    else {
+      await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+      await cp(await contained(exported, file), target);
+    }
+  }
+  return destination;
 }
 export type FileMap = Record<string, string>;
 export function changedFiles(before: FileMap, after: FileMap) {

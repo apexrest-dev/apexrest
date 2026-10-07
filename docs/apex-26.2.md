@@ -1,6 +1,6 @@
 # APEX 26.2 partial APEXlang imports
 
-**Import a changed page and its shared list of values without re-importing the rest of the application.** APEXREST selects eligible `.apx` files automatically or accepts an explicit list, checks their dependencies against the current server application, and preserves unrelated remote changes.
+**Import a changed page and its shared list of values without re-importing the rest of the application.** APEXREST selects eligible `.apx` files automatically or accepts an explicit list, validates dependencies using retained application context and fresh selected server sources, and preserves unrelated remote changes.
 
 > **Source version:** this guide describes the `2.0.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
 
@@ -16,13 +16,13 @@ The CLI and the `apexrest_ship` MCP tool expose the same modes. The requirement 
 
 ## Requirements
 
-| Requirement | Reviewed support |
-| --- | --- |
-| Target and source | Existing development/test application on APEX 26.2, with Oracle-exported 26.2 APEXlang sources. |
-| Compiler | SQLcl `26.3.0.260.1620`, Oracle-generated MMD `26.2.0+3479`, and observed `apex import -files` support. |
-| Connection | SQLcl `cli` mode with a `direct` database connection. |
-| Project | Configured target identity, named connection references and a valid sync checkpoint. |
-| Selection | Supported new/modified page and shared-component `.apx` files, including required changed dependencies. |
+| Requirement       | Reviewed support                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Target and source | Existing development/test application on APEX 26.2, with Oracle-exported 26.2 APEXlang sources.         |
+| Compiler          | SQLcl `26.3.0.260.1620`, Oracle-generated MMD `26.2.0+3479`, and observed `apex import -files` support. |
+| Connection        | SQLcl `cli` mode with a `direct` database connection.                                                   |
+| Project           | Configured target identity, named connection references and a valid sync checkpoint.                    |
+| Selection         | Supported new/modified page and shared-component `.apx` files, including required changed dependencies. |
 
 APEX 26.2 requires SQLcl and ORDS 26.3 or later. APEXREST's partial-import gate deliberately accepts the exact reviewed compiler/MMD tuple and 26.2 target stream. Target releases are checked; a future version is not automatically qualified.
 
@@ -42,14 +42,14 @@ node "$APEXREST_CLI" apex sync --project "$APEXREST_PROJECT" --env dev --action 
 
 Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. An already initialized ready working copy can be reused.
 
-After editing and validating the page and its dependencies, preview automatic selection, inspect `importSelection`, and apply with the same mode and request:
+After editing, ordinary authorized work needs one apply call: it compiles and plans before import. Use a separate plan preview only when review is useful:
 
 ```sh
 node "$APEXREST_CLI" ship --project "$APEXREST_PROJECT" --env dev --mode plan --import-mode auto --user-request "Update the Home page and status LOV in the configured dev application" --json
 node "$APEXREST_CLI" ship --project "$APEXREST_PROJECT" --env dev --mode apply --import-mode auto --user-request "Update the Home page and status LOV in the configured dev application" --json
 ```
 
-For an explicit selection, use matching `files` arguments for both operations:
+For an explicit selection, list exact files. Shared components use a full APEXlang observation because native component export is not qualified on the tested server; the import still touches only these files:
 
 ```sh
 node "$APEXREST_CLI" ship --project "$APEXREST_PROJECT" --env dev --mode plan --import-mode files --files pages/p00001-home.apx shared-components/lovs/status.apx --user-request "Import only the Home page and status LOV into the configured dev application" --json
@@ -62,23 +62,27 @@ Paths are relative to the configured application source directory. `files` requi
 
 ## What the planner checks
 
-The planner compares the **saved baseline**, **local edits** and **fresh server export**. Local changes identify the intended update. Remote-only changes are preserved; unequal local/server edits to the same component block planning. The effective application is validated as a whole, so a selected page cannot depend on an unselected new local LOV missing from the server. Include required changed dependencies in the reviewed list.
+The planner compares the **saved baseline**, **local edits** and **fresh export of the selected server components**. Local changes identify the intended update. Unselected remote changes are preserved on the server and are not fetched into local context; unequal local/server edits to the same component block planning. Retained dependency context and the selected server sources form an effective application validated as a whole, so a selected page cannot depend on an unselected new local LOV missing from the server. Include required changed dependencies in the reviewed list.
 
 Review `importSelection.requestedMode`, `resolvedMode`, `files`, supporting-component selections and `reasons`. The compact preview shows at most 50 selected paths; use the full saved plan for a longer list.
 
-Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are excluded from partial import. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit `files` mode never becomes `full`. Database scripts require a full application import and the local/remote safety policy; production deployment is forbidden.
+Fast native export mappings cover page files. Supported shared-component files also use selected imports, but Oracle 26.2 rejects native APEXlang LOV/list export selectors. Their plans therefore expose `exportScope:full` and `shared-components-require-full-apexlang-observation`: a full APEXlang read is filtered to the selected sources for conflicts, backups and readback. This is a performance limit, not a full import. Themes, templates, plug-ins, workspace components, static assets and authentication/authorization changes require a full import; explicit files mode refuses them. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit `files` mode never becomes `full`. Database scripts require a full application import and the local/remote safety policy; production deployment is forbidden.
 
 ## Backup, verification and recovery
 
 Version 4 plans bind the exact file list, source/configuration/toolchain hashes, target, fresh server export and validated effective tree. Existing saved plans keep their previous full-import semantics. The temporary deploy grant binds the whole plan digest.
 
-Every partial import takes a fresh full SQL backup. The backup metadata identifies its deployment run and plan; the run also keeps `backup.json`. Apply checks drift, freezes the effective tree and runs one SQLcl `apex import -files` command from that tree. The reviewed selection cannot widen after planning.
+Page-only plan/apply uses native `apex export -expComponents` in the selected scope and never exports the complete application. Shared-component selections use the explicitly recorded full APEXlang observation; their retained snapshots and import scope remain selected. Existing pages need a selected export; new pages have a live ID collision check and no export when absent. The pre-apply selected export is also the backup source, avoiding a separate backup round trip. Backups record scope, exact files, checksums and absent components. Full changes use full APEXlang snapshots. Ordinary operation creates no SQL application dumps; explicitly requested restore of an existing legacy SQL backup remains compatible.
 
-After import, a complete APEXlang export must match the expected result, including unselected components. New plans bind a conservative readback policy: only selected `.apx` files may differ by structural whitespace/comments or the verified native select-list `layout.startNewRow: true` default omission. Scalar strings and fenced code stay exact; unselected files, JSON, SQL and static assets stay byte-exact. Unknown source forms fail closed. Each accepted difference records both hashes and its rule in the run's `readback-verification.json`; older plans without this policy remain byte-exact.
+Apply acquires managed-home schema ownership before the fresh drift comparison, freezes the effective tree and runs one SQLcl `apex import -files` command. Same-component changes after planning block; different-page edits do not. Independent homes/machines still require external serialization. There is no claim of a distributed atomic compare-and-import protocol.
 
-The verified server export becomes the checkpoint; unselected local work remains dirty. Remote-only changes are safely reconciled locally so the next import does not undo them. Concurrent local edits are retained and require reconciliation. Confirmed import with failed readback or local reconciliation is a verification failure; an unconfirmed write is `outcome_unknown`. Neither path automatically retries or rolls back Oracle.
+After page imports, only selected APEXlang sources are exported and compared. Shared-component imports use a full APEXlang observation and compare only selected files; the observation scope is recorded separately. Qualified Oracle 26.2 default elision covers native select-list/region start-new-row, checksum page protection and bar-chart type; uniquely identified regions with explicit unique layout sequences and native chart axes/series may be reordered. Scalar strings, fenced code, nondefault security values and ambiguous identities stay strict. Unknown forms fail closed. Both hashes and rules are retained in `readback-verification.json`, alongside selected scope and an explicit indication that unselected server content was not checked.
 
-Durable before/effective/server snapshots, SQL backups and run journals are retained outside ordinary result pruning. `deploy status` compares before/expected/actual state and does not release unknown write ownership or grant retry permission.
+The checkpoint retains local dependency context plus verified selected sources; unselected local work remains dirty. Concurrent local edits are retained and require reconciliation. A confirmed import with failed readback is a verification failure; an unconfirmed write is `outcome_unknown`. Recovery reads only the original scope before deciding whether the result is already applied or needs a fresh plan. It does not blindly retry or roll back Oracle.
+
+Selected APEXlang backup restore creates a separate exact plan and uses the same scoped compiler/import/readback flow. A creation backup records absence, so it cannot pretend to undo creation by importing an empty file set; component deletion needs a separately reviewed operation. Before/effective/readback snapshots, backups and journals remain durable and private.
+
+Use one `ship --mode apply` call for a routine authorized edit. It includes compiler validation and planning; a separate validate and plan preview add duplicate work. Preview remains available when review is useful or a remote dangerous operation requires exact-plan confirmation. A local no-op stops before Oracle calls and explicitly reports that server freshness was not checked. Identity and release discovery share a read-only session, identical read/deploy connections reuse the fresh identity observation, and import help is cached by compiler installation.
 
 ## Other 26.2 support
 

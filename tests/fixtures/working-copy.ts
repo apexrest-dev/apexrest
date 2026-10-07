@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { cp, rm } from 'node:fs/promises';
+import { cp, rm, mkdir } from 'node:fs/promises';
 import { fixture } from './project.ts';
 import { canonical, hash, inventory, writeJson, atomicWrite } from '../../packages/core/src/fs.ts';
 import { DeploymentService, targetDigest } from '../../packages/core/src/deploy.ts';
@@ -77,6 +77,24 @@ export async function workingCopyFixture() {
       if (format === 'SQL')
         await atomicWrite(path.join(directory, 'f123.sql'), '-- fixture baseline SQL, not live evidence');
       else await cp(server, directory, { recursive: true });
+      const files = await inventory(directory);
+      return {
+        directory,
+        files,
+        digest: hash(canonical(files)),
+        compiler: { version: controls.compilerVersion },
+      };
+    },
+    async exportSelection(_env: unknown, _connection: unknown, selected: string[]) {
+      calls.push('export:selection:' + selected.join(','));
+      const directory = path.join(ctx.root, 'selected-export-' + calls.length);
+      await mkdir(directory, { recursive: true });
+      const present = await inventory(server);
+      for (const file of selected)
+        if (present[file]) {
+          await mkdir(path.dirname(path.join(directory, file)), { recursive: true });
+          await cp(path.join(server, file), path.join(directory, file));
+        }
       const files = await inventory(directory);
       return {
         directory,

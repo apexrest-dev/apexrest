@@ -7,6 +7,7 @@ import {
   SyncStore,
   VERSION,
   auditUpgradeSource,
+  changedFiles,
   checkSnapshot,
   checkSyncBackup,
   checkpoint,
@@ -24,7 +25,9 @@ import {
   oracle_exports,
   ordsUrl,
   ordsUsername,
+  overlaySelection,
   persistSnapshot,
+  pickFiles,
   privateCopy,
   projectInit,
   projectInspect,
@@ -34,6 +37,7 @@ import {
   runProcess,
   runtimeState,
   savedConnectionName,
+  scopedExportFile,
   selectImport,
   sourceRelease,
   sqlclConfig,
@@ -41,8 +45,9 @@ import {
   sqlclRestriction,
   sqlclToken,
   stageSelection,
+  supportedFile,
   syncPath
-} from "./chunk-Q357QWPS.mjs";
+} from "./chunk-ECD4GI4G.mjs";
 import {
   browserModeSchema,
   browserPreferences
@@ -12146,7 +12151,12 @@ var legacyPlanSchema = external_exports.strictObject({
   approval: external_exports.enum(["external-policy-required", "task-authorized"]),
   backupRequired: external_exports.boolean(),
   digest: digestSchema,
-  restore: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digestSchema, alias: refName.optional() }).optional()
+  restore: external_exports.strictObject({
+    backupId: external_exports.uuid(),
+    checksum: digestSchema,
+    alias: refName.optional(),
+    format: external_exports.literal("APEXLANG").optional()
+  }).optional()
 });
 var PLAN_LIFETIME_MS = 30 * 6e4;
 var syncBindingSchema = external_exports.strictObject({
@@ -12186,7 +12196,7 @@ var planV4Schema = planV2Object.extend({
   importSelection: importSelectionSchema
 }).superRefine((plan, ctx) => {
   const partial = plan.importSelection.resolvedMode === "files";
-  if (partial && !!plan.restore || plan.importSelection.requestedMode === "files" && !partial || plan.importSelection.requestedMode === "full" && partial || !partial && plan.mode === "working-copy" !== (plan.backupStrategy === "initial-backup") || plan.mode === "working-copy" !== (plan.workingCopy !== null) || partial && (!plan.importSelection.files.length || !plan.importSelection.before || !plan.importSelection.effective || plan.backupStrategy !== "fresh-export" || !plan.workingCopy) || partial !== (plan.scope === "selected-file-import") || !partial && (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
+  if (partial && !!plan.restore && plan.restore.format !== "APEXLANG" || plan.importSelection.requestedMode === "files" && !partial || plan.importSelection.requestedMode === "full" && partial || !partial && plan.mode === "full-export" && plan.backupStrategy !== "fresh-export" || plan.mode === "working-copy" !== (plan.workingCopy !== null) || partial && (!plan.importSelection.files.length || !plan.importSelection.before || !plan.importSelection.effective || plan.backupStrategy !== "fresh-export" || !plan.workingCopy) || partial !== (plan.scope === "selected-file-import") || !partial && (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
     ctx.addIssue({
       code: "custom",
       message: "Import selection, scope, snapshots and backup strategy must agree."
@@ -12477,14 +12487,23 @@ var DeploymentService = class {
   async history(env2, _connection) {
     return new LocalDeploymentControl(env2).history();
   }
-  async fingerprint(env2, connection) {
-    const target = await this.oracle.verifyTarget(env2, connection);
+  async fingerprint(env2, connection, selection, observed) {
+    const inspection = observed ?? (selection && this.oracle.versionedTarget ? await this.oracle.versionedTarget(env2, connection) : null);
+    const target = inspection?.target ?? await this.oracle.verifyTarget(env2, connection);
     const history = await this.history(env2, connection);
-    const exported = target.application ? await this.oracle.exportApplication(env2, connection, "APEXLANG") : null;
+    const exported = target.application ? selection ? await this.oracle.exportSelection(
+      env2,
+      connection,
+      selection.files,
+      selection.source,
+      selection.knownFiles,
+      selection.exportScope
+    ) : await this.oracle.exportApplication(env2, connection, "APEXLANG") : null;
     return {
       target,
       history,
       exported,
+      versions: inspection?.versions ?? null,
       fingerprint: hash(canonical({ target, history, exportDigest: exported?.digest ?? null }))
     };
   }
@@ -12503,6 +12522,7 @@ var DeploymentService = class {
       target,
       history,
       exported: checkpoint(state),
+      versions: null,
       fingerprint: hash(canonical({ target, history, metadata }))
     };
   }
@@ -12557,13 +12577,6 @@ var DeploymentService = class {
           throw new Fault("SYNC_SCOPE_UNSUPPORTED", "Sync requires an existing application.", 5);
         const metadata = await this.oracle.applicationMetadata(env2, readConnection);
         const exported = await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
-        const sql = await this.oracle.exportApplication(env2, readConnection, "SQL");
-        if (sql.compiler.version !== exported.compiler.version)
-          throw new Fault(
-            "SYNC_COMPILER_CHANGED",
-            "Compiler changed during initial sync. Explicitly refresh with one toolchain.",
-            5
-          );
         const syncId = randomUUID4(), backupId = randomUUID4();
         const baselineDir = ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
@@ -12572,17 +12585,19 @@ var DeploymentService = class {
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
         await mkdir5(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(sql.directory, path9.join(backupRoot, "application"));
+        await privateCopy(exported.directory, path9.join(backupRoot, "application"));
         await writeJson(path9.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env2),
           environment: name2,
-          digest: sql.digest,
-          files: sql.files,
-          restoreProcedure: "Reviewed initial SQL export import; application metadata only. Schema/data recovery is separate."
+          digest: exported.digest,
+          files: exported.files,
+          format: "APEXLANG",
+          scope: "full",
+          restoreProcedure: "Reviewed APEXlang import; application metadata only. Schema/data recovery is separate."
         });
-        await checkSyncBackup(ctx, { backupId, checksum: sql.digest }, targetDigest(env2), name2);
+        await checkSyncBackup(ctx, { backupId, checksum: exported.digest }, targetDigest(env2), name2);
         const observedTarget = await this.oracle.verifyTarget(env2, readConnection);
         const observedMetadata = await this.oracle.applicationMetadata(env2, readConnection);
         if (canonical(target) !== canonical(observedTarget) || canonical(metadata) !== canonical(observedMetadata))
@@ -12609,7 +12624,7 @@ var DeploymentService = class {
           compilerVersion: exported.compiler.version,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
           baseline,
-          backup: { backupId, checksum: sql.digest },
+          backup: { backupId, checksum: exported.digest },
           observedMetadata: metadata,
           lastSuccessfulImport: null,
           status: "ready",
@@ -12658,7 +12673,6 @@ var DeploymentService = class {
           await store.write({ ...previous, status: "invalidated", revision: previous.revision + 1 });
         await store.write(state);
         await this.oracle.discardStage?.(exported.stage);
-        await this.oracle.discardStage?.(sql.stage);
         return store.status();
       } finally {
         await this.releaseLease(env2, runId);
@@ -12682,9 +12696,21 @@ var DeploymentService = class {
         );
       return this.legacyPlan(ctx, name2);
     }
-    const versions = await this.oracle.targetVersions(
-      await resolveConnection(environment(ctx, name2).readConnectionRef)
-    );
+    const stored = await new SyncStore(ctx, environment(ctx, name2), name2).read();
+    if (requested.importMode !== "full" && stored && stored.status !== "invalidated") {
+      await new SyncStore(ctx, environment(ctx, name2), name2).validate(stored);
+      const local = applicationFiles(ctx, await sourceInventory(ctx));
+      const candidates = requested.importMode === "files" ? requested.files : changedFiles(checkpoint(stored).files, local);
+      if (!candidates.length || candidates.every((file) => local[file] === checkpoint(stored).files[file]))
+        throw new Fault(
+          "NO_LOCAL_CHANGES",
+          "No local changes in the requested scope; server freshness was not checked.",
+          2
+        );
+    }
+    const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
+    const observed = this.oracle.versionedTarget ? await this.oracle.versionedTarget(env2, connection) : void 0;
+    const versions = observed?.versions ?? await this.oracle.targetVersions(connection);
     if (!/^26\.2(?:\.|$)/.test(versions.apexVersion) || !databaseMeetsApex262Minimum(versions.databaseVersion))
       throw new Fault(
         "APEX_VERSION_MISMATCH",
@@ -12692,13 +12718,13 @@ var DeploymentService = class {
         3,
         "blocked"
       );
-    const partial = requested.importMode === "full" ? { reasons: ["full-import-requested"] } : await this.planFiles(ctx, name2, requested);
+    const partial = requested.importMode === "full" ? { reasons: ["full-import-requested"] } : await this.planFiles(ctx, name2, requested, versions, void 0, observed);
     if ("plan" in partial && partial.plan) return partial.plan;
     if (requested.importMode === "files")
       throw new Fault("PARTIAL_IMPORT_UNSUPPORTED", partial.reasons.join("; "), 3, "blocked", {
         reasons: partial.reasons
       });
-    const full = await this.legacyPlan(ctx, name2);
+    const full = await this.legacyPlan(ctx, name2, false, true);
     const plan = {
       ...full,
       schemaVersion: 4,
@@ -12720,16 +12746,19 @@ var DeploymentService = class {
     plan.digest = planDigest2(plan);
     return plan;
   }
-  async planFiles(ctx, name2, options) {
+  async planFiles(ctx, name2, options, versions, desiredSource, observed) {
     const env2 = environment(ctx, name2);
     if (await isProductionTarget(env2)) return { reasons: ["production-requires-full-import"] };
     const store = new SyncStore(ctx, env2, name2), working = await store.read();
     if (!working || working.status === "invalidated") return { reasons: ["trusted-sync-baseline-required"] };
     await store.validate(working);
     const source2 = await syncPath(ctx, ctx.config.application.sourceDir);
-    const sources = await sourceInventory(ctx), local = applicationFiles(ctx, sources);
+    const sources = await sourceInventory(ctx), local = desiredSource ? await inventory(desiredSource) : applicationFiles(ctx, sources);
+    const candidates = options.importMode === "files" ? options.files : changedFiles(checkpoint(working).files, local);
+    if (candidates.some((file) => !local[file] || !supportedFile(file)))
+      return { reasons: ["unsupported-component-files"] };
+    const exportScope = candidates.every(scopedExportFile) ? "selected" : "full";
     const connection = await resolveConnection(env2.readConnectionRef);
-    const versions = await this.oracle.targetVersions(connection);
     const capabilities = await this.oracle.partialImportCapabilities(source2, versions);
     if (capabilities.compilerVersion !== working.compilerVersion)
       throw new Fault(
@@ -12737,12 +12766,27 @@ var DeploymentService = class {
         "Refresh the working copy explicitly after a compiler upgrade.",
         5
       );
-    const current = await this.fingerprint(env2, connection);
+    const current = await this.fingerprint(
+      env2,
+      connection,
+      {
+        files: candidates,
+        source: desiredSource ?? source2,
+        knownFiles: checkpoint(working).files,
+        exportScope
+      },
+      observed
+    );
     try {
       if (!current.exported) return { reasons: ["existing-application-required"] };
       if (canonical(current.target) !== canonical(working.target))
         throw new Fault("SYNC_SERVER_CHANGED", "Application identity changed since the sync baseline.", 5);
-      const selected = selectImport(checkpoint(working).files, local, current.exported.files, options);
+      const remote = { ...checkpoint(working).files };
+      for (const file of candidates) {
+        if (current.exported.files[file]) remote[file] = current.exported.files[file];
+        else delete remote[file];
+      }
+      const selected = selectImport(checkpoint(working).files, local, remote, options);
       const fallback = (reasons) => {
         if (selected.remoteChanges.length)
           throw new Fault(
@@ -12774,11 +12818,22 @@ var DeploymentService = class {
         }
       }
       const id = randomUUID4(), root = ".apexrest/plans/" + id;
-      const before = await persistSnapshot(ctx, current.exported.directory, root + "/before");
+      await overlaySelection(
+        await syncPath(ctx, checkpoint(working).directory),
+        current.exported.directory,
+        candidates,
+        await syncPath(ctx, root + "/before")
+      );
+      const beforeFiles = await inventory(await syncPath(ctx, root + "/before"));
+      const before = {
+        directory: root + "/before",
+        files: beforeFiles,
+        digest: hash(canonical(beforeFiles))
+      };
       const effective = await stageSelection(
         ctx,
         before,
-        source2,
+        desiredSource ?? source2,
         selected.files,
         selected.effective,
         root + "/effective"
@@ -12825,12 +12880,13 @@ var DeploymentService = class {
           requestedMode: options.importMode,
           resolvedMode: "files",
           files: selected.files,
-          reasons: [],
+          reasons: exportScope === "full" ? ["shared-components-require-full-apexlang-observation"] : [],
           dependencies: selected.files.filter((file) => file.startsWith("shared-components/")),
           before,
           effective,
           capabilities,
-          readbackPolicy: APEXLANG_EQUIVALENCE_POLICY
+          readbackPolicy: APEXLANG_EQUIVALENCE_POLICY,
+          exportScope
         }
       };
       plan.digest = planDigest2(plan);
@@ -12839,7 +12895,7 @@ var DeploymentService = class {
       await this.oracle.discardStage?.(current.exported?.stage);
     }
   }
-  async legacyPlan(ctx, name2, restore = false) {
+  async legacyPlan(ctx, name2, restore = false, fresh = false) {
     const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
     const syncStore = new SyncStore(ctx, env2, name2), stored = await syncStore.read();
     const working = !restore && stored?.status !== "invalidated" ? stored : null;
@@ -12847,7 +12903,7 @@ var DeploymentService = class {
     if (restore && stored && ["importing", "outcome_unknown"].includes(stored.status))
       throw new Fault("SYNC_BLOCKED", "Reconcile interrupted writes before restore planning.", 5);
     const [targetCheck, sourceCheck] = await Promise.allSettled([
-      working ? this.workingFingerprint(ctx, name2, working) : this.fingerprint(env2, connection),
+      working && !fresh ? this.workingFingerprint(ctx, name2, working) : this.fingerprint(env2, connection),
       (async () => {
         const sources2 = await sourceInventory(ctx);
         const validation2 = await this.oracle.validate(
@@ -12862,6 +12918,15 @@ var DeploymentService = class {
     if (targetCheck.status === "rejected") throw targetCheck.reason;
     if (sourceCheck.status === "rejected") throw sourceCheck.reason;
     const current = targetCheck.value, { sources, validation, lock } = sourceCheck.value, risks = [];
+    if (fresh && working && current.exported) {
+      const remoteChanges = changedFiles(checkpoint(working).files, current.exported.files);
+      if (remoteChanges.some((file) => applicationFiles(ctx, sources)[file] !== current.exported.files[file]))
+        throw new Fault(
+          "SYNC_SERVER_CHANGED",
+          "A full import would overwrite remote changes. Reconcile the full export first.",
+          5
+        );
+    }
     if (working && validation.compiler.version !== working.compilerVersion)
       throw new Fault(
         "SYNC_COMPILER_CHANGED",
@@ -12914,7 +12979,8 @@ var DeploymentService = class {
         ))
           risks.push("authentication-or-authorization-change");
       } finally {
-        if (!working) await this.oracle.discardStage?.(current.exported.stage);
+        if (!working || fresh)
+          await this.oracle.discardStage?.(current.exported.stage);
       }
     }
     operations.sort(operationOrder);
@@ -12923,7 +12989,7 @@ var DeploymentService = class {
     const plan = {
       schemaVersion: 2,
       mode: working ? "working-copy" : "full-export",
-      backupStrategy: working ? "initial-backup" : "fresh-export",
+      backupStrategy: working && !fresh ? "initial-backup" : "fresh-export",
       workingCopy: working ? this.syncBinding(working) : null,
       id: randomUUID4(),
       projectId: ctx.config.projectId,
@@ -12966,9 +13032,9 @@ var DeploymentService = class {
   }
   async checkWorkingPlan(ctx, plan, permitImporting = false) {
     const store = new SyncStore(ctx, environment(ctx, plan.environment), plan.environment), state = await store.read();
-    if (plan.restore && state && ["importing", "outcome_unknown"].includes(state.status))
+    if (plan.restore && state && ["importing", "outcome_unknown"].includes(state.status) && !permitImporting)
       throw new Fault("SYNC_BLOCKED", "Reconcile interrupted imports before restoring.", 5);
-    if (state && state.status !== "invalidated" && !plan.restore) {
+    if (state && state.status !== "invalidated" && (!plan.restore || plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files")) {
       if (plan.schemaVersion === 1 || plan.mode !== "working-copy" || canonical(plan.workingCopy) !== canonical(this.syncBinding(state)) || plan.compiler !== state.compilerVersion)
         throw new Fault(
           "SYNC_REPLAN_REQUIRED",
@@ -13057,7 +13123,7 @@ var DeploymentService = class {
       const working = await this.checkWorkingPlan(ctx, plan, permitImporting);
       const selected = selectImport(
         checkpoint(working).files,
-        applicationFiles(ctx, plan.sources),
+        plan.restore?.format === "APEXLANG" ? selection.effective.files : applicationFiles(ctx, plan.sources),
         selection.before.files,
         {
           importMode: selection.requestedMode,
@@ -13086,35 +13152,57 @@ var DeploymentService = class {
     else await control.assertOwner(runId);
   }
   async apply(ctx, value, signal, progress) {
-    await this.checkLocal(ctx, value);
-    return withLock(
-      await contained(ctx.root, ".apexrest/composer/ownership.lock"),
-      () => this.applyLocked(ctx, value, signal, progress)
-    );
+    const { env: env2, plan } = await this.checkLocal(ctx, value);
+    const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
+    await authorizePlan(ctx, plan, env2, locality.local);
+    await this.oracle.requireMutationSupport();
+    const runId = randomUUID4();
+    return withLock(await contained(ctx.root, ".apexrest/composer/ownership.lock"), async () => {
+      await this.lease(env2, runId, true);
+      try {
+        return await this.applyLocked(ctx, value, runId, signal, progress);
+      } finally {
+        const control = new LocalDeploymentControl(env2);
+        const owner = await control.owner();
+        if (owner?.runId === runId && owner.phase !== "writing") await control.release(runId);
+      }
+    });
   }
-  async applyLocked(ctx, value, signal, progress) {
+  async applyLocked(ctx, value, runId, signal, progress) {
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before execution.", 6, "cancelled");
     const { plan, env: env2 } = await this.checkLocal(ctx, value);
     const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
-    const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
-    await authorizePlan(ctx, plan, env2, locality.local);
-    await this.oracle.requireMutationSupport();
+    const scoped = selection?.exportScope !== void 0 ? {
+      files: selection.files,
+      source: await syncPath(ctx, selection.effective.directory),
+      knownFiles: selection.before.files,
+      exportScope: selection.exportScope
+    } : void 0;
+    const fresh = plan.schemaVersion !== 1 && plan.backupStrategy === "fresh-export";
     const readConnection = await resolveConnection(env2.readConnectionRef), deployConnection = await resolveConnection(env2.deployConnectionRef);
     let working = await this.checkWorkingPlan(ctx, plan);
     const syncStore = new SyncStore(ctx, env2, plan.environment);
+    const freshTarget = working && !selection && !fresh ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env2, readConnection, scoped);
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
-      this.oracle.verifyTarget(env2, deployConnection),
-      working && !selection ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env2, readConnection),
+      canonical(readConnection) === canonical(deployConnection) ? freshTarget.then((observation) => observation.target) : this.oracle.verifyTarget(env2, deployConnection),
+      freshTarget,
       this.oracle.requireCapability("import")
     ]);
-    const liveStage = (!working || selection) && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
+    const liveStage = (!working || selection || fresh) && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
+    let backupSource = null;
     try {
       if (deployTargetCheck.status === "rejected") throw deployTargetCheck.reason;
       if (fingerprintCheck.status === "rejected") throw fingerprintCheck.reason;
       const live = fingerprintCheck.value;
       if (live.fingerprint !== plan.fingerprint)
         throw new Fault("TARGET_DRIFT", "Target or migration history changed after review.", 5);
+      if (fresh && live.exported)
+        backupSource = await persistSnapshot(
+          ctx,
+          live.exported.directory,
+          ".apexrest/plans/" + plan.id + "/live-before"
+        );
       if (canonical(live.target) !== canonical(plan.target) || canonical(live.history) !== canonical(plan.migrationHistory))
         throw new Fault("PLAN_TAMPERED", "Plan target or migration history differs from the live target.", 5);
       if (!working && !plan.restore && live.exported && !plan.risks.includes("authentication-or-authorization-change") && await securityChanged(
@@ -13141,14 +13229,14 @@ var DeploymentService = class {
     if (selection) {
       const observed = await this.oracle.partialImportCapabilities(
         await syncPath(ctx, selection.effective.directory),
-        await this.oracle.targetVersions(readConnection)
+        fingerprintCheck.value.versions ?? await this.oracle.targetVersions(readConnection)
       );
       if (!observed.supported || canonical(observed) !== canonical(selection.capabilities))
         throw new Fault("COMPILER_DRIFT", "Selected-import capabilities changed after planning.", 5);
     }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runId = randomUUID4(), runs = path9.join(ctx.root, ".apexrest/deployments"), runDir = path9.join(runs, runId);
+    const runs = path9.join(ctx.root, ".apexrest/deployments"), runDir = path9.join(runs, runId);
     await mkdir5(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false, syncSucceeded = false;
     let freshBackupId = null;
@@ -13176,19 +13264,20 @@ var DeploymentService = class {
     };
     await writeJson(path9.join(runDir, "plan.json"), plan);
     await record("approved");
-    await this.lease(env2, runId, true);
+    await this.lease(env2, runId, false);
     try {
       await record("backing_up");
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if ((plan.backupRequired || liveApplication) && (!working || selection)) {
-        const backup = await this.oracle.exportApplication(env2, readConnection, "SQL");
+      if ((plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
+        const backup = backupSource ?? await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
         try {
           const backupId = randomUUID4(), directory = path9.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir5(directory, { recursive: true, mode: 448 });
-          await privateCopy(backup.directory, path9.join(directory, "application"));
+          const backupPath = backup.directory.startsWith(".apexrest/") ? await syncPath(ctx, backup.directory) : backup.directory;
+          await privateCopy(backupPath, path9.join(directory, "application"));
           const files = await inventory(path9.join(directory, "application"));
-          if (!Object.keys(files).length || hash(canonical(files)) !== backup.digest)
+          if (!scoped && !Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
           await writeJson(path9.join(directory, "backup.json"), {
             schemaVersion: 1,
@@ -13199,8 +13288,11 @@ var DeploymentService = class {
             environment: plan.environment,
             digest: backup.digest,
             files,
+            format: "APEXLANG",
+            scope: scoped ? "selected" : "full",
+            ...scoped ? { selectedFiles: scoped.files, absentFiles: scoped.files.filter((file) => !files[file]) } : {},
             ...typeof liveApplication?.alias === "string" ? { alias: liveApplication.alias } : {},
-            restoreProcedure: "Reviewed SQL export import; application metadata only. Schema/data recovery is separate."
+            restoreProcedure: "Reviewed APEXlang import in the recorded scope; newly created components have no previous source to restore. Schema/data recovery is separate."
           });
           freshBackupId = backupId;
           await writeJson(path9.join(runDir, "backup.json"), {
@@ -13213,7 +13305,7 @@ var DeploymentService = class {
         }
       }
       await this.checkLocal(ctx, plan);
-      const after = working && !selection ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env2, readConnection);
+      const after = fresh ? fingerprintCheck.value : working && !selection ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env2, readConnection, scoped);
       if (!working || selection)
         await this.oracle.discardStage?.(after.exported?.stage);
       if (after.fingerprint !== plan.fingerprint)
@@ -13285,7 +13377,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
       await record("importing");
       await this.lease(env2, runId, false);
       await this.oracle.verifyTarget(env2, deployConnection);
-      if (plan.restore) {
+      if (plan.restore && plan.restore.format !== "APEXLANG") {
         const backupRoot = await contained(
           ctx.root,
           ".apexrest/backups/" + plan.restore.backupId + "/application"
@@ -13317,16 +13409,44 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           controller.signal
         );
       } else {
+        if (plan.restore && hash(
+          canonical(
+            await inventory(
+              await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application")
+            )
+          )
+        ) !== plan.restore.checksum)
+          throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
         if (selection && canonical(await inventory(path9.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
+        let importSource = path9.join(snapshot2, ctx.config.application.sourceDir);
+        if (plan.restore && !selection) {
+          const frozen = path9.join(runDir, "restore");
+          await privateCopy(
+            await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application"),
+            frozen
+          );
+          if (hash(canonical(await inventory(frozen))) !== plan.restore.checksum)
+            throw new Fault("BACKUP_INVALID", "Restore copy changed.", 5);
+          importSource = frozen;
+          const restoredSync = await syncStore.read();
+          if (restoredSync && restoredSync.status !== "invalidated")
+            await syncStore.lock(
+              () => syncStore.write({
+                ...restoredSync,
+                status: "invalidated",
+                revision: restoredSync.revision + 1
+              })
+            );
+        }
         writeStarted = true;
         await this.oracle.importApplication(
           ctx,
           env2,
           deployConnection,
-          path9.join(snapshot2, ctx.config.application.sourceDir),
+          importSource,
           controller.signal,
           selection?.files
         );
@@ -13341,7 +13461,14 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         if (!target.application || String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase())
           throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
         if (selection) {
-          const observed = await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
+          const observed = scoped ? await this.oracle.exportSelection(
+            env2,
+            readConnection,
+            scoped.files,
+            scoped.source,
+            selection.effective.files,
+            scoped.exportScope
+          ) : await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
           try {
             serverSnapshot = await persistSnapshot(
               ctx,
@@ -13351,7 +13478,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
             const comparison = selection.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY ? await compareApplicationExports(
               await syncPath(ctx, selection.effective.directory),
               await syncPath(ctx, serverSnapshot.directory),
-              selection.effective.files,
+              scoped ? pickFiles(selection.effective.files, selection.files) : selection.effective.files,
               serverSnapshot.files,
               selection.files
             ) : {
@@ -13359,13 +13486,34 @@ prompt APEXREST_SCRIPT_COMPLETE`,
               policy: "exact-bytes",
               normalizations: []
             };
-            await writeJson(path9.join(runDir, "readback-verification.json"), comparison);
+            await writeJson(path9.join(runDir, "readback-verification.json"), {
+              ...comparison,
+              scope: scoped ? "selected" : "full",
+              sourceObservationScope: selection.exportScope ?? "full",
+              verifiedFiles: selection.files,
+              unselectedServerContentChecked: !scoped
+            });
             if (!comparison.equivalent)
               throw new Fault(
                 "POST_DEPLOY_CONTENT_FAILED",
                 "Import confirmed but readback differs from the reviewed result; reconcile the retained server snapshot.",
                 5
               );
+            if (scoped) {
+              const mergedDirectory = ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
+              await overlaySelection(
+                await syncPath(ctx, selection.before.directory),
+                observed.directory,
+                selection.files,
+                await syncPath(ctx, mergedDirectory)
+              );
+              const mergedFiles = await inventory(await syncPath(ctx, mergedDirectory));
+              serverSnapshot = {
+                directory: mergedDirectory,
+                files: mergedFiles,
+                digest: hash(canonical(mergedFiles))
+              };
+            }
           } finally {
             await this.oracle.discardStage?.(observed.stage);
           }
@@ -13474,7 +13622,12 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         importingRunId: null,
         observedMetadata: metadata,
         target,
-        lastSuccessfulImport: { at: (/* @__PURE__ */ new Date()).toISOString(), runId, snapshot: snapshot2 },
+        lastSuccessfulImport: {
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          runId,
+          snapshot: snapshot2,
+          ...selection?.exportScope !== void 0 ? { verifiedFiles: selection.files } : {}
+        },
         recoveryCheckpoint: null
       });
     });
@@ -13494,7 +13647,14 @@ prompt APEXREST_SCRIPT_COMPLETE`,
       );
     const control = new LocalDeploymentControl(env2), owner = await control.owner();
     if (owner && owner.runId !== runId) throw new Fault("TARGET_LOCKED", "Another run owns this schema.", 5);
-    const current = await this.fingerprint(env2, await resolveConnection(env2.readConnectionRef));
+    const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
+    const scoped = selection?.exportScope !== void 0 ? {
+      files: selection.files,
+      source: await syncPath(ctx, selection.effective.directory),
+      knownFiles: selection.before.files,
+      exportScope: selection.exportScope
+    } : void 0;
+    const current = await this.fingerprint(env2, await resolveConnection(env2.readConnectionRef), scoped);
     if (canonical(current.target.identity) !== canonical(plan.target.identity) || canonical(current.target.workspace) !== canonical(plan.target.workspace) || plan.target.application && canonical(current.target.application) !== canonical(plan.target.application))
       throw new Fault(
         "IDENTITY_MISMATCH",
@@ -13502,9 +13662,9 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         5
       );
     const state = await readJson(path9.join(directory, "state.json"));
-    const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
     const expectedDirectory = selection?.effective?.directory ?? ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
-    const expectedFiles = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
+    const expectedInventory = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
+    const expectedFiles = scoped ? pickFiles(expectedInventory, selection.files) : expectedInventory;
     const expectedRoot = await syncPath(ctx, expectedDirectory);
     const workingState = plan.schemaVersion !== 1 && plan.workingCopy ? await new SyncStore(ctx, env2, plan.environment).read() : null;
     const before = selection?.before ?? (workingState ? checkpoint(workingState) : null);
@@ -13512,7 +13672,7 @@ prompt APEXREST_SCRIPT_COMPLETE`,
     let comparison = null;
     let conflictFiles = [];
     if (current.exported && !plan.restore && await exists(expectedRoot)) {
-      if (canonical(await inventory(expectedRoot)) !== canonical(expectedFiles))
+      if (canonical(await inventory(expectedRoot)) !== canonical(expectedInventory))
         throw new Fault("SOURCE_DRIFT", "The frozen reviewed sources changed before reconciliation.", 5);
       comparison = await compareApplicationExports(
         expectedRoot,
@@ -13597,7 +13757,13 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           5
         );
       const connection = await resolveConnection(env2.readConnectionRef);
-      const second = await this.fingerprint(env2, connection);
+      const scoped = selection?.exportScope !== void 0 ? {
+        files: selection.files,
+        source: await syncPath(ctx, selection.effective.directory),
+        knownFiles: selection.before.files,
+        exportScope: selection.exportScope
+      } : void 0;
+      const second = await this.fingerprint(env2, connection, scoped);
       try {
         if (second.fingerprint !== current.fingerprint)
           throw new Fault("TARGET_DRIFT", "Server changed during reconciliation.", 5);
@@ -13610,11 +13776,25 @@ prompt APEXREST_SCRIPT_COMPLETE`,
       if (working) {
         if (working.importingRunId && working.importingRunId !== runId)
           throw new Fault("TARGET_LOCKED", "Another import owns the working copy.", 5);
-        const server = await persistSnapshot(
+        let server = await persistSnapshot(
           ctx,
           current.exported.directory,
           ".apexrest/deployments/" + runId + "/recovery/" + Date.now() + "/application"
         );
+        if (scoped) {
+          const raw = await syncPath(ctx, server.directory);
+          const merged = server.directory + "-context";
+          await overlaySelection(
+            await syncPath(ctx, selection.before.directory),
+            raw,
+            scoped.files,
+            await syncPath(ctx, merged)
+          );
+          await rm3(raw, { recursive: true });
+          await rename(await syncPath(ctx, merged), raw);
+          const mergedFiles = await inventory(raw);
+          server = { directory: server.directory, files: mergedFiles, digest: hash(canonical(mergedFiles)) };
+        }
         if (result.importedSourcesMatch) {
           if (!working.importingRunId)
             await store.lock(() => store.write({ ...working, importingRunId: runId }));
@@ -13683,13 +13863,50 @@ prompt APEXREST_SCRIPT_COMPLETE`,
     const files = await inventory(path9.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
-    const plan = await this.plan(ctx, backup.environment, true);
+    let plan;
+    if (backup.format === "APEXLANG" && backup.scope === "selected") {
+      if (!backup.selectedFiles?.length || backup.absentFiles?.length || !Object.keys(files).length)
+        throw new Fault(
+          "RESTORE_LAYOUT_UNSUPPORTED",
+          "A creation snapshot records absence; removing the new component requires a separately reviewed deletion.",
+          3
+        );
+      if (canonical(Object.keys(files).sort()) !== canonical([...backup.selectedFiles].sort()))
+        throw new Fault("BACKUP_INVALID", "Selected backup files differ from its recorded scope.", 5);
+      const env2 = environment(ctx, backup.environment);
+      if (targetDigest(env2) !== backup.targetDigest)
+        throw new Fault("BACKUP_TARGET_MISMATCH", "Backup belongs to another target.", 5);
+      const context2 = await syncPath(ctx, ".apexrest/restore-context/" + randomUUID4());
+      await overlaySelection(
+        await syncPath(ctx, ctx.config.application.sourceDir),
+        path9.join(directory, "application"),
+        backup.selectedFiles,
+        context2
+      );
+      try {
+        const planned = await this.planFiles(
+          ctx,
+          backup.environment,
+          importOptions({ importMode: "files", files: backup.selectedFiles }),
+          await this.oracle.targetVersions(await resolveConnection(env2.readConnectionRef)),
+          context2
+        );
+        if (!planned.plan) throw new Fault("RESTORE_LAYOUT_UNSUPPORTED", planned.reasons.join("; "), 3);
+        plan = planned.plan;
+      } finally {
+        await rm3(context2, { recursive: true, force: true });
+      }
+    } else {
+      if (backup.format === "APEXLANG") await this.oracle.validate(path9.join(directory, "application"));
+      plan = await this.plan(ctx, backup.environment, true);
+    }
     if (plan.targetDigest !== backup.targetDigest)
       throw new Fault("BACKUP_TARGET_MISMATCH", "Backup belongs to another target.", 5);
     const alias = typeof backup.alias === "string" ? backup.alias : plan.target.application?.alias;
     plan.restore = {
       backupId,
       checksum: backup.digest,
+      ...backup.format === "APEXLANG" ? { format: "APEXLANG" } : {},
       ...typeof alias === "string" && refName.safeParse(alias).success ? { alias } : {}
     };
     plan.risks = ["application-restore"];
@@ -14319,29 +14536,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-FK3P6HXK.mjs");
+        const { ToolchainService } = await import("./chunk-7CYWCKEX.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-BPFQASTI.mjs");
+        const { uninstallTools } = await import("./chunk-FJPDAWNK.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-6T3XTSOX.mjs");
+        const { setup: setup2 } = await import("./chunk-A5YPFB6V.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-6T3XTSOX.mjs");
+        const { validateNative } = await import("./chunk-A5YPFB6V.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-6T3XTSOX.mjs");
+        const { uninstallNative } = await import("./chunk-A5YPFB6V.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

@@ -40,6 +40,7 @@ export const syncStateSchema = z.strictObject({
       at: z.iso.datetime(),
       runId: z.uuid(),
       snapshot: snapshotSchema,
+      verifiedFiles: z.array(relativePath).optional(),
     })
     .nullable(),
   recoveryCheckpoint: z
@@ -121,7 +122,7 @@ export async function checkSyncBackup(
     canonical(metadata.files) !== canonical(files) ||
     !Object.keys(files).length
   )
-    throw new Fault('BACKUP_INVALID', 'Initial SQL backup checksum or target verification failed.', 5);
+    throw new Fault('BACKUP_INVALID', 'Initial source backup checksum or target verification failed.', 5);
 }
 export function checkpoint(state: SyncState) {
   return state.recoveryCheckpoint?.snapshot ?? state.lastSuccessfulImport?.snapshot ?? state.baseline;
@@ -303,6 +304,7 @@ export class SyncStore {
             at: state.lastSuccessfulImport.at,
             runId: state.lastSuccessfulImport.runId,
             digest: state.lastSuccessfulImport.snapshot.digest,
+            verifiedFiles: state.lastSuccessfulImport.verifiedFiles ?? null,
           }
         : null,
       backupId: state.backup.backupId,
@@ -311,7 +313,7 @@ export class SyncStore {
       blocked: !!blockedReason || !['ready', 'invalidated'].includes(state.status),
       blockedReason,
       serverFreshness: 'not-checked',
-      assumption: 'single-editor',
+      assumption: 'selected-content-conflicts; independent managed homes require external serialization',
     };
   }
 }

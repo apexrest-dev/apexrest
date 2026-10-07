@@ -5,6 +5,7 @@
 - Exercise the current six-skill/ten-tool bundle in fresh Codex and Claude Code sessions: discovery, a change through the work skill, ship/job behavior and browser handoff.
 - On an explicitly authorized development/test target, verify full and selected-file imports, source preservation, authenticated browser CRUD, denied actions, stale versions and narrow screens. Record compiler, import and browser observations separately.
 - Qualify Linux/Windows/WSL2 native installations and connected SQLcl/ORDS behavior. Hosted build tests do not establish native host or Oracle behavior.
+- Qualify native selected export for shared-component files; current isolated component imports disclose full APEXlang observation. The local page/LOV/dashboard and selected-page restore checks passed; broader families, independent machines and target builds remain separate qualification.
 - Exercise current server-first recovery under real interrupted/lost-response imports, backup/restore and externally serialized runners. Retain unknown ownership until the outcome is reconciled.
 
 ## Application verification
@@ -19,7 +20,7 @@
 
 - Keep the managed installer default at 26.1 until broader qualification is complete. A 26.2 project needs its explicit profile, compiler and lock.
 - ORDS and SQLcl MCP-mode selected-file imports require a separate transport implementation; explicit file mode must continue refusing unsupported transports.
-- Extend readback equivalence only with actual Oracle results and negative tests. Unselected files remain byte-exact.
+- Extend readback equivalence only with actual Oracle results and negative tests. Selected-scope checks do not establish unselected server freshness; full audits remain separate.
 - Qualify provider calls, DDS, OCI IAM/network prerequisites and workflow migration independently of offline recipes and metadata visibility.
 
 ## Runtime and Composer
@@ -33,7 +34,7 @@
 
 Run relevant local checks before integrating changes; CI runs only on `main`. Repository deployment workflows and publisher configuration remain disabled. Refresh current source-bound release evidence before requesting any separately authorized publication. Do not treat absent reports as passed gates.
 
-Preserve functional catalog provenance, licensing and compiler bindings. Preserve private application baselines, SQL backups, migration history and unresolved journals; repository cleanup does not authorize removing active deployment state.
+Preserve functional catalog provenance, licensing and compiler bindings. Preserve private application baselines, APEXlang and legacy SQL backups, migration history and unresolved journals; repository cleanup does not authorize removing active deployment state.
 
 ## Documentation website
 

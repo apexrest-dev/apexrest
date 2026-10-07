@@ -114,7 +114,11 @@ test('automatic page import preserves remote sibling edits and repeated imports 
   assert.deepEqual(f.imports, [[page]]);
   assert.equal(await f.content(page, true), 'local first page edit');
   assert.equal(await f.content(sibling, true), 'remote sibling edit');
-  assert.equal(await f.content(sibling), 'remote sibling edit');
+  assert.equal(
+    await f.content(sibling),
+    'baseline ' + sibling,
+    'unselected server content is not exported into local context',
+  );
   assert.equal((await f.store.read())!.status, 'ready');
   assert.equal((await f.store.status()).dirty, false);
   await f.edit(page, 'local second page edit');
@@ -124,21 +128,23 @@ test('automatic page import preserves remote sibling edits and repeated imports 
   assert.equal(await f.content(sibling, true), 'remote sibling edit');
   assert.equal(
     f.calls.filter((call) => call === 'export:SQL').length,
-    2,
-    'fresh SQL backup for every selective import',
+    0,
+    'no SQL backups for selective imports',
   );
   assert.equal((await f.store.read())!.revision, 2);
 });
 
-test('page plus LOV changes use one import, while explicit page selection leaves unrelated local work dirty', async (t) => {
+test('shared-component imports bind full APEXlang observation and preserve unselected local work', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'page using updated LOV');
   await f.edit(lov, 'updated LOV');
   const combined = await f.service.plan(f.ctx, 'dev');
-  assert.deepEqual(selected(combined).files, [page, lov]);
-  assert.deepEqual(selected(combined).dependencies, [lov]);
+  assert.equal(combined.schemaVersion, 4);
+  assert.deepEqual(selected(combined).files, [page, lov].sort());
+  assert.equal(selected(combined).exportScope, 'full');
+  assert.ok(selected(combined).reasons.includes('shared-components-require-full-apexlang-observation'));
   await f.apply(combined);
-  assert.deepEqual(f.imports, [[page, lov]]);
+  assert.deepEqual(f.imports, [[page, lov].sort()]);
   await f.edit(page, 'second selected page edit');
   await f.edit(sibling, 'unselected local work');
   const explicit = await f.service.plan(f.ctx, 'dev', { importMode: 'files', files: [page] });
@@ -196,15 +202,16 @@ test('selection tampering, source drift, target drift and backup failure stop be
   await f.edit(page, 'post-plan local drift');
   await assert.rejects(f.apply(clean), { code: 'SOURCE_DRIFT' });
   const remote = await f.service.plan(f.ctx, 'dev');
-  await f.edit(sibling, 'post-plan server drift', true);
+  await f.edit(page, 'post-plan selected server drift', true);
   await assert.rejects(f.apply(remote), { code: 'TARGET_DRIFT' });
+  await f.edit(page, 'baseline ' + page, true);
   const backup = await f.service.plan(f.ctx, 'dev');
-  const originalExport = f.oracle.exportApplication.bind(f.oracle);
-  f.oracle.exportApplication = async (env, conn, format) => {
-    if (format === 'SQL') throw new Fault('BACKUP_FAILED', 'Fixture backup unavailable.', 1);
-    return originalExport(env, conn, format);
-  };
-  await assert.rejects(f.apply(backup), { code: 'BACKUP_FAILED' });
+  const state = (await f.store.read())!;
+  await atomicWrite(
+    path.join(f.ctx.root, '.apexrest/backups', state.backup.backupId, 'application/application.apx'),
+    'corrupt retained backup',
+  );
+  await assert.rejects(f.apply(backup), { code: 'BACKUP_INVALID' });
   assert.deepEqual(f.imports, []);
 });
 
@@ -223,7 +230,7 @@ test('confirmed import with mismatched readback retains evidence and blocks furt
   const f = await initialized(t);
   await f.edit(page, 'selected edit');
   const plan = await f.service.plan(f.ctx, 'dev');
-  f.hooks.afterImport = () => f.edit(sibling, 'unexpected server edit after import', true);
+  f.hooks.afterImport = () => f.edit(page, 'unexpected selected edit after import', true);
   await assert.rejects(f.apply(plan), { code: 'POST_DEPLOY_CONTENT_FAILED' });
   const state = (await f.store.read())!;
   assert.equal(state.status, 'verification_failed');
@@ -237,7 +244,7 @@ test('confirmed import with mismatched readback retains evidence and blocks furt
       f.ctx.config.application.sourceDir,
     ),
   );
-  assert.equal(observed[sibling], hash('unexpected server edit after import'));
+  assert.equal(observed[page], hash('unexpected selected edit after import'));
   await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'SYNC_BLOCKED' });
 });
 
@@ -262,7 +269,7 @@ test('interrupted selected import observes unchanged server but read-only reconc
   await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'SYNC_BLOCKED' });
 });
 
-test('interrupted selected import with unrelated server changes refuses recovery and preserves evidence', async (t) => {
+test('interrupted selected import can replan while preserving unrelated server changes', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'selected edit');
   const plan = await f.service.plan(f.ctx, 'dev');
@@ -272,12 +279,13 @@ test('interrupted selected import with unrelated server changes refuses recovery
   await f.edit(sibling, 'unrelated server change', true);
   const observed = await f.service.reconcile(f.ctx, run);
   assert.equal(observed.comparisonProvenance, 'explicit-live-export');
-  assert.equal(observed.recoveryStatus, 'conflict');
-  assert.equal(observed.retryAllowed, false);
-  assert.ok(observed.conflictFiles.includes(sibling));
-  await assert.rejects(f.service.recover(f.ctx, run), { code: 'TARGET_DRIFT' });
+  assert.equal(observed.recoveryStatus, 'safe-to-replan');
+  assert.equal(observed.retryAllowed, true);
+  assert.deepEqual(observed.conflictFiles, []);
+  const recovered = await f.service.recover(f.ctx, run);
+  assert.equal(recovered.status, 'replan_required');
   assert.equal(f.imports.length, 1);
-  assert.equal((await new LocalDeploymentControl(f.env).owner())!.runId, run);
+  assert.equal(await new LocalDeploymentControl(f.env).owner(), undefined);
   assert.equal(await f.content(sibling, true), 'unrelated server change');
 });
 
@@ -382,4 +390,63 @@ test('automatic full fallback does not discard a known remote delta when server 
   await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'SYNC_SERVER_CHANGED' });
   assert.deepEqual(f.imports, []);
   assert.equal(await f.content(sibling, true), 'remote edit within the same metadata timestamp');
+});
+
+test('page-only cycle performs no full or SQL exports, and unrelated post-plan edits survive', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'single page intent');
+  const plan = await f.service.plan(f.ctx, 'dev');
+  await f.edit(sibling, 'parallel editor', true);
+  const result = await f.apply(plan);
+  assert.equal(await f.content(sibling, true), 'parallel editor');
+  assert.ok(
+    f.calls.filter((call) => call.startsWith('export:')).every((call) => call === 'export:selection:' + page),
+  );
+  const report = JSON.parse(
+    await readFile(path.join(result.directory, 'readback-verification.json'), 'utf8'),
+  );
+  assert.equal(report.scope, 'selected');
+  assert.equal(report.unselectedServerContentChecked, false);
+  assert.deepEqual(report.verifiedFiles, [page]);
+  const backup = JSON.parse(
+    await readFile(path.join(f.ctx.root, '.apexrest/backups', result.backupId!, 'backup.json'), 'utf8'),
+  );
+  assert.equal(backup.format, 'APEXLANG');
+  assert.deepEqual(Object.keys(backup.files), [page]);
+});
+
+test('local no-op opens no Oracle session and makes no server freshness claim', async (t) => {
+  const f = await initialized(t);
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'NO_LOCAL_CHANGES' });
+  assert.deepEqual(f.calls, []);
+});
+
+test('APEXlang selected backup restores the previous page without replacing siblings or SQL', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'page version two');
+  const applied = await f.apply(await f.service.plan(f.ctx, 'dev'));
+  await f.edit(sibling, 'remote sibling before restore', true);
+  const plan = await f.service.restorePlan(f.ctx, applied.backupId!);
+  assert.equal(plan.restore?.format, 'APEXLANG');
+  assert.deepEqual(selected(plan).files, [page]);
+  await f.apply(plan);
+  assert.equal(await f.content(page, true), 'baseline ' + page);
+  assert.equal(await f.content(sibling, true), 'remote sibling before restore');
+  assert.equal((await f.store.read())!.status, 'ready');
+  assert.equal(f.calls.filter((call) => call === 'export:SQL' || call === 'restore').length, 0);
+});
+
+test('new page needs no previous source and its absence backup cannot pretend to restore deletion', async (t) => {
+  const f = await initialized(t);
+  const created = 'pages/p00050-new-dashboard.apx';
+  await f.edit(created, 'new dashboard');
+  const result = await f.apply(await f.service.plan(f.ctx, 'dev'));
+  const backup = JSON.parse(
+    await readFile(path.join(f.ctx.root, '.apexrest/backups', result.backupId!, 'backup.json'), 'utf8'),
+  );
+  assert.deepEqual(backup.files, {});
+  assert.deepEqual(backup.absentFiles, [created]);
+  await assert.rejects(f.service.restorePlan(f.ctx, result.backupId!), {
+    code: 'RESTORE_LAYOUT_UNSUPPORTED',
+  });
 });

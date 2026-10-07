@@ -185,3 +185,29 @@ test('native target/items maps tolerate formatting but preserve every target and
   );
   assert.equal(compareApexlangSource(page, page.replace('items: {', 'items: invalid {')).equivalent, false);
 });
+
+const dashboard = (security: string, row: string, chart: string, reverse = false) => {
+  const regions = [
+    `region summary (\n type: cards\n layout {\n sequence: 10\n ${row}\n }\n )`,
+    `region trend (\n type: chart\n layout {\n sequence: 20\n }\n ${chart}\n )`,
+  ];
+  return `page 50 (\n title: Dashboard\n ${security}\n ${(reverse ? regions.reverse() : regions).join('\n')}\n)\n`;
+};
+test('Oracle dashboard default elision and explicitly sequenced region order are equivalent', () => {
+  const authored = dashboard(
+    'security {\n pageAccessProtection: argumentsMustHaveChecksum\n }',
+    'startNewRow: true',
+    'chart {\n type: bar\n }',
+  );
+  const exported = dashboard('', '', '', true);
+  assert.equal(compareApexlangSource(authored, exported).equivalent, true);
+  for (const changed of [
+    authored.replace('argumentsMustHaveChecksum', 'unrestricted'),
+    authored.replace('startNewRow: true', 'startNewRow: false'),
+    authored.replace('type: bar', 'type: pie'),
+    authored.replace('sequence: 20', 'sequence: 21'),
+    authored.replace('sequence: 20', 'sequence: 10'),
+    authored.replace('region trend', 'region summary'),
+  ])
+    assert.equal(compareApexlangSource(changed, exported).equivalent, false);
+});

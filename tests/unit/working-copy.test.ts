@@ -46,9 +46,9 @@ async function initialized() {
 }
 const exportsOnly = (calls: string[]) => calls.filter((c) => c.startsWith('export:'));
 
-test('initial dual-format sync, restart/repeated init and local status never re-export', async () => {
+test('initial APEXlang sync, restart/repeated init and local status never re-export', async () => {
   const { ctx, env, service, store, calls, state } = await initialized();
-  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG', 'export:SQL']);
+  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG']);
   assert.equal(state.status, 'ready');
   if (process.platform !== 'win32') assert.equal((await stat(await store.file())).mode & 0o777, 0o600);
   calls.length = 0;
@@ -103,7 +103,7 @@ for (const broken of ['state', 'missing-state', 'baseline', 'backup', 'applied']
       await atomicWrite(path.join(ctx.root, state.baseline.directory, 'application.apx'), 'corrupt');
     else
       await atomicWrite(
-        path.join(ctx.root, '.apexrest/backups', state.backup.backupId, 'application/f123.sql'),
+        path.join(ctx.root, '.apexrest/backups', state.backup.backupId, 'application/application.apx'),
         'corrupt',
       );
     calls.length = 0;
@@ -155,7 +155,7 @@ test('dirty refresh is rejected before exports; clean refresh safely replaces ex
   await atomicWrite(path.join(server, 'application.apx'), 'external clean refresh');
   controls.metadata.lastUpdatedOn = 'changed';
   await service.sync(ctx, 'dev', 'refresh');
-  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG', 'export:SQL']);
+  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG']);
   assert.equal(
     await readFile(path.join(ctx.root, ctx.config.application.sourceDir, 'application.apx'), 'utf8'),
     'external clean refresh',
@@ -173,7 +173,7 @@ test('initial adoption conflict retains private staging and does not overwrite l
     'mock-only-fixture',
   );
   assert.equal(await new SyncStore(ctx, env, 'dev').read(), null);
-  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG', 'export:SQL']);
+  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG']);
 });
 
 test('init installs sources when source directory is absent', async () => {
@@ -256,12 +256,7 @@ test('concurrent applies serialize through deployment ownership and sync revisio
 test('legacy/full-export path, new applications and production retain normal planning', async () => {
   const { ctx, service, controls, calls, env } = await workingCopyFixture();
   await service.apply(ctx, await service.plan(ctx, 'dev'));
-  assert.deepEqual(exportsOnly(calls), [
-    'export:APEXLANG',
-    'export:APEXLANG',
-    'export:SQL',
-    'export:APEXLANG',
-  ]);
+  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG', 'export:APEXLANG']);
   calls.length = 0;
   controls.exists = false;
   await service.plan(ctx, 'dev');
@@ -292,13 +287,13 @@ test('initial backup restore requires separate authorization and invalidates syn
       },
     ],
   });
-  const restore = oracle.restoreApplication;
-  oracle.restoreApplication = async () => {
+  const restore = oracle.importApplication;
+  oracle.importApplication = async (...args) => {
     assert.equal((await store.read())!.status, 'invalidated');
-    return restore();
+    return restore(...args);
   };
   await service.apply(ctx, plan);
-  assert.ok(calls.includes('restore'));
+  assert.ok(calls.includes('import'));
   assert.equal((await store.read())!.status, 'invalidated');
 });
 

@@ -5,6 +5,10 @@ import { canonical, contained, hash } from './fs.ts';
 export const APEXLANG_EQUIVALENCE_POLICY = 'apex262-selected-source-v1';
 const formattingRule = 'structural-whitespace-and-comments';
 const defaultRule = 'pageItem.selectList.layout.startNewRow:true-default';
+const pageDefaultRule = 'page.security.pageAccessProtection:argumentsMustHaveChecksum-default';
+const regionDefaultRule = 'region.layout.startNewRow:true-default';
+const chartDefaultRule = 'region.chart.type:bar-default';
+const orderRule = 'explicit-unique-region-and-chart-component-order';
 const limit = 8 * 1024 * 1024;
 
 type Node =
@@ -141,6 +145,109 @@ function removeQualifiedDefault(nodes: Node[], parent?: Extract<Node, { children
   });
 }
 
+/** Pinned Oracle 26.2 page/region/chart contracts; no code or nondefault value is rewritten. */
+function normalizeExport(
+  nodes: Node[],
+  rules: Set<string>,
+  parent?: Extract<Node, { children: Node[] }>,
+): Node[] {
+  const result = nodes.map((node) => {
+    if (!('children' in node)) return node;
+    let children = normalizeExport(node.children, rules, node);
+    const property = (name: string) =>
+      children.filter((entry) => entry.kind === 'property' && entry.name === name);
+    const omit = (name: string, value: string, rule: string) => {
+      const matches = property(name);
+      if (matches.length === 1 && matches[0]!.kind === 'property' && matches[0]!.value === value) {
+        children = children.filter((entry) => entry !== matches[0]);
+        rules.add(rule);
+      }
+    };
+    if (node.kind === 'group' && node.name === 'security' && parent?.name === 'page')
+      omit('pageAccessProtection', 'argumentsMustHaveChecksum', pageDefaultRule);
+    if (
+      node.kind === 'group' &&
+      node.name === 'layout' &&
+      parent?.kind === 'component' &&
+      parent.name === 'region'
+    ) {
+      const starts = property('startNewLayout');
+      if (
+        !starts.length ||
+        (starts.length === 1 && starts[0]!.kind === 'property' && starts[0]!.value === 'false')
+      )
+        omit('startNewRow', 'true', regionDefaultRule);
+    }
+    if (
+      node.kind === 'group' &&
+      node.name === 'chart' &&
+      parent?.kind === 'component' &&
+      parent.name === 'region' &&
+      parent.children.some(
+        (entry) => entry.kind === 'property' && entry.name === 'type' && entry.value === 'chart',
+      )
+    )
+      omit('type', 'bar', chartDefaultRule);
+    // Duplicate fields/keys are not an equivalence proof, even for an omitted default.
+    const identities = node.children
+      .filter((entry) => entry.kind !== 'literal')
+      .map(
+        (entry) =>
+          entry.kind + ':' + ('name' in entry ? entry.name : '') + ':' + ('key' in entry ? entry.key : ''),
+      );
+    if (new Set(identities).size !== identities.length) throw new Error('Duplicate structural identity.');
+    const sortable = children.filter(
+      (entry) =>
+        entry.kind === 'component' &&
+        ((node.name === 'page' && entry.name === 'region') ||
+          (node.name === 'region' &&
+            node.children.some(
+              (child) => child.kind === 'property' && child.name === 'type' && child.value === 'chart',
+            ) &&
+            ['axis', 'series'].includes(entry.name))),
+    );
+    if (sortable.length > 1) {
+      const sequence = (entry: Node) => {
+        if (!('children' in entry)) return undefined;
+        if (entry.name === 'axis') return entry.key === 'x' || entry.key === 'y' ? entry.key : undefined;
+        const group = entry.children.find(
+          (child) =>
+            child.kind === 'group' && child.name === (entry.name === 'region' ? 'layout' : 'execution'),
+        );
+        const value =
+          group && 'children' in group
+            ? group.children.find((child) => child.kind === 'property' && child.name === 'sequence')
+            : undefined;
+        return value?.kind === 'property' && /^\d+$/.test(value.value)
+          ? entry.name + ':' + value.value
+          : undefined;
+      };
+      const sequences = sortable.map(sequence);
+      if (sequences.every(Boolean) && new Set(sequences).size === sequences.length) {
+        const sorted = [...sortable].sort(
+          (left, right) =>
+            ('name' in left ? left.name : '').localeCompare('name' in right ? right.name : '') ||
+            ('key' in left ? left.key : '').localeCompare('key' in right ? right.key : ''),
+        );
+        let index = 0;
+        children = children.map((entry) => (sortable.includes(entry) ? sorted[index++]! : entry));
+        rules.add(orderRule);
+      }
+    }
+    return { ...node, children };
+  });
+  return result.filter(
+    (node) =>
+      !(
+        'children' in node &&
+        !node.children.length &&
+        node.kind === 'group' &&
+        ((parent?.name === 'page' && node.name === 'security') ||
+          (parent?.name === 'region' && ['chart', 'layout'].includes(node.name)))
+      ),
+  );
+}
+
 export interface SourceEquivalence {
   equivalent: boolean;
   rules: string[];
@@ -155,6 +262,17 @@ export function compareApexlangSource(expected: string, actual: string): SourceE
     if (canonical(left) === canonical(right)) return { equivalent: true, rules: [formattingRule] };
     if (canonical(removeQualifiedDefault(left)) === canonical(removeQualifiedDefault(right)))
       return { equivalent: true, rules: [formattingRule, defaultRule] };
+    const rules = new Set<string>();
+    if (
+      canonical(left) !== canonical(removeQualifiedDefault(left)) ||
+      canonical(right) !== canonical(removeQualifiedDefault(right))
+    )
+      rules.add(defaultRule);
+    if (
+      canonical(normalizeExport(removeQualifiedDefault(left), rules)) ===
+      canonical(normalizeExport(removeQualifiedDefault(right), rules))
+    )
+      return { equivalent: true, rules: [formattingRule, ...rules] };
     return {
       equivalent: false,
       rules: [],

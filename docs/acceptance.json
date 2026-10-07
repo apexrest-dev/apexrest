@@ -27,10 +27,7 @@
       "criterion": "The Codex host lists the plugin and supports enable/disable without a manual skills-only installation",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/sqlcl-transport.test.ts",
-        "tests/contracts/mcp.test.mjs"
-      ],
+      "evidence": ["tests/unit/sqlcl-transport.test.ts", "tests/contracts/mcp.test.mjs"],
       "blocker": "Fresh Codex installation and lifecycle checks are required on each supported native host."
     },
     {
@@ -38,10 +35,7 @@
       "criterion": "MCP runs from the native installation location outside the monorepo",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/sqlcl-transport.test.ts",
-        "tests/contracts/mcp.test.mjs"
-      ],
+      "evidence": ["tests/unit/sqlcl-transport.test.ts", "tests/contracts/mcp.test.mjs"],
       "blocker": "Relocated CLI/stdio MCP tests do not establish a native model-host session."
     },
     {
@@ -80,10 +74,7 @@
       "criterion": "Download integrity failure blocks execution; offline/cache misses do not conceal network requests",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/installers/installer.test.ts",
-        "tests/packaging/packages.test.mjs"
-      ],
+      "evidence": ["tests/installers/installer.test.ts", "tests/packaging/packages.test.mjs"],
       "blocker": "Vendor download channels still require per-platform clean-machine evidence."
     },
     {
@@ -110,10 +101,7 @@
       "criterion": "The new-app template passes real Oracle compiler validation",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/sqlcl-transport.test.ts",
-        "tests/contracts/mcp.test.mjs"
-      ],
+      "evidence": ["tests/unit/sqlcl-transport.test.ts", "tests/contracts/mcp.test.mjs"],
       "blocker": "Real Oracle compiler checks require the selected supported SQLcl toolchain; connected imports are separate."
     },
     {
@@ -134,10 +122,7 @@
       "criterion": "`.apex` metadata/MMD are preserved; unsupported capabilities are not simulated",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/oracle.ts",
-        "tests/unit/core.test.ts"
-      ],
+      "evidence": ["packages/core/src/oracle.ts", "tests/unit/core.test.ts"],
       "blocker": "Real compiler validation retains template MMD metadata. Existing-app metadata/component preservation and unsupported-component rejection matrix remain unverified."
     },
     {
@@ -145,10 +130,7 @@
       "criterion": "Source mutation after planning and target drift block apply",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/deploy.ts",
-        "tests/unit/deployment.test.ts"
-      ],
+      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
       "blocker": "Source and target-drift behavior tested with fixtures; actual DB drift requires an authorized target."
     },
     {
@@ -156,10 +138,7 @@
       "criterion": "Target DB/service/workspace/schema/application ID are verified before writes",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/oracle.ts",
-        "tests/unit/oracle-performance.test.ts"
-      ],
+      "evidence": ["packages/core/src/oracle.ts", "tests/unit/oracle-performance.test.ts"],
       "blocker": "Fresh target identity and mismatch failures are covered by unit fixtures. Actual connected pre-write/post-write checks and the full negative matrix remain unverified."
     },
     {
@@ -167,10 +146,7 @@
       "criterion": "An existing-app backup is created and verified before import; restore uses a separate plan",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/deploy.ts",
-        "tests/unit/deployment.test.ts"
-      ],
+      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
       "blocker": "Backup-before-import ordering is covered by unit fixtures. Actual Oracle backup, restore and restore-failure evidence remains open."
     },
     {
@@ -178,10 +154,7 @@
       "criterion": "Migration checksums and journals work without blind reapplication",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/deploy.ts",
-        "tests/unit/deployment.test.ts"
-      ],
+      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
       "blocker": "Migration history and coordination are local only. Real Oracle DDL interruption/reconciliation requires an authorized target."
     },
     {
@@ -189,10 +162,7 @@
       "criterion": "Concurrent deployments from different runners to the same target are coordinated",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/deploy.ts",
-        "tests/unit/deployment.test.ts"
-      ],
+      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
       "blocker": "Local coordination covers one shared managed home/schema. Independent machines/homes require external serialization and separate connected contention checks."
     },
     {
@@ -216,11 +186,7 @@
       "criterion": "Production-marked targets refuse deploy/restore regardless of locality, local grants, human confirmation or legacy signature flags",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "packages/core/src/config.ts",
-        "packages/core/src/deploy.ts",
-        "tests/unit/core.test.ts"
-      ],
+      "evidence": ["packages/core/src/config.ts", "packages/core/src/deploy.ts", "tests/unit/core.test.ts"],
       "blocker": "Local policy regressions do not establish connected production behavior; no actual production deployment is permitted."
     },
     {
@@ -296,23 +262,16 @@
         "tests/packaging/site-markdown.test.mjs"
       ],
       "blocker": "Local release artifact checks remain separate from the branch-hosted GitHub Pages build. Pages settings are main:/docs at https://apexrest-dev.github.io/apexrest/ with no custom domain. Current generated site is prepared locally; newly published output, signed releases and current native/Oracle qualification are not established by this website work.",
-      "regeneratedEvidence": [
-        "dist/releases/release-manifest.json",
-        "site-dist/releases/manifest.json"
-      ]
+      "regeneratedEvidence": ["dist/releases/release-manifest.json", "site-dist/releases/manifest.json"]
     },
     {
       "id": "A25",
       "criterion": "Broad native-platform and Oracle integration qualification remains blocked when required source-bound evidence is missing; npm distribution is recorded separately",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "scripts/check-release-readiness.mjs"
-      ],
+      "evidence": ["scripts/check-release-readiness.mjs"],
       "blocker": "Generated dist/site-dist records are regenerated by release:dry-run/site:build, not committed evidence. Publication and current native/Oracle qualification are NOT RUN.",
-      "regeneratedEvidence": [
-        "dist/releases/release-readiness.json"
-      ]
+      "regeneratedEvidence": ["dist/releases/release-readiness.json"]
     },
     {
       "id": "A26",
@@ -436,7 +395,7 @@
     },
     {
       "id": "A39",
-      "criterion": "Single-editor working copies for existing dev/test apps: dual-format baseline once, three locally verified real plan/apply cycles without exports, restart persistence and safety failures blocked at a fake Oracle boundary.",
+      "criterion": "Single-editor working copies for existing dev/test apps: APEXlang baseline once, three locally verified real plan/apply cycles without exports, restart persistence and safety failures blocked at a fake Oracle boundary.",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -450,12 +409,10 @@
     },
     {
       "id": "A40",
-      "criterion": "Connected working-copy baseline, three changed full imports across restart, authenticated browser, actual fault recovery and separate initial SQL restore on an authorized DEV target.",
+      "criterion": "Connected working-copy baseline, three changed full imports across restart, authenticated browser, actual fault recovery and separate initial APEXlang restore on an authorized DEV target.",
       "implementation": "implemented",
       "verification": "blocked",
-      "evidence": [
-        "docs/next-actions.md"
-      ],
+      "evidence": ["docs/next-actions.md"],
       "blocker": "Fresh current-source qualification is required; local fixtures do not establish connected Oracle or native-host behavior."
     },
     {
@@ -463,9 +420,7 @@
       "criterion": "Checkout audit and integration map",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -473,9 +428,7 @@
       "criterion": "Baseline checks and execution log",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -483,9 +436,7 @@
       "criterion": "ADR, threat model and acceptance IDs",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -493,9 +444,7 @@
       "criterion": "Strict schemas and contract dialect",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Full structural contract dialect is incomplete."
     },
     {
@@ -503,9 +452,7 @@
       "criterion": "Safe YAML/JSON reading and package paths",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -513,9 +460,7 @@
       "criterion": "Canonical snapshots and content digests",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -523,9 +468,7 @@
       "criterion": "Tracked state, base store and runtime journal model",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -533,9 +476,7 @@
       "criterion": "Executable block registry over existing catalogs",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -543,9 +484,7 @@
       "criterion": "Search, filters and explainable shortlist",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Compatibility/contract-aware ranking and complete qualification filters remain incomplete."
     },
     {
@@ -553,9 +492,7 @@
       "criterion": "Compatibility profiles and evidence policy",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Independent profile/configuration/fixture/toolchain qualification policy is incomplete."
     },
     {
@@ -563,9 +500,7 @@
       "criterion": "Immutable local cache and index lifecycle",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -573,9 +508,7 @@
       "criterion": "Project inventory and reader adapter",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Complete resource reference graph remains incomplete."
     },
     {
@@ -583,9 +516,7 @@
       "criterion": "Oracle metadata for keys, types and signatures",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -593,9 +524,7 @@
       "criterion": "Dataset contracts and entity binding",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Full producer/consumer dataset compatibility remains incomplete."
     },
     {
@@ -603,9 +532,7 @@
       "criterion": "Commands, authorization contracts and transaction semantics",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -613,9 +540,7 @@
       "criterion": "Deterministic dependency and capability resolver",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -623,9 +548,7 @@
       "criterion": "Stable allocator and shared resource ownership",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Shared LOV semantic deduplication and ownership are absent."
     },
     {
@@ -633,9 +556,7 @@
       "criterion": "Typed event, action and route wiring",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Independent typed route mappings remain incomplete."
     },
     {
@@ -643,9 +564,7 @@
       "criterion": "Composition plan and diagnostics",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -653,9 +572,7 @@
       "criterion": "Bounded APEXlang structural transformer",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -663,9 +580,7 @@
       "criterion": "Journaled local materialization and recovery",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -673,9 +588,7 @@
       "criterion": "Idempotence and basic ownership modes",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Hosted summary detach is coupled to page ownership; shared resource ownership is incomplete."
     },
     {
@@ -683,9 +596,7 @@
       "criterion": "Binding to the existing deployment pipeline",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Live qualification deferred by agreed scope."
     },
     {
@@ -758,10 +669,7 @@
       "criterion": "Public CLI surface",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts",
-        "tests/contracts/composer.test.mjs"
-      ],
+      "evidence": ["tests/unit/composer.test.ts", "tests/contracts/composer.test.mjs"],
       "blocker": null
     },
     {
@@ -769,9 +677,7 @@
       "criterion": "Version upgrade and structural three-way merge",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -779,9 +685,7 @@
       "criterion": "Remove/detach, dependency cleanup and migration seam",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Shared-resource consumers and typed migration references are absent."
     },
     {
@@ -802,10 +706,7 @@
       "criterion": "Local authoring and capture of a finished block",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts",
-        "scripts/composer-author.mjs"
-      ],
+      "evidence": ["tests/unit/composer.test.ts", "scripts/composer-author.mjs"],
       "blocker": "Capture records declaration facts; arbitrary source normalization into executable blocks is absent."
     },
     {
@@ -813,9 +714,7 @@
       "criterion": "Trust, provenance and supply-chain hardening",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": null
     },
     {
@@ -823,9 +722,7 @@
       "criterion": "Security/property/fault regression suite",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Remaining property/adversarial/deployment matrix cases are not implemented."
     },
     {
@@ -833,10 +730,7 @@
       "criterion": "Benchmarks and agent workflow evaluation",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts",
-        "scripts/benchmark-composer.mjs"
-      ],
+      "evidence": ["tests/unit/composer.test.ts", "scripts/benchmark-composer.mjs"],
       "blocker": "Matched recipe adaptation and broader workflow measurements are absent."
     },
     {
@@ -844,10 +738,7 @@
       "criterion": "Bundling and clean-install checks",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": [
-        "tests/unit/composer.test.ts",
-        "tests/contracts/composer.test.mjs"
-      ],
+      "evidence": ["tests/unit/composer.test.ts", "tests/contracts/composer.test.mjs"],
       "blocker": null
     },
     {
@@ -855,9 +746,7 @@
       "criterion": "Current platform and release gates",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Hosted CI establishes local quality gates. Native Linux/Windows Composer and connected Oracle behavior require separate qualification."
     },
     {
@@ -865,9 +754,7 @@
       "criterion": "Current documentation, acceptance and release readiness",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": [
-        "tests/unit/composer.test.ts"
-      ],
+      "evidence": ["tests/unit/composer.test.ts"],
       "blocker": "Composer remains experimental; complete shared-resource ownership and runtime qualification before stable acceptance."
     },
     {
@@ -885,14 +772,16 @@
     },
     {
       "id": "APEX262-02",
-      "criterion": "Automatic or explicit partial APEXlang import with three-way conflict control, exact plan binding, fresh backup and verified server checkpoint",
+      "criterion": "Automatic or explicit page/shared-file APEXlang imports with scoped conflicts/backups/readback, native page export, disclosed shared-component full observation and separate APEXlang restore",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
         "tests/unit/partial-import.test.ts",
-        "tests/unit/apexlang-equivalence.test.ts"
+        "tests/unit/partial-export.test.ts",
+        "tests/unit/apexlang-equivalence.test.ts",
+        "docs/evidence/fast-apexlang-scope/latest.json"
       ],
-      "blocker": "Fresh connected qualification is required for the current source. Partial imports require the pinned 26.2 tuple and direct SQLcl CLI; ORDS and SQLcl MCP-mode file imports are unsupported."
+      "blocker": "Authorized local 26.2 page creation/replacement, shared LOV creation/replacement, selected-page APEXlang restore and authenticated dashboard/LOV rendering passed. Native LOV/list selected export is unavailable on the tested target; component imports disclose full APEXlang observation. Broader component families, independent-machine coordination, ORDS and SQLcl MCP-mode imports remain unqualified or unsupported."
     },
     {
       "id": "APEX262-03",
@@ -911,10 +800,7 @@
       "criterion": "Current native Codex and Claude Code host discovery and execution with the 26.2 package",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": [
-        "tests/contracts/mcp.test.mjs",
-        "scripts/repository-plugin-smoke.mjs"
-      ],
+      "evidence": ["tests/contracts/mcp.test.mjs", "scripts/repository-plugin-smoke.mjs"],
       "blocker": "Fresh Codex and Claude Code work cycles, ship/job execution and browser handoff require native-host qualification."
     },
     {

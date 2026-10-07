@@ -25,6 +25,21 @@ import {
 } from './compatibility.ts';
 import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
 import { localConnectionEndpoint, localServerHost } from './locality.ts';
+import { scopedExportFile, supportedFile } from './partial-import.ts';
+const targetIdentitySql = `select 'identity' target_record,
+        sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
+        sys_context('USERENV','SERVICE_NAME') service_name,
+        sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,
+        null workspace_id, null workspace, null application_id, null alias, null owner
+       from dual
+       union all
+       select 'workspace', null, null, null, workspace_id, workspace, null, null, null
+       from apex_workspaces where workspace = :p_workspace
+       union all
+       select 'application', null, null, null, null, workspace, application_id, alias, owner
+       from apex_applications where application_id = :p_app_id`;
+const targetVersionSql =
+  "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'";
 export type Runner = (request: ProcessRequest) => Promise<ProcessResult>;
 export interface SqlclCapabilities {
   version: string;
@@ -36,8 +51,10 @@ export interface SqlclCapabilities {
 // launcher, the compiler libraries and the Java runtime; every adapter in the
 // process shares it, so an import after a validate never re-probes.
 const capabilityCache = new Map<string, Promise<SqlclCapabilities>>();
+const importHelpCache = new Map<string, Promise<string>>();
 export function resetCapabilityCache() {
   capabilityCache.clear();
+  importHelpCache.clear();
 }
 function raceCancellation<T>(promise: Promise<T>, signal: AbortSignal | undefined, message: string) {
   const cancelled = () => new Fault('CANCELLED', message, 6, 'cancelled');
@@ -472,13 +489,24 @@ export class OracleAdapter {
     return { version: capabilities.version, helpHash: capabilities.helpHash };
   }
   /** Inspect selected-file support without connecting or trusting the generic APEX help. */
+  async importHelp(signal?: AbortSignal) {
+    const key = await this.capabilityKey(await this.settings());
+    let pending = key ? importHelpCache.get(key) : undefined;
+    if (!pending) {
+      pending = this.session('help apex import').then((result) =>
+        result.output.replace(/\x1b\[[0-9;]*m/g, ''),
+      );
+      if (key) {
+        importHelpCache.set(key, pending);
+        pending.catch(() => importHelpCache.delete(key));
+      }
+    }
+    return raceCancellation(pending, signal, 'Import capability check cancelled.');
+  }
   async partialImportCapabilities(source: string, target: TargetVersions, signal?: AbortSignal) {
     const compiler = await this.requireCapability('import', signal);
     const settings = await this.settings();
-    const help = (await this.session('help apex import', undefined, false, signal)).output.replace(
-      /\x1b\[[0-9;]*m/g,
-      '',
-    );
+    const help = await this.importHelp(signal);
     return evaluatePartialImportCompatibility({
       ...target,
       compilerVersion: compiler.version,
@@ -664,6 +692,144 @@ export class OracleAdapter {
       stage,
     };
   }
+  /** Native page export; shared files use an explicitly bound full APEXlang observation. */
+  async exportSelection(
+    env: Environment,
+    connection: Connection,
+    selected: string[],
+    source: string,
+    knownFiles: Record<string, string> = {},
+    exportScope: 'selected' | 'full' = 'selected',
+  ) {
+    if (
+      !selected.length ||
+      new Set(selected).size !== selected.length ||
+      selected.some((file) => !(exportScope === 'selected' ? scopedExportFile(file) : supportedFile(file)))
+    )
+      throw new Fault(
+        'PARTIAL_EXPORT_UNSUPPORTED',
+        'Selection has no qualified native component export mapping.',
+        3,
+      );
+    const settings = await this.settings();
+    if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct')
+      throw new Fault(
+        'PARTIAL_EXPORT_UNSUPPORTED',
+        'Component export requires direct SQLcl CLI transport.',
+        3,
+      );
+    const compiler = await this.requireCapability('export');
+    const stage = await this.stage(),
+      directory = path.join(stage, 'selection');
+    await mkdir(directory, { mode: 0o700 });
+    try {
+      if (exportScope === 'full') {
+        const exported = await this.exportApplication(env, connection, 'APEXLANG');
+        try {
+          for (const file of selected) {
+            // Full observations may include unrelated files; only the reviewed scope is retained.
+            const pageId = /^pages\/p(\d{5})/.exec(file)?.[1];
+            const matches = Object.keys(exported.files).filter((candidate) =>
+              pageId ? /^pages\/p(\d{5})/.exec(candidate)?.[1] === pageId : candidate === file,
+            );
+            if (matches.length > 1)
+              throw new Fault('PARTIAL_EXPORT_AMBIGUOUS', 'Export has duplicate selected identities.', 5);
+            if (!matches.length) continue;
+            const target = await contained(directory, file);
+            await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+            await cp(await contained(exported.directory, matches[0]!), target);
+          }
+          const files = await inventory(directory);
+          return {
+            directory,
+            files,
+            digest: hash(canonical(files)),
+            format: 'APEXLANG' as const,
+            compiler,
+            output: exported.output,
+            stage,
+          };
+        } finally {
+          await this.discardStage(exported.stage);
+        }
+      }
+      const mappings: Array<{ file: string; type: string; id: string }> = [];
+      const queries: string[] = [];
+      if (selected.some((file) => file.startsWith('pages/') && !knownFiles[file]))
+        queries.push(
+          "select 'PAGE' component_type, to_char(page_id) component_id, to_char(page_id) component_name from apex_application_pages where application_id = :p_app",
+        );
+      const metadata = queries.length
+        ? await this.jsonQuery(queries.join(' union all '), connection, { p_app: env.applicationId })
+        : [];
+      for (const file of selected) {
+        const page = /^pages\/p(\d{5})/.exec(file);
+        if (page) {
+          const id = String(Number(page[1]));
+          if (
+            knownFiles[file] ||
+            metadata.some((row) => row.component_type === 'PAGE' && row.component_id === id)
+          )
+            mappings.push({ file, type: 'PAGE', id });
+        }
+      }
+      if (new Set(mappings.map((entry) => entry.type + ':' + entry.id)).size !== mappings.length)
+        throw new Fault(
+          'PARTIAL_EXPORT_AMBIGUOUS',
+          'Multiple selected files map to one server component.',
+          5,
+        );
+      let output = 'Selected components are absent; no previous source export required.';
+      if (mappings.length) {
+        const result = await this.session(
+          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(stage)} -expComponents ${sqlclToken(mappings.map((entry) => entry.type + ':' + entry.id).join(' '))}`,
+          connection,
+          false,
+          undefined,
+          stage,
+        );
+        output = result.output;
+        const emitted = await inventory(stage);
+        const observed = new Set<string>();
+        for (const [file] of Object.entries(emitted)) {
+          if (!file.endsWith('.apx'))
+            throw new Fault(
+              'PARTIAL_EXPORT_SCOPE_FAILED',
+              'Native export emitted an unexpected artifact.',
+              5,
+            );
+          // Oracle names the file from its current page alias, not the caller's filename.
+          const exportedPage = /(?:^|\/)pages\/p(\d{5})[-\w]*\.apx$/.exec(file);
+          const matches = mappings.filter(
+            (entry) => entry.type === 'PAGE' && exportedPage && entry.id === String(Number(exportedPage[1])),
+          );
+          if (matches.length !== 1 || observed.has(matches[0]!.file))
+            throw new Fault(
+              'PARTIAL_EXPORT_SCOPE_FAILED',
+              'Native export emitted an unselected or ambiguous page identity.',
+              5,
+            );
+          observed.add(matches[0]!.file);
+          const target = await contained(directory, matches[0]!.file);
+          await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+          await cp(await contained(stage, file), target);
+        }
+      }
+      const files = await inventory(directory);
+      return {
+        directory,
+        files,
+        digest: hash(canonical(files)),
+        format: 'APEXLANG' as const,
+        compiler,
+        output,
+        stage,
+      };
+    } catch (error) {
+      await this.discardStage(stage);
+      throw error;
+    }
+  }
   async connectionLocality(connection: Connection) {
     const selected = await this.selectedConnection(connection);
     if (selected.ords) {
@@ -837,12 +1003,10 @@ export class OracleAdapter {
   }
   /** Read-only release discovery, separate from identity checks for legacy callers. */
   async targetVersions(connection: Connection, signal?: AbortSignal): Promise<TargetVersions> {
-    const rows = await this.jsonQuery(
-      "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'",
-      connection,
-      {},
-      signal,
-    );
+    const rows = await this.jsonQuery(targetVersionSql, connection, {}, signal);
+    return this.parseTargetVersions(rows);
+  }
+  private parseTargetVersions(rows: Record<string, unknown>[]): TargetVersions {
     const row = rows[0];
     if (
       rows.length !== 1 ||
@@ -859,25 +1023,15 @@ export class OracleAdapter {
       );
     return { apexVersion: row.apex_version, databaseVersion: row.database_version };
   }
-  async verifyTarget(env: Environment, connection: Connection) {
+  async verifyTarget(env: Environment, connection: Connection, observed?: Record<string, unknown>[]) {
     // One read-only statement observes all target identifiers in the same live
     // SQLcl session. Never reuse this result between plan/apply/write checks.
-    const rows = await this.jsonQuery(
-      `select 'identity' target_record,
-        sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
-        sys_context('USERENV','SERVICE_NAME') service_name,
-        sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,
-        null workspace_id, null workspace, null application_id, null alias, null owner
-       from dual
-       union all
-       select 'workspace', null, null, null, workspace_id, workspace, null, null, null
-       from apex_workspaces where workspace = :p_workspace
-       union all
-       select 'application', null, null, null, null, workspace, application_id, alias, owner
-       from apex_applications where application_id = :p_app_id`,
-      connection,
-      { p_workspace: env.workspace, p_app_id: env.applicationId },
-    );
+    const rows =
+      observed ??
+      (await this.jsonQuery(targetIdentitySql, connection, {
+        p_workspace: env.workspace,
+        p_app_id: env.applicationId,
+      }));
     const identities = rows.filter((row) => row.target_record === 'identity');
     if (identities.length !== 1)
       throw new Fault('IDENTITY_UNCONFIRMED', 'Database identity was not confirmed.', 3);
@@ -925,6 +1079,20 @@ export class OracleAdapter {
         5,
       );
     return { identity, workspace: workspaces[0]!, application: applications[0] ?? null };
+  }
+  /** Fresh identity and versions share one read-only SQLcl session. */
+  async versionedTarget(env: Environment, connection: Connection) {
+    const [identity, versions] = await this.jsonQueryBatch(
+      [
+        { sql: targetIdentitySql, bindings: { p_workspace: env.workspace, p_app_id: env.applicationId } },
+        { sql: targetVersionSql },
+      ],
+      connection,
+    );
+    return {
+      target: await this.verifyTarget(env, connection, identity!),
+      versions: this.parseTargetVersions(versions!),
+    };
   }
   async applicationMetadata(env: Environment, connection: Connection) {
     const rows = await this.jsonQuery(
@@ -1032,10 +1200,7 @@ export class OracleAdapter {
             2,
           );
       }
-      const help = (await this.session('help apex import', undefined, false, signal)).output.replace(
-        /\x1b\[[0-9;]*m/g,
-        '',
-      );
+      const help = await this.importHelp(signal);
       if (!/(?:^|\s)-files(?:\s|\|)/m.test(help))
         throw new Fault(
           'PARTIAL_IMPORT_UNSUPPORTED',

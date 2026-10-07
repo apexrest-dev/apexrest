@@ -1402,9 +1402,9 @@ __export(oracle_exports, {
   sqlLiteral: () => sqlLiteral,
   sqlclToken: () => sqlclToken
 });
-import path7 from "node:path";
+import path11 from "node:path";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir as mkdir2, mkdtemp, readFile as readFile3, readdir, realpath as realpath3, rename, rm as rm3, stat as stat3 } from "node:fs/promises";
+import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile5, readdir as readdir2, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
 import path2 from "node:path";
@@ -2124,10 +2124,882 @@ async function localServerHost(serverHost) {
   return false;
 }
 
+// packages/core/src/partial-import.ts
+import path10 from "node:path";
+import { cp as cp2, mkdir as mkdir3, rename, rm as rm4 } from "node:fs/promises";
+
+// packages/core/src/sync.ts
+import path8 from "node:path";
+import { lstat as lstat2, mkdir as mkdir2, readdir, realpath as realpath3, open as open3, cp, chmod as chmod2 } from "node:fs/promises";
+
+// packages/core/src/deployment-control.ts
+import path7 from "node:path";
+import { hostname as hostname2 } from "node:os";
+import { rm as rm3 } from "node:fs/promises";
+function coordination(env) {
+  return {
+    backend: "local",
+    scope: "managed-home-schema",
+    // Bind plans to the history store. Moving a plan to a fresh home is not migration recovery.
+    storeDigest: hash(canonical({ home: managedHome(), ...env.databaseIdentity, schema: env.parsingSchema }))
+  };
+}
+var ownerSchema = external_exports.strictObject({
+  runId: external_exports.string(),
+  pid: external_exports.number().int().positive(),
+  hostname: external_exports.string(),
+  phase: external_exports.enum(["preparing", "writing"]),
+  createdAt: external_exports.string()
+});
+var historySchema = external_exports.array(
+  external_exports.strictObject({
+    version: external_exports.string(),
+    checksum: external_exports.string().regex(/^[a-f0-9]{64}$/),
+    status: external_exports.enum(["started", "succeeded"]),
+    run_id: external_exports.string()
+  })
+);
+var LocalDeploymentControl = class {
+  directory;
+  constructor(env) {
+    const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
+    this.directory = path7.join(managedHome(), "deployment-control", key);
+  }
+  file(name) {
+    return path7.join(this.directory, name);
+  }
+  async history() {
+    const file = this.file("history.json");
+    return await exists(file) ? parse(historySchema, await readJson(file)) : [];
+  }
+  async owner() {
+    const file = this.file("active.json");
+    try {
+      return parse(ownerSchema, await readJson(file));
+    } catch (error) {
+      if (error.code === "ENOENT") return void 0;
+      throw error;
+    }
+  }
+  async acquire(runId) {
+    await withLock(this.file("control.lock"), async () => {
+      const owner = await this.owner();
+      if (owner) {
+        let dead = false;
+        if (owner.hostname === hostname2()) {
+          try {
+            process.kill(owner.pid, 0);
+          } catch (e) {
+            dead = e.code === "ESRCH";
+          }
+        }
+        if (!dead || owner.phase === "writing")
+          throw new Fault(
+            "TARGET_LOCKED",
+            "A runner owns this schema or an interrupted write needs reconciliation. Preserve its control state.",
+            5,
+            "conflict"
+          );
+      }
+      await writeJson(this.file("active.json"), {
+        runId,
+        pid: process.pid,
+        hostname: hostname2(),
+        phase: "preparing",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    });
+  }
+  async assertOwner(runId) {
+    const owner = await this.owner();
+    if (owner?.runId !== runId || owner.pid !== process.pid || owner.hostname !== hostname2())
+      throw new Fault(
+        "LEASE_LOST",
+        "Local deployment ownership is no longer confirmed.",
+        6,
+        "outcome_unknown"
+      );
+    return owner;
+  }
+  async markWriting(runId) {
+    await withLock(this.file("control.lock"), async () => {
+      await writeJson(this.file("active.json"), { ...await this.assertOwner(runId), phase: "writing" });
+    });
+  }
+  async migration(runId, version, checksum, status) {
+    await withLock(this.file("control.lock"), async () => {
+      await this.assertOwner(runId);
+      const history = await this.history(), previous = history.find((row) => row.version === version);
+      if (status === "started" ? Boolean(previous) : !previous || previous.run_id !== runId || previous.checksum !== checksum || previous.status !== "started")
+        throw new Fault(
+          "MIGRATION_HISTORY_CONFLICT",
+          "Migration history requires reconciliation; it cannot be replayed or overwritten.",
+          5
+        );
+      const next = history.filter((row) => row.version !== version);
+      next.push({ version, checksum, status, run_id: runId });
+      await writeJson(
+        this.file("history.json"),
+        next.sort((a, b2) => a.version.localeCompare(b2.version))
+      );
+    });
+  }
+  async release(runId) {
+    await withLock(this.file("control.lock"), async () => {
+      await this.assertOwner(runId);
+      await rm3(this.file("active.json"));
+    });
+  }
+  /** Release only the reconciled run after its worker has stopped. Keep history. */
+  async claimReconciled(runId) {
+    await withLock(this.file("control.lock"), async () => {
+      const owner = await this.owner();
+      if (!owner) {
+        await writeJson(this.file("active.json"), {
+          runId,
+          pid: process.pid,
+          hostname: hostname2(),
+          phase: "preparing",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        return;
+      }
+      if (owner.runId !== runId || owner.hostname !== hostname2())
+        throw new Fault(
+          "TARGET_LOCKED",
+          "Another runner owns this target; reconciliation cannot clear its ownership.",
+          5
+        );
+      if (owner.pid !== process.pid) {
+        let dead = false;
+        try {
+          process.kill(owner.pid, 0);
+        } catch (error) {
+          dead = error.code === "ESRCH";
+        }
+        if (!dead)
+          throw new Fault(
+            "TARGET_LOCKED",
+            "The import worker is still alive; wait for its terminal result.",
+            5
+          );
+      }
+      await writeJson(this.file("active.json"), { ...owner, pid: process.pid, phase: "preparing" });
+    });
+  }
+};
+
+// plugins/metadata.json
+var metadata_default = {
+  name: "apexrest-apex",
+  version: "2.0.0",
+  description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
+  author: {
+    name: "APEXREST",
+    url: "https://apexrest-dev.github.io/apexrest/"
+  },
+  license: "Apache-2.0",
+  interface: {
+    displayName: "APEXREST for Codex and Claude Code",
+    shortDescription: "Oracle APEX development workflows",
+    longDescription: "Oracle APEX development, controlled deployment and testing directly in your current Codex or Claude Code session.",
+    developerName: "APEXREST",
+    websiteURL: "https://apexrest-dev.github.io/apexrest/",
+    composerIcon: "./assets/apexrest-icon.svg",
+    logo: "./assets/apexrest-logo.svg",
+    logoDark: "./assets/apexrest-logo.svg",
+    category: "Productivity",
+    capabilities: ["Read", "Write"],
+    defaultPrompt: [
+      "Use $apexrest-work to build or change my Oracle APEX application in this session.",
+      "Use $apexrest-setup to check my tools and connection references.",
+      "Use $apexrest-safety to explain what blocked my APEX deployment or test."
+    ]
+  }
+};
+
+// packages/core/src/version.ts
+var VERSION = metadata_default.version;
+
+// packages/core/src/sync.ts
+var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
+var snapshotSchema = external_exports.strictObject({
+  directory: relativePath,
+  files: external_exports.record(relativePath, digest),
+  digest
+});
+var serverMetadataSchema = external_exports.strictObject({
+  lastUpdatedOn: external_exports.string().nullable(),
+  lastUpdatedBy: external_exports.string().nullable()
+});
+var syncStateSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  syncId: external_exports.uuid(),
+  revision: external_exports.number().int().nonnegative(),
+  projectRoot: external_exports.string(),
+  projectId: external_exports.string(),
+  environment: external_exports.string(),
+  targetDigest: digest,
+  target: external_exports.record(external_exports.string(), external_exports.unknown()),
+  sourceDir: relativePath,
+  toolchainDigest: digest,
+  runtimeVersion: external_exports.string(),
+  compilerVersion: external_exports.string().min(1),
+  exportedAt: external_exports.iso.datetime(),
+  baseline: snapshotSchema,
+  backup: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digest }),
+  observedMetadata: serverMetadataSchema,
+  lastSuccessfulImport: external_exports.strictObject({
+    at: external_exports.iso.datetime(),
+    runId: external_exports.uuid(),
+    snapshot: snapshotSchema,
+    verifiedFiles: external_exports.array(relativePath).optional()
+  }).nullable(),
+  recoveryCheckpoint: external_exports.strictObject({ at: external_exports.iso.datetime(), runId: external_exports.uuid(), snapshot: snapshotSchema }).nullable().optional(),
+  status: external_exports.enum(["ready", "importing", "verification_failed", "outcome_unknown", "invalidated"]),
+  importingRunId: external_exports.uuid().nullable()
+});
+async function syncPath(ctx, relative) {
+  const file = await contained(ctx.root, relative);
+  let probe = ctx.root;
+  for (const part of path8.relative(ctx.root, file).split(path8.sep).filter(Boolean)) {
+    probe = path8.join(probe, part);
+    if (await exists(probe)) {
+      if ((await lstat2(probe)).isSymbolicLink())
+        throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
+    }
+  }
+  return file;
+}
+async function privateCopy(source, destination) {
+  await cp(source, destination, { recursive: true });
+  async function secure(directory) {
+    await chmod2(directory, 448);
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
+      const file = path8.join(directory, entry.name);
+      if (entry.isDirectory()) await secure(file);
+      else if (entry.isFile()) await chmod2(file, 384);
+      else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
+    }
+  }
+  await secure(destination);
+}
+async function checkSnapshot(ctx, snapshot) {
+  if (!snapshot.directory.startsWith(".apexrest/"))
+    throw new Fault("SYNC_ARTIFACT_INVALID", "Snapshot must be private project storage.", 5);
+  const actual = await inventory(await syncPath(ctx, snapshot.directory));
+  if (!Object.keys(actual).length || canonical(actual) !== canonical(snapshot.files) || hash(canonical(actual)) !== snapshot.digest)
+    throw new Fault("SYNC_ARTIFACT_INVALID", "Working-copy snapshot checksum verification failed.", 5);
+  return actual;
+}
+async function checkSyncBackup(ctx, backup, envDigest, environmentName) {
+  const directory = await syncPath(ctx, ".apexrest/backups/" + backup.backupId);
+  const metadata = await readJson(
+    await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/backup.json")
+  );
+  const files = await inventory(await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/application"));
+  if (metadata.schemaVersion !== 1 || metadata.environment !== environmentName || metadata.backupId !== backup.backupId || metadata.targetDigest !== envDigest || metadata.digest !== backup.checksum || hash(canonical(files)) !== backup.checksum || canonical(metadata.files) !== canonical(files) || !Object.keys(files).length)
+    throw new Fault("BACKUP_INVALID", "Initial source backup checksum or target verification failed.", 5);
+}
+function checkpoint(state) {
+  return state.recoveryCheckpoint?.snapshot ?? state.lastSuccessfulImport?.snapshot ?? state.baseline;
+}
+var SyncStore = class {
+  constructor(ctx, env, name) {
+    this.ctx = ctx;
+    this.env = env;
+    this.name = name;
+  }
+  ctx;
+  env;
+  name;
+  async file(key = targetDigest(this.env)) {
+    return syncPath(this.ctx, ".apexrest/sync/" + key + "/state.json");
+  }
+  async lock(action) {
+    return withLock(await syncPath(this.ctx, ".apexrest/sync/state.lock"), action);
+  }
+  /** Scan environment records so a changed target cannot silently become a legacy project. */
+  async read(allowMappingChange = false) {
+    const base = await syncPath(this.ctx, ".apexrest/sync");
+    if (!await exists(base)) return null;
+    const matches = [];
+    for (const entry of await readdir(base, { withFileTypes: true })) {
+      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Sync storage contains a symlink.", 5);
+      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
+      const file = await this.file(entry.name);
+      if (!await exists(file)) {
+        if (await exists(await syncPath(this.ctx, ".apexrest/sync/" + entry.name + "/journal.jsonl")))
+          throw new Fault(
+            "SYNC_STATE_INVALID",
+            "A durable sync journal exists but its state is missing. Recover it explicitly; no export fallback.",
+            5
+          );
+        continue;
+      }
+      let state2;
+      try {
+        state2 = syncStateSchema.parse(await readJson(file));
+      } catch {
+        throw new Fault(
+          "SYNC_STATE_INVALID",
+          "Corrupt working-copy state requires explicit recovery; no export fallback.",
+          5
+        );
+      }
+      if (state2.targetDigest !== entry.name)
+        throw new Fault("SYNC_STATE_INVALID", "Sync record storage key differs from its target.", 5);
+      if (state2.targetDigest === targetDigest(this.env) && state2.environment !== this.name && state2.status !== "invalidated")
+        throw new Fault(
+          "SYNC_MAPPING_CHANGED",
+          "This target is bound to another environment. Explicitly invalidate the previous mapping first.",
+          5
+        );
+      if (state2.environment === this.name && state2.status !== "invalidated") matches.push(state2);
+      else if (state2.targetDigest === targetDigest(this.env) && state2.environment === this.name)
+        matches.push(state2);
+    }
+    const active = matches.filter((s3) => s3.status !== "invalidated");
+    if (active.length > 1)
+      throw new Fault("SYNC_STATE_INVALID", "Multiple active records require reconciliation.", 5);
+    const state = active[0] ?? matches[0] ?? null;
+    if (state && state.status !== "invalidated" && !allowMappingChange) await this.checkMapping(state);
+    return state;
+  }
+  async checkMapping(state) {
+    const { readFile: readFile6 } = await import("node:fs/promises");
+    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile6(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
+      throw new Fault(
+        "SYNC_MAPPING_CHANGED",
+        "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
+        5
+      );
+  }
+  async validate(state, ready = true) {
+    await this.checkMapping(state);
+    if (ready && state.status !== "ready")
+      throw new Fault(
+        "SYNC_BLOCKED",
+        `Working copy is ${state.status}. Inspect the existing run and reconcile before writes.`,
+        5
+      );
+    const validRunSnapshot = (reference) => {
+      const base = ".apexrest/deployments/" + reference.runId + "/";
+      if (["snapshot", "server"].some(
+        (kind) => reference.snapshot.directory === base + kind + "/" + state.sourceDir
+      ))
+        return true;
+      const relative = reference.snapshot.directory.startsWith(base) ? reference.snapshot.directory.slice(base.length) : "";
+      return /^recovery\/\d{10,17}\/application$/.test(relative);
+    };
+    if (state.baseline.directory !== ".apexrest/sync/" + state.targetDigest + "/baselines/" + state.syncId + "/application" || state.lastSuccessfulImport && !validRunSnapshot(state.lastSuccessfulImport) || state.recoveryCheckpoint && !validRunSnapshot(state.recoveryCheckpoint))
+      throw new Fault(
+        "SYNC_ARTIFACT_INVALID",
+        "Snapshot reference does not match its sync or deployment owner.",
+        5
+      );
+    if (state.status === "ready" && (await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
+      throw new Fault("SYNC_BLOCKED", "A writing owner must complete or be reconciled before reuse.", 5);
+    await checkSnapshot(this.ctx, state.baseline);
+    if (state.lastSuccessfulImport) await checkSnapshot(this.ctx, state.lastSuccessfulImport.snapshot);
+    if (state.recoveryCheckpoint) await checkSnapshot(this.ctx, state.recoveryCheckpoint.snapshot);
+    await checkSyncBackup(this.ctx, state.backup, state.targetDigest, this.name);
+  }
+  async write(state) {
+    const valid = syncStateSchema.parse(state);
+    const file = await this.file(valid.targetDigest);
+    await mkdir2(path8.dirname(file), { recursive: true, mode: 448 });
+    const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
+    const journal = await open3(journalFile, "a", 384);
+    try {
+      await journal.writeFile(
+        JSON.stringify({
+          at: (/* @__PURE__ */ new Date()).toISOString(),
+          syncId: valid.syncId,
+          revision: valid.revision,
+          status: valid.status,
+          importingRunId: valid.importingRunId,
+          baseline: valid.baseline.directory,
+          backupId: valid.backup.backupId,
+          latestApplied: valid.lastSuccessfulImport?.snapshot.directory ?? null
+        }) + "\n"
+      );
+      await journal.sync();
+    } finally {
+      await journal.close();
+    }
+    await writeJson(file, valid);
+    const directory = process.platform !== "win32" ? await open3(path8.dirname(file), "r") : null;
+    try {
+      await directory?.sync();
+    } finally {
+      await directory?.close();
+    }
+  }
+  async status() {
+    const state = await this.read(true);
+    if (!state) return { mode: "full-export", status: "absent", serverFreshness: "not-checked" };
+    let blockedReason = null;
+    try {
+      await this.validate(state, false);
+    } catch (error) {
+      blockedReason = error instanceof Fault ? error.code : "SYNC_ARTIFACT_INVALID";
+    }
+    if ((await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
+      blockedReason = "SYNC_BLOCKED";
+    const source = await syncPath(this.ctx, state.sourceDir);
+    const files = await exists(source) ? await inventory(source) : {};
+    return {
+      mode: state.status === "invalidated" ? "full-export" : "working-copy",
+      syncId: state.syncId,
+      revision: state.revision,
+      status: state.status,
+      exportedAt: state.exportedAt,
+      lastSuccessfulImport: state.lastSuccessfulImport ? {
+        at: state.lastSuccessfulImport.at,
+        runId: state.lastSuccessfulImport.runId,
+        digest: state.lastSuccessfulImport.snapshot.digest,
+        verifiedFiles: state.lastSuccessfulImport.verifiedFiles ?? null
+      } : null,
+      backupId: state.backup.backupId,
+      importingRunId: state.importingRunId,
+      dirty: canonical(files) !== canonical(checkpoint(state).files),
+      blocked: !!blockedReason || !["ready", "invalidated"].includes(state.status),
+      blockedReason,
+      serverFreshness: "not-checked",
+      assumption: "selected-content-conflicts; independent managed homes require external serialization"
+    };
+  }
+};
+
+// packages/core/src/apexlang-equivalence.ts
+import path9 from "node:path";
+import { readFile as readFile3 } from "node:fs/promises";
+var APEXLANG_EQUIVALENCE_POLICY = "apex262-selected-source-v1";
+var formattingRule = "structural-whitespace-and-comments";
+var defaultRule = "pageItem.selectList.layout.startNewRow:true-default";
+var pageDefaultRule = "page.security.pageAccessProtection:argumentsMustHaveChecksum-default";
+var regionDefaultRule = "region.layout.startNewRow:true-default";
+var chartDefaultRule = "region.chart.type:bar-default";
+var orderRule = "explicit-unique-region-and-chart-component-order";
+var limit = 8 * 1024 * 1024;
+function readStructure(source) {
+  if (Buffer.byteLength(source) > limit) throw new Error("Source exceeds the comparison limit.");
+  const lines = source.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g)?.filter(Boolean) ?? [];
+  const roots = [];
+  const stack = [];
+  const append = (node) => (stack.at(-1)?.children ?? roots).push(node);
+  for (let index = 0; index < lines.length; index++) {
+    const raw = lines[index];
+    const line = raw.replace(/[\r\n]+$/, "");
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//")) continue;
+    if (trimmed.startsWith("/*")) {
+      let comment = trimmed;
+      while (!comment.includes("*/") && ++index < lines.length) comment += lines[index];
+      const end = comment.indexOf("*/");
+      if (end < 0 || comment.slice(end + 2).trim()) throw new Error("Unsupported comment boundary.");
+      continue;
+    }
+    if (trimmed.startsWith("```")) {
+      if (!/^```[A-Za-z0-9_-]*[ \t]*$/.test(trimmed)) throw new Error("Unsupported fenced literal.");
+      let literal = line.replace(/^[ \t]*/, "") + raw.slice(line.length);
+      let closed = false;
+      while (++index < lines.length) {
+        const next = lines[index];
+        if (/^[ \t]*```[ \t]*(?:\r\n|\r|\n)?$/.test(next)) {
+          literal += next.replace(/^[ \t]*/, "");
+          closed = true;
+          break;
+        }
+        literal += next;
+      }
+      if (!closed) throw new Error("Unclosed fenced literal.");
+      append({ kind: "literal", value: literal });
+      continue;
+    }
+    const property = /^[ \t]*([A-Za-z][\w]*):[ \t]*(.*)$/.exec(line);
+    if (property) {
+      const value = property[2];
+      if (value.includes("```") || value.startsWith('"""') || value.startsWith("'''"))
+        throw new Error("Unsupported inline or multiline literal.");
+      if (value === "{") {
+        const node = { kind: "map", name: property[1], key: "", children: [] };
+        append(node);
+        stack.push(node);
+      } else append({ kind: "property", name: property[1], value });
+      continue;
+    }
+    const component = /^([A-Za-z][\w]*)(?:[ \t]+(.*?))?[ \t]*\([ \t]*$/.exec(trimmed);
+    if (component) {
+      const node = { kind: "component", name: component[1], key: component[2] ?? "", children: [] };
+      append(node);
+      stack.push(node);
+      continue;
+    }
+    const group = /^([A-Za-z][\w]*)[ \t]*\{[ \t]*$/.exec(trimmed);
+    if (group) {
+      const node = { kind: "group", name: group[1], key: "", children: [] };
+      append(node);
+      stack.push(node);
+      continue;
+    }
+    if (trimmed === ")" || trimmed === "}") {
+      const node = stack.pop();
+      if (!node || trimmed === ")" !== (node.kind === "component"))
+        throw new Error("Unbalanced structural boundary.");
+      continue;
+    }
+    throw new Error("Unsupported source form.");
+  }
+  if (stack.length) throw new Error("Unclosed structural boundary.");
+  return roots;
+}
+function removeQualifiedDefault(nodes, parent) {
+  return nodes.map((node) => {
+    if (!("children" in node)) return node;
+    let children = node.children;
+    if (node.kind === "component" && node.name === "pageItem" && parent?.kind === "component" && parent.name === "page") {
+      const types = children.filter((child) => child.kind === "property" && child.name === "type");
+      const layouts = children.filter((child) => child.kind === "group" && child.name === "layout");
+      if (types.length === 1 && types[0].kind === "property" && types[0].value === "selectList" && layouts.length === 1) {
+        children = children.map((child) => {
+          if (child.kind !== "group" || child.name !== "layout") return child;
+          const rows = child.children.filter(
+            (entry) => entry.kind === "property" && entry.name === "startNewRow"
+          );
+          const layouts2 = child.children.filter(
+            (entry) => entry.kind === "property" && entry.name === "startNewLayout"
+          );
+          if (rows.length !== 1 || rows[0].kind !== "property" || rows[0].value !== "true" || layouts2.length > 1 || layouts2.length === 1 && (layouts2[0].kind !== "property" || layouts2[0].value !== "false"))
+            return child;
+          return { ...child, children: child.children.filter((entry) => entry !== rows[0]) };
+        });
+      }
+    }
+    return { ...node, children: removeQualifiedDefault(children, node) };
+  });
+}
+function normalizeExport(nodes, rules, parent) {
+  const result = nodes.map((node) => {
+    if (!("children" in node)) return node;
+    let children = normalizeExport(node.children, rules, node);
+    const property = (name) => children.filter((entry) => entry.kind === "property" && entry.name === name);
+    const omit = (name, value, rule) => {
+      const matches = property(name);
+      if (matches.length === 1 && matches[0].kind === "property" && matches[0].value === value) {
+        children = children.filter((entry) => entry !== matches[0]);
+        rules.add(rule);
+      }
+    };
+    if (node.kind === "group" && node.name === "security" && parent?.name === "page")
+      omit("pageAccessProtection", "argumentsMustHaveChecksum", pageDefaultRule);
+    if (node.kind === "group" && node.name === "layout" && parent?.kind === "component" && parent.name === "region") {
+      const starts = property("startNewLayout");
+      if (!starts.length || starts.length === 1 && starts[0].kind === "property" && starts[0].value === "false")
+        omit("startNewRow", "true", regionDefaultRule);
+    }
+    if (node.kind === "group" && node.name === "chart" && parent?.kind === "component" && parent.name === "region" && parent.children.some(
+      (entry) => entry.kind === "property" && entry.name === "type" && entry.value === "chart"
+    ))
+      omit("type", "bar", chartDefaultRule);
+    const identities = node.children.filter((entry) => entry.kind !== "literal").map(
+      (entry) => entry.kind + ":" + ("name" in entry ? entry.name : "") + ":" + ("key" in entry ? entry.key : "")
+    );
+    if (new Set(identities).size !== identities.length) throw new Error("Duplicate structural identity.");
+    const sortable = children.filter(
+      (entry) => entry.kind === "component" && (node.name === "page" && entry.name === "region" || node.name === "region" && node.children.some(
+        (child) => child.kind === "property" && child.name === "type" && child.value === "chart"
+      ) && ["axis", "series"].includes(entry.name))
+    );
+    if (sortable.length > 1) {
+      const sequence = (entry) => {
+        if (!("children" in entry)) return void 0;
+        if (entry.name === "axis") return entry.key === "x" || entry.key === "y" ? entry.key : void 0;
+        const group = entry.children.find(
+          (child) => child.kind === "group" && child.name === (entry.name === "region" ? "layout" : "execution")
+        );
+        const value = group && "children" in group ? group.children.find((child) => child.kind === "property" && child.name === "sequence") : void 0;
+        return value?.kind === "property" && /^\d+$/.test(value.value) ? entry.name + ":" + value.value : void 0;
+      };
+      const sequences = sortable.map(sequence);
+      if (sequences.every(Boolean) && new Set(sequences).size === sequences.length) {
+        const sorted = [...sortable].sort(
+          (left, right) => ("name" in left ? left.name : "").localeCompare("name" in right ? right.name : "") || ("key" in left ? left.key : "").localeCompare("key" in right ? right.key : "")
+        );
+        let index = 0;
+        children = children.map((entry) => sortable.includes(entry) ? sorted[index++] : entry);
+        rules.add(orderRule);
+      }
+    }
+    return { ...node, children };
+  });
+  return result.filter(
+    (node) => !("children" in node && !node.children.length && node.kind === "group" && (parent?.name === "page" && node.name === "security" || parent?.name === "region" && ["chart", "layout"].includes(node.name)))
+  );
+}
+function compareApexlangSource(expected, actual) {
+  if (expected === actual) return { equivalent: true, rules: [] };
+  try {
+    const left = readStructure(expected), right = readStructure(actual);
+    if (canonical(left) === canonical(right)) return { equivalent: true, rules: [formattingRule] };
+    if (canonical(removeQualifiedDefault(left)) === canonical(removeQualifiedDefault(right)))
+      return { equivalent: true, rules: [formattingRule, defaultRule] };
+    const rules = /* @__PURE__ */ new Set();
+    if (canonical(left) !== canonical(removeQualifiedDefault(left)) || canonical(right) !== canonical(removeQualifiedDefault(right)))
+      rules.add(defaultRule);
+    if (canonical(normalizeExport(removeQualifiedDefault(left), rules)) === canonical(normalizeExport(removeQualifiedDefault(right), rules)))
+      return { equivalent: true, rules: [formattingRule, ...rules] };
+    return {
+      equivalent: false,
+      rules: [],
+      reason: "Source differs beyond the qualified formatting/default rules."
+    };
+  } catch (error) {
+    return {
+      equivalent: false,
+      rules: [],
+      reason: error instanceof Error ? error.message : "Source form is unsupported."
+    };
+  }
+}
+async function compareApplicationExports(expectedRoot, actualRoot, expectedFiles, actualFiles, allowedFiles) {
+  const allowed = new Set(allowedFiles);
+  const result = {
+    equivalent: true,
+    policy: APEXLANG_EQUIVALENCE_POLICY,
+    normalizations: [],
+    mismatchedFiles: [],
+    mismatches: []
+  };
+  for (const file of [.../* @__PURE__ */ new Set([...Object.keys(expectedFiles), ...Object.keys(actualFiles)])].sort()) {
+    if (expectedFiles[file] === actualFiles[file]) continue;
+    let reason = "File bytes differ outside the selected APEXlang normalization scope.";
+    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path9.posix.extname(file) === ".apx") {
+      const [expected, actual] = await Promise.all([
+        readFile3(await contained(expectedRoot, file)),
+        readFile3(await contained(actualRoot, file))
+      ]);
+      if (hash(expected) !== expectedFiles[file] || hash(actual) !== actualFiles[file])
+        reason = "Source changed during readback comparison.";
+      else {
+        const decoder = new TextDecoder("utf-8", { fatal: true });
+        let comparison;
+        try {
+          comparison = compareApexlangSource(decoder.decode(expected), decoder.decode(actual));
+        } catch {
+          comparison = { equivalent: false, rules: [], reason: "Source is not valid UTF-8." };
+        }
+        if (comparison.equivalent) {
+          result.normalizations.push({
+            file,
+            expectedSha256: expectedFiles[file],
+            actualSha256: actualFiles[file],
+            rules: comparison.rules
+          });
+          continue;
+        }
+        reason = comparison.reason ?? reason;
+      }
+    }
+    result.equivalent = false;
+    result.mismatchedFiles.push(file);
+    result.mismatches.push({ file, reason });
+  }
+  return result;
+}
+
+// packages/core/src/partial-import.ts
+var importSelectionSchema = external_exports.strictObject({
+  requestedMode: external_exports.enum(["auto", "full", "files"]),
+  resolvedMode: external_exports.enum(["full", "files"]),
+  files: external_exports.array(relativePath),
+  reasons: external_exports.array(external_exports.string()),
+  dependencies: external_exports.array(relativePath),
+  before: snapshotSchema.nullable(),
+  effective: snapshotSchema.nullable(),
+  capabilities: external_exports.record(external_exports.string(), external_exports.unknown()),
+  readbackPolicy: external_exports.literal(APEXLANG_EQUIVALENCE_POLICY).optional(),
+  exportScope: external_exports.enum(["selected", "full"]).optional()
+});
+function importOptions(value = {}) {
+  const mode = value.importMode ?? "auto";
+  if ((value.files?.length ?? 0) > 1e3)
+    throw new Fault("INVALID_INPUT", "Select at most 1000 files in one import.", 2);
+  if (!["auto", "full", "files"].includes(mode)) throw new Fault("INVALID_INPUT", "Unknown import mode.", 2);
+  if (mode === "files" !== !!value.files?.length)
+    throw new Fault(
+      "INVALID_INPUT",
+      "files mode requires a nonempty file list; other modes do not accept files.",
+      2
+    );
+  const files = (value.files ?? []).map((file) => {
+    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path10.posix.normalize(file) !== file || file === ".")
+      throw new Fault(
+        "IMPORT_FILE_UNSAFE",
+        "Use normalized application-relative file paths without globs.",
+        2
+      );
+    return file;
+  });
+  if (new Set(files).size !== files.length)
+    throw new Fault("IMPORT_FILE_UNSAFE", "Duplicate import files are not allowed.", 2);
+  return { importMode: mode, files: files.sort() };
+}
+async function sourceRelease(root) {
+  try {
+    const value = await readJson(path10.join(root, ".apex/apexlang.json"));
+    return typeof value.mmdVersion === "string" ? value.mmdVersion.match(/^\d+\.\d+/)?.[0] ?? null : null;
+  } catch {
+    return null;
+  }
+}
+function supportedFile(file) {
+  return /^pages\/p\d{5}[-\w]*\.apx$/.test(file) || /^shared-components\/.+\.apx$/.test(file) && !/(?:^|\/)(?:themes?|templates?|plugins?|plug-ins?|static-files|files|authentications?|authorizations?)(?:[/.]|$)/i.test(
+    file
+  );
+}
+function scopedExportFile(file) {
+  return /^pages\/p\d{5}[-\w]*\.apx$/.test(file);
+}
+function pickFiles(files, selected) {
+  return Object.fromEntries(selected.filter((file) => files[file]).map((file) => [file, files[file]]));
+}
+async function overlaySelection(source, exported, files, destination) {
+  await privateCopy(source, destination);
+  const observed = await inventory(exported);
+  for (const file of files) {
+    const target = await contained(destination, file);
+    if (!observed[file]) await rm4(target, { force: true });
+    else {
+      await mkdir3(path10.dirname(target), { recursive: true, mode: 448 });
+      await cp2(await contained(exported, file), target);
+    }
+  }
+  return destination;
+}
+function changedFiles(before, after) {
+  return [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].filter((file) => before[file] !== after[file]).sort();
+}
+function selectImport(base, local, remote, options2) {
+  const requested = importOptions(options2);
+  const localChanges = changedFiles(base, local);
+  const remoteChanges = changedFiles(base, remote);
+  const selected = requested.importMode === "files" ? requested.files : localChanges;
+  for (const file of selected)
+    if (!Object.hasOwn(local, file) && requested.importMode === "files")
+      throw new Fault("IMPORT_FILE_MISSING", `Selected file is missing: ${file}`, 2);
+  const conflicts = localChanges.filter(
+    (file) => remoteChanges.includes(file) && local[file] !== remote[file]
+  );
+  if (conflicts.length)
+    throw new Fault(
+      "IMPORT_CONFLICT",
+      "Local and server changes overlap; reconcile before planning.",
+      5,
+      "blocked",
+      { conflicts }
+    );
+  const reasons = [];
+  if (selected.some((file) => !Object.hasOwn(local, file))) reasons.push("deleted-files-require-full-import");
+  if (selected.some((file) => !supportedFile(file))) reasons.push("unsupported-component-files");
+  const files = selected.filter((file) => local[file] !== remote[file]);
+  if (!files.length) reasons.push("no-changed-files");
+  const effective = { ...remote };
+  for (const file of files) {
+    if (local[file]) effective[file] = local[file];
+    else delete effective[file];
+  }
+  return { files, reasons, remoteChanges, effective: Object.fromEntries(Object.entries(effective).sort()) };
+}
+async function persistSnapshot(ctx, source, directory) {
+  const destination = await syncPath(ctx, directory);
+  await mkdir3(path10.dirname(destination), { recursive: true, mode: 448 });
+  await privateCopy(source, destination);
+  const files = await inventory(destination);
+  return { directory, files, digest: hash(canonical(files)) };
+}
+async function stageSelection(ctx, before, localRoot, files, expected, directory) {
+  const root = await syncPath(ctx, directory);
+  await mkdir3(path10.dirname(root), { recursive: true, mode: 448 });
+  await privateCopy(await syncPath(ctx, before.directory), root);
+  for (const file of files) {
+    const destination = await contained(root, file);
+    await mkdir3(path10.dirname(destination), { recursive: true, mode: 448 });
+    await cp2(await contained(localRoot, file), destination);
+  }
+  const actual = await inventory(root);
+  if (canonical(actual) !== canonical(expected))
+    throw new Fault("SOURCE_DRIFT", "Source changed while preparing the selected import.", 5);
+  return { directory, files: actual, digest: hash(canonical(actual)) };
+}
+async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, selected) {
+  await checkSnapshot(ctx, server);
+  const localRoot = await syncPath(ctx, ctx.config.application.sourceDir);
+  if (canonical(await inventory(localRoot)) !== canonical(reviewedLocal))
+    throw new Fault(
+      "LOCAL_RECONCILIATION_REQUIRED",
+      "Import confirmed; local files changed during execution. Reconcile them before another import.",
+      5
+    );
+  const base = ".apexrest/deployments/" + runId;
+  const replacement = await syncPath(ctx, base + "/rebased-source");
+  const retained = await syncPath(ctx, base + "/local-before-rebase");
+  await privateCopy(localRoot, replacement);
+  const remoteOnly = changedFiles(before, server.files).filter(
+    (file) => selected.includes(file) || reviewedLocal[file] === before[file]
+  );
+  for (const file of /* @__PURE__ */ new Set([...remoteOnly, ...selected])) {
+    const destination = await contained(replacement, file);
+    if (!server.files[file]) await rm4(destination, { force: true });
+    else {
+      await mkdir3(path10.dirname(destination), { recursive: true });
+      await cp2(await contained(await syncPath(ctx, server.directory), file), destination);
+    }
+  }
+  if (canonical(await inventory(localRoot)) !== canonical(reviewedLocal))
+    throw new Fault(
+      "LOCAL_RECONCILIATION_REQUIRED",
+      "Import confirmed; concurrent local edits prevented rebase.",
+      5
+    );
+  await rename(localRoot, retained);
+  if (canonical(await inventory(retained)) !== canonical(reviewedLocal)) {
+    await rename(retained, localRoot);
+    throw new Fault(
+      "LOCAL_RECONCILIATION_REQUIRED",
+      "Import confirmed; concurrent local edits were preserved.",
+      5
+    );
+  }
+  try {
+    await rename(replacement, localRoot);
+  } catch (error) {
+    await rename(retained, localRoot);
+    throw error;
+  }
+}
+
 // packages/core/src/oracle.ts
+var targetIdentitySql = `select 'identity' target_record,
+        sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
+        sys_context('USERENV','SERVICE_NAME') service_name,
+        sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,
+        null workspace_id, null workspace, null application_id, null alias, null owner
+       from dual
+       union all
+       select 'workspace', null, null, null, workspace_id, workspace, null, null, null
+       from apex_workspaces where workspace = :p_workspace
+       union all
+       select 'application', null, null, null, null, workspace, application_id, alias, owner
+       from apex_applications where application_id = :p_app_id`;
+var targetVersionSql = "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'";
 var capabilityCache = /* @__PURE__ */ new Map();
+var importHelpCache = /* @__PURE__ */ new Map();
 function resetCapabilityCache() {
   capabilityCache.clear();
+  importHelpCache.clear();
 }
 function raceCancellation(promise, signal, message) {
   const cancelled = () => new Fault("CANCELLED", message, 6, "cancelled");
@@ -2226,13 +3098,13 @@ var OracleAdapter = class {
   selectedTransport;
   selectedConnections = /* @__PURE__ */ new Map();
   async settings() {
-    const file = path7.join(managedHome(), "runtime.json");
+    const file = path11.join(managedHome(), "runtime.json");
     const state = await exists(file) ? await readJson(file) : {};
     const transport = await (this.selectedTransport ??= sqlclConfig());
     return {
       ...transport,
       executable: process.env.APEXREST_SQLCL ?? state.sqlcl ?? this.executable,
-      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path7.dirname(path7.dirname(state.java)) : process.env.JAVA_HOME)
+      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path11.dirname(path11.dirname(state.java)) : process.env.JAVA_HOME)
     };
   }
   async selectedConnection(connection) {
@@ -2350,8 +3222,8 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
   }
   /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
   async sessionHome() {
-    const root = path7.join(managedHome(), "staging");
-    await mkdir2(root, { recursive: true, mode: 448 });
+    const root = path11.join(managedHome(), "staging");
+    await mkdir4(root, { recursive: true, mode: 448 });
     return root;
   }
   async requireMutationSupport() {
@@ -2367,16 +3239,16 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       );
   }
   async stage() {
-    const root = path7.join(managedHome(), "staging");
-    await mkdir2(root, { recursive: true, mode: 448 });
-    return mkdtemp(path7.join(root, "oracle-"));
+    const root = path11.join(managedHome(), "staging");
+    await mkdir4(root, { recursive: true, mode: 448 });
+    return mkdtemp(path11.join(root, "oracle-"));
   }
   /** Remove a private staging directory created by stage(). Other paths are never removed. */
   async discardStage(stage) {
     if (!stage) return;
-    const relative = path7.relative(path7.join(managedHome(), "staging"), path7.resolve(stage));
+    const relative = path11.relative(path11.join(managedHome(), "staging"), path11.resolve(stage));
     if (!/^oracle-[^/\\]+$/.test(relative)) return;
-    await rm3(stage, { recursive: true, force: true });
+    await rm5(stage, { recursive: true, force: true });
   }
   async ordsBridge(job, connection, signal, stage) {
     const settings = await this.settings();
@@ -2396,12 +3268,12 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     }
   }
   async capabilityKey(settings) {
-    if (!path7.isAbsolute(settings.executable)) return;
+    if (!path11.isAbsolute(settings.executable)) return;
     try {
-      const executable = await realpath3(settings.executable);
-      const bin = path7.dirname(executable);
-      if (path7.basename(bin) !== "bin") return;
-      const lib = path7.join(path7.dirname(bin), "lib");
+      const executable = await realpath4(settings.executable);
+      const bin = path11.dirname(executable);
+      if (path11.basename(bin) !== "bin") return;
+      const lib = path11.join(path11.dirname(bin), "lib");
       const mark = async (file, required) => {
         try {
           const info = await stat3(file, { bigint: true });
@@ -2414,11 +3286,11 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       const marks = {
         executable: await mark(executable, true),
         lib: await mark(lib, true),
-        apex: await mark(path7.join(lib, "dbtools-apex.jar"), false),
-        apexlang: await mark(path7.join(lib, "apexlang-compiler.jar"), false),
-        ext: await mark(path7.join(lib, "ext"), false),
-        extApex: await mark(path7.join(lib, "ext/dbtools-apex.jar"), false),
-        extApexlang: await mark(path7.join(lib, "ext/apexlang-compiler.jar"), false)
+        apex: await mark(path11.join(lib, "dbtools-apex.jar"), false),
+        apexlang: await mark(path11.join(lib, "apexlang-compiler.jar"), false),
+        ext: await mark(path11.join(lib, "ext"), false),
+        extApex: await mark(path11.join(lib, "ext/dbtools-apex.jar"), false),
+        extApexlang: await mark(path11.join(lib, "ext/apexlang-compiler.jar"), false)
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -2474,13 +3346,24 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return { version: capabilities.version, helpHash: capabilities.helpHash };
   }
   /** Inspect selected-file support without connecting or trusting the generic APEX help. */
+  async importHelp(signal) {
+    const key = await this.capabilityKey(await this.settings());
+    let pending = key ? importHelpCache.get(key) : void 0;
+    if (!pending) {
+      pending = this.session("help apex import").then(
+        (result) => result.output.replace(/\x1b\[[0-9;]*m/g, "")
+      );
+      if (key) {
+        importHelpCache.set(key, pending);
+        pending.catch(() => importHelpCache.delete(key));
+      }
+    }
+    return raceCancellation(pending, signal, "Import capability check cancelled.");
+  }
   async partialImportCapabilities(source, target, signal) {
     const compiler = await this.requireCapability("import", signal);
     const settings = await this.settings();
-    const help = (await this.session("help apex import", void 0, false, signal)).output.replace(
-      /\x1b\[[0-9;]*m/g,
-      ""
-    );
+    const help = await this.importHelp(signal);
     return evaluatePartialImportCompatibility({
       ...target,
       compilerVersion: compiler.version,
@@ -2499,9 +3382,9 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         findings: [],
         reason: "APEXlang CodeScan is qualified only for SQLcl 26.3."
       };
-    const stage = await this.stage(), copy = path7.join(stage, "application");
+    const stage = await this.stage(), copy = path11.join(stage, "application");
     try {
-      await cp(source, copy, { recursive: true });
+      await cp3(source, copy, { recursive: true });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
       if (!/\.apx\b/i.test(help) || !/-extensions\b/i.test(help))
         return {
@@ -2547,16 +3430,16 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return { directory, compiler, output: result.output, files: await inventory(directory) };
   }
   async findApplication(root) {
-    if (await exists(path7.join(root, "application.apx"))) return root;
+    if (await exists(path11.join(root, "application.apx"))) return root;
     const found = [];
-    for (const entry of await readdir(root, { withFileTypes: true }))
+    for (const entry of await readdir2(root, { withFileTypes: true }))
       if (entry.isDirectory()) {
-        const dir = path7.join(root, entry.name);
-        if (await exists(path7.join(dir, "application.apx"))) found.push(dir);
+        const dir = path11.join(root, entry.name);
+        if (await exists(path11.join(dir, "application.apx"))) found.push(dir);
         else
-          for (const sub of await readdir(dir, { withFileTypes: true }))
-            if (sub.isDirectory() && await exists(path7.join(dir, sub.name, "application.apx")))
-              found.push(path7.join(dir, sub.name));
+          for (const sub of await readdir2(dir, { withFileTypes: true }))
+            if (sub.isDirectory() && await exists(path11.join(dir, sub.name, "application.apx")))
+              found.push(path11.join(dir, sub.name));
       }
     if (found.length !== 1)
       throw new Fault(
@@ -2575,10 +3458,10 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         "Preserve Oracle-generated .apex/apexlang.json before validation.",
         3
       );
-    const stage = await this.stage(), copy = path7.join(stage, "application");
+    const stage = await this.stage(), copy = path11.join(stage, "application");
     let result;
     try {
-      await cp(source, copy, { recursive: true });
+      await cp3(source, copy, { recursive: true });
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
         void 0,
@@ -2601,7 +3484,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile3(path7.join(source, ".apex/apexlang.json"), "utf8")),
+      mmd: JSON.parse(await readFile5(path11.join(source, ".apex/apexlang.json"), "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -2610,7 +3493,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     const compiler = await this.requireCapability("export");
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === "ords";
-    const exportRoot = ords ? path7.join(stage, "export") : stage;
+    const exportRoot = ords ? path11.join(stage, "export") : stage;
     const result = ords ? {
       output: String(
         (await this.ordsBridge(
@@ -2646,6 +3529,125 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       output: result.output,
       stage
     };
+  }
+  /** Native page export; shared files use an explicitly bound full APEXlang observation. */
+  async exportSelection(env, connection, selected, source, knownFiles = {}, exportScope = "selected") {
+    if (!selected.length || new Set(selected).size !== selected.length || selected.some((file) => !(exportScope === "selected" ? scopedExportFile(file) : supportedFile(file))))
+      throw new Fault(
+        "PARTIAL_EXPORT_UNSUPPORTED",
+        "Selection has no qualified native component export mapping.",
+        3
+      );
+    const settings = await this.settings();
+    if (settings.mode !== "cli" || (settings.databaseTransport ?? "direct") !== "direct")
+      throw new Fault(
+        "PARTIAL_EXPORT_UNSUPPORTED",
+        "Component export requires direct SQLcl CLI transport.",
+        3
+      );
+    const compiler = await this.requireCapability("export");
+    const stage = await this.stage(), directory = path11.join(stage, "selection");
+    await mkdir4(directory, { mode: 448 });
+    try {
+      if (exportScope === "full") {
+        const exported = await this.exportApplication(env, connection, "APEXLANG");
+        try {
+          for (const file of selected) {
+            const pageId = /^pages\/p(\d{5})/.exec(file)?.[1];
+            const matches = Object.keys(exported.files).filter(
+              (candidate) => pageId ? /^pages\/p(\d{5})/.exec(candidate)?.[1] === pageId : candidate === file
+            );
+            if (matches.length > 1)
+              throw new Fault("PARTIAL_EXPORT_AMBIGUOUS", "Export has duplicate selected identities.", 5);
+            if (!matches.length) continue;
+            const target = await contained(directory, file);
+            await mkdir4(path11.dirname(target), { recursive: true, mode: 448 });
+            await cp3(await contained(exported.directory, matches[0]), target);
+          }
+          const files2 = await inventory(directory);
+          return {
+            directory,
+            files: files2,
+            digest: hash(canonical(files2)),
+            format: "APEXLANG",
+            compiler,
+            output: exported.output,
+            stage
+          };
+        } finally {
+          await this.discardStage(exported.stage);
+        }
+      }
+      const mappings = [];
+      const queries = [];
+      if (selected.some((file) => file.startsWith("pages/") && !knownFiles[file]))
+        queries.push(
+          "select 'PAGE' component_type, to_char(page_id) component_id, to_char(page_id) component_name from apex_application_pages where application_id = :p_app"
+        );
+      const metadata = queries.length ? await this.jsonQuery(queries.join(" union all "), connection, { p_app: env.applicationId }) : [];
+      for (const file of selected) {
+        const page = /^pages\/p(\d{5})/.exec(file);
+        if (page) {
+          const id = String(Number(page[1]));
+          if (knownFiles[file] || metadata.some((row) => row.component_type === "PAGE" && row.component_id === id))
+            mappings.push({ file, type: "PAGE", id });
+        }
+      }
+      if (new Set(mappings.map((entry) => entry.type + ":" + entry.id)).size !== mappings.length)
+        throw new Fault(
+          "PARTIAL_EXPORT_AMBIGUOUS",
+          "Multiple selected files map to one server component.",
+          5
+        );
+      let output = "Selected components are absent; no previous source export required.";
+      if (mappings.length) {
+        const result = await this.session(
+          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(stage)} -expComponents ${sqlclToken(mappings.map((entry) => entry.type + ":" + entry.id).join(" "))}`,
+          connection,
+          false,
+          void 0,
+          stage
+        );
+        output = result.output;
+        const emitted = await inventory(stage);
+        const observed = /* @__PURE__ */ new Set();
+        for (const [file] of Object.entries(emitted)) {
+          if (!file.endsWith(".apx"))
+            throw new Fault(
+              "PARTIAL_EXPORT_SCOPE_FAILED",
+              "Native export emitted an unexpected artifact.",
+              5
+            );
+          const exportedPage = /(?:^|\/)pages\/p(\d{5})[-\w]*\.apx$/.exec(file);
+          const matches = mappings.filter(
+            (entry) => entry.type === "PAGE" && exportedPage && entry.id === String(Number(exportedPage[1]))
+          );
+          if (matches.length !== 1 || observed.has(matches[0].file))
+            throw new Fault(
+              "PARTIAL_EXPORT_SCOPE_FAILED",
+              "Native export emitted an unselected or ambiguous page identity.",
+              5
+            );
+          observed.add(matches[0].file);
+          const target = await contained(directory, matches[0].file);
+          await mkdir4(path11.dirname(target), { recursive: true, mode: 448 });
+          await cp3(await contained(stage, file), target);
+        }
+      }
+      const files = await inventory(directory);
+      return {
+        directory,
+        files,
+        digest: hash(canonical(files)),
+        format: "APEXLANG",
+        compiler,
+        output,
+        stage
+      };
+    } catch (error) {
+      await this.discardStage(stage);
+      throw error;
+    }
   }
   async connectionLocality(connection) {
     const selected = await this.selectedConnection(connection);
@@ -2794,12 +3796,10 @@ prompt ${token}_${index}`
   }
   /** Read-only release discovery, separate from identity checks for legacy callers. */
   async targetVersions(connection, signal) {
-    const rows = await this.jsonQuery(
-      "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'",
-      connection,
-      {},
-      signal
-    );
+    const rows = await this.jsonQuery(targetVersionSql, connection, {}, signal);
+    return this.parseTargetVersions(rows);
+  }
+  parseTargetVersions(rows) {
     const row = rows[0];
     if (rows.length !== 1 || typeof row?.apex_version !== "string" || typeof row.database_version !== "string" || !/^\d+\.\d+(?:\.\d+)*$/.test(row.apex_version) || !/^\d+\.\d+(?:\.\d+)*$/.test(row.database_version))
       throw new Fault(
@@ -2810,23 +3810,11 @@ prompt ${token}_${index}`
       );
     return { apexVersion: row.apex_version, databaseVersion: row.database_version };
   }
-  async verifyTarget(env, connection) {
-    const rows = await this.jsonQuery(
-      `select 'identity' target_record,
-        sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
-        sys_context('USERENV','SERVICE_NAME') service_name,
-        sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,
-        null workspace_id, null workspace, null application_id, null alias, null owner
-       from dual
-       union all
-       select 'workspace', null, null, null, workspace_id, workspace, null, null, null
-       from apex_workspaces where workspace = :p_workspace
-       union all
-       select 'application', null, null, null, null, workspace, application_id, alias, owner
-       from apex_applications where application_id = :p_app_id`,
-      connection,
-      { p_workspace: env.workspace, p_app_id: env.applicationId }
-    );
+  async verifyTarget(env, connection, observed) {
+    const rows = observed ?? await this.jsonQuery(targetIdentitySql, connection, {
+      p_workspace: env.workspace,
+      p_app_id: env.applicationId
+    });
     const identities = rows.filter((row) => row.target_record === "identity");
     if (identities.length !== 1)
       throw new Fault("IDENTITY_UNCONFIRMED", "Database identity was not confirmed.", 3);
@@ -2864,6 +3852,20 @@ prompt ${token}_${index}`
       );
     return { identity, workspace: workspaces[0], application: applications[0] ?? null };
   }
+  /** Fresh identity and versions share one read-only SQLcl session. */
+  async versionedTarget(env, connection) {
+    const [identity, versions] = await this.jsonQueryBatch(
+      [
+        { sql: targetIdentitySql, bindings: { p_workspace: env.workspace, p_app_id: env.applicationId } },
+        { sql: targetVersionSql }
+      ],
+      connection
+    );
+    return {
+      target: await this.verifyTarget(env, connection, identity),
+      versions: this.parseTargetVersions(versions)
+    };
+  }
   async applicationMetadata(env, connection) {
     const rows = await this.jsonQuery(
       `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
@@ -2894,9 +3896,9 @@ prompt ${token}_${index}`
     };
   }
   async nativeDeployment(ctx, env, source) {
-    const output = path7.join(await this.stage(), "deployment.json");
-    const defaults = path7.join(source, "deployments/default.json");
-    const native = await exists(defaults) ? JSON.parse(await readFile3(defaults, "utf8")) : {};
+    const output = path11.join(await this.stage(), "deployment.json");
+    const defaults = path11.join(source, "deployments/default.json");
+    const native = await exists(defaults) ? JSON.parse(await readFile5(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output, {
       ...native,
@@ -2928,7 +3930,7 @@ prompt ${token}_${index}`
           2
         );
       for (const file of selectedFiles) {
-        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path7.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
+        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path11.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
           throw new Fault(
             "PARTIAL_IMPORT_FILES_INVALID",
             "Partial-import files must be literal contained APEXlang paths without globs.",
@@ -2936,8 +3938,8 @@ prompt ${token}_${index}`
           );
         let valid = false;
         try {
-          const physical = await realpath3(await contained(source, file));
-          valid = path7.relative(await realpath3(source), physical).replaceAll(path7.sep, "/") === file && (await stat3(physical)).isFile();
+          const physical = await realpath4(await contained(source, file));
+          valid = path11.relative(await realpath4(source), physical).replaceAll(path11.sep, "/") === file && (await stat3(physical)).isFile();
         } catch {
         }
         if (!valid)
@@ -2947,10 +3949,7 @@ prompt ${token}_${index}`
             2
           );
       }
-      const help = (await this.session("help apex import", void 0, false, signal)).output.replace(
-        /\x1b\[[0-9;]*m/g,
-        ""
-      );
+      const help = await this.importHelp(signal);
       if (!/(?:^|\s)-files(?:\s|\|)/m.test(help))
         throw new Fault(
           "PARTIAL_IMPORT_UNSUPPORTED",
@@ -2963,7 +3962,7 @@ prompt ${token}_${index}`
     try {
       return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
-      await this.discardStage(path7.dirname(config));
+      await this.discardStage(path11.dirname(config));
     }
   }
   async importWith(env, connection, source, config, signal, selectedFiles) {
@@ -3020,8 +4019,8 @@ end;
       await this.requireMutationSupport();
       const stage = await this.stage();
       try {
-        const input = path7.join(stage, "restore.sql");
-        await (await import("./chunk-A7ESH6F5.mjs")).atomicWrite(input, setup + await readFile3(file, "utf8"));
+        const input = path11.join(stage, "restore.sql");
+        await (await import("./chunk-A7ESH6F5.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);
@@ -3084,7 +4083,7 @@ async function diagnosticHint(root, diagnostic) {
     return;
   try {
     const file = await contained(root, diagnostic.file);
-    const lines = (await readFile3(file, "utf8")).split(/\r?\n/);
+    const lines = (await readFile5(file, "utf8")).split(/\r?\n/);
     const indent = (text) => text.match(/^\s*/)[0].length;
     const open4 = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain = [];
@@ -3154,780 +4153,12 @@ async function installSources(source, root, destination) {
       5,
       "conflict"
     );
-  await mkdir2(path7.dirname(target), { recursive: true });
-  const staging = await mkdtemp(path7.join(path7.dirname(target), ".apexrest-copy-"));
+  await mkdir4(path11.dirname(target), { recursive: true });
+  const staging = await mkdtemp(path11.join(path11.dirname(target), ".apexrest-copy-"));
   await inventory(source);
-  await cp(source, staging, { recursive: true });
-  await rename(staging, target);
+  await cp3(source, staging, { recursive: true });
+  await rename2(staging, target);
   return { directory: target, files: await inventory(target) };
-}
-
-// packages/core/src/partial-import.ts
-import path11 from "node:path";
-import { cp as cp3, mkdir as mkdir4, rename as rename2, rm as rm5 } from "node:fs/promises";
-
-// packages/core/src/sync.ts
-import path9 from "node:path";
-import { lstat as lstat2, mkdir as mkdir3, readdir as readdir2, realpath as realpath4, open as open3, cp as cp2, chmod as chmod2 } from "node:fs/promises";
-
-// packages/core/src/deployment-control.ts
-import path8 from "node:path";
-import { hostname as hostname2 } from "node:os";
-import { rm as rm4 } from "node:fs/promises";
-function coordination(env) {
-  return {
-    backend: "local",
-    scope: "managed-home-schema",
-    // Bind plans to the history store. Moving a plan to a fresh home is not migration recovery.
-    storeDigest: hash(canonical({ home: managedHome(), ...env.databaseIdentity, schema: env.parsingSchema }))
-  };
-}
-var ownerSchema = external_exports.strictObject({
-  runId: external_exports.string(),
-  pid: external_exports.number().int().positive(),
-  hostname: external_exports.string(),
-  phase: external_exports.enum(["preparing", "writing"]),
-  createdAt: external_exports.string()
-});
-var historySchema = external_exports.array(
-  external_exports.strictObject({
-    version: external_exports.string(),
-    checksum: external_exports.string().regex(/^[a-f0-9]{64}$/),
-    status: external_exports.enum(["started", "succeeded"]),
-    run_id: external_exports.string()
-  })
-);
-var LocalDeploymentControl = class {
-  directory;
-  constructor(env) {
-    const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
-    this.directory = path8.join(managedHome(), "deployment-control", key);
-  }
-  file(name) {
-    return path8.join(this.directory, name);
-  }
-  async history() {
-    const file = this.file("history.json");
-    return await exists(file) ? parse(historySchema, await readJson(file)) : [];
-  }
-  async owner() {
-    const file = this.file("active.json");
-    try {
-      return parse(ownerSchema, await readJson(file));
-    } catch (error) {
-      if (error.code === "ENOENT") return void 0;
-      throw error;
-    }
-  }
-  async acquire(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      const owner = await this.owner();
-      if (owner) {
-        let dead = false;
-        if (owner.hostname === hostname2()) {
-          try {
-            process.kill(owner.pid, 0);
-          } catch (e) {
-            dead = e.code === "ESRCH";
-          }
-        }
-        if (!dead || owner.phase === "writing")
-          throw new Fault(
-            "TARGET_LOCKED",
-            "A runner owns this schema or an interrupted write needs reconciliation. Preserve its control state.",
-            5,
-            "conflict"
-          );
-      }
-      await writeJson(this.file("active.json"), {
-        runId,
-        pid: process.pid,
-        hostname: hostname2(),
-        phase: "preparing",
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    });
-  }
-  async assertOwner(runId) {
-    const owner = await this.owner();
-    if (owner?.runId !== runId || owner.pid !== process.pid || owner.hostname !== hostname2())
-      throw new Fault(
-        "LEASE_LOST",
-        "Local deployment ownership is no longer confirmed.",
-        6,
-        "outcome_unknown"
-      );
-    return owner;
-  }
-  async markWriting(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      await writeJson(this.file("active.json"), { ...await this.assertOwner(runId), phase: "writing" });
-    });
-  }
-  async migration(runId, version, checksum, status) {
-    await withLock(this.file("control.lock"), async () => {
-      await this.assertOwner(runId);
-      const history = await this.history(), previous = history.find((row) => row.version === version);
-      if (status === "started" ? Boolean(previous) : !previous || previous.run_id !== runId || previous.checksum !== checksum || previous.status !== "started")
-        throw new Fault(
-          "MIGRATION_HISTORY_CONFLICT",
-          "Migration history requires reconciliation; it cannot be replayed or overwritten.",
-          5
-        );
-      const next = history.filter((row) => row.version !== version);
-      next.push({ version, checksum, status, run_id: runId });
-      await writeJson(
-        this.file("history.json"),
-        next.sort((a, b2) => a.version.localeCompare(b2.version))
-      );
-    });
-  }
-  async release(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      await this.assertOwner(runId);
-      await rm4(this.file("active.json"));
-    });
-  }
-  /** Release only the reconciled run after its worker has stopped. Keep history. */
-  async claimReconciled(runId) {
-    await withLock(this.file("control.lock"), async () => {
-      const owner = await this.owner();
-      if (!owner) {
-        await writeJson(this.file("active.json"), {
-          runId,
-          pid: process.pid,
-          hostname: hostname2(),
-          phase: "preparing",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString()
-        });
-        return;
-      }
-      if (owner.runId !== runId || owner.hostname !== hostname2())
-        throw new Fault(
-          "TARGET_LOCKED",
-          "Another runner owns this target; reconciliation cannot clear its ownership.",
-          5
-        );
-      if (owner.pid !== process.pid) {
-        let dead = false;
-        try {
-          process.kill(owner.pid, 0);
-        } catch (error) {
-          dead = error.code === "ESRCH";
-        }
-        if (!dead)
-          throw new Fault(
-            "TARGET_LOCKED",
-            "The import worker is still alive; wait for its terminal result.",
-            5
-          );
-      }
-      await writeJson(this.file("active.json"), { ...owner, pid: process.pid, phase: "preparing" });
-    });
-  }
-};
-
-// plugins/metadata.json
-var metadata_default = {
-  name: "apexrest-apex",
-  version: "2.0.0",
-  description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
-  author: {
-    name: "APEXREST",
-    url: "https://apexrest-dev.github.io/apexrest/"
-  },
-  license: "Apache-2.0",
-  interface: {
-    displayName: "APEXREST for Codex and Claude Code",
-    shortDescription: "Oracle APEX development workflows",
-    longDescription: "Oracle APEX development, controlled deployment and testing directly in your current Codex or Claude Code session.",
-    developerName: "APEXREST",
-    websiteURL: "https://apexrest-dev.github.io/apexrest/",
-    composerIcon: "./assets/apexrest-icon.svg",
-    logo: "./assets/apexrest-logo.svg",
-    logoDark: "./assets/apexrest-logo.svg",
-    category: "Productivity",
-    capabilities: ["Read", "Write"],
-    defaultPrompt: [
-      "Use $apexrest-work to build or change my Oracle APEX application in this session.",
-      "Use $apexrest-setup to check my tools and connection references.",
-      "Use $apexrest-safety to explain what blocked my APEX deployment or test."
-    ]
-  }
-};
-
-// packages/core/src/version.ts
-var VERSION = metadata_default.version;
-
-// packages/core/src/sync.ts
-var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var snapshotSchema = external_exports.strictObject({
-  directory: relativePath,
-  files: external_exports.record(relativePath, digest),
-  digest
-});
-var serverMetadataSchema = external_exports.strictObject({
-  lastUpdatedOn: external_exports.string().nullable(),
-  lastUpdatedBy: external_exports.string().nullable()
-});
-var syncStateSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  syncId: external_exports.uuid(),
-  revision: external_exports.number().int().nonnegative(),
-  projectRoot: external_exports.string(),
-  projectId: external_exports.string(),
-  environment: external_exports.string(),
-  targetDigest: digest,
-  target: external_exports.record(external_exports.string(), external_exports.unknown()),
-  sourceDir: relativePath,
-  toolchainDigest: digest,
-  runtimeVersion: external_exports.string(),
-  compilerVersion: external_exports.string().min(1),
-  exportedAt: external_exports.iso.datetime(),
-  baseline: snapshotSchema,
-  backup: external_exports.strictObject({ backupId: external_exports.uuid(), checksum: digest }),
-  observedMetadata: serverMetadataSchema,
-  lastSuccessfulImport: external_exports.strictObject({
-    at: external_exports.iso.datetime(),
-    runId: external_exports.uuid(),
-    snapshot: snapshotSchema
-  }).nullable(),
-  recoveryCheckpoint: external_exports.strictObject({ at: external_exports.iso.datetime(), runId: external_exports.uuid(), snapshot: snapshotSchema }).nullable().optional(),
-  status: external_exports.enum(["ready", "importing", "verification_failed", "outcome_unknown", "invalidated"]),
-  importingRunId: external_exports.uuid().nullable()
-});
-async function syncPath(ctx, relative) {
-  const file = await contained(ctx.root, relative);
-  let probe = ctx.root;
-  for (const part of path9.relative(ctx.root, file).split(path9.sep).filter(Boolean)) {
-    probe = path9.join(probe, part);
-    if (await exists(probe)) {
-      if ((await lstat2(probe)).isSymbolicLink())
-        throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
-    }
-  }
-  return file;
-}
-async function privateCopy(source, destination) {
-  await cp2(source, destination, { recursive: true });
-  async function secure(directory) {
-    await chmod2(directory, 448);
-    for (const entry of await readdir2(directory, { withFileTypes: true })) {
-      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
-      const file = path9.join(directory, entry.name);
-      if (entry.isDirectory()) await secure(file);
-      else if (entry.isFile()) await chmod2(file, 384);
-      else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
-    }
-  }
-  await secure(destination);
-}
-async function checkSnapshot(ctx, snapshot) {
-  if (!snapshot.directory.startsWith(".apexrest/"))
-    throw new Fault("SYNC_ARTIFACT_INVALID", "Snapshot must be private project storage.", 5);
-  const actual = await inventory(await syncPath(ctx, snapshot.directory));
-  if (!Object.keys(actual).length || canonical(actual) !== canonical(snapshot.files) || hash(canonical(actual)) !== snapshot.digest)
-    throw new Fault("SYNC_ARTIFACT_INVALID", "Working-copy snapshot checksum verification failed.", 5);
-  return actual;
-}
-async function checkSyncBackup(ctx, backup, envDigest, environmentName) {
-  const directory = await syncPath(ctx, ".apexrest/backups/" + backup.backupId);
-  const metadata = await readJson(
-    await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/backup.json")
-  );
-  const files = await inventory(await syncPath(ctx, ".apexrest/backups/" + backup.backupId + "/application"));
-  if (metadata.schemaVersion !== 1 || metadata.environment !== environmentName || metadata.backupId !== backup.backupId || metadata.targetDigest !== envDigest || metadata.digest !== backup.checksum || hash(canonical(files)) !== backup.checksum || canonical(metadata.files) !== canonical(files) || !Object.keys(files).length)
-    throw new Fault("BACKUP_INVALID", "Initial SQL backup checksum or target verification failed.", 5);
-}
-function checkpoint(state) {
-  return state.recoveryCheckpoint?.snapshot ?? state.lastSuccessfulImport?.snapshot ?? state.baseline;
-}
-var SyncStore = class {
-  constructor(ctx, env, name) {
-    this.ctx = ctx;
-    this.env = env;
-    this.name = name;
-  }
-  ctx;
-  env;
-  name;
-  async file(key = targetDigest(this.env)) {
-    return syncPath(this.ctx, ".apexrest/sync/" + key + "/state.json");
-  }
-  async lock(action) {
-    return withLock(await syncPath(this.ctx, ".apexrest/sync/state.lock"), action);
-  }
-  /** Scan environment records so a changed target cannot silently become a legacy project. */
-  async read(allowMappingChange = false) {
-    const base = await syncPath(this.ctx, ".apexrest/sync");
-    if (!await exists(base)) return null;
-    const matches = [];
-    for (const entry of await readdir2(base, { withFileTypes: true })) {
-      if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Sync storage contains a symlink.", 5);
-      if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
-      const file = await this.file(entry.name);
-      if (!await exists(file)) {
-        if (await exists(await syncPath(this.ctx, ".apexrest/sync/" + entry.name + "/journal.jsonl")))
-          throw new Fault(
-            "SYNC_STATE_INVALID",
-            "A durable sync journal exists but its state is missing. Recover it explicitly; no export fallback.",
-            5
-          );
-        continue;
-      }
-      let state2;
-      try {
-        state2 = syncStateSchema.parse(await readJson(file));
-      } catch {
-        throw new Fault(
-          "SYNC_STATE_INVALID",
-          "Corrupt working-copy state requires explicit recovery; no export fallback.",
-          5
-        );
-      }
-      if (state2.targetDigest !== entry.name)
-        throw new Fault("SYNC_STATE_INVALID", "Sync record storage key differs from its target.", 5);
-      if (state2.targetDigest === targetDigest(this.env) && state2.environment !== this.name && state2.status !== "invalidated")
-        throw new Fault(
-          "SYNC_MAPPING_CHANGED",
-          "This target is bound to another environment. Explicitly invalidate the previous mapping first.",
-          5
-        );
-      if (state2.environment === this.name && state2.status !== "invalidated") matches.push(state2);
-      else if (state2.targetDigest === targetDigest(this.env) && state2.environment === this.name)
-        matches.push(state2);
-    }
-    const active = matches.filter((s3) => s3.status !== "invalidated");
-    if (active.length > 1)
-      throw new Fault("SYNC_STATE_INVALID", "Multiple active records require reconciliation.", 5);
-    const state = active[0] ?? matches[0] ?? null;
-    if (state && state.status !== "invalidated" && !allowMappingChange) await this.checkMapping(state);
-    return state;
-  }
-  async checkMapping(state) {
-    const { readFile: readFile6 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath4(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile6(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
-      throw new Fault(
-        "SYNC_MAPPING_CHANGED",
-        "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
-        5
-      );
-  }
-  async validate(state, ready = true) {
-    await this.checkMapping(state);
-    if (ready && state.status !== "ready")
-      throw new Fault(
-        "SYNC_BLOCKED",
-        `Working copy is ${state.status}. Inspect the existing run and reconcile before writes.`,
-        5
-      );
-    const validRunSnapshot = (reference) => {
-      const base = ".apexrest/deployments/" + reference.runId + "/";
-      if (["snapshot", "server"].some(
-        (kind) => reference.snapshot.directory === base + kind + "/" + state.sourceDir
-      ))
-        return true;
-      const relative = reference.snapshot.directory.startsWith(base) ? reference.snapshot.directory.slice(base.length) : "";
-      return /^recovery\/\d{10,17}\/application$/.test(relative);
-    };
-    if (state.baseline.directory !== ".apexrest/sync/" + state.targetDigest + "/baselines/" + state.syncId + "/application" || state.lastSuccessfulImport && !validRunSnapshot(state.lastSuccessfulImport) || state.recoveryCheckpoint && !validRunSnapshot(state.recoveryCheckpoint))
-      throw new Fault(
-        "SYNC_ARTIFACT_INVALID",
-        "Snapshot reference does not match its sync or deployment owner.",
-        5
-      );
-    if (state.status === "ready" && (await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
-      throw new Fault("SYNC_BLOCKED", "A writing owner must complete or be reconciled before reuse.", 5);
-    await checkSnapshot(this.ctx, state.baseline);
-    if (state.lastSuccessfulImport) await checkSnapshot(this.ctx, state.lastSuccessfulImport.snapshot);
-    if (state.recoveryCheckpoint) await checkSnapshot(this.ctx, state.recoveryCheckpoint.snapshot);
-    await checkSyncBackup(this.ctx, state.backup, state.targetDigest, this.name);
-  }
-  async write(state) {
-    const valid = syncStateSchema.parse(state);
-    const file = await this.file(valid.targetDigest);
-    await mkdir3(path9.dirname(file), { recursive: true, mode: 448 });
-    const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
-    const journal = await open3(journalFile, "a", 384);
-    try {
-      await journal.writeFile(
-        JSON.stringify({
-          at: (/* @__PURE__ */ new Date()).toISOString(),
-          syncId: valid.syncId,
-          revision: valid.revision,
-          status: valid.status,
-          importingRunId: valid.importingRunId,
-          baseline: valid.baseline.directory,
-          backupId: valid.backup.backupId,
-          latestApplied: valid.lastSuccessfulImport?.snapshot.directory ?? null
-        }) + "\n"
-      );
-      await journal.sync();
-    } finally {
-      await journal.close();
-    }
-    await writeJson(file, valid);
-    const directory = process.platform !== "win32" ? await open3(path9.dirname(file), "r") : null;
-    try {
-      await directory?.sync();
-    } finally {
-      await directory?.close();
-    }
-  }
-  async status() {
-    const state = await this.read(true);
-    if (!state) return { mode: "full-export", status: "absent", serverFreshness: "not-checked" };
-    let blockedReason = null;
-    try {
-      await this.validate(state, false);
-    } catch (error) {
-      blockedReason = error instanceof Fault ? error.code : "SYNC_ARTIFACT_INVALID";
-    }
-    if ((await new LocalDeploymentControl(this.env).owner())?.phase === "writing")
-      blockedReason = "SYNC_BLOCKED";
-    const source = await syncPath(this.ctx, state.sourceDir);
-    const files = await exists(source) ? await inventory(source) : {};
-    return {
-      mode: state.status === "invalidated" ? "full-export" : "working-copy",
-      syncId: state.syncId,
-      revision: state.revision,
-      status: state.status,
-      exportedAt: state.exportedAt,
-      lastSuccessfulImport: state.lastSuccessfulImport ? {
-        at: state.lastSuccessfulImport.at,
-        runId: state.lastSuccessfulImport.runId,
-        digest: state.lastSuccessfulImport.snapshot.digest
-      } : null,
-      backupId: state.backup.backupId,
-      importingRunId: state.importingRunId,
-      dirty: canonical(files) !== canonical(checkpoint(state).files),
-      blocked: !!blockedReason || !["ready", "invalidated"].includes(state.status),
-      blockedReason,
-      serverFreshness: "not-checked",
-      assumption: "single-editor"
-    };
-  }
-};
-
-// packages/core/src/apexlang-equivalence.ts
-import path10 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
-var APEXLANG_EQUIVALENCE_POLICY = "apex262-selected-source-v1";
-var formattingRule = "structural-whitespace-and-comments";
-var defaultRule = "pageItem.selectList.layout.startNewRow:true-default";
-var limit = 8 * 1024 * 1024;
-function readStructure(source) {
-  if (Buffer.byteLength(source) > limit) throw new Error("Source exceeds the comparison limit.");
-  const lines = source.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g)?.filter(Boolean) ?? [];
-  const roots = [];
-  const stack = [];
-  const append = (node) => (stack.at(-1)?.children ?? roots).push(node);
-  for (let index = 0; index < lines.length; index++) {
-    const raw = lines[index];
-    const line = raw.replace(/[\r\n]+$/, "");
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("//")) continue;
-    if (trimmed.startsWith("/*")) {
-      let comment = trimmed;
-      while (!comment.includes("*/") && ++index < lines.length) comment += lines[index];
-      const end = comment.indexOf("*/");
-      if (end < 0 || comment.slice(end + 2).trim()) throw new Error("Unsupported comment boundary.");
-      continue;
-    }
-    if (trimmed.startsWith("```")) {
-      if (!/^```[A-Za-z0-9_-]*[ \t]*$/.test(trimmed)) throw new Error("Unsupported fenced literal.");
-      let literal = line.replace(/^[ \t]*/, "") + raw.slice(line.length);
-      let closed = false;
-      while (++index < lines.length) {
-        const next = lines[index];
-        if (/^[ \t]*```[ \t]*(?:\r\n|\r|\n)?$/.test(next)) {
-          literal += next.replace(/^[ \t]*/, "");
-          closed = true;
-          break;
-        }
-        literal += next;
-      }
-      if (!closed) throw new Error("Unclosed fenced literal.");
-      append({ kind: "literal", value: literal });
-      continue;
-    }
-    const property = /^[ \t]*([A-Za-z][\w]*):[ \t]*(.*)$/.exec(line);
-    if (property) {
-      const value = property[2];
-      if (value.includes("```") || value.startsWith('"""') || value.startsWith("'''"))
-        throw new Error("Unsupported inline or multiline literal.");
-      if (value === "{") {
-        const node = { kind: "map", name: property[1], key: "", children: [] };
-        append(node);
-        stack.push(node);
-      } else append({ kind: "property", name: property[1], value });
-      continue;
-    }
-    const component = /^([A-Za-z][\w]*)(?:[ \t]+(.*?))?[ \t]*\([ \t]*$/.exec(trimmed);
-    if (component) {
-      const node = { kind: "component", name: component[1], key: component[2] ?? "", children: [] };
-      append(node);
-      stack.push(node);
-      continue;
-    }
-    const group = /^([A-Za-z][\w]*)[ \t]*\{[ \t]*$/.exec(trimmed);
-    if (group) {
-      const node = { kind: "group", name: group[1], key: "", children: [] };
-      append(node);
-      stack.push(node);
-      continue;
-    }
-    if (trimmed === ")" || trimmed === "}") {
-      const node = stack.pop();
-      if (!node || trimmed === ")" !== (node.kind === "component"))
-        throw new Error("Unbalanced structural boundary.");
-      continue;
-    }
-    throw new Error("Unsupported source form.");
-  }
-  if (stack.length) throw new Error("Unclosed structural boundary.");
-  return roots;
-}
-function removeQualifiedDefault(nodes, parent) {
-  return nodes.map((node) => {
-    if (!("children" in node)) return node;
-    let children = node.children;
-    if (node.kind === "component" && node.name === "pageItem" && parent?.kind === "component" && parent.name === "page") {
-      const types = children.filter((child) => child.kind === "property" && child.name === "type");
-      const layouts = children.filter((child) => child.kind === "group" && child.name === "layout");
-      if (types.length === 1 && types[0].kind === "property" && types[0].value === "selectList" && layouts.length === 1) {
-        children = children.map((child) => {
-          if (child.kind !== "group" || child.name !== "layout") return child;
-          const rows = child.children.filter(
-            (entry) => entry.kind === "property" && entry.name === "startNewRow"
-          );
-          const layouts2 = child.children.filter(
-            (entry) => entry.kind === "property" && entry.name === "startNewLayout"
-          );
-          if (rows.length !== 1 || rows[0].kind !== "property" || rows[0].value !== "true" || layouts2.length > 1 || layouts2.length === 1 && (layouts2[0].kind !== "property" || layouts2[0].value !== "false"))
-            return child;
-          return { ...child, children: child.children.filter((entry) => entry !== rows[0]) };
-        });
-      }
-    }
-    return { ...node, children: removeQualifiedDefault(children, node) };
-  });
-}
-function compareApexlangSource(expected, actual) {
-  if (expected === actual) return { equivalent: true, rules: [] };
-  try {
-    const left = readStructure(expected), right = readStructure(actual);
-    if (canonical(left) === canonical(right)) return { equivalent: true, rules: [formattingRule] };
-    if (canonical(removeQualifiedDefault(left)) === canonical(removeQualifiedDefault(right)))
-      return { equivalent: true, rules: [formattingRule, defaultRule] };
-    return {
-      equivalent: false,
-      rules: [],
-      reason: "Source differs beyond the qualified formatting/default rules."
-    };
-  } catch (error) {
-    return {
-      equivalent: false,
-      rules: [],
-      reason: error instanceof Error ? error.message : "Source form is unsupported."
-    };
-  }
-}
-async function compareApplicationExports(expectedRoot, actualRoot, expectedFiles, actualFiles, allowedFiles) {
-  const allowed = new Set(allowedFiles);
-  const result = {
-    equivalent: true,
-    policy: APEXLANG_EQUIVALENCE_POLICY,
-    normalizations: [],
-    mismatchedFiles: [],
-    mismatches: []
-  };
-  for (const file of [.../* @__PURE__ */ new Set([...Object.keys(expectedFiles), ...Object.keys(actualFiles)])].sort()) {
-    if (expectedFiles[file] === actualFiles[file]) continue;
-    let reason = "File bytes differ outside the selected APEXlang normalization scope.";
-    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path10.posix.extname(file) === ".apx") {
-      const [expected, actual] = await Promise.all([
-        readFile4(await contained(expectedRoot, file)),
-        readFile4(await contained(actualRoot, file))
-      ]);
-      if (hash(expected) !== expectedFiles[file] || hash(actual) !== actualFiles[file])
-        reason = "Source changed during readback comparison.";
-      else {
-        const decoder = new TextDecoder("utf-8", { fatal: true });
-        let comparison;
-        try {
-          comparison = compareApexlangSource(decoder.decode(expected), decoder.decode(actual));
-        } catch {
-          comparison = { equivalent: false, rules: [], reason: "Source is not valid UTF-8." };
-        }
-        if (comparison.equivalent) {
-          result.normalizations.push({
-            file,
-            expectedSha256: expectedFiles[file],
-            actualSha256: actualFiles[file],
-            rules: comparison.rules
-          });
-          continue;
-        }
-        reason = comparison.reason ?? reason;
-      }
-    }
-    result.equivalent = false;
-    result.mismatchedFiles.push(file);
-    result.mismatches.push({ file, reason });
-  }
-  return result;
-}
-
-// packages/core/src/partial-import.ts
-var importSelectionSchema = external_exports.strictObject({
-  requestedMode: external_exports.enum(["auto", "full", "files"]),
-  resolvedMode: external_exports.enum(["full", "files"]),
-  files: external_exports.array(relativePath),
-  reasons: external_exports.array(external_exports.string()),
-  dependencies: external_exports.array(relativePath),
-  before: snapshotSchema.nullable(),
-  effective: snapshotSchema.nullable(),
-  capabilities: external_exports.record(external_exports.string(), external_exports.unknown()),
-  readbackPolicy: external_exports.literal(APEXLANG_EQUIVALENCE_POLICY).optional()
-});
-function importOptions(value = {}) {
-  const mode = value.importMode ?? "auto";
-  if ((value.files?.length ?? 0) > 1e3)
-    throw new Fault("INVALID_INPUT", "Select at most 1000 files in one import.", 2);
-  if (!["auto", "full", "files"].includes(mode)) throw new Fault("INVALID_INPUT", "Unknown import mode.", 2);
-  if (mode === "files" !== !!value.files?.length)
-    throw new Fault(
-      "INVALID_INPUT",
-      "files mode requires a nonempty file list; other modes do not accept files.",
-      2
-    );
-  const files = (value.files ?? []).map((file) => {
-    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path11.posix.normalize(file) !== file || file === ".")
-      throw new Fault(
-        "IMPORT_FILE_UNSAFE",
-        "Use normalized application-relative file paths without globs.",
-        2
-      );
-    return file;
-  });
-  if (new Set(files).size !== files.length)
-    throw new Fault("IMPORT_FILE_UNSAFE", "Duplicate import files are not allowed.", 2);
-  return { importMode: mode, files: files.sort() };
-}
-async function sourceRelease(root) {
-  try {
-    const value = await readJson(path11.join(root, ".apex/apexlang.json"));
-    return typeof value.mmdVersion === "string" ? value.mmdVersion.match(/^\d+\.\d+/)?.[0] ?? null : null;
-  } catch {
-    return null;
-  }
-}
-function supportedFile(file) {
-  return /^pages\/p\d{5}[-\w]*\.apx$/.test(file) || /^shared-components\/.+\.apx$/.test(file) && !/(?:^|\/)(?:themes?|templates?|plugins?|plug-ins?|static-files|files|authentications?|authorizations?)(?:[/.]|$)/i.test(
-    file
-  );
-}
-function changedFiles(before, after) {
-  return [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].filter((file) => before[file] !== after[file]).sort();
-}
-function selectImport(base, local, remote, options2) {
-  const requested = importOptions(options2);
-  const localChanges = changedFiles(base, local);
-  const remoteChanges = changedFiles(base, remote);
-  const selected = requested.importMode === "files" ? requested.files : localChanges;
-  for (const file of selected)
-    if (!Object.hasOwn(local, file) && requested.importMode === "files")
-      throw new Fault("IMPORT_FILE_MISSING", `Selected file is missing: ${file}`, 2);
-  const conflicts = localChanges.filter(
-    (file) => remoteChanges.includes(file) && local[file] !== remote[file]
-  );
-  if (conflicts.length)
-    throw new Fault(
-      "IMPORT_CONFLICT",
-      "Local and server changes overlap; reconcile before planning.",
-      5,
-      "blocked",
-      { conflicts }
-    );
-  const reasons = [];
-  if (selected.some((file) => !Object.hasOwn(local, file))) reasons.push("deleted-files-require-full-import");
-  if (selected.some((file) => !supportedFile(file))) reasons.push("unsupported-component-files");
-  const files = selected.filter((file) => local[file] !== remote[file]);
-  if (!files.length) reasons.push("no-changed-files");
-  const effective = { ...remote };
-  for (const file of files) {
-    if (local[file]) effective[file] = local[file];
-    else delete effective[file];
-  }
-  return { files, reasons, remoteChanges, effective: Object.fromEntries(Object.entries(effective).sort()) };
-}
-async function persistSnapshot(ctx, source, directory) {
-  const destination = await syncPath(ctx, directory);
-  await mkdir4(path11.dirname(destination), { recursive: true, mode: 448 });
-  await privateCopy(source, destination);
-  const files = await inventory(destination);
-  return { directory, files, digest: hash(canonical(files)) };
-}
-async function stageSelection(ctx, before, localRoot, files, expected, directory) {
-  const root = await syncPath(ctx, directory);
-  await mkdir4(path11.dirname(root), { recursive: true, mode: 448 });
-  await privateCopy(await syncPath(ctx, before.directory), root);
-  for (const file of files) {
-    const destination = await contained(root, file);
-    await mkdir4(path11.dirname(destination), { recursive: true, mode: 448 });
-    await cp3(await contained(localRoot, file), destination);
-  }
-  const actual = await inventory(root);
-  if (canonical(actual) !== canonical(expected))
-    throw new Fault("SOURCE_DRIFT", "Source changed while preparing the selected import.", 5);
-  return { directory, files: actual, digest: hash(canonical(actual)) };
-}
-async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, selected) {
-  await checkSnapshot(ctx, server);
-  const localRoot = await syncPath(ctx, ctx.config.application.sourceDir);
-  if (canonical(await inventory(localRoot)) !== canonical(reviewedLocal))
-    throw new Fault(
-      "LOCAL_RECONCILIATION_REQUIRED",
-      "Import confirmed; local files changed during execution. Reconcile them before another import.",
-      5
-    );
-  const base = ".apexrest/deployments/" + runId;
-  const replacement = await syncPath(ctx, base + "/rebased-source");
-  const retained = await syncPath(ctx, base + "/local-before-rebase");
-  await privateCopy(localRoot, replacement);
-  const remoteOnly = changedFiles(before, server.files).filter(
-    (file) => selected.includes(file) || reviewedLocal[file] === before[file]
-  );
-  for (const file of /* @__PURE__ */ new Set([...remoteOnly, ...selected])) {
-    const destination = await contained(replacement, file);
-    if (!server.files[file]) await rm5(destination, { force: true });
-    else {
-      await mkdir4(path11.dirname(destination), { recursive: true });
-      await cp3(await contained(await syncPath(ctx, server.directory), file), destination);
-    }
-  }
-  if (canonical(await inventory(localRoot)) !== canonical(reviewedLocal))
-    throw new Fault(
-      "LOCAL_RECONCILIATION_REQUIRED",
-      "Import confirmed; concurrent local edits prevented rebase.",
-      5
-    );
-  await rename2(localRoot, retained);
-  if (canonical(await inventory(retained)) !== canonical(reviewedLocal)) {
-    await rename2(retained, localRoot);
-    throw new Fault(
-      "LOCAL_RECONCILIATION_REQUIRED",
-      "Import confirmed; concurrent local edits were preserved.",
-      5
-    );
-  }
-  try {
-    await rename2(replacement, localRoot);
-  } catch (error) {
-    await rename2(retained, localRoot);
-    throw error;
-  }
 }
 
 // packages/core/src/project.ts
@@ -7830,6 +8061,11 @@ export {
   importSelectionSchema,
   importOptions,
   sourceRelease,
+  supportedFile,
+  scopedExportFile,
+  pickFiles,
+  overlaySelection,
+  changedFiles,
   selectImport,
   persistSnapshot,
   stageSelection,
