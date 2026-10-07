@@ -41,8 +41,8 @@ test('existing-app scaffolding accepts an existing empty directory and preserves
   assert.equal(result.root, directory);
   assert.equal(result.template, 'existing-app');
   assert.deepEqual((await loadProject(directory)).config, result.configuration);
-  assert.deepEqual(result.configuration.tests.requiredSuites, []);
-  assert.ok((await lstat(path.join(directory, 'tests/sql'))).isDirectory());
+  assert.equal('tests' in result.configuration, false);
+  assert.equal((await readdir(directory)).includes('tests'), false);
   assert.ok((await lstat(path.join(directory, 'src/database/migrations'))).isDirectory());
   assert.ok((await readFile(path.join(directory, 'apexrest.toolchain.lock.json'))).length > 0);
 });
@@ -86,8 +86,22 @@ test('existing-app scaffolding still creates a new nested project directory', as
   const result = await projectInit(directory, 'existing-app', 'new-project');
   assert.equal(result.root, directory);
   assert.equal((await loadProject(directory)).config.projectId, 'new-project');
-  assert.ok((await lstat(path.join(directory, 'tests/e2e'))).isDirectory());
+  assert.equal((await readdir(directory)).includes('tests'), false);
   assert.deepEqual(await readdir(root), ['new-parent']);
+});
+
+test('existing projects ignore retired test paths without creating or running suites', async (t) => {
+  const root = await temporary(t);
+  const directory = path.join(root, 'legacy');
+  const initialized = await projectInit(directory, 'existing-app', 'legacy');
+  const legacy = {
+    ...initialized.configuration,
+    database: { ...initialized.configuration.database, testsDir: 'tests/sql' },
+    tests: { unitDir: 'tests/unit', e2eDir: 'tests/e2e', requiredSuites: ['sql', 'e2e'] },
+  };
+  await writeFile(path.join(directory, 'apexrest.json'), JSON.stringify(legacy));
+  assert.deepEqual((await loadProject(directory)).config, initialized.configuration);
+  assert.equal((await readdir(directory)).includes('tests'), false);
 });
 
 test('concurrent initialization of one empty directory creates exactly one complete project', async (t) => {

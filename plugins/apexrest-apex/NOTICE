@@ -14,6 +14,6 @@ Catalog explanations and synthetic recipes are maintained by APEXREST contributo
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.
-Node.js, Java, SQLcl and Chromium are downloaded separately from their vendors.
+Node.js, Java and SQLcl are downloaded separately from their vendors.
 No Oracle or Java executable is redistributed in APEXREST packages.
 Bundled dependency license texts and a CycloneDX SBOM accompany each local release.

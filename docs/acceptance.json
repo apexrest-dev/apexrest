@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-10-06",
+  "asOf": "2026-10-07",
   "release": "2.0.0",
   "overall": "partial-local",
   "statusSemantics": {
@@ -75,7 +75,7 @@
       "implementation": "implemented",
       "verification": "passed",
       "evidence": ["tests/installers/installer.test.ts", "tests/packaging/packages.test.mjs"],
-      "blocker": "Vendor/browser network channels still require per-platform clean-machine evidence; Playwright browser payload integrity is delegated to Playwright."
+      "blocker": "Vendor download channels still require per-platform clean-machine evidence."
     },
     {
       "id": "A07",
@@ -187,34 +187,16 @@
       "blocker": "Strict schema and missing production authority rejection tested. Protected-runner signature/approval integration is not configured."
     },
     {
-      "id": "A18",
-      "criterion": "The utPLSQL suite returns real results; a missing framework does not count as passed",
-      "implementation": "implemented",
-      "verification": "blocked",
-      "evidence": [
-        "packages/core/src/testing.ts",
-        "templates/customer-crm/project/tests/sql/test_customers.sql"
-      ],
-      "blocker": "No real utPLSQL suite result is included. An authorized integration target with utPLSQL is required; empty or blocked required suites fail the quality gate."
-    },
-    {
       "id": "A19",
-      "criterion": "Browser E2E proves authenticated CRUD and negative validation, beyond HTTP 200",
-      "implementation": "partial",
-      "verification": "blocked",
-      "evidence": [
-        "templates/customer-crm/project/tests/e2e/customer-crud.spec.mjs",
-        "packages/testkit/src/apex.ts"
-      ],
-      "blocker": "Authenticated CRUD, negative validation and mobile breakpoint verification require an authorized integration target and authenticated browser profile; no executed application browser evidence is included."
-    },
-    {
-      "id": "A20",
-      "criterion": "An empty, skipped or blocked required suite fails the quality gate",
+      "criterion": "Application verification uses host in-app browser controls and reports actual authenticated interactions separately from compiler and import outcomes",
       "implementation": "implemented",
-      "verification": "passed",
-      "evidence": ["tests/unit/core.test.ts", "packages/core/src/testing.ts"],
-      "blocker": null
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/browser.ts",
+        "tests/unit/browser.test.ts",
+        "plugins/apexrest-apex/skills/apexrest-work/SKILL.md"
+      ],
+      "blocker": "Local APEX 26.2 authenticated CRUD and negative validation were observed; narrow-layout and broad native-host qualification remain open."
     },
     {
       "id": "A21",
@@ -355,7 +337,7 @@
         "tests/unit/mcp-output.test.ts",
         "tests/contracts/mcp.test.mjs"
       ],
-      "blocker": "Local stdio MCP, CLI, synthetic nonempty test workers and mocked metadata adapter only. Native Codex end-to-end task latency, Oracle execution and billed-token savings are unmeasured."
+      "blocker": "Local stdio MCP and CLI contracts are covered. SQLcl 26.3 metadata batching was checked on local APEX 26.2; native task latency and billed-token savings are unmeasured."
     },
     {
       "id": "A36",
@@ -808,6 +790,21 @@
       "verification": "partial",
       "evidence": ["tests/contracts/mcp.test.mjs", "scripts/repository-plugin-smoke.mjs"],
       "blocker": "Fresh Codex and Claude Code work cycles, ship/job execution and browser handoff require native-host qualification."
+    },
+    {
+      "id": "VERIFY-01",
+      "criterion": "The plugin has no automated application unit/SQL/API/UI runners, no browser-auth-state capture and no browser-install step; repository self-tests remain",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/operations.ts",
+        "packages/installer/src/toolchain.ts",
+        "tests/contracts/dependencies.test.mjs",
+        "tests/unit/agent-surface.test.ts",
+        "tests/packaging/packages.test.mjs",
+        "tests/unit/cli-main.test.ts",
+        "scripts/repository-plugin-smoke.mjs"
+      ]
     }
   ]
 }

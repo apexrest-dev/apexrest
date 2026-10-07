@@ -186,48 +186,20 @@ test('init installs sources when source directory is absent', async () => {
   );
 });
 
-test('confirmed import failing required suites preserves previous successful checkpoint', async () => {
+test('confirmed import failing target verification preserves previous successful checkpoint', async () => {
   const { ctx, service, controls, store, calls } = await initialized();
   await service.apply(ctx, await service.plan(ctx, 'dev'));
   const previous = (await store.read())!;
   await atomicWrite(path.join(ctx.root, ctx.config.application.sourceDir, 'application.apx'), 'second edit');
-  controls.testsPass = false;
+  controls.failPostImportAfter = calls.filter((call) => call === 'import').length + 1;
   await assert.rejects(service.apply(ctx, await service.plan(ctx, 'dev')), {
-    code: 'POST_DEPLOY_TEST_FAILED',
+    code: 'QUERY_FAILED',
   });
   const failed = (await store.read())!;
   assert.equal(failed.status, 'verification_failed');
   assert.deepEqual(failed.lastSuccessfulImport, previous.lastSuccessfulImport);
   await assert.rejects(service.plan(ctx, 'dev'), { code: 'SYNC_BLOCKED' });
   assert.equal(calls.filter((c) => c === 'import').length, 2);
-});
-
-test('working copy awaiting re-auth stays blocked until resumed verification passes', async () => {
-  const { ctx, service, controls, store, calls } = await initialized();
-  await atomicWrite(path.join(ctx.root, ctx.config.application.sourceDir, 'application.apx'), 'reauth edit');
-  controls.testsPass = false;
-  controls.reauthRequired = true;
-  const before = (await store.read())!;
-  const runId = await service.apply(ctx, await service.plan(ctx, 'dev')).then(
-    () => assert.fail('apply must not succeed'),
-    (e: { code: string; details: { runId: string } }) => (
-      assert.equal(e.code, 'POST_DEPLOY_REAUTH_REQUIRED'),
-      e.details.runId
-    ),
-  );
-  const waiting = (await store.read())!;
-  assert.equal(waiting.status, 'verification_failed');
-  assert.equal(waiting.importingRunId, runId);
-  assert.deepEqual(waiting.lastSuccessfulImport, before.lastSuccessfulImport);
-  await assert.rejects(service.plan(ctx, 'dev'), { code: 'SYNC_BLOCKED' });
-  controls.testsPass = true;
-  controls.reauthRequired = false;
-  await service.resumeVerification(ctx, runId);
-  const ready = (await store.read())!;
-  assert.equal(ready.status, 'ready');
-  assert.equal(ready.revision, before.revision + 1);
-  assert.equal(ready.lastSuccessfulImport!.runId, runId);
-  assert.equal(calls.filter((c) => c === 'import').length, 1);
 });
 
 test('lost import response blocks retries and invalidate cannot clear unknown ownership', async () => {

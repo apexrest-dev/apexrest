@@ -27,7 +27,7 @@ test('project summary needs no source reads and exposes only bounded configured 
   assert.equal(summary.environments.length, 8);
   assert.equal(summary.environmentsOmitted, 2);
   assert.equal(summary.sourceDirectories.apex, ctx.config.application.sourceDir);
-  assert.deepEqual(summary.requiredSuites, ctx.config.tests.requiredSuites);
+  assert.equal(summary.verification, 'host-browser');
   assert.equal(summary.targetVerified, false);
   assert.equal('sources' in summary, false);
   assert.doesNotMatch(JSON.stringify(summary), /private-read|private-write/);

@@ -4,7 +4,7 @@ import { parse } from './config.ts';
 
 // `host` is the in-app browser of the current host (Codex or Claude Code); `codex` is
 // its original name and remains accepted with the same behavior.
-export const BROWSER_MODES = ['codex', 'host', 'external'] as const;
+export const BROWSER_MODES = ['codex', 'host'] as const;
 export type BrowserMode = (typeof BROWSER_MODES)[number];
 
 export const browserPreferencesSchema = z.strictObject({

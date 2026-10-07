@@ -27,7 +27,6 @@ async function initialized(t: import('node:test').TestContext) {
   });
   const local = path.join(f.ctx.root, f.ctx.config.application.sourceDir);
   f.ctx.config.toolchain.profile = '26.2';
-  f.ctx.config.tests.requiredSuites = [];
   f.controls.compilerVersion = 'SQLcl: Release 26.3.0.260.1620 Production';
   for (const source of [local, f.server]) {
     await writeJson(path.join(source, '.apex/apexlang.json'), { mmdVersion: '26.2.0+3479' });

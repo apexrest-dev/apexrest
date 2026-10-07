@@ -44,7 +44,7 @@ async function fixture(t) {
 
 test('dependency preview works outside a checkout without writes or native registration', async (t) => {
   const { home, cache, run } = await fixture(t);
-  const result = run('--dry-run', '--offline', '--skip-browser');
+  const result = run('--dry-run', '--offline');
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const { data } = JSON.parse(result.stdout);
   assert.equal(data.status, 'planned');
@@ -52,18 +52,24 @@ test('dependency preview works outside a checkout without writes or native regis
   assert.equal(data.plan.cache, cache);
   assert.equal(data.plan.offline, true);
   assert.deepEqual(data.plan.steps.map((step) => step.artifact.id).sort(), ['java', 'node', 'sqlcl']);
-  assert.equal(data.plan.browser.action, 'skip');
-  assert.equal(data.plan.elevation, 'not-authorized');
+  assert.equal('browser' in data.plan, false);
+  assert.equal('playwright' in data.plan, false);
   assert.deepEqual(await readdir(home), []);
   assert.deepEqual(await readdir(cache), []);
 });
 
 test('dependency install requires technical approval and rejects native registration options', async (t) => {
   const { home, cache, run } = await fixture(t);
-  const refused = run('--offline', '--skip-browser');
+  const refused = run('--offline');
   assert.equal(refused.status, 4, refused.stdout + refused.stderr);
   assert.equal(JSON.parse(refused.stdout).diagnostics[0].code, 'SETUP_APPROVAL_REQUIRED');
-  for (const args of [['--native-only'], ['--codex-home', home], ['--from', home]]) {
+  for (const args of [
+    ['--native-only'],
+    ['--codex-home', home],
+    ['--from', home],
+    ['--skip-browser'],
+    ['--install-os-deps'],
+  ]) {
     const invalid = run('--dry-run', ...args);
     assert.equal(invalid.status, 2, invalid.stdout + invalid.stderr);
   }
@@ -71,18 +77,18 @@ test('dependency install requires technical approval and rejects native registra
   assert.deepEqual(await readdir(cache), []);
 });
 
-test('dependency preview includes browser installation and preserves separate license consent', async (t) => {
+test('dependency preview offers only Oracle client tools and preserves separate license consent', async (t) => {
   const { run } = await fixture(t);
   const initial = run('--dry-run');
   assert.equal(initial.status, 0, initial.stdout + initial.stderr);
   const plan = JSON.parse(initial.stdout).data.plan;
-  assert.equal(plan.browser.action, 'install-verify');
-  assert.equal(plan.browser.installOsDeps, false);
+  assert.equal('browser' in plan, false);
+  assert.equal('playwright' in plan, false);
   for (const step of plan.steps.filter((step) => step.artifact.consentRequired && !step.reuse))
     assert.equal(step.consent, 'required');
-  const accepted = run('--dry-run', '--yes', '--accept-oracle-license', '--install-os-deps');
+  const accepted = run('--dry-run', '--yes', '--accept-oracle-license');
   assert.equal(accepted.status, 0, accepted.stdout + accepted.stderr);
   const acceptedPlan = JSON.parse(accepted.stdout).data.plan;
   assert.ok(acceptedPlan.steps.every((step) => step.consent === 'not-required'));
-  assert.equal(acceptedPlan.browser.installOsDeps, true);
+  assert.equal('browser' in acceptedPlan, false);
 });

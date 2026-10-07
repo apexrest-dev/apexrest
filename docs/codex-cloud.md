@@ -59,7 +59,7 @@ bash scripts/codex-cloud/setup.sh
 bash scripts/codex-cloud/setup.sh --maintenance
 ```
 
-Setup checks the pinned checkout, previews and installs managed dependencies with `--skip-browser`, prepares a private JDK, selects `sqlcl configure --mode cli --database-transport ords`, saves the connection and runs `doctor` plus a read-only database identity check. It creates no application or business data and grants no deployment permission.
+Setup checks the pinned checkout, previews and installs managed dependencies, prepares a private JDK, selects `sqlcl configure --mode cli --database-transport ords`, saves the connection and runs `doctor` plus a read-only database identity check. It creates no application or business data and grants no deployment permission.
 
 Maintenance reuses the installed build and credentials, refreshes Java proxy/CA settings and repeats the connection check. It does not reinstall dependencies. For a missing build, changed pin or missing credential, rerun setup with the secret available. For credential rotation, update the Secret and rerun setup; retaining an old local credential is not rotation.
 

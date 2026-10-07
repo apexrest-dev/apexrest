@@ -1,6 +1,6 @@
 # Configuration and connections
 
-Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (`host` in-app browser of Codex or Claude Code, or `external` system browser) is stored per project in `.apexrest/panel/preferences.json`; the default `{"browserMode":"codex"}` is the legacy name of `host` and behaves identically; `apexrest_browser_open` accepts `browserMode` to override it for one call, and `apexrest_status` `detail:project` reports the current value.
+Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (`host` in-app browser, alias `codex`) is stored per project in `.apexrest/panel/preferences.json`; the default `{"browserMode":"codex"}` is the legacy name of `host` and behaves identically; `apexrest_browser_open` accepts `browserMode` to override it for one call, and `apexrest_status` `detail:project` reports the current value.
 
 A project has one `apexrest.json` and one pinned toolchain lock. `project init` creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.
 
@@ -28,9 +28,9 @@ Add an entry such as `environments.dev` to the generated `apexrest.json`:
 }
 ```
 
-These are placeholders, not a working target. Use the actual database unique name and service, workspace, parsing schema and app ID. `expectedMarker` must match an application-specific DOM marker when your tests require it. `allowedOrigins` must list the origins needed by browser/API tests, including any approved SSO or CDN redirects. Adding an origin does not grant permission to mutate its data.
+These are placeholders, not a working target. Use the actual database unique name and service, workspace, parsing schema and app ID. `expectedMarker` can identify the expected application during browser inspection. `allowedOrigins` lists approved application origins. Adding an origin does not grant permission to mutate its data.
 
-The generated `schemas/project.schema.json` is the exact public schema. Unknown fields are rejected. Source, test, migration, package, artifact and toolchain paths must remain inside the project.
+The generated `schemas/project.schema.json` is the exact public schema. Unknown fields are rejected. Existing project files may still contain retired `tests` and `database.testsDir` fields: loading ignores these fields; remove them when updating configuration. Old plans must be regenerated against the current configuration. Source, migration, package, artifact and toolchain paths must remain inside the project.
 
 ## List and test saved SQLcl connections
 
@@ -69,7 +69,7 @@ Private policy lives at `$APEXREST_HOME/policy.json`, defaulting to `~/.apexrest
 }
 ```
 
-Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` or `test` operations. A deploy grant, including one for restore, must also carry `planDigest` equal to the exact plan digest and an `expiresAt` no later than the plan's expiry; otherwise apply is blocked with `DEPLOY_APPROVAL_REQUIRED`. The policy schema still accepts a grant without `planDigest`, but such a grant never authorizes a deploy. Test grants bind project, target, operation and expiry.
+Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` operation. A deploy grant, including one for restore, must also carry `planDigest` equal to the exact plan digest and an `expiresAt` no later than the plan's expiry; otherwise apply is blocked with `DEPLOY_APPROVAL_REQUIRED`. The policy schema still accepts a grant without `planDigest`, but such a grant never authorizes a deploy.
 
 For an explicit request to create, update or import an identified development/test app, `apexrest_ship` `mode:apply` records that already supplied authorization (the `userRequest` text) as a short-lived grant with the exact current `planDigest`, `deploy` only, `grantedBy: "ship"` and expiry no later than the plan. It preserves unrelated grants and removes the task grant after the attempt. A project file or a tool response cannot supply that consent, and the agent never edits grants by hand. Different targets, business-table mutations, authentication changes and protected production actions require their corresponding scope.
 
@@ -81,11 +81,9 @@ Coordination is always local and is not configurable: durable migration history 
 
 The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. Database-backed coordination was removed. For older project files, `deploymentControl` is still accepted only with the value `"local"` and has no effect; any other value is rejected. Remove the field when convenient.
 
-## Select test scope
+## Application verification
 
-`tests.requiredSuites` selects the suites that must pass. `tests.mutationAllowedEnvironments` lists the explicitly configured environments where remote tests may mutate data. Production tests are prohibited, including targets classified as production by `production-trust.json`. An empty, skipped or blocked required suite fails its gate.
-
-A blank application or explicitly authorized isolated application-only profile can have no automated suites. In that case, report that none ran and record actual compiler, source-query and in-app observations separately. Do not remove required CRM or existing integration suites simply to make a gate pass. See [testing](testing.md).
+Use the host in-app browser to verify rendering, navigation, validation and the changed interaction. Compiler, metadata and import checks remain separate. The plugin has no automatic application test runners or saved browser-authentication state. Repository self-tests validate the plugin implementation. See [testing](testing.md).
 
 ## Runtime configuration
 

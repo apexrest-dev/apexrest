@@ -18,15 +18,13 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   const start = performance.now();
   await client.connect(transport);
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 11);
+  assert.equal(catalog.tools.length, 10);
   const jobSchema = catalog.tools.find((tool) => tool.name === 'apexrest_job').inputSchema;
   assert.equal(jobSchema.properties.waitSeconds.default, 0);
   assert.equal(jobSchema.properties.waitSeconds.maximum, 120);
   assert.ok(!jobSchema.required.includes('waitSeconds'));
   assert.ok(jobSchema.required.includes('jobId'));
-  for (const tool of catalog.tools.filter((tool) =>
-    ['apexrest_apex_sync', 'apexrest_test_run'].includes(tool.name),
-  )) {
+  for (const tool of catalog.tools.filter((tool) => ['apexrest_apex_sync'].includes(tool.name))) {
     assert.equal(tool.inputSchema.properties.waitSeconds.default, 25);
     assert.ok(!tool.inputSchema.required.includes('waitSeconds'));
   }
@@ -198,7 +196,6 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     apexrest_apex_sync: { env: 'dev', action: 'status' },
     apexrest_apex_validate: {},
     apexrest_ship: { env: 'dev', mode: 'apply', userRequest: 'Deploy page ten to dev' },
-    apexrest_test_run: { suite: 'unit' },
     apexrest_job: { action: 'status', jobId: '12345678-1234-4123-8123-123456789abc' },
     apexrest_artifact_read: { id: '12345678-1234-4123-8123-123456789abc' },
     // Optional-project tools still reject relative paths.
@@ -242,7 +239,7 @@ test('MCP malformed JSON yields protocol response without process banners', asyn
   for (const line of stdout.trim().split('\n').filter(Boolean)) assert.doesNotThrow(() => JSON.parse(line));
 });
 for (const profile of ['codex-compat'])
-  test(`${profile} copied outside checkout resolves shared chunks, references and job worker via both entrypoints`, async (t) => {
+  test(`${profile} copied outside checkout resolves shared chunks and references via both entrypoints`, async (t) => {
     const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-relocated-')));
     t.after(() => rm(root, { recursive: true, force: true }));
     const plugin = path.join(root, 'plugin');
@@ -270,11 +267,6 @@ for (const profile of ['codex-compat'])
     await writeFile(
       path.join(env.APEXREST_HOME, 'policy.json'),
       JSON.stringify({ schemaVersion: 1, trustedProjects: [project], grants: [] }),
-    );
-    // A synthetic local unit suite exercises worker paths without Oracle or an application target.
-    await writeFile(
-      path.join(project, 'tests/unit/local.test.mjs'),
-      "import test from 'node:test'; import assert from 'node:assert/strict'; test('fixture', () => assert.equal(2 + 2, 4));\n",
     );
     for (const args of [[path.join(plugin, 'runtime/mcp.mjs')], [cli, 'mcp']]) {
       const client = new Client({ name: 'relocated-contract', version: '1.0.0' });
@@ -310,31 +302,6 @@ for (const profile of ['codex-compat'])
         assert.equal(found.ok, true);
         assert.ok(found.data.source.startsWith('https://github.com/oracle/skills/'));
         assert.equal(found.data.content.length, 80);
-        let result = JSON.parse(
-          (await client.callTool({ name: 'apexrest_test_run', arguments: { project, suite: 'unit' } }))
-            .content[0].text,
-        );
-        assert.equal(result.ok, true);
-        const jobId = result.data.jobId;
-        assert.ok(jobId);
-        assert.equal(result.data.runner, 'in-process', 'local unit suites run inside the MCP process');
-        // A loaded Windows runner can outlast the original tool call's bounded wait.
-        // Follow the same job instead of starting the suite again.
-        for (let attempt = 0; attempt < 3 && result.data.status !== 'completed'; attempt++) {
-          assert.ok(['queued', 'running'].includes(result.data.status), JSON.stringify(result));
-          result = JSON.parse(
-            (
-              await client.callTool({
-                name: 'apexrest_job',
-                arguments: { action: 'status', jobId, waitSeconds: 30 },
-              })
-            ).content[0].text,
-          );
-          assert.equal(result.ok, true, JSON.stringify(result));
-        }
-        assert.equal(result.data.status, 'completed', JSON.stringify(result));
-        assert.equal(result.data.result.ok, true, JSON.stringify(result.data.result));
-        assert.equal(result.data.result.data.tests, 1);
       } finally {
         await client.close();
       }

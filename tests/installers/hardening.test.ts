@@ -10,12 +10,7 @@ import { assertPrivateCache, download, proxyStatus } from '../../packages/instal
 import type { Artifact } from '../../packages/installer/src/download.ts';
 import { archivePath, extractArchive, extractVerifiedArchive } from '../../packages/installer/src/archive.ts';
 import { resolveCommand, searchPath } from '../../packages/installer/src/command.ts';
-import {
-  ToolchainService,
-  browserEnvironment,
-  canonicalHome,
-  runtimeState,
-} from '../../packages/installer/src/toolchain.ts';
+import { ToolchainService, canonicalHome, runtimeState } from '../../packages/installer/src/toolchain.ts';
 import { launcherScripts } from '../../packages/installer/src/native.ts';
 import { uninstallTools } from '../../packages/installer/src/uninstall-tools.ts';
 
@@ -321,25 +316,13 @@ test('dependency preview reports discovered tools without executing them', { ski
   assert.equal(step.candidate, sql);
   assert.equal(step.candidateStatus, 'found, not probed');
   assert.equal(await exists(marker), false);
-  assert.match(plan.browser.integrity, /not hash-pinned by apexrest/);
-  assert.equal(typeof plan.proxy.support, 'string');
-});
-
-test('ambient Playwright mirrors are stripped unless explicitly selected', () => {
-  const base = {
-    PLAYWRIGHT_DOWNLOAD_HOST: 'https://mirror.invalid',
-    PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST: 'https://mirror.invalid',
-    KEEP: 'yes',
-  };
-  const env = browserEnvironment(base, { PLAYWRIGHT_BROWSERS_PATH: '/b' });
-  assert.equal(env.PLAYWRIGHT_DOWNLOAD_HOST, undefined);
-  assert.equal(env.PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST, undefined);
-  assert.equal(env.KEEP, 'yes');
-  assert.equal(env.PLAYWRIGHT_BROWSERS_PATH, '/b');
-  assert.equal(
-    browserEnvironment(base, {}, 'https://approved.test').PLAYWRIGHT_DOWNLOAD_HOST,
-    'https://approved.test',
+  assert.equal('browser' in plan, false);
+  assert.equal('playwright' in plan, false);
+  assert.deepEqual(
+    plan.steps.map((step) => step.artifact.id),
+    ['node', 'java', 'sqlcl'],
   );
+  assert.equal(typeof plan.proxy.support, 'string');
 });
 
 async function toolchainFixture(t: test.TestContext) {
@@ -373,10 +356,9 @@ async function toolchainFixture(t: test.TestContext) {
   t.mock.method(service, 'plan', async () => ({
     home,
     cache,
-    playwright: '0',
     steps: [{ artifact: locked, destination, reuse: undefined, consent: 'not-required' }],
   }));
-  const apply = () => service.apply({ home, yes: true, offline: true, skipBrowser: true });
+  const apply = () => service.apply({ home, yes: true, offline: true });
   return { home, cache, destination, locked, apply, root };
 }
 
@@ -413,7 +395,6 @@ test('a failed toolchain extraction leaves no staging directory', { skip: posixO
   t.mock.method(service, 'plan', async () => ({
     home: f.home,
     cache: f.cache,
-    playwright: '0',
     steps: [
       {
         artifact: { ...f.locked, executable: 'tool/bin/missing' },
@@ -423,7 +404,7 @@ test('a failed toolchain extraction leaves no staging directory', { skip: posixO
       },
     ],
   }));
-  await assert.rejects(service.apply({ home: f.home, yes: true, offline: true, skipBrowser: true }), {
+  await assert.rejects(service.apply({ home: f.home, yes: true, offline: true }), {
     code: 'ARTIFACT_LAYOUT_MISMATCH',
   });
   assert.deepEqual(await readdir(path.dirname(f.destination)), []);

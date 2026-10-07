@@ -58,7 +58,6 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     planned.plan,
     'Deploy the customers page to dev',
     f.service,
-    () => ({ fixture: true }),
     undefined,
     (phase) => phases.push(phase),
   );
@@ -89,10 +88,10 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     expiresAt: (observedGrant as { expiresAt: string }).expiresAt,
     planDigest: planned.plan.digest,
   });
-  assert.deepEqual(phases, ['backing_up', 'migrating', 'importing', 'verifying', 'testing']);
+  assert.deepEqual(phases, ['backing_up', 'migrating', 'importing', 'verifying']);
   assert.deepEqual(
     result.phases.map((p) => p.phase),
-    ['backing_up', 'migrating', 'importing', 'verifying', 'testing'],
+    ['backing_up', 'migrating', 'importing', 'verifying'],
   );
   assert.ok(result.phases.every((p) => p.ms >= 0));
   assert.deepEqual(result.application, {
@@ -101,9 +100,9 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     workspace: 'FIXTURE',
     url: 'https://localhost/ords/f?p=123',
   });
-  assert.deepEqual(result.tests, { fixture: true });
+  assert.deepEqual(result.browserVerification, { status: 'not_run', browser: 'host' });
   assert.ok(f.calls.includes('import'));
-  assert.ok(f.calls.includes('tests'));
+  assert.equal(f.calls.includes('tests'), false);
 });
 
 test('ship apply removes its grant after a failed import and refuses production before any grant', async (t) => {
@@ -112,10 +111,9 @@ test('ship apply removes its grant after a failed import and refuses production 
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
   const planned = await shipPlan(f.ctx, 'dev', f.service, parseDiagnostics);
   f.controls.failImport = true;
-  await assert.rejects(
-    shipApply(f.ctx, planned.plan, 'Deploy the customers page', f.service, () => undefined),
-    { code: 'OUTCOME_UNKNOWN' },
-  );
+  await assert.rejects(shipApply(f.ctx, planned.plan, 'Deploy the customers page', f.service), {
+    code: 'OUTCOME_UNKNOWN',
+  });
   assert.equal(
     (await policy()).grants.some((g) => g.grantedBy === 'ship'),
     false,
@@ -132,10 +130,9 @@ test('ship apply removes its grant after a failed import and refuses production 
     code: 'PRODUCTION_CI_REQUIRED',
     status: 'blocked',
   });
-  await assert.rejects(
-    shipApply(production, planned.plan, 'Deploy the customers page', f.service, () => undefined),
-    { code: 'PRODUCTION_CI_REQUIRED' },
-  );
+  await assert.rejects(shipApply(production, planned.plan, 'Deploy the customers page', f.service), {
+    code: 'PRODUCTION_CI_REQUIRED',
+  });
   assert.equal(
     (await policy()).grants.some((g) => g.grantedBy === 'ship'),
     false,
@@ -317,7 +314,7 @@ test('workers record phases immediately and the composite job tool reads them', 
   assert.equal((cancel.data as { status: string }).status, 'failed');
 });
 
-test('MCP catalog is eleven tools with correct annotations and a bounded footprint', () => {
+test('MCP catalog is ten tools with correct annotations and a bounded footprint', () => {
   const tools = listTools();
   assert.deepEqual(
     tools.map((t) => t.name),
@@ -328,7 +325,6 @@ test('MCP catalog is eleven tools with correct annotations and a bounded footpri
       'apexrest_apex_validate',
       'apexrest_ship',
       'apexrest_apex_sync',
-      'apexrest_test_run',
       'apexrest_browser_open',
       'apexrest_job',
       'apexrest_artifact_read',
@@ -358,7 +354,6 @@ test('MCP catalog is eleven tools with correct annotations and a bounded footpri
       'apexrest_metadata_read',
       'apexrest_ship',
       'apexrest_apex_sync',
-      'apexrest_test_run',
       'apexrest_browser_open',
     ],
   );
@@ -381,8 +376,6 @@ test('MCP catalog is eleven tools with correct annotations and a bounded footpri
   const bytes = Buffer.byteLength(JSON.stringify({ tools }), 'utf8');
   assert.ok(bytes < 12500, `catalog is ${bytes} bytes`);
   assert.equal(detachedJob('ship', {}), true);
-  assert.equal(detachedJob('test.run', { suite: 'sql' }), true);
-  assert.equal(detachedJob('test.run', { suite: 'unit' }), false);
   assert.equal(detachedJob('apex.sync', { action: 'init' }), false);
 });
 

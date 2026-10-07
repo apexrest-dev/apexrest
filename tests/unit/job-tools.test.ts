@@ -227,7 +227,7 @@ test('active job envelopes describe queued or running work without claiming comp
 });
 
 test('completed jobs with missing or mismatched results are unreadable, never fabricated success', async () => {
-  for (const result of [undefined, { ok: true }, success('test.run', {})]) {
+  for (const result of [undefined, { ok: true }, success('apex.validate', {})]) {
     const envelope = jobToolResult('deploy.apply', {
       jobId: receipt.jobId,
       status: 'completed',

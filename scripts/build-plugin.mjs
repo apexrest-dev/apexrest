@@ -43,15 +43,6 @@ for (const folder of ['toolchains', 'schemas', 'templates'])
   await cp(folder, `dist/resources/${folder}`, { recursive: true });
 await cp('resources', 'dist/resources', { recursive: true });
 await build({
-  entryPoints: ['packages/testkit/src/apex.ts'],
-  outfile: 'dist/resources/testkit/apex.mjs',
-  bundle: true,
-  platform: 'node',
-  format: 'esm',
-  target: 'node24',
-  external: ['@playwright/test'],
-});
-await build({
   entryPoints: { apexrest: 'packages/cli/src/main.ts', mcp: 'packages/mcp/src/main.ts' },
   outdir: 'dist/runtime',
   outExtension: { '.js': '.mjs' },

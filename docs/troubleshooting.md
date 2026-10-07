@@ -43,7 +43,6 @@ Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent 
 | `APEX_VERSION_MISMATCH` or `SYNC_COMPILER_CHANGED`              | Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand.                         |
 | `IMPORT_CONFLICT` or `SYNC_SERVER_CHANGED`                      | Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict.                                    |
 | `POST_DEPLOY_CONTENT_FAILED` or `LOCAL_RECONCILIATION_REQUIRED` | The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again.                             |
-| `POST_DEPLOY_REAUTH_REQUIRED` or `TEST_REAUTH_REQUIRED`         | The saved APEX session ended (a full import ends sessions). Ask the user to run `apexrest test auth --env NAME` interactively, then `apexrest deploy verify --run UUID`; do not reapply. |
 
 The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allowed readback transformations. `OUTCOME_UNKNOWN` still requires the recovery procedure below.
 
@@ -60,28 +59,25 @@ The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allow
 | Production target                                                      | `ship apply` is refused by design; production uses the protected external approval path.                                 |
 | `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.                         |
 | Missing service tables                                                 | None are required: coordination and migration history are local under `APEXREST_HOME`.                                   |
-| A required suite is empty or blocked                                   | Supply its real tests or dependency, or resolve its authorized scope; do not count it as passed.                         |
 | `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                              |
 
 Connection credentials belong in SQLcl's store or the private ORDS credential file. Do not put them in an issue or prompt. See [configuration](configuration.md) and the [safety skill](../plugins/apexrest-apex/skills/apexrest-safety/SKILL.md).
 
 ## A job is still running, failed or has an unknown outcome
 
-`apexrest_ship` and remote `apexrest_test_run` suites return a `jobId` when they exceed `waitSeconds`. Read `apexrest_job` `action:status` with that ID (waits up to 120 seconds and reports the `phase`: `validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `testing`, `syncing`); never rerun the operation to fetch its result. A `completed` job can still carry a failed operation result: read its diagnostics. A job whose worker never started is `failed` and needs a new job after the diagnostic is resolved.
+`apexrest_ship` returns a `jobId` when they exceed `waitSeconds`. Read `apexrest_job` `action:status` with that ID (waits up to 120 seconds and reports the `phase`: `validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `syncing`); never rerun the operation to fetch its result. A `completed` job can still carry a failed operation result: read its diagnostics. A job whose worker never started is `failed` and needs a new job after the diagnostic is resolved.
 
 `OUTCOME_UNKNOWN`, `JOB_OUTCOME_UNKNOWN`, an expired heartbeat or a lost import response mean the database may have changed. Do not retry, cancel or clear ownership. Inspect the deployment state, journal, target history and SQL backup with `apexrest deploy status --project PROJECT --run RUN_ID`, and reconcile with the target administrator before choosing a recovery action. Cancellation never implies rollback. Restore has its own plan and exact approval and restores APEX metadata only. See [deployment and recovery](deployment-safety.md).
 
 ## Browser verification or charts do not work
 
-`apexrest_browser_open` resolves the configured URL for the selected browser (`host`, or its legacy alias `codex`, returns a host handoff; `external` launches the system browser); opening a page is not verification. Complete login in that browser and check that the actual application page is accessible. Automated browser auth (`apexrest test auth`) and the verification browser are separate contexts; success in one does not prove the other is authenticated. Explicitly allow required SSO/CDN origins for automated tests.
+`apexrest_browser_open` returns the configured URL for the host in-app browser (`host`, legacy alias `codex`). Complete login in that browser and exercise the affected pages; opening a page is not verification. No external browser is launched and no saved authentication state or automatic application suite is used. If an old preference says `external`, change it to `host` or select `browserMode:host` for the call.
 
 Wait for asynchronous APEX chart regions to finish loading before judging an empty chart. After a filter action, verify that the relevant page items were submitted and every affected region refreshed. A loading overlay or an old tab with a pending navigation may require a fresh page inspection before changing source. Record an unavailable browser or deployed change as missing verification with a reason, following the [browser verification rule](testing.md#browser-verification).
 
 ## Offline, proxy or download errors
 
-Preload the exact SHA-keyed vendor artifacts and required npm/browser caches. `--offline` never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total. `PROXY_UNSUPPORTED` means a proxy is configured but the running Node cannot apply it: run with `NODE_USE_ENV_PROXY=1` on Node 24 or later, or preload the offline cache. `UNSAFE_CACHE_DIRECTORY` means the download cache is not owned by the current user or is group/world writable.
-
-`--install-os-deps` explicitly requests Playwright's system package installation and may require elevation. Oracle license acceptance remains separate from technical setup consent. No dependency download runs during MCP startup.
+Preload the exact SHA-keyed vendor artifacts and client-tool archives. `--offline` never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total. `PROXY_UNSUPPORTED` means a proxy is configured but the running Node cannot apply it: run with `NODE_USE_ENV_PROXY=1` on Node 24 or later, or preload the offline cache. `UNSAFE_CACHE_DIRECTORY` means the download cache is not owned by the current user or is group/world writable.
 
 ## Setup is locked or interrupted
 

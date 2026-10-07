@@ -25,17 +25,9 @@ export async function files(root, prefix = '') {
   )) {
     if (
       entry.name === 'node_modules' ||
-      [
-        '.DS_Store',
-        '.git',
-        '.cache',
-        '.apexrest',
-        '.idea',
-        '.vscode',
-        'coverage',
-        'test-results',
-        'playwright-report',
-      ].includes(entry.name) ||
+      ['.DS_Store', '.git', '.cache', '.apexrest', '.idea', '.vscode', 'coverage', 'test-results'].includes(
+        entry.name,
+      ) ||
       /\.(?:log|tgz|wallet)$/.test(entry.name) ||
       entry.name === '.env' ||
       (entry.name.startsWith('.env.') && entry.name !== '.env.example')

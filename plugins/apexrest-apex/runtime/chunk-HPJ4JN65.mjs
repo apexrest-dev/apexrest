@@ -1,9 +1,19 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  external_exports,
   runPooledSqlcl,
   runSqlclMcp
-} from "./chunk-JYN3YHP3.mjs";
+} from "./chunk-MVNCAJV3.mjs";
+import {
+  isProductionTarget,
+  managedHome,
+  parse,
+  refName,
+  relativePath,
+  targetDigest
+} from "./chunk-JM4SAWAH.mjs";
+import {
+  external_exports
+} from "./chunk-RCJG4YXR.mjs";
 import {
   Fault,
   __commonJS,
@@ -519,7 +529,7 @@ var require_yauzl = __commonJS({
     var PassThrough = __require("stream").PassThrough;
     var Writable = __require("stream").Writable;
     var crc32 = typeof zlib.crc32 === "function" ? zlib.crc32 : require_crc32();
-    exports.open = open4;
+    exports.open = open3;
     exports.fromFd = fromFd;
     exports.fromBuffer = fromBuffer;
     exports.fromRandomAccessReader = fromRandomAccessReader;
@@ -535,9 +545,9 @@ var require_yauzl = __commonJS({
     exports.Entry = Entry;
     exports.LocalFileHeader = LocalFileHeader;
     exports.RandomAccessReader = RandomAccessReader;
-    function openPromise(path17, options2) {
+    function openPromise(path16, options2) {
       return new Promise((resolve, reject) => {
-        open4(path17, { ...options2, lazyEntries: true }, function(err, zipfile) {
+        open3(path16, { ...options2, lazyEntries: true }, function(err, zipfile) {
           if (err) return reject(err);
           resolve(zipfile);
         });
@@ -567,7 +577,7 @@ var require_yauzl = __commonJS({
         });
       });
     }
-    function open4(path17, options2, callback) {
+    function open3(path16, options2, callback) {
       if (typeof options2 === "function") {
         callback = options2;
         options2 = null;
@@ -579,7 +589,7 @@ var require_yauzl = __commonJS({
       if (options2.validateEntrySizes == null) options2.validateEntrySizes = true;
       if (options2.strictFileNames == null) options2.strictFileNames = false;
       if (callback == null) callback = defaultCallback;
-      fs2.open(path17, "r", function(err, fd) {
+      fs2.open(path16, "r", function(err, fd) {
         if (err) return callback(err);
         fromFd(fd, options2, function(err2, zipfile) {
           if (err2) fs2.close(fd, defaultCallback);
@@ -1367,225 +1377,12 @@ var require_yauzl = __commonJS({
 });
 
 // packages/installer/src/toolchain.ts
-import path16 from "node:path";
-import { cp as cp5, mkdir as mkdir9, mkdtemp as mkdtemp4, readdir as readdir4, readlink, rename as rename4, rm as rm8, chmod as chmod3, statfs, realpath as realpath6 } from "node:fs/promises";
-
-// packages/core/src/config.ts
-import path from "node:path";
-import { homedir } from "node:os";
-import { access, constants, mkdir, open, realpath } from "node:fs/promises";
-var identifier = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/);
-var refName = external_exports.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/);
-var relativePath = external_exports.string().min(1).max(1024).refine(
-  (s3) => !path.isAbsolute(s3) && !s3.split(/[\\/]/).includes("..") && !/[\x00-\x1f]/.test(s3),
-  "Expected a contained relative path"
-);
-var suiteName = external_exports.enum(["unit", "sql", "api", "e2e"]);
-var environmentSchema = external_exports.strictObject({
-  kind: external_exports.enum(["development", "test", "production"]),
-  readConnectionRef: refName,
-  deployConnectionRef: refName,
-  workspace: identifier,
-  parsingSchema: identifier,
-  applicationId: external_exports.number().int().positive(),
-  baseUrl: external_exports.url(),
-  databaseIdentity: external_exports.strictObject({ dbUniqueName: external_exports.string().min(1), serviceName: external_exports.string().min(1) }),
-  allowedOrigins: external_exports.array(external_exports.url()).default([]),
-  expectedMarker: external_exports.string().min(1).optional()
-});
-var projectSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  projectId: refName,
-  application: external_exports.strictObject({ sourceDir: relativePath, alias: refName }),
-  database: external_exports.strictObject({
-    migrationsDir: relativePath,
-    packagesDir: relativePath,
-    testsDir: relativePath
-  }),
-  toolchain: external_exports.strictObject({ lockFile: relativePath, profile: external_exports.enum(["26.1", "26.2"]).optional() }),
-  environments: external_exports.record(refName, environmentSchema),
-  tests: external_exports.strictObject({
-    unitDir: relativePath,
-    apiDir: relativePath,
-    e2eDir: relativePath,
-    requiredSuites: external_exports.array(suiteName),
-    defaultBrowser: external_exports.literal("chromium"),
-    mutationAllowedEnvironments: external_exports.array(refName)
-  }),
-  // Legacy local coordination is now the default; retained for old project files.
-  deploymentControl: external_exports.literal("local").optional(),
-  composer: external_exports.strictObject({ allowSourceOnly: external_exports.boolean().default(false) }).optional(),
-  artifacts: external_exports.strictObject({ directory: relativePath, retentionDays: external_exports.number().int().min(1).max(365) })
-});
-var managedHome = () => path.resolve(process.env.APEXREST_HOME ?? path.join(homedir(), ".apexrest"));
-function parse(schema, value) {
-  const result = schema.safeParse(value);
-  if (!result.success)
-    throw new Fault(
-      "INVALID_INPUT",
-      result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
-      2
-    );
-  return result.data;
-}
-async function loadProject(root) {
-  const physical = await realpath(root);
-  const file = await contained(physical, "apexrest.json");
-  if (!await exists(file))
-    throw new Fault(
-      "PROJECT_NOT_CONFIGURED",
-      "No apexrest.json at the requested project root.",
-      3,
-      "not_configured"
-    );
-  const config = parse(projectSchema, await readJson(file));
-  for (const p2 of [
-    config.application.sourceDir,
-    ...Object.values(config.database),
-    config.toolchain.lockFile,
-    config.artifacts.directory,
-    config.tests.unitDir,
-    config.tests.apiDir,
-    config.tests.e2eDir
-  ])
-    await contained(physical, p2);
-  return { root: physical, config };
-}
-function environment(ctx, name) {
-  if (!name) throw new Fault("ENVIRONMENT_REQUIRED", "Select an explicit environment with --env.", 2);
-  const env = ctx.config.environments[name];
-  if (!env) throw new Fault("UNKNOWN_ENVIRONMENT", `Environment ${name} is not configured.`, 2);
-  return env;
-}
-function targetDigest(env) {
-  return hash(
-    canonical({
-      ...env.databaseIdentity,
-      workspace: env.workspace,
-      schema: env.parsingSchema,
-      applicationId: env.applicationId
-    })
-  );
-}
-var policySchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  trustedProjects: external_exports.array(external_exports.string()),
-  grants: external_exports.array(
-    external_exports.strictObject({
-      projectRoot: external_exports.string(),
-      targetDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
-      expiresAt: external_exports.iso.datetime(),
-      operations: external_exports.array(external_exports.enum(["deploy", "test"])),
-      planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
-      // A grant recorded by apexrest_ship keeps the user's literal instruction
-      // and its origin so the authorization record stays auditable.
-      note: external_exports.string().max(2e3).optional(),
-      grantedBy: external_exports.enum(["user", "ship"]).optional(),
-      grantedAt: external_exports.iso.datetime().optional(),
-      workerPid: external_exports.number().int().positive().optional()
-    })
-  )
-});
-var policyFile = () => path.join(managedHome(), "policy.json");
-async function policy() {
-  const file = policyFile();
-  return await exists(file) ? parse(policySchema, await readJson(file)) : { schemaVersion: 1, trustedProjects: [], grants: [] };
-}
-async function updatePolicy(mutate) {
-  await mkdir(managedHome(), { recursive: true, mode: 448 });
-  return withLock(path.join(managedHome(), "policy.lock"), async () => {
-    const next = parse(policySchema, mutate(await policy()));
-    await writeJson(policyFile(), next);
-    return next;
-  });
-}
-async function requireTrust(root) {
-  if (!(await policy()).trustedProjects.includes(await realpath(root)))
-    throw new Fault(
-      "PROJECT_TRUST_REQUIRED",
-      "Ask the user to review this project and add its canonical path to trustedProjects in the user-owned APEXREST_HOME/policy.json. No other trust step is required.",
-      4,
-      "blocked"
-    );
-}
-var sha256 = external_exports.string().regex(/^[a-f0-9]{64}$/);
-var productionTrustSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  approvalKeys: external_exports.array(external_exports.strictObject({ sha256, reviewer: external_exports.string().min(1).optional() })),
-  productionTargets: external_exports.array(sha256)
-});
-var productionTrustFile = () => path.join(managedHome(), "production-trust.json");
-async function readProductionTrust(file) {
-  try {
-    return parse(productionTrustSchema, await readJson(file));
-  } catch (error) {
-    throw new Fault(
-      "PRODUCTION_TRUST_INVALID",
-      `Production trust file ${file} is unreadable or invalid: ${error instanceof Error ? error.message : "unknown error"}`,
-      4,
-      "blocked"
-    );
-  }
-}
-async function isProductionTarget(env, digest2 = targetDigest(env)) {
-  if (env.kind === "production") return true;
-  const file = productionTrustFile();
-  if (!await exists(file)) return false;
-  return (await readProductionTrust(file)).productionTargets.includes(digest2);
-}
-async function protectedProductionTrust() {
-  const file = productionTrustFile();
-  if (process.platform === "win32" || typeof process.getuid !== "function")
-    throw new Fault(
-      "PRODUCTION_TRUST_UNSUPPORTED",
-      "Production approval requires a POSIX protected CI runner; Windows ACL verification is not implemented.",
-      4,
-      "blocked"
-    );
-  let handle;
-  try {
-    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (error) {
-    throw new Fault(
-      error.code === "ELOOP" ? "PRODUCTION_TRUST_UNPROTECTED" : "PRODUCTION_TRUST_REQUIRED",
-      `Production approval requires an administrator-owned ${file} listing trusted approval keys.`,
-      4,
-      "blocked"
-    );
-  }
-  try {
-    const info = await handle.stat();
-    let writable = true;
-    try {
-      await access(file, constants.W_OK);
-    } catch {
-      writable = false;
-    }
-    if (!info.isFile() || info.uid === process.getuid() || writable || (info.mode & 18) !== 0)
-      throw new Fault(
-        "PRODUCTION_TRUST_UNPROTECTED",
-        `${file} must be a regular file owned by another account (for example root), not writable by this process and not group/world writable.`,
-        4,
-        "blocked"
-      );
-    try {
-      return parse(productionTrustSchema, JSON.parse(await handle.readFile("utf8")));
-    } catch (error) {
-      throw new Fault(
-        "PRODUCTION_TRUST_INVALID",
-        `Production trust file ${file} is unreadable or invalid: ${error instanceof Error ? error.message : "unknown error"}`,
-        4,
-        "blocked"
-      );
-    }
-  } finally {
-    await handle.close();
-  }
-}
+import path15 from "node:path";
+import { mkdir as mkdir8, mkdtemp as mkdtemp4, readdir as readdir4, readlink, rename as rename4, rm as rm8, chmod as chmod3, statfs, realpath as realpath5 } from "node:fs/promises";
 
 // packages/core/src/project.ts
-import path12 from "node:path";
-import { cp as cp4, mkdir as mkdir6, lstat as lstat3, readdir as readdir3, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
+import path11 from "node:path";
+import { cp as cp4, mkdir as mkdir5, lstat as lstat3, readdir as readdir3, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // packages/core/src/oracle.ts
@@ -1605,13 +1402,13 @@ __export(oracle_exports, {
   sqlLiteral: () => sqlLiteral,
   sqlclToken: () => sqlclToken
 });
-import path7 from "node:path";
+import path6 from "node:path";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir as mkdir3, mkdtemp, readFile as readFile3, readdir, realpath as realpath3, rename, rm as rm3, stat as stat3 } from "node:fs/promises";
+import { cp, mkdir as mkdir2, mkdtemp, readFile as readFile3, readdir, realpath as realpath2, rename, rm as rm3, stat as stat3 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
-import path2 from "node:path";
-import { chmod, constants as constants2, lstat, mkdir as mkdir2, open as open2, rm, stat } from "node:fs/promises";
+import path from "node:path";
+import { chmod, constants, lstat, mkdir, open, rm, stat } from "node:fs/promises";
 var savedConnectionName = external_exports.string().min(1).max(512).regex(/^[^\x00-\x1f\x7f-\x9f]+$/);
 var ordsUrl = external_exports.string().url().max(2048).refine((value) => {
   const url = new URL(value);
@@ -1640,7 +1437,7 @@ function checkPassword(password) {
 }
 async function credentialPath(name) {
   parse(refName, name);
-  return contained(managedHome(), path2.join("credentials", name + ".json"));
+  return contained(managedHome(), path.join("credentials", name + ".json"));
 }
 async function ordsCredentials(connection) {
   const name = references.get(connection);
@@ -1688,7 +1485,7 @@ async function ordsCredentials(connection) {
   return value;
 }
 async function connections() {
-  const file = path2.join(managedHome(), "connections.json");
+  const file = path.join(managedHome(), "connections.json");
   return await exists(file) ? parse(storeSchema, await readJson(file)) : {};
 }
 async function resolveConnection(name) {
@@ -1705,7 +1502,7 @@ async function resolveConnection(name) {
 }
 async function editConnection(name, value) {
   parse(refName, name);
-  return withLock(path2.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     let credentialsDeleted = false;
     if (value) current[name] = parse(connectionSchema, { ...current[name], ...value });
@@ -1715,7 +1512,7 @@ async function editConnection(name, value) {
       credentialsDeleted = await exists(file);
       await rm(file, { force: true });
     }
-    await writeJson(path2.join(managedHome(), "connections.json"), current);
+    await writeJson(path.join(managedHome(), "connections.json"), current);
     return { name, status: value ? "configured" : "removed", credentialsDeleted };
   });
 }
@@ -1726,7 +1523,7 @@ async function readPasswordFile(file) {
     before = await lstat(file);
     if (before.isSymbolicLink() || !before.isFile())
       throw new Fault("PASSWORD_FILE_UNSAFE", "The password file must be a regular non-symlink file.", 2);
-    handle = await open2(file, constants2.O_RDONLY | (constants2.O_NOFOLLOW ?? 0));
+    handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (error instanceof Fault) throw error;
     const code = error.code;
@@ -1754,7 +1551,7 @@ async function readPasswordFile(file) {
 }
 async function configureConnection(name, input) {
   parse(refName, name);
-  return withLock(path2.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     const previous = current[name];
     const ords = input.ordsUrl || input.ordsUsername ? parse(ordsSchema, { url: input.ordsUrl, username: input.ordsUsername }) : previous?.ords;
@@ -1767,7 +1564,7 @@ async function configureConnection(name, input) {
     let password = input.password;
     if (input.passwordFile) {
       if (password !== void 0) throw new Fault("INVALID_INPUT", "Supply one local password source.", 2);
-      password = (await readPasswordFile(path2.resolve(input.passwordFile))).replace(/\r?\n$/, "");
+      password = (await readPasswordFile(path.resolve(input.passwordFile))).replace(/\r?\n$/, "");
     }
     if (password !== void 0 && !ords)
       throw new Fault(
@@ -1778,7 +1575,7 @@ async function configureConnection(name, input) {
     if (ords && (input.ordsUrl || input.ordsUsername || password !== void 0)) {
       if (password !== void 0) {
         const folder = await contained(managedHome(), "credentials");
-        await mkdir2(folder, { recursive: true, mode: 448 });
+        await mkdir(folder, { recursive: true, mode: 448 });
         if (process.platform !== "win32") await chmod(folder, 448);
         await writeJson(await credentialPath(name), { ...ords, password: checkPassword(password) });
       } else {
@@ -1787,7 +1584,7 @@ async function configureConnection(name, input) {
       }
     }
     current[name] = value;
-    await writeJson(path2.join(managedHome(), "connections.json"), current);
+    await writeJson(path.join(managedHome(), "connections.json"), current);
     return { name, status: "configured" };
   });
 }
@@ -1861,7 +1658,7 @@ async function runProcess(r) {
 }
 
 // packages/core/src/sqlcl-config.ts
-import path3 from "node:path";
+import path2 from "node:path";
 var sqlclMode = external_exports.enum(["cli", "mcp"]);
 var sqlclRestriction = external_exports.enum(["4", "1"]);
 var databaseTransport = external_exports.enum(["direct", "ords"]);
@@ -1879,7 +1676,7 @@ async function sqlclConfig() {
 }
 async function configureSqlcl(mode, level, transport) {
   const home = managedHome();
-  return withLock(path3.join(home, "sqlcl-config.lock"), async () => {
+  return withLock(path2.join(home, "sqlcl-config.lock"), async () => {
     const previous = await sqlclConfig();
     const configuration = parse(sqlclConfigSchema, {
       ...previous,
@@ -1900,16 +1697,16 @@ async function configureSqlcl(mode, level, transport) {
 }
 
 // packages/core/src/ords.ts
-import path4 from "node:path";
-import { realpath as realpath2, rm as rm2 } from "node:fs/promises";
+import path3 from "node:path";
+import { realpath, rm as rm2 } from "node:fs/promises";
 async function sqlclHome(executable) {
-  const candidates = path4.isAbsolute(executable) ? [executable] : executable.includes(path4.sep) ? [path4.resolve(executable)] : (process.env.PATH ?? "").split(path4.delimiter).flatMap(
-    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path4.join(directory, executable + extension)) : [path4.join(directory, executable)]
+  const candidates = path3.isAbsolute(executable) ? [executable] : executable.includes(path3.sep) ? [path3.resolve(executable)] : (process.env.PATH ?? "").split(path3.delimiter).flatMap(
+    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path3.join(directory, executable + extension)) : [path3.join(directory, executable)]
   );
   for (const candidate of candidates) {
     if (!await exists(candidate)) continue;
-    const home = path4.dirname(path4.dirname(await realpath2(candidate)));
-    if (await exists(path4.join(home, "lib", "jdbcrest.jar"))) return home;
+    const home = path3.dirname(path3.dirname(await realpath(candidate)));
+    if (await exists(path3.join(home, "lib", "jdbcrest.jar"))) return home;
     break;
   }
   throw new Fault(
@@ -1922,7 +1719,7 @@ async function sqlclHome(executable) {
 async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess) {
   const executableName = process.platform === "win32" ? "java.exe" : "java";
   const candidates = [
-    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path4.join(home, "bin", executableName), javaHome: home })),
+    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path3.join(home, "bin", executableName), javaHome: home })),
     { executable: executableName, javaHome: void 0 }
   ];
   const attempted = /* @__PURE__ */ new Set();
@@ -1958,11 +1755,11 @@ async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess
 async function runOrdsBridge(settings, job, credentials, stage, signal, runner = runProcess) {
   if (signal?.aborted) throw new Fault("CANCELLED", "ORDS operation cancelled.", 6, "cancelled");
   const home = await sqlclHome(settings.executable);
-  const helper = path4.join(resourceRoot(), "ords", "OrdsBridge.java");
+  const helper = path3.join(resourceRoot(), "ords", "OrdsBridge.java");
   if (!await exists(helper))
     throw new Fault("ORDS_HELPER_REQUIRED", "The installed plugin is missing its ORDS helper.", 3, "blocked");
-  const jobFile = path4.join(stage, "ords-job.json");
-  const output = path4.join(stage, "ords-result.json");
+  const jobFile = path3.join(stage, "ords-job.json");
+  const output = path3.join(stage, "ords-result.json");
   await rm2(output, { force: true });
   await writeJson(jobFile, { ...job, output });
   const env = { ...process.env, JAVA_HOME: settings.javaHome };
@@ -1976,7 +1773,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
     executable: java.executable,
     args: [
       "-cp",
-      [path4.join(home, "lib", "*"), path4.join(home, "lib", "ext", "*")].join(path4.delimiter),
+      [path3.join(home, "lib", "*"), path3.join(home, "lib", "ext", "*")].join(path3.delimiter),
       helper,
       jobFile
     ],
@@ -2016,7 +1813,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
 }
 
 // packages/core/src/compatibility.ts
-import path5 from "node:path";
+import path4 from "node:path";
 import { readFile } from "node:fs/promises";
 var APEX_262_PROFILE = {
   id: "apex262-sqlcl263-mmd3479",
@@ -2034,7 +1831,7 @@ function databaseMeetsApex262Minimum(version) {
 }
 async function sourceMmdVersion(source) {
   try {
-    const value = JSON.parse(await readFile(path5.join(source, ".apex/apexlang.json"), "utf8"));
+    const value = JSON.parse(await readFile(path4.join(source, ".apex/apexlang.json"), "utf8"));
     const version = value?.mmdVersion;
     return typeof version === "string" && /^\d+\.\d+\.\d+\+\d+$/.test(version) ? version : null;
   } catch {
@@ -2058,7 +1855,7 @@ function evaluatePartialImportCompatibility(input) {
 }
 
 // packages/core/src/upgrade-audit.ts
-import path6 from "node:path";
+import path5 from "node:path";
 import { readFile as readFile2, stat as stat2, opendir } from "node:fs/promises";
 function parseCodeScan(output, source) {
   const clean = output.replace(/\x1b\[[0-9;]*m/g, "");
@@ -2070,8 +1867,8 @@ function parseCodeScan(output, source) {
   for (const entry of report) {
     if (!entry || typeof entry.file !== "string" || !Array.isArray(entry.issues))
       throw new Error("CodeScan report entry is incomplete.");
-    const file = path6.relative(source, path6.resolve(source, entry.file)).replaceAll(path6.sep, "/");
-    if (!file || file.startsWith("../") || path6.isAbsolute(file))
+    const file = path5.relative(source, path5.resolve(source, entry.file)).replaceAll(path5.sep, "/");
+    if (!file || file.startsWith("../") || path5.isAbsolute(file))
       throw new Error("CodeScan returned a file outside the inspected source.");
     for (const issue of entry.issues) {
       if (typeof issue?.ruleNo !== "string" || typeof issue.msg !== "string" || !Number.isInteger(issue.line) || issue.line < 0 || !Number.isInteger(issue.col) || issue.col < 0)
@@ -2121,12 +1918,12 @@ async function auditUpgradeSource(source) {
   let inspected = 0, traversalTruncated = false;
   discovery: while (directories.length) {
     const relative = directories.pop();
-    for await (const entry of await opendir(path6.join(source, relative))) {
+    for await (const entry of await opendir(path5.join(source, relative))) {
       if (++inspected > 1e4) {
         traversalTruncated = true;
         break discovery;
       }
-      const file = path6.posix.join(relative, entry.name);
+      const file = path5.posix.join(relative, entry.name);
       if (entry.isSymbolicLink()) skipped.push(file);
       else if (entry.isDirectory()) directories.push(file);
       else if (entry.isFile() && /\.(?:apx|sql|js)$/i.test(file)) files.push(file);
@@ -2135,7 +1932,7 @@ async function auditUpgradeSource(source) {
   files.sort();
   let bytes = 0, scannedFiles = 0;
   for (const file of files) {
-    const absolute = path6.join(source, file), size = (await stat2(absolute)).size;
+    const absolute = path5.join(source, file), size = (await stat2(absolute)).size;
     if (size > 1024 * 1024 || bytes + size > 16 * 1024 * 1024 || scannedFiles >= 2e3) {
       skipped.push(file);
       continue;
@@ -2262,13 +2059,13 @@ var OracleAdapter = class {
   selectedTransport;
   selectedConnections = /* @__PURE__ */ new Map();
   async settings() {
-    const file = path7.join(managedHome(), "runtime.json");
+    const file = path6.join(managedHome(), "runtime.json");
     const state = await exists(file) ? await readJson(file) : {};
     const transport = await (this.selectedTransport ??= sqlclConfig());
     return {
       ...transport,
       executable: process.env.APEXREST_SQLCL ?? state.sqlcl ?? this.executable,
-      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path7.dirname(path7.dirname(state.java)) : process.env.JAVA_HOME)
+      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path6.dirname(path6.dirname(state.java)) : process.env.JAVA_HOME)
     };
   }
   async selectedConnection(connection) {
@@ -2386,8 +2183,8 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
   }
   /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
   async sessionHome() {
-    const root = path7.join(managedHome(), "staging");
-    await mkdir3(root, { recursive: true, mode: 448 });
+    const root = path6.join(managedHome(), "staging");
+    await mkdir2(root, { recursive: true, mode: 448 });
     return root;
   }
   async requireMutationSupport() {
@@ -2403,14 +2200,14 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       );
   }
   async stage() {
-    const root = path7.join(managedHome(), "staging");
-    await mkdir3(root, { recursive: true, mode: 448 });
-    return mkdtemp(path7.join(root, "oracle-"));
+    const root = path6.join(managedHome(), "staging");
+    await mkdir2(root, { recursive: true, mode: 448 });
+    return mkdtemp(path6.join(root, "oracle-"));
   }
   /** Remove a private staging directory created by stage(). Other paths are never removed. */
   async discardStage(stage) {
     if (!stage) return;
-    const relative = path7.relative(path7.join(managedHome(), "staging"), path7.resolve(stage));
+    const relative = path6.relative(path6.join(managedHome(), "staging"), path6.resolve(stage));
     if (!/^oracle-[^/\\]+$/.test(relative)) return;
     await rm3(stage, { recursive: true, force: true });
   }
@@ -2432,12 +2229,12 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     }
   }
   async capabilityKey(settings) {
-    if (!path7.isAbsolute(settings.executable)) return;
+    if (!path6.isAbsolute(settings.executable)) return;
     try {
-      const executable = await realpath3(settings.executable);
-      const bin = path7.dirname(executable);
-      if (path7.basename(bin) !== "bin") return;
-      const lib = path7.join(path7.dirname(bin), "lib");
+      const executable = await realpath2(settings.executable);
+      const bin = path6.dirname(executable);
+      if (path6.basename(bin) !== "bin") return;
+      const lib = path6.join(path6.dirname(bin), "lib");
       const mark = async (file, required) => {
         try {
           const info = await stat3(file, { bigint: true });
@@ -2450,11 +2247,11 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       const marks = {
         executable: await mark(executable, true),
         lib: await mark(lib, true),
-        apex: await mark(path7.join(lib, "dbtools-apex.jar"), false),
-        apexlang: await mark(path7.join(lib, "apexlang-compiler.jar"), false),
-        ext: await mark(path7.join(lib, "ext"), false),
-        extApex: await mark(path7.join(lib, "ext/dbtools-apex.jar"), false),
-        extApexlang: await mark(path7.join(lib, "ext/apexlang-compiler.jar"), false)
+        apex: await mark(path6.join(lib, "dbtools-apex.jar"), false),
+        apexlang: await mark(path6.join(lib, "apexlang-compiler.jar"), false),
+        ext: await mark(path6.join(lib, "ext"), false),
+        extApex: await mark(path6.join(lib, "ext/dbtools-apex.jar"), false),
+        extApexlang: await mark(path6.join(lib, "ext/apexlang-compiler.jar"), false)
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -2535,7 +2332,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         findings: [],
         reason: "APEXlang CodeScan is qualified only for SQLcl 26.3."
       };
-    const stage = await this.stage(), copy = path7.join(stage, "application");
+    const stage = await this.stage(), copy = path6.join(stage, "application");
     try {
       await cp(source, copy, { recursive: true });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
@@ -2583,16 +2380,16 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return { directory, compiler, output: result.output, files: await inventory(directory) };
   }
   async findApplication(root) {
-    if (await exists(path7.join(root, "application.apx"))) return root;
+    if (await exists(path6.join(root, "application.apx"))) return root;
     const found = [];
     for (const entry of await readdir(root, { withFileTypes: true }))
       if (entry.isDirectory()) {
-        const dir = path7.join(root, entry.name);
-        if (await exists(path7.join(dir, "application.apx"))) found.push(dir);
+        const dir = path6.join(root, entry.name);
+        if (await exists(path6.join(dir, "application.apx"))) found.push(dir);
         else
           for (const sub of await readdir(dir, { withFileTypes: true }))
-            if (sub.isDirectory() && await exists(path7.join(dir, sub.name, "application.apx")))
-              found.push(path7.join(dir, sub.name));
+            if (sub.isDirectory() && await exists(path6.join(dir, sub.name, "application.apx")))
+              found.push(path6.join(dir, sub.name));
       }
     if (found.length !== 1)
       throw new Fault(
@@ -2611,7 +2408,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         "Preserve Oracle-generated .apex/apexlang.json before validation.",
         3
       );
-    const stage = await this.stage(), copy = path7.join(stage, "application");
+    const stage = await this.stage(), copy = path6.join(stage, "application");
     let result;
     try {
       await cp(source, copy, { recursive: true });
@@ -2637,7 +2434,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile3(path7.join(source, ".apex/apexlang.json"), "utf8")),
+      mmd: JSON.parse(await readFile3(path6.join(source, ".apex/apexlang.json"), "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -2646,7 +2443,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     const compiler = await this.requireCapability("export");
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === "ords";
-    const exportRoot = ords ? path7.join(stage, "export") : stage;
+    const exportRoot = ords ? path6.join(stage, "export") : stage;
     const result = ords ? {
       output: String(
         (await this.ordsBridge(
@@ -2769,7 +2566,7 @@ ${query.sql};
 prompt ${token}_${index}`
     ).join("\n");
     const result = await this.session(input, connection, false, signal, void 0, "json");
-    const lines = result.output.split(/\r?\n/);
+    const lines = result.output.replace(new RegExp(`}(?=${token}_\\d+[ \\t]*(?:\\r?\\n|$))`, "g"), "}\n").split(/\r?\n/);
     const rows = [];
     let from = 0;
     for (let index = 0; index < queries.length; index++) {
@@ -2893,8 +2690,8 @@ prompt ${token}_${index}`
     };
   }
   async nativeDeployment(ctx, env, source) {
-    const output = path7.join(await this.stage(), "deployment.json");
-    const defaults = path7.join(source, "deployments/default.json");
+    const output = path6.join(await this.stage(), "deployment.json");
+    const defaults = path6.join(source, "deployments/default.json");
     const native = await exists(defaults) ? JSON.parse(await readFile3(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output, {
@@ -2927,7 +2724,7 @@ prompt ${token}_${index}`
           2
         );
       for (const file of selectedFiles) {
-        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path7.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
+        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path6.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
           throw new Fault(
             "PARTIAL_IMPORT_FILES_INVALID",
             "Partial-import files must be literal contained APEXlang paths without globs.",
@@ -2935,8 +2732,8 @@ prompt ${token}_${index}`
           );
         let valid = false;
         try {
-          const physical = await realpath3(await contained(source, file));
-          valid = path7.relative(await realpath3(source), physical).replaceAll(path7.sep, "/") === file && (await stat3(physical)).isFile();
+          const physical = await realpath2(await contained(source, file));
+          valid = path6.relative(await realpath2(source), physical).replaceAll(path6.sep, "/") === file && (await stat3(physical)).isFile();
         } catch {
         }
         if (!valid)
@@ -2962,7 +2759,7 @@ prompt ${token}_${index}`
     try {
       return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
-      await this.discardStage(path7.dirname(config));
+      await this.discardStage(path6.dirname(config));
     }
   }
   async importWith(env, connection, source, config, signal, selectedFiles) {
@@ -3019,7 +2816,7 @@ end;
       await this.requireMutationSupport();
       const stage = await this.stage();
       try {
-        const input = path7.join(stage, "restore.sql");
+        const input = path6.join(stage, "restore.sql");
         await (await import("./chunk-MNU54A7W.mjs")).atomicWrite(input, setup + await readFile3(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
@@ -3085,13 +2882,13 @@ async function diagnosticHint(root, diagnostic) {
     const file = await contained(root, diagnostic.file);
     const lines = (await readFile3(file, "utf8")).split(/\r?\n/);
     const indent = (text) => text.match(/^\s*/)[0].length;
-    const open4 = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
+    const open3 = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain = [];
     let level = indent(lines[diagnostic.line - 1] ?? "");
     for (let i = diagnostic.line - 2; i >= 0 && chain.length < 3; i--) {
       const text = lines[i];
       if (!text.trim() || indent(text) >= level) continue;
-      const match = text.match(open4);
+      const match = text.match(open3);
       if (!match) continue;
       level = indent(text);
       const kind = match[1], name = match[2];
@@ -3153,8 +2950,8 @@ async function installSources(source, root, destination) {
       5,
       "conflict"
     );
-  await mkdir3(path7.dirname(target), { recursive: true });
-  const staging = await mkdtemp(path7.join(path7.dirname(target), ".apexrest-copy-"));
+  await mkdir2(path6.dirname(target), { recursive: true });
+  const staging = await mkdtemp(path6.join(path6.dirname(target), ".apexrest-copy-"));
   await inventory(source);
   await cp(source, staging, { recursive: true });
   await rename(staging, target);
@@ -3162,15 +2959,15 @@ async function installSources(source, root, destination) {
 }
 
 // packages/core/src/partial-import.ts
-import path11 from "node:path";
-import { cp as cp3, mkdir as mkdir5, rename as rename2, rm as rm5 } from "node:fs/promises";
+import path10 from "node:path";
+import { cp as cp3, mkdir as mkdir4, rename as rename2, rm as rm5 } from "node:fs/promises";
 
 // packages/core/src/sync.ts
-import path9 from "node:path";
-import { lstat as lstat2, mkdir as mkdir4, readdir as readdir2, realpath as realpath4, open as open3, cp as cp2, chmod as chmod2 } from "node:fs/promises";
+import path8 from "node:path";
+import { lstat as lstat2, mkdir as mkdir3, readdir as readdir2, realpath as realpath3, open as open2, cp as cp2, chmod as chmod2 } from "node:fs/promises";
 
 // packages/core/src/deployment-control.ts
-import path8 from "node:path";
+import path7 from "node:path";
 import { hostname } from "node:os";
 import { rm as rm4 } from "node:fs/promises";
 function coordination(env) {
@@ -3200,10 +2997,10 @@ var LocalDeploymentControl = class {
   directory;
   constructor(env) {
     const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
-    this.directory = path8.join(managedHome(), "deployment-control", key);
+    this.directory = path7.join(managedHome(), "deployment-control", key);
   }
   file(name) {
-    return path8.join(this.directory, name);
+    return path7.join(this.directory, name);
   }
   async history() {
     const file = this.file("history.json");
@@ -3360,8 +3157,8 @@ var syncStateSchema = external_exports.strictObject({
 async function syncPath(ctx, relative) {
   const file = await contained(ctx.root, relative);
   let probe = ctx.root;
-  for (const part of path9.relative(ctx.root, file).split(path9.sep).filter(Boolean)) {
-    probe = path9.join(probe, part);
+  for (const part of path8.relative(ctx.root, file).split(path8.sep).filter(Boolean)) {
+    probe = path8.join(probe, part);
     if (await exists(probe)) {
       if ((await lstat2(probe)).isSymbolicLink())
         throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
@@ -3375,7 +3172,7 @@ async function privateCopy(source, destination) {
     await chmod2(directory, 448);
     for (const entry of await readdir2(directory, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
-      const file = path9.join(directory, entry.name);
+      const file = path8.join(directory, entry.name);
       if (entry.isDirectory()) await secure(file);
       else if (entry.isFile()) await chmod2(file, 384);
       else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
@@ -3467,7 +3264,7 @@ var SyncStore = class {
   }
   async checkMapping(state) {
     const { readFile: readFile6 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath4(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile6(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
+    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile6(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
       throw new Fault(
         "SYNC_MAPPING_CHANGED",
         "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
@@ -3499,9 +3296,9 @@ var SyncStore = class {
   async write(state) {
     const valid = syncStateSchema.parse(state);
     const file = await this.file(valid.targetDigest);
-    await mkdir4(path9.dirname(file), { recursive: true, mode: 448 });
+    await mkdir3(path8.dirname(file), { recursive: true, mode: 448 });
     const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
-    const journal = await open3(journalFile, "a", 384);
+    const journal = await open2(journalFile, "a", 384);
     try {
       await journal.writeFile(
         JSON.stringify({
@@ -3520,7 +3317,7 @@ var SyncStore = class {
       await journal.close();
     }
     await writeJson(file, valid);
-    const directory = process.platform !== "win32" ? await open3(path9.dirname(file), "r") : null;
+    const directory = process.platform !== "win32" ? await open2(path8.dirname(file), "r") : null;
     try {
       await directory?.sync();
     } finally {
@@ -3563,7 +3360,7 @@ var SyncStore = class {
 };
 
 // packages/core/src/apexlang-equivalence.ts
-import path10 from "node:path";
+import path9 from "node:path";
 import { readFile as readFile4 } from "node:fs/promises";
 var APEXLANG_EQUIVALENCE_POLICY = "apex262-selected-source-v1";
 var formattingRule = "structural-whitespace-and-comments";
@@ -3694,7 +3491,7 @@ async function compareApplicationExports(expectedRoot, actualRoot, expectedFiles
   for (const file of [.../* @__PURE__ */ new Set([...Object.keys(expectedFiles), ...Object.keys(actualFiles)])].sort()) {
     if (expectedFiles[file] === actualFiles[file]) continue;
     let reason = "File bytes differ outside the selected APEXlang normalization scope.";
-    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path10.posix.extname(file) === ".apx") {
+    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path9.posix.extname(file) === ".apx") {
       const [expected, actual] = await Promise.all([
         readFile4(await contained(expectedRoot, file)),
         readFile4(await contained(actualRoot, file))
@@ -3752,7 +3549,7 @@ function importOptions(value = {}) {
       2
     );
   const files = (value.files ?? []).map((file) => {
-    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path11.posix.normalize(file) !== file || file === ".")
+    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path10.posix.normalize(file) !== file || file === ".")
       throw new Fault(
         "IMPORT_FILE_UNSAFE",
         "Use normalized application-relative file paths without globs.",
@@ -3766,7 +3563,7 @@ function importOptions(value = {}) {
 }
 async function sourceRelease(root) {
   try {
-    const value = await readJson(path11.join(root, ".apex/apexlang.json"));
+    const value = await readJson(path10.join(root, ".apex/apexlang.json"));
     return typeof value.mmdVersion === "string" ? value.mmdVersion.match(/^\d+\.\d+/)?.[0] ?? null : null;
   } catch {
     return null;
@@ -3813,18 +3610,18 @@ function selectImport(base, local, remote, options2) {
 }
 async function persistSnapshot(ctx, source, directory) {
   const destination = await syncPath(ctx, directory);
-  await mkdir5(path11.dirname(destination), { recursive: true, mode: 448 });
+  await mkdir4(path10.dirname(destination), { recursive: true, mode: 448 });
   await privateCopy(source, destination);
   const files = await inventory(destination);
   return { directory, files, digest: hash(canonical(files)) };
 }
 async function stageSelection(ctx, before, localRoot, files, expected, directory) {
   const root = await syncPath(ctx, directory);
-  await mkdir5(path11.dirname(root), { recursive: true, mode: 448 });
+  await mkdir4(path10.dirname(root), { recursive: true, mode: 448 });
   await privateCopy(await syncPath(ctx, before.directory), root);
   for (const file of files) {
     const destination = await contained(root, file);
-    await mkdir5(path11.dirname(destination), { recursive: true, mode: 448 });
+    await mkdir4(path10.dirname(destination), { recursive: true, mode: 448 });
     await cp3(await contained(localRoot, file), destination);
   }
   const actual = await inventory(root);
@@ -3852,7 +3649,7 @@ async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, sele
     const destination = await contained(replacement, file);
     if (!server.files[file]) await rm5(destination, { force: true });
     else {
-      await mkdir5(path11.dirname(destination), { recursive: true });
+      await mkdir4(path10.dirname(destination), { recursive: true });
       await cp3(await contained(await syncPath(ctx, server.directory), file), destination);
     }
   }
@@ -3881,12 +3678,12 @@ async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, sele
 
 // packages/core/src/project.ts
 function resourceRoot() {
-  return process.env.APEXREST_RESOURCES ?? path12.resolve(path12.dirname(fileURLToPath(import.meta.url)), "../resources");
+  return process.env.APEXREST_RESOURCES ?? path11.resolve(path11.dirname(fileURLToPath(import.meta.url)), "../resources");
 }
 async function projectInit(directory, template, alias) {
   parse(refName, alias);
-  const destination = path12.resolve(directory);
-  await mkdir6(path12.dirname(destination), { recursive: true });
+  const destination = path11.resolve(directory);
+  await mkdir5(path11.dirname(destination), { recursive: true });
   return withLock(destination + ".init.lock", async () => {
     if (await exists(destination)) {
       if (!(await lstat3(destination)).isDirectory() || (await readdir3(destination)).length)
@@ -3900,7 +3697,7 @@ async function projectInit(directory, template, alias) {
         5,
         "conflict"
       );
-      if (!await exists(root)) await mkdir6(root, { recursive: true, mode: 448 });
+      if (!await exists(root)) await mkdir5(root, { recursive: true, mode: 448 });
       if (!(await lstat3(root)).isDirectory() || (await readdir3(root)).length !== 0) throw conflict();
       const createFile = async (file, content) => {
         try {
@@ -3916,63 +3713,46 @@ async function projectInit(directory, template, alias) {
         application: { sourceDir: "src/apex/" + alias, alias },
         database: {
           migrationsDir: "src/database/migrations",
-          packagesDir: "src/database/packages",
-          testsDir: "tests/sql"
+          packagesDir: "src/database/packages"
         },
         toolchain: { lockFile: "apexrest.toolchain.lock.json" },
         environments: {},
-        tests: {
-          unitDir: "tests/unit",
-          apiDir: "tests/api",
-          e2eDir: "tests/e2e",
-          requiredSuites: template === "customer-crm" ? ["sql", "e2e"] : [],
-          defaultBrowser: "chromium",
-          mutationAllowedEnvironments: []
-        },
         artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
       };
-      await createFile(path12.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
-      await createFile(
-        path12.join(root, ".gitignore"),
-        ".apexrest/\nnode_modules/\n.env\nplaywright/.auth/\ntest-results/\n"
-      );
-      for (const dir of [
-        ...Object.values(config.database),
-        config.tests.unitDir,
-        config.tests.apiDir,
-        config.tests.e2eDir
-      ])
-        await mkdir6(path12.join(root, dir), { recursive: true });
+      await createFile(path11.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+      await createFile(path11.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
+      for (const dir of Object.values(config.database))
+        await mkdir5(path11.join(root, dir), { recursive: true });
       await cp4(
-        path12.join(resourceRoot(), "toolchains/toolchain.lock.json"),
-        path12.join(root, config.toolchain.lockFile),
+        path11.join(resourceRoot(), "toolchains/toolchain.lock.json"),
+        path11.join(root, config.toolchain.lockFile),
         { force: false, errorOnExist: true }
       );
       if (template !== "existing-app") {
         const generated = await new OracleAdapter().generate(alias, alias);
         await installSources(generated.directory, root, config.application.sourceDir);
-        const release = await sourceRelease(path12.join(root, config.application.sourceDir));
+        const release = await sourceRelease(path11.join(root, config.application.sourceDir));
         if (release === "26.2") {
           config.toolchain.profile = "26.2";
           await cp4(
-            path12.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
-            path12.join(root, config.toolchain.lockFile)
+            path11.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
+            path11.join(root, config.toolchain.lockFile)
           );
-          await atomicWrite(path12.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+          await atomicWrite(path11.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
         }
         if (template === "customer-crm") {
-          await cp4(path12.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
+          await cp4(path11.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
           await cp4(
-            path12.join(
+            path11.join(
               resourceRoot(),
               "templates/customer-crm",
               release === "26.2" ? "apex-overlay-26.2" : "apex-overlay"
             ),
-            path12.join(root, config.application.sourceDir),
+            path11.join(root, config.application.sourceDir),
             { recursive: true }
           );
           const { readFile: readFile6 } = await import("node:fs/promises");
-          const file = path12.join(
+          const file = path11.join(
             root,
             config.application.sourceDir,
             release === "26.2" ? "shared-components/lists/navigation-menu.apx" : "shared-components/lists.apx"
@@ -3999,20 +3779,6 @@ async function projectInit(directory, template, alias) {
 `
           ).join("");
           await atomicWrite(file, lists.slice(0, index) + entries + lists.slice(index));
-          if (release === "26.2") {
-            const appFile = path12.join(root, config.application.sourceDir, "application.apx");
-            const app = await readFile6(appFile, "utf8"), end = app.lastIndexOf(")");
-            if (end < 0 || !app.startsWith("app ") || app.includes("sessionManagement {"))
-              throw new Fault(
-                "UNSUPPORTED_TEMPLATE",
-                "Starter application does not match the reviewed fixture.",
-                3
-              );
-            await atomicWrite(
-              appFile,
-              app.slice(0, end) + "    sessionManagement {\n        rejoinSessions: allSessions\n    }\n" + app.slice(end)
-            );
-          }
         }
       }
       if (await exists(destination)) {
@@ -4020,12 +3786,12 @@ async function projectInit(directory, template, alias) {
         const moved = [];
         try {
           for (const entry of await readdir3(root)) {
-            await rename3(path12.join(root, entry), path12.join(destination, entry));
+            await rename3(path11.join(root, entry), path11.join(destination, entry));
             moved.push(entry);
           }
         } catch (error) {
           for (const entry of moved.reverse())
-            await rename3(path12.join(destination, entry), path12.join(root, entry));
+            await rename3(path11.join(destination, entry), path11.join(root, entry));
           throw error;
         }
       } else await rename3(root, destination);
@@ -4062,7 +3828,7 @@ function projectSummary(ctx) {
       ...ctx.config.database
     },
     toolchainLock: ctx.config.toolchain.lockFile,
-    requiredSuites: ctx.config.tests.requiredSuites,
+    verification: "host-browser",
     environments: environments.slice(0, 8).map(([name, env]) => ({
       name,
       kind: env.kind,
@@ -4100,10 +3866,10 @@ async function projectInventory(ctx) {
 }
 
 // packages/installer/src/download.ts
-import path13 from "node:path";
+import path12 from "node:path";
 import http from "node:http";
 import { createHash } from "node:crypto";
-import { lstat as lstat4, mkdir as mkdir7, realpath as realpath5, stat as stat4 } from "node:fs/promises";
+import { lstat as lstat4, mkdir as mkdir6, realpath as realpath4, stat as stat4 } from "node:fs/promises";
 var proxyVariables = ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"];
 var proxyApplied = false;
 function proxyStatus(env = process.env, execArgv = process.execArgv) {
@@ -4130,9 +3896,9 @@ function applyEnvironmentProxy() {
   return status;
 }
 async function assertPrivateCache(cache, platform = process.platform) {
-  await mkdir7(cache, { recursive: true, mode: 448 });
+  await mkdir6(cache, { recursive: true, mode: 448 });
   if (platform === "win32") return;
-  const physical = (await lstat4(cache)).isSymbolicLink() ? await realpath5(cache) : cache;
+  const physical = (await lstat4(cache)).isSymbolicLink() ? await realpath4(cache) : cache;
   const info = await stat4(physical);
   if (!info.isDirectory() || info.mode & 18 || info.uid !== process.getuid?.())
     throw new Fault(
@@ -4165,7 +3931,7 @@ async function download(artifact, cache, offline = false, fetcher = fetch, optio
   if (!/^[a-f0-9]{64}$/.test(artifact.sha256) || /(?:latest|main)(?:[./?]|$)/.test(artifact.url))
     throw new Fault("UNPINNED_ARTIFACT", "Downloads require an immutable version URL and SHA-256.", 2);
   await assertPrivateCache(cache);
-  const file = path13.join(cache, artifact.sha256);
+  const file = path12.join(cache, artifact.sha256);
   if (await exists(file)) {
     if (await hashFile(file) !== artifact.sha256)
       throw new Fault(
@@ -4279,8 +4045,8 @@ async function download(artifact, cache, offline = false, fetcher = fetch, optio
 }
 
 // packages/installer/src/archive.ts
-import path14 from "node:path";
-import { mkdir as mkdir8, mkdtemp as mkdtemp3, lstat as lstat5, rm as rm7, symlink, link } from "node:fs/promises";
+import path13 from "node:path";
+import { mkdir as mkdir7, mkdtemp as mkdtemp3, lstat as lstat5, rm as rm7, symlink, link } from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -7268,10 +7034,10 @@ function archivePath(name) {
   return clean;
 }
 function entryKey(clean) {
-  return path14.posix.normalize(clean).replace(/\/$/, "");
+  return path13.posix.normalize(clean).replace(/\/$/, "");
 }
 async function extractArchive(file, target, type, allowLinks = false) {
-  await mkdir8(target, { recursive: true, mode: 448 });
+  await mkdir7(target, { recursive: true, mode: 448 });
   let total = 0, count = 0;
   const seen = /* @__PURE__ */ new Set();
   const check = (name, size) => {
@@ -7301,12 +7067,12 @@ async function extractArchive(file, target, type, allowLinks = false) {
             if (!allowLinks)
               throw new Fault("UNSAFE_ARCHIVE", "Links are not allowed in native packages.", 2);
             if (!entry.linkpath) throw new Fault("UNSAFE_ARCHIVE", "Link has no target.", 2);
-            const linkTarget = entry.type === "Link" ? entry.linkpath : path14.posix.join(path14.posix.dirname(name), entry.linkpath);
-            if (path14.isAbsolute(entry.linkpath))
+            const linkTarget = entry.type === "Link" ? entry.linkpath : path13.posix.join(path13.posix.dirname(name), entry.linkpath);
+            if (path13.isAbsolute(entry.linkpath))
               throw new Fault("UNSAFE_ARCHIVE", "Absolute link target.", 2);
             links.push({
               name: entryKey(name),
-              target: entryKey(archivePath(path14.posix.normalize(linkTarget))),
+              target: entryKey(archivePath(path13.posix.normalize(linkTarget))),
               hard: entry.type === "Link"
             });
           } else if (!["File", "Directory", "OldFile", "ExtendedHeader", "GlobalExtendedHeader"].includes(entry.type))
@@ -7340,9 +7106,9 @@ async function extractArchive(file, target, type, allowLinks = false) {
           remaining.push(entry);
           continue;
         }
-        await mkdir8(path14.dirname(destination), { recursive: true });
+        await mkdir7(path13.dirname(destination), { recursive: true });
         if (entry.hard) await link(source, destination);
-        else await symlink(path14.relative(path14.dirname(destination), source), destination);
+        else await symlink(path13.relative(path13.dirname(destination), source), destination);
       }
       if (remaining.length === pending.length)
         throw new Fault("UNSAFE_ARCHIVE", "Archive link target is missing or cyclic.", 2);
@@ -7369,9 +7135,9 @@ async function extractArchive(file, target, type, allowLinks = false) {
           if ((mode & 61440) === 40960 || entry.generalPurposeBitFlag & 1)
             throw new Fault("UNSAFE_ARCHIVE", "Encrypted entries and symlinks are not accepted.", 2);
           const destination = await contained(target, name || ".");
-          if (!name || name.endsWith("/")) await mkdir8(destination, { recursive: true, mode: 448 });
+          if (!name || name.endsWith("/")) await mkdir7(destination, { recursive: true, mode: 448 });
           else {
-            await mkdir8(path14.dirname(destination), { recursive: true, mode: 448 });
+            await mkdir7(path13.dirname(destination), { recursive: true, mode: 448 });
             const stream = await new Promise(
               (res, rej) => zip.openReadStream(entry, (e, s3) => e || !s3 ? rej(e) : res(s3))
             );
@@ -7387,11 +7153,11 @@ async function extractArchive(file, target, type, allowLinks = false) {
     });
   });
 }
-async function extractVerifiedArchive(file, sha2562, target, type, allowLinks = false, privateRoot = path14.dirname(target)) {
-  await mkdir8(privateRoot, { recursive: true, mode: 448 });
-  const directory = await mkdtemp3(path14.join(privateRoot, ".archive-"));
+async function extractVerifiedArchive(file, sha256, target, type, allowLinks = false, privateRoot = path13.dirname(target)) {
+  await mkdir7(privateRoot, { recursive: true, mode: 448 });
+  const directory = await mkdtemp3(path13.join(privateRoot, ".archive-"));
   try {
-    const copy = path14.join(directory, "archive");
+    const copy = path13.join(directory, "archive");
     const digest2 = createHash2("sha256");
     await pipeline(
       createReadStream(file),
@@ -7403,7 +7169,7 @@ async function extractVerifiedArchive(file, sha2562, target, type, allowLinks = 
       },
       createWriteStream(copy, { flags: "wx", mode: 384 })
     );
-    if (digest2.digest("hex") !== sha2562)
+    if (digest2.digest("hex") !== sha256)
       throw new Fault(
         "INTEGRITY_FAILURE",
         "Archive SHA-256 changed after verification. Nothing was extracted.",
@@ -7417,7 +7183,7 @@ async function extractVerifiedArchive(file, sha2562, target, type, allowLinks = 
 }
 
 // packages/installer/src/command.ts
-import path15 from "node:path";
+import path14 from "node:path";
 import { spawn as spawn2 } from "node:child_process";
 import { stat as stat5 } from "node:fs/promises";
 var windowsExtensions = [".exe", ".cmd", ".bat"];
@@ -7437,12 +7203,12 @@ async function searchPath(name, host = {}) {
   const platform = host.platform ?? process.platform, env = host.env ?? process.env;
   const windows = platform === "win32";
   const pathValue = (windows ? env.Path ?? env.PATH ?? env.path : env.PATH) ?? "";
-  const suffixes = windows ? windowsExtensions.includes(path15.extname(name).toLowerCase()) ? [""] : windowsSuffixes(env) : [""];
-  for (const directory of pathValue.split(windows ? ";" : path15.delimiter)) {
+  const suffixes = windows ? windowsExtensions.includes(path14.extname(name).toLowerCase()) ? [""] : windowsSuffixes(env) : [""];
+  for (const directory of pathValue.split(windows ? ";" : path14.delimiter)) {
     const entry = directory.trim().replace(/^"(.*)"$/, "$1");
-    if (!entry || !(path15.isAbsolute(entry) || path15.win32.isAbsolute(entry))) continue;
+    if (!entry || !(path14.isAbsolute(entry) || path14.win32.isAbsolute(entry))) continue;
     for (const suffix of suffixes) {
-      const candidate = path15.join(entry, name + suffix);
+      const candidate = path14.join(entry, name + suffix);
       if (await isFile(candidate)) return candidate;
     }
   }
@@ -7462,8 +7228,8 @@ async function resolveCommand(command, args, host = {}) {
   const platform = host.platform ?? process.platform, env = host.env ?? process.env;
   if (platform !== "win32") return { executable: command, args, verbatim: false };
   let resolved;
-  if (/[\\/]/.test(command) || path15.win32.isAbsolute(command)) {
-    const extension = path15.extname(command).toLowerCase();
+  if (/[\\/]/.test(command) || path14.win32.isAbsolute(command)) {
+    const extension = path14.extname(command).toLowerCase();
     for (const suffix of windowsExtensions.includes(extension) ? [""] : windowsSuffixes(env))
       if (await isFile(command + suffix)) {
         resolved = command + suffix;
@@ -7471,7 +7237,7 @@ async function resolveCommand(command, args, host = {}) {
       }
   } else resolved = await searchPath(command, { platform, env });
   if (!resolved) return { executable: command, args, verbatim: false };
-  if (![".cmd", ".bat"].includes(path15.extname(resolved).toLowerCase()))
+  if (![".cmd", ".bat"].includes(path14.extname(resolved).toLowerCase()))
     return { executable: resolved, args, verbatim: false };
   const line = [resolved, ...args].map(cmdQuote).join(" ");
   return {
@@ -7556,22 +7322,21 @@ var artifactSchema = external_exports.strictObject({
 var lockSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   artifacts: external_exports.array(artifactSchema),
-  playwright: external_exports.strictObject({ version: external_exports.string(), browsers: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())) }),
   provenance: external_exports.record(external_exports.string(), external_exports.unknown())
 });
 async function canonicalHome(home) {
-  let existing = path16.resolve(home);
+  let existing = path15.resolve(home);
   const rest = [];
   while (!await exists(existing)) {
-    const parent = path16.dirname(existing);
+    const parent = path15.dirname(existing);
     if (parent === existing) break;
-    rest.unshift(path16.basename(existing));
+    rest.unshift(path15.basename(existing));
     existing = parent;
   }
-  return path16.join(await realpath6(existing), ...rest);
+  return path15.join(await realpath5(existing), ...rest);
 }
 async function runtimeState(home = managedHome()) {
-  const file = path16.join(home, "runtime.json");
+  const file = path15.join(home, "runtime.json");
   return await exists(file) ? await readJson(file) : { schemaVersion: 1, components: {} };
 }
 function platformProfile(os2 = process.platform, arch = process.arch) {
@@ -7590,13 +7355,13 @@ function platformProfile(os2 = process.platform, arch = process.arch) {
 }
 async function findExecutable(name) {
   const found = await searchPath(name);
-  return found ? realpath6(found) : void 0;
+  return found ? realpath5(found) : void 0;
 }
 async function treeDigest(root) {
   const entries = [];
   async function walk(directory) {
     for (const entry of await readdir4(directory, { withFileTypes: true })) {
-      const file = path16.join(directory, entry.name), name = path16.relative(root, file).split(path16.sep).join("/");
+      const file = path15.join(directory, entry.name), name = path15.relative(root, file).split(path15.sep).join("/");
       if (entry.isSymbolicLink()) entries.push([name, "link:" + await readlink(file)]);
       else if (entry.isDirectory()) await walk(file);
       else if (entry.isFile()) entries.push([name, "file:" + await hashFile(file)]);
@@ -7638,11 +7403,11 @@ async function intactInstallation(destination, executable, recorded) {
 }
 async function installArtifact(artifact, destination, cache, offline) {
   const file = await download(artifact, cache, offline);
-  await mkdir9(path16.dirname(destination), { recursive: true, mode: 448 });
+  await mkdir8(path15.dirname(destination), { recursive: true, mode: 448 });
   const staging = await mkdtemp4(destination + ".staging-");
   try {
     await extractVerifiedArchive(file, artifact.sha256, staging, artifact.type, artifact.id !== "sqlcl");
-    if (!await exists(path16.join(staging, artifact.executable)))
+    if (!await exists(path15.join(staging, artifact.executable)))
       throw new Fault(
         "ARTIFACT_LAYOUT_MISMATCH",
         "Vendor executable is missing from the locked archive layout.",
@@ -7653,17 +7418,6 @@ async function installArtifact(artifact, destination, cache, offline) {
     await rm8(staging, { recursive: true, force: true });
   }
 }
-var browserDownloadVariables = [
-  "PLAYWRIGHT_DOWNLOAD_HOST",
-  "PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST",
-  "PLAYWRIGHT_CHROMIUM_HEADLESS_SHELL_DOWNLOAD_HOST"
-];
-function browserEnvironment(base, overrides, downloadHost) {
-  const env = { ...base, ...overrides };
-  for (const name of browserDownloadVariables) delete env[name];
-  if (downloadHost) env.PLAYWRIGHT_DOWNLOAD_HOST = downloadHost;
-  return env;
-}
 var ToolchainService = class {
   async inspect() {
     return { platform: platformProfile(), state: await runtimeState() };
@@ -7672,13 +7426,13 @@ var ToolchainService = class {
     const platform = platformProfile();
     const lock = parse(
       lockSchema,
-      await readJson(path16.join(resourceRoot(), "toolchains/toolchain.lock.json"))
+      await readJson(path15.join(resourceRoot(), "toolchains/toolchain.lock.json"))
     );
-    const home = await canonicalHome(r.home ?? managedHome()), cache = path16.resolve(r.cacheDir ?? path16.join(home, "cache"));
+    const home = await canonicalHome(r.home ?? managedHome()), cache = path15.resolve(r.cacheDir ?? path15.join(home, "cache"));
     const artifacts = lock.artifacts.filter((a) => a.os === platform.os && a.arch === platform.arch);
     const steps = await Promise.all(
       artifacts.map(async (artifact) => {
-        const candidate = artifact.id === "node" ? process.execPath : artifact.id === "sqlcl" ? process.env.APEXREST_SQLCL ?? await findExecutable("sql") : process.env.APEXREST_JAVA_HOME ? path16.join(
+        const candidate = artifact.id === "node" ? process.execPath : artifact.id === "sqlcl" ? process.env.APEXREST_SQLCL ?? await findExecutable("sql") : process.env.APEXREST_JAVA_HOME ? path15.join(
           process.env.APEXREST_JAVA_HOME,
           "bin",
           process.platform === "win32" ? "java.exe" : "java"
@@ -7699,37 +7453,24 @@ var ToolchainService = class {
           } catch {
           }
         }
-        const destination = path16.join(home, "toolchains", artifact.id, artifact.version);
+        const destination = path15.join(home, "toolchains", artifact.id, artifact.version);
         return {
           artifact,
           destination,
           reuse,
           ...candidate && r.dryRun ? { candidate, candidateStatus: "found, not probed" } : {},
-          action: reuse ? "reuse" : await exists(path16.join(destination, artifact.executable)) ? "verify" : "download-install",
+          action: reuse ? "reuse" : await exists(path15.join(destination, artifact.executable)) ? "verify" : "download-install",
           consent: artifact.consentRequired && !r.acceptOracleLicense && !reuse ? "required" : "not-required"
         };
       })
     );
-    const chromium = lock.playwright.browsers.find((browser) => browser.name === "chromium");
     return {
       schemaVersion: 1,
       home,
       cache,
       platform,
       steps,
-      playwright: lock.playwright.version,
-      browser: {
-        action: r.skipBrowser ? "skip" : "install-verify",
-        engine: "chromium",
-        installOsDeps: Boolean(r.installOsDeps && !r.skipBrowser),
-        revision: typeof chromium?.revision === "string" ? chromium.revision : void 0,
-        browserVersion: typeof chromium?.browserVersion === "string" ? chromium.browserVersion : void 0,
-        // Playwright selects the revision; its download is not checked against an APEXREST hash.
-        integrity: "playwright-revision-pinned; not hash-pinned by apexrest",
-        downloadHost: r.browserDownloadHost ?? "playwright-default"
-      },
       offline: r.offline ?? false,
-      elevation: r.installOsDeps ? "explicitly-requested" : "not-authorized",
       proxy: proxyStatus(),
       extraCA: Boolean(process.env.NODE_EXTRA_CA_CERTS)
     };
@@ -7744,16 +7485,16 @@ var ToolchainService = class {
         4,
         "needs-user-action"
       );
-    await mkdir9(plan.home, { recursive: true, mode: 448 });
+    await mkdir8(plan.home, { recursive: true, mode: 448 });
     const disk = await statfs(plan.home);
     if (disk.bavail * disk.bsize < 1024 * 1024 * 1024)
       throw new Fault("INSUFFICIENT_DISK", "At least 1 GiB of free local space is required.", 3);
-    return withLock(path16.join(plan.home, "toolchain.lock"), async () => {
+    return withLock(path15.join(plan.home, "toolchain.lock"), async () => {
       const state = await runtimeState(plan.home);
       const actions = [];
       for (const step of plan.steps) {
         const artifact = step.artifact;
-        const executable = step.reuse ?? path16.join(step.destination, artifact.executable);
+        const executable = step.reuse ?? path15.join(step.destination, artifact.executable);
         const intact = Boolean(step.reuse) || await intactInstallation(step.destination, executable, state.integrity?.[artifact.id]);
         if (!intact && step.consent === "required") {
           state.components[artifact.id] = "needs-consent";
@@ -7769,7 +7510,7 @@ var ToolchainService = class {
           await installArtifact(artifact, step.destination, plan.cache, r.offline);
         }
         if (process.platform !== "win32" && !step.reuse) await chmod3(executable, 448);
-        const javaHome = state.java ? path16.dirname(path16.dirname(state.java)) : void 0;
+        const javaHome = state.java ? path15.dirname(path15.dirname(state.java)) : void 0;
         const result = await runProcess({
           executable,
           args: artifact.id === "node" ? ["--version"] : ["-version"],
@@ -7793,100 +7534,9 @@ var ToolchainService = class {
               treeSha256: await treeDigest(step.destination)
             }
           };
-        await writeJson(path16.join(plan.home, "runtime.json"), state);
+        await writeJson(path15.join(plan.home, "runtime.json"), state);
       }
-      if (!r.skipBrowser && state.node) {
-        const browserHome = path16.join(plan.home, "playwright", plan.playwright), browserCache = path16.join(plan.home, "browsers");
-        await mkdir9(browserHome, { recursive: true });
-        await cp5(
-          path16.join(resourceRoot(), "playwright/package.json"),
-          path16.join(browserHome, "package.json")
-        );
-        await cp5(
-          path16.join(resourceRoot(), "playwright/package-lock.json"),
-          path16.join(browserHome, "package-lock.json")
-        );
-        const npm = path16.resolve(
-          path16.dirname(state.node),
-          process.platform === "win32" ? "node_modules/npm/bin/npm-cli.js" : "../lib/node_modules/npm/bin/npm-cli.js"
-        );
-        const env = browserEnvironment(
-          process.env,
-          {
-            PLAYWRIGHT_BROWSERS_PATH: browserCache,
-            npm_config_cache: path16.join(plan.cache, "npm"),
-            PATH: path16.dirname(state.node) + path16.delimiter + (process.env.PATH ?? "")
-          },
-          r.browserDownloadHost
-        );
-        if (!await exists(path16.join(browserHome, "node_modules/@playwright/test/cli.js"))) {
-          const installed = await runProcess({
-            executable: state.node,
-            args: [
-              npm,
-              "ci",
-              "--ignore-scripts",
-              "--no-audit",
-              "--no-fund",
-              ...r.offline ? ["--offline"] : []
-            ],
-            cwd: browserHome,
-            env,
-            timeoutMs: 18e4
-          });
-          if (installed.code !== 0)
-            throw new Fault(
-              r.offline ? "OFFLINE_CACHE_MISS" : "PLAYWRIGHT_INSTALL_FAILED",
-              installed.stderr,
-              3,
-              "blocked"
-            );
-        }
-        const cli = path16.join(browserHome, "node_modules/@playwright/test/cli.js");
-        if (!r.offline) {
-          const installed = await runProcess({
-            executable: state.node,
-            args: [cli, "install", ...r.installOsDeps ? ["--with-deps"] : [], "chromium"],
-            cwd: browserHome,
-            env,
-            timeoutMs: 18e4
-          });
-          if (installed.code !== 0) throw new Fault("BROWSER_INSTALL_FAILED", installed.stderr, 3, "blocked");
-        }
-        const smoke = await runProcess({
-          executable: state.node,
-          args: [
-            "--input-type=module",
-            "-e",
-            "import {chromium} from '@playwright/test'; const b=await chromium.launch(); console.log(b.version()); await b.close();"
-          ],
-          cwd: browserHome,
-          env,
-          timeoutMs: 3e4
-        });
-        if (smoke.code !== 0) {
-          state.components.playwright = "installed";
-          actions.push({
-            code: r.offline ? "OFFLINE_BROWSER_CACHE_MISS" : "BROWSER_SYSTEM_DEPENDENCIES_OR_SANDBOX_REQUIRED"
-          });
-        } else {
-          state.components.playwright = "verified";
-          state.browser = smoke.stdout.trim();
-          if (plan.browser.browserVersion && state.browser !== plan.browser.browserVersion)
-            actions.push({
-              code: "BROWSER_VERSION_UNEXPECTED",
-              component: "chromium",
-              details: `Expected ${plan.browser.browserVersion} for Playwright ${plan.playwright}; found ${state.browser}.`
-            });
-        }
-        state.playwright = cli;
-      } else {
-        if (!state.playwright) {
-          state.components.playwright = "not-installed";
-          actions.push({ code: "PLAYWRIGHT_SETUP_REQUIRED" });
-        }
-      }
-      await writeJson(path16.join(plan.home, "runtime.json"), state);
+      await writeJson(path15.join(plan.home, "runtime.json"), state);
       return {
         schemaVersion: 1,
         status: actions.length ? "needs-user-action" : "toolchain-verified",
@@ -7899,19 +7549,6 @@ var ToolchainService = class {
 };
 
 export {
-  identifier,
-  refName,
-  relativePath,
-  managedHome,
-  parse,
-  loadProject,
-  environment,
-  targetDigest,
-  policy,
-  updatePolicy,
-  requireTrust,
-  isProductionTarget,
-  protectedProductionTrust,
   savedConnectionName,
   ordsUrl,
   ordsUsername,
@@ -7949,7 +7586,6 @@ export {
   databaseMeetsApex262Minimum,
   auditUpgradeSource,
   sqlclToken,
-  sqlLiteral,
   SCRIPT_RESTRICT_LEVEL,
   OracleAdapter,
   installSources,
@@ -7961,6 +7597,5 @@ export {
   platformProfile,
   treeDigest,
   renameWithRetry,
-  browserEnvironment,
   ToolchainService
 };

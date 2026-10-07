@@ -50,8 +50,6 @@ const dependencies = {
   cacheDir: z.string().optional(),
   dryRun: z.boolean().default(false),
   acceptOracleLicense: z.boolean().default(false),
-  skipBrowser: z.boolean().default(false),
-  installOsDeps: z.boolean().default(false),
 };
 const setup = {
   ...base,
@@ -168,20 +166,11 @@ export const schemas = {
     .superRefine(checkImportOptions),
   'deploy.apply': z.strictObject({ ...base, plan: relativePath }),
   'deploy.status': z.strictObject({ ...base, run: z.uuid() }),
-  'deploy.verify': z.strictObject({ ...base, run: z.uuid() }),
   'deploy.restore-plan': z.strictObject({ ...base, backup: z.uuid(), out: relativePath }),
-  'test.run': z.strictObject({
-    ...base,
-    suite: z.enum(['unit', 'sql', 'api', 'e2e', 'all']),
-    env: env.optional(),
-    headed: z.boolean().default(false),
-  }),
-  'test.report': z.strictObject({ ...base, run: z.uuid() }),
-  'test.auth': z.strictObject({ ...base, env }),
   'browser.open': z.strictObject({
     ...base,
     env,
-    browserMode: z.enum(['codex', 'host', 'external']).optional(),
+    browserMode: z.enum(['codex', 'host']).optional(),
   }),
   'jobs.status': z.strictObject({
     ...base,
@@ -342,20 +331,10 @@ export const toolCatalog: {
     openWorld: true,
   },
   {
-    name: 'apexrest_test_run',
-    operation: 'test.run',
-    description:
-      'Run unit (local), sql, api, e2e or all suites; remote suites can mutate data and require environment policy.',
-    readOnly: false,
-    destructive: false,
-    long: true,
-    openWorld: true,
-  },
-  {
     name: 'apexrest_browser_open',
     operation: 'browser.open',
     description:
-      'Open an APEX environment: codex returns a host handoff; external launches the system browser. Opening is not verification.',
+      'Return the configured APEX URL for the host in-app browser (codex/host). Inspect affected pages with host browser controls; opening is not verification.',
     readOnly: false,
     destructive: false,
     openWorld: true,

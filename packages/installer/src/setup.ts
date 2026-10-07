@@ -51,8 +51,6 @@ export async function setup(input: Record<string, unknown>) {
     yes: Boolean(input.yes),
     nonInteractive: Boolean(input.nonInteractive),
     acceptOracleLicense: Boolean(input.acceptOracleLicense),
-    skipBrowser: Boolean(input.skipBrowser),
-    installOsDeps: Boolean(input.installOsDeps),
   };
   const existingRuntime = await runtimeState(home);
   const nativePlan = await installNative({

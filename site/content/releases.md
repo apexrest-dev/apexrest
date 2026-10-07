@@ -1,8 +1,8 @@
 # Source version {{version}}
 
-The repository plugin provides five skills and eleven composite tools for Codex and Claude Code. It supports APEX 26.1 full imports and [APEX 26.2 partial imports](../../docs/apex-26.2.md), release-specific references, source validation and guarded deployment.
+The repository plugin provides five skills and ten composite tools for Codex and Claude Code. It supports APEX 26.1 full imports and [APEX 26.2 partial imports](../../docs/apex-26.2.md), release-specific references, source validation and guarded deployment.
 
-When a full import ends a saved browser session, required E2E stops in `awaiting_reauth`. After interactive `test auth`, `deploy verify` reruns the unchanged gates without importing.
+Application verification uses the host in-app browser, separately from compiler and import results. The plugin installs no browser and provides no automatic application test suites.
 
 ## Install and upgrade
 

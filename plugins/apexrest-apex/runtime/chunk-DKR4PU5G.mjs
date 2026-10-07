@@ -1,19 +1,19 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   ToolchainService,
-  browserEnvironment,
   canonicalHome,
   lockSchema,
   platformProfile,
   renameWithRetry,
   runtimeState,
   treeDigest
-} from "./chunk-PEPFC7UE.mjs";
-import "./chunk-JYN3YHP3.mjs";
+} from "./chunk-HPJ4JN65.mjs";
+import "./chunk-MVNCAJV3.mjs";
+import "./chunk-JM4SAWAH.mjs";
+import "./chunk-RCJG4YXR.mjs";
 import "./chunk-WPS3CSQJ.mjs";
 export {
   ToolchainService,
-  browserEnvironment,
   canonicalHome,
   lockSchema,
   platformProfile,

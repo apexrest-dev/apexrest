@@ -246,8 +246,9 @@ test('JSON diagnostics strip rows of every envelope and batches split per marker
     input = request.input!;
     const markers = [...input.matchAll(/prompt (APEXREST_ROWS_\w+)/g)].map((m) => m[1]!);
     return completed(
-      markers.map((marker, i) => rows([{ n: i, note: 'ORA-00001 as data' }]) + '\n' + marker).join('\n') +
-        '\n',
+      markers
+        .map((marker, i) => rows([{ n: i, note: 'ORA-00001 as data' }]) + (i === 0 ? '' : '\r\n') + marker)
+        .join('\n') + '\n',
     );
   });
   oracle.stage = async () => tmpdir();

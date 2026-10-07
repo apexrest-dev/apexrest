@@ -6,12 +6,14 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-LPN557LW.mjs";
-import "./chunk-GKOCMBCK.mjs";
+} from "./chunk-SGHM6ZI6.mjs";
+import "./chunk-HPJ4JN65.mjs";
+import "./chunk-MVNCAJV3.mjs";
+import "./chunk-HMNYLOZZ.mjs";
 import {
   loadProject
-} from "./chunk-PEPFC7UE.mjs";
-import "./chunk-JYN3YHP3.mjs";
+} from "./chunk-JM4SAWAH.mjs";
+import "./chunk-RCJG4YXR.mjs";
 import {
   Fault,
   failure
@@ -35,15 +37,13 @@ var variadic = { "docs.search": "query" };
 function operationFrom(args) {
   const first = groupAliases[args[0] ?? ""] ?? args[0];
   if (["doctor", "version", "setup", "ship", "status"].includes(first ?? "")) return { op: first, start: 1 };
-  if (first === "test" && ["unit", "sql", "api", "e2e", "all"].includes(args[1] ?? ""))
-    return { op: "test.run", start: 2, suite: args[1] };
   return { op: [first, args[1]].join("."), start: 2 };
 }
 var listed = (op) => !internalOperations.includes(op);
 var selected = operationFrom(argv);
 function knownHelpTarget() {
   const first = argv[0] ?? "";
-  return first.startsWith("-") || ["mcp", "test"].includes(first) || selected.op in schemas || // A command group alone (apexrest deploy --help) lists the general help.
+  return first.startsWith("-") || first === "mcp" || selected.op in schemas || // A command group alone (apexrest deploy --help) lists the general help.
   (argv[1] ?? "-").startsWith("-") && Object.keys(schemas).some((op) => op.startsWith((groupAliases[first] ?? first) + "."));
 }
 function help() {
@@ -52,8 +52,7 @@ function help() {
     "APEXREST for Codex \u2014 independent Oracle APEX developer tools",
     "Usage: apexrest [command] [options]",
     "",
-    ...Object.keys(schemas).filter((x) => x !== "test.run" && listed(x)).map((x) => "  " + x.replace(".", " ")),
-    "  test unit|sql|api|e2e|all [--env NAME]",
+    ...Object.keys(schemas).filter(listed).map((x) => "  " + x.replace(".", " ")),
     "  job status|cancel <id>   (alias of jobs ...)",
     "  mcp",
     "",
@@ -107,7 +106,7 @@ function help() {
       "",
       "mode plan: validate with the Oracle compiler, read the target and write .apexrest/plans/ship-<id>.json for review.",
       "mode apply: non-production only. Records a deploy grant bound to this project, target and plan digest with the",
-      "user's literal --user-request, imports with backup/drift/identity checks, verifies, runs required suites, then",
+      "user's literal --user-request, imports with backup/drift/identity checks, verifies, then",
       "removes the grant. Production targets require the protected CI approval path (deploy apply)."
     );
   if (key === "ship" || key === "deploy.plan")
@@ -127,11 +126,10 @@ function help() {
   if (key === "dependencies.install")
     lines.push(
       "",
-      "Install managed Node.js, Java, SQLcl, Playwright and Chromium without registering the plugin.",
+      "Install managed Node.js, Java and SQLcl without registering the plugin.",
       "Preview: apexrest dependencies install --dry-run",
       "Install: apexrest dependencies install --yes",
       "--accept-oracle-license records separate consent to the Oracle terms shown in the preview.",
-      "--skip-browser omits Playwright/Chromium; --install-os-deps explicitly enables browser OS packages.",
       "--offline uses cached downloads; --home and --cache-dir select managed storage."
     );
   if (key === "dependencies.uninstall")
@@ -189,13 +187,13 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-LCHDYJEJ.mjs");
+    const { startMcp } = await import("./chunk-3RMLYEO4.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
     if (!(selectedOp.op in schemas)) throw new Fault("INVALID_INPUT", "Unknown command. Use --help.", 2);
     const schema = schemas[selectedOp.op];
-    const input = selected.suite ? { suite: selected.suite } : {};
+    const input = {};
     const booleans = /* @__PURE__ */ new Set([
       "json",
       "yes",
@@ -203,11 +201,8 @@ try {
       "offline",
       "dryRun",
       "acceptOracleLicense",
-      "skipBrowser",
-      "installOsDeps",
       "nativeOnly",
       "keepRuntime",
-      "headed",
       "saved",
       "workingCopy",
       "includeUnresolved"

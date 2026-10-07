@@ -18,7 +18,7 @@ export async function workingCopyFixture() {
       {
         projectRoot: ctx.root,
         targetDigest: targetDigest(env),
-        operations: ['deploy', 'test'],
+        operations: ['deploy'],
         expiresAt: new Date(Date.now() + 3600000).toISOString(),
       },
     ],
@@ -33,8 +33,7 @@ export async function workingCopyFixture() {
   const controls = {
     metadata: { lastUpdatedOn: '2026-09-29T10:00:00', lastUpdatedBy: 'FIXTURE' },
     compilerVersion: 'mock SQLcl',
-    testsPass: true,
-    reauthRequired: false,
+    failPostImportAfter: Infinity,
     failImport: false,
     failMetadata: false,
     alias: 'fixture',
@@ -65,7 +64,11 @@ export async function workingCopyFixture() {
     },
     async applicationMetadata() {
       calls.push('metadata');
-      if (controls.failMetadata) throw new Fault('QUERY_FAILED', 'Fixture metadata failure.', 3);
+      if (
+        controls.failMetadata ||
+        calls.filter((call) => call === 'import').length >= controls.failPostImportAfter
+      )
+        throw new Fault('QUERY_FAILED', 'Fixture metadata failure.', 3);
       return { ...controls.metadata };
     },
     async exportApplication(_env: unknown, _connection: unknown, format = 'APEXLANG') {
@@ -95,13 +98,6 @@ export async function workingCopyFixture() {
       controls.metadata.lastUpdatedOn += '2';
     },
   };
-  const service = new DeploymentService(oracle as unknown as OracleAdapter, async () => {
-    calls.push('tests');
-    return {
-      ok: controls.testsPass,
-      ...(controls.reauthRequired ? { reauthRequired: true } : {}),
-      data: { fixture: true },
-    };
-  });
+  const service = new DeploymentService(oracle as unknown as OracleAdapter);
   return { ctx, env, calls, controls, oracle, service, server };
 }

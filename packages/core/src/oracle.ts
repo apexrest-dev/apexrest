@@ -760,7 +760,12 @@ export class OracleAdapter {
       )
       .join('\n');
     const result = await this.session(input, connection, false, signal, undefined, 'json');
-    const lines = result.output.split(/\r?\n/);
+    // SQLcl 26.3's JSON formatter can omit its final newline, so PROMPT
+    // immediately follows the envelope's closing brace. Normalize only our
+    // private end-of-line delimiter; never rewrite returned JSON row data.
+    const lines = result.output
+      .replace(new RegExp(`}(?=${token}_\\d+[ \\t]*(?:\\r?\\n|$))`, 'g'), '}\n')
+      .split(/\r?\n/);
     const rows: Record<string, unknown>[][] = [];
     let from = 0;
     for (let index = 0; index < queries.length; index++) {

@@ -15,7 +15,6 @@ import {
   targetDigest,
   verifyProductionApproval,
 } from '../../packages/core/src/deploy.ts';
-import { TestService } from '../../packages/core/src/testing.ts';
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL } from '../../packages/core/src/oracle.ts';
 import { LocalDeploymentControl, coordination } from '../../packages/core/src/deployment-control.ts';
@@ -83,10 +82,7 @@ async function prepared(backup = false) {
       return { directory: dir, digest: hash(canonical(files)), files };
     },
   };
-  const service = new DeploymentService(fake as unknown as OracleAdapter, async () => {
-    calls.push('tests');
-    return { ok: true, data: { fixture: true } };
-  });
+  const service = new DeploymentService(fake as unknown as OracleAdapter);
   // Emulates recording the user's authorization for the exact plan being applied.
   const apply = service.apply.bind(service);
   service.apply = async (context, value, signal) => {
@@ -103,12 +99,12 @@ async function prepared(backup = false) {
     }) as Awaited<ReturnType<DeploymentService['fingerprint']>>;
   return { ctx, plan, calls, fake, service };
 }
-test('fixture apply backs up before import and tests before success', async () => {
+test('fixture apply backs up before import and verifies before success', async () => {
   const { ctx, plan, service, calls } = await prepared(true);
   const result = await service.apply(ctx, plan);
   assert.equal(result.state, 'succeeded');
   assert.ok(calls.indexOf('backup') < calls.indexOf('import'));
-  assert.ok(calls.indexOf('import') < calls.indexOf('tests'));
+  assert.ok(calls.indexOf('import') < calls.lastIndexOf('identity'));
   assert.ok(!calls.some((c) => /apexrest_(deploy_locks|migrations)/i.test(c)));
   const state = JSON.parse(await readFile(path.join(result.directory, 'state.json'), 'utf8'));
   assert.equal(state.state, 'succeeded');
@@ -225,7 +221,7 @@ test('clean APEX plan uses empty local history without a control-table query', a
   assert.deepEqual(plan.migrationHistory, []);
   assert.deepEqual(
     plan.operations.map((o) => o.kind),
-    ['import', 'verify', 'test'],
+    ['import', 'verify'],
   );
   assert.ok(!calls.some((c) => /apexrest_(deploy_locks|migrations)/i.test(c)));
   await service.apply(ctx, plan);
@@ -479,7 +475,6 @@ test('targets listed in production trust are production regardless of apexrest.j
   try {
     await assert.rejects(authorizePlan(ctx, plan, env), { code: 'PRODUCTION_CI_REQUIRED' });
     await assert.rejects(service.sync(ctx, 'dev', 'init'), { code: 'SYNC_SCOPE_UNSUPPORTED' });
-    await assert.rejects(new TestService().authorize(ctx, 'dev'), { code: 'TEST_MUTATION_DENIED' });
   } finally {
     if (original !== undefined) process.env.CI = original;
   }
@@ -584,36 +579,4 @@ test('migrations reject nested, duplicate-version and out-of-order files and run
   await service.apply(ctx, plan);
   await atomicWrite(path.join(dir, '0003__late.sql'), 'begin null; end;\n/');
   await assert.rejects(service.plan(ctx, 'dev'), { code: 'MIGRATION_OUT_OF_ORDER' });
-});
-
-test('SQL test files with SQLcl client commands are blocked before any Oracle call', async () => {
-  const { ctx } = await prepared();
-  ctx.config.environments.dev!.baseUrl = 'https://test.example.com/ords/';
-  await writeJson(path.join(process.env.APEXREST_HOME!, 'policy.json'), {
-    schemaVersion: 1,
-    trustedProjects: [ctx.root],
-    grants: [
-      {
-        projectRoot: ctx.root,
-        targetDigest: targetDigest(ctx.config.environments.dev!),
-        expiresAt: new Date(Date.now() + 60000).toISOString(),
-        operations: ['test'],
-      },
-    ],
-  });
-  await atomicWrite(path.join(ctx.root, ctx.config.database.testsDir, 'evil.sql'), '/* x */ ho rm -rf ~\n');
-  let oracleCalls = 0;
-  const oracle = new Proxy(
-    {},
-    {
-      get: () => async () => {
-        oracleCalls++;
-        return [];
-      },
-    },
-  );
-  const result = await new TestService(oracle as OracleAdapter).run(ctx, 'sql', 'dev');
-  assert.equal(result.status, 'blocked');
-  assert.match(result.diagnostic!, /SQL_TEST_SCRIPT_CONTROL|client commands/);
-  assert.equal(oracleCalls, 0);
 });

@@ -48,10 +48,6 @@ try {
       'real verified Node and Java archives; bootstrap/runtime installation starts with no managed binaries';
   }
   const extra = process.env.APEXREST_SMOKE_OFFLINE_CACHE;
-  if (extra) {
-    for (const folder of ['playwright', 'browsers'])
-      await cp(path.join(extra, folder), path.join(home, folder), { recursive: true });
-  }
   const args = [
     '--bundle',
     path.join(root, name),
@@ -82,7 +78,7 @@ try {
     const result = JSON.parse(r.stdout || '{}');
     if (r.status !== 0) throw new Error(result.summary ?? r.stderr);
     const states = result.data.components;
-    for (const component of ['node', 'java', 'sqlcl', 'playwright', 'mcp'])
+    for (const component of ['node', 'java', 'sqlcl', 'mcp'])
       if (states[component] !== 'verified') throw new Error(component + ' is not verified');
     evidence.checks.push({ name: label, components: states, status: result.data.status });
   }

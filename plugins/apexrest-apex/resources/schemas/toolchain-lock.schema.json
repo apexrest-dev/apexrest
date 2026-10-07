@@ -77,29 +77,6 @@
         "additionalProperties": false
       }
     },
-    "playwright": {
-      "type": "object",
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "browsers": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string"
-            },
-            "additionalProperties": {}
-          }
-        }
-      },
-      "required": [
-        "version",
-        "browsers"
-      ],
-      "additionalProperties": false
-    },
     "provenance": {
       "type": "object",
       "propertyNames": {
@@ -111,7 +88,6 @@
   "required": [
     "schemaVersion",
     "artifacts",
-    "playwright",
     "provenance"
   ],
   "additionalProperties": false

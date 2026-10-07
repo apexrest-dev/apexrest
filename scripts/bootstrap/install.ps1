@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$Sha256,
   [switch]$Yes,[switch]$Offline,[Alias('Home')][string]$InstallHome,[string]$CodexHome,
   [switch]$AcceptOracleLicense,[switch]$NativeOnly,[switch]$DryRun,[switch]$NonInteractive,
-  [switch]$SkipBrowser,[string]$CacheDir,[string]$Version,[ValidateSet('user','project')][string]$Scope='user',
+  [string]$CacheDir,[string]$Version,[ValidateSet('user','project')][string]$Scope='user',
   [string]$Manifest,[string]$PublicKey
 )
 $ErrorActionPreference = 'Stop'
@@ -44,7 +44,7 @@ if ($Yes) { $parameters += '--yes' }; if ($Offline) { $parameters += '--offline'
 if ($CodexHome) { $parameters += @('--codex-home',$CodexHome) }
 if ($AcceptOracleLicense) { $parameters += '--accept-oracle-license' }; if ($NativeOnly) { $parameters += '--native-only' }
 if ($DryRun) { $parameters += '--dry-run' }; if ($NonInteractive) { $parameters += '--non-interactive' }
-if ($SkipBrowser) { $parameters += '--skip-browser' }; if ($CacheDir) { $parameters += @('--cache-dir',$CacheDir) }
+if ($CacheDir) { $parameters += @('--cache-dir',$CacheDir) }
 if ($Version) { $parameters += @('--version',$Version) }; $parameters += @('--scope',$Scope)
 if ($Manifest) { $parameters += @('--manifest',$Manifest,'--public-key',$PublicKey) }
 & $nodePath --use-env-proxy (Join-Path $PSScriptRoot 'bootstrap-runtime.mjs') @parameters

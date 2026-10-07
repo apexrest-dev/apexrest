@@ -14,12 +14,11 @@ For a cloud task, follow [Run APEXREST in Codex Cloud](codex-cloud.md). It provi
 
 | Requirement                                                    | When it is needed                                                                                  |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Codex with native plugin support, or Claude Code               | Plugin registration and the host-provided browser controls             |
+| Codex with native plugin support, or Claude Code               | Plugin registration and the host-provided browser controls                                         |
 | Node 24 LTS on `PATH` (supported range 24–26)                  | Starting the CLI and the MCP runtime                                                               |
 | Java 21 and matching SQLcl                                     | 26.1 uses SQLcl 26.1.2; [26.2](apex-26.2.md) uses SQLcl 26.3; ORDS needs a JDK with `jdk.compiler` |
 | Existing supported Oracle APEX target                          | APEX 26.1 full imports or qualified APEX 26.2 full/selected-file workflows                         |
 | Saved direct SQLcl connection or plugin-local ORDS credentials | Authorized access to the configured target through the selected transport                          |
-| Chromium and relevant test dependencies                        | Browser/API suites; utPLSQL only when a SQL suite requires it                                      |
 
 A clean APEX installation is enough for ordinary deployment. APEXREST service tables, utPLSQL and a provisioned sandbox are not prerequisites for an application-only import. Installation does not include Oracle binaries, browser credentials or a database account.
 
@@ -65,7 +64,7 @@ node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run -
 node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --accept-oracle-license --json
 ```
 
-Read the preview first: it lists versions, destinations, download hosts and the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html). Run the second command only after accepting those terms; `--accept-oracle-license` records that separate consent. `--skip-browser` omits Playwright and Chromium, `--offline` uses cached downloads, `--home` and `--cache-dir` select managed storage, and browser OS packages need explicit `--install-os-deps`. Tools install under `~/.apexrest` (or `APEXREST_HOME`); a custom `--home` must also be set as `APEXREST_HOME` for later CLI and MCP processes. The installer does not provision APEX, install utPLSQL or change database connections. Rerun the doctor afterwards.
+Read the preview first: it lists versions, destinations, download hosts and the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html). Run the second command only after accepting those terms; `--accept-oracle-license` records that separate consent. `--offline` uses cached downloads, `--home` and `--cache-dir` select managed storage. Tools install under `~/.apexrest` (or `APEXREST_HOME`); a custom `--home` must also be set as `APEXREST_HOME` for later CLI and MCP processes. The installer does not provision APEX, install utPLSQL or change database connections. Rerun the doctor afterwards.
 
 ### Managed runtime installation and the launcher
 
@@ -136,9 +135,9 @@ For an existing qualified APEX 26.2 application, initialize a sync baseline befo
 
 The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, open the changed pages with `apexrest_browser_open` and report. The steps are listed in the [README](../README.md#work-in-one-session).
 
-Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies, runs the required suites and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see [deployment safety](deployment-safety.md).
+Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see [deployment safety](deployment-safety.md).
 
-For a page or dashboard, the agent reconciles the read-only source queries and inspects the imported page in the selected verification browser. Browser observations are recorded separately from automated suites; no configured suites means none ran. See [testing](testing.md).
+For a page or dashboard, the agent reconciles the read-only source queries and inspects the imported page in the selected verification browser. Browser observations are recorded separately from compiler and import results. Application verification uses the host in-app browser. See [testing](testing.md).
 
 ## Use the CLI
 
@@ -155,7 +154,7 @@ apexrest job status JOB_ID --wait-seconds 30 --project ./crm --json
 apexrest browser open --project ./crm --env dev --json
 ```
 
-`ship --mode plan` validates with the Oracle compiler, reads the target and writes `.apexrest/plans/ship-<id>.json` for review; `--mode apply` is refused for production targets, which use `deploy apply` with the protected approval path. The granular commands (`deploy plan|apply|status|restore-plan`, `apex export|generate|sync|diff`, `test unit|sql|api|e2e|all`, `jobs status|cancel`, `compose plan|materialize`, `panel status`) remain available. The CRM template includes schema changes and required SQL/E2E suites, so its import needs their authorization and dependencies.
+`ship --mode plan` validates with the Oracle compiler, reads the target and writes `.apexrest/plans/ship-<id>.json` for review; `--mode apply` is refused for production targets, which use `deploy apply` with the protected approval path. The granular commands (`deploy plan|apply|status|restore-plan`, `apex export|generate|sync|diff`, `jobs status|cancel`, `compose plan|materialize`, `panel status`) remain available. The CRM template includes schema changes, so its import needs authorization for that schema scope; verify its interactions in the host in-app browser.
 
 When calling project-scoped MCP tools, pass the absolute application project directory as `project`: the MCP server starts in its plugin directory and rejects missing or relative paths. CLI examples resolve `--project` from the terminal's working directory.
 

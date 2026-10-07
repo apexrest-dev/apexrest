@@ -74,7 +74,7 @@ const legacyPlanSchema = z.strictObject({
   scope: z.literal('full-application-import'),
   operations: z.array(
     z.strictObject({
-      kind: z.enum(['migration', 'package', 'import', 'verify', 'test']),
+      kind: z.enum(['migration', 'package', 'import', 'verify']),
       file: z.string().optional(),
       sha256: digestSchema.optional(),
     }),
@@ -166,8 +166,6 @@ export type DeployState =
   | 'migrating'
   | 'importing'
   | 'verifying'
-  | 'testing'
-  | 'awaiting_reauth'
   | 'succeeded'
   | 'failed'
   | 'outcome_unknown';
@@ -177,11 +175,7 @@ const next: Record<DeployState, DeployState[]> = {
   backing_up: ['migrating'],
   migrating: ['importing'],
   importing: ['verifying'],
-  verifying: ['testing'],
-  // An import that only lacks an authenticated browser session waits for an
-  // interactive login, then reruns the same required suites without importing.
-  testing: ['succeeded', 'awaiting_reauth'],
-  awaiting_reauth: ['testing'],
+  verifying: ['succeeded'],
   succeeded: [],
   failed: [],
   outcome_unknown: [],
@@ -510,48 +504,15 @@ export async function sourceInventory(ctx: ProjectContext) {
     ctx.config.application.sourceDir,
     ctx.config.database.migrationsDir,
     ctx.config.database.packagesDir,
-    ctx.config.database.testsDir,
-    ctx.config.tests.unitDir,
-    ctx.config.tests.apiDir,
-    ctx.config.tests.e2eDir,
   ]) {
     const dir = await contained(ctx.root, relative);
     if (await exists(dir))
       for (const [file, sha] of Object.entries(await inventory(dir))) files[relative + '/' + file] = sha;
   }
-  for (const relative of [
-    'package.json',
-    'package-lock.json',
-    'playwright.config.ts',
-    'playwright.config.mjs',
-  ])
+  for (const relative of ['package.json', 'package-lock.json'])
     if (await exists(path.join(ctx.root, relative)))
       files[relative] = hash(await readFile(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
-}
-const reauthRecordSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  postImport: z.strictObject({ target: z.unknown(), metadata: z.unknown(), history: z.unknown() }),
-  serverSnapshot: z
-    .strictObject({ directory: z.string(), files: z.record(z.string(), z.string()), digest: z.string() })
-    .nullable(),
-});
-/** Import confirmed, gate not passed: only an interactive login can renew the browser session. */
-function reauthFault(runId: string, envName: string) {
-  return new Fault(
-    'POST_DEPLOY_REAUTH_REQUIRED',
-    `Deployment ${runId} imported and verified the application, but required E2E reached the login page: the import ended the saved browser session. It is not succeeded yet.`,
-    4,
-    'blocked',
-    {
-      runId,
-      nextActions: [
-        `Ask the user to run \`apexrest test auth --env ${envName}\` in a local interactive terminal; never handle the password.`,
-        `Then run \`apexrest deploy verify --run ${runId}\` to rerun the required suites without importing again.`,
-        'Do not reapply the plan: another full import ends the renewed session again.',
-      ],
-    },
-  );
 }
 async function appendJournal(runDir: string, event: Record<string, unknown>) {
   const journal = await open(path.join(runDir, 'journal.jsonl'), 'a', 0o600);
@@ -564,13 +525,7 @@ async function appendJournal(runDir: string, event: Record<string, unknown>) {
   await writeJson(path.join(runDir, 'state.json'), event);
 }
 export class DeploymentService {
-  constructor(
-    private oracle = new OracleAdapter(),
-    private runTests?: (
-      ctx: ProjectContext,
-      env: string,
-    ) => Promise<{ ok: boolean; reauthRequired?: boolean; data: unknown }>,
-  ) {}
+  constructor(private oracle = new OracleAdapter()) {}
   async history(env: Environment, _connection: Connection) {
     // Migration history is local and durable; no Oracle control table is read.
     return new LocalDeploymentControl(env).history();
@@ -961,7 +916,7 @@ export class DeploymentService {
         migrationHistory: current.history,
         coordination: coordination(env),
         scope: 'selected-file-import',
-        operations: [{ kind: 'import' }, { kind: 'verify' }, { kind: 'test' }],
+        operations: [{ kind: 'import' }, { kind: 'verify' }],
         risks,
         approval: 'external-policy-required',
         backupRequired: true,
@@ -1078,7 +1033,7 @@ export class DeploymentService {
       }
     }
     operations.sort(operationOrder);
-    operations.push({ kind: 'import' }, { kind: 'verify' }, { kind: 'test' });
+    operations.push({ kind: 'import' }, { kind: 'verify' });
     const createdAt = Date.now();
     const plan: DeployPlan = {
       schemaVersion: 2,
@@ -1235,7 +1190,7 @@ export class DeploymentService {
       }
       expected.sort(operationOrder);
     }
-    expected.push({ kind: 'import' }, { kind: 'verify' }, { kind: 'test' });
+    expected.push({ kind: 'import' }, { kind: 'verify' });
     if (canonical(expected) !== canonical(plan.operations))
       throw new Fault(
         'PLAN_TAMPERED',
@@ -1634,24 +1589,6 @@ export class DeploymentService {
             await this.oracle.discardStage?.(observed.stage);
           }
         }
-        await record('testing');
-        if (ctx.config.tests.requiredSuites.length) {
-          if (!this.runTests)
-            throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
-          await this.checkLocal(ctx, plan, true);
-          const tests = await this.runTests(ctx, plan.environment);
-          if (!tests.ok && tests.reauthRequired) {
-            // Bind the resumable verification to the target exactly as this import left it.
-            await writeJson(path.join(runDir, 'reauth.json'), {
-              schemaVersion: 1,
-              postImport: await this.postImport(env, readConnection),
-              serverSnapshot,
-            });
-            throw reauthFault(runId, plan.environment);
-          }
-          if (!tests.ok)
-            throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
-        }
       } catch (error) {
         // The import itself was confirmed. An unexpected verification error is a
         // verification failure, not an unknown import outcome.
@@ -1704,8 +1641,7 @@ export class DeploymentService {
           );
         }
       }
-      const awaiting = !unknown && error instanceof Fault && error.code === 'POST_DEPLOY_REAUTH_REQUIRED';
-      await record(unknown ? 'outcome_unknown' : awaiting ? 'awaiting_reauth' : 'failed', {
+      await record(unknown ? 'outcome_unknown' : 'failed', {
         code: error instanceof Fault ? error.code : 'UNEXPECTED_FAILURE',
       });
       if (unknown)
@@ -1774,113 +1710,6 @@ export class DeploymentService {
         lastSuccessfulImport: { at: new Date().toISOString(), runId, snapshot },
       });
     });
-  }
-  /** What a resumed verification must still observe: identity, update metadata and local history. */
-  private async postImport(env: Environment, connection: Connection) {
-    const [target, metadata, history] = await Promise.all([
-      this.oracle.verifyTarget(env, connection),
-      this.oracle.applicationMetadata(env, connection),
-      this.history(env, connection),
-    ]);
-    return { target, metadata, history };
-  }
-  /**
-   * Resume a deployment that is awaiting re-authentication: after the user renews
-   * browser state interactively, rerun the same required suites against the target
-   * exactly as the import left it. Nothing is imported; the required gate is unchanged.
-   */
-  async resumeVerification(ctx: ProjectContext, runId: string, signal?: AbortSignal) {
-    parse(z.uuid(), runId);
-    return withLock(await contained(ctx.root, '.apexrest/composer/ownership.lock'), () =>
-      this.resumeLocked(ctx, runId, signal),
-    );
-  }
-  private async resumeLocked(ctx: ProjectContext, runId: string, signal?: AbortSignal) {
-    const runDir = await contained(ctx.root, '.apexrest/deployments/' + runId);
-    const plan = parse(deployPlanSchema, await readJson(path.join(runDir, 'plan.json'))),
-      env = environment(ctx, plan.environment);
-    const current = (await readJson(path.join(runDir, 'state.json'))) as { state?: unknown; runId?: unknown };
-    if (current.runId !== runId || current.state !== 'awaiting_reauth')
-      throw new Fault(
-        'DEPLOY_NOT_AWAITING_REAUTH',
-        `Deployment ${runId} is ${String(current.state)}; only a run awaiting re-authentication can resume verification.`,
-        5,
-        'conflict',
-      );
-    const pending = parse(reauthRecordSchema, await readJson(path.join(runDir, 'reauth.json')));
-    if (!this.runTests)
-      throw new Fault('TEST_RUNNER_REQUIRED', 'Required post-deploy tests are unavailable.', 3);
-    if (signal?.aborted)
-      throw new Fault('CANCELLED', 'Verification cancelled before it started.', 6, 'cancelled');
-    let state: DeployState = 'awaiting_reauth';
-    const record = async (nextState: DeployState, details: unknown = {}) => {
-      assertTransition(state, nextState);
-      state = nextState;
-      await appendJournal(runDir, {
-        runId,
-        planId: plan.id,
-        planDigest: plan.digest,
-        targetDigest: plan.targetDigest,
-        state,
-        at: new Date().toISOString(),
-        details,
-      });
-    };
-    const syncStore = new SyncStore(ctx, env, plan.environment);
-    const control = new LocalDeploymentControl(env);
-    // Serialize with any other runner on this schema while the suites execute.
-    await control.acquire(runId);
-    try {
-      const readConnection = await resolveConnection(env.readConnectionRef);
-      const observed = await this.postImport(env, readConnection);
-      if (canonical(observed) !== canonical(pending.postImport)) {
-        await record('failed', { code: 'TARGET_DRIFT' });
-        throw new Fault(
-          'TARGET_DRIFT',
-          'The target changed after the import that awaits re-authentication. Re-plan and apply again.',
-          5,
-        );
-      }
-      const working = await syncStore.read();
-      const owned = working?.importingRunId === runId ? working : null;
-      if (plan.schemaVersion !== 1 && plan.mode === 'working-copy' && owned?.status !== 'verification_failed')
-        throw new Fault(
-          'SYNC_BLOCKED',
-          'Working-copy ownership changed while awaiting re-authentication.',
-          5,
-        );
-      await record('testing');
-      const tests = await this.runTests(ctx, plan.environment);
-      if (!tests.ok && tests.reauthRequired) {
-        await record('awaiting_reauth', { code: 'POST_DEPLOY_REAUTH_REQUIRED' });
-        throw reauthFault(runId, plan.environment);
-      }
-      if (!tests.ok) {
-        await record('failed', { code: 'POST_DEPLOY_TEST_FAILED' });
-        throw new Fault('POST_DEPLOY_TEST_FAILED', 'Required post-deploy suites did not pass.', 1);
-      }
-      if (owned)
-        await this.completeWorkingCopy(
-          ctx,
-          plan,
-          env,
-          readConnection,
-          runId,
-          owned,
-          pending.postImport.target as Awaited<ReturnType<OracleAdapter['verifyTarget']>>,
-          pending.serverSnapshot,
-        );
-      await record('succeeded', { resumedAfterReauth: true });
-      return { runId, state, directory: runDir, tests: tests.data };
-    } catch (error) {
-      if ((state as DeployState) === 'testing')
-        await record('failed', { code: error instanceof Fault ? error.code : 'UNEXPECTED_FAILURE' }).catch(
-          () => {},
-        );
-      throw error;
-    } finally {
-      await control.release(runId).catch(() => {});
-    }
   }
   async reconcile(ctx: ProjectContext, runId: string) {
     parse(z.uuid(), runId);
@@ -1976,7 +1805,7 @@ export class DeploymentService {
       ...(typeof alias === 'string' && refName.safeParse(alias).success ? { alias } : {}),
     };
     plan.risks = ['application-restore'];
-    plan.operations = [{ kind: 'import' }, { kind: 'verify' }, { kind: 'test' }];
+    plan.operations = [{ kind: 'import' }, { kind: 'verify' }];
     plan.digest = planDigest(plan);
     return plan;
   }

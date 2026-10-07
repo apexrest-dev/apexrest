@@ -39,7 +39,7 @@ test('status snapshot preserves failed results and unknown workers, redacts secr
     result: { operation: 'apex.validate', status: 'failed', summary: 'password=hidden' },
   });
   await writeJson(path.join(ctx.root, '.apexrest/jobs', stale, 'state.json'), {
-    operation: 'test.run',
+    operation: 'apex.validate',
     status: 'running',
     updatedAt: new Date(0).toISOString(),
   });
@@ -81,16 +81,16 @@ test('status is read-only: no panel state is created, untrusted projects are rep
 test('legacy preferences are read safely and removed workflow settings never reach the snapshot', async (t) => {
   const { ctx, service } = await setup(t);
   await writeJson(path.join(ctx.root, '.apexrest/panel/preferences.json'), {
-    browserMode: 'external',
+    browserMode: 'host',
     executionMode: 'team',
     multiAgentEnabled: true,
     developers: 3,
     sandbox: 'workspace-write',
     timeoutSeconds: 3600,
   });
-  assert.deepEqual(await service.preferences(), { browserMode: 'external' });
+  assert.deepEqual(await service.preferences(), { browserMode: 'host' });
   const snapshot = await service.snapshot();
-  assert.deepEqual(snapshot.preferences, { browserMode: 'external' });
+  assert.deepEqual(snapshot.preferences, { browserMode: 'host' });
   assert.equal('teams' in snapshot, false);
   assert.equal('team' in snapshot, false);
   assert.equal('task' in snapshot, false);

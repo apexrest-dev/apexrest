@@ -22,7 +22,7 @@ claude plugin list
 
 For a local checkout (`git clone https://github.com/apexrest-dev/apexrest.git`), pass the checkout path to `marketplace add`. Start a new session after registration: hosts cache the skill and tool catalog. Neither route creates an `apexrest` shell command; see step 3.
 
-## 2. Install Java, SQLcl and browser tools
+## 2. Install Java and SQLcl
 
 In the new session, ask the agent to check your setup:
 
@@ -35,7 +35,7 @@ node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run -
 node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --accept-oracle-license --json
 ```
 
-Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html), before the second command; `--accept-oracle-license` records that separate consent. `--skip-browser` omits Playwright and Chromium; `--install-os-deps` is a separate, explicit permission for browser system packages. Tools install under `~/.apexrest` (or `APEXREST_HOME`). The managed SQLcl default is for 26.1; select the reviewed SQLcl 26.3 compiler separately for [26.2 partial imports](../../docs/apex-26.2.md#requirements).
+Read the preview, including the [Oracle terms](https://www.oracle.com/downloads/licenses/oracle-free-license.html), before the second command; `--accept-oracle-license` records that separate consent. Application verification uses the host in-app browser. Tools install under `~/.apexrest` (or `APEXREST_HOME`). The managed SQLcl default is for 26.1; select the reviewed SQLcl 26.3 compiler separately for [26.2 partial imports](../../docs/apex-26.2.md#requirements).
 
 ## 3. Optional: the `apexrest` command
 

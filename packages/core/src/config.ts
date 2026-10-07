@@ -14,7 +14,6 @@ export const relativePath = z
     (s) => !path.isAbsolute(s) && !s.split(/[\\/]/).includes('..') && !/[\x00-\x1f]/.test(s),
     'Expected a contained relative path',
   );
-export const suiteName = z.enum(['unit', 'sql', 'api', 'e2e']);
 export const environmentSchema = z.strictObject({
   kind: z.enum(['development', 'test', 'production']),
   readConnectionRef: refName,
@@ -34,18 +33,9 @@ export const projectSchema = z.strictObject({
   database: z.strictObject({
     migrationsDir: relativePath,
     packagesDir: relativePath,
-    testsDir: relativePath,
   }),
   toolchain: z.strictObject({ lockFile: relativePath, profile: z.enum(['26.1', '26.2']).optional() }),
   environments: z.record(refName, environmentSchema),
-  tests: z.strictObject({
-    unitDir: relativePath,
-    apiDir: relativePath,
-    e2eDir: relativePath,
-    requiredSuites: z.array(suiteName),
-    defaultBrowser: z.literal('chromium'),
-    mutationAllowedEnvironments: z.array(refName),
-  }),
   // Legacy local coordination is now the default; retained for old project files.
   deploymentControl: z.literal('local').optional(),
   composer: z.strictObject({ allowSourceOnly: z.boolean().default(false) }).optional(),
@@ -78,15 +68,20 @@ export async function loadProject(root: string): Promise<ProjectContext> {
       3,
       'not_configured',
     );
-  const config = parse(projectSchema, await readJson(file));
+  const value = (await readJson(file)) as Record<string, unknown>;
+  // Retired test settings are ignored when reading existing projects. New
+  // project files and published schemas contain no automated-suite settings.
+  const { tests: _tests, ...current } = value;
+  if (current.database && typeof current.database === 'object' && !Array.isArray(current.database)) {
+    const { testsDir: _testsDir, ...database } = current.database as Record<string, unknown>;
+    current.database = database;
+  }
+  const config = parse(projectSchema, current);
   for (const p of [
     config.application.sourceDir,
     ...Object.values(config.database),
     config.toolchain.lockFile,
     config.artifacts.directory,
-    config.tests.unitDir,
-    config.tests.apiDir,
-    config.tests.e2eDir,
   ])
     await contained(physical, p);
   return { root: physical, config };
@@ -116,7 +111,7 @@ export const policySchema = z.strictObject({
       projectRoot: z.string(),
       targetDigest: z.string().regex(/^[a-f0-9]{64}$/),
       expiresAt: z.iso.datetime(),
-      operations: z.array(z.enum(['deploy', 'test'])),
+      operations: z.array(z.literal('deploy')),
       planDigest: z
         .string()
         .regex(/^[a-f0-9]{64}$/)
@@ -136,7 +131,20 @@ export const policyFile = () => path.join(managedHome(), 'policy.json');
 export async function policy(): Promise<Policy> {
   const file = policyFile();
   return (await exists(file))
-    ? parse(policySchema, await readJson(file))
+    ? parse(
+        policySchema,
+        await readJson(file).then((value) => {
+          const current = value as { grants?: { operations?: unknown[] }[] };
+          if (Array.isArray(current.grants))
+            current.grants = current.grants.map((grant) => ({
+              ...grant,
+              ...(Array.isArray(grant.operations)
+                ? { operations: grant.operations.filter((operation) => operation !== 'test') }
+                : {}),
+            }));
+          return current;
+        }),
+      )
     : { schemaVersion: 1 as const, trustedProjects: [], grants: [] };
 }
 /** Atomically rewrite the user policy under its lock; unrelated entries are preserved. */

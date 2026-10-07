@@ -1,11 +1,11 @@
 # Host integration: Codex and Claude Code
 
-APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and eleven bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. Current host qualification requirements are listed in [next actions](next-actions.md).
+APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: five host-neutral skills and ten bounded MCP tools served by `runtime/mcp.mjs`. The host executes the user's task in the open conversation; APEXREST supplies deterministic Oracle/APEX operations through local stdio MCP and the equivalent CLI. Current host qualification requirements are listed in [next actions](next-actions.md).
 
 ## Ownership
 
 - The host owns the conversation, model, permissions, browser controls and any native collaboration.
-- APEXREST owns project configuration, pinned references and catalogs, Oracle adapters and the pooled SQLcl engine, deployment policy, test execution, recoverable jobs and the read-only status snapshot.
+- APEXREST owns project configuration, pinned references and catalogs, Oracle adapters and the pooled SQLcl engine, deployment policy, browser handoff, recoverable jobs and the read-only status snapshot.
 
 APEXREST does not start model sessions, choose models or maintain a parallel conversation context. There is no plugin work-start API, panel application, HTTP server or MCP UI resource. Request implementation through the [work skill](chat-workflow.md) and use the domain tools when an actual operation is needed.
 

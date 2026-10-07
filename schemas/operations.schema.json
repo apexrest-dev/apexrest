@@ -101,14 +101,6 @@
         "default": false,
         "type": "boolean"
       },
-      "skipBrowser": {
-        "default": false,
-        "type": "boolean"
-      },
-      "installOsDeps": {
-        "default": false,
-        "type": "boolean"
-      },
       "from": {
         "type": "string"
       },
@@ -164,14 +156,6 @@
         "type": "boolean"
       },
       "acceptOracleLicense": {
-        "default": false,
-        "type": "boolean"
-      },
-      "skipBrowser": {
-        "default": false,
-        "type": "boolean"
-      },
-      "installOsDeps": {
         "default": false,
         "type": "boolean"
       }
@@ -246,14 +230,6 @@
         "default": false,
         "type": "boolean"
       },
-      "skipBrowser": {
-        "default": false,
-        "type": "boolean"
-      },
-      "installOsDeps": {
-        "default": false,
-        "type": "boolean"
-      },
       "from": {
         "type": "string"
       },
@@ -314,14 +290,6 @@
         "type": "boolean"
       },
       "acceptOracleLicense": {
-        "default": false,
-        "type": "boolean"
-      },
-      "skipBrowser": {
-        "default": false,
-        "type": "boolean"
-      },
-      "installOsDeps": {
         "default": false,
         "type": "boolean"
       },
@@ -1150,78 +1118,6 @@
     ],
     "additionalProperties": false
   },
-  "test.run": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "project": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096
-      },
-      "suite": {
-        "type": "string",
-        "enum": [
-          "unit",
-          "sql",
-          "api",
-          "e2e",
-          "all"
-        ]
-      },
-      "env": {
-        "type": "string",
-        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
-      },
-      "headed": {
-        "default": false,
-        "type": "boolean"
-      }
-    },
-    "required": [
-      "suite"
-    ],
-    "additionalProperties": false
-  },
-  "test.report": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "project": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096
-      },
-      "run": {
-        "type": "string",
-        "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
-    },
-    "required": [
-      "run"
-    ],
-    "additionalProperties": false
-  },
-  "test.auth": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "project": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096
-      },
-      "env": {
-        "type": "string",
-        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
-      }
-    },
-    "required": [
-      "env"
-    ],
-    "additionalProperties": false
-  },
   "browser.open": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1239,8 +1135,7 @@
         "type": "string",
         "enum": [
           "codex",
-          "host",
-          "external"
+          "host"
         ]
       }
     },

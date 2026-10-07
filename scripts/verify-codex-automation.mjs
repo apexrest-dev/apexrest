@@ -29,7 +29,7 @@ const evidence = {
   timestamp: new Date().toISOString(),
   sourceDigest: await sourceDigest(),
   scope:
-    'Built stdio MCP and CLI with a disposable trusted existing-app project and three real local executions of one synthetic unit test. No model turn, Codex App Server, Oracle, application import, or browser verification. Byte sizes describe tool response text, not billed tokens.',
+    'Built stdio MCP and CLI with a disposable trusted existing-app project. No model turn, Codex App Server, Oracle, application import, or browser verification. Byte sizes describe tool response text, not billed tokens.',
   node: process.version,
   platform: process.platform,
   status: 'running',
@@ -40,7 +40,7 @@ const client = new Client({ name: 'codex-automation-verification', version: '1' 
 let connected = false;
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
 const call = async (name, args = {}, expectedOk = true) => {
-  assert.ok(evidence.calls.tools < 6, 'Runtime verification has a fixed six-call tool budget.');
+  assert.ok(evidence.calls.tools < 2, 'Runtime verification has a fixed two-call tool budget.');
   evidence.calls.tools++;
   evidence.calls.byTool[name] = (evidence.calls.byTool[name] ?? 0) + 1;
   const started = performance.now();
@@ -57,43 +57,6 @@ const call = async (name, args = {}, expectedOk = true) => {
     envelope,
     bytes: Buffer.byteLength(text, 'utf8'),
     elapsedMs: Math.round((performance.now() - started) * 100) / 100,
-  };
-};
-const testFile = path.join(project, 'tests/unit/arithmetic.test.mjs');
-const writeTest = (expected) =>
-  writeFile(
-    testFile,
-    `import test from 'node:test';
-import assert from 'node:assert/strict';
-test('synthetic worker fixture executes nonempty assertions', { timeout: 1500 }, () => {
-  const doubled = [1, 2, 3].map(value => value * 2);
-  assert.deepEqual(doubled, [2, 4, 6]);
-  assert.equal(doubled.reduce((sum, value) => sum + value, 0), ${expected});
-});
-`,
-  );
-const checkJob = async (response, passed) => {
-  const job = response.envelope.data;
-  // A worker records the operation outcome: a failed suite is a terminal
-  // 'failed' job with its nested result (packages/core/src/jobs.ts jobOutcome).
-  assert.equal(job.status, passed ? 'completed' : 'failed');
-  assert.match(job.jobId ?? job.id, /^[0-9a-f-]{36}$/);
-  assert.equal(job.result.ok, passed);
-  assert.equal(job.result.data.status, passed ? 'passed' : 'failed');
-  assert.equal(job.result.data.tests, 1);
-  assert.equal(job.result.data.failures, passed ? 0 : 1);
-  assert.equal(job.result.data.skipped, 0);
-  const request = await readJson(path.join(project, '.apexrest/jobs', job.jobId ?? job.id, 'request.json'));
-  assert.equal(request.input.waitSeconds, undefined);
-  return {
-    status: job.status,
-    resultOk: job.result.ok,
-    suiteStatus: job.result.data.status,
-    tests: job.result.data.tests,
-    failures: job.result.data.failures,
-    skipped: job.result.data.skipped,
-    resultTextBytes: response.bytes,
-    elapsedMs: response.elapsedMs,
   };
 };
 
@@ -141,13 +104,12 @@ process.exit(99);
   connected = true;
   evidence.calls.listTools++;
   const catalog = await client.listTools();
-  // The 2026-10-04 redesign: eleven tools; apex.validate runs in-process and
+  // The 2026-10-04 redesign: ten tools; apex.validate runs in-process and
   // apexrest_ship waits longer than the job tools (packages/mcp/src/job-tools.ts).
-  assert.equal(catalog.tools.length, 11);
+  assert.equal(catalog.tools.length, 10);
   const longTools = {
     apexrest_apex_sync: { maximum: 30, default: 25 },
-    apexrest_test_run: { maximum: 30, default: 25 },
-    apexrest_ship: { maximum: 120, default: 60 },
+    apexrest_ship: { maximum: 120, default: 25 },
   };
   for (const [name, wait] of Object.entries(longTools)) {
     const schema = catalog.tools.find((tool) => tool.name === name)?.inputSchema;
@@ -169,35 +131,9 @@ process.exit(99);
   evidence.catalog = {
     tools: catalog.tools.length,
     longToolsWithOptionalWait: Object.keys(longTools).length,
-    defaultWaitSeconds: { job: 25, ship: 60 },
+    defaultWaitSeconds: { job: 25, ship: 25 },
   };
   evidence.checks.push('real-stdio-catalog-and-optional-wait-schema');
-
-  await writeTest(12);
-  const success = await call('apexrest_test_run', { suite: 'unit' });
-  assert.equal(success.envelope.data.jobId, success.envelope.data.id);
-  evidence.completedSuccess = { toolCalls: 1, ...(await checkJob(success, true)) };
-  await writeTest(13);
-  const failure = await call('apexrest_test_run', { suite: 'unit' }, false);
-  assert.equal(failure.envelope.data.jobId, failure.envelope.data.id);
-  evidence.completedFailure = { toolCalls: 1, ...(await checkJob(failure, false)) };
-  await writeTest(12);
-  const queued = await call('apexrest_test_run', { suite: 'unit', waitSeconds: 0 });
-  assert.equal(queued.envelope.data.status, 'queued');
-  const waited = await call('apexrest_job', {
-    action: 'status',
-    jobId: queued.envelope.data.jobId,
-    waitSeconds: 25,
-  });
-  assert.equal(waited.envelope.data.id, queued.envelope.data.jobId);
-  evidence.immediateQueueCompatibility = { toolCalls: 2, ...(await checkJob(waited, true)) };
-  assert.equal((await readdir(path.join(project, '.apexrest/jobs'))).length, 3);
-  evidence.checks.push(
-    'completed-success-in-one-call',
-    'nested-failure-in-one-call',
-    'queue-zero-and-existing-job-wait',
-    'exactly-three-workers-and-no-wait-field-in-domain-input',
-  );
 
   const source = path.join(project, 'src/apex/automation-fixture');
   await mkdir(source, { recursive: true });
@@ -227,7 +163,7 @@ process.exit(99);
   evidence.checks.push('summary-without-source-hashes-versus-full-inventory');
   assert.equal(await readFile(forbidden, 'utf8').catch(() => null), null);
   evidence.checks.push('no-codex-app-server-or-sqlcl-execution');
-  assert.equal(evidence.calls.tools, 6);
+  assert.equal(evidence.calls.tools, 2);
   evidence.status = 'passed';
 } catch (error) {
   evidence.status = 'failed';

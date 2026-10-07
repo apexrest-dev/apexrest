@@ -70,11 +70,10 @@ export function listTools(): Tool[] {
     },
   }));
 }
-/** Remote suites may mutate the database: keep them in a detached worker. */
-export function detachedJob(operation: Operation, input: Record<string, unknown>) {
+/** Database writes remain in a detached worker. */
+export function detachedJob(operation: Operation, _input: Record<string, unknown>) {
   const tool = toolCatalog.find((t) => t.operation === operation);
-  if (tool?.worker) return true;
-  return operation === 'test.run' && input.suite !== 'unit';
+  return tool?.worker ?? false;
 }
 
 export async function startMcp() {

@@ -23,18 +23,10 @@ test('relocated offline Composer stays CLI-only with exact local materialization
     schemaVersion: 1,
     projectId: 'clean-composer',
     application: { sourceDir: 'app', alias: 'composer' },
-    database: { migrationsDir: 'db/migrations', packagesDir: 'db/packages', testsDir: 'tests/sql' },
+    database: { migrationsDir: 'db/migrations', packagesDir: 'db/packages' },
     toolchain: { lockFile: 'toolchain.json' },
     environments: {},
     composer: { allowSourceOnly: true },
-    tests: {
-      unitDir: 'tests/unit',
-      apiDir: 'tests/api',
-      e2eDir: 'tests/e2e',
-      requiredSuites: [],
-      defaultBrowser: 'chromium',
-      mutationAllowedEnvironments: [],
-    },
     artifacts: { directory: '.apexrest/artifacts', retentionDays: 7 },
   });
   await json(path.join(project, 'toolchain.json'), {

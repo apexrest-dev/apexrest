@@ -8,7 +8,7 @@
 
 Oracle APEX is a platform for building business web applications (forms, dashboards, reports and internal tools) on Oracle Database. APEXREST is a plugin for coding agents: a request such as "add an order status report" becomes APEXlang source changes, a real Oracle compiler check, a reviewed deployment plan, an authorized import into a development or test application and a browser check of the result.
 
-The plugin provides five skills and eleven MCP tools backed by one runtime that runs Oracle SQLcl. The same bundle installs into Codex (desktop and CLI) and Claude Code, and the `apexrest` CLI exposes the same operations for scripts and Codex Cloud.
+The plugin provides five skills and ten MCP tools backed by one runtime that runs Oracle SQLcl. The same bundle installs into Codex (desktop and CLI) and Claude Code, and the `apexrest` CLI exposes the same operations for scripts and Codex Cloud.
 
 [APEX 26.2 partial imports](docs/apex-26.2.md) · [Get started](docs/getting-started.md) · [Documentation](docs/index.md) · [Deployment safety](docs/deployment-safety.md) · [Verification status](docs/implementation-status.md)
 
@@ -70,39 +70,38 @@ Describe the change in the conversation or invoke the work skill: `$apexrest-wor
 3. **Edit** `.apx` files under the application source directory, keeping `.apex/apexlang.json`, Oracle IDs, authentication and authorization.
 4. **Validate** with `apexrest_apex_validate` until `diagnostics` is empty; each diagnostic names the file, line, column, type and a hint.
 5. **Plan** with `apexrest_ship` `mode:plan`, `env` and `userRequest` (your literal instruction); review `risks`, `sources`, `target` and `importSelection`. Use `importMode:auto`, or `files` with exact paths; inspect the resolved mode and any full-import reasons.
-6. **Apply** with `apexrest_ship` `mode:apply`, keeping the same `importMode`, `files` (when selected) and `userRequest`. Apply prepares a fresh plan before execution; use granular `deploy apply` to consume a specific saved plan. Your request must identify the dev/test application to change. The runtime records a deploy grant bound to that plan, backs up, imports, verifies, runs required suites and removes the grant. If the call is still running after `waitSeconds`, the agent reads `apexrest_job` with the returned `jobId` instead of rerunning.
-7. **Verify** visibly changed pages: `apexrest_browser_open` returns the URL, then the agent opens it with the selected browser (`host` in-app browser of Codex or Claude Code, legacy alias `codex`, or `external` system browser) and checks rendering, navigation and the changed interaction.
+6. **Apply** with `apexrest_ship` `mode:apply`, keeping the same `importMode`, `files` (when selected) and `userRequest`. Apply prepares a fresh plan before execution; use granular `deploy apply` to consume a specific saved plan. Your request must identify the dev/test application to change. The runtime records a deploy grant bound to that plan, backs up, imports, verifies and removes the grant. If the call is still running after `waitSeconds`, the agent reads `apexrest_job` with the returned `jobId` instead of rerunning.
+7. **Verify** visibly changed pages: `apexrest_browser_open` returns the URL, then the agent opens it with the selected browser (`host`, legacy alias `codex`) and checks rendering, navigation and the changed interaction.
 8. **Report** files changed, validation result, ship status and `runId`, pages verified in the browser, and anything not verified with its reason.
 
 An explicit request to create, update or import an identified development/test application is the authorization for step 6; the agent does not ask again. Production targets refuse `mode:apply` and need a signed external approval on a protected runner ([production approval](docs/deployment-safety.md#production-approval)). Blocked, failed or unknown outcomes follow `$apexrest-safety`; missing tools or connections follow `$apexrest-setup`.
 
 ## Tools
 
-| Tool                     | Purpose                                                                                                                                                                |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through `passwordFile`                                              |
-| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search` (any-term EN/UK ranking, top hit with its code block) and `mode:read`             |
-| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                        |
-| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                   |
-| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports, verifies and tests in a detached worker (phases `backing_up` → `testing`) |
-| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                            |
-| `apexrest_test_run`      | `unit` locally; `sql`, `api`, `e2e` or `all` against a configured non-production environment                                                                           |
-| `apexrest_browser_open`  | Resolve the configured application URL for the `host` (alias `codex`) or `external` verification browser; opening is not verification                                  |
-| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                     |
-| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                       |
-| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)   |
+| Tool                     | Purpose                                                                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through `passwordFile`                                            |
+| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search` (any-term EN/UK ranking, top hit with its code block) and `mode:read`           |
+| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                      |
+| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                 |
+| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker (phases `backing_up` → `verifying`)    |
+| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                          |
+| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                      |
+| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                   |
+| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                     |
+| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants) |
 
-Validation, planning, references, metadata, sync and local unit tests run inside the MCP server process on a pooled SQLcl engine; only `ship` apply and remote test suites run in a detached worker so a database write survives host termination. The tool catalog is about 12 KB. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `test`, `jobs`, `compose`, `sqlcl`, `dependencies`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
+Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine; `ship` apply runs in a detached worker so a database write survives host termination. The tool catalog is about 12 KB. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
 
 ## Skills
 
-| Skill                      | Use                                                                                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apexrest-work`            | Create or change an application end to end: the eight-step cycle above                                                                             |
-| `apexrest-apexlang`        | Write or edit APEXlang with pinned Oracle references, component and pattern recipes, contract notes and compiler validation                        |
-| `apexrest-safety`          | Authorization, trust, plan drift, unknown outcomes and test policy when `apexrest_ship`, `apexrest_test_run` or `apexrest_job` is blocked or fails |
-| `apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot                              |
-| `apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                                                   |
+| Skill                      | Use                                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest-work`            | Create or change an application end to end: the eight-step cycle above                                                      |
+| `apexrest-apexlang`        | Write or edit APEXlang with pinned Oracle references, component and pattern recipes, contract notes and compiler validation |
+| `apexrest-safety`          | Authorization, trust, plan drift, unknown outcomes when `apexrest_ship` or `apexrest_job` is blocked or fails               |
+| `apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot       |
+| `apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                            |
 
 Invoke a skill as `$apexrest-work` in Codex or `/apexrest:apexrest-work` in Claude Code, or describe the change and let the host select it. The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Bundled offline catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](docs/component-catalog.md)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](docs/pattern-catalog.md)). Compiler readiness does not imply SQL, import or browser verification.
 
@@ -151,7 +150,7 @@ After source, skill or resource changes, run `npm run plugin:sync` to refresh th
 
 - [Getting started](docs/getting-started.md): install in Codex or Claude Code, connect, create or adopt, ship and verify.
 - [Configuration](docs/configuration.md): environments, connection references, trust policy and deployment coordination.
-- [Testing](docs/testing.md): local checks, suites and the browser verification rule.
+- [Testing](docs/testing.md): repository checks and the browser verification rule.
 - [Codex Cloud](docs/codex-cloud.md): container setup, CLI over ORDS, secrets and proxies.
 - [Architecture](docs/architecture.md): one core behind the CLI, MCP and skills.
 - [Troubleshooting](docs/troubleshooting.md): setup, compiler, authorization and recovery diagnostics.

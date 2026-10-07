@@ -39,7 +39,7 @@ import {
   securityAttributes,
   sqlclControlLines,
 } from '../../packages/core/src/deploy.ts';
-import { qualityGate, parseJUnit, allowedOrigin } from '../../packages/core/src/testing.ts';
+import { allowedOrigin } from '../../packages/core/src/browser.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
 import { schemas, toolCatalog } from '../../packages/core/src/operations.ts';
 import { dispatch } from '../../packages/core/src/service.ts';
@@ -200,28 +200,7 @@ test('migration policy flags destructive or privileged changes', () => {
   assert.ok(migrationRisk('truncate table t').length);
   assert.ok(migrationRisk('grant dba to app').length);
 });
-test('empty, skipped, absent and blocked required tests never pass quality gate', () => {
-  for (const status of ['empty', 'not_configured', 'blocked', 'dependency_missing'] as const)
-    assert.equal(qualityGate([{ suite: 'sql', status, tests: 0, failures: 0, skipped: 0 }], ['sql']), false);
-  assert.equal(qualityGate([], ['e2e']), false);
-  assert.equal(
-    qualityGate([{ suite: 'sql', status: 'passed', tests: 2, failures: 0, skipped: 1 }], ['sql']),
-    false,
-  );
-  assert.equal(
-    qualityGate([{ suite: 'sql', status: 'passed', tests: 2, failures: 0, skipped: 0 }], ['sql']),
-    true,
-  );
-});
-test('JUnit counts actual testcases and failure/skipped nodes', () => {
-  assert.deepEqual(
-    parseJUnit(
-      '<testsuite><testcase name="a"/><testcase name="b"><failure/></testcase><testcase name="c"><skipped/></testcase></testsuite>',
-    ),
-    { tests: 3, failures: 1, skipped: 1 },
-  );
-  assert.throws(() => parseJUnit('<!DOCTYPE x><testcase/>'));
-});
+
 test('HTTP origin policy blocks credential URLs, invalid targets, plaintext and redirects', () => {
   for (const url of [
     'https://user:pass@example.test',
@@ -258,9 +237,12 @@ test('filesystem lock excludes concurrent setup and releases on error', async ()
   assert.equal(await withLock(lock, async () => 42), 42);
 });
 test('catalog stays bounded with strict schemas and no generic execution tool', () => {
-  assert.equal(toolCatalog.length, 11);
+  assert.equal(toolCatalog.length, 10);
   assert.ok(toolCatalog.every((t) => !/(shell|any_sql|any_file)/.test(t.name)));
-  assert.equal(toolCatalog.find((t) => t.operation === 'test.run')!.readOnly, false);
+  assert.equal(
+    toolCatalog.find((t) => t.name === 'apexrest_test_run'),
+    undefined,
+  );
   assert.equal(toolCatalog.find((t) => t.operation === 'apex.validate')!.readOnly, true);
   assert.deepEqual(
     toolCatalog.filter((t) => t.destructive).map((t) => t.name),

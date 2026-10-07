@@ -1,6 +1,6 @@
 ---
 name: apexrest-safety
-description: Deployment, test, production and unknown-outcome policy for APEXREST. Read when apexrest_ship, apexrest_test_run or apexrest_job returns blocked, failed or outcome_unknown, or before any production or database change.
+description: Deployment, verification, production and unknown-outcome policy for APEXREST. Read when apexrest_ship or apexrest_job returns blocked, failed or outcome_unknown, or before any production or database change.
 ---
 
 # Safety policy
@@ -13,6 +13,6 @@ Plans. A plan expires after 30 minutes and binds sources, configuration, toolcha
 
 Unknown outcomes. `outcome_unknown`, `OUTCOME_UNKNOWN`, an expired heartbeat or a lost import response mean the database may have changed. Do not retry, cancel or clear ownership. Read `apexrest_job` `action:status` for the same `jobId`, then reconcile with the CLI `deploy status --run RUNID` before any new plan. Cancellation never implies rollback. Backups under `.apexrest/backups` restore application metadata only through a separate restore plan.
 
-Tests. Required suites fail when absent, empty, skipped or blocked; never relabel them as passed. Remote suites (sql, api, e2e) mutate data and need a non-production environment listed in `mutationAllowedEnvironments` plus a user test grant. Application-only page changes are verified by the compiler, their read-only source queries and the browser; do not install utPLSQL or add empty suites just to import a page. Changing an established required-suite scope needs user authorization.
+Verification. Compile with Oracle, reconcile authorized read-only source/metadata queries and inspect changed pages with the host in-app browser. The plugin runs no automatic application test suites and installs no browser. Import success does not prove rendering, navigation, validation or CRUD behavior; report missing browser checks with their reason.
 
 Evidence. Separate implemented code, fixture results, real Oracle results and browser observations. Report blockers with their fault code and `nextActions`; never describe a partial or unverified change as complete. Secrets never travel through chat, tool input or evidence.

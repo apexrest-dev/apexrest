@@ -11,7 +11,7 @@ import { Fault, failure } from './result.ts';
 export const JOB_WAIT_MAX_SECONDS = 120;
 /** Work the worker reports while a job runs; informative only, never an outcome. */
 export type JobPhase =
-  'validating' | 'planning' | 'backing_up' | 'migrating' | 'importing' | 'verifying' | 'testing' | 'syncing';
+  'validating' | 'planning' | 'backing_up' | 'migrating' | 'importing' | 'verifying' | 'syncing';
 export type JobExecutor = (
   op: string,
   input: Record<string, unknown>,
@@ -28,7 +28,6 @@ export const jobOperations = [
   'deploy.plan',
   'deploy.apply',
   'ship.apply',
-  'test.run',
 ];
 export class JobService {
   constructor(private ctx: ProjectContext) {}

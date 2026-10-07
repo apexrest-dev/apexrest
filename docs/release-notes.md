@@ -2,9 +2,9 @@
 
 ## Source bundle 2.0.0
 
-The repository bundle supports Codex and Claude Code with five skills and eleven MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
+The repository bundle supports Codex and Claude Code with five skills and ten MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
-Full imports can end APEX sessions. Required E2E remains blocked until the user renews authentication; `apexrest deploy verify --run UUID` reruns verification without importing. See [testing](testing.md#sessions-ended-by-a-full-import).
+Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
 
 ## Upgrade a working copy
 

@@ -15,7 +15,6 @@ import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService } from './deploy.ts';
-import { TestService } from './testing.ts';
 import { ArtifactService } from './artifacts.ts';
 import { JobService, type JobPhase } from './jobs.ts';
 import { sandboxAction } from './sandbox.ts';
@@ -136,14 +135,8 @@ export async function dispatch(
       );
       return { ...result, operation };
     }
-    const oracle = await sharedOracle(),
-      tests = new TestService(oracle),
-      testReports: unknown[] = [],
-      deployment = new DeploymentService(oracle, async (ctx, env) => {
-        const report = await tests.all(ctx, env);
-        testReports.push(report.data);
-        return report;
-      });
+    const oracle = await sharedOracle();
+    const deployment = new DeploymentService(oracle);
     let data: unknown;
     switch (operation) {
       case 'panel.status':
@@ -345,7 +338,6 @@ export async function dispatch(
               planned.plan,
               text('userRequest'),
               deployment,
-              () => testReports.at(-1),
               signal,
               progress,
             );
@@ -363,7 +355,6 @@ export async function dispatch(
               await readJson(await contained(ctx.root, text('plan'))),
               text('userRequest'),
               deployment,
-              () => testReports.at(-1),
               signal,
               progress,
             );
@@ -423,11 +414,6 @@ export async function dispatch(
             await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text('run'));
             break;
-          case 'deploy.verify':
-            // Resumes a run awaiting re-authentication: reruns required suites, never imports.
-            await requireTrust(ctx.root);
-            data = await deployment.resumeVerification(ctx, text('run'), signal);
-            break;
           case 'deploy.restore-plan': {
             await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text('backup'));
@@ -435,67 +421,12 @@ export async function dispatch(
             data = plan;
             break;
           }
-          case 'test.run': {
-            const suite = text('suite');
-            if (suite === 'all') {
-              if (!parsed.env) throw new Fault('ENVIRONMENT_REQUIRED', 'test all requires --env.', 2);
-              const result = await tests.all(ctx, text('env'), signal);
-              data = result.data;
-              if (!result.ok)
-                return {
-                  ...failure(operation, new Fault('QUALITY_GATE_FAILED', 'Required suites did not pass.', 1)),
-                  data,
-                };
-            } else {
-              const result = await tests.run(
-                ctx,
-                suite as 'unit' | 'sql' | 'api' | 'e2e',
-                text('env'),
-                signal,
-                Boolean(parsed.headed),
-              );
-              data = result;
-              if (result.reason === 'reauth_required')
-                return {
-                  ...failure(
-                    operation,
-                    new Fault('TEST_REAUTH_REQUIRED', result.diagnostic!, 4, 'blocked', {
-                      nextActions: [
-                        `Ask the user to run \`apexrest test auth --env ${text('env')}\` in a local interactive terminal; never handle the password.`,
-                      ],
-                    }),
-                  ),
-                  data,
-                };
-              if (result.status !== 'passed')
-                return {
-                  ...failure(
-                    operation,
-                    new Fault(
-                      'TEST_' + result.status.toUpperCase(),
-                      result.diagnostic ?? `Suite is ${result.status}.`,
-                      result.status === 'failed' ? 1 : 3,
-                      result.status,
-                    ),
-                  ),
-                  data,
-                };
-            }
-            break;
-          }
-          case 'test.report':
-            data = await readJson(await contained(ctx.root, '.apexrest/test-runs/' + text('run') + '.json'));
-            break;
-          case 'test.auth':
-            data = await tests.auth(ctx, text('env'));
-            break;
           case 'browser.open': {
             const { openVerificationBrowser } = await import('./browser.ts');
             data = await openVerificationBrowser(
               ctx,
               text('env'),
-              undefined,
-              parsed.browserMode as 'codex' | 'host' | 'external' | undefined,
+              parsed.browserMode as 'codex' | 'host' | undefined,
             );
             break;
           }

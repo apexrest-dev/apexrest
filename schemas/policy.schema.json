@@ -33,10 +33,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "deploy",
-                "test"
-              ]
+              "const": "deploy"
             }
           },
           "planDigest": {

@@ -43,7 +43,9 @@ export async function doctor() {
       version: process.version,
       baseline: process.versions.node.split('.')[0] === '24',
     },
-    managedComponents: state.components,
+    managedComponents: Object.fromEntries(
+      Object.entries(state.components).filter(([name]) => ['node', 'java', 'sqlcl', 'mcp'].includes(name)),
+    ),
     sqlcl: await sqlclConfig(),
     probes,
     database: 'not-configured',

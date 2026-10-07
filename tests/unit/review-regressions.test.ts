@@ -62,30 +62,6 @@ test('truncated UTF-8 output never inserts a replacement character', async () =>
   assert.equal(result.stdout, 'Ї');
 });
 
-test('required remote tests refuse ship before grant or import without widening authorization', async (t) => {
-  const f = await workingCopyFixture();
-  t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
-  f.ctx.config.tests.requiredSuites = ['sql', 'api', 'e2e'];
-  const plan = await f.service.plan(f.ctx, 'dev');
-  await updatePolicy((p) => ({ ...p, grants: p.grants.map((g) => ({ ...g, operations: ['deploy'] })) }));
-  const before = await policy();
-  await assert.rejects(checkShipTarget(f.ctx, plan), { code: 'TEST_APPROVAL_REQUIRED' });
-  assert.deepEqual(await policy(), before);
-  assert.ok(!f.calls.includes('import'));
-  await updatePolicy((p) => ({
-    ...p,
-    grants: p.grants.map((g) => ({ ...g, operations: ['deploy', 'test'] })),
-  }));
-  f.ctx.config.tests.mutationAllowedEnvironments = [];
-  await assert.rejects(checkShipTarget(f.ctx, plan), { code: 'TEST_APPROVAL_REQUIRED' });
-  f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
-  f.ctx.config.tests.mutationAllowedEnvironments = ['dev'];
-  await checkShipTarget(f.ctx, plan);
-  // Unit-only projects have no remote test authorization requirement.
-  f.ctx.config.tests.requiredSuites = ['unit'];
-  await checkShipTarget(f.ctx, plan);
-});
-
 test('expired and dead-worker ship grants are reconciled without deleting user grants', async (t) => {
   const f = await workingCopyFixture();
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));

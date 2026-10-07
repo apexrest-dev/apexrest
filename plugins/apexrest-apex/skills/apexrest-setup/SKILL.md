@@ -1,6 +1,6 @@
 ---
 name: apexrest-setup
-description: Check and set up the APEXREST toolchain and connections - doctor, Node/Java/SQLcl/Playwright dependencies, SQLcl mode and ORDS transport, connection references and the project status snapshot. Use for setup, missing tools or connection onboarding.
+description: Check and set up the APEXREST toolchain and connections - doctor, Node/Java/SQLcl dependencies, SQLcl mode and ORDS transport, connection references and the project status snapshot. Use for setup, missing tools or connection onboarding.
 ---
 
 # Setup
@@ -14,12 +14,12 @@ node "<plugin-root>/runtime/apexrest.mjs" dependencies install --dry-run --json
 node "<plugin-root>/runtime/apexrest.mjs" dependencies install --yes --json
 ```
 
-Preview first and summarize versions, destinations and license requirements. Add `--accept-oracle-license` only after the user accepted the Oracle terms linked in the preview; `--skip-browser` omits Playwright/Chromium; `--install-os-deps` needs explicit authorization. Use the pinned lockfile versions only. Rerun the doctor afterwards; with a custom `--home`, set `APEXREST_HOME` for the CLI and, before starting the host, the MCP process.
+Preview first and summarize versions, destinations and license requirements. Add `--accept-oracle-license` only after the user accepted the Oracle terms linked in the preview. Use the pinned lockfile versions only. Rerun the doctor afterwards; with a custom `--home`, set `APEXREST_HOME` for the CLI and, before starting the host, the MCP process.
 
 SQLcl backend. `apexrest sqlcl configure --mode cli|mcp --database-transport direct|ords --json`; `sqlcl status --json` reads it. ORDS requires `cli` mode and plugin-level connection credentials ([ORDS notes](references/ords.md)). Never silently retry through the other backend or transport.
 
 Connections. `apexrest_project` `action:connection_add` with `name` plus either `sqlclName` (saved SQLcl connection) or `ordsUrl` and `ordsUsername` with `passwordFile` (a private local file). `action:connection_list` and `action:connection_test` check references. Never ask for or relay passwords in chat; each environment in `apexrest.json` needs `readConnectionRef` and `deployConnectionRef`, the workspace, parsing schema, application ID, base URL and database identity. Ask only for missing non-secret values; never infer production.
 
-Project status. `apexrest_status` `detail:project` returns one read-only snapshot: configuration, SQLcl settings, connection references without secrets, browser preference (`.apexrest/panel/preferences.json`, `browserMode: host|external`; `codex` = `host`), Git changes, sync state, recent jobs and deployments, and active grants. `trusted: false` or `configured: false` are findings; trust is granted by the user in `APEXREST_HOME/policy.json`.
+Project status. `apexrest_status` `detail:project` returns one read-only snapshot: configuration, SQLcl settings, connection references without secrets, browser preference (`.apexrest/panel/preferences.json`, `browserMode: host|codex`; `codex` = `host`), Git changes, sync state, recent jobs and deployments, and active grants. `trusted: false` or `configured: false` are findings; trust is granted by the user in `APEXREST_HOME/policy.json`.
 
-A clean supported APEX installation is enough: APEXREST service tables and utPLSQL are not prerequisites. After reinstalling the plugin, start a new host session. Implementation continues in [work](../apexrest-work/SKILL.md).
+A clean supported APEX installation is enough: APEXREST service tables are not prerequisites. After reinstalling the plugin, start a new host session. Implementation continues in [work](../apexrest-work/SKILL.md).

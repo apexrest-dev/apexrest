@@ -13,7 +13,7 @@ export async function fixture() {
     schemaVersion: 1,
     projectId: 'fixture',
     application: { sourceDir: 'src/apex/app', alias: 'fixture' },
-    database: { migrationsDir: 'src/db/migrations', packagesDir: 'src/db/packages', testsDir: 'tests/sql' },
+    database: { migrationsDir: 'src/db/migrations', packagesDir: 'src/db/packages' },
     toolchain: { lockFile: 'toolchain.json' },
     environments: {
       dev: {
@@ -26,14 +26,6 @@ export async function fixture() {
         baseUrl: 'https://test.example.invalid/ords/',
         databaseIdentity: { dbUniqueName: 'fixture', serviceName: 'fixture' },
       },
-    },
-    tests: {
-      unitDir: 'tests/unit',
-      apiDir: 'tests/api',
-      e2eDir: 'tests/e2e',
-      requiredSuites: ['sql', 'e2e'],
-      defaultBrowser: 'chromium',
-      mutationAllowedEnvironments: ['dev'],
     },
     artifacts: { directory: '.apexrest/artifacts', retentionDays: 7 },
   });
@@ -62,7 +54,7 @@ export async function fixture() {
     migrationHistory: [],
     coordination: coordination(config.environments.dev!),
     scope: 'full-application-import',
-    operations: [{ kind: 'import' }, { kind: 'verify' }, { kind: 'test' }],
+    operations: [{ kind: 'import' }, { kind: 'verify' }],
     risks: [],
     approval: 'external-policy-required',
     backupRequired: false,

@@ -14,7 +14,7 @@ Change a page and its shared list of values, then import just those `.apx` files
 
 [Get started with partial imports](../../docs/apex-26.2.md#quick-start-from-an-updated-checkout) · [Compare import modes](../../docs/apex-26.2.md#choose-an-import-mode)
 
-Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides five skills and eleven MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Use the current source bundle for the features described here; see [release notes](../../docs/release-notes.md).
+Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest`) or Claude Code (`claude plugin marketplace add apexrest-dev/apexrest`), let it install Java and SQLcl, connect a development target and describe the change you want. The source repository provides five skills and ten MCP tools over a persistent SQLcl engine, plus the `apexrest` CLI. Use the current source bundle for the features described here; see [release notes](../../docs/release-notes.md).
 
 ![APEXREST connects an agent to native APEX source, Oracle validation, controlled deployment and verification](../../docs/assets/overview.svg)
 

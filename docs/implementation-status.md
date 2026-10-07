@@ -4,19 +4,19 @@ The current source and bundled plugin version is **2.0.0**. The current contract
 
 ## Implemented
 
-- Five skills and eleven composite MCP tools for Codex and Claude Code, backed by the same CLI/runtime and host manifests.
+- Five skills and ten composite MCP tools for Codex and Claude Code, backed by the same CLI/runtime and host manifests.
 - Oracle SQLcl generation/validation, pinned release-specific references, blank/CRM templates and an experimental local Composer CLI.
 - APEX 26.1 full imports and eligible APEX 26.2 selected-file imports through direct SQLcl CLI, with exact plan binding, fresh backups, three-way conflict checks, readback verification and durable checkpoints.
 - Local durable migration history and schema coordination. Independent machines or managed homes require external serialization.
-- Required-suite gates, read-only E2E session probing, the blocked `awaiting_reauth` state and import-free `deploy verify` after the user renews browser authentication.
+- Host in-app browser verification, separate from compiler and deployment completion. No automatic application test runners, saved browser-authentication state or browser-install steps. Dependencies are Node.js, Java and SQLcl.
 - Private named connections, project trust, scoped grants, redaction, bounded jobs/artifacts and recovery safeguards for unknown outcomes.
 - Offline component, pattern, block and blueprint discovery. Recipe/compiler qualification belongs to the functional catalog and does not establish deployed application behavior.
 
 ## Verification
 
-Run the relevant checks in [testing](testing.md) against the current source. Local unit, contract, installer, documentation and packaging checks establish their stated fixture/build behavior. Oracle compilation, connected imports/SQL tests, authenticated application browsing and fresh native model-host execution require separate checks on an authorized target. Missing or skipped required suites never count as passed.
+Run the relevant checks in [testing](testing.md) against the current source. Local unit, contract, installer, documentation and packaging checks establish their stated fixture/build behavior. Oracle compilation, connected imports, authenticated application browsing and fresh native model-host execution require separate checks on an authorized target. Browser checks are not inferred from compiler/import success.
 
-Current local checks pass: lint, typecheck, documentation links/commands, Composer catalog consistency, plugin integrity, site generation, release dry-run, 367 unit tests, 61 contracts, 46 installer tests and 27 packaging tests. One real SQLcl opt-in test is skipped. The installed repository CLI/stdio MCP smoke check passes; it does not execute a model-host session or connect to Oracle.
+Local source verification passed after removing application test runners: typecheck/lint, 355 unit tests (one skipped), 61 contracts, 44 installer checks and 27 packaging checks, plus documentation/site, bundle comparison and isolated installation/stdio checks. The local Codex installation was updated to 2.0.0 and its installed ten-tool catalog was verified; this conversation retains its previously loaded tools until a new session. On local APEX 26.2, compiler validation and current-runtime metadata batching succeeded. The host in-app browser verified authenticated invalid-email rejection, create, edit, search and deletion using a dedicated test account. CodeScan returned nine advisory findings; compiler success is not a security-audit pass. Current-version imports and fresh native model-host discovery remain unverified.
 
 Release readiness requires source-bound reports for every mandatory gate. Generated reports are private working output under ignored `docs/evidence/`; their absence blocks readiness. No connected or native-host result is inferred from a local build.
 

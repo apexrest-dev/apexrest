@@ -2,7 +2,7 @@
 
 ![APEXREST pencil and ruler symbol](assets/apexrest-logo.svg)
 
-APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, eleven MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. The current source bundle is 2.0.0 and supports APEX 26.2 partial imports. [Implementation status](implementation-status.md) separates implemented behavior from remaining connected, host and platform qualification.
+APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: five skills, ten MCP tools and the `apexrest` CLI over one runtime that runs Oracle SQLcl. The current source bundle is 2.0.0 and supports APEX 26.2 partial imports. [Implementation status](implementation-status.md) separates implemented behavior from remaining connected, host and platform qualification.
 
 ## APEX 26.2: partial imports
 
@@ -24,7 +24,7 @@ APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies O
 | Configure environments, connections and policy                 | [Configuration](configuration.md)                 |
 | Connect over HTTP(S) when the Oracle listener is unavailable   | [SQL through ORDS](ords.md)                       |
 | Learn the plan, grant, import and recovery model               | [Deployment safety](deployment-safety.md)         |
-| Read the read-only development status snapshot                 | [Development status](status.md)                    |
+| Read the read-only development status snapshot                 | [Development status](status.md)                   |
 | Deploy without service tables                                  | [Clean APEX deployment](clean-apex-deployment.md) |
 | Select the checks appropriate to a change, verify in a browser | [Testing](testing.md)                             |
 | Resolve setup, compiler, ship or job failures                  | [Troubleshooting](troubleshooting.md)             |

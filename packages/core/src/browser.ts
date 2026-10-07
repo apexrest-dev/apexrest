@@ -1,42 +1,28 @@
 import { environment, requireTrust, type ProjectContext } from './config.ts';
-import { allowedOrigin } from './testing.ts';
 import { browserPreferences, type BrowserMode } from './browser-preferences.ts';
-import { runProcess } from './process.ts';
 import { Fault } from './result.ts';
 
 export type { BrowserMode };
 
+export function allowedOrigin(url: string, origins: string[]) {
+  const u = new URL(url);
+  if (
+    !['https:', 'http:'].includes(u.protocol) ||
+    u.username ||
+    u.password ||
+    u.hostname.endsWith('.invalid') ||
+    (u.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) ||
+    !origins.includes(u.origin)
+  )
+    throw new Fault('ORIGIN_DENIED', 'The target origin is outside the configured allowlist.', 4);
+  return u;
+}
+
 export function browserInstructions(mode: BrowserMode) {
-  return (
-    `Interactive APEX verification browser: ${mode}. ` +
-    (mode === 'external'
-      ? "Use apexrest_browser_open for the explicit environment to open the system browser. Use available external-browser controls and the user's interactive SSO session. Do not substitute the host in-app browser."
-      : 'Use apexrest_browser_open for the explicit environment, then open its URL with the host-provided in-app browser controls (when available). Do not substitute an external browser.') +
-    ' Opening a URL is not verification. Inspect the affected interactions with controls for the selected browser; if those controls or authentication are unavailable, report the check as not_run and the exact limitation. Never read or copy browser profiles, cookies or credentials. Login is interactive, without login capture. Automated Playwright suites remain separate and do not inherit interactive-browser cookies.'
-  );
+  return `Interactive APEX verification browser: ${mode}. Use apexrest_browser_open for the explicit environment, then open its URL with the host-provided in-app browser controls (when available). Opening a URL is not verification. Inspect rendering, navigation, validation and changed interactions. If browser controls or authentication are unavailable, report the check as not_run with the exact limitation. Never read or copy browser profiles, cookies or credentials. Login is interactive, without login capture.`;
 }
 
-export function externalBrowserCommand(url: string, platform: NodeJS.Platform = process.platform) {
-  if (platform === 'darwin') return { executable: '/usr/bin/open', args: [url] };
-  if (platform === 'win32')
-    return {
-      executable: 'powershell.exe',
-      args: [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        "Start-Process -FilePath '" + url.replaceAll("'", "''") + "'",
-      ],
-    };
-  return { executable: 'xdg-open', args: [url] };
-}
-
-export async function openVerificationBrowser(
-  ctx: ProjectContext,
-  name: string,
-  launch = runProcess,
-  browserMode?: BrowserMode,
-) {
+export async function openVerificationBrowser(ctx: ProjectContext, name: string, browserMode?: BrowserMode) {
   await requireTrust(ctx.root);
   const target = environment(ctx, name);
   const url = allowedOrigin(target.baseUrl, [
@@ -51,14 +37,5 @@ export async function openVerificationBrowser(
     verified: false,
     nextAction: browserInstructions(mode),
   };
-  if (mode !== 'external') return { ...common, status: 'host_action_required' };
-  const result = await launch({ ...externalBrowserCommand(url), cwd: ctx.root, timeoutMs: 10000 });
-  if (result.code !== 0 || result.timedOut || result.cancelled)
-    throw new Fault(
-      'BROWSER_OPEN_FAILED',
-      'The system browser could not be opened. Check the local desktop session; no browser verification was performed.',
-      3,
-      'blocked',
-    );
-  return { ...common, status: 'opened' };
+  return { ...common, status: 'host_action_required' };
 }

@@ -1,10 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   canonicalHome,
-  managedHome,
   runtimeState
-} from "./chunk-PEPFC7UE.mjs";
-import "./chunk-JYN3YHP3.mjs";
+} from "./chunk-HPJ4JN65.mjs";
+import "./chunk-MVNCAJV3.mjs";
+import {
+  managedHome
+} from "./chunk-JM4SAWAH.mjs";
+import "./chunk-RCJG4YXR.mjs";
 import {
   Fault,
   exists,

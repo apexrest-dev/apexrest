@@ -41,17 +41,11 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 1024
-        },
-        "testsDir": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
         }
       },
       "required": [
         "migrationsDir",
-        "packagesDir",
-        "testsDir"
+        "packagesDir"
       ],
       "additionalProperties": false
     },
@@ -163,58 +157,6 @@
         "additionalProperties": false
       }
     },
-    "tests": {
-      "type": "object",
-      "properties": {
-        "unitDir": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "apiDir": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "e2eDir": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1024
-        },
-        "requiredSuites": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "unit",
-              "sql",
-              "api",
-              "e2e"
-            ]
-          }
-        },
-        "defaultBrowser": {
-          "type": "string",
-          "const": "chromium"
-        },
-        "mutationAllowedEnvironments": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
-          }
-        }
-      },
-      "required": [
-        "unitDir",
-        "apiDir",
-        "e2eDir",
-        "requiredSuites",
-        "defaultBrowser",
-        "mutationAllowedEnvironments"
-      ],
-      "additionalProperties": false
-    },
     "deploymentControl": {
       "type": "string",
       "const": "local"
@@ -260,7 +202,6 @@
     "database",
     "toolchain",
     "environments",
-    "tests",
     "artifacts"
   ],
   "additionalProperties": false

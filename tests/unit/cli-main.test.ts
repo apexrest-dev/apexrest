@@ -41,6 +41,9 @@ test('help for an unknown command fails with an input error instead of printing 
   for (const args of [
     ['bogus', '--help'],
     ['deploy', 'bogus', '-h'],
+    ['test', 'unit', '--help'],
+    ['test', 'auth', '--help'],
+    ['deploy', 'verify', '--help'],
   ]) {
     const result = run(...args);
     assert.equal(result.code, 2, args.join(' '));
@@ -49,15 +52,19 @@ test('help for an unknown command fails with an input error instead of printing 
     assert.equal(parsed.diagnostics[0].code, 'INVALID_INPUT');
     assert.match(parsed.summary, /Unknown command/);
   }
-  for (const args of [
-    ['--help'],
-    ['deploy', 'plan', '--help'],
-    ['deploy', '--help'],
-    ['test', 'unit', '--help'],
-  ]) {
+  for (const args of [['--help'], ['deploy', 'plan', '--help'], ['deploy', '--help']]) {
     const result = run(...args);
     assert.equal(result.code, 0, args.join(' '));
     assert.match(result.stdout, /^APEXREST for Codex/);
+  }
+});
+
+test('retired application test commands cannot execute project code', async (t) => {
+  const run = await cli(t);
+  for (const suite of ['unit', 'sql', 'api', 'e2e', 'all', 'auth', 'report']) {
+    const result = run('test', suite, '--json');
+    assert.equal(result.code, 2, suite);
+    assert.equal(JSON.parse(result.stdout).diagnostics[0].code, 'INVALID_INPUT');
   }
 });
 

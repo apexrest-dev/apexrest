@@ -37,7 +37,7 @@ test('Codex package declares native skills, local MCP and exclusive product rout
       );
   await assert.rejects(readFile('dist/portable/plugins/apexrest-apex/plugin.json'), { code: 'ENOENT' });
 });
-// The 2026-10-04 redesign: five skills and eleven MCP tools. Keep these lists in
+// The 2026-10-04 redesign: five skills and ten MCP tools. Keep these lists in
 // step with plugins/apexrest-apex/skills and packages/core/src/operations.ts.
 const expectedSkills = [
   'apexrest-apexlang',
@@ -53,7 +53,6 @@ const expectedTools = [
   'apexrest_apex_validate',
   'apexrest_ship',
   'apexrest_apex_sync',
-  'apexrest_test_run',
   'apexrest_browser_open',
   'apexrest_job',
   'apexrest_artifact_read',
@@ -163,6 +162,12 @@ test('npm tarball inventory ships both host manifests, the runtime and no remove
     ...expectedSkills.map((skill) => `dist/codex-compat/plugins/apexrest-apex/skills/${skill}/SKILL.md`),
   ])
     assert.ok(inventory.includes(file), file);
+  assert.ok(
+    !inventory.some((file) =>
+      /(?:^|\/)(?:playwright|testkit)(?:\/|$)|templates\/customer-crm\/project\/tests\//.test(file),
+    ),
+    'Application test runners and browser tooling must not ship',
+  );
   const shippedSkills = new Set(
     inventory
       .map(

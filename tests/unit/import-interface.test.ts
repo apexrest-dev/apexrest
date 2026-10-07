@@ -45,7 +45,7 @@ test('ship and deploy plan default to auto and require files only for explicit s
   }
 });
 
-test('MCP schema retains cross-field selection checks and the eleven-tool surface', () => {
+test('MCP schema retains cross-field selection checks and the ten-tool surface', () => {
   const schema = mcpSchemas.get('ship')!;
   const base = {
     // Windows requires a drive-letter or UNC path.
@@ -57,7 +57,7 @@ test('MCP schema retains cross-field selection checks and the eleven-tool surfac
   assert.equal(schema.safeParse({ ...base, importMode: 'full', files: ['pages/p00010.apx'] }).success, false);
   assert.equal(schema.safeParse({ ...base, importMode: 'files', files: ['pages/p00010.apx'] }).success, true);
   const tools = listTools();
-  assert.equal(tools.length, 11);
+  assert.equal(tools.length, 10);
   const ship = tools.find((tool) => tool.name === 'apexrest_ship')!;
   const properties = ship.inputSchema.properties as Record<string, Record<string, unknown>>;
   assert.equal(properties.importMode!.default, 'auto');

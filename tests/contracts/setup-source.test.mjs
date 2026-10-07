@@ -37,7 +37,6 @@ async function fixture(t) {
           'setup',
           '--dry-run',
           '--offline',
-          '--skip-browser',
           '--home',
           home,
           '--codex-home',

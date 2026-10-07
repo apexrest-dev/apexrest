@@ -114,8 +114,8 @@ if (JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).version !== process.arg
 }
 JS
 if [[ "$mode" == setup ]]; then
-  "$cloud_node" "$cli" dependencies install --skip-browser --dry-run --json
-  "$cloud_node" "$cli" dependencies install --skip-browser --yes --accept-oracle-license --json
+  "$cloud_node" "$cli" dependencies install --dry-run --json
+  "$cloud_node" "$cli" dependencies install --yes --accept-oracle-license --json
 fi
 "$cloud_node" "$script_dir/setup-java.mjs"
 export APEXREST_JAVA_HOME="$root/.codex/cloud/java"

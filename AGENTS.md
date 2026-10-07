@@ -18,7 +18,7 @@ Do not publish, tag, provision paid resources or mutate an existing database wit
 
 An explicit request to create, update or import an identified development/test APEX application authorizes its necessary import. Complete validation, plan, apply and runtime verification without requesting the same permission again. When required, record the user's authorization in a short-lived, exact-project/target/plan local deploy grant. Do not widen scope to business-table writes, authentication changes, other targets or production. Preserve backup, identity, drift, coordination and unknown-outcome safeguards; production requires protected external approval.
 
-For application-only changes, use appropriate Oracle compiler, real read-only source-query and in-app browser checks. Do not add unrelated empty SQL/E2E suites or install utPLSQL just to import a page. Preserve established required-suite scope unless the user authorizes a change. An authorized isolated application-only profile may declare no automated suites and record actual source/browser checks separately, never as passed automated tests.
+Application verification uses Oracle compiler validation, authorized read-only source/metadata checks and the host in-app browser. The plugin does not run automated application unit, SQL, API or UI suites and does not install a browser. Repository self-tests remain development checks. Deployment completion and browser verification are separate outcomes; never infer browser success from an import.
 
 # Browser verification
 

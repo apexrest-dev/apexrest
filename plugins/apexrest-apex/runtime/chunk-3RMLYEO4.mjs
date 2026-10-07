@@ -1,20 +1,16 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  ArtifactService,
   JobService,
   dispatch,
   schemas,
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-LPN557LW.mjs";
+} from "./chunk-SGHM6ZI6.mjs";
 import {
-  ArtifactService
-} from "./chunk-GKOCMBCK.mjs";
-import {
-  VERSION,
-  loadProject,
-  parse
-} from "./chunk-PEPFC7UE.mjs";
+  VERSION
+} from "./chunk-HPJ4JN65.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -38,13 +34,20 @@ import {
   SetLevelRequestSchema,
   assertClientRequestTaskCapability,
   assertToolsCallTaskCapability,
-  external_exports,
   getLiteralValue,
   getObjectShape,
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-JYN3YHP3.mjs";
+} from "./chunk-MVNCAJV3.mjs";
+import "./chunk-HMNYLOZZ.mjs";
+import {
+  loadProject,
+  parse
+} from "./chunk-JM4SAWAH.mjs";
+import {
+  external_exports
+} from "./chunk-RCJG4YXR.mjs";
 import {
   Fault,
   failure,
@@ -1068,10 +1071,9 @@ function listTools() {
     }
   }));
 }
-function detachedJob(operation, input) {
+function detachedJob(operation, _input) {
   const tool = toolCatalog.find((t) => t.operation === operation);
-  if (tool?.worker) return true;
-  return operation === "test.run" && input.suite !== "unit";
+  return tool?.worker ?? false;
 }
 async function startMcp() {
   const server = new Server({ name: "apexrest-apex", version: VERSION }, { capabilities: { tools: {} } });

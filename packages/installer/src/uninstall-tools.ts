@@ -65,7 +65,10 @@ export async function uninstallTools(request: Request) {
   const home = await canonicalHome(request.home ?? managedHome());
   await checkDirectory(home, home);
   const perform = async () => {
-    const state = await runtimeState(home);
+    const state = (await runtimeState(home)) as Awaited<ReturnType<typeof runtimeState>> & {
+      playwright?: string;
+      browser?: string;
+    };
     const steps: Step[] = [];
     for (const component of ['node', 'java', 'sqlcl', 'playwright'] as const) {
       const executable = state[component];

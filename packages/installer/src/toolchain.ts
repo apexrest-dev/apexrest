@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { cp, mkdir, mkdtemp, readdir, readlink, rename, rm, chmod, statfs, realpath } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readlink, rename, rm, chmod, statfs, realpath } from 'node:fs/promises';
 import { z } from 'zod';
 import { exists, hash, hashFile, readJson, withLock, writeJson } from '../../core/src/fs.ts';
 import { managedHome, parse } from '../../core/src/config.ts';
@@ -26,7 +26,6 @@ const artifactSchema = z.strictObject({
 export const lockSchema = z.strictObject({
   schemaVersion: z.literal(1),
   artifacts: z.array(artifactSchema),
-  playwright: z.strictObject({ version: z.string(), browsers: z.array(z.record(z.string(), z.unknown())) }),
   provenance: z.record(z.string(), z.unknown()),
 });
 export interface SetupRequest {
@@ -37,10 +36,6 @@ export interface SetupRequest {
   yes?: boolean;
   nonInteractive?: boolean;
   acceptOracleLicense?: boolean;
-  skipBrowser?: boolean;
-  installOsDeps?: boolean;
-  /** Explicit Playwright browser mirror; ambient PLAYWRIGHT_*DOWNLOAD_HOST values are ignored. */
-  browserDownloadHost?: string;
 }
 export interface InstalledTree {
   destination: string;
@@ -52,8 +47,6 @@ export interface ToolchainState {
   node?: string;
   java?: string;
   sqlcl?: string;
-  playwright?: string;
-  browser?: string;
   components: Record<string, string>;
   /** Digests recorded at install time for managed (not reused) toolchains. */
   integrity?: Record<string, InstalledTree>;
@@ -178,22 +171,6 @@ async function installArtifact(artifact: Artifact, destination: string, cache: s
     await rm(staging, { recursive: true, force: true });
   }
 }
-/** Ambient mirror settings would redirect the unpinned browser download; only an explicit option may. */
-const browserDownloadVariables = [
-  'PLAYWRIGHT_DOWNLOAD_HOST',
-  'PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST',
-  'PLAYWRIGHT_CHROMIUM_HEADLESS_SHELL_DOWNLOAD_HOST',
-];
-export function browserEnvironment(
-  base: NodeJS.ProcessEnv,
-  overrides: Record<string, string>,
-  downloadHost?: string,
-): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...base, ...overrides };
-  for (const name of browserDownloadVariables) delete env[name];
-  if (downloadHost) env.PLAYWRIGHT_DOWNLOAD_HOST = downloadHost;
-  return env;
-}
 export class ToolchainService {
   async inspect() {
     return { platform: platformProfile(), state: await runtimeState() };
@@ -258,26 +235,13 @@ export class ToolchainService {
         };
       }),
     );
-    const chromium = lock.playwright.browsers.find((browser) => browser.name === 'chromium');
     return {
       schemaVersion: 1,
       home,
       cache,
       platform,
       steps,
-      playwright: lock.playwright.version,
-      browser: {
-        action: r.skipBrowser ? 'skip' : 'install-verify',
-        engine: 'chromium',
-        installOsDeps: Boolean(r.installOsDeps && !r.skipBrowser),
-        revision: typeof chromium?.revision === 'string' ? chromium.revision : undefined,
-        browserVersion: typeof chromium?.browserVersion === 'string' ? chromium.browserVersion : undefined,
-        // Playwright selects the revision; its download is not checked against an APEXREST hash.
-        integrity: 'playwright-revision-pinned; not hash-pinned by apexrest',
-        downloadHost: r.browserDownloadHost ?? 'playwright-default',
-      },
       offline: r.offline ?? false,
-      elevation: r.installOsDeps ? 'explicitly-requested' : 'not-authorized',
       proxy: proxyStatus(),
       extraCA: Boolean(process.env.NODE_EXTRA_CA_CERTS),
     };
@@ -348,102 +312,6 @@ export class ToolchainService {
             },
           };
         await writeJson(path.join(plan.home, 'runtime.json'), state);
-      }
-      if (!r.skipBrowser && state.node) {
-        const browserHome = path.join(plan.home, 'playwright', plan.playwright),
-          browserCache = path.join(plan.home, 'browsers');
-        await mkdir(browserHome, { recursive: true });
-        await cp(
-          path.join(resourceRoot(), 'playwright/package.json'),
-          path.join(browserHome, 'package.json'),
-        );
-        await cp(
-          path.join(resourceRoot(), 'playwright/package-lock.json'),
-          path.join(browserHome, 'package-lock.json'),
-        );
-        const npm = path.resolve(
-          path.dirname(state.node),
-          process.platform === 'win32'
-            ? 'node_modules/npm/bin/npm-cli.js'
-            : '../lib/node_modules/npm/bin/npm-cli.js',
-        );
-        const env = browserEnvironment(
-          process.env,
-          {
-            PLAYWRIGHT_BROWSERS_PATH: browserCache,
-            npm_config_cache: path.join(plan.cache, 'npm'),
-            PATH: path.dirname(state.node) + path.delimiter + (process.env.PATH ?? ''),
-          },
-          r.browserDownloadHost,
-        );
-        if (!(await exists(path.join(browserHome, 'node_modules/@playwright/test/cli.js')))) {
-          const installed = await runProcess({
-            executable: state.node,
-            args: [
-              npm,
-              'ci',
-              '--ignore-scripts',
-              '--no-audit',
-              '--no-fund',
-              ...(r.offline ? ['--offline'] : []),
-            ],
-            cwd: browserHome,
-            env,
-            timeoutMs: 180000,
-          });
-          if (installed.code !== 0)
-            throw new Fault(
-              r.offline ? 'OFFLINE_CACHE_MISS' : 'PLAYWRIGHT_INSTALL_FAILED',
-              installed.stderr,
-              3,
-              'blocked',
-            );
-        }
-        const cli = path.join(browserHome, 'node_modules/@playwright/test/cli.js');
-        if (!r.offline) {
-          const installed = await runProcess({
-            executable: state.node,
-            args: [cli, 'install', ...(r.installOsDeps ? ['--with-deps'] : []), 'chromium'],
-            cwd: browserHome,
-            env,
-            timeoutMs: 180000,
-          });
-          if (installed.code !== 0) throw new Fault('BROWSER_INSTALL_FAILED', installed.stderr, 3, 'blocked');
-        }
-        const smoke = await runProcess({
-          executable: state.node,
-          args: [
-            '--input-type=module',
-            '-e',
-            "import {chromium} from '@playwright/test'; const b=await chromium.launch(); console.log(b.version()); await b.close();",
-          ],
-          cwd: browserHome,
-          env,
-          timeoutMs: 30000,
-        });
-        if (smoke.code !== 0) {
-          state.components.playwright = 'installed';
-          actions.push({
-            code: r.offline
-              ? 'OFFLINE_BROWSER_CACHE_MISS'
-              : 'BROWSER_SYSTEM_DEPENDENCIES_OR_SANDBOX_REQUIRED',
-          });
-        } else {
-          state.components.playwright = 'verified';
-          state.browser = smoke.stdout.trim();
-          if (plan.browser.browserVersion && state.browser !== plan.browser.browserVersion)
-            actions.push({
-              code: 'BROWSER_VERSION_UNEXPECTED',
-              component: 'chromium',
-              details: `Expected ${plan.browser.browserVersion} for Playwright ${plan.playwright}; found ${state.browser}.`,
-            });
-        }
-        state.playwright = cli;
-      } else {
-        if (!state.playwright) {
-          state.components.playwright = 'not-installed';
-          actions.push({ code: 'PLAYWRIGHT_SETUP_REQUIRED' });
-        }
       }
       await writeJson(path.join(plan.home, 'runtime.json'), state);
       return {

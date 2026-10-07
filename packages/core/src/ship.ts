@@ -16,7 +16,6 @@ import {
   type DeploymentPlanOptions,
 } from './deploy.ts';
 import type { OracleAdapter } from './oracle.ts';
-import { TestService } from './testing.ts';
 import type { JobPhase } from './jobs.ts';
 import { Fault, type StructuredDiagnostic } from './result.ts';
 import { auditUpgradeSource } from './upgrade-audit.ts';
@@ -232,7 +231,6 @@ const phaseFor: Partial<Record<DeployState, JobPhase>> = {
   migrating: 'migrating',
   importing: 'importing',
   verifying: 'verifying',
-  testing: 'testing',
 };
 
 export function shipGrant(ctx: ProjectContext, plan: DeployPlan, userRequest: string): PolicyGrant {
@@ -286,19 +284,6 @@ export async function checkShipTarget(ctx: ProjectContext, plan: DeployPlan) {
       'blocked',
       { nextActions: plan.risks.map((r) => 'Review risk: ' + r) },
     );
-  if (ctx.config.tests.requiredSuites.some((suite) => suite !== 'unit')) {
-    try {
-      await new TestService().authorize(ctx, plan.environment);
-    } catch (error) {
-      throw new Fault(
-        'TEST_APPROVAL_REQUIRED',
-        'Required remote suites need existing test authorization and a mutation-allowed environment before shipping.',
-        4,
-        'blocked',
-        { reason: error instanceof Fault ? error.code : 'TEST_AUTHORIZATION_FAILED' },
-      );
-    }
-  }
   return env;
 }
 
@@ -307,7 +292,6 @@ export async function shipApply(
   planValue: unknown,
   userRequest: string,
   deployment: DeploymentService,
-  lastTests: () => unknown,
   signal?: AbortSignal,
   progress?: (phase: JobPhase) => void,
 ) {
@@ -342,7 +326,6 @@ export async function shipApply(
     );
   }
   if (current) phases.push({ phase: current.phase, ms: Date.now() - current.at });
-  const tests = lastTests();
   return {
     status: 'succeeded',
     runId: applied.runId,
@@ -353,7 +336,7 @@ export async function shipApply(
     sources: sourceCounts(ctx, plan),
     phases,
     verification: { identity: 'confirmed', state: applied.state, directory: applied.directory },
-    tests: tests ?? (ctx.config.tests.requiredSuites.length ? null : 'no-required-suites'),
+    browserVerification: { status: 'not_run', browser: 'host' },
     grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },
     nextActions: grantRemoved
       ? ['Verify the affected pages in the selected browser with apexrest_browser_open.']

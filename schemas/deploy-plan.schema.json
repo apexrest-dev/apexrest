@@ -122,8 +122,7 @@
                   "migration",
                   "package",
                   "import",
-                  "verify",
-                  "test"
+                  "verify"
                 ]
               },
               "file": {
@@ -329,8 +328,7 @@
                   "migration",
                   "package",
                   "import",
-                  "verify",
-                  "test"
+                  "verify"
                 ]
               },
               "file": {
@@ -601,8 +599,7 @@
                   "migration",
                   "package",
                   "import",
-                  "verify",
-                  "test"
+                  "verify"
                 ]
               },
               "file": {
@@ -915,8 +912,7 @@
                   "migration",
                   "package",
                   "import",
-                  "verify",
-                  "test"
+                  "verify"
                 ]
               },
               "file": {

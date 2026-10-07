@@ -2,17 +2,16 @@
 
 ## Connected and host qualification
 
-- Exercise the current five-skill/eleven-tool bundle in fresh Codex and Claude Code sessions: discovery, a change through the work skill, ship/job behavior and browser handoff.
-- On an explicitly authorized development/test target, verify full and selected-file imports, source preservation, SQL/API/CRUD suites, denied actions, stale versions and narrow screens. Record compiler, import and browser observations separately.
+- Exercise the current five-skill/ten-tool bundle in fresh Codex and Claude Code sessions: discovery, a change through the work skill, ship/job behavior and browser handoff.
+- On an explicitly authorized development/test target, verify full and selected-file imports, source preservation, authenticated browser CRUD, denied actions, stale versions and narrow screens. Record compiler, import and browser observations separately.
 - Qualify Linux/Windows/WSL2 native installations and connected SQLcl/ORDS behavior. Hosted build tests do not establish native host or Oracle behavior.
 - Exercise real interruption, lost-response reconciliation, backup/restore and externally serialized runners. Retain unknown ownership until the outcome is reconciled.
 
-## Application tests and authentication
+## Application verification
 
-- Add a diagnostic for the instance-level `REJOIN_EXISTING_SESSIONS=Y` prerequisite before saved-state E2E. Qualify session rejoin in the 26.1 CRM template before changing it.
-- Extend session probing beyond a base URL or password-field login only when an actual application demonstrates the requirement; external SSO may need separate handling.
-- Consider an import-free verification mode on the MCP surface. The current resume operation is `apexrest deploy verify` in the CLI.
-- Extend the integration harness to resume the original deployment journal after interactive authentication; it currently runs final standalone suites. Re-authentication and final suites need an interactive terminal.
+- Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.
+- Reconcile the nine advisory CodeScan findings in the local 26.2 CRM fixture before claiming security qualification.
+- Existing projects can drop retired `tests` and `database.testsDir` settings; the loader ignores them. Regenerate old plans and reconcile unresolved deployment state rather than rewriting journals.
 
 ## APEX 26.2
 

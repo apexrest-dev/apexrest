@@ -160,7 +160,7 @@ test('completed workers record the operation outcome rather than plain completio
       failure('deploy.apply', new Fault('IMPORT_INTERRUPTED', 'Unknown.', 6, 'outcome_unknown')),
       'outcome_unknown',
     ],
-    [failure('test.run', new Fault('CANCELLED', 'Stopped.', 6, 'cancelled')), 'cancelled'],
+    [failure('apex.validate', new Fault('CANCELLED', 'Stopped.', 6, 'cancelled')), 'cancelled'],
   ] as const;
   for (const [result, status] of outcomes) {
     const id = randomUUID(),

@@ -46,7 +46,7 @@ test('removed agent entrypoints cannot start work through CLI, MCP or legacy env
     }),
   );
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 11);
+  assert.equal(catalog.tools.length, 10);
   assert.ok(
     catalog.tools.some((tool) => tool.name === 'apexrest_ship'),
     'Legacy reviewer flags cannot change current tools',

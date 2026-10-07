@@ -3,13 +3,11 @@ import {
   ToolchainService,
   VERSION,
   canonicalHome,
-  managedHome,
   renameWithRetry,
-  requireTrust,
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-PEPFC7UE.mjs";
+} from "./chunk-HPJ4JN65.mjs";
 import {
   Client,
   ReadBuffer,
@@ -30,7 +28,12 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-JYN3YHP3.mjs";
+} from "./chunk-MVNCAJV3.mjs";
+import {
+  managedHome,
+  requireTrust
+} from "./chunk-JM4SAWAH.mjs";
+import "./chunk-RCJG4YXR.mjs";
 import {
   Fault,
   __commonJS,
@@ -2011,9 +2014,7 @@ async function setup(input) {
     dryRun: Boolean(input.dryRun),
     yes: Boolean(input.yes),
     nonInteractive: Boolean(input.nonInteractive),
-    acceptOracleLicense: Boolean(input.acceptOracleLicense),
-    skipBrowser: Boolean(input.skipBrowser),
-    installOsDeps: Boolean(input.installOsDeps)
+    acceptOracleLicense: Boolean(input.acceptOracleLicense)
   };
   const existingRuntime = await runtimeState(home);
   const nativePlan = await installNative({
