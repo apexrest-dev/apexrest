@@ -34,7 +34,7 @@
 
 Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The authorized 2.0.0 npm exception retains three mandatory current local reports and treats the six external reports as advisory for npm only. Full qualification still requires all nine reports. Do not treat absent reports as passed gates.
 
-- Complete the authorized 2.0.0 npm publication after current readiness gates pass. Local checks, offline Oracle compilation and clean local-tarball CLI/MCP checks passed; registry publication and registry clean-install verification remain pending.
+- Preserve the verified 2.0.0 npm publication evidence: latest=2.0.0, matching public archive integrity and a fresh registry install with CLI/MCP/current-reference checks. Future versions need their own applicable readiness decision; the local-evidence exception is bound only to 2.0.0.
 - Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The current npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
 - Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
 - Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
