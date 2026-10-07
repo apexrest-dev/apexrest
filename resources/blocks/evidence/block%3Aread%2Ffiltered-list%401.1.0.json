@@ -1,0 +1,19 @@
+[
+  {
+    "schemaVersion": 1,
+    "kind": "compiler",
+    "status": "passed",
+    "sourceDigest": "493f88145e6a0abeab84c062f6edc3aac85ba5770fc78ad32741819bc3bb858e",
+    "generatorDigest": "ddd461d0c65b36032f1100358e3dd0d0df3c864118baefe2a846ec1143bc03dd",
+    "configurationDigest": "64ffcc3f186e622f67d160c472c76337f9020fd332578220ce7568c3906b392e",
+    "fixtureDigest": "3058a9b07585c028f195389824f9fc5b313316ede7767f63e6f29583763f6e28",
+    "profile": "profile:apex262-ut262-mmd3479",
+    "tool": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620; MMD 26.2.0+3479",
+    "runner": "local",
+    "timestamp": "2026-10-07T16:52:06.683875+00:00",
+    "artifacts": [
+      "docs/evidence/composer-26.2-catalog/proof-11f71d37bb0c3585a13f58ff73b8af1c74150c7c0c92ae8b2d6c727f0b1bb2ce.json"
+    ],
+    "reason": "Real offline Oracle compiler validated the complete Service Desk scaffold containing this block. No live SQL, import, DML, browser or native-host qualification."
+  }
+]

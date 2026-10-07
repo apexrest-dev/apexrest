@@ -32,7 +32,11 @@
 
 ## Release and repository policy
 
-Run relevant local checks before integrating changes; CI runs only on `main`. Repository deployment workflows and publisher configuration remain disabled. Refresh current source-bound release evidence before requesting any separately authorized publication. Do not treat absent reports as passed gates.
+Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. Publisher configuration opts into the authorized npm target; all mandatory current source-bound evidence remains required. Do not treat absent reports as passed gates.
+
+- Complete the authorized 2.0.0 npm publication after current readiness gates pass. Local checks, offline Oracle compilation and clean local-tarball CLI/MCP checks passed; registry publication and registry clean-install verification remain pending.
+- Offline Composer compilation, materialization and repeat no-op now pass with the explicit 26.2 profile. Obtain the required Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration evidence on permitted targets; narrower or older reports do not replace those gates. Keep original 26.1 records separate from the new block compiler proofs.
+- Review the Windows host-parity cleanup order before a new hosted verification run. The read-only CI inventory identifies `.github/workflows/ci.yml` as the active quality workflow; branch-hosted Pages is separate. No workflow or release gate has been changed by this preflight.
 
 Preserve functional catalog provenance, licensing and compiler bindings. Preserve private application baselines, APEXlang and legacy SQL backups, migration history and unresolved journals; repository cleanup does not authorize removing active deployment state.
 

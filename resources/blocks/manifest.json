@@ -6,24 +6,48 @@
       "digest": "e1156990b1192e874a73ac820bedec8c2fba8dff9ab8a38e941fae12b71b22c9"
     },
     {
+      "path": "packages/analytics/status-summary/1.1.0",
+      "digest": "d1157f7b7c740bde928829f0eef8a6a8458575afdd6b2ff329478c85e8e42d8f"
+    },
+    {
       "path": "packages/crud/report-dialog/1.0.0",
       "digest": "9461f820d3c7bc068fd3c416bbd8f3371b315a99d0a54bec294e5130e6a3c43b"
+    },
+    {
+      "path": "packages/crud/report-dialog/1.1.0",
+      "digest": "f6a5034be8f49318998e7d5dd0537b267a1f353114b01f47b1455baa0e9e26bb"
     },
     {
       "path": "packages/read/detail/1.0.0",
       "digest": "c584cd06b8f4a28bc7ce464c8a7dd2b146006a416c30d076a4dd525c125c5528"
     },
     {
+      "path": "packages/read/detail/1.1.0",
+      "digest": "e4286e8acfa68a10a406793788b42eee1bd438fc30e94c7eedbe47766b84444f"
+    },
+    {
       "path": "packages/read/filtered-list/1.0.0",
       "digest": "4837242f2a419544a037dc90c7f555558689ce9d5bb34d6b145e8dafd795786a"
+    },
+    {
+      "path": "packages/read/filtered-list/1.1.0",
+      "digest": "493f88145e6a0abeab84c062f6edc3aac85ba5770fc78ad32741819bc3bb858e"
     },
     {
       "path": "packages/read/history/1.0.0",
       "digest": "a6b8157ff3ce600747245af0c456b35e551b8e08eabb6d2db3a716646986c5f9"
     },
     {
+      "path": "packages/read/history/1.1.0",
+      "digest": "f4f268ef3d141de767db67bc10dc8ad458c53541c099311fe1fc767f77323263"
+    },
+    {
       "path": "packages/read/master-detail/1.0.0",
       "digest": "7b2e6f0fe653440f77c87aaa9b2ac23f4f113b10afba27b70bf8ae8879666929"
+    },
+    {
+      "path": "packages/read/master-detail/1.1.0",
+      "digest": "b96e4fbfbed7a8d304293228607ba8555d4cdcd5028194966e1215493e9ac983"
     }
   ]
 }

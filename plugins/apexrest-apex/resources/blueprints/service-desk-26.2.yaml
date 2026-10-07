@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "application": {
+    "mode": "extend",
+    "compatibilityProfile": "profile:apex262-ut262-mmd3479",
+    "preserve": {
+      "authentication": true,
+      "authorization": true,
+      "unmanagedSource": true
+    }
+  },
+  "entities": {
+    "Ticket": {
+      "read": {
+        "kind": "oracle-table",
+        "object": "CMP_TICKETS",
+        "key": [
+          "id"
+        ],
+        "fields": {
+          "id": {
+            "column": "TICKET_ID",
+            "type": "integer",
+            "nullable": false
+          },
+          "title": {
+            "column": "TITLE",
+            "type": "string",
+            "nullable": false,
+            "maxLength": 200
+          },
+          "status": {
+            "column": "STATUS",
+            "type": "string",
+            "nullable": false,
+            "maxLength": 16
+          },
+          "parentId": {
+            "column": "PARENT_ID",
+            "type": "integer",
+            "nullable": true
+          },
+          "changedAt": {
+            "column": "CHANGED_AT",
+            "type": "timestamp",
+            "nullable": false
+          }
+        }
+      },
+      "authorization": {
+        "readContract": "project:ticket-access"
+      },
+      "capabilities": {}
+    }
+  },
+  "commands": {},
+  "contracts": {
+    "project:ticket-access": {
+      "schemaVersion": 1,
+      "kind": "authorization",
+      "rowPredicate": "OWNER_NAME = :APP_USER",
+      "provenance": "Isolated Service Desk fixture; no live qualification"
+    }
+  },
+  "blocks": {
+    "Tickets": {
+      "use": "block:read/filtered-list@1.1.0",
+      "parameters": {
+        "title": "Service desk tickets",
+        "filterField": "status"
+      },
+      "bindings": {
+        "records": "entity:Ticket"
+      }
+    },
+    "TicketStatus": {
+      "use": "block:analytics/status-summary@1.1.0",
+      "parameters": {
+        "title": "Ticket status",
+        "groupField": "status"
+      },
+      "bindings": {
+        "records": "entity:Ticket"
+      }
+    },
+    "TicketDetail": {
+      "use": "block:read/detail@1.1.0",
+      "parameters": {
+        "title": "Ticket detail",
+        "detailField": "title"
+      },
+      "bindings": {
+        "records": "entity:Ticket"
+      }
+    },
+    "TicketHistory": {
+      "use": "block:read/history@1.1.0",
+      "parameters": {
+        "title": "Ticket history",
+        "groupField": "status",
+        "timeField": "changedAt",
+        "detailField": "title"
+      },
+      "bindings": {
+        "records": "entity:Ticket"
+      }
+    },
+    "TicketLines": {
+      "use": "block:read/master-detail@1.1.0",
+      "parameters": {
+        "title": "Ticket lines",
+        "parentField": "parentId"
+      },
+      "bindings": {
+        "records": "entity:Ticket"
+      }
+    }
+  },
+  "connections": []
+}

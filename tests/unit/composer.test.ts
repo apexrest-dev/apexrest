@@ -88,7 +88,7 @@ test('paths reject traversal and symlinks including contained targets', async ()
 });
 test('offline catalog exact resolver, EN/UK discovery and integrity checks', async () => {
   const catalog = await loadCatalog();
-  assert.equal(catalog.packages.size, 6);
+  assert.equal(catalog.packages.size, 12);
   assert.equal(
     resolvePackages(catalog, ['block:crud/report-dialog@1.0.0'], 'profile:apex261-ut261-mmd3102').size,
     1,
@@ -97,6 +97,16 @@ test('offline catalog exact resolver, EN/UK discovery and integrity checks', asy
     resolvePackages(catalog, ['block:crud/report-dialog@latest'], 'profile:apex261-ut261-mmd3102'),
   );
   assert.throws(() => resolvePackages(catalog, ['block:crud/report-dialog@1.0.0'], 'unknown'));
+  assert.equal(
+    resolvePackages(catalog, ['block:crud/report-dialog@1.1.0'], 'profile:apex262-ut262-mmd3479').size,
+    1,
+  );
+  assert.throws(() =>
+    resolvePackages(catalog, ['block:crud/report-dialog@1.0.0'], 'profile:apex262-ut262-mmd3479'),
+  );
+  assert.throws(() =>
+    resolvePackages(catalog, ['block:crud/report-dialog@1.1.0'], 'profile:apex261-ut261-mmd3102'),
+  );
   assert.equal((await catalogSearch('підсумки')).results[0]!.id, 'block:analytics/status-summary@1.0.0');
   await assert.rejects(() => catalogSearch('CRM', { cursor: '0'.repeat(64) }));
 });

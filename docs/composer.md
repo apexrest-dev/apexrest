@@ -14,6 +14,8 @@ apexrest compose materialize --plan plans/composition.json --expected-digest SHA
 
 Replace fixture objects and authorization declarations with reviewed project contracts. Offline planning is the default; `--mode connected --env NAME` explicitly reads bounded parsing-schema metadata. Planning compiles a complete staged application with real local SQLcl and performs no import or fixture SQL execution.
 
+Choose a profile explicitly. The original `@1.0.0` blocks and CRM/Service Desk blueprints retain their 26.1 contract. The `@1.1.0` versions use `profile:apex262-ut262-mmd3479`, vendor MMD `26.2.0+3479` and SQLcl build `26.3.0.260.1620`; their blueprint files are `crm-26.2.yaml` and `service-desk-26.2.yaml`. Composer rejects mismatched compiler builds/MMDs. The 26.2 adapters emit the exact report type enums and stable numeric process execution mappings. Prior 26.1 compiler records do not qualify 26.2 or the current generator. No profile selection rewrites Oracle metadata.
+
 Plans bind blueprint, source inventory, state, catalog/generator, configuration and toolchain digests. Review contracts, effects, allocations and preimages before materializing. Materialized source then follows the normal validate/ship cycle. Missing keys, authorization, exact API signatures or supported adapters block planning.
 
 ## Contracts and security

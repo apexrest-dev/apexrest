@@ -12,6 +12,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows and publisher configuration are disabled. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website. Any publication needs separate authorization and current source-bound release gates.
+Repository release and Oracle integration workflows remain disabled. Publisher configuration opts into the explicitly authorized 2.0.0 npm target; publication still requires every current source-bound release gate. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website. GitHub release/tag and integration execution are not part of this npm authorization.
 
 See [implementation status](implementation-status.md), [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Fixtures and offline compilation do not establish connected Oracle, authenticated application browsing or native model-host execution.

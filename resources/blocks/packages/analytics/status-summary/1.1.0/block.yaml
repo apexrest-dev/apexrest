@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "block:analytics/status-summary",
+  "version": "1.1.0",
+  "kind": "block",
+  "name": "Status summary",
+  "aliases": [
+    "підсумки",
+    "статус",
+    "cards"
+  ],
+  "status": "experimental",
+  "license": "Apache-2.0",
+  "origin": "apexrest-dev/apexrest",
+  "recipeRefs": [
+    "component:reports/interactive-report/recipes/basic",
+    "component:regions/cards/recipes/basic"
+  ],
+  "compatibility": {
+    "profileRefs": [
+      "profile:apex262-ut262-mmd3479"
+    ]
+  },
+  "renderer": "status-summary",
+  "ports": {
+    "inputs": [
+      "records"
+    ],
+    "outputs": []
+  },
+  "requires": {
+    "blocks": [],
+    "capabilities": [
+      "key",
+      "readAuthorization"
+    ]
+  },
+  "source": {
+    "files": [
+      "renderer.json"
+    ]
+  },
+  "effects": {
+    "local": [
+      "reviewed application source and tracked Composer state"
+    ],
+    "deployment": [
+      "full application import through existing policy-aware pipeline"
+    ],
+    "applicationRuntime": [
+      "read scoped records"
+    ],
+    "authentication": "preserve"
+  },
+  "limitations": [
+    "Experimental; live Oracle and authenticated browser qualification not run.",
+    "Only reviewed scalar contracts; no automatic DDL or business-table writes.",
+    "APEX 26.2 adapter; 26.1 recipe records do not qualify this profile."
+  ]
+}

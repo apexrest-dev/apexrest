@@ -1,6 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   APEXLANG_EQUIVALENCE_POLICY,
+  APEX_262_PROFILE,
   LocalDeploymentControl,
   OracleAdapter,
   SCRIPT_RESTRICT_LEVEL,
@@ -47,7 +48,7 @@ import {
   stageSelection,
   supportedFile,
   syncPath
-} from "./chunk-VSHK3GM5.mjs";
+} from "./chunk-JNMZLDHB.mjs";
 import {
   browserModeSchema,
   browserPreferences
@@ -8858,6 +8859,22 @@ function bind(blueprint, instance, metadata) {
   return { entity, keys, predicate, command, writable, entityRef: ref, writeExpression };
 }
 
+// packages/core/src/composer/profiles.ts
+var COMPOSER_262_PROFILE = "profile:apex262-ut262-mmd3479";
+var composerProfiles = {
+  "profile:apex261-ut261-mmd3102": { mmd: "26.1.0+3102", sqlcl: "26.1.2.132.1334" },
+  [COMPOSER_262_PROFILE]: { mmd: APEX_262_PROFILE.mmd, sqlcl: APEX_262_PROFILE.sqlcl }
+};
+function requireComposerCompiler(profile, actual) {
+  const expected = composerProfiles[profile], version2 = /\bBuild:? (\d+(?:\.\d+)+)\b/.exec(actual.compiler.version)?.[1];
+  if (!expected || actual.mmd.mmdVersion !== expected.mmd || version2 !== expected.sqlcl)
+    throw new Fault(
+      "PROFILE_COMPILER_MISMATCH",
+      "Real compiler/MMD differs from the selected pinned Composer profile.",
+      5
+    );
+}
+
 // packages/core/src/composer/emitter.ts
 var indent = (value, depth = 4) => value.split("\n").map((line) => line ? " ".repeat(depth) + line : "").join("\n");
 var group = (key, value) => `${key} {
@@ -8913,6 +8930,7 @@ type: sqlQuery
 ${submit ? `pageItemsToSubmit: ${submit}
 ` : ""}sqlQuery:${code("sql", sql)}`
 );
+var reportDataType = (type) => ["integer", "decimal"].includes(type) ? "number" : ["date", "timestamp"].includes(type) ? "date" : type === "boolean" ? "boolean" : "varchar2";
 var button = (key, label, region, behavior) => node(
   "button",
   key,
@@ -8957,13 +8975,13 @@ ${group("settings", `jsCode:${code("javascript", javascript)}`)}
 ${group("execution", "sequence: 10\nfireOnInit: false")}`
   );
 }
-function process2(key, point, sql) {
+function process2(key, mapping, point, sql) {
   return node(
     "process",
     key,
     `name: ${key}
 type: executeCode
-${group("source", `plsqlCode:${code("plsql", sql)}`)}
+${mapping === void 0 ? "" : group("advanced", `executionMappingIdentifier: ${mapping}`) + "\n"}${group("source", `plsqlCode:${code("plsql", sql)}`)}
 ${group("execution", `sequence: 10
 point: ${point}`)}`
   );
@@ -9007,6 +9025,7 @@ function summaryRegion(blueprint, instance, allocation) {
 }
 function render(blueprint, id, instance, block, allocation, summaries = []) {
   const binding = bind(blueprint, instance), { entity, keys, predicate, command, writable } = binding;
+  const currentProfile = blueprint.application.compatibilityProfile === COMPOSER_262_PROFILE, dataType = (type) => currentProfile ? reportDataType(type) : ["integer", "decimal"].includes(type) ? "NUMBER" : ["date", "timestamp"].includes(type) ? "DATE" : "STRING", mapping = (page2, role) => currentProfile ? page2 * 100 + role : void 0;
   const fields = Object.entries(entity.read.fields).sort(([a], [b]) => a < b ? -1 : 1);
   const file = (number) => `pages/p${String(number).padStart(5, "0")}-${allocation.prefix}${number === allocation.dialog ? "_edit" : ""}.apx`;
   if (block.renderer === "status-summary")
@@ -9047,6 +9066,7 @@ ${appearance("optional")}`
       );
     body2 += process2(
       allocation.prefix + "-detail",
+      mapping(allocation.page, 1),
       "beforeHeader",
       `begin
  if :${keyItem} is not null then
@@ -9117,7 +9137,7 @@ ${cols}`
         `type: plainText
 ${group("heading", `heading: ${name2}`)}
 ${group("layout", `sequence: ${(i + 1) * 10}`)}
-${group("source", `dataType: ${["integer", "decimal"].includes(field.type) ? "NUMBER" : ["date", "timestamp"].includes(field.type) ? "DATE" : "STRING"}`)}`
+${group("source", `dataType: ${dataType(field.type)}`)}`
       )
     ).join("");
     const list = (region2, predicateSQL, sequence, link = false) => node(
@@ -9128,6 +9148,7 @@ type: interactiveReport
 ${source(`select ${fields.map(([, f]) => f.column).join(", ")} from ${entity.read.object} where (${predicate}) and ${predicateSQL}`)}
 ${layout(sequence)}
 ${appearance("interactive-report")}
+${currentProfile ? group("advanced", `savedReportMappingIdentifier: ${mapping(allocation.page, link ? 1 : 2)}`) : ""}
 ${link ? group("link", `linkColumn: customTarget
 target: {
     page: ${allocation.page}
@@ -9164,7 +9185,7 @@ ${group("security", "sessionStateProtection: checksumRequiredSessionLevel")}`
       `type: ${keys.includes(name2) && writable ? "hidden" : "plainText"}
 ${group("heading", `heading: ${scalar(name2)}`)}
 ${group("layout", `sequence: ${(i + 1) * 10}`)}
-${group("source", `dataType: ${["integer", "decimal"].includes(field.type) ? "NUMBER" : ["date", "timestamp"].includes(field.type) ? "DATE" : "STRING"}`)}`
+${group("source", `dataType: ${dataType(field.type)}`)}`
     )
   ).join("\n");
   const report = node(
@@ -9179,7 +9200,11 @@ ${group("source", `dataType: ${["integer", "decimal"].includes(field.type) ? "NU
       ),
       layout(10),
       appearance("interactive-report"),
-      group("advanced", `htmlDomId: ${allocation.prefix}_records`),
+      group(
+        "advanced",
+        `htmlDomId: ${allocation.prefix}_records${currentProfile ? `
+savedReportMappingIdentifier: ${mapping(allocation.page, 1)}` : ""}`
+      ),
       writable && instance.parameters.editEnabled ? group(
         "link",
         `linkColumn: customTarget
@@ -9313,6 +9338,7 @@ ${appearance("buttons-container")}`
   );
   form += process2(
     allocation.prefix + "-read",
+    mapping(dialog, 1),
     "beforeHeader",
     `begin
   if :${itemName(keys[0])} is not null then
@@ -9321,8 +9347,8 @@ ${appearance("buttons-container")}`
 end;`
   );
   const variables = /* @__PURE__ */ new Map();
-  for (const [argument, mapping] of Object.entries(command.inputs).sort(([a], [b]) => a < b ? -1 : 1))
-    variables.set(argument, mapping.mode === "in-out" ? "l_key" : inputExpression(mapping.from.slice(7)));
+  for (const [argument, mapping2] of Object.entries(command.inputs).sort(([a], [b]) => a < b ? -1 : 1))
+    variables.set(argument, mapping2.mode === "in-out" ? "l_key" : inputExpression(mapping2.from.slice(7)));
   variables.set(command.outputs.recordKey.from, "l_key");
   variables.set(command.outputs.recordVersion.from, "l_version");
   const saveName = allocation.prefix + "_SAVE";
@@ -9353,7 +9379,7 @@ exception when others then
   rollback to composer_save;
   apex_json.open_object; apex_json.write('ok',false); apex_json.write('code',case sqlcode when -20001 then 'authorization' when -20002 then 'validation' when -20003 then 'conflict' else 'server-error' end); apex_json.write('message','Save failed. Review fields and reload after a conflict.'); apex_json.close_object;
 end;`;
-  form += process2(saveName, "ajaxCallback", server);
+  form += process2(saveName, mapping(dialog, 2), "ajaxCallback", server);
   const pageItems = mappedFields.map(([f]) => "#" + itemName(f)).join(",");
   const correlation = "(window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2))";
   const js = `var button = this.triggeringElement; if (button.disabled) return; button.disabled = true; var saved = false;
@@ -10435,12 +10461,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     const staged = await stagePlan(ctx, plan);
     compiler = await oracle.validate(staged.directory, signal);
     const actual = compiler;
-    if (actual.mmd.mmdVersion !== "26.1.0+3102" || !/Release 26[.]1[.]/.test(actual.compiler.version))
-      throw new Fault(
-        "PROFILE_COMPILER_MISMATCH",
-        "Real compiler/MMD differs from the pinned Composer profile.",
-        5
-      );
+    requireComposerCompiler(input.blueprint.application.compatibilityProfile, actual);
     compilerValidated = true;
   }
   if (metadata)
@@ -14536,29 +14557,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-NDD4SOGD.mjs");
+        const { ToolchainService } = await import("./chunk-HL64JCRD.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-FIYHNVUJ.mjs");
+        const { uninstallTools } = await import("./chunk-OHCA6FPM.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-MKNRVNCU.mjs");
+        const { setup: setup2 } = await import("./chunk-B3VUB2RH.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-MKNRVNCU.mjs");
+        const { validateNative } = await import("./chunk-B3VUB2RH.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-MKNRVNCU.mjs");
+        const { uninstallNative } = await import("./chunk-B3VUB2RH.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

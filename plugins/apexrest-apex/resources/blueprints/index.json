@@ -8,5 +8,15 @@
     "id": "blueprint:service-desk@1.0.0",
     "title": "Service Desk / Сервісна служба",
     "path": "service-desk.yaml"
+  },
+  {
+    "id": "blueprint:crm@1.1.0",
+    "title": "CRM Customers / Клієнти (APEX 26.2)",
+    "path": "crm-26.2.yaml"
+  },
+  {
+    "id": "blueprint:service-desk@1.1.0",
+    "title": "Service Desk / Сервісна служба (APEX 26.2)",
+    "path": "service-desk-26.2.yaml"
   }
 ]

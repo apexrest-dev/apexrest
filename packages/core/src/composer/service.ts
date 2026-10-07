@@ -14,6 +14,7 @@ import { stagePlan, freeze, readPlan, materialize, recoveryPlan, journal } from 
 import { readDocument, safePath, semanticDigest, validate, canonical } from './formats.ts';
 import { loadCatalog } from './catalog.ts';
 import type { MetadataSnapshot } from './binding.ts';
+import { requireComposerCompiler } from './profiles.ts';
 
 export const composePlanInput = z.strictObject({
   project: z.string().min(1).max(4096).optional(),
@@ -118,12 +119,7 @@ export async function composePlan(
     const staged = await stagePlan(ctx, plan);
     compiler = await oracle.validate(staged.directory, signal);
     const actual = compiler as { mmd: { mmdVersion: string }; compiler: { version: string } };
-    if (actual.mmd.mmdVersion !== '26.1.0+3102' || !/Release 26[.]1[.]/.test(actual.compiler.version))
-      throw new Fault(
-        'PROFILE_COMPILER_MISMATCH',
-        'Real compiler/MMD differs from the pinned Composer profile.',
-        5,
-      );
+    requireComposerCompiler(input!.blueprint.application.compatibilityProfile, actual);
     compilerValidated = true;
   }
   if (metadata)

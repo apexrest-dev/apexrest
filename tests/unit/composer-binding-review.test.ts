@@ -26,9 +26,14 @@ import {
 import { declarations } from '../../packages/core/src/composer/reader.ts';
 import { render } from '../../packages/core/src/composer/emitter.ts';
 import { loadCatalog } from '../../packages/core/src/composer/catalog.ts';
+import {
+  COMPOSER_262_PROFILE,
+  composerProfiles,
+  requireComposerCompiler,
+} from '../../packages/core/src/composer/profiles.ts';
 
 async function blueprint() {
-  return blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/crm.yaml', 'utf8')));
+  return blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/crm-26.2.yaml', 'utf8')));
 }
 
 function generatedSnapshot(input: Snapshot, plan: CompositionPlan, nextBlueprint: Blueprint): Snapshot {
@@ -173,7 +178,9 @@ test('dialog removal checks merged postimages and preserves unmanaged consumers'
 });
 
 async function serviceDesk() {
-  return blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/service-desk.yaml', 'utf8')));
+  return blueprintSchema.parse(
+    JSON.parse(await readFile('resources/blueprints/service-desk-26.2.yaml', 'utf8')),
+  );
 }
 async function emit(value: Blueprint, id: string, page = 100, dialog: number | null = null) {
   const catalog = await loadCatalog(),
@@ -182,6 +189,104 @@ async function emit(value: Blueprint, id: string, page = 100, dialog: number | n
   return render(value, id, instance, block, { page, dialog, prefix: 'cmp_test' });
 }
 const joined = (files: Record<string, string>) => Object.values(files).join('\n');
+
+test('Composer compiler profiles require their exact vendor MMD and compiler build', async () => {
+  const profiles = JSON.parse(await readFile('resources/blocks/profiles.json', 'utf8'));
+  for (const [id, expected] of Object.entries(composerProfiles)) {
+    assert.deepEqual(
+      {
+        mmd: profiles.find((p: { id: string }) => p.id === id).mmd,
+        sqlcl: profiles.find((p: { id: string }) => p.id === id).sqlcl,
+      },
+      expected,
+    );
+    const actual = {
+      mmd: { mmdVersion: expected.mmd },
+      compiler: { version: `SQLcl: Release 26.3.0.0 Production Build: ${expected.sqlcl}` },
+    };
+    requireComposerCompiler(id, actual);
+    assert.throws(() => requireComposerCompiler(id, { ...actual, mmd: { mmdVersion: '26.2.0+9999' } }), {
+      code: 'PROFILE_COMPILER_MISMATCH',
+    });
+    assert.throws(
+      () =>
+        requireComposerCompiler(id, {
+          ...actual,
+          compiler: { version: 'SQLcl: Release 26.3.0.0 Production Build: 26.3.0.999.9999' },
+        }),
+      { code: 'PROFILE_COMPILER_MISMATCH' },
+    );
+    assert.throws(() => requireComposerCompiler('unknown', actual), { code: 'PROFILE_COMPILER_MISMATCH' });
+  }
+  const legacy = blueprintSchema.parse(JSON.parse(await readFile('resources/blueprints/crm.yaml', 'utf8'))),
+    source = joined(await emit(legacy, 'CustomerList', 100, 101));
+  assert.match(source, /dataType: STRING/);
+  assert.doesNotMatch(source, /executionMappingIdentifier:/);
+  assert.equal((await blueprint()).application.compatibilityProfile, COMPOSER_262_PROFILE);
+});
+
+test('list and master-detail report columns use the Oracle Interactive Report type domain', async () => {
+  const value = await serviceDesk(),
+    types = {
+      string: 'varchar2',
+      integer: 'number',
+      decimal: 'number',
+      date: 'date',
+      timestamp: 'date',
+      boolean: 'boolean',
+    } as const;
+  for (const type of Object.keys(types) as (keyof typeof types)[])
+    value.entities.Ticket!.read.fields[type] = {
+      column: 'FIELD_' + type.toUpperCase(),
+      type,
+      nullable: true,
+    };
+  for (const block of ['Tickets', 'TicketLines']) {
+    const source = joined(await emit(value, block)),
+      columns = declarations(source).filter((node) => node.kind === 'column');
+    for (const [type, expected] of Object.entries(types)) {
+      const matching = columns.filter((column) => column.key === 'FIELD_' + type.toUpperCase());
+      assert.equal(matching.length, block === 'TicketLines' ? 2 : 1);
+      for (const column of matching)
+        assert.match(source.slice(column.start, column.end), new RegExp(`dataType: ${expected}\\b`));
+    }
+    assert.doesNotMatch(source, /dataType: STRING\b/);
+  }
+});
+
+test('generated read and save processes have distinct stable execution mappings', async () => {
+  const value = await blueprint(),
+    mappings = (source: string) =>
+      declarations(source)
+        .filter((node) => node.kind === 'process')
+        .map((node) => {
+          const mapping = source.slice(node.start, node.end).match(/executionMappingIdentifier: (\S+)/)?.[1];
+          assert.match(mapping ?? '', /^[1-9][0-9]*$/);
+          return mapping;
+        }),
+    initial = mappings(joined(await emit(value, 'CustomerList', 100, 101)));
+  assert.equal(initial.length, 2);
+  assert.equal(new Set(initial).size, initial.length);
+  value.blocks.CustomerList!.parameters.title = 'Renamed customers';
+  value.entities.Customer!.read.fields = Object.fromEntries(
+    Object.entries(value.entities.Customer!.read.fields).reverse(),
+  );
+  assert.deepEqual(mappings(joined(await emit(value, 'CustomerList', 100, 101))), initial);
+  const detail = mappings(joined(await emit(await serviceDesk(), 'TicketDetail')));
+  assert.equal(detail.length, 1);
+});
+
+test('master-detail reports have distinct stable numeric saved-report mappings', async () => {
+  const value = await serviceDesk(),
+    mappings = (source: string) =>
+      [...source.matchAll(/savedReportMappingIdentifier: ([1-9][0-9]*)/g)].map((match) => match[1]),
+    initial = mappings(joined(await emit(value, 'TicketLines')));
+  assert.equal(initial.length, 2);
+  assert.equal(new Set(initial).size, 2);
+  value.blocks.TicketLines!.parameters.title = 'Renamed master-detail';
+  assert.deepEqual(mappings(joined(await emit(value, 'TicketLines'))), initial);
+  assert.equal(mappings(joined(await emit(value, 'Tickets'))).length, 1);
+});
 
 test('row predicates accept only the reviewed allowlisted dialect', () => {
   for (const safe of [
@@ -294,7 +399,7 @@ test('read-only renderers emit filter, detail, history and master-detail contrac
   assert.match(list, /pageItem P100_FILTER \(/);
   assert.match(list, /event: change\n\s+selectionType: items\n\s+items: P100_FILTER/);
   assert.match(list, /action: refresh/);
-  assert.match(list, /column CHANGED_AT \([\s\S]*?dataType: DATE/);
+  assert.match(list, /column CHANGED_AT \([\s\S]*?dataType: date/);
   assert.ok(!list.includes('apexafterclosedialog'), 'read-only lists do not listen for saves');
   const detail = joined(await emit(desk, 'TicketDetail'));
   assert.match(detail, /pageItem P100_ID \(\n\s+type: hidden/);

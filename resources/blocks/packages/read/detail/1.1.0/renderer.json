@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "renderer": "read-only-detail",
+  "escape": "native-plain-text",
+  "transaction": "caller-owned",
+  "savedPayload": [
+    "entityRef",
+    "recordKey",
+    "recordVersion",
+    "operation",
+    "originInstance",
+    "correlationId"
+  ]
+}

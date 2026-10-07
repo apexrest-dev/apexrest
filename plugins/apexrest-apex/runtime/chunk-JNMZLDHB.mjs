@@ -8078,6 +8078,7 @@ export {
   resourceRoot,
   projectInit,
   projectInspect,
+  APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,
   sqlclToken,

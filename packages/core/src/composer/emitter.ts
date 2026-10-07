@@ -1,6 +1,7 @@
-import type { Blueprint, Instance, Allocation, Block } from './schemas.ts';
+import type { Blueprint, Instance, Allocation, Block, Entity } from './schemas.ts';
 import { bind, expression } from './binding.ts';
 import { Fault } from '../result.ts';
+import { COMPOSER_262_PROFILE } from './profiles.ts';
 
 const indent = (value: string, depth = 4) =>
   value
@@ -55,6 +56,15 @@ const source = (sql: string, submit?: string) =>
     'source',
     `location: localDatabase\ntype: sqlQuery\n${submit ? `pageItemsToSubmit: ${submit}\n` : ''}sqlQuery:${code('sql', sql)}`,
   );
+// Interactive Report columns use APEX data types, not blueprint field type names.
+const reportDataType = (type: Entity['read']['fields'][string]['type']) =>
+  ['integer', 'decimal'].includes(type)
+    ? 'number'
+    : ['date', 'timestamp'].includes(type)
+      ? 'date'
+      : type === 'boolean'
+        ? 'boolean'
+        : 'varchar2';
 const button = (key: string, label: string, region: string, behavior: string) =>
   node(
     'button',
@@ -88,11 +98,11 @@ function jsAction(key: string, javascript: string) {
     `action: executeJsCode\n${group('settings', `jsCode:${code('javascript', javascript)}`)}\n${group('execution', 'sequence: 10\nfireOnInit: false')}`,
   );
 }
-function process(key: string, point: string, sql: string) {
+function process(key: string, mapping: number | undefined, point: string, sql: string) {
   return node(
     'process',
     key,
-    `name: ${key}\ntype: executeCode\n${group('source', `plsqlCode:${code('plsql', sql)}`)}\n${group('execution', `sequence: 10\npoint: ${point}`)}`,
+    `name: ${key}\ntype: executeCode\n${mapping === undefined ? '' : group('advanced', `executionMappingIdentifier: ${mapping}`) + '\n'}${group('source', `plsqlCode:${code('plsql', sql)}`)}\n${group('execution', `sequence: 10\npoint: ${point}`)}`,
   );
 }
 function item(name: string, field: string, sequence: number, hidden: boolean, required: boolean) {
@@ -144,6 +154,16 @@ export function render(
 ) {
   const binding = bind(blueprint, instance),
     { entity, keys, predicate, command, writable } = binding;
+  const currentProfile = blueprint.application.compatibilityProfile === COMPOSER_262_PROFILE,
+    dataType = (type: Entity['read']['fields'][string]['type']) =>
+      currentProfile
+        ? reportDataType(type)
+        : ['integer', 'decimal'].includes(type)
+          ? 'NUMBER'
+          : ['date', 'timestamp'].includes(type)
+            ? 'DATE'
+            : 'STRING',
+    mapping = (page: number, role: number) => (currentProfile ? page * 100 + role : undefined);
   const fields = Object.entries(entity.read.fields).sort(([a], [b]) => (a < b ? -1 : 1));
   const file = (number: number) =>
     `pages/p${String(number).padStart(5, '0')}-${allocation.prefix}${number === allocation.dialog ? '_edit' : ''}.apx`;
@@ -177,6 +197,7 @@ export function render(
       );
     body += process(
       allocation.prefix + '-detail',
+      mapping(allocation.page, 1),
       'beforeHeader',
       `begin\n if :${keyItem} is not null then\n select ${fields.map(([, f]) => f.column).join(', ')} into ${fields.map(([f]) => ':P' + allocation.page + '_' + f.toUpperCase()).join(', ')} from ${entity.read.object} where (${predicate}) and ${entity.read.fields[keys[0]!]!.column}=:${keyItem};\n end if;\nend;`,
     );
@@ -240,7 +261,7 @@ export function render(
           node(
             'column',
             field.column,
-            `type: plainText\n${group('heading', `heading: ${name}`)}\n${group('layout', `sequence: ${(i + 1) * 10}`)}\n${group('source', `dataType: ${['integer', 'decimal'].includes(field.type) ? 'NUMBER' : ['date', 'timestamp'].includes(field.type) ? 'DATE' : 'STRING'}`)}`,
+            `type: plainText\n${group('heading', `heading: ${name}`)}\n${group('layout', `sequence: ${(i + 1) * 10}`)}\n${group('source', `dataType: ${dataType(field.type)}`)}`,
           ),
         )
         .join('');
@@ -248,7 +269,7 @@ export function render(
       node(
         'region',
         region,
-        `name: ${link ? 'Master records' : 'Related records'}\ntype: interactiveReport\n${source(`select ${fields.map(([, f]) => f.column).join(', ')} from ${entity.read.object} where (${predicate}) and ${predicateSQL}`)}\n${layout(sequence)}\n${appearance('interactive-report')}\n${link ? group('link', `linkColumn: customTarget\ntarget: {\n    page: ${allocation.page}\n    items: {\n        ${selected}: #${key.column}#\n    }\n}\nlinkIcon: View`) : ''}\n${cols()}`,
+        `name: ${link ? 'Master records' : 'Related records'}\ntype: interactiveReport\n${source(`select ${fields.map(([, f]) => f.column).join(', ')} from ${entity.read.object} where (${predicate}) and ${predicateSQL}`)}\n${layout(sequence)}\n${appearance('interactive-report')}\n${currentProfile ? group('advanced', `savedReportMappingIdentifier: ${mapping(allocation.page, link ? 1 : 2)}`) : ''}\n${link ? group('link', `linkColumn: customTarget\ntarget: {\n    page: ${allocation.page}\n    items: {\n        ${selected}: #${key.column}#\n    }\n}\nlinkIcon: View`) : ''}\n${cols()}`,
       );
     const hidden = node(
       'pageItem',
@@ -275,7 +296,7 @@ export function render(
       node(
         'column',
         field.column,
-        `type: ${keys.includes(name) && writable ? 'hidden' : 'plainText'}\n${group('heading', `heading: ${scalar(name)}`)}\n${group('layout', `sequence: ${(i + 1) * 10}`)}\n${group('source', `dataType: ${['integer', 'decimal'].includes(field.type) ? 'NUMBER' : ['date', 'timestamp'].includes(field.type) ? 'DATE' : 'STRING'}`)}`,
+        `type: ${keys.includes(name) && writable ? 'hidden' : 'plainText'}\n${group('heading', `heading: ${scalar(name)}`)}\n${group('layout', `sequence: ${(i + 1) * 10}`)}\n${group('source', `dataType: ${dataType(field.type)}`)}`,
       ),
     )
     .join('\n');
@@ -291,7 +312,10 @@ export function render(
       ),
       layout(10),
       appearance('interactive-report'),
-      group('advanced', `htmlDomId: ${allocation.prefix}_records`),
+      group(
+        'advanced',
+        `htmlDomId: ${allocation.prefix}_records${currentProfile ? `\nsavedReportMappingIdentifier: ${mapping(allocation.page, 1)}` : ''}`,
+      ),
       writable && instance.parameters.editEnabled
         ? group(
             'link',
@@ -425,6 +449,7 @@ export function render(
   );
   form += process(
     allocation.prefix + '-read',
+    mapping(dialog, 1),
     'beforeHeader',
     `begin\n  if :${itemName(keys[0]!)} is not null then\n    select ${mappedFields.map(([f]) => readExpression(f)).join(', ')} into ${mappedFields.map(([f]) => ':' + itemName(f)).join(', ')} from ${entity.read.object} where ${entity.read.fields[keys[0]!]!.column} = :${itemName(keys[0]!)} and (${predicate});\n  end if;\nend;`,
   );
@@ -435,7 +460,7 @@ export function render(
   variables.set(command.outputs.recordVersion.from, 'l_version');
   const saveName = allocation.prefix + '_SAVE';
   const server = `declare\n  l_key ${entity.read.object}.${entity.read.fields[keys[0]!]!.column}%type;\n  l_authorized boolean;\n  l_visible pls_integer;\n  l_version ${entity.read.object}.${entity.read.fields[version]!.column}%type;\nbegin\n  savepoint composer_save;\n  l_authorized := (${binding.writeExpression!});\n  if l_authorized is null or not l_authorized or not apex_authentication.is_authenticated then raise_application_error(-20001, 'Authorization denied'); end if;\n  l_key := ${inputExpression(keys[0]!)};\n  if apex_application.g_x01 = 'create' then\n    if ${instance.parameters.createEnabled ? 'false' : 'true'} or l_key is not null or :${itemName(version)} is not null then raise_application_error(-20002, 'Invalid create draft'); end if;\n  elsif apex_application.g_x01 = 'edit' then\n    if ${instance.parameters.editEnabled ? 'false' : 'true'} or l_key is null or :${itemName(version)} is null then raise_application_error(-20002, 'Invalid edit draft'); end if;\n    select count(*) into l_visible from ${entity.read.object} where ${entity.read.fields[keys[0]!]!.column} = l_key and (${predicate}) and rownum = 1;\n    if l_visible = 0 then raise_application_error(-20001, 'Authorization denied'); end if;\n  else raise_application_error(-20002, 'Invalid operation'); end if;\n  ${validation}\n  ${instance.extensions.beforeSaveValidation ?? ''}\n  ${command.package}.${command.procedure}(${[...variables].map(([argument, value]) => `${argument} => ${value}`).join(', ')});\n  if l_key is null or l_version is null then raise_application_error(-20004, 'API output contract violated'); end if;\n  ${instance.extensions.afterSaveNotification ?? ''}\n  apex_json.open_object; apex_json.write('ok',true); apex_json.write('recordKey',${['integer', 'decimal'].includes(entity.read.fields[keys[0]!]!.type) ? "to_char(l_key,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')" : 'l_key'}); apex_json.write('recordVersion',to_char(l_version,'TM9','NLS_NUMERIC_CHARACTERS=''.,''')); apex_json.close_object;\nexception when others then\n  rollback to composer_save;\n  apex_json.open_object; apex_json.write('ok',false); apex_json.write('code',case sqlcode when -20001 then 'authorization' when -20002 then 'validation' when -20003 then 'conflict' else 'server-error' end); apex_json.write('message','Save failed. Review fields and reload after a conflict.'); apex_json.close_object;\nend;`;
-  form += process(saveName, 'ajaxCallback', server);
+  form += process(saveName, mapping(dialog, 2), 'ajaxCallback', server);
   const pageItems = mappedFields.map(([f]) => '#' + itemName(f)).join(',');
   const correlation =
     '(window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2))';

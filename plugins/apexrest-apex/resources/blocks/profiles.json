@@ -5,6 +5,16 @@
     "universalTheme": "26.1",
     "mmd": "26.1.0+3102",
     "source": "existing pinned recipes and Oracle MMD",
+    "qualification": "experimental",
+    "sqlcl": "26.1.2.132.1334"
+  },
+  {
+    "id": "profile:apex262-ut262-mmd3479",
+    "apex": "26.2",
+    "universalTheme": "26.2",
+    "mmd": "26.2.0+3479",
+    "sqlcl": "26.3.0.260.1620",
+    "source": "Pinned Oracle 26.2 definitions and generated vendor MMD; explicit adapter profile",
     "qualification": "experimental"
   }
 ]

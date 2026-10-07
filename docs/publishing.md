@@ -2,7 +2,7 @@
 
 [apexrest-dev/apexrest](https://github.com/apexrest-dev/apexrest) is the canonical source repository. Git commits, registry packages, signed release artifacts and a deployed website are separate distribution outcomes.
 
-Repository deployment is disabled: the release and trusted Oracle/native integration workflows are disabled in GitHub, and their jobs use `if: ${{ false }}`. Publisher configuration keeps `enabled` and `npmEnabled` false. CI runs automatically only on pushes to `main`. Publication requires a separately authorized configuration change.
+The authorized 2.0.0 npm publication opts in through publisher configuration: `enabled` satisfies the existing readiness opt-in and `npmEnabled` records the npm target. These settings run no publication command. The release and trusted Oracle/native integration workflows remain disabled in GitHub, and their jobs use `if: ${{ false }}`. CI runs automatically only on pushes to `main`. GitHub release/tag and integration execution require separate authorization.
 
 An authorized release requires current evidence bound to its exact immutable source, archive integrity, protected target/approval settings and an externally managed signing key where required. Missing, blocked or stale evidence fails readiness. Registry publication also requires verified package ownership and clean-install checks; it does not establish Oracle or native-host qualification.
 
