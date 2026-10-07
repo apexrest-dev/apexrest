@@ -241,7 +241,7 @@ test('confirmed import with mismatched readback retains evidence and blocks furt
   await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'SYNC_BLOCKED' });
 });
 
-test('interrupted selected import retains unknown ownership and reconciliation never authorizes retry', async (t) => {
+test('interrupted selected import observes unchanged server but read-only reconciliation retains ownership', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'selected edit');
   const plan = await f.service.plan(f.ctx, 'dev');
@@ -251,9 +251,34 @@ test('interrupted selected import retains unknown ownership and reconciliation n
   assert.equal(state.status, 'outcome_unknown');
   assert.equal((await new LocalDeploymentControl(f.env).owner())!.phase, 'writing');
   const reconciliation = await f.service.reconcile(f.ctx, state.importingRunId!);
-  assert.equal(reconciliation.retryAllowed, false);
+  assert.equal(reconciliation.comparisonProvenance, 'explicit-live-export');
+  assert.equal(reconciliation.recoveryStatus, 'safe-to-replan');
+  assert.equal(reconciliation.importedSourcesMatch, false);
+  assert.deepEqual(reconciliation.conflictFiles, []);
   assert.equal(reconciliation.targetUnchanged, true);
+  assert.equal(reconciliation.retryAllowed, true, 'only a fresh unchanged server export permits a new plan');
+  assert.equal(f.imports.length, 1, 'read-only reconciliation does not retry or release ownership');
+  assert.equal((await new LocalDeploymentControl(f.env).owner())!.phase, 'writing');
   await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'SYNC_BLOCKED' });
+});
+
+test('interrupted selected import with unrelated server changes refuses recovery and preserves evidence', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'selected edit');
+  const plan = await f.service.plan(f.ctx, 'dev');
+  f.controls.failImport = true;
+  await assert.rejects(f.apply(plan), { code: 'OUTCOME_UNKNOWN' });
+  const run = (await f.store.read())!.importingRunId!;
+  await f.edit(sibling, 'unrelated server change', true);
+  const observed = await f.service.reconcile(f.ctx, run);
+  assert.equal(observed.comparisonProvenance, 'explicit-live-export');
+  assert.equal(observed.recoveryStatus, 'conflict');
+  assert.equal(observed.retryAllowed, false);
+  assert.ok(observed.conflictFiles.includes(sibling));
+  await assert.rejects(f.service.recover(f.ctx, run), { code: 'TARGET_DRIFT' });
+  assert.equal(f.imports.length, 1);
+  assert.equal((await new LocalDeploymentControl(f.env).owner())!.runId, run);
+  assert.equal(await f.content(sibling, true), 'unrelated server change');
 });
 
 test('concurrent local edits after confirmed import survive and require local reconciliation', async (t) => {

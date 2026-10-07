@@ -49,18 +49,18 @@ test('status snapshot preserves failed results and unknown workers, redacts secr
   assert.ok(!JSON.stringify(s).includes('hidden'));
   assert.deepEqual(s.permissions.activeGrants, []);
   assert.equal(s.configuration?.environments.dev?.applicationId, 123);
-  assert.equal(s.trusted, true);
+  assert.equal('trusted' in s, false);
   assert.equal(s.configured, true);
 });
 test('status is read-only: no panel state is created, untrusted projects are reported, not blocked', async (t) => {
   const { ctx, service } = await setup(t, false);
   const snapshot = await service.snapshot();
-  assert.equal(snapshot.trusted, false);
+  assert.equal('trusted' in snapshot, false);
   assert.deepEqual(snapshot.preferences, { browserMode: 'codex' });
   assert.equal(await exists(path.join(ctx.root, '.apexrest/panel')), false);
   const result = await dispatch('panel.status', { project: ctx.root });
   assert.equal(result.ok, true);
-  assert.equal((result.data as { trusted: boolean }).trusted, false);
+  assert.equal('trusted' in (result.data as object), false);
   assert.equal(await exists(path.join(ctx.root, '.apexrest/panel')), false);
   assert.equal(schemas['panel.status'].safeParse({ team: randomUUID() }).success, false);
   assert.equal('panel.open' in schemas, false);

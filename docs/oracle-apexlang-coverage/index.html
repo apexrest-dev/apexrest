@@ -1,0 +1,138 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Oracle APEXlang coverage · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/oracle-apexlang-coverage/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/oracle-apexlang-coverage/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/" aria-current="page">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Reference / Oracle APEXlang coverage</div><h1 id="official-oracle-apexlang-coverage">Official Oracle APEXlang coverage</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#source-and-version-matrix">Source and version matrix</a></li><li><a href="#complete-inventory-denominator">Complete inventory denominator</a></li><li><a href="#inventory-compiler-and-platform-are-different-scopes">Inventory, compiler and platform are different scopes</a></li><li><a href="#current-oracle-release-context">Current Oracle release context</a></li><li><a href="#maintenance-and-verification">Maintenance and verification</a></li></ul></details>
+<p>APEXREST includes every official APEX 26.2 inventory definition, with byte-exact paginated retrieval. This establishes source-library completeness against an explicit upstream directory, not universal Oracle APEX platform support or deployed application qualification. Checked on 7 October 2026 against the official sources below.</p>
+<h2 id="source-and-version-matrix">Source and version matrix</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Exact source/version</th>
+<th>Current coverage and meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Oracle skills repository HEAD</td>
+<td><code>6c57a52588c2a68e261ff0542b8fde80fd2b9c42</code>, 6 October 2026 14:32:20 UTC</td>
+<td>Latest inspected repository commit; all APEX files equal the pinned inventory revision</td>
+</tr>
+<tr>
+<td>Latest commit touching <code>apex/apexlang/26.2</code></td>
+<td><code>03ee10d02273bc4002fd527089e7fbb5884f94c4</code>, 6 October 2026 13:55:39 UTC</td>
+<td>Version routers and updated paths; this remains the reviewed 26.2 pin</td>
+</tr>
+<tr>
+<td>Bundled Oracle 26.2 inventory</td>
+<td>Same <code>03ee10d…</code>; ZIP SHA-256 <code>5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343</code></td>
+<td>389/389 definition documents, 130 distinct declaration keywords, 32,187 document/group/property occurrences</td>
+</tr>
+<tr>
+<td>Bundled Oracle 26.1 grammar/examples</td>
+<td><code>b94ccf4dec34b27859c2378fa71ba2bad884f2fe</code>, 22 September 2026 00:21:44 UTC</td>
+<td>659 source files remain byte-identical after Oracle moved them under <code>26.1/apexlang-generation</code>; 5,530 reference records: 658 complete documents and 4,872 grammar fragments</td>
+</tr>
+<tr>
+<td>Local component UX catalog</td>
+<td><code>26.1@2d5e25141a3c</code>, Universal Theme 26.1 Reference/APEX 26.1.4</td>
+<td>463 records; 139 recipes, 138 compiler-ready; independent 26.1 evidence</td>
+</tr>
+<tr>
+<td>Local pattern UX catalog</td>
+<td><code>26.1@d92b2cf4623f</code></td>
+<td>406 records; 58 patterns and 84 recipes, 69 compiler-ready; 15 unresolved recipes and nine unresolved patterns</td>
+</tr>
+<tr>
+<td>Installed offline compiler inspected</td>
+<td>SQLcl <code>26.3.0.260.1620</code>, actual MMD <code>26.2.0+3479</code></td>
+<td>Oracle compiler validation of the six local 26.2 recipes passed; no database, import or browser execution</td>
+</tr>
+</tbody></table>
+</div>
+<p>Primary provenance: <a href="https://github.com/oracle/skills/commit/03ee10d02273bc4002fd527089e7fbb5884f94c4">pinned revision</a>, <a href="https://github.com/oracle/skills/commit/6c57a52588c2a68e261ff0542b8fde80fd2b9c42">inspected HEAD</a>, <a href="https://github.com/oracle/skills/tree/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2">official 26.2 tree</a>, <a href="https://github.com/oracle/skills/commit/b94ccf4dec34b27859c2378fa71ba2bad884f2fe">26.1 source pin</a>. Oracle publishes this material as repository commits; the inspected repository had no release/tag version for these skills. A date or Git commit is not an Oracle semantic release number.</p>
+<h2 id="complete-inventory-denominator">Complete inventory denominator</h2>
+<p>The denominator is every Markdown definition under <code>apex/apexlang/26.2/apexlang-inventory/assets/</code> at the pinned revision. The separate upstream inventory <code>SKILL.md</code> is retained as a reference catalog for syntax, application layout and containment; it is vendor data, not executable host policy.</p>
+<p>The inventory includes workspace components, applications and shared components, page components, native plugin variants and template-component variants. Every document retains its original component keyword, parents/children, grouped properties, types, enums, defaults, requiredness, applicability and explanatory text. Repeated declarations or properties under different variants remain separate contexts.</p>
+<p>The source contains 16,935,821 inventory bytes. The largest definition, <code>app/page/region/series/series.md</code>, is 2,565,435 bytes; it exceeds the former inline entry limit. Definitions are therefore stored as individual files, checksum-verified when read and paginated through the actual <code>apexrest_reference</code> operation. The compact search index is only a routing summary and does not replace a contract. Search postings cover full document text and their own SHA-256 is bound in the snapshot. Missing or mismatched accelerators are rebuilt from complete integrity-verified documents. Accelerator changes invalidate cached search results; they cannot silently turn ordinary component/property queries into successful empty results. Legacy inline corpora derive postings directly when no independent accelerator digest exists.</p>
+<p>The former 26.2 source bundle selected only 27 inventory documents and omitted property groups from some of them. That selection has been replaced completely. There is one official authority for 26.2 property definitions; local guides and recipes are explicitly separate. The resulting 26.2 corpus has 412 records: 389 complete definitions, one inventory catalog, nine selected source examples, seven local guides and six original compiler-checked recipes.</p>
+<p>Use these MCP arguments:</p>
+<pre><code class="language-json">{ &quot;mode&quot;: &quot;read&quot;, &quot;id&quot;: &quot;oracle:26.2:inventory-catalog&quot;, &quot;version&quot;: &quot;26.2&quot; }
+</code></pre>
+<pre><code class="language-json">{ &quot;mode&quot;: &quot;search&quot;, &quot;corpus&quot;: &quot;components&quot;, &quot;version&quot;: &quot;26.2&quot;, &quot;query&quot;: &quot;interactive grid&quot;, &quot;limit&quot;: 3 }
+</code></pre>
+<p>Read the returned <code>oracle:26.2:inventory/...</code> ID and follow <code>nextOffset</code> until it is null. Related variant contracts link to their owning selector/component. Official definitions containing public <code>password</code> or <code>authorization</code> property/enum syntax retain those exact bytes; integrity-verified vendor pages alone bypass operation-output secret heuristics. Connection data, environment output, diagnostics and objects merely labeled as vendor data retain normal redaction.</p>
+<p>The default/project-absent profile remains 26.1. Local <code>component:</code> recipes and <code>pattern:</code> compositions remain bound to their independently verified 26.1 source. They do not silently become 26.2 contracts. An empty search is not proof that a platform feature is absent.</p>
+<h2 id="inventory-compiler-and-platform-are-different-scopes">Inventory, compiler and platform are different scopes</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Measured coverage</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Official inventory definition bytes</td>
+<td>389/389 included and available through MCP</td>
+<td>Specific upstream revision and directory</td>
+</tr>
+<tr>
+<td>Inventory declaration keywords</td>
+<td>130 distinct <code>componentType</code> values</td>
+<td>Multiple documents may describe one keyword with different variants</td>
+</tr>
+<tr>
+<td>Inventory property occurrences</td>
+<td>32,187 document/group/name addresses</td>
+<td>Includes repeated variant contexts; not 32,187 unique API features</td>
+</tr>
+<tr>
+<td>Inspected compiler MMD</td>
+<td>222 component definition IDs; 136 distinct keywords; 2,561 global property definitions, 2,528 referenced global IDs; 6,071 component/property bindings; 314 groups; 97 property types; 32 events</td>
+<td>Separate compiler structure; these counts are not interchangeable with Markdown occurrences</td>
+</tr>
+<tr>
+<td>Compiler-only keyword differences</td>
+<td><code>attributes</code>, <code>chart</code>, <code>dataProfile</code>, <code>groupBy</code>, <code>pivot</code>, <code>printAttributes</code> lack a separate inventory declaration document</td>
+<td>Some are represented within parent definitions; this does not prove missing runtime support</td>
+</tr>
+<tr>
+<td>Local 26.2 recipes</td>
+<td>Six files plus generated scaffold compile against actual MMD <code>26.2.0+3479</code></td>
+<td>Queries/provider calls/security enforcement/import/browser behavior require separate checks</td>
+</tr>
+<tr>
+<td>Theme/component/plugin installation and Builder operations</td>
+<td>Outside a complete-inventory claim</td>
+<td>Actual plugins, themes, templates, workspace provisioning, privileges and dependencies need target evidence</td>
+</tr>
+<tr>
+<td>Business data, SQL/PLSQL runtime, APIs and administration</td>
+<td>Outside a complete-inventory claim</td>
+<td>Tables, DML, grants, network/OCI/provider configuration, execution semantics and runtime authorization are independent</td>
+</tr>
+<tr>
+<td>Target deployment and user experience</td>
+<td>Unverified by this inventory change</td>
+<td>Authorized import and authenticated browser observations remain separate outcomes</td>
+</tr>
+</tbody></table>
+</div>
+<p>The installed compiler has resource directory labels including <code>26.2.0-11+3480</code>; its inspected metadata content and default compiler MMD identify <code>26.2.0+3479</code>. A containing directory name must not be used as the actual source schema build. Source metadata stays intact. The compiler is Oracle SQLcl, not an independent implementation bundled by the upstream skills.</p>
+<p>Oracle&#39;s 26.2 repository has compile, deploy, inventory and example-application skills. Generation guidance remains in the 26.1 generation tree. The three upstream 26.2 example applications contain 257 source files; APEXREST imports nine selected examples, not all three applications. Upstream executable helpers are not copied or run as plugin policy.</p>
+<h2 id="current-oracle-release-context">Current Oracle release context</h2>
+<p><a href="https://blogs.oracle.com/apex/announcing-oracle-apex-262">Oracle announced APEX 26.2 on 6 October 2026</a>; availability on a particular cloud/target is a separate fact. The <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/new-features.html">26.2 new-features reference</a> describes changes including AI integrations and navigation, workflows, reports, security/data-source options and Universal Theme improvements. Inclusion of an inventory definition does not establish those integrations on an arbitrary target.</p>
+<p><a href="https://blogs.oracle.com/apex/introducing-file-level-import-with-apexlang-in-oracle-apex">File-level APEXlang import</a> requires matching 26.2 source/target and SQLcl/ORDS 26.3 prerequisites. Oracle documents <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/understanding-apexlang-deployment-files.html">deployment-file structure and dependencies</a> and <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/upgrading-apexlang-source-with-new-apex-release.html">source upgrades across releases</a>. APEXREST&#39;s implemented transport/selection restrictions remain in the <a href="/apexrest/apex-26.2/">26.2 guide</a>; this library synchronization does not widen them. SQLcl version context comes from <a href="https://www.oracle.com/tools/sqlcl/sqlcl-changelog.html">Oracle&#39;s changelog</a>.</p>
+<h2 id="maintenance-and-verification">Maintenance and verification</h2>
+<p>Use the bundled <a href="https://github.com/apexrest-dev/apexrest/blob/main/plugins/apexrest-apex/skills/apexrest-oracle-sync/SKILL.md">maintainer synchronization skill</a> in the canonical source checkout. It requires no global skill installation or scheduled automation.</p>
+<pre><code class="language-sh">node scripts/check-oracle-apexlang-upstream.mjs
+</code></pre>
+<p>The checker inspects repository HEAD, not only commits touching 26.2. Its ignored <code>docs/evidence/oracle-upstream/upstream.json</code> distinguishes full pinned-inventory differences, imported catalog/example changes, licensing and new official version directories. <code>inventory-content-current</code> may coexist with <code>new-release-review-required</code>; it never declares another release supported. Other unimported upstream skills/examples remain outside that comparison.</p>
+<p>Review the exact candidate archive/revision/SHA-256. For an authorized 26.2 source refresh:</p>
+<pre><code class="language-sh">node scripts/build-apexlang-references-26.2.mjs ARCHIVE.zip --commit COMMIT --archive-sha256 SHA256
+node scripts/build-apexlang-references-26.2.mjs ARCHIVE.zip --check
+npm run build
+node scripts/sync-repository-plugin.mjs
+node scripts/verify-oracle-apexlang-coverage.mjs --archive ARCHIVE.zip
+</code></pre>
+<p><code>--check</code> is read-only and verifies all generated metadata and document bytes. A no-op rebuild must stay clean. Exact source and license hashes are retained in the lock/snapshot. New releases need an explicit profile/compiler/source review; the checker never automatically upgrades an application. Local recipe claims remain bound to their actual verification MMD even if a newly inspected example carries a different MMD.</p>
+<p>The exhaustive helper checks archive/index/search provenance, ordinary component/property discovery (<code>interactive grid</code>, <code>reasoningEffort</code>, <code>workflow</code>), valid empty unrelated queries, every document, all 130 declaration keywords, all 32,187 property occurrences, exact-ID discovery and complete paginated reconstruction through the packaged MCP server. Its ignored <code>docs/evidence/oracle-inventory-coverage.json</code> is local retrieval evidence. Regression tests independently cover integrity failure, cross-release routing, public enum preservation, operation/diagnostic secret redaction, empty/incomplete/misrouted/missing accelerator recovery and synthetic future-release/license/catalog detection. Synthetic fixtures are not evidence that Oracle published a future release.</p>
+<p>A source refresh remains distinct from publication, global plugin installation, database changes, provider setup and native host/browser qualification. See <a href="/apexrest/implementation-status/">implementation status</a>, <a href="/apexrest/acceptance.json">acceptance</a> and <a href="/apexrest/next-actions/">next actions</a>.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/oracle-apexlang-coverage.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

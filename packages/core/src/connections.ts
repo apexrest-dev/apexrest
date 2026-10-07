@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { contained, exists, readJson, withLock, writeJson } from './fs.ts';
 import { managedHome, parse, refName } from './config.ts';
 import { Fault } from './result.ts';
+import { readLocalEnv } from './local-env.ts';
 // Passed as one SQLcl argv value, never interpolated into a command or SQL.
 export const savedConnectionName = z
   .string()
@@ -193,12 +194,32 @@ export interface ConfigureConnection {
   ordsUsername?: string | undefined;
   passwordFile?: string | undefined;
   password?: string | undefined;
+  envFile?: string | undefined;
+  usernameKey?: string | undefined;
+  passwordKey?: string | undefined;
+  urlKey?: string | undefined;
 }
 
 // Passwords enter only through the local settings form or an explicitly supplied
 // local file; public connection records and operation results contain metadata.
 export async function configureConnection(name: string, input: ConfigureConnection) {
   parse(refName, name);
+  if (input.envFile) {
+    if (input.password !== undefined || input.passwordFile)
+      throw new Fault('INVALID_INPUT', 'Select one local credential source.', 2);
+    const values = await readLocalEnv(input.envFile);
+    const password = values[input.passwordKey ?? 'ORDS_PASSWORD'];
+    const username = values[input.usernameKey ?? 'ORDS_USERNAME'];
+    const url = values[input.urlKey ?? 'ORDS_URL'];
+    if (!password || !(input.ordsUsername ?? username) || !(input.ordsUrl ?? url))
+      throw new Fault('ENV_CREDENTIALS_MISSING', 'The selected local ENV credential keys are missing.', 2);
+    input = {
+      ...input,
+      password,
+      ordsUsername: input.ordsUsername ?? username,
+      ordsUrl: input.ordsUrl ?? url,
+    };
+  }
   return withLock(path.join(managedHome(), 'connections.lock'), async () => {
     const current = await connections();
     const previous = current[name];

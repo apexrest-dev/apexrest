@@ -107,7 +107,7 @@ Add a short Cloud-specific section to the application repository's `AGENTS.md`:
 - Report compiler checks, database checks and browser observations separately.
 ```
 
-Before application work, configure the target in `apexrest.json`, including workspace, schema, application ID, database identity and the correct read/deploy references. Review project trust and retain validation, backup, exact-plan authorization, drift and unknown-outcome protections from [configuration](configuration.md) and [deployment safety](deployment-safety.md). Installation and a successful connection test do not authorize an import.
+Before application work, configure the target in `apexrest.json`, including workspace, schema, application ID, database identity and the correct read/deploy references. Follow the [safety rules](deployment-safety.md) and retain validation, backup, exact-plan authorization, drift and unknown-outcome protections from [configuration](configuration.md) and [deployment safety](deployment-safety.md). Installation and a successful connection test do not authorize an import.
 
 The example keeps local deployment history under `APEXREST_HOME`. Cloud caches are not durable backup storage or cross-container coordination: preserve private backups/history outside an expiring container and serialize runners before authorizing deployments. Do not reset away an unresolved operation's records or silently start fresh history against the same schema.
 

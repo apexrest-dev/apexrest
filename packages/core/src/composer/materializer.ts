@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readFile, mkdir, cp, rm, open } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { hash, inventory, exists, atomicWrite, withLock } from '../fs.ts';
-import { requireTrust, type ProjectContext } from '../config.ts';
+import { type ProjectContext } from '../config.ts';
 import { Fault } from '../result.ts';
 import {
   planSchema,
@@ -321,7 +321,6 @@ export async function materialize(
   plan: CompositionPlan,
   options: { signal?: AbortSignal; boundary?: (phase: string, file: string) => Promise<void> } = {},
 ) {
-  await requireTrust(ctx.root);
   if (plan.status !== 'materializable' || planDigest(plan) !== plan.digest)
     throw new Fault('PLAN_BLOCKED', 'Only an intact materializable plan can be applied.', 5);
   await readPlan(ctx, `.apexrest/composer/plans/${plan.digest}.json`, plan.digest);

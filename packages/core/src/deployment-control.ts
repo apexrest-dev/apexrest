@@ -140,4 +140,41 @@ export class LocalDeploymentControl {
       await rm(this.file('active.json'));
     });
   }
+  /** Release only the reconciled run after its worker has stopped. Keep history. */
+  async claimReconciled(runId: string) {
+    await withLock(this.file('control.lock'), async () => {
+      const owner = await this.owner();
+      if (!owner) {
+        await writeJson(this.file('active.json'), {
+          runId,
+          pid: process.pid,
+          hostname: hostname(),
+          phase: 'preparing',
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+      if (owner.runId !== runId || owner.hostname !== hostname())
+        throw new Fault(
+          'TARGET_LOCKED',
+          'Another runner owns this target; reconciliation cannot clear its ownership.',
+          5,
+        );
+      if (owner.pid !== process.pid) {
+        let dead = false;
+        try {
+          process.kill(owner.pid, 0);
+        } catch (error) {
+          dead = (error as NodeJS.ErrnoException).code === 'ESRCH';
+        }
+        if (!dead)
+          throw new Fault(
+            'TARGET_LOCKED',
+            'The import worker is still alive; wait for its terminal result.',
+            5,
+          );
+      }
+      await writeJson(this.file('active.json'), { ...owner, pid: process.pid, phase: 'preparing' });
+    });
+  }
 }

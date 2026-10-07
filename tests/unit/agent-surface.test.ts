@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fixture } from '../fixtures/project.ts';
 import { workingCopyFixture } from '../fixtures/working-copy.ts';
 import { policy } from '../../packages/core/src/config.ts';
-import { readJson, writeJson } from '../../packages/core/src/fs.ts';
+import { atomicWrite, readJson, writeJson } from '../../packages/core/src/fs.ts';
 import { JobService, executeJob } from '../../packages/core/src/jobs.ts';
 import { Fault, failure, success } from '../../packages/core/src/result.ts';
 import { schemas, toolCatalog } from '../../packages/core/src/operations.ts';
@@ -100,15 +100,19 @@ test('ship apply records a plan-bound grant, imports, verifies and removes the g
     workspace: 'FIXTURE',
     url: 'https://localhost/ords/f?p=123',
   });
-  assert.deepEqual(result.browserVerification, { status: 'not_run', browser: 'host' });
+  assert.equal('browserVerification' in result, false);
   assert.ok(f.calls.includes('import'));
   assert.equal(f.calls.includes('tests'), false);
 });
 
-test('ship apply removes its grant after a failed import and refuses production before any grant', async (t) => {
+test('ship apply removes its grant after bounded failed imports and refuses production before any grant', async (t) => {
   const f = await workingCopyFixture();
   f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
+  await atomicWrite(
+    path.join(f.ctx.root, f.ctx.config.application.sourceDir, 'pages/p00010-customers.apx'),
+    'changed customers content',
+  );
   const planned = await shipPlan(f.ctx, 'dev', f.service, parseDiagnostics);
   f.controls.failImport = true;
   await assert.rejects(shipApply(f.ctx, planned.plan, 'Deploy the customers page', f.service), {
@@ -127,19 +131,23 @@ test('ship apply removes its grant after a failed import and refuses production 
     },
   };
   await assert.rejects(checkShipTarget(production, planned.plan), {
-    code: 'PRODUCTION_CI_REQUIRED',
+    code: 'PRODUCTION_DEPLOY_DENIED',
     status: 'blocked',
   });
   await assert.rejects(shipApply(production, planned.plan, 'Deploy the customers page', f.service), {
-    code: 'PRODUCTION_CI_REQUIRED',
+    code: 'PRODUCTION_DEPLOY_DENIED',
   });
   assert.equal(
     (await policy()).grants.some((g) => g.grantedBy === 'ship'),
     false,
   );
-  assert.ok(!f.calls.slice(f.calls.indexOf('import') + 1).includes('import'));
+  assert.equal(
+    f.calls.filter((call) => call === 'import').length,
+    2,
+    'one server-confirmed replan/retry; production attempts add no imports',
+  );
   const risky = { ...planned.plan, risks: ['destructive-or-privileged-sql:db/x.sql'] };
-  await assert.rejects(checkShipTarget(f.ctx, risky), { code: 'RECOVERY_REVIEW_REQUIRED' });
+  await assert.rejects(checkShipTarget(f.ctx, risky), { code: 'DATABASE_CONFIRMATION_REQUIRED' });
 });
 
 test('ship schemas require the literal user request and refuse production apply through dispatch', async (t) => {
@@ -160,7 +168,11 @@ test('ship schemas require the literal user request and refuse production apply 
     userRequest: 'Deploy page ten to production',
   });
   assert.equal(refused.ok, false);
-  assert.notEqual(refused.diagnostics[0]!.code, 'PRODUCTION_CI_REQUIRED', 'missing plan fails before policy');
+  assert.notEqual(
+    refused.diagnostics[0]!.code,
+    'PRODUCTION_DEPLOY_DENIED',
+    'missing plan fails before policy',
+  );
   assert.equal(
     (await policy()).grants.some((g) => g.grantedBy === 'ship'),
     false,
@@ -208,7 +220,7 @@ test('compiler failures become VALIDATION_FAILED with structured diagnostics and
     failure('deploy.apply', new Fault('DEPLOY_APPROVAL_REQUIRED', 'x', 4)).nextActions[0]!,
     /apexrest_ship/,
   );
-  assert.match(failure('x', new Fault('PROJECT_TRUST_REQUIRED', 'x', 4)).nextActions[0]!, /trustedProjects/);
+  assert.match(failure('x', new Fault('PRODUCTION_DEPLOY_DENIED', 'x', 4)).nextActions[0]!, /production/);
 });
 
 async function trusted(t: import('node:test').TestContext) {
@@ -399,11 +411,12 @@ test('composite project, reference and status operations reuse the granular impl
   assert.equal(output.isError, false);
 });
 
-test('skills are five host-neutral files within their byte budgets', async () => {
+test('skills are six host-neutral files within their byte budgets', async () => {
   const root = 'plugins/apexrest-apex/skills';
   const skills = (await readdir(root)).sort();
   assert.deepEqual(skills, [
     'apexrest-apexlang',
+    'apexrest-oracle-sync',
     'apexrest-pattern-catalog',
     'apexrest-safety',
     'apexrest-setup',

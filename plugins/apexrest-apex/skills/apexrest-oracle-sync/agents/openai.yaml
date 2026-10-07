@@ -1,0 +1,3 @@
+interface:
+  display_name: "Oracle inventory sync (maintainers)"
+  short_description: "Synchronize the complete official APEXlang inventory"

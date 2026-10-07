@@ -67,12 +67,12 @@ export const faultNextActions: Record<string, string> = {
   PLAN_EXPIRED: 'Rerun apexrest_ship with mode:plan; plans expire 30 minutes after creation.',
   DEPLOY_APPROVAL_REQUIRED:
     "Run apexrest_ship with mode:apply and userRequest set to the user's literal instruction; it records a plan-bound deploy grant for this attempt.",
-  PRODUCTION_CI_REQUIRED:
-    'Production targets need a signed external approval in a protected CI runner; apexrest_ship cannot apply them. Report this to the user.',
+  PRODUCTION_DEPLOY_DENIED:
+    'Deployment to production-marked targets is unsupported. Select an explicitly configured DEV, QA or TEST target; do not relabel production.',
+  DATABASE_CONFIRMATION_REQUIRED:
+    'Describe the exact database operations and consequences in this plan. After human confirmation, apply the same saved plan with confirmation bound to its digest.',
   RECOVERY_REVIEW_REQUIRED:
-    'The plan carries destructive, privileged or security risks. Review them with the user and provide a recovery path before applying.',
-  PROJECT_TRUST_REQUIRED:
-    "Ask the user to add the project's canonical path to trustedProjects in APEXREST_HOME/policy.json (CLI: apexrest status --detail project shows the path), then retry.",
+    'The plan changes authentication or authorization outside the application task. Obtain explicit scope for this exact change.',
   PROJECT_NOT_CONFIGURED:
     'Pass the absolute directory containing apexrest.json, or create one with apexrest_project action:init.',
   CONNECTION_REQUIRED:
@@ -104,6 +104,16 @@ function normalizeDiagnostic(entry: StructuredDiagnostic, code: string): Diagnos
   return d;
 }
 const safeArtifactPages = new WeakSet<object>();
+const verifiedVendorPages = new WeakSet<object>();
+
+// Called only after bundled official document bytes pass reference integrity checks.
+// Public reference syntax can contain password/authorization enum names; redacting
+// those bytes corrupts the contract. User/operation output cannot opt out by label.
+export function verifiedVendorReferencePage<T extends Record<string, unknown>>(page: T): T {
+  Object.freeze(page);
+  verifiedVendorPages.add(page);
+  return page;
+}
 
 // Only pages produced here may bypass subsequent recursive redaction. The full
 // document is sanitized first and the page is frozen; arbitrary tool objects
@@ -155,7 +165,8 @@ export function redact(value: string): string {
     .replace(/\bBearer\s+[\w.\-+/=]+/gi, 'Bearer [REDACTED]');
 }
 export function sanitized(value: unknown): unknown {
-  if (value && typeof value === 'object' && safeArtifactPages.has(value)) return value;
+  if (value && typeof value === 'object' && (safeArtifactPages.has(value) || verifiedVendorPages.has(value)))
+    return value;
   if (typeof value === 'string') return redact(value);
   if (Array.isArray(value)) return value.map(sanitized);
   if (value && typeof value === 'object')

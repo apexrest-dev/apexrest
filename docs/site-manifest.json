@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "basePath": "/apexrest/",
+  "siteOrigin": "https://apexrest-dev.github.io",
+  "pages": [
+    {
+      "source": "README.md",
+      "route": "/apexrest/"
+    },
+    {
+      "source": "site/content/install.md",
+      "route": "/apexrest/install/"
+    },
+    {
+      "source": "docs/index.md",
+      "route": "/apexrest/docs/"
+    },
+    {
+      "source": "docs/getting-started.md",
+      "route": "/apexrest/getting-started/"
+    },
+    {
+      "source": "docs/apex-26.2.md",
+      "route": "/apexrest/apex-26.2/"
+    },
+    {
+      "source": "docs/codex-cloud.md",
+      "route": "/apexrest/codex-cloud/"
+    },
+    {
+      "source": "docs/existing-app.md",
+      "route": "/apexrest/existing-app/"
+    },
+    {
+      "source": "docs/configuration.md",
+      "route": "/apexrest/configuration/"
+    },
+    {
+      "source": "docs/deployment-safety.md",
+      "route": "/apexrest/deployment/"
+    },
+    {
+      "source": "docs/testing.md",
+      "route": "/apexrest/testing/"
+    },
+    {
+      "source": "docs/troubleshooting.md",
+      "route": "/apexrest/troubleshooting/"
+    },
+    {
+      "source": "docs/chat-workflow.md",
+      "route": "/apexrest/chat-workflow/"
+    },
+    {
+      "source": "docs/ords.md",
+      "route": "/apexrest/ords/"
+    },
+    {
+      "source": "docs/status.md",
+      "route": "/apexrest/status/"
+    },
+    {
+      "source": "docs/clean-apex-deployment.md",
+      "route": "/apexrest/clean-apex-deployment/"
+    },
+    {
+      "source": "site/content/versions.md",
+      "route": "/apexrest/versions/"
+    },
+    {
+      "source": "docs/architecture.md",
+      "route": "/apexrest/architecture/"
+    },
+    {
+      "source": "docs/oracle-apexlang-coverage.md",
+      "route": "/apexrest/oracle-apexlang-coverage/"
+    },
+    {
+      "source": "docs/component-catalog.md",
+      "route": "/apexrest/component-catalog/"
+    },
+    {
+      "source": "docs/pattern-catalog.md",
+      "route": "/apexrest/pattern-catalog/"
+    },
+    {
+      "source": "docs/composer.md",
+      "route": "/apexrest/composer/"
+    },
+    {
+      "source": "docs/codex-integration.md",
+      "route": "/apexrest/codex-integration/"
+    },
+    {
+      "source": "docs/codex-automation.md",
+      "route": "/apexrest/codex-automation/"
+    },
+    {
+      "source": "site/content/releases.md",
+      "route": "/apexrest/releases/"
+    },
+    {
+      "source": "SECURITY.md",
+      "route": "/apexrest/security/"
+    },
+    {
+      "source": "CONTRIBUTING.md",
+      "route": "/apexrest/contributing/"
+    },
+    {
+      "source": "docs/implementation-status.md",
+      "route": "/apexrest/implementation-status/"
+    },
+    {
+      "source": "docs/next-actions.md",
+      "route": "/apexrest/next-actions/"
+    },
+    {
+      "source": "docs/publishing.md",
+      "route": "/apexrest/publishing/"
+    },
+    {
+      "source": "docs/release-notes.md",
+      "route": "/apexrest/release-notes/"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "route": "/apexrest/changelog/"
+    }
+  ],
+  "files": [
+    ".nojekyll",
+    "apex-26.2/index.html",
+    "apex-26.2.html",
+    "architecture/index.html",
+    "architecture.html",
+    "assets/search.js",
+    "assets/styles.css",
+    "changelog/index.html",
+    "chat-workflow/index.html",
+    "chat-workflow.html",
+    "clean-apex-deployment/index.html",
+    "clean-apex-deployment.html",
+    "codex-automation/index.html",
+    "codex-automation.html",
+    "codex-cloud/index.html",
+    "codex-cloud.html",
+    "codex-integration/index.html",
+    "codex-integration.html",
+    "component-catalog/index.html",
+    "component-catalog.html",
+    "composer/index.html",
+    "composer.html",
+    "configuration/index.html",
+    "configuration.html",
+    "contributing/index.html",
+    "deployment/index.html",
+    "deployment-safety.html",
+    "docs/index.html",
+    "existing-app/index.html",
+    "existing-app.html",
+    "getting-started/index.html",
+    "getting-started.html",
+    "implementation-status/index.html",
+    "implementation-status.html",
+    "index.html",
+    "install/index.html",
+    "llms.txt",
+    "next-actions/index.html",
+    "next-actions.html",
+    "oracle-apexlang-coverage/index.html",
+    "oracle-apexlang-coverage.html",
+    "ords/index.html",
+    "ords.html",
+    "pattern-catalog/index.html",
+    "pattern-catalog.html",
+    "publishing/index.html",
+    "publishing.html",
+    "release-notes/index.html",
+    "release-notes.html",
+    "releases/index.html",
+    "search-index.json",
+    "security/index.html",
+    "status/index.html",
+    "status.html",
+    "testing/index.html",
+    "testing.html",
+    "troubleshooting/index.html",
+    "troubleshooting.html",
+    "versions/index.html"
+  ]
+}

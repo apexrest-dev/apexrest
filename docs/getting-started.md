@@ -45,7 +45,7 @@ claude plugin marketplace add apexrest-dev/apexrest
 claude plugin install apexrest@apexrest
 ```
 
-For a local checkout, pass the checkout path to `marketplace add`; to try a checkout for one session without installing, start `claude --plugin-dir <checkout>/plugins/apexrest-apex`. The manifest declares the five skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. The `node` on the `PATH` of the shell that starts `claude` must be Node.js 24 or newer. Start a new Claude Code session after installation.
+For a local checkout, pass the checkout path to `marketplace add`; to try a checkout for one session without installing, start `claude --plugin-dir <checkout>/plugins/apexrest-apex`. The manifest declares the six skills and the MCP server `node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs`; no global MCP registration is needed. The `node` on the `PATH` of the shell that starts `claude` must be Node.js 24 or newer. Start a new Claude Code session after installation.
 
 ## Check the setup
 
@@ -113,7 +113,7 @@ Then give the agent the non-secret target identity for an environment:
 
 > Configure an APEXREST test environment using the connection references `dev-read` and `dev-deploy`. The workspace is `YOUR_WORKSPACE`, parsing schema `YOUR_SCHEMA`, application ID `YOUR_APPLICATION_ID`, database unique name `YOUR_DB`, service `YOUR_SERVICE`, and application URL `https://your-host.example/ords/r/workspace/app/`. Verify that the read connection matches this identity.
 
-Replace every placeholder with the actual target. No environment is invented by project initialization. Follow [configuration](configuration.md) for the exact environment schema, the private trust policy (`trustedProjects` in `$APEXREST_HOME/policy.json`) and test origins.
+Replace every placeholder with the actual target. No environment is invented by project initialization. Follow [configuration](configuration.md) for the exact environment schema, task authorization and allowed origins described in the [safety rules](deployment-safety.md).
 
 ## Create or adopt a project
 
@@ -127,13 +127,13 @@ The agent calls `apexrest_project` `action:init` with `directory` and `template`
 
 Adoption (`action:adopt` with `env`, `appId` and `workingCopy`) exports into a new local directory and fails rather than overwrite local edits. Keep the generated Oracle metadata under version control and reuse the working source for later changes; see [existing applications](existing-app.md). The CLI equivalents are `apexrest project init DIR --template existing-app` and `apexrest project adopt --env dev --app-id ID --working-copy --json`.
 
-**Trust the project.** Validation, ship and browser tools refuse an untrusted project with `PROJECT_TRUST_REQUIRED`. Review the generated project, then add its canonical path (`apexrest status --detail project` shows it; on macOS `/tmp` resolves to `/private/tmp`) to `trustedProjects` in `$APEXREST_HOME/policy.json` yourself. The agent asks for this step and never writes the policy; see [configuration](configuration.md).
+**Review the target.** No manual folder trust list is required. An identified DEV/QA/TEST app task authorizes its import; production deploy/restore is forbidden. Read the [current safety rules](deployment-safety.md) before database work.
 
 ## Edit, validate, ship and verify
 
 For an existing qualified APEX 26.2 application, initialize a sync baseline before editing, then use `importMode:auto` to select eligible changed files or `importMode:files` with an explicit page/dependency list. Review `importSelection.resolvedMode`, selected files and any full-import reasons before applying. The [partial-import guide](apex-26.2.md) gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.
 
-The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, open the changed pages with `apexrest_browser_open` and report. The steps are listed in the [README](../README.md#work-in-one-session).
+The work skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change: inspect the project, read at most three references with `apexrest_reference`, edit the `.apx` sources, run `apexrest_apex_validate` until `diagnostics` is empty, plan with `apexrest_ship` `mode:plan`, apply with `mode:apply`, optionally inspect requested pages with `apexrest_browser_open` and report server completion. Browser checks run only when requested. The steps are listed in the [README](../README.md#work-in-one-session).
 
 Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see [deployment safety](deployment-safety.md).
 

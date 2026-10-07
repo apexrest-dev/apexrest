@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" fill="none" role="img" aria-labelledby="title desc">
   <title id="title">APEXREST controlled deployment workflow</title>
-  <desc id="desc">Five steps: edit application source; compile and create a digest-bound plan; verify the live target and drift and make a backup; perform the authorized import using frozen source and a durable journal; then verify the result with scoped checks and the in-app browser when available. Local migration history and single-machine coordination are the default. Production requires protected external approval. Unknown outcomes require reconciliation rather than a blind retry.</desc>
+  <desc id="desc">Five steps: edit application source; compile and create a digest-bound plan; verify the live target and drift and make a backup; perform the authorized import using frozen source and a durable journal; then verify the server result and inspect the browser when requested. Local migration history and single-machine coordination are the default. Production deployment and restore are forbidden. Unknown outcomes require reconciliation rather than a blind retry.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1200" y2="760" gradientUnits="userSpaceOnUse"><stop stop-color="#10263A"/><stop offset="1" stop-color="#071522"/></linearGradient>
     <linearGradient id="accent" x1="54" y1="0" x2="1146" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#5DE4CC"/><stop offset="1" stop-color="#81B7FF"/></linearGradient>
@@ -11,7 +11,7 @@
   <path d="M56 1H1144" stroke="url(#accent)" stroke-width="3"/>
   <text class="eyebrow" x="54" y="57">FROM SOURCE TO A VERIFIED CHANGE</text>
   <text class="heading" x="54" y="116">Fast delivery. Explicit boundaries.</text>
-  <text class="body" x="54" y="158">Carry an authorized application change through import and runtime verification.</text>
+  <text class="body" x="54" y="158">Carry an authorized application change through import and server verification.</text>
 
   <path d="M82 222H1118" stroke="#365E69" stroke-width="2"/>
   <g fill="#112E3B" stroke="#65CCBF" stroke-width="2">
@@ -53,11 +53,11 @@
   <text class="caption" x="746" y="435">Durable import journal</text>
 
   <text class="card-title" x="970" y="305">Verify</text>
-  <text class="card-body" x="970" y="344">Run relevant checks.</text>
-  <text class="card-body" x="970" y="371">Inspect app behavior.</text>
+  <text class="card-body" x="970" y="344">Read server results.</text>
+  <text class="card-body" x="970" y="371">Confirm completion.</text>
   <path d="M970 399H1126" stroke="#345367"/>
   <text class="caption" x="970" y="430">In-app browser</text>
-  <text class="caption" x="970" y="450">when available</text>
+  <text class="caption" x="970" y="450">when requested</text>
 
   <rect x="54" y="502" width="534" height="151" rx="14" fill="#102B3B" stroke="#355366"/>
   <path d="M80 530H102V551H80ZM85 525H97V530M86 540H96" stroke="#77DBCF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -69,12 +69,12 @@
   <rect x="612" y="502" width="534" height="151" rx="14" fill="#172B3A" stroke="#536274"/>
   <path d="M640 529L652 525L664 529V539C664 548 652 554 652 554C652 554 640 548 640 539ZM647 539L651 543L658 535" stroke="#A9C9FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   <text x="680" y="546" font-size="21" font-weight="700" fill="#F5FAFF">Authorization follows the target</text>
-  <text class="card-body" x="638" y="578">Dev/test imports stay within the user's identified app scope.</text>
-  <text class="card-body" x="638" y="605">Production requires protected external approval.</text>
+  <text class="card-body" x="638" y="578">DEV/QA/TEST imports stay within the identified app scope.</text>
+  <text class="card-body" x="638" y="605">Production deployment and restore are forbidden.</text>
   <text class="caption" x="638" y="634">Application import does not authorize unrelated data writes.</text>
 
   <path d="M54 688H1146" stroke="#2E4659"/>
   <circle cx="62" cy="716" r="5" fill="#E8BF77"/>
-  <text x="78" y="721" font-size="15" fill="#C6D5DF">An unknown write outcome requires reconciliation. Never blindly retry an import.</text>
+  <text x="78" y="721" font-size="15" fill="#C6D5DF">Unknown outcomes: read server state before any bounded retry.</text>
   <text x="1146" y="721" text-anchor="end" font-size="14" fill="#8FAABD">docs/deployment-safety.md</text>
 </svg>

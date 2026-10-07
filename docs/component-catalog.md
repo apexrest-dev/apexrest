@@ -4,6 +4,8 @@ Find a component, inspect its parameters and adapt its APEXlang recipe to your a
 
 Browse the component list and examples in [Universal Theme Reference](https://apex.oracle.com/ut).
 
+For `version:26.2`, `corpus:components` resolves the complete [official Oracle inventory](oracle-apexlang-coverage.md), including native/plugin variants and all properties. It returns version-qualified `oracle:26.2:inventory/...` IDs. The local UX recipe catalog described below remains independently bound to 26.1.
+
 ## Search and read
 
 ```sh

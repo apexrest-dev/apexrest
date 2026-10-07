@@ -14,16 +14,20 @@ Keep current documentation and functional reference/catalog data in source contr
 
 Do not publish, tag, provision paid resources or mutate an existing database without active authorization. CI runs only on pushes to main; repository release and Oracle integration workflows are disabled.
 
-# Application import authorization
+# Application import authorization and safety
 
-An explicit request to create, update or import an identified development/test APEX application authorizes its necessary import. Complete validation, plan, apply and runtime verification without requesting the same permission again. When required, record the user's authorization in a short-lived, exact-project/target/plan local deploy grant. Do not widen scope to business-table writes, authentication changes, other targets or production. Preserve backup, identity, drift, coordination and unknown-outcome safeguards; production requires protected external approval.
+An explicit request to create, update or import an identified development/test APEX application authorizes its necessary import. Complete validation, plan, apply and runtime verification without requesting the same permission again. When required, record the user's authorization in a short-lived, exact-project/target/plan local deploy grant. Do not widen scope to business-table writes, authentication changes, other targets or production. Preserve backup, identity, drift, coordination and unknown-outcome safeguards; production deployment/restore is forbidden. Actual local non-production targets allow all task-scoped database changes; remote dangerous database changes require exact-plan human confirmation.
 
-Application verification uses Oracle compiler validation, authorized read-only source/metadata checks and the host in-app browser. The plugin does not run automated application unit, SQL, API or UI suites and does not install a browser. Repository self-tests remain development checks. Deployment completion and browser verification are separate outcomes; never infer browser success from an import.
+Application deployment completion uses Oracle compiler validation, authorized read-only source/metadata checks and confirmed error-free server import. Browser verification runs only when requested, through the built-in or user-selected browser. The plugin does not run automated application unit, SQL, API or UI suites and does not install a browser. Repository self-tests remain development checks. Deployment completion and browser verification are separate outcomes; never infer browser success from an import.
 
 # Browser verification
 
-For user-visible application changes, inspect affected pages and behavior in the selected verification browser when its controls are available. Follow plugins/apexrest-apex/skills/apexrest-work/SKILL.md, step 7. Record actual observations separately from automated results; report missing browser access or deployed changes with the reason.
+When the user requests browser verification, inspect the requested pages and behavior in the built-in or user-selected browser when its controls are available. Follow plugins/apexrest-apex/skills/apexrest-work/SKILL.md, step 7. Record actual observations separately from automated results; report missing browser access or deployed changes with the reason.
 
 # Clean APEX deployment and coordination
 
 Supported APEX installations require no APEXREST control tables or setup DDL. Plan/apply use local durable migration history and coordination. A legacy deploymentControl: "local" is accepted and ignored. Independent machines or managed homes are not coordinated and must be serialized externally. Preserve identity, backup, authorization, drift and unknown-outcome protections.
+
+# Canonical product policy
+
+Follow docs/deployment-safety.md: no manual folder trust list; DEV/QA/TEST deployment only; production marks override locality; 30-minute exact plans, backup/drift/coordination retained; server-first interrupted-import recovery without blind SQL replay. Authorized connection/browser login may read regular user-owned, Git-ignored/untracked local ENV files as literal data without exposing secrets.

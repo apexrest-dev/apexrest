@@ -145,9 +145,89 @@
             "type": "string"
           }
         },
+        "databaseReview": {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "boolean"
+            },
+            "localityEvidence": {
+              "type": "string"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "column": {
+                    "type": "string"
+                  },
+                  "renamedTo": {
+                    "type": "string"
+                  },
+                  "dangerous": {
+                    "type": "boolean"
+                  },
+                  "consequence": {
+                    "type": "string"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "dependenciesStatus": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "unavailable",
+                      "not-applicable"
+                    ]
+                  }
+                },
+                "required": [
+                  "file",
+                  "action",
+                  "object",
+                  "dangerous",
+                  "consequence",
+                  "dependencies",
+                  "dependenciesStatus"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "local",
+            "localityEvidence",
+            "operations"
+          ],
+          "additionalProperties": false
+        },
         "approval": {
           "type": "string",
-          "const": "external-policy-required"
+          "enum": [
+            "external-policy-required",
+            "task-authorized"
+          ]
         },
         "backupRequired": {
           "type": "boolean"
@@ -351,9 +431,89 @@
             "type": "string"
           }
         },
+        "databaseReview": {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "boolean"
+            },
+            "localityEvidence": {
+              "type": "string"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "column": {
+                    "type": "string"
+                  },
+                  "renamedTo": {
+                    "type": "string"
+                  },
+                  "dangerous": {
+                    "type": "boolean"
+                  },
+                  "consequence": {
+                    "type": "string"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "dependenciesStatus": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "unavailable",
+                      "not-applicable"
+                    ]
+                  }
+                },
+                "required": [
+                  "file",
+                  "action",
+                  "object",
+                  "dangerous",
+                  "consequence",
+                  "dependencies",
+                  "dependenciesStatus"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "local",
+            "localityEvidence",
+            "operations"
+          ],
+          "additionalProperties": false
+        },
         "approval": {
           "type": "string",
-          "const": "external-policy-required"
+          "enum": [
+            "external-policy-required",
+            "task-authorized"
+          ]
         },
         "backupRequired": {
           "type": "boolean"
@@ -622,9 +782,89 @@
             "type": "string"
           }
         },
+        "databaseReview": {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "boolean"
+            },
+            "localityEvidence": {
+              "type": "string"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "column": {
+                    "type": "string"
+                  },
+                  "renamedTo": {
+                    "type": "string"
+                  },
+                  "dangerous": {
+                    "type": "boolean"
+                  },
+                  "consequence": {
+                    "type": "string"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "dependenciesStatus": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "unavailable",
+                      "not-applicable"
+                    ]
+                  }
+                },
+                "required": [
+                  "file",
+                  "action",
+                  "object",
+                  "dangerous",
+                  "consequence",
+                  "dependencies",
+                  "dependenciesStatus"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "local",
+            "localityEvidence",
+            "operations"
+          ],
+          "additionalProperties": false
+        },
         "approval": {
           "type": "string",
-          "const": "external-policy-required"
+          "enum": [
+            "external-policy-required",
+            "task-authorized"
+          ]
         },
         "backupRequired": {
           "type": "boolean"
@@ -935,9 +1175,89 @@
             "type": "string"
           }
         },
+        "databaseReview": {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "boolean"
+            },
+            "localityEvidence": {
+              "type": "string"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "object": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "column": {
+                    "type": "string"
+                  },
+                  "renamedTo": {
+                    "type": "string"
+                  },
+                  "dangerous": {
+                    "type": "boolean"
+                  },
+                  "consequence": {
+                    "type": "string"
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "dependenciesStatus": {
+                    "type": "string",
+                    "enum": [
+                      "read",
+                      "unavailable",
+                      "not-applicable"
+                    ]
+                  }
+                },
+                "required": [
+                  "file",
+                  "action",
+                  "object",
+                  "dangerous",
+                  "consequence",
+                  "dependencies",
+                  "dependenciesStatus"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "local",
+            "localityEvidence",
+            "operations"
+          ],
+          "additionalProperties": false
+        },
         "approval": {
           "type": "string",
-          "const": "external-policy-required"
+          "enum": [
+            "external-policy-required",
+            "task-authorized"
+          ]
         },
         "backupRequired": {
           "type": "boolean"

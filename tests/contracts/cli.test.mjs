@@ -52,7 +52,7 @@ test('merged CLI commands map onto the granular operations', () => {
   assert.match(ship.stdout, /--user-request/);
   assert.match(ship.stdout, /--import-mode auto\|full\|files defaults to auto/);
   assert.match(ship.stdout, /--files PATH1 PATH2/);
-  assert.match(ship.stdout, /mode apply: non-production only/);
+  assert.match(ship.stdout, /mode apply: DEV\/QA\/TEST only/);
   const status = run('status', '--help');
   assert.match(status.stdout, /--detail/);
   const job = run('job', 'status', '--help');

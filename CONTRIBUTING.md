@@ -17,7 +17,7 @@ npm run build
 
 After source, dependency, skill or resource changes, run `npm run plugin:sync`. It builds and refreshes the checked-in self-contained plugin bundle used by repository installations, including the Codex manifest (`.codex-plugin/plugin.json`), the Claude Code manifest (`.claude-plugin/plugin.json`) and both repository marketplaces (`.agents/plugins/marketplace.json`, `.claude-plugin/marketplace.json`). Commit the resulting bundle with its source changes. With the `claude` CLI installed, `npm run test:packaging` also runs `claude plugin validate --strict` on the generated manifests. `plugins/apexrest-apex/runtime/` and `plugins/apexrest-apex/resources/` are generated output, marked `linguist-generated` in `.gitattributes`; do not edit them by hand. Change the sources and rerun `npm run plugin:sync`.
 
-The normal build does not deploy an app or install Oracle binaries. Native-host setup, vendor downloads, connection onboarding and remote integration have their own prerequisites. See [getting started](docs/getting-started.md).
+The normal build does not deploy an app or install Oracle binaries. Native-host setup, vendor downloads, connection onboarding and remote integration have their own prerequisites. See [getting started](https://apexrest-dev.github.io/apexrest/getting-started/).
 
 ## Validate a change
 
@@ -31,7 +31,9 @@ npm run site:build
 npm run test:packaging
 ```
 
-Run the checks relevant to the changed behavior, including build before packaging tests. Run `npm run plugin:check` after a fresh build to verify that the checked-in plugin matches its generated runtime/resources. `npm run test:repository-plugin` exercises the repository bundle in a fresh isolated Codex profile without connecting to or writing an Oracle target. Native registration changes also need the real isolated Codex lifecycle check; Oracle adapter or application changes need appropriate real compiler/target evidence when a target is authorized and available. If a required environment is absent, record the blocker rather than substituting a mock result. See [testing](docs/testing.md).
+Run the checks relevant to the changed behavior, including build before packaging tests. Run `npm run plugin:check` after a fresh build to verify that the checked-in plugin matches its generated runtime/resources. `npm run test:repository-plugin` exercises the repository bundle in a fresh isolated Codex profile without connecting to or writing an Oracle target. Native registration changes also need the real isolated Codex lifecycle check; Oracle adapter or application changes need appropriate real compiler/target evidence when a target is authorized and available. If a required environment is absent, record the blocker rather than substituting a mock result. See [testing](https://apexrest-dev.github.io/apexrest/testing/).
+
+The [documentation website](https://apexrest-dev.github.io/apexrest/) is served from `main:/docs`. After editing Markdown or the `site/` renderer/theme, run `npm run site:build` and `npm run site:check`, then commit the generated Pages files with their sources. Run `npm run site:preview` to inspect the tracked output at `http://127.0.0.1:4173/apexrest/`; check navigation, search and narrow layouts. See the [Pages authoring guide](https://apexrest-dev.github.io/apexrest/publishing/#documentation-on-github-pages).
 
 ## Engineering expectations
 
@@ -52,6 +54,6 @@ Use a `codex/` branch for Codex-created work unless the maintainer requests a di
 
 ## Release work
 
-Before packaging a release, run `npm run plugin:sync`, then `npm run plugin:check`, and verify the native repository installation with `npm run test:repository-plugin`. `npm run release:dry-run` creates unsigned local artifacts and a readiness report. Stable readiness requires current evidence bound to the exact immutable source. Publishing requires the separate protected workflow and maintainer authorization; it is not part of a normal build or pull request. See [publisher setup](docs/publishing.md).
+Before packaging a release, run `npm run plugin:sync`, then `npm run plugin:check`, and verify the native repository installation with `npm run test:repository-plugin`. `npm run release:dry-run` creates unsigned local artifacts and a readiness report. Stable readiness requires current evidence bound to the exact immutable source. Publishing requires the separate protected workflow and maintainer authorization; it is not part of a normal build or pull request. See [publisher setup](https://apexrest-dev.github.io/apexrest/publishing/).
 
-Report security issues using [SECURITY.md](SECURITY.md), not public issue attachments containing secrets.
+Report security issues using [SECURITY.md](https://apexrest-dev.github.io/apexrest/security/), not public issue attachments containing secrets.

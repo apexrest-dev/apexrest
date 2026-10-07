@@ -135,7 +135,7 @@ export async function projectInit(
         configuration: config,
         nextActions: [
           'Configure explicit target identity and connection references.',
-          'Review project code and grant project trust before running it.',
+          'Review the target and sources; the application task authorizes its dev/QA/test import.',
         ],
       };
     } finally {

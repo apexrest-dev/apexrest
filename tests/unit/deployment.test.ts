@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { chmod, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
-import { generateKeyPairSync, randomUUID, sign as sign_ } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { hostname } from 'node:os';
 import { runTypeScriptChild } from './child-runner.ts';
@@ -11,9 +11,7 @@ import {
   DeploymentService,
   authorizePlan,
   planDigest,
-  publicKeyFingerprint,
   targetDigest,
-  verifyProductionApproval,
 } from '../../packages/core/src/deploy.ts';
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL } from '../../packages/core/src/oracle.ts';
@@ -32,6 +30,8 @@ async function grant(home: string, root: string, plan?: DeployPlan) {
             planDigest: plan.digest,
             expiresAt: plan.expiresAt,
             operations: ['deploy'],
+            confirmedRisks: plan.risks,
+            confirmationRequest: 'Test fixture explicitly authorizes this exact database plan',
           },
         ]
       : [],
@@ -473,89 +473,25 @@ test('targets listed in production trust are production regardless of apexrest.j
   const original = process.env.CI;
   delete process.env.CI;
   try {
-    await assert.rejects(authorizePlan(ctx, plan, env), { code: 'PRODUCTION_CI_REQUIRED' });
+    await assert.rejects(authorizePlan(ctx, plan, env), { code: 'PRODUCTION_DEPLOY_DENIED' });
     await assert.rejects(service.sync(ctx, 'dev', 'init'), { code: 'SYNC_SCOPE_UNSUPPORTED' });
   } finally {
     if (original !== undefined) process.env.CI = original;
   }
 });
 
-test('production approval requires a protected trust file and a trusted, bound signature', async () => {
+test('production never deploys with a local grant or legacy external approval flags', async () => {
   const { ctx, plan } = await prepared();
-  const home = process.env.APEXREST_HOME!;
-  const keys = generateKeyPairSync('ed25519');
-  const publicPem = keys.publicKey.export({ type: 'spki', format: 'pem' });
-  const keyFile = path.join(ctx.root, 'approval.pub'),
-    approvalFile = path.join(ctx.root, 'approval.json');
-  await atomicWrite(keyFile, publicPem);
-  const sign = (payload: Record<string, unknown>) => ({
-    ...payload,
-    signature: sign_(null, Buffer.from(canonical(payload)), keys.privateKey).toString('base64'),
-  });
-  const payload = {
-    planDigest: plan.digest,
-    planId: plan.id,
-    projectId: plan.projectId,
-    targetDigest: plan.targetDigest,
-    expiresAt: plan.expiresAt,
-    reviewer: 'release-reviewer',
-  };
-  await writeJson(approvalFile, sign(payload));
-  const env = { ...ctx.config.environments.dev!, kind: 'production' as const };
-  const saved = { ...process.env };
-  Object.assign(process.env, {
-    CI: 'true',
-    APEXREST_APPROVAL_PUBLIC_KEY_FILE: keyFile,
-    APEXREST_APPROVAL_FILE: approvalFile,
-  });
+  await grant(process.env.APEXREST_HOME!, ctx.root, plan);
+  const before = process.env.CI;
+  process.env.CI = 'true';
   try {
-    await assert.rejects(authorizePlan(ctx, plan, env), {
-      code: process.platform === 'win32' ? 'PRODUCTION_TRUST_UNSUPPORTED' : 'PRODUCTION_TRUST_REQUIRED',
+    await assert.rejects(authorizePlan(ctx, plan, { ...ctx.config.environments.dev!, kind: 'production' }), {
+      code: 'PRODUCTION_DEPLOY_DENIED',
     });
-    const trust = {
-      schemaVersion: 1 as const,
-      approvalKeys: [{ sha256: publicKeyFingerprint(publicPem), reviewer: 'release-reviewer' }],
-      productionTargets: [],
-    };
-    // A file the current user owns (even read-only) is never production trust.
-    const trustFile = path.join(home, 'production-trust.json');
-    await writeJson(trustFile, trust);
-    await chmod(trustFile, 0o444);
-    await assert.rejects(authorizePlan(ctx, plan, env), {
-      code: process.platform === 'win32' ? 'PRODUCTION_TRUST_UNSUPPORTED' : 'PRODUCTION_TRUST_UNPROTECTED',
-    });
-    // Signature verification itself, given protected trust.
-    assert.equal(
-      verifyProductionApproval(trust, publicPem, sign(payload), plan, 'fixture').reviewer,
-      'release-reviewer',
-    );
-    for (const [field, value] of [
-      ['planId', randomUUID()],
-      ['projectId', 'other-project'],
-      ['planDigest', hash('other')],
-      ['reviewer', 'someone-else'],
-    ] as const)
-      assert.throws(
-        () =>
-          verifyProductionApproval(trust, publicPem, sign({ ...payload, [field]: value }), plan, 'fixture'),
-        { code: 'APPROVAL_INVALID' },
-      );
-    const untrusted = generateKeyPairSync('ed25519');
-    assert.throws(
-      () =>
-        verifyProductionApproval(
-          trust,
-          untrusted.publicKey.export({ type: 'spki', format: 'pem' }),
-          sign(payload),
-          plan,
-          'fixture',
-        ),
-      { code: 'APPROVAL_KEY_UNTRUSTED' },
-    );
   } finally {
-    for (const key of ['CI', 'APEXREST_APPROVAL_PUBLIC_KEY_FILE', 'APEXREST_APPROVAL_FILE'])
-      if (saved[key] === undefined) delete process.env[key];
-      else process.env[key] = saved[key];
+    if (before === undefined) delete process.env.CI;
+    else process.env.CI = before;
   }
 });
 

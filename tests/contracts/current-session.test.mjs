@@ -77,6 +77,7 @@ test('distributed runtime and skills contain no model orchestration', async () =
   const skills = (await readdir(root + '/skills')).sort();
   assert.deepEqual(skills, [
     'apexrest-apexlang',
+    'apexrest-oracle-sync',
     'apexrest-pattern-catalog',
     'apexrest-safety',
     'apexrest-setup',
@@ -87,7 +88,7 @@ test('distributed runtime and skills contain no model orchestration', async () =
   assert.doesNotMatch(work, /apexrest_work_start|apexrest_team_|requestId|\$apexrest-/);
   let bytes = 0;
   for (const skill of skills) bytes += (await readFile(`${root}/skills/${skill}/SKILL.md`)).length;
-  assert.ok(bytes < 20000, `skills total ${bytes} bytes`);
+  assert.ok(bytes < 24000, `skills total ${bytes} bytes`);
   for (const name of await readdir(root + '/runtime')) {
     const text = await readFile(root + '/runtime/' + name, 'utf8');
     assert.doesNotMatch(

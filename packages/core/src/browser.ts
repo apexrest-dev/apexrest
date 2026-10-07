@@ -1,4 +1,4 @@
-import { environment, requireTrust, type ProjectContext } from './config.ts';
+import { environment, type ProjectContext } from './config.ts';
 import { browserPreferences, type BrowserMode } from './browser-preferences.ts';
 import { Fault } from './result.ts';
 
@@ -19,11 +19,10 @@ export function allowedOrigin(url: string, origins: string[]) {
 }
 
 export function browserInstructions(mode: BrowserMode) {
-  return `Interactive APEX verification browser: ${mode}. Use apexrest_browser_open for the explicit environment, then open its URL with the host-provided in-app browser controls (when available). Opening a URL is not verification. Inspect rendering, navigation, validation and changed interactions. If browser controls or authentication are unavailable, report the check as not_run with the exact limitation. Never read or copy browser profiles, cookies or credentials. Login is interactive, without login capture.`;
+  return `Interactive APEX verification browser: ${mode}. Use apexrest_browser_open for the explicit environment, then open its URL with the host-provided in-app browser controls (when available). Opening a URL is not verification. Inspect rendering, navigation, validation and changed interactions. If browser controls or authentication are unavailable, report the check as not_run with the exact limitation. Use the browser requested by the user, otherwise the host in-app browser. Authorized login may read an ignored, untracked local ENV file as literal data; never echo passwords or copy cookies/profiles. Opening remains separate from verified behavior.`;
 }
 
 export async function openVerificationBrowser(ctx: ProjectContext, name: string, browserMode?: BrowserMode) {
-  await requireTrust(ctx.root);
   const target = environment(ctx, name);
   const url = allowedOrigin(target.baseUrl, [
     new URL(target.baseUrl).origin,

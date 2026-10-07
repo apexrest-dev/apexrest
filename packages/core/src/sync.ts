@@ -42,6 +42,10 @@ export const syncStateSchema = z.strictObject({
       snapshot: snapshotSchema,
     })
     .nullable(),
+  recoveryCheckpoint: z
+    .strictObject({ at: z.iso.datetime(), runId: z.uuid(), snapshot: snapshotSchema })
+    .nullable()
+    .optional(),
   status: z.enum(['ready', 'importing', 'verification_failed', 'outcome_unknown', 'invalidated']),
   importingRunId: z.uuid().nullable(),
 });
@@ -120,7 +124,7 @@ export async function checkSyncBackup(
     throw new Fault('BACKUP_INVALID', 'Initial SQL backup checksum or target verification failed.', 5);
 }
 export function checkpoint(state: SyncState) {
-  return state.lastSuccessfulImport?.snapshot ?? state.baseline;
+  return state.recoveryCheckpoint?.snapshot ?? state.lastSuccessfulImport?.snapshot ?? state.baseline;
 }
 export class SyncStore {
   constructor(
@@ -212,15 +216,24 @@ export class SyncStore {
         `Working copy is ${state.status}. Inspect the existing run and reconcile before writes.`,
         5,
       );
+    const validRunSnapshot = (reference: NonNullable<SyncState['lastSuccessfulImport']>) => {
+      const base = '.apexrest/deployments/' + reference.runId + '/';
+      if (
+        ['snapshot', 'server'].some(
+          (kind) => reference.snapshot.directory === base + kind + '/' + state.sourceDir,
+        )
+      )
+        return true;
+      const relative = reference.snapshot.directory.startsWith(base)
+        ? reference.snapshot.directory.slice(base.length)
+        : '';
+      return /^recovery\/\d{10,17}\/application$/.test(relative);
+    };
     if (
       state.baseline.directory !==
         '.apexrest/sync/' + state.targetDigest + '/baselines/' + state.syncId + '/application' ||
-      (state.lastSuccessfulImport &&
-        !['snapshot', 'server'].some(
-          (kind) =>
-            state.lastSuccessfulImport!.snapshot.directory ===
-            '.apexrest/deployments/' + state.lastSuccessfulImport!.runId + '/' + kind + '/' + state.sourceDir,
-        ))
+      (state.lastSuccessfulImport && !validRunSnapshot(state.lastSuccessfulImport)) ||
+      (state.recoveryCheckpoint && !validRunSnapshot(state.recoveryCheckpoint))
     )
       throw new Fault(
         'SYNC_ARTIFACT_INVALID',
@@ -231,6 +244,7 @@ export class SyncStore {
       throw new Fault('SYNC_BLOCKED', 'A writing owner must complete or be reconciled before reuse.', 5);
     await checkSnapshot(this.ctx, state.baseline);
     if (state.lastSuccessfulImport) await checkSnapshot(this.ctx, state.lastSuccessfulImport.snapshot);
+    if (state.recoveryCheckpoint) await checkSnapshot(this.ctx, state.recoveryCheckpoint.snapshot);
     await checkSyncBackup(this.ctx, state.backup, state.targetDigest, this.name);
   }
   async write(state: SyncState) {

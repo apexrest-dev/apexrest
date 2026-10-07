@@ -60,6 +60,17 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "confirmedRisks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confirmationRequest": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
           }
         },
         "required": [
@@ -74,7 +85,6 @@
   },
   "required": [
     "schemaVersion",
-    "trustedProjects",
     "grants"
   ],
   "additionalProperties": false

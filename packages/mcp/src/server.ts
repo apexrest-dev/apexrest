@@ -46,6 +46,7 @@ for (const { operation, long } of toolCatalog) {
       ? transportSchema.safeExtend({
           directory: absoluteProject.describe('Absolute directory for init.').optional(),
           passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
+          envFile: absoluteProject.describe('Absolute ignored local ENV credential file.').optional(),
         })
       : transportSchema;
   mcpSchemas.set(
@@ -90,11 +91,11 @@ export async function startMcp() {
       const input = parse(mcpSchemas.get(tool.operation)!, request.params.arguments ?? {});
       project = typeof input.project === 'string' ? input.project : undefined;
       const localSync = tool.operation === 'apex.sync' && input.action === 'status';
-      const planOnly = tool.operation === 'ship' && input.mode !== 'apply';
+      const planOnly = tool.operation === 'ship' && input.mode === 'plan';
       if (localSync || planOnly) delete input.waitSeconds;
       if (tool.long && !localSync && !planOnly) {
         const jobs = new JobService(await loadProject(String(input.project)));
-        if (tool.operation === 'ship') {
+        if (tool.operation === 'ship' && input.mode === 'apply') {
           // Validate and plan in-process (no writes); the apply phase runs in a
           // detached worker so a database write survives MCP termination.
           const { waitSeconds, ...domainInput } = input;
@@ -110,6 +111,7 @@ export async function startMcp() {
                 env: input.env,
                 plan: planPath,
                 userRequest: input.userRequest,
+                confirmation: input.confirmation,
                 waitSeconds,
               },
               runtime,

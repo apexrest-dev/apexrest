@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { stat, readFile } from 'node:fs/promises';
+import { stat, readFile, realpath } from 'node:fs/promises';
 import {
   referenceWords,
   referenceTerms,
@@ -25,7 +25,7 @@ import {
 import { resourceRoot } from './project.ts';
 import { loadProject, managedHome } from './config.ts';
 import { readJson, exists, writeJson, canonical, hash } from './fs.ts';
-import { Fault } from './result.ts';
+import { Fault, verifiedVendorReferencePage } from './result.ts';
 import { catalogSearch, catalogRead } from './composer/catalog.ts';
 import { componentSearch, componentRead } from './components.ts';
 import { patternSearch, patternRead } from './patterns.ts';
@@ -44,6 +44,10 @@ export type Reference = {
   sha256?: string;
   /** Reviewed source or compiler evidence; never implies a deployed runtime check. */
   verification?: string;
+  /** Byte-exact official document loaded only when a result is read. text is a routing summary. */
+  document?: string;
+  contentSha256?: string;
+  contentLength?: number;
 };
 /** A resolved link: the agent can choose the next read without fetching the target first. */
 export type ReferenceLink = { id: string; title: string | null; kind: string | null };
@@ -57,16 +61,43 @@ export const references: Reference[] = [
   {
     id: 'deployment-safety',
     version: '1.0.0',
-    source: 'docs/clean-apex-deployment.md',
-    text: 'Use an explicit environment. Plans bind source hashes and target identity. Recheck drift, acquire local coordination and create an export backup before writes. Clean APEX deployment needs no service tables. Local runners must share one managed home; independent machines need external serialization. DDL cannot be generally rolled back. Interrupted writes require reconciliation. Production requires an external approval boundary.',
+    source: 'docs/deployment-safety.md',
+    text: 'Use an explicit environment. Plans bind source hashes and target identity. Recheck drift, acquire local coordination and create an export backup before writes. Clean APEX deployment needs no service tables. Local runners must share one managed home; independent machines need external serialization. DDL cannot be generally rolled back. Interrupted writes require reconciliation. Production deployment and restore are forbidden. The identified DEV/QA/TEST application task authorizes its import; actual local task-scoped DB changes need no separate risk prompt, while remote dangerous operations require exact-plan human confirmation. Browser checks are requested separately.',
   },
 ];
+async function referenceText(entry: Reference): Promise<string> {
+  if (!entry.document) return entry.text;
+  const invalid = () =>
+    new Fault('REFERENCE_CATALOG_INVALID', 'The official reference document failed integrity checks.', 3);
+  if (
+    !/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) ||
+    entry.document.split('/').includes('..') ||
+    !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? '') ||
+    !Number.isInteger(entry.contentLength)
+  )
+    throw invalid();
+  const root = await realpath(path.join(resourceRoot(), 'references/26.2'));
+  const file = await realpath(path.join(root, entry.document));
+  const relative = path.relative(root, file);
+  if (!relative || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw invalid();
+  const info = await stat(file);
+  if (info.size > 4 * 1024 * 1024) throw invalid();
+  const text = await readFile(file, 'utf8');
+  if (text.length !== entry.contentLength || hash(text) !== entry.contentSha256) throw invalid();
+  return text;
+}
 function versionMatches(actual: string, requested?: string) {
   if (!requested) return true;
   // A release selector includes its pinned snapshot. An explicit snapshot remains exact.
   return actual === requested || (!requested.includes('@') && actual.split('@')[0] === requested);
 }
-function indexReferences(upstream: Reference[], file?: string, digest?: string, release = '26.1') {
+function indexReferences(
+  upstream: Reference[],
+  file?: string,
+  digest?: string,
+  release = '26.1',
+  searchDigest?: string,
+) {
   const builtins = references.filter(
     (entry) => entry.version === release || entry.id === 'deployment-safety',
   );
@@ -98,18 +129,24 @@ function indexReferences(upstream: Reference[], file?: string, digest?: string, 
   let pendingPostings: Promise<Record<string, number[]>> | undefined;
   const postings = () =>
     (pendingPostings ??= (async () => {
-      if (file) {
+      // Legacy catalogs keep full bodies inline and have no independently bound
+      // accelerator digest. Derive their postings rather than trust unbound bytes.
+      if (file && searchDigest && /^[a-f0-9]{64}$/.test(searchDigest)) {
         try {
-          const prebuilt = (await readJson(path.join(path.dirname(file), 'search.json'))) as {
+          const rawSearch = await readFile(path.join(path.dirname(file), 'search.json'), 'utf8');
+          const prebuilt = JSON.parse(rawSearch) as {
             schemaVersion?: unknown;
             indexSha256?: unknown;
             postings?: unknown;
           } | null;
           if (
+            hash(rawSearch) === searchDigest &&
             prebuilt &&
             prebuilt.schemaVersion === 1 &&
             prebuilt.indexSha256 === digest &&
             prebuilt.postings &&
+            !Array.isArray(prebuilt.postings) &&
+            Object.keys(prebuilt.postings).length > 0 &&
             Object.values(prebuilt.postings as Record<string, unknown>).every(
               (list) =>
                 Array.isArray(list) &&
@@ -127,7 +164,9 @@ function indexReferences(upstream: Reference[], file?: string, digest?: string, 
           /* Missing/stale/corrupt optional accelerator: rebuild from the actual corpus. */
         }
       }
-      return buildReferencePostings(entries);
+      return buildReferencePostings(
+        await Promise.all(entries.map(async (entry) => ({ ...entry, text: await referenceText(entry) }))),
+      );
     })());
   // Stems group the raw posting words once per corpus revision; stem membership sets are
   // built on demand and shared by every query that uses the same stem.
@@ -190,14 +229,25 @@ async function referenceIndex(version = '26.1') {
     const manifestInfo = await stat(path.join(path.dirname(file), 'oracle-snapshot.json'), { bigint: true });
     stamp += `:${manifestInfo.ino}:${manifestInfo.size}:${manifestInfo.mtimeNs}:${manifestInfo.ctimeNs}`;
   }
+  // Accelerator creation/deletion/replacement must invalidate query/posting caches,
+  // including edits that preserve mtime or the authoritative index itself.
+  try {
+    const searchInfo = await stat(path.join(path.dirname(file), 'search.json'), { bigint: true });
+    stamp += `:${searchInfo.ino}:${searchInfo.size}:${searchInfo.mtimeNs}:${searchInfo.ctimeNs}`;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    stamp += ':no-search-accelerator';
+  }
   const prior = cached.get(file);
   if (prior?.stamp === stamp) return prior.pending;
   const pending = readFile(file, 'utf8').then(async (raw) => {
     const entries = JSON.parse(raw) as Reference[];
+    let searchDigest: string | undefined;
     if (release === '26.2') {
       const manifest = (await readJson(path.join(path.dirname(file), 'oracle-snapshot.json'))) as {
         release?: string;
         indexSha256?: string;
+        searchSha256?: string;
         records?: number;
       };
       if (
@@ -211,7 +261,14 @@ async function referenceIndex(version = '26.1') {
             !versionMatches(entry.version, release) ||
             typeof entry.text !== 'string' ||
             entry.text.length > 600_000 ||
-            entry.sha256 !== hash(entry.text),
+            entry.sha256 !== hash(entry.text) ||
+            (entry.document !== undefined &&
+              (!/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) ||
+                entry.document.split('/').includes('..') ||
+                !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? '') ||
+                !Number.isInteger(entry.contentLength) ||
+                entry.contentLength! < 0 ||
+                entry.contentLength! > 4 * 1024 * 1024)),
         )
       )
         throw new Fault(
@@ -219,8 +276,9 @@ async function referenceIndex(version = '26.1') {
           'The reviewed 26.2 reference snapshot failed integrity checks.',
           3,
         );
+      searchDigest = manifest.searchSha256;
     }
-    return indexReferences(entries, file, hash(raw), release);
+    return indexReferences(entries, file, hash(raw), release, searchDigest);
   });
   // Keep a bounded cache even when callers switch many resource roots during tests.
   if (cached.size >= 8) cached.delete(cached.keys().next().value!);
@@ -293,7 +351,17 @@ export async function referenceSearch(query: string, version?: string, options: 
       nextResultOffset: found.nextResultOffset,
     }));
   }
-  if (options.corpus === 'components') return componentSearch(query, selectedVersion, options);
+  if (options.corpus === 'components') {
+    if (selectedVersion.split('@')[0] === '26.2' && query.trim().startsWith('component:')) return [];
+    if (selectedVersion.split('@')[0] === '26.2')
+      return referenceSearch(query, selectedVersion, {
+        ...options,
+        corpus: 'apexlang',
+        kind: 'contract',
+        family: 'inventory',
+      });
+    return componentSearch(query, selectedVersion, options);
+  }
   if (options.corpus === 'patterns') return patternSearch(query, selectedVersion, options);
   const terms = referenceQueryTerms(query);
   if (!terms.length) return [];
@@ -410,33 +478,36 @@ export async function referenceSearch(query: string, version?: string, options: 
   const limit = options.limit ?? 3;
   const link = index.link;
   const words = referenceTerms(query);
-  const results = ranked.slice(offset, offset + limit).map((position, i) => {
-    const entry = index.searchable[position]!;
-    const { reference: r, title } = entry;
-    const requires = r.requires ?? [];
-    const related = r.related ?? [];
-    const code = codeWanted(options.include, offset, i)
-      ? (entry.code ??= r.kind === 'grammar' ? null : primaryCodeBlock(r.text, CODE_LIMIT))
-      : undefined;
-    return {
-      id: r.id,
-      title,
-      version: r.version,
-      source: r.source,
-      kind: r.kind ?? 'guide',
-      family: r.family ?? 'workflow',
-      ...(r.verification ? { verification: r.verification } : {}),
-      ...snippet(r.text, (entry.lower ??= r.text.toLowerCase()), query, words),
-      ...(code ? { code: boundCode(code, CODE_LIMIT) } : {}),
-      requires,
-      requiresReferences: requires.slice(0, SEARCH_LINKS).map(link),
-      requiresCount: requires.length,
-      relatedReferences: related.slice(0, SEARCH_LINKS).map(link),
-      relatedCount: related.length,
-      totalMatches: ranked.length,
-      nextResultOffset: offset + limit < ranked.length ? offset + limit : null,
-    };
-  });
+  const results = await Promise.all(
+    ranked.slice(offset, offset + limit).map(async (position, i) => {
+      const entry = index.searchable[position]!;
+      const { reference: r, title } = entry;
+      const text = await referenceText(r);
+      const requires = r.requires ?? [];
+      const related = r.related ?? [];
+      const code = codeWanted(options.include, offset, i)
+        ? (entry.code ??= r.kind === 'grammar' ? null : primaryCodeBlock(text, CODE_LIMIT))
+        : undefined;
+      return {
+        id: r.id,
+        title,
+        version: r.version,
+        source: r.source,
+        kind: r.kind ?? 'guide',
+        family: r.family ?? 'workflow',
+        ...(r.verification ? { verification: r.verification } : {}),
+        ...snippet(text, text.toLowerCase(), query, words),
+        ...(code ? { code: boundCode(code, CODE_LIMIT) } : {}),
+        requires,
+        requiresReferences: requires.slice(0, SEARCH_LINKS).map(link),
+        requiresCount: requires.length,
+        relatedReferences: related.slice(0, SEARCH_LINKS).map(link),
+        relatedCount: related.length,
+        totalMatches: ranked.length,
+        nextResultOffset: offset + limit < ranked.length ? offset + limit : null,
+      };
+    }),
+  );
   return fitResults(results, Math.min(16000, 2500 * limit), (page) => JSON.stringify(page).length);
 }
 export async function referenceRead(
@@ -459,7 +530,8 @@ export async function referenceRead(
   const item = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, '')) ?? '');
   if (!item || (version && !versionMatches(item.version, version)))
     throw new Fault('REFERENCE_NOT_FOUND', 'No registered reference with this ID or grammar symbol.', 2);
-  const content = item.text.slice(offset, offset + limit);
+  const text = await referenceText(item);
+  const content = text.slice(offset, offset + limit);
   // Resolve only links in the returned window; no recursive context expansion.
   const symbols = [...content.matchAll(/<([^>\n]+)>/g)].map((match) => index.bySymbol.get(match[1]!));
   const related = [
@@ -471,7 +543,7 @@ export async function referenceRead(
   ];
   const link = index.link;
   const requires = item.requires ?? [];
-  return {
+  const page = {
     id: item.id,
     title: index.link(item.id).title ?? item.id,
     version: item.version,
@@ -480,8 +552,8 @@ export async function referenceRead(
     ...(item.verification ? { verification: item.verification } : {}),
     content,
     offset,
-    length: item.text.length,
-    nextOffset: offset + limit < item.text.length ? offset + limit : null,
+    length: text.length,
+    nextOffset: offset + limit < text.length ? offset + limit : null,
     requires,
     requiresReferences: requires.slice(0, 16).map(link),
     related: related.slice(0, 16),
@@ -491,6 +563,7 @@ export async function referenceRead(
     relatedOmittedCount: Math.max(0, related.length - 16),
     classification: 'vendor-reference-data',
   };
+  return item.document ? verifiedVendorReferencePage(page) : page;
 }
 export async function referenceSync(version: string, dryRun: boolean) {
   const entries = (await referenceIndex(version)).upstream.filter((r) => versionMatches(r.version, version));

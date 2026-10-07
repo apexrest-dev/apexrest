@@ -42,6 +42,8 @@ for (const folder of bundled) {
 for (const folder of ['toolchains', 'schemas', 'templates'])
   await cp(folder, `dist/resources/${folder}`, { recursive: true });
 await cp('resources', 'dist/resources', { recursive: true });
+await mkdir('dist/resources/policy', { recursive: true });
+await cp('docs/deployment-safety.md', 'dist/resources/policy/deployment-safety.md');
 await build({
   entryPoints: { apexrest: 'packages/cli/src/main.ts', mcp: 'packages/mcp/src/main.ts' },
   outdir: 'dist/runtime',
@@ -102,7 +104,7 @@ await writeFile(
       version: metadata.version,
       description: metadata.description,
       author: metadata.author,
-      homepage: 'https://apex.rest',
+      homepage: metadata.interface.websiteURL,
       repository: 'https://github.com/apexrest-dev/apexrest',
       license: metadata.license,
       keywords: ['oracle', 'apex', 'apexlang', 'sqlcl', 'ords'],
@@ -121,7 +123,7 @@ await writeFile(
   JSON.stringify(
     {
       name: 'apexrest',
-      owner: { name: 'APEXREST', url: 'https://apex.rest' },
+      owner: metadata.author,
       metadata: { description: 'Oracle APEX development, deployment and testing', version: metadata.version },
       plugins: [
         {

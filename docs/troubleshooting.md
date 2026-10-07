@@ -22,7 +22,7 @@ Check `APEXREST_SQLCL`, `APEXREST_JAVA_HOME` and `APEXREST_HOME` if tools were i
 
 Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog. Check that the plugin is listed and enabled in the same profile: `codex plugin list --json`, or `claude plugin list`. The MCP server is `node <plugin-root>/runtime/mcp.mjs`, started by the host from the installed plugin directory with no downloads; do not add a second global MCP server to conceal a failed installation. In Claude Code, `claude plugin validate --strict <plugin-root>` checks the manifest and `/mcp` shows whether the `apexrest` server started. The server exits with `APEXREST requires Node.js 24 or newer.` when the `node` on the `PATH` of the shell that started `claude` is older (for example an older nvm default); switch Node before starting `claude`. Plugin MCP servers inherit that shell's environment, so export `APEXREST_HOME` there when you use a custom managed home.
 
-Project-scoped tools reject a missing or relative `project` argument: pass the absolute directory that contains `apexrest.json`, never the plugin directory. `PROJECT_TRUST_REQUIRED` means that path is not yet listed in `trustedProjects` of `$APEXREST_HOME/policy.json`; review the project code and add it yourself.
+Project-scoped tools reject a missing or relative `project` argument: pass the absolute directory that contains `apexrest.json`, never the plugin directory. No folder trust list is required; host filesystem permissions govern project access.
 
 ## SQLcl is present but compilation fails
 
@@ -50,11 +50,10 @@ The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allow
 
 | Symptom                                                                | Action                                                                                                                   |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `PROJECT_TRUST_REQUIRED`                                               | Review executable project code and add its canonical path to the private user policy.                                    |
 | Missing environment or identity mismatch                               | Check the selected `env`, connection, database/service, workspace, schema and application ID.                            |
 | `SOURCE_DRIFT`, `TARGET_DRIFT`, `PLAN_EXPIRED`, `SYNC_REPLAN_REQUIRED` | Run `apexrest_ship` `mode:plan` again and review the new preview; plans expire after 30 minutes.                         |
 | `PLAN_TAMPERED`                                                        | The plan no longer matches the live target, history or sources; create and review a new plan.                            |
-| `RECOVERY_REVIEW_REQUIRED`                                             | The plan carries destructive, privileged, authentication or SQLcl client-command risks; review them with the user first. |
+| `DATABASE_CONFIRMATION_REQUIRED`                                             | The requested security change is outside task scope; describe the exact change and obtain its authorization. |
 | `DEPLOY_APPROVAL_REQUIRED`                                             | `ship apply` records the grant itself; for `deploy apply`, record a grant with this plan's exact `planDigest`.           |
 | Production target                                                      | `ship apply` is refused by design; production uses the protected external approval path.                                 |
 | `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.                         |

@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Documentation · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/docs/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/docs/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/" aria-current="page">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Documentation</div><h1 id="documentation">Documentation</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#apex-262-partial-imports">APEX 26.2: partial imports</a></li><li><a href="#start-here">Start here</a></li><li><a href="#understand-and-extend">Understand and extend</a></li><li><a href="#current-status">Current status</a></li><li><a href="#prepare-a-release">Prepare a release</a></li></ul></details>
+<p><img src="/apexrest/assets/apexrest-logo.svg" alt="APEXREST pencil and ruler symbol" loading="lazy" decoding="async"></p>
+<p>APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies Oracle APEX applications: six skills, ten MCP tools and the <code>apexrest</code> CLI over one runtime that runs Oracle SQLcl. The current source bundle is 2.0.0 and supports APEX 26.2 partial imports. <a href="/apexrest/implementation-status/">Implementation status</a> separates implemented behavior from remaining connected, host and platform qualification.</p>
+<h2 id="apex-262-partial-imports">APEX 26.2: partial imports</h2>
+<p><strong>Import only the changed page and supported shared components.</strong> Choose automatic selection or an explicit file list, preserve unrelated server changes and review conflicts before applying. Full imports remain available, including the existing 26.1 workflow.</p>
+<p><a href="/apexrest/apex-26.2/">Start the partial-import guide</a> for prerequisites, matching plan/apply examples, <code>auto</code> / <code>files</code> / <code>full</code> modes and <a href="/apexrest/implementation-status/#verification">verification requirements</a>. This source feature requires a qualified 26.2 application and a direct SQLcl CLI connection; it is available through both the APEXREST CLI and MCP tools.</p>
+<h2 id="start-here">Start here</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Goal</th>
+<th>Guide</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Install in Codex or Claude Code and connect a target</td>
+<td><a href="/apexrest/getting-started/">Getting started</a></td>
+</tr>
+<tr>
+<td>Run the CLI in a Codex Cloud container with ORDS</td>
+<td><a href="/apexrest/codex-cloud/">Codex Cloud</a></td>
+</tr>
+<tr>
+<td>Implement an APEX change in the current conversation</td>
+<td><a href="/apexrest/chat-workflow/">Work in the current session</a></td>
+</tr>
+<tr>
+<td>Find a component, parameter contract and APEXlang recipe</td>
+<td><a href="/apexrest/component-catalog/">Component catalog</a></td>
+</tr>
+<tr>
+<td>Reuse a UX composition across components</td>
+<td><a href="/apexrest/pattern-catalog/">Pattern catalog</a></td>
+</tr>
+<tr>
+<td>Understand the product and examples</td>
+<td><a href="/apexrest/">README</a></td>
+</tr>
+<tr>
+<td>Bring an existing application into source control</td>
+<td><a href="/apexrest/existing-app/">Existing applications</a></td>
+</tr>
+<tr>
+<td>Configure environments, connections and policy</td>
+<td><a href="/apexrest/configuration/">Configuration</a></td>
+</tr>
+<tr>
+<td>Connect over HTTP(S) when the Oracle listener is unavailable</td>
+<td><a href="/apexrest/ords/">SQL through ORDS</a></td>
+</tr>
+<tr>
+<td>Learn the plan, grant, import and recovery model</td>
+<td><a href="/apexrest/deployment/">Deployment safety</a></td>
+</tr>
+<tr>
+<td>Read the read-only development status snapshot</td>
+<td><a href="/apexrest/status/">Development status</a></td>
+</tr>
+<tr>
+<td>Deploy without service tables</td>
+<td><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></td>
+</tr>
+<tr>
+<td>Select the checks appropriate to a change, verify in a browser</td>
+<td><a href="/apexrest/testing/">Testing</a></td>
+</tr>
+<tr>
+<td>Resolve setup, compiler, ship or job failures</td>
+<td><a href="/apexrest/troubleshooting/">Troubleshooting</a></td>
+</tr>
+<tr>
+<td>Compose source from experimental blocks (CLI only)</td>
+<td><a href="/apexrest/composer/">Composer</a></td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="understand-and-extend">Understand and extend</h2>
+<ul>
+<li><a href="/apexrest/architecture/">Architecture</a>: packages, the persistent SQLcl engine, jobs and durable state.</li>
+<li><a href="/apexrest/codex-integration/">Host integration</a>: Codex and Claude Code manifests, ownership and verification scope.</li>
+<li><a href="/apexrest/codex-automation/">Programmatic automation</a>: what each tool executes without a model.</li>
+<li><a href="/apexrest/contributing/">Contributing</a>: local workflow, validation and review requirements.</li>
+<li><a href="/apexrest/security/">Security and privacy</a>: credentials, code trust, reports and recovery.</li>
+</ul>
+<h2 id="current-status">Current status</h2>
+<ul>
+<li><a href="/apexrest/implementation-status/">Implementation status</a>: implemented capabilities and verification limits.</li>
+<li><a href="/apexrest/acceptance.json">Acceptance matrix</a>: implementation, verification, evidence and blockers for each requirement.</li>
+<li><a href="/apexrest/next-actions/">Next actions</a>: open qualification and implementation work.</li>
+<li><a href="/apexrest/changelog/">Changelog</a> and <a href="/apexrest/release-notes/">release notes</a>: changes, breaking changes and distribution.</li>
+</ul>
+<h2 id="prepare-a-release">Prepare a release</h2>
+<p>Read <a href="/apexrest/publishing/">publisher setup</a> and <a href="/apexrest/release-notes/">release notes</a>. A source-repository installation and a published, signed stable release are different distribution states. Local packaging never publishes, tags or provisions infrastructure.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/index.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

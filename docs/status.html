@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Development status · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/status/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/status/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/" aria-current="page">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Development status</div><h1 id="development-status">Development status</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#snapshot-content">Snapshot content</a></li><li><a href="#what-the-snapshot-cannot-do">What the snapshot cannot do</a></li></ul></details>
+<p><code>apexrest_status</code> with <code>detail: &quot;project&quot;</code> (CLI: <code>apexrest status --detail project</code> or <code>apexrest panel status</code>) returns one read-only snapshot of the local development state for an application project. <code>detail: &quot;doctor&quot;</code> probes the local toolchain instead. The snapshot is plain JSON for the host agent and the CLI. Implementation continues in the <a href="/apexrest/chat-workflow/">current conversation</a>.</p>
+<pre><code class="language-sh">apexrest status --detail project --project /absolute/application --json
+apexrest status --detail doctor --json
+</code></pre>
+<p>Use the application project containing <code>apexrest.json</code>, not the plugin source or installed cache. An unconfigured directory returns <code>configured: false</code> with the global settings only. There is no folder trust classification; reading status creates no state and starts nothing.</p>
+<h2 id="snapshot-content">Snapshot content</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>configuration</code>, <code>toolchain</code></td>
+<td>Project/environment identity and the toolchain lock digest</td>
+</tr>
+<tr>
+<td><code>sqlcl</code>, <code>connections</code></td>
+<td>Saved SQLcl execution mode, MCP restrict level, database transport and the plugin-level connection references (no secrets)</td>
+</tr>
+<tr>
+<td><code>preferences</code></td>
+<td><code>browserMode: host|codex</code> for <a href="/apexrest/testing/">browser verification</a></td>
+</tr>
+<tr>
+<td><code>changes</code></td>
+<td><code>git status --porcelain</code> of the project, at most 80 entries; <code>unavailable</code> when Git is absent</td>
+</tr>
+<tr>
+<td><code>sync</code></td>
+<td>Local working-copy sync state per environment; server freshness is <code>not-checked</code></td>
+</tr>
+<tr>
+<td><code>jobs</code>, <code>deployments</code>, <code>history</code></td>
+<td>The 12 newest job and deployment records with status, phase, diagnostics and artifacts, and how many older records were omitted</td>
+</tr>
+<tr>
+<td><code>permissions.activeGrants</code></td>
+<td>Unexpired local deployment grants for this project (operations, expiry, exact-plan flag); grants recorded by <code>ship</code> are removed after each attempt</td>
+</tr>
+</tbody></table>
+</div>
+<p>Job and deployment history considers the newest 2000 records of each kind. Records over 2 MB or unreadable records are listed as <code>unavailable</code> so one broken record never hides the rest. Secrets are redacted from every field. The snapshot does not call Oracle, read the SQLcl connection store or verify target identity. A snapshot larger than the inline MCP limit is archived like any other result and readable through <code>apexrest_artifact_read</code>.</p>
+<h2 id="what-the-snapshot-cannot-do">What the snapshot cannot do</h2>
+<p>It cannot change settings, queue jobs, cancel jobs, grant authorization, or apply a plan. Use the explicit operations instead: <code>apexrest sqlcl configure</code>, <code>apexrest_project</code> (<code>connection_add</code>), <code>apexrest_apex_validate</code>, <code>apexrest_ship</code>, <code>apexrest_job</code> (<code>cancel</code>) and <a href="/apexrest/testing/"><code>apexrest_browser_open</code></a>. Imports use the <a href="/apexrest/deployment/">deployment workflow</a>.</p>
+<p>Actual job failure remains failure after normal process exit: a job&#39;s reported status is the operation&#39;s own <code>failed</code>, <code>outcome_unknown</code> or <code>cancelled</code> outcome. A job whose worker never started is <code>failed</code>, not unknown, and needs a new job after its diagnostic is resolved. A lost heartbeat or mutation response can leave <code>outcome_unknown</code>; reconcile before retrying. Running jobs carry a <code>phase</code> (<code>validating</code>, <code>planning</code>, <code>backing_up</code>, <code>migrating</code>, <code>importing</code>, <code>verifying</code>, <code>syncing</code>) that is informative only.</p>
+<p>The verification browser preference is read from <code>.apexrest/panel/preferences.json</code> (<code>{&quot;browserMode&quot;:&quot;codex&quot;}</code> by default; <code>codex</code> is the legacy alias of <code>host</code>). Unknown keys in that file are ignored.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/status.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

@@ -24,6 +24,7 @@ import {
   type TargetVersions,
 } from './compatibility.ts';
 import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
+import { localConnectionEndpoint, localServerHost } from './locality.ts';
 export type Runner = (request: ProcessRequest) => Promise<ProcessResult>;
 export interface SqlclCapabilities {
   version: string;
@@ -662,6 +663,53 @@ export class OracleAdapter {
       output: result.output,
       stage,
     };
+  }
+  async connectionLocality(connection: Connection) {
+    const selected = await this.selectedConnection(connection);
+    if (selected.ords) {
+      const host = new URL(selected.ords.url).hostname;
+      if (!['localhost', '127.0.0.1', '[::1]'].includes(host))
+        return { local: false, evidence: 'remote-ords-endpoint' };
+    }
+    const endpoint = selected.ords
+      ? { local: true, evidence: 'effective-loopback-ords-endpoint' }
+      : localConnectionEndpoint((await this.session('show connection', connection)).output);
+    if (!endpoint.local) return endpoint;
+    const rows = await this.jsonQuery(
+      "select sys_context('USERENV','SERVER_HOST') server_host from dual",
+      connection,
+    );
+    const verified = typeof rows[0]?.server_host === 'string' && (await localServerHost(rows[0].server_host));
+    return {
+      local: verified,
+      evidence: verified
+        ? endpoint.evidence + '+local-server-identity'
+        : 'loopback-server-identity-unconfirmed',
+    };
+  }
+  async databaseDependencies(schema: string, object: string, connection: Connection) {
+    const identifier = /^(?:"(?:[^"]|"")+"|[A-Za-z][A-Za-z0-9_$#]*)$/;
+    const parts = object.match(/"(?:[^"]|"")+"|[A-Za-z][A-Za-z0-9_$#]*/g) ?? [];
+    if (
+      !parts.length ||
+      parts.length > 2 ||
+      parts.join('.') !== object ||
+      !parts.every((part) => identifier.test(part))
+    )
+      throw new Fault(
+        'DATABASE_DEPENDENCY_UNRESOLVED',
+        'Cannot resolve the reviewed object name for dependency inspection.',
+        4,
+      );
+    const value = (part: string) =>
+      part.startsWith('"') ? part.slice(1, -1).replaceAll('""', '"') : part.toUpperCase();
+    if (parts.length === 2) schema = value(parts[0]!);
+    object = value(parts.at(-1)!);
+    return this.jsonQuery(
+      'select owner, name, type from all_dependencies where referenced_owner=:p_owner and referenced_name=:p_name order by owner,name,type',
+      connection,
+      { p_owner: schema, p_name: object },
+    );
   }
   async savedConnections(signal?: AbortSignal) {
     const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll('-', '')}`;

@@ -5,7 +5,7 @@ import { readFile, rm } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { exists, writeJson, containedChild, withLock } from '../../core/src/fs.ts';
-import { managedHome, requireTrust } from '../../core/src/config.ts';
+import { managedHome } from '../../core/src/config.ts';
 import { Fault } from '../../core/src/result.ts';
 import { codexRun, codexInvoke, listMarketplaces } from './registration.ts';
 import { installNative, installationState } from './native.ts';
@@ -23,7 +23,6 @@ export async function setup(input: Record<string, unknown>) {
         : managedHome()),
   );
   if (input.scope === 'project') {
-    await requireTrust(text('project') ?? process.cwd());
     throw new Fault(
       'PROJECT_HOST_SCOPE_UNAVAILABLE',
       'Codex 0.154.0 plugin add enables in the selected user profile. Use --scope user with a dedicated --codex-home until project-only enablement is verified.',

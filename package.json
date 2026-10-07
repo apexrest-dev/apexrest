@@ -21,6 +21,7 @@
   "description": "Plugin for Codex and Claude Code for Oracle APEX development, deployment and testing",
   "license": "Apache-2.0",
   "type": "module",
+  "homepage": "https://apexrest-dev.github.io/apexrest/",
   "engines": {
     "node": ">=24 <27"
   },
@@ -48,6 +49,8 @@
     "test:installers": "node scripts/test.mjs installers",
     "test:integration": "node scripts/integration.mjs",
     "site:build": "node scripts/build-site.mjs",
+    "site:check": "node scripts/build-site.mjs --check",
+    "site:preview": "node scripts/preview-site.mjs",
     "release:dry-run": "node scripts/package-release.mjs --dry-run",
     "release:package": "node scripts/package-release.mjs",
     "check-release-readiness": "node scripts/check-release-readiness.mjs",

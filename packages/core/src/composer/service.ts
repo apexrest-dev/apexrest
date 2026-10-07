@@ -1,7 +1,7 @@
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { environment, requireTrust, relativePath, refName, type ProjectContext } from '../config.ts';
+import { environment, relativePath, refName, type ProjectContext } from '../config.ts';
 import { resolveConnection } from '../connections.ts';
 import { OracleAdapter } from '../oracle.ts';
 import { metadataRead } from '../metadata.ts';
@@ -78,7 +78,6 @@ export async function composePlan(
   oracle = new OracleAdapter(),
   signal?: AbortSignal,
 ) {
-  await requireTrust(ctx.root);
   if (request.validation === 'source-only' && !ctx.config.composer?.allowSourceOnly)
     throw new Fault(
       'SOURCE_ONLY_POLICY_REQUIRED',
@@ -185,7 +184,6 @@ export async function blueprintAdd(
   expectedDigest: string,
   apply = false,
 ) {
-  await requireTrust(ctx.root);
   const blueprint = await readDocument(ctx.root, file, blueprintSchema);
   if (semanticDigest(blueprint) !== expectedDigest)
     throw new Fault('BLUEPRINT_CONFLICT', 'Blueprint changed while editing catalog parameters.', 5);

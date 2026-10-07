@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { contained, exists, readJson, writeJson } from './fs.ts';
-import { parse, requireTrust } from './config.ts';
+import { parse } from './config.ts';
 import type { ProjectContext } from './config.ts';
 import { Fault, failure } from './result.ts';
 /** Status waits are bounded; apexrest_ship may wait longer than ordinary jobs. */
@@ -28,11 +28,11 @@ export const jobOperations = [
   'deploy.plan',
   'deploy.apply',
   'ship.apply',
+  'ship',
 ];
 export class JobService {
   constructor(private ctx: ProjectContext) {}
   private async enqueue(operation: string, input: Record<string, unknown>) {
-    await requireTrust(this.ctx.root);
     if (!jobOperations.includes(operation))
       throw new Fault('INVALID_JOB_OPERATION', 'Operation cannot run as a background job.', 2);
     const id = randomUUID(),
@@ -126,7 +126,6 @@ export class JobService {
     }
   }
   async cancel(id: string) {
-    await requireTrust(this.ctx.root);
     parse(z.uuid(), id);
     const state = await this.status(id);
     if (!['queued', 'running'].includes(state.status)) return state;
@@ -175,7 +174,6 @@ export function jobOutcome(result: unknown) {
     : 'failed';
 }
 export async function executeJob(ctx: ProjectContext, id: string, execute: JobExecutor) {
-  await requireTrust(ctx.root);
   parse(z.uuid(), id);
   const root = await contained(ctx.root, '.apexrest/jobs/' + id);
   const request = (await readJson(path.join(root, 'request.json'))) as {

@@ -3,13 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { chmod, mkdir, symlink, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
 import { fixture } from '../fixtures/project.ts';
-import {
-  parse,
-  projectSchema,
-  environment,
-  loadProject,
-  requireTrust,
-} from '../../packages/core/src/config.ts';
+import { parse, projectSchema, environment, loadProject } from '../../packages/core/src/config.ts';
 import {
   canonical,
   hash,
@@ -175,7 +169,6 @@ test('approved=true is not authorization and is rejected at schema boundary', ()
 test('no source-defined trust or production approval', async () => {
   const { ctx, plan } = await fixture();
   process.env.APEXREST_HOME = path.join(ctx.root, 'home');
-  await assert.rejects(requireTrust(ctx.root), rejectCode('PROJECT_TRUST_REQUIRED'));
   await writeJson(path.join(process.env.APEXREST_HOME, 'policy.json'), {
     schemaVersion: 1,
     trustedProjects: [ctx.root],
@@ -185,7 +178,7 @@ test('no source-defined trust or production approval', async () => {
   delete process.env.CI;
   await assert.rejects(
     authorizePlan(ctx, plan, { ...ctx.config.environments.dev!, kind: 'production' }),
-    rejectCode('PRODUCTION_CI_REQUIRED'),
+    rejectCode('PRODUCTION_DEPLOY_DENIED'),
   );
   if (original) process.env.CI = original;
   delete process.env.APEXREST_HOME;
@@ -316,7 +309,7 @@ test('SQLcl client-command tokenizer catches prefixes, abbreviations and leading
     '-- host comment only\nrem host ls\ninsert into t values (1);',
     'whenever sqlerror exit failure rollback',
   ])
-    assert.deepEqual(migrationRisk(sql), [], sql);
+    assert.deepEqual(sqlclControlLines(sql), [], sql);
   assert.deepEqual(sqlclControlLines('select 1 from dual;\n\n  @x.sql'), [3]);
 });
 test('compiler success needs a success marker and no error indication', () => {

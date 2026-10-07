@@ -1,19 +1,10 @@
 import path from 'node:path';
 import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
-import { createPublicKey, randomUUID, verify } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
-import {
-  environment,
-  isProductionTarget,
-  managedHome,
-  parse,
-  policy,
-  protectedProductionTrust,
-  requireTrust,
-  refName,
-} from './config.ts';
-import type { ProjectContext, Environment, ProductionTrust } from './config.ts';
+import { environment, isProductionTarget, managedHome, parse, policy, refName } from './config.ts';
+import type { ProjectContext, Environment } from './config.ts';
 import { resolveConnection } from './connections.ts';
 import type { Connection } from './connections.ts';
 import { Fault } from './result.ts';
@@ -31,6 +22,7 @@ import {
 import type { SyncState } from './sync.ts';
 import { deploymentBinding } from './composer/materializer.ts';
 import { VERSION } from './version.ts';
+import { inspectSql, executableSql, type DatabaseOperation } from './sql-review.ts';
 import { APEXLANG_EQUIVALENCE_POLICY, compareApplicationExports } from './apexlang-equivalence.ts';
 import { databaseMeetsApex262Minimum } from './compatibility.ts';
 import {
@@ -80,7 +72,26 @@ const legacyPlanSchema = z.strictObject({
     }),
   ),
   risks: z.array(z.string()),
-  approval: z.literal('external-policy-required'),
+  databaseReview: z
+    .strictObject({
+      local: z.boolean(),
+      localityEvidence: z.string(),
+      operations: z.array(
+        z.strictObject({
+          file: z.string(),
+          action: z.string(),
+          object: z.string().nullable(),
+          column: z.string().optional(),
+          renamedTo: z.string().optional(),
+          dangerous: z.boolean(),
+          consequence: z.string(),
+          dependencies: z.array(z.record(z.string(), z.unknown())),
+          dependenciesStatus: z.enum(['read', 'unavailable', 'not-applicable']),
+        }),
+      ),
+    })
+    .optional(),
+  approval: z.enum(['external-policy-required', 'task-authorized']),
   backupRequired: z.boolean(),
   digest: digestSchema,
   restore: z
@@ -230,10 +241,11 @@ const plsqlBlockStart =
 /**
  * Return 1-based line numbers that SQLcl could interpret as client commands.
  * Each line is tokenized after leading whitespace and leading block comments.
- * Lines inside multi-line comments and strings are still checked: a lexer that
- * disagrees with SQLcl must over-report, never hide a command.
+ * Literal/comment contents are masked while retaining line boundaries; they
+ * do not become executable client commands. SQLcl still runs restricted.
  */
 export function sqlclControlLines(sql: string): number[] {
+  sql = executableSql(sql);
   const found: number[] = [];
   let block = false;
   sql.split(/\r\n|\r|\n/).forEach((raw, index) => {
@@ -274,9 +286,8 @@ export function sqlclControlLines(sql: string): number[] {
 }
 export function migrationRisk(sql: string): string[] {
   const risks: string[] = [];
-  if (/\b(?:drop|truncate|delete|revoke|grant)\b|\balter\s+(?:table|user|system|database)\b/i.test(sql))
-    risks.push('destructive-or-privileged-sql');
-  if (sqlclControlLines(sql).length) risks.push('sqlcl-script-control');
+  if (inspectSql(sql).some((operation) => operation.dangerous)) risks.push('database-mutation');
+  if (sqlclControlLines(executableSql(sql)).length) risks.push('sqlcl-script-control');
   return risks;
 }
 const securityHeader =
@@ -320,111 +331,46 @@ export async function securityChanged(
   }
   return false;
 }
-const attestationSchema = z.strictObject({
-  planDigest: digestSchema,
-  planId: z.uuid(),
-  projectId: refName,
-  targetDigest: digestSchema,
-  expiresAt: z.iso.datetime(),
-  reviewer: z.string().min(1),
-  signature: z.string().min(1),
-});
-/** SHA-256 of a public key in SPKI DER form; PEM formatting does not change it. */
-export function publicKeyFingerprint(publicKey: string | Buffer) {
-  return hash(createPublicKey(publicKey).export({ type: 'spki', format: 'der' }));
-}
-/**
- * Verify an external production approval against administrator trust. The
- * signature covers the canonical attestation without `signature`.
- */
-export function verifyProductionApproval(
-  trust: ProductionTrust,
-  publicKey: string | Buffer,
-  value: unknown,
-  plan: Pick<DeployPlan, 'digest' | 'id' | 'projectId' | 'targetDigest'>,
-  projectId: string,
-) {
-  const fingerprint = publicKeyFingerprint(publicKey);
-  const key = trust.approvalKeys.find((k) => k.sha256 === fingerprint);
-  if (!key)
+export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: Environment, local = false) {
+  if (await isProductionTarget(env, plan.targetDigest))
     throw new Fault(
-      'APPROVAL_KEY_UNTRUSTED',
-      'The approval public key is not listed in the protected production trust file.',
+      'PRODUCTION_DEPLOY_DENIED',
+      'The plugin never deploys or restores production-marked targets.',
       4,
       'blocked',
     );
-  const attestation = parse(attestationSchema, value);
-  const { signature, ...payload } = attestation;
-  if (
-    payload.planDigest !== plan.digest ||
-    payload.planId !== plan.id ||
-    payload.projectId !== plan.projectId ||
-    payload.projectId !== projectId ||
-    payload.targetDigest !== plan.targetDigest ||
-    (key.reviewer !== undefined && key.reviewer !== payload.reviewer) ||
-    Date.parse(payload.expiresAt) <= Date.now() ||
-    !verify(
-      null,
-      Buffer.from(canonical(payload)),
-      createPublicKey(publicKey),
-      Buffer.from(signature, 'base64'),
-    )
-  )
+  if (plan.risks.some((r) => r.startsWith('sqlcl-script-control')))
     throw new Fault(
-      'APPROVAL_INVALID',
-      'External approval is invalid, expired or for another project/plan/target.',
-      4,
-    );
-  return payload;
-}
-export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: Environment) {
-  await requireTrust(ctx.root);
-  if (plan.risks.some((r) => r !== 'application-restore'))
-    throw new Fault(
-      'RECOVERY_REVIEW_REQUIRED',
-      'Destructive, authentication or unsupported changes need an explicit recovery implementation and reviewed external workflow.',
+      'UNSUPPORTED_SQL_CLIENT_COMMAND',
+      'Database scripts must contain reviewed SQL/PLSQL only; external script and host commands are unsupported.',
       4,
       'blocked',
     );
-  // Administrator trust can mark a target as production regardless of apexrest.json.
-  if (await isProductionTarget(env, plan.targetDigest)) {
-    if (
-      process.env.CI !== 'true' ||
-      !process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE ||
-      !process.env.APEXREST_APPROVAL_FILE
-    )
-      throw new Fault(
-        'PRODUCTION_CI_REQUIRED',
-        'Production requires a protected CI runner and externally signed approval bound to this plan.',
-        4,
-        'blocked',
-      );
-    // The environment only selects a key; trust comes from a file this process cannot modify.
-    const trust = await protectedProductionTrust();
-    verifyProductionApproval(
-      trust,
-      await readFile(process.env.APEXREST_APPROVAL_PUBLIC_KEY_FILE),
-      await readJson(process.env.APEXREST_APPROVAL_FILE),
-      plan,
-      ctx.config.projectId,
-    );
-    return;
-  }
   const grants = (await policy()).grants;
-  if (
-    !grants.some(
-      (g) =>
-        g.projectRoot === ctx.root &&
-        g.targetDigest === plan.targetDigest &&
-        g.operations.includes('deploy') &&
-        g.planDigest === plan.digest &&
-        Date.parse(g.expiresAt) > Date.now() &&
-        Date.parse(g.expiresAt) <= Date.parse(plan.expiresAt),
-    )
-  )
+  const grant = grants.find(
+    (g) =>
+      g.projectRoot === ctx.root &&
+      g.targetDigest === plan.targetDigest &&
+      g.operations.includes('deploy') &&
+      g.planDigest === plan.digest &&
+      Date.parse(g.expiresAt) > Date.now() &&
+      Date.parse(g.expiresAt) <= Date.parse(plan.expiresAt),
+  );
+  if (!grant)
     throw new Fault(
       'DEPLOY_APPROVAL_REQUIRED',
-      'A user-owned deploy grant for this project and target is required. It must carry planDigest equal to this plan digest and expire no later than the plan.',
+      'The application task must authorize this exact project, target and plan.',
+      4,
+      'blocked',
+    );
+  if (
+    !local &&
+    plan.risks.some((r) => r !== 'application-restore') &&
+    !plan.risks.filter((r) => r !== 'application-restore').every((r) => grant.confirmedRisks?.includes(r))
+  )
+    throw new Fault(
+      'DATABASE_CONFIRMATION_REQUIRED',
+      'Remote database or security changes require human confirmation of this exact plan.',
       4,
       'blocked',
     );
@@ -526,6 +472,56 @@ async function appendJournal(runDir: string, event: Record<string, unknown>) {
 }
 export class DeploymentService {
   constructor(private oracle = new OracleAdapter()) {}
+  async localTarget(ctx: ProjectContext, plan: Pick<DeployPlan, 'environment'>) {
+    const env = environment(ctx, plan.environment);
+    if (typeof this.oracle.connectionLocality !== 'function')
+      return { local: false, evidence: 'unconfirmed-connection-endpoint' };
+    const connection = await resolveConnection(env.deployConnectionRef);
+    await this.oracle.verifyTarget(env, connection);
+    return this.oracle.connectionLocality(connection);
+  }
+  async databaseReview(ctx: ProjectContext, plan: DeployPlan) {
+    const env = environment(ctx, plan.environment);
+    const databaseOperations: Array<
+      DatabaseOperation & {
+        file: string;
+        dependencies: Record<string, unknown>[];
+        dependenciesStatus: 'read' | 'unavailable' | 'not-applicable';
+      }
+    > = [];
+    for (const operation of plan.operations) {
+      if (!operation.file || !['migration', 'package'].includes(operation.kind)) continue;
+      const sql = await readFile(await contained(ctx.root, operation.file), 'utf8');
+      for (const described of inspectSql(sql)) {
+        let dependencies: Record<string, unknown>[] = [],
+          dependenciesStatus: 'read' | 'unavailable' | 'not-applicable' = 'not-applicable';
+        if (
+          described.object &&
+          ['drop-table', 'rename-column', 'alter-table', 'rename-object'].includes(described.action)
+        ) {
+          dependenciesStatus = 'unavailable';
+          if (typeof this.oracle.databaseDependencies === 'function') {
+            try {
+              dependencies = await this.oracle.databaseDependencies(
+                env.parsingSchema,
+                described.object,
+                await resolveConnection(env.readConnectionRef),
+              );
+              dependenciesStatus = 'read';
+            } catch {
+              /* Explicitly unavailable, never claim an empty dependency result. */
+            }
+          }
+        }
+        databaseOperations.push({ ...described, file: operation.file, dependencies, dependenciesStatus });
+      }
+    }
+    const locality =
+      databaseOperations.length || plan.risks.length
+        ? await this.localTarget(ctx, plan)
+        : { local: false, evidence: 'not-needed-for-application-import' };
+    return { local: locality.local, localityEvidence: locality.evidence, operations: databaseOperations };
+  }
   async history(env: Environment, _connection: Connection) {
     // Migration history is local and durable; no Oracle control table is read.
     return new LocalDeploymentControl(env).history();
@@ -575,7 +571,6 @@ export class DeploymentService {
     const env = environment(ctx, name),
       store = new SyncStore(ctx, env, name);
     if (action === 'status') return store.status();
-    await requireTrust(ctx.root);
     return store.lock(async () => {
       const previous = await store.read(action === 'refresh' || action === 'invalidate');
       if (previous && ['importing', 'outcome_unknown'].includes(previous.status))
@@ -754,7 +749,6 @@ export class DeploymentService {
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
     if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
     const requested = importOptions(options);
-    await requireTrust(ctx.root);
     const source = await contained(ctx.root, ctx.config.application.sourceDir);
     const release = await sourceRelease(source);
     if (release !== '26.2') {
@@ -918,7 +912,7 @@ export class DeploymentService {
         scope: 'selected-file-import',
         operations: [{ kind: 'import' }, { kind: 'verify' }],
         risks,
-        approval: 'external-policy-required',
+        approval: 'task-authorized',
         backupRequired: true,
         digest: '0'.repeat(64),
         importSelection: {
@@ -940,7 +934,6 @@ export class DeploymentService {
     }
   }
   private async legacyPlan(ctx: ProjectContext, name: string, restore = false): Promise<DeployPlan> {
-    await requireTrust(ctx.root);
     const env = environment(ctx, name),
       connection = await resolveConnection(env.readConnectionRef);
     const syncStore = new SyncStore(ctx, env, name),
@@ -1010,12 +1003,6 @@ export class DeploymentService {
         if (!previous) operations.push({ kind: 'migration', file, sha256 });
       } else operations.push({ kind: 'package', file, sha256 });
     }
-    if (working && operations.some((o) => ['migration', 'package'].includes(o.kind)))
-      throw new Fault(
-        'SYNC_DB_OPERATIONS_INCOMPATIBLE',
-        'Invalidate working-copy mode explicitly before database operations.',
-        5,
-      );
     if (current.exported) {
       try {
         if (
@@ -1059,11 +1046,12 @@ export class DeploymentService {
       scope: 'full-application-import',
       operations,
       risks: [...new Set(risks)],
-      approval: 'external-policy-required',
+      approval: 'task-authorized',
       backupRequired: !!current.target.application,
       digest: '0'.repeat(64),
     };
     const composer = await deploymentBinding(ctx);
+    plan.databaseReview = await this.databaseReview(ctx, plan);
     const bound: DeployPlan = composer ? { ...plan, schemaVersion: 3, composer } : plan;
     bound.digest = planDigest(bound);
     return bound;
@@ -1109,12 +1097,6 @@ export class DeploymentService {
       )
         throw new Fault('PLAN_TAMPERED', 'Plan omits an authentication or authorization change.', 5);
       await store.validate(state, !(permitImporting && state.status === 'importing'));
-      if (plan.operations.some((o) => ['migration', 'package'].includes(o.kind)))
-        throw new Fault(
-          'SYNC_DB_OPERATIONS_INCOMPATIBLE',
-          'Working-copy plans cannot execute database operations.',
-          5,
-        );
       return state;
     }
     if (plan.schemaVersion !== 1 && plan.mode === 'working-copy')
@@ -1224,14 +1206,15 @@ export class DeploymentService {
       )
         throw new Fault('PLAN_TAMPERED', 'Selected files do not match the reviewed three-way comparison.', 5);
       if (
-        await securityChanged(
+        !plan.risks.includes('authentication-or-authorization-change') &&
+        (await securityChanged(
           { root: await syncPath(ctx, selection.effective!.directory), files: selection.effective!.files },
           { root: await syncPath(ctx, selection.before!.directory), files: selection.before!.files },
-        )
+        ))
       )
         throw new Fault(
-          'RECOVERY_REVIEW_REQUIRED',
-          'Selected import changes authentication or authorization.',
+          'PLAN_TAMPERED',
+          'Selected import omits its authentication or authorization risk.',
           4,
           'blocked',
         );
@@ -1266,7 +1249,8 @@ export class DeploymentService {
     const { plan, env } = await this.checkLocal(ctx, value);
     const selection =
       plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
-    await authorizePlan(ctx, plan, env);
+    const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
+    await authorizePlan(ctx, plan, env, locality.local);
     await this.oracle.requireMutationSupport();
     const readConnection = await resolveConnection(env.readConnectionRef),
       deployConnection = await resolveConnection(env.deployConnectionRef);
@@ -1650,7 +1634,9 @@ export class DeploymentService {
           `Deployment ${runId} requires reconciliation before retry.`,
           6,
           'outcome_unknown',
+          { deploymentRunId: runId },
         );
+      if (error instanceof Fault) error.details = { ...error.details, deploymentRunId: runId };
       throw error;
     } finally {
       signal?.removeEventListener('abort', abort);
@@ -1708,76 +1694,241 @@ export class DeploymentService {
         observedMetadata: metadata,
         target,
         lastSuccessfulImport: { at: new Date().toISOString(), runId, snapshot },
+        recoveryCheckpoint: null,
       });
     });
   }
-  async reconcile(ctx: ProjectContext, runId: string) {
+  private async recoveryRead(ctx: ProjectContext, runId: string) {
     parse(z.uuid(), runId);
     const directory = await contained(ctx.root, '.apexrest/deployments/' + runId);
-    const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json'))),
-      env = environment(ctx, plan.environment);
+    const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json')));
+    const env = environment(ctx, plan.environment);
+    if (
+      plan.digest !== planDigest(plan) ||
+      plan.projectRoot !== ctx.root ||
+      plan.projectId !== ctx.config.projectId ||
+      plan.targetDigest !== targetDigest(env)
+    )
+      throw new Fault('PLAN_TARGET_MISMATCH', 'Reconciliation must use the original project and target.', 5);
+    if (canonical(plan.coordination) !== canonical(coordination(env)))
+      throw new Fault(
+        'COORDINATION_STORE_CHANGED',
+        'Reconciliation requires the original managed coordination home.',
+        5,
+      );
+    const control = new LocalDeploymentControl(env),
+      owner = await control.owner();
+    if (owner && owner.runId !== runId) throw new Fault('TARGET_LOCKED', 'Another run owns this schema.', 5);
     const current = await this.fingerprint(env, await resolveConnection(env.readConnectionRef));
+    if (
+      canonical(current.target.identity) !== canonical(plan.target.identity) ||
+      canonical(current.target.workspace) !== canonical(plan.target.workspace) ||
+      (plan.target.application &&
+        canonical(current.target.application) !== canonical(plan.target.application))
+    )
+      throw new Fault(
+        'IDENTITY_MISMATCH',
+        'The actual server/application identity changed before reconciliation.',
+        5,
+      );
     const state = await readJson(path.join(directory, 'state.json'));
     const selection =
       plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
+    const expectedDirectory =
+      selection?.effective?.directory ??
+      '.apexrest/deployments/' + runId + '/snapshot/' + ctx.config.application.sourceDir;
+    const expectedFiles = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
+    const expectedRoot = await syncPath(ctx, expectedDirectory);
+    const workingState =
+      plan.schemaVersion !== 1 && plan.workingCopy
+        ? await new SyncStore(ctx, env, plan.environment).read()
+        : null;
+    const before = selection?.before ?? (workingState ? checkpoint(workingState) : null);
+    const allowed = selection?.files ?? Object.keys(expectedFiles).filter((file) => file.endsWith('.apx'));
     let comparison: Awaited<ReturnType<typeof compareApplicationExports>> | null = null;
-    try {
-      if (selection?.readbackPolicy === APEXLANG_EQUIVALENCE_POLICY && current.exported) {
-        await checkSnapshot(ctx, selection.effective!);
-        comparison = await compareApplicationExports(
-          await syncPath(ctx, selection.effective!.directory),
-          current.exported.directory,
-          selection.effective!.files,
-          current.exported.files,
-          selection.files,
-        );
+    let conflictFiles: string[] = [];
+    if (current.exported && !plan.restore && (await exists(expectedRoot))) {
+      if (canonical(await inventory(expectedRoot)) !== canonical(expectedFiles))
+        throw new Fault('SOURCE_DRIFT', 'The frozen reviewed sources changed before reconciliation.', 5);
+      comparison = await compareApplicationExports(
+        expectedRoot,
+        current.exported.directory,
+        expectedFiles,
+        current.exported.files,
+        allowed,
+      );
+      if (!comparison.equivalent) {
+        if (!before) conflictFiles = comparison.mismatchedFiles;
+        else
+          for (const file of comparison.mismatchedFiles) {
+            const prior = await compareApplicationExports(
+              await syncPath(ctx, before.directory),
+              current.exported.directory,
+              before.files[file] ? { [file]: before.files[file]! } : {},
+              current.exported.files[file] ? { [file]: current.exported.files[file]! } : {},
+              allowed,
+            );
+            if (!prior.equivalent) conflictFiles.push(file);
+          }
       }
-    } finally {
-      await this.oracle.discardStage?.((current.exported as { stage?: string } | null)?.stage);
-    }
-    return {
+    } else conflictFiles = ['reviewed-source-or-server-export-unavailable'];
+    if (current.fingerprint === plan.fingerprint) conflictFiles = [];
+    const databaseOperations = plan.operations.some((operation) =>
+      ['migration', 'package'].includes(operation.kind),
+    );
+    const result = {
       runId,
       state,
       currentTarget: current.target,
       currentFingerprint: current.fingerprint,
       comparisonProvenance: 'explicit-live-export',
-      targetUnchanged: selection
-        ? current.fingerprint === plan.fingerprint
-        : plan.schemaVersion !== 1 && plan.mode === 'working-copy'
-          ? canonical(current.target) === canonical(plan.target) &&
-            canonical(current.history) === canonical(plan.migrationHistory) &&
-            current.exported?.digest === plan.workingCopy!.checkpointDigest
-          : current.fingerprint === plan.fingerprint,
-      importedSourcesMatch: comparison
-        ? comparison.equivalent
-        : current.exported
-          ? canonical(current.exported.files) ===
-            canonical(
-              selection
-                ? selection.effective!.files
-                : Object.fromEntries(
-                    Object.entries(plan.sources)
-                      .filter(([file]) => file.startsWith(ctx.config.application.sourceDir + '/'))
-                      .map(([file, sha]) => [file.slice(ctx.config.application.sourceDir.length + 1), sha]),
-                  ),
-            )
-          : false,
+      targetUnchanged: current.fingerprint === plan.fingerprint,
+      importedSourcesMatch: comparison?.equivalent ?? false,
       history: current.history,
-      retryAllowed: false,
-      ...(selection
-        ? {
-            importMode: 'files',
-            selectedFiles: selection.files,
-            beforeDigest: selection.before!.digest,
-            expectedDigest: selection.effective!.digest,
-            actualDigest: current.exported?.digest ?? null,
-            readbackComparison: comparison,
-          }
-        : {}),
-      nextActions: [
-        'Review target export and migration history. Reconciliation does not assume process termination rolled back Oracle.',
-      ],
+      retryAllowed: !databaseOperations && !plan.restore && !conflictFiles.length && !comparison?.equivalent,
+      recoveryStatus:
+        databaseOperations || plan.restore
+          ? 'database-review-required'
+          : conflictFiles.length
+            ? 'conflict'
+            : comparison?.equivalent
+              ? 'already-applied'
+              : 'safe-to-replan',
+      conflictFiles,
+      readbackComparison: comparison,
+      ...(selection ? { importMode: 'files', selectedFiles: selection.files } : { importMode: 'full' }),
     };
+    return { result, plan, env, current, directory, selection, owner };
+  }
+  async reconcile(ctx: ProjectContext, runId: string) {
+    const observed = await this.recoveryRead(ctx, runId);
+    try {
+      return observed.result;
+    } finally {
+      await this.oracle.discardStage?.((observed.current.exported as { stage?: string } | null)?.stage);
+    }
+  }
+  /** Observe first. Recover APEX metadata only; never replay database scripts. */
+  async recover(ctx: ProjectContext, runId: string) {
+    const observed = await this.recoveryRead(ctx, runId);
+    const { result, plan, env, current, selection, directory } = observed;
+    try {
+      if (await isProductionTarget(env, plan.targetDigest))
+        throw new Fault(
+          'PRODUCTION_DEPLOY_DENIED',
+          'Production recovery may be inspected, but deployment is unsupported.',
+          4,
+          'blocked',
+        );
+      if (result.recoveryStatus === 'database-review-required')
+        throw new Fault(
+          'DATABASE_RECOVERY_REQUIRED',
+          'Inspect the actual database operations and durable migration history; SQL scripts cannot be automatically replayed.',
+          4,
+          'blocked',
+        );
+      if (result.conflictFiles.length)
+        throw new Fault(
+          'TARGET_DRIFT',
+          'Server content differs from both reviewed desired and baseline sources. Preserve the server snapshot and resolve these files: ' +
+            result.conflictFiles.join(', '),
+          5,
+        );
+      if (
+        plan.configurationDigest !== hash(canonical(ctx.config)) ||
+        plan.toolchainDigest !==
+          hash(await readFile(await contained(ctx.root, ctx.config.toolchain.lockFile))) ||
+        plan.sourceDigest !== hash(canonical(await sourceInventory(ctx)))
+      )
+        throw new Fault(
+          'SOURCE_DRIFT',
+          'Local sources/configuration/toolchain changed; recovery cannot repeat a different task.',
+          5,
+        );
+      // A second fresh read prevents releasing ownership on a changing target.
+      const connection = await resolveConnection(env.readConnectionRef);
+      const second = await this.fingerprint(env, connection);
+      try {
+        if (second.fingerprint !== current.fingerprint)
+          throw new Fault('TARGET_DRIFT', 'Server changed during reconciliation.', 5);
+      } finally {
+        await this.oracle.discardStage?.((second.exported as { stage?: string } | null)?.stage);
+      }
+      const control = new LocalDeploymentControl(env);
+      // Verify worker termination without clearing a foreign/live lease.
+      await control.claimReconciled(runId);
+      const store = new SyncStore(ctx, env, plan.environment),
+        working = await store.read();
+      if (working) {
+        if (working.importingRunId && working.importingRunId !== runId)
+          throw new Fault('TARGET_LOCKED', 'Another import owns the working copy.', 5);
+        const server = await persistSnapshot(
+          ctx,
+          current.exported!.directory,
+          '.apexrest/deployments/' + runId + '/recovery/' + Date.now() + '/application',
+        );
+        if (result.importedSourcesMatch) {
+          if (!working.importingRunId)
+            await store.lock(() => store.write({ ...working, importingRunId: runId }));
+          await this.completeWorkingCopy(
+            ctx,
+            plan,
+            env,
+            connection,
+            runId,
+            { ...working, importingRunId: runId },
+            current.target,
+            server,
+          );
+        } else {
+          const metadata = await this.oracle.applicationMetadata(env, connection);
+          await store.lock(async () => {
+            const latest = await store.read();
+            if (!latest || latest.revision !== working.revision)
+              throw new Fault('TARGET_DRIFT', 'Working copy changed during recovery.', 5);
+            await store.write({
+              ...latest,
+              status: 'ready',
+              importingRunId: null,
+              revision: latest.revision + 1,
+              target: current.target,
+              observedMetadata: metadata,
+              recoveryCheckpoint: { at: new Date().toISOString(), runId, snapshot: server },
+            });
+          });
+        }
+      }
+      await appendJournal(directory, {
+        runId,
+        planId: plan.id,
+        planDigest: plan.digest,
+        targetDigest: plan.targetDigest,
+        state: result.importedSourcesMatch ? 'succeeded' : 'failed',
+        at: new Date().toISOString(),
+        details: { reconciled: true, recoveryStatus: result.recoveryStatus },
+      });
+      if (result.importedSourcesMatch) {
+        await control.release(runId);
+        return {
+          status: 'succeeded' as const,
+          runId,
+          state: 'succeeded' as const,
+          directory,
+          recovered: true,
+          reconciliation: result,
+        };
+      }
+      const options = selection
+        ? { importMode: 'files' as const, files: selection.files }
+        : { importMode: 'full' as const };
+      const retryPlan = await this.plan(ctx, plan.environment, options);
+      const planPath = '.apexrest/plans/recovery-' + retryPlan.id + '.json';
+      await writeJson(await contained(ctx.root, planPath), retryPlan);
+      await control.release(runId);
+      return { status: 'replan_required' as const, runId, planPath, retryPlan, reconciliation: result };
+    } finally {
+      await this.oracle.discardStage?.((current.exported as { stage?: string } | null)?.stage);
+    }
   }
   async restorePlan(ctx: ProjectContext, backupId: string) {
     parse(z.uuid(), backupId);

@@ -47,7 +47,7 @@ Reference files load on demand. Validation repairs, authorization requirements a
 
 ## Implemented reductions
 
-- `apex_validate` runs in-process (no job, no polling) and returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete. Domain faults carry `nextActions` (for example `VALIDATION_FAILED`, `SOURCE_DRIFT`, `DEPLOY_APPROVAL_REQUIRED`, `PROJECT_TRUST_REQUIRED`).
+- `apex_validate` runs in-process (no job, no polling) and returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete. Domain faults carry `nextActions` (for example `VALIDATION_FAILED`, `SOURCE_DRIFT`, `DEPLOY_APPROVAL_REQUIRED`, `PRODUCTION_DEPLOY_DENIED`).
 - `ship` folds validate, plan, grant, apply and verify into one call. `mode:plan` runs in-process; `mode:apply` validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to `waitSeconds` (default 25, maximum 120). Job status carries `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`).
 - Jobs for `apex_sync` run inside the MCP process (same `state.json` and heartbeat, so `job` observes them identically) and reuse one `OracleAdapter` per managed-home settings digest, keeping the SQLcl session pool and capability cache warm. The ship apply phase runs in a detached worker. Browser verification uses the host controls after the import.
 - `metadata_read` accepts `requests` containing 1–8 scoped requests; `project inspect` defaults to `detail: "summary"`.

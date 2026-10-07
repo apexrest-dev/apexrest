@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "enabled": false,
-  "basePath": "/codex/",
-  "siteOrigin": "https://apex.rest",
+  "basePath": "/apexrest/",
+  "siteOrigin": "https://apexrest-dev.github.io",
   "githubRepository": "apexrest-dev/apexrest",
   "npmEnabled": false
 }

@@ -1,0 +1,116 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Programmatic automation · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/codex-automation/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/codex-automation/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/" aria-current="page">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Reference / Programmatic automation</div><h1 id="programmatic-automation-for-the-agent-surface">Programmatic automation for the agent surface</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#what-runs-without-ai">What runs without AI</a></li><li><a href="#partial-imports-through-the-agent-surface">Partial imports through the agent surface</a></li><li><a href="#round-trips">Round trips</a></li><li><a href="#implemented-reductions">Implemented reductions</a></li><li><a href="#authorization-recorded-by-ship">Authorization recorded by ship</a></li></ul></details>
+<p>The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its <a href="https://github.com/apexrest-dev/apexrest/blob/main/packages/core/src/operations.ts">10 MCP tools</a> execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.</p>
+<h2 id="what-runs-without-ai">What runs without AI</h2>
+<p>Names below omit the <code>apexrest_</code> MCP prefix. Programmatic execution still requires appropriate authorization for writes.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Programmatic responsibility</th>
+<th>What the model contributes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>project</code></td>
+<td><code>init</code> scaffolds a project and generates the starter application with the Oracle generator; <code>adopt</code>, <code>inspect</code>, <code>connection_add/list/test</code> manage identity</td>
+<td>Choose template, alias and target; ask only for missing non-secret values</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>Rank, cache, paginate and read pinned Oracle references, component and pattern recipes (offline)</td>
+<td>Select applicable syntax and resolve design choices</td>
+</tr>
+<tr>
+<td><code>metadata_read</code></td>
+<td>Validate scope, verify target, execute allowlisted paginated queries</td>
+<td>Select objects and interpret their business meaning</td>
+</tr>
+<tr>
+<td><code>apex_validate</code></td>
+<td>Run the Oracle compiler in-process on a staging copy and return structured <code>diagnostics[]</code> (code, file, line, column, type, hint, validValues)</td>
+<td>Repair the named file and line</td>
+</tr>
+<tr>
+<td><code>ship</code></td>
+<td>Validate, resolve <code>auto</code>/<code>files</code>/<code>full</code> import scope, create an immutable plan, record a plan-bound grant, back up, import, verify and remove the grant</td>
+<td>Review selected files, fallback reasons, target and risks; assess completion</td>
+</tr>
+<tr>
+<td><code>apex_sync</code></td>
+<td>Establish and manage an existing application&#39;s trusted local checkpoint (init, status, refresh, invalidate)</td>
+<td>Select the target and reconcile changes requiring explicit refresh</td>
+</tr>
+<tr>
+<td><code>browser_open</code></td>
+<td>Resolve the configured URL and browser handoff</td>
+<td>Use the host browser controls and assess visible behavior</td>
+</tr>
+<tr>
+<td><code>job</code>, <code>artifact_read</code></td>
+<td>Wait with <code>phase</code> reporting, cancel, and read bounded sanitized artifacts</td>
+<td>Interpret the result; reconcile an unknown outcome before retrying writes</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>doctor</code> probes local tools; <code>project</code> aggregates settings, connections, sync, jobs, deployments and grants</td>
+<td>Interpret missing prerequisites</td>
+</tr>
+</tbody></table>
+</div>
+<p>The CLI keeps its granular commands (<code>project init|adopt|inspect</code>, <code>connection ...</code>, <code>apex validate|export|sync|diff</code>, <code>deploy plan|apply|status|restore-plan</code>, <code>compose ...</code>, <code>jobs status|cancel</code>, <code>panel status</code>, plus <code>ship</code> and <code>status</code>). Composer and <code>apex export/generate</code> are CLI-only.</p>
+<h2 id="partial-imports-through-the-agent-surface">Partial imports through the agent surface</h2>
+<p>The source checkout supports <a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a> through the same <code>apexrest_ship</code> MCP tool used by Codex and Claude Code, and through the CLI. APEX 26.1 sources use full imports. Direct SQLcl CLI transport is required inside the runtime, with the reviewed SQLcl <code>26.3.0.260.1620</code> / MMD <code>26.2.0+3479</code> tuple and a compatible 26.2 target. This does not prevent the host from calling APEXREST over MCP.</p>
+<p>For an existing dev/test application, initialize a trusted checkpoint with <code>apexrest_apex_sync</code> <code>action: &quot;init&quot;</code>, edit a page and its shared LOV, then pass one of these selections to both the plan and apply calls:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th><code>apexrest_ship</code> inputs</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>importMode: &quot;auto&quot;</code></td>
+<td>Default; select eligible local changes or explain why a full plan is needed.</td>
+</tr>
+<tr>
+<td><code>importMode: &quot;files&quot;, files: [&quot;pages/p00001-home.apx&quot;, &quot;shared-components/lovs/status.apx&quot;]</code></td>
+<td>Import only the selected eligible files; retain other local work. Paths are relative to the application source directory.</td>
+</tr>
+<tr>
+<td><code>importMode: &quot;full&quot;</code></td>
+<td>Plan a complete application import.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The model reviews <code>importSelection.requestedMode</code>, <code>resolvedMode</code>, <code>files</code>, <code>dependencies</code> and <code>reasons</code>; the saved plan holds the complete lists if the preview is truncated. The program compares checkpoint/local/fresh-server inventories, preserves remote-only edits and blocks unequal edits to the same component before fallback. It validates the effective tree, so selected pages must have their required components on the server or included explicitly. <code>files</code> never adds dependencies or becomes <code>full</code>; observed remote changes must be reconciled before an automatic full fallback. Partial apply takes a fresh full SQL backup, verifies a complete server export and advances to that actual server checkpoint while leaving unselected local edits dirty. Browser verification remains a separate host action. See <a href="/apexrest/deployment/#apex-262-partial-imports">deployment safeguards</a>.</p>
+<h2 id="round-trips">Round trips</h2>
+<p>A typical work cycle uses the following operations; actual calls depend on the change and required repairs:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Calls</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Edit an existing page</td>
+<td><code>project inspect</code> → ≤3 <code>reference</code> → edit files → <code>apex_validate</code> (×1–2) → <code>ship plan</code> → <code>ship apply</code> → <code>browser_open</code> = 8–10</td>
+</tr>
+<tr>
+<td>Create a new application</td>
+<td><code>project init</code> → ≤3 <code>reference</code> → edit files → <code>apex_validate</code> (×1–2) → <code>ship plan</code> → <code>ship apply</code> → <code>browser_open</code> = 8–10</td>
+</tr>
+</tbody></table>
+</div>
+<p>Reference files load on demand. Validation repairs, authorization requirements and browser observations can add steps.</p>
+<h2 id="implemented-reductions">Implemented reductions</h2>
+<ul>
+<li><code>apex_validate</code> runs in-process (no job, no polling) and returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete. Domain faults carry <code>nextActions</code> (for example <code>VALIDATION_FAILED</code>, <code>SOURCE_DRIFT</code>, <code>DEPLOY_APPROVAL_REQUIRED</code>, <code>PRODUCTION_DEPLOY_DENIED</code>).</li>
+<li><code>ship</code> folds validate, plan, grant, apply and verify into one call. <code>mode:plan</code> runs in-process; <code>mode:apply</code> validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to <code>waitSeconds</code> (default 25, maximum 120). Job status carries <code>phase</code> (<code>validating</code>, <code>planning</code>, <code>backing_up</code>, <code>migrating</code>, <code>importing</code>, <code>verifying</code>).</li>
+<li>Jobs for <code>apex_sync</code> run inside the MCP process (same <code>state.json</code> and heartbeat, so <code>job</code> observes them identically) and reuse one <code>OracleAdapter</code> per managed-home settings digest, keeping the SQLcl session pool and capability cache warm. The ship apply phase runs in a detached worker. Browser verification uses the host controls after the import.</li>
+<li><code>metadata_read</code> accepts <code>requests</code> containing 1–8 scoped requests; <code>project inspect</code> defaults to <code>detail: &quot;summary&quot;</code>.</li>
+<li>Tool annotations: <code>destructiveHint</code> only for <code>ship</code> and <code>job</code>; <code>readOnlyHint</code>/<code>idempotentHint</code> for <code>reference</code>, <code>apex_validate</code>, <code>metadata_read</code>, <code>artifact_read</code> and <code>status</code>; <code>openWorldHint</code> only for tools that can reach the database, a browser or the network.</li>
+</ul>
+<h2 id="authorization-recorded-by-ship">Authorization recorded by ship</h2>
+<p>An explicit user request to create, update or import an identified development/test application authorizes that import. <code>ship apply</code> requires <code>userRequest</code> (the user&#39;s literal instruction) and records it in the user policy as a grant bound to the canonical project root, target digest and plan digest, deploy only, expiring with the plan and marked <code>grantedBy: &quot;ship&quot;</code>. The grant is removed after the attempt whether it succeeded or failed; a removal failure is reported in <code>grant.removed</code>. Production targets (<code>kind: production</code> or listed in the administrator-owned production trust file) and plans with unreviewed risks are refused before any grant is written. Trust, backup, identity, drift, coordination and unknown-outcome protections are unchanged.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/codex-automation.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

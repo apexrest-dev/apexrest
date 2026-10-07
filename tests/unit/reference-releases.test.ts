@@ -10,6 +10,7 @@ import {
   resolveReferenceVersion,
 } from '../../packages/core/src/references.ts';
 import { hash, readJson, writeJson } from '../../packages/core/src/fs.ts';
+import { success, sanitized, failure, Fault } from '../../packages/core/src/result.ts';
 import { fixture } from '../fixtures/project.ts';
 
 const resources = path.resolve('resources');
@@ -76,8 +77,10 @@ test('project profile supplies release only when no explicit version is selected
   assert.deepEqual(
     await referenceSearch(id, '26.2', { corpus: 'components' }),
     [],
-    'exact IDs must not bypass a requested release',
+    '26.1 UX IDs cannot bypass release routing',
   );
+  const official = 'oracle:26.2:inventory/app/page/region/plugin-variants/interactive-grid/interactive-grid';
+  assert.equal((await referenceSearch(official, '26.2', { corpus: 'components' }))[0]?.id, official);
   await assert.rejects(referenceRead(id, 0, 100, ctx.root), { code: 'REFERENCE_NOT_FOUND' });
 });
 
@@ -119,14 +122,21 @@ test('reviewed 26.2 payload is data-only, bounded and records genuine offline re
     sourceFiles: Record<string, string>;
     recipeFiles: Record<string, string>;
   };
-  assert.equal(snapshot.commit, '03ee10d02273bc4002fd527089e7fbb5884f94c4');
-  assert.equal(snapshot.archiveSha256, '5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343');
+  const lock = (await readJson(path.resolve('toolchains/sources.lock.json'))) as {
+    oracleSkills26_2: { commit: string; archiveSha256: string };
+  };
+  assert.match(snapshot.commit, /^[a-f0-9]{40}$/);
+  assert.match(snapshot.archiveSha256, /^[a-f0-9]{64}$/);
+  assert.equal(snapshot.commit, lock.oracleSkills26_2.commit);
+  assert.equal(snapshot.archiveSha256, lock.oracleSkills26_2.archiveSha256);
   const index = await readFile(path.join(newRoot, 'index.json'));
   assert.equal(hash(index), snapshot.indexSha256);
-  assert.ok(index.length < 1024 * 1024);
+  assert.ok(index.length < 4 * 1024 * 1024);
   assert.ok(
     Object.keys(snapshot.sourceFiles).every(
-      (file) => file.includes('/assets/') && /\.(md|apx|json)$/.test(file) && !file.includes('SKILL.md'),
+      (file) =>
+        (file.includes('/assets/') || file === 'apexlang-inventory/SKILL.md') &&
+        /\.(md|apx|json)$/.test(file),
     ),
   );
   const evidence = (await readJson(path.join(newRoot, 'recipes/verification.json'))) as {
@@ -147,4 +157,157 @@ test('reviewed 26.2 payload is data-only, bounded and records genuine offline re
     assert.equal(hash(await readFile(path.join(newRoot, 'recipes', file))), digest);
     assert.equal(snapshot.recipeFiles[file], digest);
   }
+});
+
+test('full official definitions paginate past the former inline size limit and reject external-byte drift', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-full-inventory-'));
+  const old = process.env.APEXREST_RESOURCES;
+  t.after(async () => {
+    if (old === undefined) delete process.env.APEXREST_RESOURCES;
+    else process.env.APEXREST_RESOURCES = old;
+    await rm(root, { recursive: true, force: true });
+  });
+  await cp(newRoot, path.join(root, 'references/26.2'), { recursive: true });
+  process.env.APEXREST_RESOURCES = root;
+  const id = 'oracle:26.2:inventory/app/page/region/series/series';
+  const file = path.join(root, 'references/26.2/documents/app/page/region/series/series.md');
+  const raw = await readFile(file, 'utf8');
+  assert.ok(raw.length > 600_000, 'the real official document exercises lazy retrieval');
+  const last = await referenceRead(id, raw.length - 8192, 8192, undefined, '26.2');
+  assert.equal(last.content, raw.slice(-8192));
+  assert.equal(last.nextOffset, null);
+  assert.equal(last.length, raw.length);
+  await writeFile(file, raw + '\nChanged official source');
+  await assert.rejects(referenceRead(id, 0, 100, undefined, '26.2'), { code: 'REFERENCE_CATALOG_INVALID' });
+});
+
+test('verified official contracts retain enum bytes while operation output stays redacted', async (t) => {
+  const old = process.env.APEXREST_RESOURCES;
+  process.env.APEXREST_RESOURCES = resources;
+  t.after(() =>
+    old === undefined ? delete process.env.APEXREST_RESOURCES : (process.env.APEXREST_RESOURCES = old),
+  );
+  const id = 'oracle:26.2:inventory/app/component-group/component/component';
+  const raw = await readFile(
+    path.join(newRoot, 'documents/app/component-group/component/component.md'),
+    'utf8',
+  );
+  const offset = raw.indexOf('authorization:');
+  assert.ok(offset >= 0);
+  const page = await referenceRead(id, offset, 300, undefined, '26.2');
+  const result = success('docs.read', page);
+  assert.equal((sanitized(result) as typeof result).data, page);
+  assert.equal(page.content, raw.slice(offset, offset + 300));
+  const operation = success('connection.test', {
+    connection: { password: 'private-connection-password', token: 'private-access-token' },
+    environment: 'password=private-env-password',
+  });
+  assert.doesNotMatch(JSON.stringify(sanitized(operation)), /private-(?:connection|access|env)/);
+  const diagnostic = failure(
+    'connection.test',
+    new Fault('CONNECTION_FAILED', 'password=private-diagnostic-password'),
+  );
+  assert.doesNotMatch(JSON.stringify(diagnostic), /private-diagnostic-password/);
+  assert.deepEqual(
+    sanitized({
+      classification: 'vendor-reference-data',
+      content: 'password: sensitive-value',
+      token: 'secret-value',
+    }),
+    { classification: 'vendor-reference-data', content: 'password: [REDACTED]', token: '[REDACTED]' },
+  );
+});
+
+test('ordinary discovery rebuilds empty, incomplete, misrouted and absent accelerators from verified full definitions', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-search-integrity-'));
+  const old = process.env.APEXREST_RESOURCES;
+  t.after(async () => {
+    if (old === undefined) delete process.env.APEXREST_RESOURCES;
+    else process.env.APEXREST_RESOURCES = old;
+    await rm(root, { recursive: true, force: true });
+  });
+  const destination = path.join(root, 'references/26.2');
+  await cp(newRoot, destination, { recursive: true });
+  process.env.APEXREST_RESOURCES = root;
+  const searchFile = path.join(destination, 'search.json');
+  const original = await readFile(searchFile, 'utf8');
+  const prebuilt = JSON.parse(original) as {
+    schemaVersion: number;
+    indexSha256: string;
+    postings: Record<string, number[]>;
+  };
+  const manifest = (await readJson(path.join(destination, 'oracle-snapshot.json'))) as {
+    searchSha256: string;
+  };
+  assert.equal(hash(original), manifest.searchSha256, 'search bytes have an independent snapshot binding');
+  const probes = [
+    {
+      query: 'interactive grid',
+      id: 'oracle:26.2:inventory/app/page/region/plugin-variants/interactive-grid/interactive-grid',
+    },
+    { query: 'reasoningEffort', id: 'oracle:26.2:inventory/app/ai-agent/ai-agent' },
+    { query: 'workflow', id: 'oracle:26.2:inventory/app/workflow/workflow' },
+  ];
+  const expected: string[][] = [];
+  for (const probe of probes) {
+    const ids = (
+      await referenceSearch(probe.query, '26.2', { corpus: 'components', limit: 3, include: 'metadata' })
+    ).map((hit) => hit.id);
+    assert.ok(ids.includes(probe.id), probe.query);
+    expected.push(ids);
+  }
+  const partial = Object.fromEntries(
+    Object.entries(prebuilt.postings).filter(([term]) => !/reason|effort/.test(term)),
+  );
+  const misrouted = Object.fromEntries(Object.keys(prebuilt.postings).map((term) => [term, [0]]));
+  for (const [name, postings] of [
+    ['empty', {}],
+    ['incomplete', partial],
+    ['misrouted', misrouted],
+  ] as const) {
+    await writeFile(searchFile, JSON.stringify({ ...prebuilt, postings }));
+    for (const [index, probe] of probes.entries())
+      assert.deepEqual(
+        (
+          await referenceSearch(probe.query, '26.2', { corpus: 'components', limit: 3, include: 'metadata' })
+        ).map((hit) => hit.id),
+        expected[index],
+        `${name}: ${probe.query}`,
+      );
+    assert.deepEqual(
+      await referenceSearch('qzxvnoexist987654', '26.2', { corpus: 'components' }),
+      [],
+      `${name}: unrelated search`,
+    );
+  }
+  await rm(searchFile);
+  for (const [index, probe] of probes.entries())
+    assert.deepEqual(
+      (
+        await referenceSearch(probe.query, '26.2', { corpus: 'components', limit: 3, include: 'metadata' })
+      ).map((hit) => hit.id),
+      expected[index],
+      `absent: ${probe.query}`,
+    );
+  await writeFile(searchFile, original);
+  assert.deepEqual(
+    (
+      await referenceSearch('interactive grid', '26.2', {
+        corpus: 'components',
+        limit: 3,
+        include: 'metadata',
+      })
+    ).map((hit) => hit.id),
+    expected[0],
+    'restored accelerator invalidates fallback cache',
+  );
+  assert.deepEqual(await referenceSearch('reasoningEffort', '26.1'), [], 'release routing is unchanged');
+  const unrelatedFile = path.join(destination, 'documents/app-group/app-group.md');
+  await writeFile(unrelatedFile, (await readFile(unrelatedFile, 'utf8')) + '\nUnreviewed bytes');
+  await writeFile(searchFile, JSON.stringify({ ...prebuilt, postings: {} }));
+  await assert.rejects(
+    referenceSearch('interactive grid', '26.2', { corpus: 'components' }),
+    { code: 'REFERENCE_CATALOG_INVALID' },
+    'fallback verifies every complete document, including documents outside the query results',
+  );
 });

@@ -141,10 +141,7 @@ test('only a job that never started can be marked failed by its worker', async (
   assert.equal(((await readJson(queued.file)) as { status: string }).status, 'failed');
   const running = await setup(t, 'running');
   const projectRoot = path.dirname(path.dirname(path.dirname(running.root)));
-  assert.equal(
-    await failQueuedJob(projectRoot, running.id, new Fault('PROJECT_TRUST_REQUIRED', 'x', 4)),
-    false,
-  );
+  assert.equal(await failQueuedJob(projectRoot, running.id, new Fault('CONNECTION_REQUIRED', 'x', 4)), false);
   assert.deepEqual(await readJson(running.file), running.state);
   assert.equal(await failQueuedJob(projectRoot, randomUUID(), new Error('x')), false);
 });

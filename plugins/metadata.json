@@ -4,7 +4,7 @@
   "description": "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
   "author": {
     "name": "APEXREST",
-    "url": "https://apex.rest"
+    "url": "https://apexrest-dev.github.io/apexrest/"
   },
   "license": "Apache-2.0",
   "interface": {
@@ -12,7 +12,7 @@
     "shortDescription": "Oracle APEX development workflows",
     "longDescription": "Oracle APEX development, controlled deployment and testing directly in your current Codex or Claude Code session.",
     "developerName": "APEXREST",
-    "websiteURL": "https://apex.rest",
+    "websiteURL": "https://apexrest-dev.github.io/apexrest/",
     "composerIcon": "./assets/apexrest-icon.svg",
     "logo": "./assets/apexrest-logo.svg",
     "logoDark": "./assets/apexrest-logo.svg",

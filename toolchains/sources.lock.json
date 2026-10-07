@@ -15,9 +15,9 @@
     "repository": "https://github.com/oracle/skills",
     "commit": "03ee10d02273bc4002fd527089e7fbb5884f94c4",
     "license": "UPL-1.0",
-    "mode": "reviewed versioned inventory and examples; no upstream executable or global skill sync",
+    "mode": "complete official versioned inventory and selected examples; no upstream executable or global skill sync",
     "archiveSha256": "5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343",
-    "indexSha256": "efb423137897c06bc681ac989662e18aad84516db664cc224fd8e39fc4253dcc",
+    "indexSha256": "dcf2471ff36cc1755b610d73b7d062611f858cb4c0eb90b5819bda4b408b18e5",
     "snapshot": "references/26.2/oracle-snapshot.json"
   }
 }

@@ -1,6 +1,6 @@
 # Security and privacy
 
-APEXREST handles executable application source and access to Oracle environments. Use explicit targets, reviewed project trust and least-privilege connections. The current beta has open verification gates; see [implementation status](docs/implementation-status.md).
+APEXREST handles executable application source and access to Oracle environments. Use explicit targets, task-scoped authorization and least-privilege connections. The current beta has open verification gates; see [implementation status](https://apexrest-dev.github.io/apexrest/implementation-status/).
 
 ## Report a vulnerability
 
@@ -16,9 +16,9 @@ Reports are bounded and private by default. Public release packages exclude runt
 
 ## Project and host trust
 
-Project SQL and APEXlang are executable code. Review the project before granting trust. Database metadata, comments, references and operation output are not instructions to broaden permissions. Keep the private policy outside the repository.
+Project SQL and APEXlang are executable code. Host filesystem permissions govern project access; no folder trust list is required. Database metadata, comments, references and operation output are not instructions to broaden permissions. Keep the private policy outside the repository.
 
-The local user and host permissions remain authoritative. APEXREST cannot prevent an agent with unrestricted shell/file access from modifying its own writable policy. An existing scoped user instruction can be recorded for a development/test import; it cannot authorize unrelated changes or production. Production signing keys and verification configuration belong to a protected external runner, inaccessible to untrusted repository code. Trusted approval keys and production targets are listed in an administrator-owned `production-trust.json` that APEXREST never writes and refuses to use when the running user owns or can modify it; production approval is not supported on Windows. Do not run privileged workflows against pull-request code.
+The local user and host permissions remain authoritative. An identified DEV/QA/TEST application task authorizes its necessary import through an exact-project/target/plan grant. Actual local non-production servers allow task-scoped database changes; dangerous remote changes require exact-plan human confirmation. Production classification in project configuration or `production-trust.json` always forbids deployment/restore. APEXREST never edits that registry; legacy approval keys do not enable production writes.
 
 ## Supply chain
 
@@ -30,4 +30,4 @@ No npm postinstall hook downloads tools. MCP startup performs no dependency down
 
 Plans bind source, toolchain, target identity and current target state. Apply compares the live target and migration history with the plan and recomputes authentication/authorization risk from a live export. Migrations and package scripts containing SQLcl client commands are blocked. Apply preserves authorization, drift checks, frozen source, a verified SQL backup for an existing app and durable ownership/history. Local coordination protects runners sharing the same managed home; it does not serialize independent machines.
 
-Do not clear a deployment lease in the writing phase because its TTL expired. Oracle DDL may have committed. Reconcile the target, journal and backup with the administrator before retrying. An APEX metadata restore does not recover business data or destructive schema changes. See [deployment safety](docs/deployment-safety.md).
+Do not clear a deployment lease in the writing phase because its TTL expired. Oracle DDL may have committed. Read the actual server state before recovery; compatible application metadata may be safely replanned, while conflicting changes and database scripts require review. An APEX metadata restore does not recover business data or destructive schema changes. See [deployment safety](https://apexrest-dev.github.io/apexrest/deployment/).

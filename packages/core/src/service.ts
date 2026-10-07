@@ -6,7 +6,7 @@ import { referenceSearch, referenceRead, referenceSync } from './references.ts';
 import { failure, Fault, success, type Result } from './result.ts';
 import { schemas } from './operations.ts';
 import type { Operation } from './operations.ts';
-import { environment, loadProject, managedHome, parse, requireTrust } from './config.ts';
+import { environment, loadProject, managedHome, parse } from './config.ts';
 import { connections, configureConnection, editConnection, resolveConnection } from './connections.ts';
 import { canonical, contained, exists, hash, readJson, writeJson } from './fs.ts';
 import * as oracleModule from './oracle.ts';
@@ -25,6 +25,8 @@ import {
   shipApply,
   shipPlan,
   validateApplication,
+  planPreview,
+  type PlanConfirmation,
   type DiagnosticParser,
 } from './ship.ts';
 
@@ -69,7 +71,18 @@ function routeProject(parsed: Record<string, unknown>) {
     case 'connection_add':
       return {
         operation: 'connection.add',
-        input: pick('project', 'name', 'sqlclName', 'ordsUrl', 'ordsUsername', 'passwordFile'),
+        input: pick(
+          'project',
+          'name',
+          'sqlclName',
+          'ordsUrl',
+          'ordsUsername',
+          'passwordFile',
+          'envFile',
+          'usernameKey',
+          'passwordKey',
+          'urlKey',
+        ),
       };
     case 'connection_list':
       return { operation: 'connection.list', input: pick('project', 'saved') };
@@ -204,6 +217,10 @@ export async function dispatch(
           ordsUrl: text('ordsUrl'),
           ordsUsername: text('ordsUsername'),
           passwordFile: text('passwordFile'),
+          envFile: text('envFile'),
+          usernameKey: text('usernameKey'),
+          passwordKey: text('passwordKey'),
+          urlKey: text('urlKey'),
         });
         break;
       case 'connection.remove':
@@ -259,14 +276,12 @@ export async function dispatch(
             data = await projectInspect(ctx, parsed.detail as 'full' | 'summary');
             break;
           case 'metadata.read': {
-            await requireTrust(ctx.root);
             const env = environment(ctx, text('env'));
             const { project: _p, env: _e, ...request } = parsed;
             data = await metadataRead(oracle, env, await resolveConnection(env.readConnectionRef), request);
             break;
           }
           case 'apex.generate': {
-            await requireTrust(ctx.root);
             const generated = await oracle.generate(
               text('name'),
               text('alias') ?? ctx.config.application.alias,
@@ -287,7 +302,6 @@ export async function dispatch(
             break;
           case 'project.adopt':
           case 'apex.export': {
-            await requireTrust(ctx.root);
             const env = environment(ctx, text('env'));
             if (operation === 'project.adopt' && env.applicationId !== parsed.appId)
               throw new Fault(
@@ -310,7 +324,6 @@ export async function dispatch(
             break;
           }
           case 'apex.validate':
-            await requireTrust(ctx.root);
             data = await validateApplication(
               oracle,
               await contained(ctx.root, ctx.config.application.sourceDir),
@@ -319,10 +332,42 @@ export async function dispatch(
             );
             break;
           case 'ship': {
-            const planned = await shipPlan(ctx, text('env'), deployment, parseDiagnostics, progress, {
-              importMode: parsed.importMode as 'auto' | 'full' | 'files',
-              ...(parsed.files ? { files: parsed.files as string[] } : {}),
-            });
+            if (parsed.mode === 'recover') {
+              if (!parsed.run)
+                throw new Fault('INVALID_INPUT', 'Recover requires the original deployment run UUID.', 2);
+              const recovered = await deployment.recover(ctx, text('run'));
+              data =
+                recovered.status === 'succeeded'
+                  ? recovered
+                  : await shipApply(
+                      ctx,
+                      recovered.retryPlan,
+                      text('userRequest'),
+                      deployment,
+                      signal,
+                      progress,
+                      parsed.confirmation as PlanConfirmation | undefined,
+                    );
+              break;
+            }
+            if (parsed.confirmation && !parsed.plan)
+              throw new Fault(
+                'INVALID_INPUT',
+                'Confirmation requires the exact saved reviewed plan path.',
+                2,
+              );
+            const planned = parsed.plan
+              ? await (async () => {
+                  const { plan } = await deployment.checkLocal(
+                    ctx,
+                    await readJson(await contained(ctx.root, text('plan'))),
+                  );
+                  return { plan, planPath: text('plan'), phases: [], preview: planPreview(ctx, plan) };
+                })()
+              : await shipPlan(ctx, text('env'), deployment, parseDiagnostics, progress, {
+                  importMode: parsed.importMode as 'auto' | 'full' | 'files',
+                  ...(parsed.files ? { files: parsed.files as string[] } : {}),
+                });
             if (parsed.mode !== 'apply') {
               data = {
                 mode: 'plan',
@@ -340,6 +385,7 @@ export async function dispatch(
               deployment,
               signal,
               progress,
+              parsed.confirmation as PlanConfirmation | undefined,
             );
             data = {
               mode: 'apply',
@@ -357,10 +403,10 @@ export async function dispatch(
               deployment,
               signal,
               progress,
+              parsed.confirmation as PlanConfirmation | undefined,
             );
             break;
           case 'apex.diff': {
-            await requireTrust(ctx.root);
             const env = environment(ctx, text('env'));
             const store = new SyncStore(ctx, env, text('env'));
             const state = parsed.comparison === 'live' ? null : await store.read();
@@ -411,11 +457,9 @@ export async function dispatch(
             break;
           case 'deploy.status':
             // Reconciliation resolves the read connection and exports the target.
-            await requireTrust(ctx.root);
             data = await deployment.reconcile(ctx, text('run'));
             break;
           case 'deploy.restore-plan': {
-            await requireTrust(ctx.root);
             const plan = await deployment.restorePlan(ctx, text('backup'));
             await writeJson(await contained(ctx.root, text('out')), plan);
             data = plan;
@@ -426,7 +470,7 @@ export async function dispatch(
             data = await openVerificationBrowser(
               ctx,
               text('env'),
-              parsed.browserMode as 'codex' | 'host' | undefined,
+              parsed.browserMode as 'codex' | 'host' | 'chrome' | 'edge' | undefined,
             );
             break;
           }

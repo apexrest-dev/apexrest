@@ -1,0 +1,111 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Troubleshooting · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/troubleshooting/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/troubleshooting/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/" aria-current="page">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Troubleshooting</div><h1 id="troubleshooting">Troubleshooting</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#the-apexrest-command-is-missing">The apexrest command is missing</a></li><li><a href="#saved-connections-are-missing-or-fail-their-test">Saved connections are missing or fail their test</a></li><li><a href="#the-plugin-is-installed-but-tools-are-missing">The plugin is installed but tools are missing</a></li><li><a href="#sqlcl-is-present-but-compilation-fails">SQLcl is present but compilation fails</a></li><li><a href="#ship-target-or-policy-checks-fail">Ship, target or policy checks fail</a></li><li><a href="#a-job-is-still-running-failed-or-has-an-unknown-outcome">A job is still running, failed or has an unknown outcome</a></li><li><a href="#browser-verification-or-charts-do-not-work">Browser verification or charts do not work</a></li><li><a href="#offline-proxy-or-download-errors">Offline, proxy or download errors</a></li><li><a href="#setup-is-locked-or-interrupted">Setup is locked or interrupted</a></li><li><a href="#report-a-reproducible-problem">Report a reproducible problem</a></li></ul></details>
+<p>Start with <code>apexrest status --detail doctor --json</code> (or <code>apexrest_status</code> with <code>detail: &quot;doctor&quot;</code> in the conversation), then use the reported capability or fault code. A detected executable, a validated compiler, plugin discovery in the host and a working database connection are separate states. Every failed result carries <code>nextActions</code>; follow them before retrying.</p>
+<h2 id="the-apexrest-command-is-missing">The apexrest command is missing</h2>
+<p><code>apexrest setup</code> (managed installation) and <code>npm install -g apexrest</code> create the <code>apexrest</code> command; <code>codex plugin add</code>, <code>claude plugin install</code> and installing tools alone do not. Follow <a href="/apexrest/getting-started/#managed-runtime-installation-and-the-launcher">the launcher instructions</a>, or run the bundled runtime from a checkout:</p>
+<pre><code class="language-sh">node plugins/apexrest-apex/runtime/apexrest.mjs --help
+</code></pre>
+<p><code>apexrest</code> without arguments prints help. Use the current source bundle and run <code>npm run plugin:sync</code> after changing runtime source. If managed plugin files were removed, their launcher has no runtime to start; install again from a checkout or npm.</p>
+<h2 id="saved-connections-are-missing-or-fail-their-test">Saved connections are missing or fail their test</h2>
+<p><code>connection add --sqlcl-name NAME</code> records an APEXREST reference; it does not create a connection in SQLcl. Save the connection interactively in SQLcl, then <code>apexrest connection list --saved --json</code> reads that store and <code>apexrest connection test NAME --saved --json</code> tests the exact saved name, including case and spaces. ORDS references are tested with <code>apexrest connection test REF --json</code> after <code>sqlcl configure --database-transport ords</code>.</p>
+<p>Check <code>APEXREST_SQLCL</code>, <code>APEXREST_JAVA_HOME</code> and <code>APEXREST_HOME</code> if tools were installed elsewhere. Repair missing or expired credentials in SQLcl; a successful doctor run does not establish database connectivity.</p>
+<h2 id="the-plugin-is-installed-but-tools-are-missing">The plugin is installed but tools are missing</h2>
+<p>Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog. Check that the plugin is listed and enabled in the same profile: <code>codex plugin list --json</code>, or <code>claude plugin list</code>. The MCP server is <code>node &lt;plugin-root&gt;/runtime/mcp.mjs</code>, started by the host from the installed plugin directory with no downloads; do not add a second global MCP server to conceal a failed installation. In Claude Code, <code>claude plugin validate --strict &lt;plugin-root&gt;</code> checks the manifest and <code>/mcp</code> shows whether the <code>apexrest</code> server started. The server exits with <code>APEXREST requires Node.js 24 or newer.</code> when the <code>node</code> on the <code>PATH</code> of the shell that started <code>claude</code> is older (for example an older nvm default); switch Node before starting <code>claude</code>. Plugin MCP servers inherit that shell&#39;s environment, so export <code>APEXREST_HOME</code> there when you use a custom managed home.</p>
+<p>Project-scoped tools reject a missing or relative <code>project</code> argument: pass the absolute directory that contains <code>apexrest.json</code>, never the plugin directory. No folder trust list is required; host filesystem permissions govern project access.</p>
+<h2 id="sqlcl-is-present-but-compilation-fails">SQLcl is present but compilation fails</h2>
+<p>Select the compiler for the source profile: SQLcl <code>26.1.2.132.1334</code> for the reviewed 26.1 workflow, or <code>26.3.0.260.1620</code> with MMD <code>26.2.0+3479</code> for <a href="/apexrest/apex-26.2/">26.2 partial imports</a>. The managed Java baseline is 21; <code>APEXREST_JAVA_HOME</code> selects an existing compatible runtime. <code>apexrest_apex_validate</code> returns structured <code>diagnostics</code> (file, line, column, type, message, <code>validValues</code>, hint): repair the named file and line and rerun. SQLcl can print an error and still exit zero, so validation requires a success marker and no error indication; otherwise it reports <code>VALIDATION_UNCONFIRMED</code> with the compiler output.</p>
+<p>Offline validation and help reuse a pooled SQLcl process. Generation on 26.3 is isolated to avoid a verified compiler-state issue; 26.1 retains its established pooling behavior. A timed-out, cancelled or failed command kills its session and the next call starts a fresh one; a session idle for ten minutes is reaped. If the pool itself cannot start (for example after replacing the SQLcl installation), restart the host session so the MCP server restarts.</p>
+<p>Preserve Oracle-generated <code>.apex/apexlang.json</code> and component IDs. Never invent an MMD version or edit internal APEX tables to work around a compiler incompatibility. Use the references for the selected toolchain version and make a focused source correction.</p>
+<h2 id="ship-target-or-policy-checks-fail">Ship, target or policy checks fail</h2>
+<h3 id="apex-262-partial-imports">APEX 26.2 partial imports</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auto</code> resolves to <code>full</code></td>
+<td>Read <code>importSelection.reasons</code>. Confirm the trusted sync baseline and eligibility; do not switch to <code>files</code> just to bypass a full-import requirement.</td>
+</tr>
+<tr>
+<td><code>PARTIAL_IMPORT_UNSUPPORTED</code></td>
+<td>Check the exact source/compiler/target tuple, selected files and direct SQLcl <code>cli</code> transport. The APEXREST MCP tool supports partial imports; SQLcl&#39;s own <code>mcp</code> transport does not.</td>
+</tr>
+<tr>
+<td><code>APEX_VERSION_MISMATCH</code> or <code>SYNC_COMPILER_CHANGED</code></td>
+<td>Verify the actual target and compiler. Follow the source-upgrade/export workflow and explicitly refresh the baseline; never rewrite the MMD version by hand.</td>
+</tr>
+<tr>
+<td><code>IMPORT_CONFLICT</code> or <code>SYNC_SERVER_CHANGED</code></td>
+<td>Reconcile local and server changes before planning again. A dirty refresh is not a merge, and a full import must not conceal a detected conflict.</td>
+</tr>
+<tr>
+<td><code>POST_DEPLOY_CONTENT_FAILED</code> or <code>LOCAL_RECONCILIATION_REQUIRED</code></td>
+<td>The import may already be confirmed. Inspect the retained server/source snapshots and readback receipt, then reconcile; do not immediately import again.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The <a href="/apexrest/apex-26.2/">partial-import guide</a> lists exclusions and the narrowly allowed readback transformations. <code>OUTCOME_UNKNOWN</code> still requires the recovery procedure below.</p>
+<h3 id="general-deployment-checks">General deployment checks</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Missing environment or identity mismatch</td>
+<td>Check the selected <code>env</code>, connection, database/service, workspace, schema and application ID.</td>
+</tr>
+<tr>
+<td><code>SOURCE_DRIFT</code>, <code>TARGET_DRIFT</code>, <code>PLAN_EXPIRED</code>, <code>SYNC_REPLAN_REQUIRED</code></td>
+<td>Run <code>apexrest_ship</code> <code>mode:plan</code> again and review the new preview; plans expire after 30 minutes.</td>
+</tr>
+<tr>
+<td><code>PLAN_TAMPERED</code></td>
+<td>The plan no longer matches the live target, history or sources; create and review a new plan.</td>
+</tr>
+<tr>
+<td><code>DATABASE_CONFIRMATION_REQUIRED</code></td>
+<td>The requested security change is outside task scope; describe the exact change and obtain its authorization.</td>
+</tr>
+<tr>
+<td><code>DEPLOY_APPROVAL_REQUIRED</code></td>
+<td><code>ship apply</code> records the grant itself; for <code>deploy apply</code>, record a grant with this plan&#39;s exact <code>planDigest</code>.</td>
+</tr>
+<tr>
+<td>Production target</td>
+<td><code>ship apply</code> is refused by design; production uses the protected external approval path.</td>
+</tr>
+<tr>
+<td><code>PRODUCTION_TRUST_*</code> or <code>APPROVAL_*</code></td>
+<td>Ask the runner administrator to check <code>production-trust.json</code>, the approval key and attestation.</td>
+</tr>
+<tr>
+<td>Missing service tables</td>
+<td>None are required: coordination and migration history are local under <code>APEXREST_HOME</code>.</td>
+</tr>
+<tr>
+<td><code>PASSWORD_FILE_UNSAFE</code></td>
+<td>Use a regular, non-symlink password file; on POSIX, restrict it to its owner (<code>chmod 600</code>).</td>
+</tr>
+</tbody></table>
+</div>
+<p>Connection credentials belong in SQLcl&#39;s store or the private ORDS credential file. Do not put them in an issue or prompt. See <a href="/apexrest/configuration/">configuration</a> and the <a href="https://github.com/apexrest-dev/apexrest/blob/main/plugins/apexrest-apex/skills/apexrest-safety/SKILL.md">safety skill</a>.</p>
+<h2 id="a-job-is-still-running-failed-or-has-an-unknown-outcome">A job is still running, failed or has an unknown outcome</h2>
+<p><code>apexrest_ship</code> returns a <code>jobId</code> when they exceed <code>waitSeconds</code>. Read <code>apexrest_job</code> <code>action:status</code> with that ID (waits up to 120 seconds and reports the <code>phase</code>: <code>validating</code>, <code>planning</code>, <code>backing_up</code>, <code>migrating</code>, <code>importing</code>, <code>verifying</code>, <code>syncing</code>); never rerun the operation to fetch its result. A <code>completed</code> job can still carry a failed operation result: read its diagnostics. A job whose worker never started is <code>failed</code> and needs a new job after the diagnostic is resolved.</p>
+<p><code>OUTCOME_UNKNOWN</code>, <code>JOB_OUTCOME_UNKNOWN</code>, an expired heartbeat or a lost import response mean the database may have changed. Do not retry, cancel or clear ownership. Inspect the deployment state, journal, target history and SQL backup with <code>apexrest deploy status --project PROJECT --run RUN_ID</code>, and reconcile with the target administrator before choosing a recovery action. Cancellation never implies rollback. Restore has its own plan and exact approval and restores APEX metadata only. See <a href="/apexrest/deployment/">deployment and recovery</a>.</p>
+<h2 id="browser-verification-or-charts-do-not-work">Browser verification or charts do not work</h2>
+<p><code>apexrest_browser_open</code> returns the configured URL for the host in-app browser (<code>host</code>, legacy alias <code>codex</code>). Complete login in that browser and exercise the affected pages; opening a page is not verification. No external browser is launched and no saved authentication state or automatic application suite is used. If an old preference says <code>external</code>, change it to <code>host</code> or select <code>browserMode:host</code> for the call.</p>
+<p>Wait for asynchronous APEX chart regions to finish loading before judging an empty chart. After a filter action, verify that the relevant page items were submitted and every affected region refreshed. A loading overlay or an old tab with a pending navigation may require a fresh page inspection before changing source. Record an unavailable browser or deployed change as missing verification with a reason, following the <a href="/apexrest/testing/#browser-verification">browser verification rule</a>.</p>
+<h2 id="offline-proxy-or-download-errors">Offline, proxy or download errors</h2>
+<p>Preload the exact SHA-keyed vendor artifacts and client-tool archives. <code>--offline</code> never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total. <code>PROXY_UNSUPPORTED</code> means a proxy is configured but the running Node cannot apply it: run with <code>NODE_USE_ENV_PROXY=1</code> on Node 24 or later, or preload the offline cache. <code>UNSAFE_CACHE_DIRECTORY</code> means the download cache is not owned by the current user or is group/world writable.</p>
+<h2 id="setup-is-locked-or-interrupted">Setup is locked or interrupted</h2>
+<p>Concurrent setup reports <code>LOCKED</code>. A proven dead process on the same host can be recovered through the dedicated recovery gate. Unknown ownership, another host or an interrupted recovery gate requires inspection; do not guess that a live lock is stale.</p>
+<p><code>LOCK_CORRUPT</code> reports a lock file without a readable owner that is older than 30 seconds, usually left by an interrupted process. Confirm that no apexrest operation is running on any host, then delete the lock file named in the message and retry. There is no automated recovery command for this case.</p>
+<p>Native packages are copied through staging and atomic rename. A rerun probes completed components. Preserve unrelated plugins and the private managed state; deleting everything is not a normal repair step.</p>
+<h2 id="report-a-reproducible-problem">Report a reproducible problem</h2>
+<p>Include the plugin version, OS/architecture, host (Codex or Claude Code) and its version, exact sanitized command or tool call, fault code and the smallest source example that reproduces the issue. Distinguish local fixture results from Oracle or host observations. Review diagnostics for paths, credentials and business data before attaching them to <a href="https://github.com/apexrest-dev/apexrest/issues">an issue</a>. Use <a href="/apexrest/security/">private reporting guidance</a> for sensitive findings.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/troubleshooting.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

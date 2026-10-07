@@ -1,0 +1,107 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>APEX 26.2 partial imports · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/apex-26.2/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/apex-26.2/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/" aria-current="page">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / APEX 26.2 partial imports</div><h1 id="apex-262-partial-apexlang-imports">APEX 26.2 partial APEXlang imports</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#choose-an-import-mode">Choose an import mode</a></li><li><a href="#requirements">Requirements</a></li><li><a href="#quick-start-from-an-updated-checkout">Quick start from an updated checkout</a></li><li><a href="#what-the-planner-checks">What the planner checks</a></li><li><a href="#backup-verification-and-recovery">Backup, verification and recovery</a></li><li><a href="#other-262-support">Other 26.2 support</a></li><li><a href="#complete-oracle-authoring-inventory">Complete Oracle authoring inventory</a></li></ul></details>
+<p><strong>Import a changed page and its shared list of values without re-importing the rest of the application.</strong> APEXREST selects eligible <code>.apx</code> files automatically or accepts an explicit list, checks their dependencies against the current server application, and preserves unrelated remote changes.</p>
+<blockquote>
+<p><strong>Source version:</strong> this guide describes the <code>2.0.0</code> source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.</p>
+</blockquote>
+<h2 id="choose-an-import-mode">Choose an import mode</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Planner behavior</th>
+<th>When to use it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auto</code> (default)</td>
+<td>Selects eligible local changes; reports reasons if a full import is required. Conflicts block.</td>
+<td>Routine changes to an existing 26.2 development/test app.</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>Imports only the listed files; rejects an ineligible selection and never widens it to <code>full</code>.</td>
+<td>A specific page, or a page together with changed shared dependencies.</td>
+</tr>
+<tr>
+<td><code>full</code></td>
+<td>Requests a complete application import through the existing safeguards.</td>
+<td>Initial application creation or changes requiring the complete application.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The CLI and the <code>apexrest_ship</code> MCP tool expose the same modes. The requirement to use <strong>direct SQLcl CLI</strong> describes how APEXREST connects to Oracle; it does not prevent using the feature through Codex or Claude Code&#39;s APEXREST MCP tools. SQLcl&#39;s own <code>mcp</code> execution mode and the ORDS transport are separate options and do not support partial import in this implementation.</p>
+<h2 id="requirements">Requirements</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Reviewed support</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Target and source</td>
+<td>Existing development/test application on APEX 26.2, with Oracle-exported 26.2 APEXlang sources.</td>
+</tr>
+<tr>
+<td>Compiler</td>
+<td>SQLcl <code>26.3.0.260.1620</code>, Oracle-generated MMD <code>26.2.0+3479</code>, and observed <code>apex import -files</code> support.</td>
+</tr>
+<tr>
+<td>Connection</td>
+<td>SQLcl <code>cli</code> mode with a <code>direct</code> database connection.</td>
+</tr>
+<tr>
+<td>Project</td>
+<td>Configured target identity, named connection references and a valid sync checkpoint.</td>
+</tr>
+<tr>
+<td>Selection</td>
+<td>Supported new/modified page and shared-component <code>.apx</code> files, including required changed dependencies.</td>
+</tr>
+</tbody></table>
+</div>
+<p>APEX 26.2 requires SQLcl and ORDS 26.3 or later. APEXREST&#39;s partial-import gate deliberately accepts the exact reviewed compiler/MMD tuple and 26.2 target stream. Target releases are checked; a future version is not automatically qualified.</p>
+<p>Select the matching compiler through <code>APEXREST_SQLCL</code>. The managed installer still defaults to 26.1. Set <code>toolchain.profile</code> to <code>26.2</code> for authoring references and use the reviewed <code>toolchains/toolchain-26.2.lock.json</code> when establishing that toolchain; changing the reference profile alone does not install a compiler or upgrade source metadata. Existing project/toolchain changes require explicit refresh or re-establishment of the sync baseline. A new app generated by the selected 26.2 compiler records its profile and matching lock.</p>
+<h2 id="quick-start-from-an-updated-checkout">Quick start from an updated checkout</h2>
+<p>The following examples assume a configured application project with an environment named <code>dev</code>. Replace the absolute paths and example page/LOV filenames with your project&#39;s values. These commands use the checkout runtime described in this guide.</p>
+<pre><code class="language-sh">APEXREST_CLI=&quot;/absolute/path/to/apexrest/plugins/apexrest-apex/runtime/apexrest.mjs&quot;
+APEXREST_PROJECT=&quot;/absolute/path/to/application-project&quot;
+
+node &quot;$APEXREST_CLI&quot; sqlcl configure --mode cli --database-transport direct --json
+node &quot;$APEXREST_CLI&quot; apex sync --project &quot;$APEXREST_PROJECT&quot; --env dev --action init --json
+</code></pre>
+<p>Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. An already initialized ready working copy can be reused.</p>
+<p>After editing and validating the page and its dependencies, preview automatic selection, inspect <code>importSelection</code>, and apply with the same mode and request:</p>
+<pre><code class="language-sh">node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode plan --import-mode auto --user-request &quot;Update the Home page and status LOV in the configured dev application&quot; --json
+node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode apply --import-mode auto --user-request &quot;Update the Home page and status LOV in the configured dev application&quot; --json
+</code></pre>
+<p>For an explicit selection, use matching <code>files</code> arguments for both operations:</p>
+<pre><code class="language-sh">node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode plan --import-mode files --files pages/p00001-home.apx shared-components/lovs/status.apx --user-request &quot;Import only the Home page and status LOV into the configured dev application&quot; --json
+node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode apply --import-mode files --files pages/p00001-home.apx shared-components/lovs/status.apx --user-request &quot;Import only the Home page and status LOV into the configured dev application&quot; --json
+</code></pre>
+<p>Paths are relative to the configured application source directory. <code>files</code> requires a nonempty list; globs, path escapes, symlinks and duplicates are rejected. The MCP equivalents are <code>importMode: &quot;files&quot;</code> and <code>files: [&quot;pages/p00001-home.apx&quot;, &quot;shared-components/lovs/status.apx&quot;]</code> on <code>apexrest_ship</code>.</p>
+<p><code>ship --mode apply</code> prepares a fresh plan and then binds its grant to that plan; it does not consume the earlier preview file. To execute a particular saved plan, use the granular <code>deploy plan</code> / <code>deploy apply</code> flow with its exact-plan authorization. Once a plan is bound for apply, its selection cannot widen.</p>
+<h2 id="what-the-planner-checks">What the planner checks</h2>
+<p>The planner compares the <strong>saved baseline</strong>, <strong>local edits</strong> and <strong>fresh server export</strong>. Local changes identify the intended update. Remote-only changes are preserved; unequal local/server edits to the same component block planning. The effective application is validated as a whole, so a selected page cannot depend on an unselected new local LOV missing from the server. Include required changed dependencies in the reviewed list.</p>
+<p>Review <code>importSelection.requestedMode</code>, <code>resolvedMode</code>, <code>files</code>, supporting-component selections and <code>reasons</code>. The compact preview shows at most 50 selected paths; use the full saved plan for a longer list.</p>
+<p>Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are excluded from partial import. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit <code>files</code> mode never becomes <code>full</code>. Database scripts require a full application import and the local/remote safety policy; production deployment is forbidden.</p>
+<h2 id="backup-verification-and-recovery">Backup, verification and recovery</h2>
+<p>Version 4 plans bind the exact file list, source/configuration/toolchain hashes, target, fresh server export and validated effective tree. Existing saved plans keep their previous full-import semantics. The temporary deploy grant binds the whole plan digest.</p>
+<p>Every partial import takes a fresh full SQL backup. The backup metadata identifies its deployment run and plan; the run also keeps <code>backup.json</code>. Apply checks drift, freezes the effective tree and runs one SQLcl <code>apex import -files</code> command from that tree. The reviewed selection cannot widen after planning.</p>
+<p>After import, a complete APEXlang export must match the expected result, including unselected components. New plans bind a conservative readback policy: only selected <code>.apx</code> files may differ by structural whitespace/comments or the verified native select-list <code>layout.startNewRow: true</code> default omission. Scalar strings and fenced code stay exact; unselected files, JSON, SQL and static assets stay byte-exact. Unknown source forms fail closed. Each accepted difference records both hashes and its rule in the run&#39;s <code>readback-verification.json</code>; older plans without this policy remain byte-exact.</p>
+<p>The verified server export becomes the checkpoint; unselected local work remains dirty. Remote-only changes are safely reconciled locally so the next import does not undo them. Concurrent local edits are retained and require reconciliation. Confirmed import with failed readback or local reconciliation is a verification failure; an unconfirmed write is <code>outcome_unknown</code>. Neither path automatically retries or rolls back Oracle.</p>
+<p>Durable before/effective/server snapshots, SQL backups and run journals are retained outside ordinary result pruning. <code>deploy status</code> compares before/expected/actual state and does not release unknown write ownership or grant retry permission.</p>
+<h2 id="other-262-support">Other 26.2 support</h2>
+<ul>
+<li>Validation reports advisory CodeScan findings and source-upgrade hints separately from compiler diagnostics. Scanner unavailability is explicit and does not convert compilation success into a scanner pass.</li>
+<li>The new corpus covers provider APIs, unspecified versus explicit reasoning effort, secure agent navigation, Interactive Reports, workflow/task changes, charts and Universal Theme, DDS, managed credentials and deployment metadata.</li>
+<li>Six original recipe fragments have real offline compiler evidence. They do not establish provider availability, database policies, running-workflow migration, application imports or browser behavior.</li>
+<li>Effective deployment JSON preserves source defaults, subscription mappings and checksum salts while the configured target controls application/workspace/schema identity. Native Oracle Working Copies and application locking remain distinct from APEXREST&#39;s local sync state; API examples do not automatically create copies or acquire locks.</li>
+<li>Security readiness requires actual database capabilities, verified identity propagation, OCI IAM and network permissions. Credential/policy provisioning remains operator-managed. Database-backed Web Credentials do not enforce the <code>Valid for URLs</code> restriction; use the parsing schema&#39;s network controls.</li>
+</ul>
+<p>For bounded read-only diagnostics, call <code>apexrest_metadata_read</code> with <code>kind: &quot;apex-capabilities&quot;</code>, the configured parsing <code>schema</code> and <code>env</code>. Results include actual releases, visible public APIs, application lock/Working Copy observations, and explicit operator-verification requirements. Metadata visibility does not prove API execution or security enforcement.</p>
+<p>Major-version source upgrades require a reviewed import/re-export into a separate directory, followed by explicit checkpoint refresh. Never edit <code>.apex/apexlang.json</code> to pretend that old sources use the new compiler. Keep old source and backup snapshots; an export with <code>-force</code> can remove its destination alias directory.</p>
+<p>Sources: <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/index.html">APEX 26.2 release notes</a>, <a href="https://blogs.oracle.com/apex/introducing-file-level-import-with-apexlang-in-oracle-apex">file import rules</a>, <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/about-release-notes.html">requirements</a>, <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/understanding-apexlang-deployment-files.html">deployment metadata</a>, <a href="https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/upgrading-apexlang-source-with-new-apex-release.html">source upgrade</a>, <a href="https://blogs.oracle.com/apex/using-dbms_cloud-credentials-with-resource-principal-and-dbtools-identity">managed credentials</a>.</p>
+<h2 id="complete-oracle-authoring-inventory">Complete Oracle authoring inventory</h2>
+<p>The <a href="/apexrest/oracle-apexlang-coverage/">official inventory coverage</a> includes all 389 definition documents and the upstream layout/syntax catalog. Select <code>version:26.2</code>, search <code>corpus:components</code> and read the returned <code>oracle:26.2:inventory/...</code> ID through all pages. Every contextual property, enum and applicability condition is retained. Local 26.1 UX recipes remain separately version-bound. Full source coverage does not qualify database, provider, import or browser behavior.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/apex-26.2.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

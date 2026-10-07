@@ -185,6 +185,7 @@ export function planPreview(ctx: ProjectContext, plan: DeployPlan, options?: Dep
     createdAt: plan.createdAt,
     expiresAt: plan.expiresAt,
     risks: plan.risks,
+    databaseReview: plan.databaseReview,
     approval: plan.approval,
     sources: sourceCounts(ctx, plan),
     target: JSON.stringify(plan.target).length <= 1200 ? plan.target : { omitted: true },
@@ -209,7 +210,6 @@ export async function shipPlan(
   progress?: (phase: JobPhase) => void,
   options: DeploymentPlanOptions = { importMode: 'auto' },
 ) {
-  await reconcileShipGrants();
   const started = Date.now();
   progress?.('validating');
   let plan: DeployPlan;
@@ -233,13 +233,23 @@ const phaseFor: Partial<Record<DeployState, JobPhase>> = {
   verifying: 'verifying',
 };
 
-export function shipGrant(ctx: ProjectContext, plan: DeployPlan, userRequest: string): PolicyGrant {
+export interface PlanConfirmation {
+  planDigest: string;
+  userRequest: string;
+}
+export function shipGrant(
+  ctx: ProjectContext,
+  plan: DeployPlan,
+  userRequest: string,
+  confirmation?: PlanConfirmation,
+): PolicyGrant {
   return {
     projectRoot: ctx.root,
     targetDigest: plan.targetDigest,
     planDigest: plan.digest,
     expiresAt: new Date(Math.min(Date.parse(plan.expiresAt), Date.now() + 10 * 60 * 1000)).toISOString(),
     workerPid: process.pid,
+    ...(confirmation ? { confirmedRisks: plan.risks, confirmationRequest: confirmation.userRequest } : {}),
     operations: ['deploy'],
     note: userRequest.slice(0, 2000),
     grantedBy: 'ship',
@@ -267,22 +277,36 @@ const ownGrant = (ctx: ProjectContext, plan: DeployPlan) => (g: PolicyGrant) =>
   g.grantedBy === 'ship' && g.projectRoot === ctx.root && g.planDigest === plan.digest;
 
 /** Refuse before any grant is written: production and unreviewed risks never get a runtime grant. */
-export async function checkShipTarget(ctx: ProjectContext, plan: DeployPlan) {
+export async function checkShipTarget(
+  ctx: ProjectContext,
+  plan: DeployPlan,
+  local = false,
+  confirmation?: PlanConfirmation,
+) {
   const env = environment(ctx, plan.environment);
   if (await isProductionTarget(env, plan.targetDigest))
     throw new Fault(
-      'PRODUCTION_CI_REQUIRED',
-      'Production requires a protected CI runner and externally signed approval bound to this plan.',
+      'PRODUCTION_DEPLOY_DENIED',
+      'The plugin never deploys or restores production-marked targets.',
       4,
       'blocked',
     );
-  if (plan.risks.some((r) => r !== 'application-restore'))
+  if (confirmation && (confirmation.planDigest !== plan.digest || confirmation.userRequest.trim().length < 1))
     throw new Fault(
-      'RECOVERY_REVIEW_REQUIRED',
-      'Destructive, authentication or unsupported changes need an explicit recovery implementation and reviewed external workflow.',
+      'CONFIRMATION_PLAN_MISMATCH',
+      'Human confirmation must name this exact reviewed plan digest.',
       4,
       'blocked',
-      { nextActions: plan.risks.map((r) => 'Review risk: ' + r) },
+    );
+  if (!local && plan.risks.some((r) => r !== 'application-restore') && !confirmation)
+    throw new Fault(
+      'DATABASE_CONFIRMATION_REQUIRED',
+      'Describe the actual remote database operations and consequences, then obtain human confirmation for this exact saved plan.',
+      4,
+      'blocked',
+      {
+        nextActions: plan.risks.map((r) => 'Review operation: ' + r),
+      },
     );
   return env;
 }
@@ -294,9 +318,20 @@ export async function shipApply(
   deployment: DeploymentService,
   signal?: AbortSignal,
   progress?: (phase: JobPhase) => void,
+  confirmation?: PlanConfirmation,
+  recoveryAttempt = 0,
 ) {
   const plan = parse(deployPlanSchema, planValue);
-  await checkShipTarget(ctx, plan);
+  if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
+    throw new Fault(
+      'PRODUCTION_DEPLOY_DENIED',
+      'The plugin never deploys or restores production-marked targets.',
+      4,
+      'blocked',
+    );
+  await deployment.checkLocal(ctx, plan);
+  const locality = plan.risks.length ? await deployment.localTarget(ctx, plan) : { local: false };
+  await checkShipTarget(ctx, plan, locality.local, confirmation);
   await reconcileShipGrants();
   const phases: ShipPhase[] = [];
   let current: { phase: JobPhase; at: number } | undefined;
@@ -305,16 +340,45 @@ export async function shipApply(
     current = { phase, at: Date.now() };
     progress?.(phase);
   };
-  const grant = shipGrant(ctx, plan, userRequest);
+  const grant = shipGrant(ctx, plan, userRequest, confirmation);
   await updatePolicy((p) => ({ ...p, grants: [...p.grants.filter((g) => !ownGrant(ctx, plan)(g)), grant] }));
   let grantRemoved = false;
-  let applied: Awaited<ReturnType<DeploymentService['apply']>>;
+  let applied: {
+    runId: string;
+    state: DeployState;
+    directory: string;
+    backupId?: string;
+    recovered?: boolean;
+  };
   try {
     mark('backing_up');
     applied = await deployment.apply(ctx, plan, signal, (state) => {
       const phase = phaseFor[state];
       if (phase && phase !== current?.phase) mark(phase);
     });
+  } catch (error) {
+    const runId = error instanceof Fault ? error.details?.deploymentRunId : undefined;
+    if (
+      recoveryAttempt === 0 &&
+      typeof runId === 'string' &&
+      ['OUTCOME_UNKNOWN', 'POST_DEPLOY_CONTENT_FAILED', 'POST_DEPLOY_VERIFICATION_FAILED'].includes(
+        (error as Fault).code,
+      )
+    ) {
+      const recovered = await deployment.recover(ctx, runId);
+      if (recovered.status === 'succeeded') applied = recovered;
+      else
+        return await shipApply(
+          ctx,
+          recovered.retryPlan,
+          userRequest,
+          deployment,
+          signal,
+          progress,
+          undefined,
+          recoveryAttempt + 1,
+        );
+    } else throw error;
   } finally {
     // The grant covers exactly one attempt. Removal failure is reported, never hidden.
     grantRemoved = await updatePolicy((p) => ({
@@ -335,12 +399,14 @@ export async function shipApply(
     application: applicationLink(ctx, plan.environment),
     sources: sourceCounts(ctx, plan),
     phases,
+    ...(applied.recovered ? { recovery: 'server-readback-confirmed' } : {}),
     verification: { identity: 'confirmed', state: applied.state, directory: applied.directory },
-    browserVerification: { status: 'not_run', browser: 'host' },
     grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },
     nextActions: grantRemoved
-      ? ['Verify the affected pages in the selected browser with apexrest_browser_open.']
-      : ['Remove the stale ship grant from APEXREST_HOME/policy.json before the next deployment.'],
+      ? []
+      : [
+          'The grant cleanup failed; retain this diagnostic and let runtime grant reconciliation handle it before the next attempt.',
+        ],
   };
 }
 

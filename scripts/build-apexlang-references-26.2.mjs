@@ -1,12 +1,18 @@
-// Offline import of a pinned, reviewed data-only subset. Never runs Oracle skills or scripts.
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+// Offline, complete Oracle inventory synchronization. Never runs upstream skills or scripts.
+import { readFile, writeFile, mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
 import { buildReferencePostings } from '../packages/core/src/reference-index.ts';
 
-const commit = '03ee10d02273bc4002fd527089e7fbb5884f94c4';
-const archiveSha256 = '5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343';
+const option = (name) =>
+  process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined;
+const lockPath = 'toolchains/sources.lock.json';
+const lock = JSON.parse(await readFile(lockPath, 'utf8'));
+const commit = option('--commit') ?? lock.oracleSkills26_2.commit;
+const archiveSha256 = option('--archive-sha256') ?? lock.oracleSkills26_2.archiveSha256;
+if (!/^[a-f0-9]{40}$/.test(commit) || !/^[a-f0-9]{64}$/.test(archiveSha256))
+  throw new Error('Exact commit and archive SHA-256 are required.');
 const release = '26.2';
 const archive = process.argv.find((arg) => arg.endsWith('.zip'));
 const check = process.argv.includes('--check');
@@ -18,59 +24,35 @@ if (bytes.length > 12 * 1024 * 1024 || sha256(bytes) !== archiveSha256)
   throw new Error('Archive does not match the reviewed Oracle 26.2 snapshot.');
 const root = `skills-${commit}/`;
 const prefix = `${root}apex/apexlang/26.2/`;
-// Exact files, with selected property groups for large generated inventories. This is deliberately
-// not a recursive vendor import: no SKILL.md, orchestration policy, SQL, shell, or deployment script.
-const inventory = {
-  'app/app.md': ['identification (direct group)', 'databaseSession', 'security', 'genAI'],
-  'app/page/page.md': ['identification (direct group)', 'appearance', 'advanced'],
-  'app/ai-agent/ai-agent.md': null,
-  'app/ai-agent/tool/tool.md': null,
-  'app/ai-agent/tool/parameter/parameter.md': null,
-  'gen-aiservice/gen-aiservice.md': null,
-  'web-credential/web-credential.md': null,
-  'app/lov/lov.md': null,
-  'app/lov/entry/entry.md': null,
-  'app/list/list.md': null,
-  'app/list/entry/entry.md': null,
-  'app/breadcrumb/breadcrumb.md': null,
-  'app/page/dynamic-action/plugin-variants/show-ai-assistant/show-ai-assistant.md': [
-    'identification (direct group)',
-    'initialPrompt',
-    'appearance',
-    'genAI',
-  ],
-  'app/page/region/plugin-variants/interactive-report/interactive-report.md': [
-    'identification (direct group)',
-    'genAI',
-    'searchBar',
-    'actionsMenu',
-    'performance',
-  ],
-  'app/page/region/plugin-variants/chart/chart.md': [
-    'identification (direct group)',
-    'chart',
-    'animation',
-    'autoRefresh',
-    'performance',
-    'accessibility',
-  ],
-  'app/page/region/saved-report-c2/computation/computation.md': null,
-  'app/page/region/saved-report-c2/filter/filter.md': null,
-  'app/task-definition/task-definition.md': null,
-  'app/task-definition/action/action.md': null,
-  'app/workflow/workflow.md': null,
-  'app/workflow/parameter/parameter.md': null,
-  'app/workflow/version/version.md': null,
-  'app/workflow/version/activity/activity.md': [
-    'identification (direct group)',
-    'advanced',
-    'layout',
-    'comments',
-  ],
-  'app/workflow/version/activity/connection-c1/connection-c1.md': null,
-  'app/workflow/version/activity/connection-c2/connection-c2.md': null,
-  'app/workflow/version/activity/plugin-variants/workflow-start/workflow-start.md': null,
-  'app/workflow/version/activity/plugin-variants/workflow-end/workflow-end.md': null,
+// Every official inventory document is kept byte-exact; metadata summaries are not contracts.
+const all = unzipSync(bytes, {
+  filter: ({ name, originalSize }) => {
+    if (name.startsWith(prefix) && originalSize > 4 * 1024 * 1024)
+      throw new Error('Oversized upstream file.');
+    return name === root + 'LICENSE.txt' || name.startsWith(prefix);
+  },
+});
+const inventoryPrefix = 'apexlang-inventory/assets/';
+const inventory = Object.keys(all)
+  .filter((name) => name.startsWith(prefix + inventoryPrefix) && name.endsWith('.md'))
+  .map((name) => name.slice((prefix + inventoryPrefix).length))
+  .sort();
+if (
+  !inventory.length ||
+  inventory.some((file) => !/^[a-z0-9/.-]+\.md$/.test(file) || file.split('/').includes('..'))
+)
+  throw new Error('Missing or unsafe official inventory.');
+const documents = {};
+const inventoryDefinitions = {};
+const inventoryProperties = (text) => {
+  let group = '';
+  const properties = [];
+  for (const line of text.split('\n')) {
+    if (line.startsWith('### ')) group = line.slice(4);
+    const property = line.match(/^- `([^`]+)` — `([^`]+)`;/);
+    if (property) properties.push({ group, name: property[1], type: property[2] });
+  }
+  return properties;
 };
 const exampleFiles = [
   'example-0/.apex/apexlang.json',
@@ -84,17 +66,10 @@ const exampleFiles = [
   'example-1/shared-components/lovs/oehr-customers-cust-first-name.apx',
 ];
 const selected = new Set([
-  ...Object.keys(inventory).map((file) => `apexlang-inventory/assets/${file}`),
+  ...inventory.map((file) => `apexlang-inventory/assets/${file}`),
   ...exampleFiles.map((file) => `apexlang-example-applications/assets/${file}`),
 ]);
-const unpacked = unzipSync(bytes, {
-  filter: ({ name, originalSize }) => {
-    if (originalSize > 4 * 1024 * 1024) throw new Error('Oversized upstream file.');
-    return (
-      name === root + 'LICENSE.txt' || (name.startsWith(prefix) && selected.has(name.slice(prefix.length)))
-    );
-  },
-});
+const unpacked = all;
 const sourceFiles = {};
 const inventoryId = (file) => `oracle:26.2:inventory/${file.replace(/\.md$/, '')}`;
 const exampleId = (file) => `oracle:26.2:example/${file}`;
@@ -106,19 +81,25 @@ for (const file of [...selected].sort()) {
   sourceFiles[file] = sha256(raw);
   if (file.startsWith('apexlang-inventory/')) {
     const relative = file.slice('apexlang-inventory/assets/'.length);
-    const groups = inventory[relative];
-    const sections = raw.split(/(?=^### )/m);
-    if (groups && groups.some((group) => !sections.some((section) => section.startsWith(`### ${group}\n`))))
-      throw new Error(`Reviewed property group missing: ${relative}`);
-    const text = groups
-      ? sections[0] +
-        sections
-          .slice(1)
-          .filter((section) => groups.some((group) => section.startsWith(`### ${group}\n`)))
-          .join('')
-      : raw;
+    const props = inventoryProperties(raw);
+    const componentType = raw.match(/^- componentType: `([^`]+)`/m)?.[1];
+    if (!componentType) throw new Error(`Missing component type: ${relative}`);
+    const document = `documents/${relative}`;
+    documents[document] = raw;
+    inventoryDefinitions[relative] = { componentType, properties: props };
+    const text =
+      raw.split('## Properties')[0] +
+      '\nProperty addresses (read the document for complete types, enums, requirements and conditions):\n' +
+      props.map(({ group, name }) => `- ${group}.${name}`).join('\n') +
+      '\n';
     const parent = path.posix.dirname(path.posix.dirname(relative));
     const parentFile = `${parent}/${path.posix.basename(parent)}.md`;
+    const selectorRoot = relative.includes('/plugin-variants/')
+      ? relative.split('/plugin-variants/')[0]
+      : relative.includes('/template-component/')
+        ? relative.split('/template-component/')[0]
+        : undefined;
+    const selectorFile = selectorRoot ? `${selectorRoot}/${path.posix.basename(selectorRoot)}.md` : undefined;
     records.push({
       id: inventoryId(relative),
       version: `${release}@${commit.slice(0, 7)}`,
@@ -126,11 +107,18 @@ for (const file of [...selected].sort()) {
       title: `${raw.match(/^# (.+)/)?.[1] ?? relative} — 26.2 property inventory`,
       kind: 'contract',
       family: `inventory/${path.posix.dirname(relative)}`,
-      requires:
-        inventory[parentFile] !== undefined && parentFile !== relative ? [inventoryId(parentFile)] : [],
+      requires: [
+        ...new Set(
+          [parentFile, selectorFile]
+            .filter((file) => file && inventory.includes(file) && file !== relative)
+            .map(inventoryId),
+        ),
+      ],
       related: [],
       verification: 'reviewed-oracle-inventory; not runtime-verified',
-      ...(groups ? { selectedPropertyGroups: groups } : {}),
+      document,
+      contentSha256: sha256(raw),
+      contentLength: raw.length,
       sha256: sha256(text),
       text,
     });
@@ -153,6 +141,36 @@ for (const file of [...selected].sort()) {
     });
   }
 }
+const catalogSource = 'apexlang-inventory/SKILL.md';
+const catalogRaw = Buffer.from(unpacked[prefix + catalogSource] ?? []).toString('utf8');
+if (!catalogRaw.includes('APEX Version: 26.2')) throw new Error('Missing 26.2 inventory authoring catalog.');
+sourceFiles[catalogSource] = sha256(catalogRaw);
+documents['documents/catalog.md'] = catalogRaw;
+const catalogText =
+  'Official Oracle 26.2 inventory authoring catalog, application layout, syntax and component hierarchy. Read this entry before composing a new component family.';
+records.push({
+  id: 'oracle:26.2:inventory-catalog',
+  version: `${release}@${commit.slice(0, 7)}`,
+  source: `https://github.com/oracle/skills/blob/${commit}/apex/apexlang/26.2/${catalogSource}`,
+  title: 'Oracle 26.2 inventory authoring catalog',
+  kind: 'guide',
+  family: 'inventory',
+  requires: [],
+  related: [],
+  verification: 'complete-official-source; not runtime-verified',
+  text: catalogText,
+  sha256: sha256(catalogText),
+  document: 'documents/catalog.md',
+  contentSha256: sha256(catalogRaw),
+  contentLength: catalogRaw.length,
+});
+const exampleMetadata = JSON.parse(
+  Buffer.from(
+    unpacked[prefix + 'apexlang-example-applications/assets/example-0/.apex/apexlang.json'],
+  ).toString('utf8'),
+);
+const mmdVersion = exampleMetadata.mmdVersion;
+if (!/^26\.2\./.test(mmdVersion ?? '')) throw new Error('Oracle example MMD does not match 26.2.');
 const outputRoot = 'resources/references/26.2';
 const guides = JSON.parse(await readFile(`${outputRoot}/guides.json`, 'utf8'));
 for (const guide of guides) {
@@ -184,7 +202,7 @@ for (const recipe of recipeManifest.files) {
     recipeEvidence.evidenceKind === 'oracle-offline-compiler' &&
     recipeEvidence.mmdVersion === recipeManifest.mmdVersion &&
     recipeEvidence.files[recipe.file] === sha256(source);
-  const text = `# APEX 26.2 recipe: ${recipe.file}\n\nTarget source path: \`${recipe.target}\`.\n\n${compiled ? 'Verified by the real Oracle 26.2.0+3479 offline compiler, together with the other recipe files and a generated application scaffold.' : 'Compiler verification is absent or stale for these source bytes.'} This file is a fragment, not a standalone application. Source queries, credentials, provider availability, workflow execution, database installation and browser behavior are not verified. Workspace components are excluded from selected-file import.\n\n\`\`\`apexlang\n${source.trimEnd()}\n\`\`\`\n`;
+  const text = `# APEX 26.2 recipe: ${recipe.file}\n\nTarget source path: \`${recipe.target}\`.\n\n${compiled ? `Verified by the real Oracle ${recipeEvidence.mmdVersion} offline compiler, together with the other recipe files and a generated application scaffold.` : 'Compiler verification is absent or stale for these source bytes.'} This file is a fragment, not a standalone application. Source queries, credentials, provider availability, workflow execution, database installation and browser behavior are not verified. Workspace components are excluded from selected-file import.\n\n\`\`\`apexlang\n${source.trimEnd()}\n\`\`\`\n`;
   records.push({
     id: `oracle:26.2:recipe/${recipe.file.replace(/\.apx$/, '')}`,
     version: '26.2',
@@ -235,17 +253,20 @@ if (
 )
   throw new Error('Duplicate ID, dangling link or oversized reference.');
 const output = JSON.stringify(records, null, 2) + '\n';
-if (Buffer.byteLength(output) > 1024 * 1024)
-  throw new Error('Reviewed 26.2 reference corpus exceeds 1 MiB budget.');
+if (Buffer.byteLength(output) > 4 * 1024 * 1024)
+  throw new Error('Compact 26.2 metadata index exceeds 4 MiB budget.');
 const license = Buffer.from(unpacked[root + 'LICENSE.txt']).toString('utf8');
+const search =
+  JSON.stringify({
+    schemaVersion: 1,
+    indexSha256: sha256(output),
+    postings: buildReferencePostings(
+      records.map((entry) => (entry.document ? { ...entry, text: documents[entry.document] } : entry)),
+    ),
+  }) + '\n';
 const files = {
   'index.json': output,
-  'search.json':
-    JSON.stringify({
-      schemaVersion: 1,
-      indexSha256: sha256(output),
-      postings: buildReferencePostings(records),
-    }) + '\n',
+  'search.json': search,
   'ORACLE-LICENSE.txt': license,
   'oracle-snapshot.json':
     JSON.stringify(
@@ -256,12 +277,26 @@ const files = {
         archiveSha256,
         license: 'UPL-1.0',
         licenseSha256: sha256(license),
-        mmdVersion: '26.2.0+3479',
+        mmdVersion,
         indexSha256: sha256(output),
+        searchSha256: sha256(search),
         records: records.length,
         scope:
-          'Exact reviewed 26.2 inventory properties and selected application source examples; no executable scripts, upstream skills or orchestration policies. Full source hashes are retained for section excerpts.',
-        selectedPropertyGroups: inventory,
+          'Complete, byte-exact official 26.2 component inventory with paginated retrieval; selected application examples and separately labeled local guides/recipes. No upstream executable or orchestration policy.',
+        inventoryCoverage: {
+          documents: inventory.length,
+          declarationKeywords: new Set(
+            Object.values(inventoryDefinitions).map((entry) => entry.componentType),
+          ).size,
+          propertyAddresses: Object.values(inventoryDefinitions).reduce(
+            (sum, entry) => sum + entry.properties.length,
+            0,
+          ),
+          complete: true,
+          denominator:
+            'Every Markdown definition under apex/apexlang/26.2/apexlang-inventory/assets at the pinned commit. Property addresses are document/group/name occurrences, including variant contexts; not unique platform features or compiler MMD property IDs.',
+        },
+        inventoryDefinitions,
         sourceFiles,
         recipeFiles,
       },
@@ -269,22 +304,44 @@ const files = {
       2,
     ) + '\n',
 };
+Object.assign(files, documents);
+async function listFiles(directory, relative = '') {
+  try {
+    const entries = await readdir(path.join(directory, relative), { withFileTypes: true });
+    return (
+      await Promise.all(
+        entries.map((entry) =>
+          entry.isDirectory()
+            ? listFiles(directory, path.posix.join(relative, entry.name))
+            : [path.posix.join(relative, entry.name)],
+        ),
+      )
+    ).flat();
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+const oldDocuments = (await listFiles(outputRoot, 'documents')).filter(
+  (name) => !Object.hasOwn(documents, name),
+);
+if (check && oldDocuments.length)
+  throw new Error(`Obsolete official inventory files: ${oldDocuments.join(', ')}`);
+for (const name of oldDocuments) await rm(path.join(outputRoot, name));
 for (const [name, text] of Object.entries(files)) {
   if (check) {
     if ((await readFile(path.join(outputRoot, name), 'utf8')) !== text)
       throw new Error(`Stale ${outputRoot}/${name}`);
   } else {
-    await mkdir(outputRoot, { recursive: true });
+    await mkdir(path.dirname(path.join(outputRoot, name)), { recursive: true });
     await writeFile(path.join(outputRoot, name), text);
   }
 }
-const lockPath = 'toolchains/sources.lock.json';
-const lock = JSON.parse(await readFile(lockPath, 'utf8'));
 const releaseLock = {
   repository: 'https://github.com/oracle/skills',
   commit,
   license: 'UPL-1.0',
-  mode: 'reviewed versioned inventory and examples; no upstream executable or global skill sync',
+  mode: 'complete official versioned inventory and selected examples; no upstream executable or global skill sync',
   archiveSha256,
   indexSha256: sha256(output),
   snapshot: 'references/26.2/oracle-snapshot.json',
@@ -297,5 +354,5 @@ if (check) {
   await writeFile(lockPath, JSON.stringify(lock, null, 2) + '\n');
 }
 console.log(
-  `${check ? 'Verified' : 'Imported'} ${records.length} reviewed 26.2 references (${Buffer.byteLength(output)} bytes); 26.1 preserved.`,
+  `${check ? 'Verified' : 'Imported'} ${inventory.length} complete Oracle inventory documents, ${records.length} references (${Buffer.byteLength(output)} metadata bytes); 26.1 preserved.`,
 );

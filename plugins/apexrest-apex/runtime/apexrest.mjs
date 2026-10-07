@@ -6,18 +6,18 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-SGHM6ZI6.mjs";
-import "./chunk-HPJ4JN65.mjs";
-import "./chunk-MVNCAJV3.mjs";
-import "./chunk-HMNYLOZZ.mjs";
+} from "./chunk-DLVT3ED2.mjs";
+import "./chunk-Q357QWPS.mjs";
+import "./chunk-XXDZEVC4.mjs";
+import "./chunk-WPD35JL5.mjs";
 import {
   loadProject
-} from "./chunk-JM4SAWAH.mjs";
-import "./chunk-RCJG4YXR.mjs";
+} from "./chunk-TFGUUAFT.mjs";
+import "./chunk-U7MVLA3R.mjs";
 import {
   Fault,
   failure
-} from "./chunk-WPS3CSQJ.mjs";
+} from "./chunk-I5KYBPSK.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -58,7 +58,7 @@ function help() {
     "",
     "--json emits one structured JSON result; diagnostics use stderr.",
     "Use --project PATH for project operations. Environment never defaults.",
-    "ship --env NAME --mode plan|apply --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.",
+    "ship --env NAME --mode plan|apply|recover --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.",
     "Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled."
   ];
   if (schemas[key])
@@ -105,9 +105,9 @@ function help() {
     lines.push(
       "",
       "mode plan: validate with the Oracle compiler, read the target and write .apexrest/plans/ship-<id>.json for review.",
-      "mode apply: non-production only. Records a deploy grant bound to this project, target and plan digest with the",
+      "mode apply: DEV/QA/TEST only. Records a deploy grant bound to this project, target and plan digest with the",
       "user's literal --user-request, imports with backup/drift/identity checks, verifies, then",
-      "removes the grant. Production targets require the protected CI approval path (deploy apply)."
+      "removes the grant. Production deployment/restore is unsupported. Remote risky SQL needs confirmation bound to the exact saved plan."
     );
   if (key === "ship" || key === "deploy.plan")
     lines.push(
@@ -187,7 +187,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-3RMLYEO4.mjs");
+    const { startMcp } = await import("./chunk-KN35Q4TU.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -225,6 +225,16 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
             input[name] = files;
+          } else if (name === "confirmation") {
+            try {
+              input[name] = JSON.parse(value);
+            } catch {
+              throw new Fault(
+                "INVALID_INPUT",
+                "Confirmation must be a JSON object bound to the reviewed plan digest.",
+                2
+              );
+            }
           } else input[name] = numbers.has(name) ? Number(value) : value;
         }
       } else {

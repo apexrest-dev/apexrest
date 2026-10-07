@@ -1,0 +1,79 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Configuration · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/" aria-current="page">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Configuration</div><h1 id="configuration-and-connections">Configuration and connections</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#configure-an-environment">Configure an environment</a></li><li><a href="#list-and-test-saved-sqlcl-connections">List and test saved SQLcl connections</a></li><li><a href="#save-connection-references">Save connection references</a></li><li><a href="#application-authorization">Application authorization</a></li><li><a href="#deployment-coordination">Deployment coordination</a></li><li><a href="#application-verification">Application verification</a></li><li><a href="#runtime-configuration">Runtime configuration</a></li></ul></details>
+<p>Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (<code>host</code> in-app browser, alias <code>codex</code>) is stored per project in <code>.apexrest/panel/preferences.json</code>; the default <code>{&quot;browserMode&quot;:&quot;codex&quot;}</code> is the legacy name of <code>host</code> and behaves identically; <code>apexrest_browser_open</code> accepts <code>browserMode</code> to override it for one call, and <code>apexrest_status</code> <code>detail:project</code> reports the current value.</p>
+<p>A project has one <code>apexrest.json</code> and one pinned toolchain lock. <code>project init</code> creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.</p>
+<p>Optional <code>toolchain.profile</code> selects <code>26.1</code> or <code>26.2</code> authoring references. Existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See <a href="/apexrest/apex-26.2/">APEX 26.2 support</a> for the matching compiler lock and partial-import requirements.</p>
+<h2 id="configure-an-environment">Configure an environment</h2>
+<p>Add an entry such as <code>environments.dev</code> to the generated <code>apexrest.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;kind&quot;: &quot;development&quot;,
+  &quot;readConnectionRef&quot;: &quot;dev-read&quot;,
+  &quot;deployConnectionRef&quot;: &quot;dev-deploy&quot;,
+  &quot;workspace&quot;: &quot;YOUR_WORKSPACE&quot;,
+  &quot;parsingSchema&quot;: &quot;YOUR_SCHEMA&quot;,
+  &quot;applicationId&quot;: 123,
+  &quot;baseUrl&quot;: &quot;https://your-host.example/ords/r/workspace/crm/&quot;,
+  &quot;databaseIdentity&quot;: {
+    &quot;dbUniqueName&quot;: &quot;YOUR_DB&quot;,
+    &quot;serviceName&quot;: &quot;YOUR_SERVICE&quot;
+  },
+  &quot;allowedOrigins&quot;: [&quot;https://your-host.example&quot;],
+  &quot;expectedMarker&quot;: &quot;apexrest-crm&quot;
+}
+</code></pre>
+<p>These are placeholders, not a working target. Use the actual database unique name and service, workspace, parsing schema and app ID. <code>expectedMarker</code> can identify the expected application during browser inspection. <code>allowedOrigins</code> lists approved application origins. Adding an origin does not grant permission to mutate its data.</p>
+<p>The generated <code>schemas/project.schema.json</code> is the exact public schema. Unknown fields are rejected. Existing project files may still contain retired <code>tests</code> and <code>database.testsDir</code> fields: loading ignores these fields; remove them when updating configuration. Old plans must be regenerated against the current configuration. Source, migration, package, artifact and toolchain paths must remain inside the project.</p>
+<h2 id="list-and-test-saved-sqlcl-connections">List and test saved SQLcl connections</h2>
+<p>Checking database access requires no project or APEXREST alias:</p>
+<pre><code class="language-sh">apexrest connection list --saved --json
+apexrest connection test &#39;Development connection&#39; --saved --json
+</code></pre>
+<p>These commands read the SQLcl store directly and test the exact saved name with a read-only identity query. If the store is empty or credentials are missing, configure them in SQLcl. You can then register references for a project environment as described below. CLI commands without <code>--saved</code> use those references; in the conversation, <code>apexrest_project</code> <code>action:connection_list</code> and <code>action:connection_test</code> do the same.</p>
+<p>The SQLcl mode (<code>cli</code> subprocess or <code>mcp</code>, the official SQLcl stdio server) and the database transport (<code>direct</code> listener or <code>ords</code>) are saved per managed home with <code>apexrest sqlcl configure --mode cli|mcp --database-transport direct|ords --json</code>; <code>apexrest sqlcl status --json</code> reads them. For HTTP access when the listener is unreachable, configure plugin-level ORDS URL, username and password and select the <code>ords</code> transport. See <a href="/apexrest/ords/">SQL through ORDS</a>. The saved SQLcl connections below apply to direct access.</p>
+<h2 id="save-connection-references">Save connection references</h2>
+<p>Create named connections interactively in SQLcl&#39;s local connection store. Then register their names:</p>
+<pre><code class="language-sh">apexrest connection add dev-read --sqlcl-name saved-read-connection
+apexrest connection add dev-deploy --sqlcl-name saved-deploy-connection
+apexrest connection test dev-read --json
+</code></pre>
+<p>The examples assume the <a href="/apexrest/getting-started/#use-the-cli">managed CLI launcher</a>. APEXREST stores connection names rather than passwords. A read connection can use fewer privileges than its deploy counterpart. Removing an APEXREST reference with <code>connection remove</code> preserves the SQLcl store entry. Never put credentials in <code>apexrest.json</code>, environment examples, prompts or issue reports.</p>
+<h2 id="application-authorization">Application authorization</h2>
+<p>There is no folder trust step. The plugin may use the selected project and other required directories within host filesystem permissions. Legacy <code>trustedProjects</code> in <code>$APEXREST_HOME/policy.json</code> is optional ignored compatibility data. The private policy retains exact-project/target/plan temporary grants; an identified DEV/QA/TEST application task authorizes its necessary import without repeated confirmation. Configuration and tool output do not grant consent.</p>
+<p>Supported environment kinds are <code>development</code> (or <code>dev</code>), <code>qa</code>, <code>test</code> and <code>production</code>. Production-marked targets never deploy/restore, including when local or given a signature. Actual local non-production targets allow all task-scoped database changes without a separate risk prompt. Remote dangerous operations require a described exact plan and explicit human confirmation. See the canonical <a href="/apexrest/deployment/">deployment safety rules</a> for locality, precedence, backups, interrupted-import recovery and confirmation fields.</p>
+<p>Connection setup may use <code>envFile</code> with optional <code>urlKey</code>, <code>usernameKey</code> and <code>passwordKey</code> from a regular user-owned, Git-ignored and untracked local ENV file. It is parsed as literal data and values are never returned in operation results. Authorized requested browser login may use such local credentials without a paste/trust step; never persist browser cookies/profiles.</p>
+<h2 id="deployment-coordination">Deployment coordination</h2>
+<p>Coordination is always local and is not configurable: durable migration history and schema ownership live in <code>$APEXREST_HOME/deployment-control/</code>, scoped to the database identity and parsing schema. No APEXREST service tables are needed or created. Plans bind the store identity. Deleting the local history or silently switching to a fresh home is not a recovery procedure.</p>
+<p>The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. Database-backed coordination was removed. For older project files, <code>deploymentControl</code> is still accepted only with the value <code>&quot;local&quot;</code> and has no effect; any other value is rejected. Remove the field when convenient.</p>
+<h2 id="application-verification">Application verification</h2>
+<p>When the user requests browser verification, use the built-in or user-selected browser to inspect the requested interaction. Confirmed error-free server deployment is success without a mandatory browser step. Compiler, metadata and import checks remain separate. The plugin has no automatic application test runners or saved browser-authentication state. Repository self-tests validate the plugin implementation. See <a href="/apexrest/testing/">testing</a>.</p>
+<h2 id="runtime-configuration">Runtime configuration</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>APEXREST_HOME</code></td>
+<td>Private managed runtime, policy, connections and deployment state</td>
+</tr>
+<tr>
+<td><code>APEXREST_SQLCL</code></td>
+<td>Explicit reviewed SQLcl executable</td>
+</tr>
+<tr>
+<td><code>APEXREST_JAVA_HOME</code></td>
+<td>Java runtime selected for SQLcl</td>
+</tr>
+<tr>
+<td><code>APEXREST_RESOURCES</code></td>
+<td>Trusted host override for bundled resources</td>
+</tr>
+<tr>
+<td><code>NODE_EXTRA_CA_CERTS</code></td>
+<td>Additional certificate authorities for Node connections</td>
+</tr>
+</tbody></table>
+</div>
+<p>These overrides belong to the trusted local host, not project-controlled inputs. The bootstrap supports Node 24 environment proxies through <code>--use-env-proxy</code>. Vendor downloads honor <code>HTTPS_PROXY</code>/<code>HTTP_PROXY</code> and <code>NO_PROXY</code> through Node&#39;s environment proxy support; when a proxy is configured but this Node cannot apply it, setup fails with <code>PROXY_UNSUPPORTED</code> instead of bypassing the proxy. Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/configuration.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

@@ -302,8 +302,12 @@ test('initial backup restore requires separate authorization and invalidates syn
   assert.equal((await store.read())!.status, 'invalidated');
 });
 
-test('DB operations incompatible and active sync rejects legacy plans', async () => {
-  const { ctx, service, store, calls } = await initialized();
+test('working copy supports reviewed DB operations and still rejects unbound legacy plans', async () => {
+  const { ctx, service, store, calls, oracle } = await initialized();
+  (oracle as unknown as import('../../packages/core/src/oracle.ts').OracleAdapter).session = async () => {
+    calls.push('script');
+    return { output: 'APEXREST_SCRIPT_COMPLETE' } as never;
+  };
   const plan = await service.plan(ctx, 'dev');
   if (plan.schemaVersion !== 2) throw new Error('Expected v2');
   const { mode: _mode, backupStrategy: _backup, workingCopy: _copy, ...fields } = plan;
@@ -315,8 +319,13 @@ test('DB operations incompatible and active sync rejects legacy plans', async ()
     'begin null; end;\n/',
   );
   calls.length = 0;
-  await assert.rejects(service.plan(ctx, 'dev'), { code: 'SYNC_DB_OPERATIONS_INCOMPATIBLE' });
+  const databasePlan = await service.plan(ctx, 'dev');
+  assert.ok(databasePlan.operations.some((operation) => operation.kind === 'package'));
   assert.deepEqual(exportsOnly(calls), []);
+  await service.apply(ctx, databasePlan);
+  assert.ok(calls.includes('script'));
+  assert.equal((await store.read())!.status, 'ready');
+  calls.length = 0;
   await service.sync(ctx, 'dev', 'invalidate');
   assert.equal((await store.read())!.status, 'invalidated');
   await service.plan(ctx, 'dev');

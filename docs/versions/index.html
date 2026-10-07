@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Supported versions · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/versions/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/versions/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/" aria-current="page">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Reference / Supported versions</div><h1 id="supported-versions-and-verification">Supported versions and verification</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#verification-scope">Verification scope</a></li></ul></details>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Current source support</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Node.js</td>
+<td>24–26; Node 24 LTS recommended</td>
+</tr>
+<tr>
+<td>Java</td>
+<td>21, matching the selected SQLcl profile</td>
+</tr>
+<tr>
+<td>Oracle APEX</td>
+<td>26.1 full imports; 26.2 full/eligible partial imports</td>
+</tr>
+<tr>
+<td>SQLcl</td>
+<td>Pinned 26.1 and 26.2 profiles in <code>toolchains/</code></td>
+</tr>
+<tr>
+<td>Partial imports</td>
+<td>APEX 26.2, SQLcl <code>26.3.0.260.1620</code>, MMD <code>26.2.0+3479</code>, direct SQLcl CLI</td>
+</tr>
+<tr>
+<td>Hosts</td>
+<td>Codex desktop/CLI and Claude Code plugin manifests</td>
+</tr>
+<tr>
+<td>Operating systems</td>
+<td>macOS, Linux and Windows installer paths; WSL2 is a separate environment</td>
+</tr>
+</tbody></table>
+</div>
+<p>The host owns model execution, context and permissions. APEXREST provides deterministic references, validation, planning, imports, browser handoff, jobs and status. It does not provision a database or manage an Oracle sandbox.</p>
+<h2 id="verification-scope">Verification scope</h2>
+<p>Local unit, contract, installer and package checks establish source/fixture behavior. Fresh native host discovery, connected Oracle imports and authenticated application/browser checks require their own authorized runs on each target/platform. Production deployment and restore are forbidden on every platform.</p>
+<p>Read <a href="/apexrest/implementation-status/">implementation status</a>, <a href="/apexrest/testing/">testing</a> and <a href="/apexrest/next-actions/">next actions</a>. Exact vendor artifacts and hashes are pinned in the packaged toolchain locks. New SQLcl builds and transport modes require qualification before extending support claims.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/site/content/versions.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

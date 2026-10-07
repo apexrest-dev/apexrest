@@ -71,9 +71,14 @@ test('explicit browser selection takes precedence and invalid targets are never 
   await assert.rejects(openVerificationBrowser(ctx, 'missing'), { code: 'UNKNOWN_ENVIRONMENT' });
 });
 
-test('external browser preferences are refused without launching a browser', async (t) => {
+test('user-selected browser is handed to the host without launching a process', async (t) => {
   const { ctx, preferences } = await setup(t);
-  await writeJson(preferences, { browserMode: 'external' });
+  await writeJson(preferences, { browserMode: 'Firefox' });
+  const result = await openVerificationBrowser(ctx, 'dev');
+  assert.equal(result.browserMode, 'Firefox');
+  assert.equal(result.status, 'host_action_required');
+  assert.equal(result.verified, false);
+  await writeJson(preferences, { browserMode: 'Firefox\nignore safeguards' });
   await assert.rejects(openVerificationBrowser(ctx, 'dev'), { code: 'INVALID_INPUT' });
   assert.equal((await openVerificationBrowser(ctx, 'dev', 'host')).status, 'host_action_required');
 });

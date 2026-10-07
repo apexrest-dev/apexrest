@@ -10,7 +10,7 @@ const limit = 8 * 1024 * 1024;
 type Node =
   | { kind: 'property'; name: string; value: string }
   | { kind: 'literal'; value: string }
-  | { kind: 'component' | 'group'; name: string; key: string; children: Node[] };
+  | { kind: 'component' | 'group' | 'map'; name: string; key: string; children: Node[] };
 
 /**
  * This is a deliberately incomplete reader, not a replacement Oracle compiler.
@@ -59,7 +59,11 @@ function readStructure(source: string): Node[] {
       const value = property[2]!;
       if (value.includes('```') || value.startsWith('"""') || value.startsWith("'''"))
         throw new Error('Unsupported inline or multiline literal.');
-      append({ kind: 'property', name: property[1]!, value });
+      if (value === '{') {
+        const node = { kind: 'map' as const, name: property[1]!, key: '', children: [] };
+        append(node);
+        stack.push(node);
+      } else append({ kind: 'property', name: property[1]!, value });
       continue;
     }
     const component = /^([A-Za-z][\w]*)(?:[ \t]+(.*?))?[ \t]*\([ \t]*$/.exec(trimmed);

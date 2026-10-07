@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { documentationUrl, renderMarkdown } from '../../scripts/lib/site-markdown.mjs';
 
 const context = {
   source: 'docs/start.md',
-  base: '/codex/',
+  base: '/apexrest/',
   repository: 'https://github.com/apexrest-dev/apexrest',
   pages: [
     { source: 'docs/start.md', slug: 'docs' },
@@ -29,8 +29,8 @@ test('documentation renders tables, nested ordered lists, fenced code, emphasis 
 });
 
 test('documentation links map source files to routes, preserve anchors and fall back to the canonical repository', () => {
-  assert.equal(documentationUrl('deployment-safety.md#approval', context), '/codex/deployment/#approval');
-  assert.equal(documentationUrl('installation.md', context), '/codex/install/');
+  assert.equal(documentationUrl('deployment-safety.md#approval', context), '/apexrest/deployment/#approval');
+  assert.equal(documentationUrl('installation.md', context), '/apexrest/install/');
   assert.equal(documentationUrl('#quick-start', context), '#quick-start');
   assert.equal(documentationUrl('../LICENSE', context), context.repository + '/blob/main/LICENSE');
   assert.equal(
@@ -44,6 +44,31 @@ test('documentation links map source files to routes, preserve anchors and fall 
   assert.equal(documentationUrl('deployment-safety.md', { ...context, base: '/' }), '/deployment/');
 });
 
+test('public Pages links resolve inside a local preview and machine-readable acceptance stays downloadable', () => {
+  const previewContext = {
+    ...context,
+    origin: 'https://apexrest-dev.github.io',
+    downloads: ['docs/acceptance.json'],
+  };
+  assert.equal(
+    documentationUrl('https://apexrest-dev.github.io/apexrest/deployment/#approval', previewContext),
+    '/apexrest/deployment/#approval',
+  );
+  assert.equal(documentationUrl('acceptance.json', previewContext), '/apexrest/acceptance.json');
+  assert.equal(
+    documentationUrl('deployment-safety.md#approval', { ...context, base: '/nested/docs/' }),
+    '/nested/docs/deployment/#approval',
+  );
+  assert.equal(
+    documentationUrl('https://docs.oracle.com/en/', previewContext),
+    'https://docs.oracle.com/en/',
+  );
+  assert.equal(
+    documentationUrl('https://user:password@apexrest-dev.github.io/apexrest/deployment/', previewContext),
+    null,
+  );
+});
+
 test('heading anchors avoid collisions with generated suffixes and page chrome', () => {
   const html = renderMarkdown('# Main\n\n## Topic\n\n## Topic\n\n## Topic-1\n', context);
   const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((match) => match[1]);
@@ -52,7 +77,7 @@ test('heading anchors avoid collisions with generated suffixes and page chrome',
 
 test('documentation images use copied assets, meaningful alt text and safe attributes', () => {
   const html = renderMarkdown('![APEX workflow](assets/overview.svg "Read the workflow")', context);
-  assert.match(html, /<img src="\/codex\/assets\/overview.svg" alt="APEX workflow"/);
+  assert.match(html, /<img src="\/apexrest\/assets\/overview.svg" alt="APEX workflow"/);
   assert.match(html, /title="Read the workflow" loading="lazy" decoding="async"/);
   assert.equal(documentationUrl('assets/missing.svg', context, true), null);
 });
@@ -88,7 +113,7 @@ test('built site copies infographic SVGs and keeps a restrictive browser policy'
   const html = await readFile('site-dist/index.html', 'utf8');
   assert.match(html, /Content-Security-Policy/);
   assert.match(html, /object-src 'none'/);
-  assert.match(html, /<img src="\/codex\/assets\/overview.svg"/);
+  assert.match(html, /<img src="\/apexrest\/assets\/overview.svg"/);
 });
 
 test('site keeps navigation and search consistent for each page', async () => {
@@ -100,12 +125,12 @@ test('site keeps navigation and search consistent for each page', async () => {
     const index = JSON.parse(await readFile(`site-dist/${locale.prefix}search-index.json`, 'utf8'));
     assert.deepEqual(
       index.map((row) => row.url),
-      expected.map((page) => `/codex/${page.slug ? page.slug + '/' : ''}`),
+      expected.map((page) => `/apexrest/${page.slug ? page.slug + '/' : ''}`),
     );
     for (const page of expected) {
       const html = await readFile(`site-dist/${page.slug ? page.slug + '/' : ''}index.html`, 'utf8');
       assert.ok(html.includes(`<html lang="${lang}">`));
-      assert.ok(html.includes(`data-base="/codex/${locale.prefix}"`));
+      assert.ok(html.includes(`data-base="/apexrest/${locale.prefix}"`));
       assert.ok(html.includes(`data-search-empty="${locale.empty}"`));
       assert.ok(html.includes(`data-search-error="${locale.error}"`));
       assert.ok(html.includes(`>${locale.search}</label>`));
@@ -127,17 +152,43 @@ test('built documentation links point to existing sections and each page has uni
     const html = await readFile(`site-dist/${page.slug ? page.slug + '/' : ''}index.html`, 'utf8');
     const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
     assert.equal(new Set(ids).size, ids.length, `${page.source}: duplicate IDs`);
-    pages.set(`/codex/${page.slug ? page.slug + '/' : ''}`, { html, ids });
+    pages.set(`/apexrest/${page.slug ? page.slug + '/' : ''}`, { html, ids });
   }
   for (const [route, page] of pages) {
     for (const [, href] of page.html.matchAll(/\bhref="([^"\s]+)"/g)) {
-      if (!href.startsWith('#') && !href.startsWith('/codex/')) continue;
+      if (!href.startsWith('#') && !href.startsWith('/apexrest/')) continue;
       const target = new URL(href.replaceAll('&amp;', '&'), 'https://docs.test' + route);
       if (!target.hash) continue;
       assert.ok(
         pages.get(target.pathname)?.ids.includes(decodeURIComponent(target.hash.slice(1))),
         `${route}: missing section ${href}`,
       );
+    }
+  }
+});
+
+test('tracked branch-hosted output matches the staging site and covers every current guide', async () => {
+  const config = JSON.parse(await readFile('site/site.config.json', 'utf8'));
+  const manifest = JSON.parse(await readFile('docs/site-manifest.json', 'utf8'));
+  assert.equal(manifest.basePath, config.basePath);
+  assert.ok(manifest.files.includes('.nojekyll'));
+  assert.ok(manifest.files.includes('index.html'));
+  for (const file of manifest.files) {
+    assert.equal(
+      Buffer.compare(await readFile('docs/' + file), await readFile('site-dist/' + file)),
+      0,
+      file,
+    );
+    assert.ok(!file.endsWith('.md') && !file.startsWith('evidence/'));
+  }
+  for (const file of (await readdir('docs')).filter((file) => file.endsWith('.md'))) {
+    const source = 'docs/' + file;
+    const page = config.pages.find((page) => page.source === source);
+    assert.ok(page, `Guide missing from the website: ${source}`);
+    if (file !== 'index.md') {
+      const alias = await readFile('docs/' + file.replace(/\.md$/, '.html'), 'utf8');
+      const canonical = await readFile('docs/' + page.slug + '/index.html', 'utf8');
+      assert.equal(alias, canonical, `Legacy URL lost content/anchors: ${file}`);
     }
   }
 });

@@ -33,7 +33,7 @@ The bundled [component catalog](../../docs/component-catalog.md) covers 109 Univ
 
 ## Deployment boundary
 
-Plans bind sources, toolchain and target and expire after 30 minutes. Apply re-checks identity and drift, backs up an existing application and records migration history locally; a clean APEX installation needs no service tables. Production is refused by `apexrest_ship` and requires a signed external approval. Read [deployment safeguards](../../docs/deployment-safety.md).
+Plans bind sources, toolchain and target and expire after 30 minutes. Apply re-checks identity and drift, backs up an existing application and records migration history locally; a clean APEX installation needs no service tables. Production deployment and restore are always refused by the plugin; approval or signatures cannot override the classification. Read [deployment safeguards](../../docs/deployment-safety.md).
 
 ## Verification
 

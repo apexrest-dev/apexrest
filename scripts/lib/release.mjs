@@ -63,6 +63,7 @@ export async function sourceDigest() {
     'package.json',
     'package-lock.json',
     'publisher.config.json',
+    'docs/deployment-safety.md',
     'tsconfig.base.json',
     'LICENSE',
     'NOTICE',

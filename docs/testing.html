@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Testing · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/testing/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/testing/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/" aria-current="page">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Testing</div><h1 id="testing-and-verification">Testing and verification</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#local-development-checks">Local development checks</a></li><li><a href="#host-and-oracle-checks">Host and Oracle checks</a></li><li><a href="#application-only-changes">Application-only changes</a></li><li><a href="#browser-verification">Browser verification</a></li><li><a href="#diagnose-and-rerun">Diagnose and rerun</a></li></ul></details>
+<p>APEXREST develops and deploys Oracle APEX applications. Application verification uses the host in-app browser; the plugin provides no automatic application unit, SQL, API or UI test runner, browser installation or saved authentication state. Oracle compiler validation and read-only metadata checks remain development/deployment checks. Browser observations are separate from compiler and import outcomes.</p>
+<h2 id="local-development-checks">Local development checks</h2>
+<p>These commands verify the repository implementation, not applications through the plugin:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it establishes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm run lint</code></td>
+<td>Formatting and source conventions</td>
+</tr>
+<tr>
+<td><code>npm run typecheck</code></td>
+<td>TypeScript consistency</td>
+</tr>
+<tr>
+<td><code>npm run test:unit</code></td>
+<td>Core and failure/concurrency fixtures</td>
+</tr>
+<tr>
+<td><code>npm run test:contracts</code></td>
+<td>CLI and stdio MCP contracts, including the ten-tool catalog</td>
+</tr>
+<tr>
+<td><code>npm run test:installers</code></td>
+<td>Download, archive, integrity and platform fixtures</td>
+</tr>
+<tr>
+<td><code>npm run test:packaging</code></td>
+<td>Package schemas, containment, manifests and site checks</td>
+</tr>
+<tr>
+<td><code>npm run docs:check</code></td>
+<td>Links, anchors and documented commands</td>
+</tr>
+<tr>
+<td><code>npm run plugin:check</code></td>
+<td>Checked-in bundle matches a fresh build</td>
+</tr>
+<tr>
+<td><code>npm run site:build</code></td>
+<td>Local documentation site generation</td>
+</tr>
+</tbody></table>
+</div>
+<p>Build with <code>npm run build</code> before checks that consume <code>dist/</code>. Packaging validates Claude Code manifests when its CLI is available. GitHub local quality gates run only on pushes to <code>main</code>; release and Oracle integration workflows remain disabled.</p>
+<h2 id="host-and-oracle-checks">Host and Oracle checks</h2>
+<p><code>npm run test:repository-plugin</code> checks installation in an isolated Codex profile plus installed CLI/stdio MCP behavior. It does not invoke a model or establish that a host loaded this version in a conversation.</p>
+<p><code>node scripts/oracle-smoke.mjs</code> runs Oracle source generation and validation with SQLcl without a database connection. <code>npm run test:integration</code> is a repository harness for compiler, authorized deployment, grant removal and no-op export preservation. It requires <code>APEXREST_INTEGRATION_PROJECT</code>, <code>APEXREST_INTEGRATION_ENV</code>, named SQLcl connections, a supported non-production APEX target and <code>APEXREST_INTEGRATION_ALLOW_WRITES=true</code> before apply. It does not execute application test suites or browser automation. Runtime interaction remains a separate host-browser check.</p>
+<p>The integration harness uses <code>ship --mode apply --user-request TEXT</code> to bind the operator&#39;s consent to the exact project, target and plan. It verifies that this grant was removed after each attempt. Missing prerequisites remain blocked; recovery and fault injection require separately authorized targets. Independent managed homes/machines must be serialized externally.</p>
+<h2 id="application-only-changes">Application-only changes</h2>
+<p>For a page or dashboard change, validate with the real Oracle compiler (<code>apexrest_apex_validate</code> until <code>diagnostics</code> is empty), reconcile the source queries through authorized read-only checks (<code>apexrest_metadata_read</code>) and report confirmed server completion. Inspect the page in the selected browser only when the user requests it. <code>apexrest_ship</code> validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.</p>
+<p>When browser verification is requested, exercise the requested positive and negative interactions through the built-in or user-selected browser. Application writes need their own authorized scope and disposable test data. Compiler and metadata checks do not establish authenticated UI behavior.</p>
+<h2 id="browser-verification">Browser verification</h2>
+<p>This rule applies when the user requests browser verification. Ordinary confirmed server deployment is success without this step.</p>
+<ol>
+<li><strong>Select the browser.</strong> The project preference <code>.apexrest/panel/preferences.json</code> (<code>browserMode: host|codex</code> or a user-selected browser name, default <code>codex</code>, the legacy alias of <code>host</code>) selects the host&#39;s in-app browser; <code>apexrest_browser_open</code> accepts a bounded browser name in <code>browserMode</code> for one call. The development status snapshot stays inside the host; only application pages open in the selected browser.</li>
+<li><strong>Resolve the page.</strong> After a successful ship, call <code>apexrest_browser_open</code> with <code>env</code>. It returns the configured URL for the host browser controls. The resolved URL is a handoff, not evidence.</li>
+<li><strong>Inspect the affected page.</strong> Open it with the browser controls, complete authorized login in that browser if needed, using an ignored/untracked local ENV credential source when available without echoing values, wait for the relevant asynchronous regions to finish loading, then exercise the changed controls and navigation. For dashboards, check date ranges, filter submission, chart refresh, reconciled values and a real empty state. For forms, check the relevant validation, save and cancel behavior. Inspect layout at the viewports relevant to the change. Opening a page is not verification; a login screen or a transient chart-loading state is not evidence that the feature works or is broken.</li>
+<li><strong>Record observations separately.</strong> Report what was observed per page, apart from compiler and import results. Record missing browser controls, incomplete authentication, an unavailable deployed change or an unreachable target as missing verification with its reason; never describe it as passed.</li>
+<li><strong>Keep evidence sanitized.</strong> Screenshots and page text can contain business data, URLs and session identifiers; review them before attaching them to a report or issue.</li>
+</ol>
+<h2 id="diagnose-and-rerun">Diagnose and rerun</h2>
+<p>Classify the failure and inspect the bounded diagnostics, affected source and actual target. Make a focused repair, repeat the affected compiler or browser check, and report remaining limitations. For an unknown write outcome, follow <a href="/apexrest/deployment/">reconciliation</a> before retrying. Do not repeat a full import merely to renew an interactive browser session.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/testing.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

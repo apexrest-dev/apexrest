@@ -11,12 +11,20 @@ export const escapeHtml = (value) =>
 
 const encodedPath = (value) => value.split('/').map(encodeURIComponent).join('/');
 
-export function documentationUrl(href, { source, base, pages, assets = [], repository }, image = false) {
+export function documentationUrl(
+  href,
+  { source, base, pages, assets = [], downloads = [], origin, repository },
+  image = false,
+) {
   if (typeof href !== 'string' || /[\x00-\x20\\<>"']/.test(href)) return null;
   if (/^https:\/\//i.test(href)) {
     try {
       const url = new URL(href);
-      return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
+      if (url.protocol !== 'https:' || url.username || url.password) return null;
+      // Public README links stay absolute on GitHub/npm but resolve locally in a preview.
+      if (!image && origin && url.origin === origin && url.pathname.startsWith(base))
+        return url.pathname + url.search + url.hash;
+      return url.href;
     } catch {
       return null;
     }
@@ -39,6 +47,7 @@ export function documentationUrl(href, { source, base, pages, assets = [], repos
   if (assets.includes(target))
     return base + 'assets/' + encodedPath(target.slice('docs/assets/'.length)) + suffix;
   if (image) return null;
+  if (downloads.includes(target)) return base + encodedPath(target.slice('docs/'.length)) + suffix;
   const page = pages.find((entry) => entry.source === target || entry.aliases?.includes(target));
   if (page) return base + (page.slug ? page.slug + '/' : '') + suffix;
   // Preserve legacy links to configured site routes while new content uses

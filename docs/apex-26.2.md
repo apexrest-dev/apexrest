@@ -6,11 +6,11 @@
 
 ## Choose an import mode
 
-| Mode | Planner behavior | When to use it |
-| --- | --- | --- |
-| `auto` (default) | Selects eligible local changes; reports reasons if a full import is required. Conflicts block. | Routine changes to an existing 26.2 development/test app. |
-| `files` | Imports only the listed files; rejects an ineligible selection and never widens it to `full`. | A specific page, or a page together with changed shared dependencies. |
-| `full` | Requests a complete application import through the existing safeguards. | Initial application creation or changes requiring the complete application. |
+| Mode             | Planner behavior                                                                               | When to use it                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `auto` (default) | Selects eligible local changes; reports reasons if a full import is required. Conflicts block. | Routine changes to an existing 26.2 development/test app.                   |
+| `files`          | Imports only the listed files; rejects an ineligible selection and never widens it to `full`.  | A specific page, or a page together with changed shared dependencies.       |
+| `full`           | Requests a complete application import through the existing safeguards.                        | Initial application creation or changes requiring the complete application. |
 
 The CLI and the `apexrest_ship` MCP tool expose the same modes. The requirement to use **direct SQLcl CLI** describes how APEXREST connects to Oracle; it does not prevent using the feature through Codex or Claude Code's APEXREST MCP tools. SQLcl's own `mcp` execution mode and the ORDS transport are separate options and do not support partial import in this implementation.
 
@@ -21,7 +21,7 @@ The CLI and the `apexrest_ship` MCP tool expose the same modes. The requirement 
 | Target and source | Existing development/test application on APEX 26.2, with Oracle-exported 26.2 APEXlang sources. |
 | Compiler | SQLcl `26.3.0.260.1620`, Oracle-generated MMD `26.2.0+3479`, and observed `apex import -files` support. |
 | Connection | SQLcl `cli` mode with a `direct` database connection. |
-| Project | Configured target identity, trusted project, named connection references and a valid sync checkpoint. |
+| Project | Configured target identity, named connection references and a valid sync checkpoint. |
 | Selection | Supported new/modified page and shared-component `.apx` files, including required changed dependencies. |
 
 APEX 26.2 requires SQLcl and ORDS 26.3 or later. APEXREST's partial-import gate deliberately accepts the exact reviewed compiler/MMD tuple and 26.2 target stream. Target releases are checked; a future version is not automatically qualified.
@@ -30,7 +30,7 @@ Select the matching compiler through `APEXREST_SQLCL`. The managed installer sti
 
 ## Quick start from an updated checkout
 
-The following examples assume a configured, trusted application project with an environment named `dev`. Replace the absolute paths and example page/LOV filenames with your project's values. These commands use the checkout runtime described in this guide.
+The following examples assume a configured application project with an environment named `dev`. Replace the absolute paths and example page/LOV filenames with your project's values. These commands use the checkout runtime described in this guide.
 
 ```sh
 APEXREST_CLI="/absolute/path/to/apexrest/plugins/apexrest-apex/runtime/apexrest.mjs"
@@ -66,7 +66,7 @@ The planner compares the **saved baseline**, **local edits** and **fresh server 
 
 Review `importSelection.requestedMode`, `resolvedMode`, `files`, supporting-component selections and `reasons`. The compact preview shows at most 50 selected paths; use the full saved plan for a longer list.
 
-Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are excluded from partial import. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit `files` mode never becomes `full`. Existing working-copy restrictions on database operations and separate production approval remain in force.
+Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are excluded from partial import. Deletions, initial application creation, production, database operations and unsupported transports can require a full plan or block the operation under existing safeguards. Known remote changes must be reconciled before an automatic full fallback. Explicit `files` mode never becomes `full`. Database scripts require a full application import and the local/remote safety policy; production deployment is forbidden.
 
 ## Backup, verification and recovery
 
@@ -93,3 +93,7 @@ For bounded read-only diagnostics, call `apexrest_metadata_read` with `kind: "ap
 Major-version source upgrades require a reviewed import/re-export into a separate directory, followed by explicit checkpoint refresh. Never edit `.apex/apexlang.json` to pretend that old sources use the new compiler. Keep old source and backup snapshots; an export with `-force` can remove its destination alias directory.
 
 Sources: [APEX 26.2 release notes](https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/index.html), [file import rules](https://blogs.oracle.com/apex/introducing-file-level-import-with-apexlang-in-oracle-apex), [requirements](https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/about-release-notes.html), [deployment metadata](https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/understanding-apexlang-deployment-files.html), [source upgrade](https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/upgrading-apexlang-source-with-new-apex-release.html), [managed credentials](https://blogs.oracle.com/apex/using-dbms_cloud-credentials-with-resource-principal-and-dbtools-identity).
+
+## Complete Oracle authoring inventory
+
+The [official inventory coverage](oracle-apexlang-coverage.md) includes all 389 definition documents and the upstream layout/syntax catalog. Select `version:26.2`, search `corpus:components` and read the returned `oracle:26.2:inventory/...` ID through all pages. Every contextual property, enum and applicability condition is retained. Local 26.1 UX recipes remain separately version-bound. Full source coverage does not qualify database, provider, import or browser behavior.

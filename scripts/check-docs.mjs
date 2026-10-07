@@ -12,9 +12,12 @@ for (const root of ['docs', 'site/content', 'templates', 'plugins/apexrest-apex/
     if (file.endsWith('.md')) documents.push(root + '/' + file);
   }
 }
+const site = JSON.parse(await readFile('site/site.config.json', 'utf8'));
+const publisher = JSON.parse(await readFile('publisher.config.json', 'utf8'));
 const context = {
-  base: '/codex/',
-  pages: [],
+  base: site.basePath,
+  origin: publisher.siteOrigin,
+  pages: site.pages,
   repository: 'https://github.com/apexrest-dev/apexrest',
 };
 const cache = new Map();
@@ -39,8 +42,18 @@ async function inspect(file) {
 }
 const allDocuments = [...new Set(documents)];
 for (const file of allDocuments) {
-  for (const href of (await inspect(file)).links) {
-    if (/^[a-z][a-z\d+.-]*:/i.test(href)) continue;
+  for (let href of (await inspect(file)).links) {
+    if (href.startsWith(publisher.siteOrigin + site.basePath)) {
+      const url = new URL(href);
+      const page = site.pages.find(
+        (page) => site.basePath + (page.slug ? page.slug + '/' : '') === url.pathname,
+      );
+      assert.ok(
+        page || url.pathname === site.basePath + 'acceptance.json',
+        `${file}: unknown Pages route: ${href}`,
+      );
+      href = path.posix.relative(path.posix.dirname(file), page?.source ?? 'docs/acceptance.json') + url.hash;
+    } else if (/^[a-z][a-z\d+.-]*:/i.test(href)) continue;
     const [location, fragment] = href.split('#');
     const target = location
       ? path.posix.normalize(path.posix.join(path.posix.dirname(file), decodeURIComponent(location)))

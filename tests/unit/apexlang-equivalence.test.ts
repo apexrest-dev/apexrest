@@ -160,3 +160,28 @@ test('application comparison normalizes selected APEXlang only and records exact
     'stale inventory hashes cannot hide concurrent file changes',
   );
 });
+
+// Native Oracle 26.2 page export uses target/items colon-map boundaries.
+test('native target/items maps tolerate formatting but preserve every target and item scalar', () => {
+  const page = `page 10 (
+ button open (
+ behavior {
+ target: {
+ page: 80
+ items: {
+ P80_ID: #ID#
+ }
+ clearCache: 80
+ }
+ }
+ )
+)
+`;
+  assert.equal(compareApexlangSource(page, page + '\n').equivalent, true);
+  assert.equal(compareApexlangSource(page, page.replace('page: 80', 'page: 81')).equivalent, false);
+  assert.equal(
+    compareApexlangSource(page, page.replace('P80_ID: #ID#', 'P80_ID: #OTHER#')).equivalent,
+    false,
+  );
+  assert.equal(compareApexlangSource(page, page.replace('items: {', 'items: invalid {')).equivalent, false);
+});

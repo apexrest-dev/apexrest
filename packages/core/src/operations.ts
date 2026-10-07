@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { browserModeSchema } from './browser-preferences.ts';
 import { JOB_WAIT_MAX_SECONDS } from './jobs.ts';
 import { composePlanInput, composeMaterializeInput } from './composer/service.ts';
 import { metadataInputSchema } from './metadata.ts';
@@ -108,9 +109,22 @@ export const schemas = {
       ordsUrl: ordsUrl.optional(),
       ordsUsername: ordsUsername.optional(),
       passwordFile: z.string().min(1).max(4096).optional(),
+      envFile: z.string().min(1).max(4096).optional(),
+      usernameKey: z
+        .string()
+        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+        .optional(),
+      passwordKey: z
+        .string()
+        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+        .optional(),
+      urlKey: z
+        .string()
+        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+        .optional(),
     })
     .refine(
-      (value) => !!value.sqlclName || !!(value.ordsUrl && value.ordsUsername),
+      (value) => !!value.sqlclName || !!value.envFile || !!(value.ordsUrl && value.ordsUsername),
       'Supply a direct SQLcl name or ORDS URL and username.',
     ),
   'connection.list': z.strictObject({ ...base, saved: z.boolean().default(false) }),
@@ -170,7 +184,7 @@ export const schemas = {
   'browser.open': z.strictObject({
     ...base,
     env,
-    browserMode: z.enum(['codex', 'host']).optional(),
+    browserMode: browserModeSchema.optional(),
   }),
   'jobs.status': z.strictObject({
     ...base,
@@ -204,6 +218,19 @@ export const schemas = {
     ordsUrl: ordsUrl.optional(),
     ordsUsername: ordsUsername.optional(),
     passwordFile: z.string().min(1).max(4096).optional(),
+    envFile: z.string().min(1).max(4096).optional(),
+    usernameKey: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      .optional(),
+    passwordKey: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      .optional(),
+    urlKey: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      .optional(),
     saved: z.boolean().default(false),
   }),
   reference: z.strictObject({
@@ -237,7 +264,15 @@ export const schemas = {
     .strictObject({
       ...base,
       env,
-      mode: z.enum(['plan', 'apply']).default('plan'),
+      mode: z.enum(['plan', 'apply', 'recover']).default('plan'),
+      plan: relativePath.optional(),
+      run: z.uuid().optional(),
+      confirmation: z
+        .strictObject({
+          planDigest: z.string().regex(/^[a-f0-9]{64}$/),
+          userRequest: z.string().min(1).max(2000),
+        })
+        .optional(),
       ...importOptions,
       userRequest: z
         .string()
@@ -253,6 +288,12 @@ export const schemas = {
     ...base,
     env,
     plan: relativePath,
+    confirmation: z
+      .strictObject({
+        planDigest: z.string().regex(/^[a-f0-9]{64}$/),
+        userRequest: z.string().min(1).max(2000),
+      })
+      .optional(),
     userRequest: z.string().min(10).max(2000),
   }),
   job: z.strictObject({
@@ -282,7 +323,7 @@ export const toolCatalog: {
     name: 'apexrest_project',
     operation: 'project',
     description:
-      'Oracle app init, dev/test adopt, inspect (default summary), connection_add/list/test. Passwords only via passwordFile.',
+      'Oracle app init, dev/test adopt, inspect (default summary), connection_add/list/test. Credentials via private passwordFile or ignored local envFile; never in tool text.',
     readOnly: false,
     destructive: false,
     openWorld: true,
@@ -313,7 +354,7 @@ export const toolCatalog: {
     name: 'apexrest_ship',
     operation: 'ship',
     description:
-      'Plan or apply to dev/test with backup/drift/identity checks. importMode:auto selects eligible files or explains full import; full forces whole app; files uses explicit paths. Apply binds and revokes the userRequest grant. No production; plan never writes Oracle.',
+      'Plan, apply or recover on DEV/QA/TEST with backup/drift/identity checks. importMode:auto selects eligible files or explains full import; full forces whole app; files uses explicit paths. Apply binds and revokes the userRequest grant. No production; plan never writes Oracle.',
     readOnly: false,
     destructive: true,
     long: true,

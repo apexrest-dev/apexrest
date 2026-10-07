@@ -37,10 +37,11 @@ test('Codex package declares native skills, local MCP and exclusive product rout
       );
   await assert.rejects(readFile('dist/portable/plugins/apexrest-apex/plugin.json'), { code: 'ENOENT' });
 });
-// The 2026-10-04 redesign: five skills and ten MCP tools. Keep these lists in
+// The 2026-10-04 redesign: six skills and ten MCP tools. Keep these lists in
 // step with plugins/apexrest-apex/skills and packages/core/src/operations.ts.
 const expectedSkills = [
   'apexrest-apexlang',
+  'apexrest-oracle-sync',
   'apexrest-pattern-catalog',
   'apexrest-safety',
   'apexrest-setup',
@@ -58,7 +59,7 @@ const expectedTools = [
   'apexrest_artifact_read',
   'apexrest_status',
 ];
-test('Codex package is self-contained, same version, exactly the five redesigned skills and no author paths', async () => {
+test('Codex package is self-contained, same version, the application and maintainer skills and no author paths', async () => {
   for (const profile of ['codex-compat']) {
     const root = `dist/${profile}/plugins/apexrest-apex`;
     const list = await files(root);
@@ -201,8 +202,8 @@ test('site has all required routes, working internal links and accessible struct
     assert.match(html, new RegExp(`<html lang="${file.startsWith('uk/') ? 'uk' : 'en'}"`));
     assert.match(html, /id="main"/);
     assert.match(html, /for="search"/);
-    for (const link of [...html.matchAll(/(?:href|src)="(\/codex\/[^"#]*)"/g)].map((m) => m[1])) {
-      let target = link.slice('/codex/'.length);
+    for (const link of [...html.matchAll(/(?:href|src)="(\/apexrest\/[^"#]*)"/g)].map((m) => m[1])) {
+      let target = link.slice('/apexrest/'.length);
       if (!target || target.endsWith('/')) target += 'index.html';
       assert.ok(all.includes(target), `${file}: broken ${link}`);
     }

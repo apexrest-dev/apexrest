@@ -1,0 +1,137 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Codex Cloud · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/codex-cloud/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/codex-cloud/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/" aria-current="page">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Codex Cloud</div><h1 id="run-apexrest-in-codex-cloud">Run APEXREST in Codex Cloud</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#1-prepare-your-application-repository">1. Prepare your application repository</a></li><li><a href="#2-configure-the-cloud-environment">2. Configure the Cloud environment</a></li><li><a href="#3-set-setup-and-maintenance-commands">3. Set setup and maintenance commands</a></li><li><a href="#4-configure-network-access">4. Configure network access</a></li><li><a href="#5-verify-from-a-cloud-task">5. Verify from a Cloud task</a></li><li><a href="#6-give-the-agent-project-instructions">6. Give the agent project instructions</a></li><li><a href="#troubleshooting">Troubleshooting</a></li><li><a href="#verification-scope">Verification scope</a></li></ul></details>
+<p>Run APEXREST&#39;s bundled <strong>CLI inside the Cloud container</strong>, using ORDS over HTTPS for database access. The example below adapts a project-specific Cloud bootstrap into reusable scripts. It does not register the plugin or expose its MCP tools and skills to the Cloud agent. Those integrations require their own host verification; see <a href="/apexrest/codex-integration/">host integration</a>.</p>
+<h2 id="1-prepare-your-application-repository">1. Prepare your application repository</h2>
+<p>Copy the files in <a href="https://github.com/apexrest-dev/apexrest/tree/main/docs/examples/codex-cloud/">the Cloud example directory</a> into <code>scripts/codex-cloud/</code> in the application repository connected to Codex Cloud. Keep all files together. From your application repository, with a local APEXREST checkout available:</p>
+<pre><code class="language-sh">mkdir -p scripts/codex-cloud
+cp /path/to/apexrest/docs/examples/codex-cloud/* scripts/codex-cloud/
+</code></pre>
+<p>Add these entries to the application&#39;s <code>.gitignore</code> before running setup:</p>
+<pre><code class="language-gitignore">.codex/cloud/
+.apexrest/
+</code></pre>
+<p>Commit the example scripts and ignore rules to the repository&#39;s default branch used for Cloud cache preparation, and ensure they are also present on the task branch. Cloud checks out the task branch when resuming the cache; see <a href="https://learn.chatgpt.com/docs/environments/cloud-environment">container caching</a>. Generated tools, credentials, logs, plans and backups must remain private. The scripts are documentation examples, not files automatically installed by the plugin or its npm package.</p>
+<p>The <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/examples/codex-cloud/version.sh">version file</a> pins a reviewed immutable checkout with manifest version <code>2.0.0</code>. Setup verifies the commit and version, then uses <code>plugins/apexrest-apex/runtime/apexrest.mjs</code>; it needs neither an npm release nor a TypeScript build. Review and change both pins together when adopting another build. The bootstrap and connected workflow require verification in the actual Cloud environment.</p>
+<h2 id="2-configure-the-cloud-environment">2. Configure the Cloud environment</h2>
+<p>Select your application repository in Codex Cloud environment settings. Select <strong>Node.js 24</strong> and <strong>Java 21</strong> under package versions. Java must be a <strong>JDK with <code>jdk.compiler</code></strong>, not just a JRE. Git and Bash must also be available.</p>
+<p>Set the following environment variables. Replace every target placeholder with values supplied for your development/test environment:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value or purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CODEX_CLOUD</code></td>
+<td><code>1</code>; explicit opt-in to this example&#39;s Linux setup.</td>
+</tr>
+<tr>
+<td><code>APEXREST_ACCEPT_ORACLE_LICENSE</code></td>
+<td><code>1</code> only after accepting the <a href="https://www.oracle.com/downloads/licenses/oracle-free-license.html">Oracle terms</a>.</td>
+</tr>
+<tr>
+<td><code>APEXREST_PERSIST_CREDENTIALS</code></td>
+<td><code>1</code> only if you authorize the credential retention described below.</td>
+</tr>
+<tr>
+<td><code>APEXREST_ORDS_URL</code></td>
+<td>Schema URL, for example <code>https://ords.example.invalid/ords/app_user/</code>.</td>
+</tr>
+<tr>
+<td><code>APEXREST_ORDS_USERNAME</code></td>
+<td>Database username, for example <code>app_user</code>; the schema alias may differ.</td>
+</tr>
+<tr>
+<td><code>APEXREST_CONNECTION_REF</code></td>
+<td>A local reference name, for example <code>cloud-dev</code> (the default).</td>
+</tr>
+<tr>
+<td><code>APEXREST_EXPECTED_SCHEMA</code></td>
+<td>Optional exact expected parsing schema from the identity check.</td>
+</tr>
+<tr>
+<td><code>APEXREST_EXPECTED_SERVICE</code></td>
+<td>Optional exact expected database service from the identity check.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Add <strong><code>APEXREST_ORDS_PASSWORD</code> as a Secret</strong>, not a normal environment variable or repository file. The account must already have authorized access to REST-Enabled SQL on that ORDS schema. Use the schema URL, not an APEX application URL or the <code>/_/sql</code> endpoint; see <a href="/apexrest/ords/">ORDS configuration</a>.</p>
+<p>Cloud secrets are available during setup, then removed from the agent environment. This example deliberately retains a credential file for later CLI commands. Cloud container caching can retain that file, and Business/Enterprise caches can be shared by environment users. Use an environment whose users are authorized for that database account. See <a href="https://learn.chatgpt.com/docs/environments/cloud-environment">OpenAI&#39;s Cloud environment documentation</a>.</p>
+<p>With <code>APEXREST_PERSIST_CREDENTIALS=1</code>, setup passes the secret through a temporary owner-only file to <code>connection add --password-file</code>, removes the temporary file, and keeps the APEXREST credential under <code>.codex/cloud/tools/credentials/</code> with POSIX mode <code>0600</code>. This is <strong>not an encrypted vault</strong>: the agent and processes running as the same user can read it. If this retention is unsuitable, do not enable the flag or use this connected example. Never print the secret, enable shell tracing, or include <code>.codex/cloud/</code> in commits or shared artifacts.</p>
+<h2 id="3-set-setup-and-maintenance-commands">3. Set setup and maintenance commands</h2>
+<p><strong>Setup script:</strong></p>
+<pre><code class="language-sh">bash scripts/codex-cloud/setup.sh
+</code></pre>
+<p><strong>Maintenance script:</strong></p>
+<pre><code class="language-sh">bash scripts/codex-cloud/setup.sh --maintenance
+</code></pre>
+<p>Setup checks the pinned checkout, previews and installs managed dependencies, prepares a private JDK, selects <code>sqlcl configure --mode cli --database-transport ords</code>, saves the connection and runs <code>doctor</code> plus a read-only database identity check. It creates no application or business data and grants no deployment permission.</p>
+<p>Maintenance reuses the installed build and credentials, refreshes Java proxy/CA settings and repeats the connection check. It does not reinstall dependencies. For a missing build, changed pin or missing credential, rerun setup with the secret available. For credential rotation, update the Secret and rerun setup; retaining an old local credential is not rotation.</p>
+<p>The launcher restores <code>APEXREST_HOME</code>, <code>APEXREST_JAVA_HOME</code> and the selected Node executable on every invocation. A setup-only <code>export</code> would not persist into the agent phase. Cloud may resume a cached container and run maintenance; after incompatible setup changes, use <strong>Reset cache</strong>. See <a href="https://learn.chatgpt.com/docs/environments/cloud-environment">environment lifecycle</a>.</p>
+<h2 id="4-configure-network-access">4. Configure network access</h2>
+<p>Enable agent internet access for the exact ORDS hostname and allow <strong>POST</strong>, which REST-Enabled SQL needs even for read-only queries. Setup download access and agent-phase access are separate settings. See <a href="https://learn.chatgpt.com/docs/cloud/internet-access">OpenAI&#39;s agent internet access documentation</a>.</p>
+<p>The example uses HTTPS because a Cloud HTTP proxy does not establish reachability to the Oracle listener on port 1521; plain <code>http:</code> ORDS URLs are accepted only for loopback. It makes no listener-connectivity assumption. Setup also needs access to the canonical GitHub repository and the dependency download hosts shown by the installer preview.</p>
+<p>The <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/examples/codex-cloud/network.sh">network helper</a> enables <code>NODE_USE_ENV_PROXY=1</code>. Vendor downloads then honor <code>HTTPS_PROXY</code> and <code>NO_PROXY</code>; if a proxy is configured but the running Node cannot apply it, setup stops with <code>PROXY_UNSUPPORTED</code> rather than bypassing the proxy. The <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/examples/codex-cloud/setup-java.mjs">Java helper</a> copies the environment JDK into <code>.codex/cloud/java</code>, writes proxy settings to its private <code>conf/net.properties</code> and imports the environment CA bundle from <code>NODE_EXTRA_CA_CERTS</code> into its private <code>lib/security/jssecacerts</code>. It preserves the default trust roots and leaves the host JDK unchanged. APEXREST strips Java option environment variables for Oracle subprocesses, so <code>JAVA_TOOL_OPTIONS</code> alone is insufficient here.</p>
+<p>The helper accepts an HTTP proxy without URL credentials, reading <code>https_proxy</code>, <code>HTTPS_PROXY</code>, <code>http_proxy</code>, then <code>HTTP_PROXY</code>. Host/domain entries in <code>NO_PROXY</code> are mapped to Java; CIDR entries remain proxied. Unsupported proxy settings fail explicitly. Keep TLS certificate verification enabled; refresh the private truststore when the environment CA changes.</p>
+<h2 id="5-verify-from-a-cloud-task">5. Verify from a Cloud task</h2>
+<p>Start a task after successful setup and run these commands from the application repository. Replace <code>cloud-dev</code> if you chose another reference:</p>
+<pre><code class="language-sh">bash scripts/codex-cloud/apexrest doctor --json
+bash scripts/codex-cloud/apexrest sqlcl status --json
+bash scripts/codex-cloud/apexrest connection list --json
+bash scripts/codex-cloud/apexrest connection test --name cloud-dev --json
+bash scripts/codex-cloud/apexrest --help
+</code></pre>
+<p>Check the actual JSON and exit codes: the selected mode must be <code>cli</code>, network transport <code>ords</code>, and the connection identity must match your intended database/schema. A successful <code>doctor</code> command is insufficient: it reports probes separately and does not test the database. Its <code>nativeHost: requires-host-verification</code> and <code>database: not-configured</code> fields do not override a separately successful connection test. A missing local Codex executable also does not by itself prevent direct CLI/ORDS operations.</p>
+<p>The connection reference belongs to APEXREST, not SQLcl&#39;s saved connection store; do not replace the command with <code>sql -name cloud-dev</code> or <code>connection test --saved</code>. Save only sanitized evidence; identity output can contain private target names.</p>
+<h2 id="6-give-the-agent-project-instructions">6. Give the agent project instructions</h2>
+<p>Add a short Cloud-specific section to the application repository&#39;s <code>AGENTS.md</code>:</p>
+<pre><code class="language-markdown">## APEXREST in Codex Cloud
+
+- Run APEXREST commands with `bash scripts/codex-cloud/apexrest`.
+- Check doctor, SQLcl configuration and the configured connection identity first.
+- Use SQLcl CLI with ORDS; this bootstrap does not register native plugin tools.
+- Keep `.codex/cloud/` and `.apexrest/` private. Never print credentials.
+- Do not run setup, native plugin registration or dependency downloads in every task.
+- Use the configured project/environment and existing deployment safeguards.
+- Report compiler checks, database checks and browser observations separately.
+</code></pre>
+<p>Before application work, configure the target in <code>apexrest.json</code>, including workspace, schema, application ID, database identity and the correct read/deploy references. Follow the <a href="/apexrest/deployment/">safety rules</a> and retain validation, backup, exact-plan authorization, drift and unknown-outcome protections from <a href="/apexrest/configuration/">configuration</a> and <a href="/apexrest/deployment/">deployment safety</a>. Installation and a successful connection test do not authorize an import.</p>
+<p>The example keeps local deployment history under <code>APEXREST_HOME</code>. Cloud caches are not durable backup storage or cross-container coordination: preserve private backups/history outside an expiring container and serialize runners before authorizing deployments. Do not reset away an unresolved operation&#39;s records or silently start fresh history against the same schema.</p>
+<p>Browser dependencies are skipped. Browser checks require separately configured tools, authentication and actual observations. The CLI bootstrap does not establish that <code>$apexrest-work</code> or automatic skill/MCP discovery work in Cloud; the CLI equivalents of the work cycle are <code>apexrest apex validate</code>, <code>apexrest ship --mode plan|apply --user-request TEXT</code> and <code>apexrest job status</code>. Use the launcher for the documented flow and report unavailable checks explicitly.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Setup exits with “Skipping Cloud setup”</td>
+<td>Set <code>CODEX_CLOUD=1</code> in environment settings.</td>
+</tr>
+<tr>
+<td>Unsupported Node or no JDK compiler</td>
+<td>Select Node 24 and JDK 21, then rerun setup.</td>
+</tr>
+<tr>
+<td>Pinned checkout/runtime/credentials missing after resume</td>
+<td>Rerun setup with the Secret; maintenance cannot reconstruct an uncached environment.</td>
+</tr>
+<tr>
+<td>HTTP 401/403 or failed identity check</td>
+<td>Verify the account, REST-Enabled SQL access, schema URL, expected identity and agent POST allowlist.</td>
+</tr>
+<tr>
+<td>Java timeout or certificate error</td>
+<td>Check proxy/CA settings and run maintenance; do not disable TLS.</td>
+</tr>
+<tr>
+<td>CLI works but no plugin tools or skills appear</td>
+<td>Native Cloud integration is not installed or verified by this example; continue through the CLI.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="verification-scope">Verification scope</h2>
+<p>Local script syntax and package checks do not establish an actual Cloud setup/resume, connected Oracle operation, native plugin discovery or browser session. Complete the checks above on the intended environment and record the resulting scope; see <a href="/apexrest/implementation-status/">implementation status</a> and <a href="/apexrest/next-actions/">next actions</a>.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/codex-cloud.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.0.0 · Not an official Oracle or OpenAI product</footer></body></html>

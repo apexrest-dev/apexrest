@@ -1,118 +1,256 @@
 {
-  "basePath": "/codex/",
+  "basePath": "/apexrest/",
   "title": "APEXREST for Codex and Claude Code",
+  "groups": ["Start here", "Application work", "Reference", "Project"],
   "pages": [
     {
       "slug": "",
       "title": "Overview",
-      "source": "site/content/index.md",
+      "source": "README.md",
       "lang": "en",
-      "key": "overview"
+      "key": "overview",
+      "aliases": ["site/content/index.md"],
+      "group": "Start here"
     },
     {
       "slug": "install",
       "title": "Install",
       "source": "site/content/install.md",
       "lang": "en",
-      "key": "install"
+      "key": "install",
+      "group": "Start here"
     },
     {
       "slug": "docs",
       "title": "Documentation",
       "source": "docs/index.md",
       "lang": "en",
-      "key": "docs"
+      "key": "docs",
+      "group": "Start here"
     },
     {
       "slug": "getting-started",
       "title": "Getting started",
       "source": "docs/getting-started.md",
       "lang": "en",
-      "key": "getting-started"
+      "key": "getting-started",
+      "group": "Start here"
     },
     {
       "slug": "apex-26.2",
       "title": "APEX 26.2 partial imports",
       "source": "docs/apex-26.2.md",
       "lang": "en",
-      "key": "apex-26.2"
+      "key": "apex-26.2",
+      "group": "Application work"
     },
     {
       "slug": "codex-cloud",
       "title": "Codex Cloud",
       "source": "docs/codex-cloud.md",
       "lang": "en",
-      "key": "codex-cloud"
+      "key": "codex-cloud",
+      "group": "Application work"
     },
     {
       "slug": "existing-app",
       "title": "Existing applications",
       "source": "docs/existing-app.md",
       "lang": "en",
-      "key": "existing-app"
+      "key": "existing-app",
+      "group": "Application work"
     },
     {
       "slug": "configuration",
       "title": "Configuration",
       "source": "docs/configuration.md",
       "lang": "en",
-      "key": "configuration"
-    },
-    {
-      "slug": "versions",
-      "title": "Supported versions",
-      "source": "site/content/versions.md",
-      "lang": "en",
-      "key": "versions"
+      "key": "configuration",
+      "group": "Application work"
     },
     {
       "slug": "deployment",
       "title": "Deployment safety",
       "source": "docs/deployment-safety.md",
       "lang": "en",
-      "key": "deployment"
+      "key": "deployment",
+      "group": "Application work"
     },
     {
       "slug": "testing",
       "title": "Testing",
       "source": "docs/testing.md",
       "lang": "en",
-      "key": "testing"
+      "key": "testing",
+      "group": "Application work"
     },
     {
       "slug": "troubleshooting",
       "title": "Troubleshooting",
       "source": "docs/troubleshooting.md",
       "lang": "en",
-      "key": "troubleshooting"
+      "key": "troubleshooting",
+      "group": "Application work"
     },
     {
-      "slug": "releases",
-      "title": "Releases",
-      "source": "site/content/releases.md",
+      "slug": "chat-workflow",
+      "title": "Work in a conversation",
+      "source": "docs/chat-workflow.md",
       "lang": "en",
-      "key": "releases"
+      "key": "chat-workflow",
+      "group": "Application work"
     },
     {
-      "slug": "security",
-      "title": "Security and privacy",
-      "source": "SECURITY.md",
+      "slug": "ords",
+      "title": "SQL through ORDS",
+      "source": "docs/ords.md",
       "lang": "en",
-      "key": "security"
+      "key": "ords",
+      "group": "Application work"
     },
     {
-      "slug": "contributing",
-      "title": "Contributing",
-      "source": "CONTRIBUTING.md",
+      "slug": "status",
+      "title": "Development status",
+      "source": "docs/status.md",
       "lang": "en",
-      "key": "contributing"
+      "key": "status",
+      "group": "Application work"
+    },
+    {
+      "slug": "clean-apex-deployment",
+      "title": "Clean APEX deployment",
+      "source": "docs/clean-apex-deployment.md",
+      "lang": "en",
+      "key": "clean-apex-deployment",
+      "group": "Application work"
+    },
+    {
+      "slug": "versions",
+      "title": "Supported versions",
+      "source": "site/content/versions.md",
+      "lang": "en",
+      "key": "versions",
+      "group": "Reference"
     },
     {
       "slug": "architecture",
       "title": "Architecture",
       "source": "docs/architecture.md",
       "lang": "en",
-      "key": "architecture"
+      "key": "architecture",
+      "group": "Reference"
+    },
+    {
+      "slug": "oracle-apexlang-coverage",
+      "title": "Oracle APEXlang coverage",
+      "source": "docs/oracle-apexlang-coverage.md",
+      "lang": "en",
+      "key": "oracle-apexlang-coverage",
+      "group": "Reference"
+    },
+    {
+      "slug": "component-catalog",
+      "title": "Component catalog",
+      "source": "docs/component-catalog.md",
+      "lang": "en",
+      "key": "component-catalog",
+      "group": "Reference"
+    },
+    {
+      "slug": "pattern-catalog",
+      "title": "Pattern catalog",
+      "source": "docs/pattern-catalog.md",
+      "lang": "en",
+      "key": "pattern-catalog",
+      "group": "Reference"
+    },
+    {
+      "slug": "composer",
+      "title": "Composer (experimental)",
+      "source": "docs/composer.md",
+      "lang": "en",
+      "key": "composer",
+      "group": "Reference"
+    },
+    {
+      "slug": "codex-integration",
+      "title": "Host integration",
+      "source": "docs/codex-integration.md",
+      "lang": "en",
+      "key": "codex-integration",
+      "group": "Reference"
+    },
+    {
+      "slug": "codex-automation",
+      "title": "Programmatic automation",
+      "source": "docs/codex-automation.md",
+      "lang": "en",
+      "key": "codex-automation",
+      "group": "Reference"
+    },
+    {
+      "slug": "releases",
+      "title": "Releases",
+      "source": "site/content/releases.md",
+      "lang": "en",
+      "key": "releases",
+      "group": "Project"
+    },
+    {
+      "slug": "security",
+      "title": "Security and privacy",
+      "source": "SECURITY.md",
+      "lang": "en",
+      "key": "security",
+      "group": "Project"
+    },
+    {
+      "slug": "contributing",
+      "title": "Contributing",
+      "source": "CONTRIBUTING.md",
+      "lang": "en",
+      "key": "contributing",
+      "group": "Project"
+    },
+    {
+      "slug": "implementation-status",
+      "title": "Implementation status",
+      "source": "docs/implementation-status.md",
+      "lang": "en",
+      "key": "implementation-status",
+      "group": "Project"
+    },
+    {
+      "slug": "next-actions",
+      "title": "Next actions",
+      "source": "docs/next-actions.md",
+      "lang": "en",
+      "key": "next-actions",
+      "group": "Project"
+    },
+    {
+      "slug": "publishing",
+      "title": "Publishing policy",
+      "source": "docs/publishing.md",
+      "lang": "en",
+      "key": "publishing",
+      "group": "Project"
+    },
+    {
+      "slug": "release-notes",
+      "title": "Current release notes",
+      "source": "docs/release-notes.md",
+      "lang": "en",
+      "key": "release-notes",
+      "group": "Project"
+    },
+    {
+      "slug": "changelog",
+      "title": "Changelog",
+      "source": "CHANGELOG.md",
+      "lang": "en",
+      "key": "changelog",
+      "group": "Project"
     }
   ]
 }

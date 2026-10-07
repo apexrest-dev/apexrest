@@ -53,7 +53,7 @@ function help() {
     '',
     '--json emits one structured JSON result; diagnostics use stderr.',
     'Use --project PATH for project operations. Environment never defaults.',
-    'ship --env NAME --mode plan|apply --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.',
+    'ship --env NAME --mode plan|apply|recover --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.',
     'Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.',
   ];
   if (schemas[key])
@@ -100,9 +100,9 @@ function help() {
     lines.push(
       '',
       'mode plan: validate with the Oracle compiler, read the target and write .apexrest/plans/ship-<id>.json for review.',
-      'mode apply: non-production only. Records a deploy grant bound to this project, target and plan digest with the',
+      'mode apply: DEV/QA/TEST only. Records a deploy grant bound to this project, target and plan digest with the',
       "user's literal --user-request, imports with backup/drift/identity checks, verifies, then",
-      'removes the grant. Production targets require the protected CI approval path (deploy apply).',
+      'removes the grant. Production deployment/restore is unsupported. Remote risky SQL needs confirmation bound to the exact saved plan.',
     );
   if (key === 'ship' || key === 'deploy.plan')
     lines.push(
@@ -177,7 +177,7 @@ try {
     try {
       await executeJob(await loadProject(argv[1]!), argv[2]!, dispatch);
     } catch (error) {
-      // A worker that cannot begin (project, trust or request errors) never ran
+      // A worker that cannot begin (project or request errors) never ran
       // the operation; record that instead of leaving the job queued.
       await failQueuedJob(argv[1]!, argv[2]!, error).catch(() => undefined);
       throw error;
@@ -223,6 +223,16 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1]!.startsWith('--')) files.push(argv[++i]!);
             input[name] = files;
+          } else if (name === 'confirmation') {
+            try {
+              input[name] = JSON.parse(value);
+            } catch {
+              throw new Fault(
+                'INVALID_INPUT',
+                'Confirmation must be a JSON object bound to the reviewed plan digest.',
+                2,
+              );
+            }
           } else input[name] = numbers.has(name) ? Number(value) : value;
         }
       } else {

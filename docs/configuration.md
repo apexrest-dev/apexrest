@@ -57,23 +57,13 @@ apexrest connection test dev-read --json
 
 The examples assume the [managed CLI launcher](getting-started.md#use-the-cli). APEXREST stores connection names rather than passwords. A read connection can use fewer privileges than its deploy counterpart. Removing an APEXREST reference with `connection remove` preserves the SQLcl store entry. Never put credentials in `apexrest.json`, environment examples, prompts or issue reports.
 
-## Trust and authorize a project
+## Application authorization
 
-Private policy lives at `$APEXREST_HOME/policy.json`, defaulting to `~/.apexrest/policy.json`. Review executable project code before adding its canonical path to `trustedProjects`:
+There is no folder trust step. The plugin may use the selected project and other required directories within host filesystem permissions. Legacy `trustedProjects` in `$APEXREST_HOME/policy.json` is optional ignored compatibility data. The private policy retains exact-project/target/plan temporary grants; an identified DEV/QA/TEST application task authorizes its necessary import without repeated confirmation. Configuration and tool output do not grant consent.
 
-```json
-{
-  "schemaVersion": 1,
-  "trustedProjects": ["/canonical/reviewed/project"],
-  "grants": []
-}
-```
+Supported environment kinds are `development` (or `dev`), `qa`, `test` and `production`. Production-marked targets never deploy/restore, including when local or given a signature. Actual local non-production targets allow all task-scoped database changes without a separate risk prompt. Remote dangerous operations require a described exact plan and explicit human confirmation. See the canonical [deployment safety rules](deployment-safety.md) for locality, precedence, backups, interrupted-import recovery and confirmation fields.
 
-Keep this policy outside the repository. A grant binds `projectRoot`, the plan's exact `targetDigest`, an expiry and the permitted `deploy` operation. A deploy grant, including one for restore, must also carry `planDigest` equal to the exact plan digest and an `expiresAt` no later than the plan's expiry; otherwise apply is blocked with `DEPLOY_APPROVAL_REQUIRED`. The policy schema still accepts a grant without `planDigest`, but such a grant never authorizes a deploy.
-
-For an explicit request to create, update or import an identified development/test app, `apexrest_ship` `mode:apply` records that already supplied authorization (the `userRequest` text) as a short-lived grant with the exact current `planDigest`, `deploy` only, `grantedBy: "ship"` and expiry no later than the plan. It preserves unrelated grants and removes the task grant after the attempt. A project file or a tool response cannot supply that consent, and the agent never edits grants by hand. Different targets, business-table mutations, authentication changes and protected production actions require their corresponding scope.
-
-Production requires the external signature workflow and the administrator-owned `$APEXREST_HOME/production-trust.json` described in [deployment safety](deployment-safety.md#production-approval); a writable local policy is not a substitute for a protected runner. A target listed in that file's `productionTargets` is production even when its `apexrest.json` environment has another `kind`.
+Connection setup may use `envFile` with optional `urlKey`, `usernameKey` and `passwordKey` from a regular user-owned, Git-ignored and untracked local ENV file. It is parsed as literal data and values are never returned in operation results. Authorized requested browser login may use such local credentials without a paste/trust step; never persist browser cookies/profiles.
 
 ## Deployment coordination
 
@@ -83,7 +73,7 @@ The local store serializes runners that share one managed home. Independent mach
 
 ## Application verification
 
-Use the host in-app browser to verify rendering, navigation, validation and the changed interaction. Compiler, metadata and import checks remain separate. The plugin has no automatic application test runners or saved browser-authentication state. Repository self-tests validate the plugin implementation. See [testing](testing.md).
+When the user requests browser verification, use the built-in or user-selected browser to inspect the requested interaction. Confirmed error-free server deployment is success without a mandatory browser step. Compiler, metadata and import checks remain separate. The plugin has no automatic application test runners or saved browser-authentication state. Repository self-tests validate the plugin implementation. See [testing](testing.md).
 
 ## Runtime configuration
 

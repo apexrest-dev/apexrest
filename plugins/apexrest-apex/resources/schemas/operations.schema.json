@@ -463,6 +463,23 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 4096
+      },
+      "envFile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "usernameKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "passwordKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "urlKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
       }
     },
     "required": [
@@ -1133,10 +1150,9 @@
       },
       "browserMode": {
         "type": "string",
-        "enum": [
-          "codex",
-          "host"
-        ]
+        "minLength": 1,
+        "maxLength": 80,
+        "pattern": "^[\\p{L}\\p{N} ._-]+$"
       }
     },
     "required": [
@@ -1342,6 +1358,23 @@
         "minLength": 1,
         "maxLength": 4096
       },
+      "envFile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "usernameKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "passwordKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "urlKey": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
       "saved": {
         "default": false,
         "type": "boolean"
@@ -1480,8 +1513,38 @@
         "type": "string",
         "enum": [
           "plan",
-          "apply"
+          "apply",
+          "recover"
         ]
+      },
+      "plan": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "run": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "confirmation": {
+        "type": "object",
+        "properties": {
+          "planDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "userRequest": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "planDigest",
+          "userRequest"
+        ],
+        "additionalProperties": false
       },
       "importMode": {
         "default": "auto",
@@ -1533,6 +1596,25 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 1024
+      },
+      "confirmation": {
+        "type": "object",
+        "properties": {
+          "planDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "userRequest": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "planDigest",
+          "userRequest"
+        ],
+        "additionalProperties": false
       },
       "userRequest": {
         "type": "string",

@@ -179,7 +179,6 @@ export class PanelService {
       updatedAt: new Date().toISOString(),
       project: this.root,
       configured: !!ctx,
-      trusted: security.trustedProjects.includes(this.root),
       configuration: ctx?.config ?? null,
       sqlcl,
       preferences: prefs,
