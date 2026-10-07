@@ -1,0 +1,92 @@
+1
+00:00:00,850 --> 00:00:04,462
+One dashboard change. A focused APEX update.
+
+2
+00:00:05,223 --> 00:00:10,097
+APEXREST connects Codex and Claude Code to Oracle APEX development.
+
+3
+00:00:10,107 --> 00:00:14,131
+Describe what you need; the agent edits APEXlang source,
+
+4
+00:00:14,141 --> 00:00:17,770
+and the plugin handles validation, planning, and import.
+
+5
+00:00:18,320 --> 00:00:21,440
+Here, we add a monthly-sales chart to one dashboard.
+
+6
+00:00:21,450 --> 00:00:24,674
+A selective export brings that page into the project.
+
+7
+00:00:24,684 --> 00:00:29,115
+After editing, APEXREST identifies the changed page files.
+
+8
+00:00:29,842 --> 00:00:32,904
+The change is compiled and checked against the target.
+
+9
+00:00:32,914 --> 00:00:34,863
+A plan selects the right scope.
+
+10
+00:00:34,873 --> 00:00:39,017
+In automatic mode, supported page changes use a file import;
+
+11
+00:00:39,027 --> 00:00:42,083
+broader changes use the full application.
+
+12
+00:00:42,655 --> 00:00:46,526
+Before applying, APEXREST saves an APEXlang snapshot.
+
+13
+00:00:46,536 --> 00:00:50,750
+It imports the selected files and reads the page back from Oracle.
+
+14
+00:00:50,760 --> 00:00:54,835
+If the outcome is uncertain, recovery first checks the server.
+
+15
+00:00:55,335 --> 00:01:00,142
+Shared components, such as a list of values, can also be imported separately.
+
+16
+00:01:00,152 --> 00:01:04,547
+Their server observation currently uses a full APEXlang snapshot.
+
+17
+00:01:04,557 --> 00:01:09,046
+Global settings and unsupported changes require a full import.
+
+18
+00:01:09,596 --> 00:01:14,144
+Version two adds scoped updates and APEXlang recovery snapshots,
+
+19
+00:01:14,154 --> 00:01:16,020
+with a shorter change cycle.
+
+20
+00:01:16,030 --> 00:01:20,056
+Compilation and planning are included in one apply workflow,
+
+21
+00:01:20,066 --> 00:01:22,295
+shared by Codex and Claude Code.
+
+22
+00:01:22,845 --> 00:01:25,691
+Change what matters. Keep the workflow clear.
+
+23
+00:01:25,701 --> 00:01:29,853
+Explore the APEXREST 2.0 source bundle on GitHub.
+

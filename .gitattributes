@@ -3,6 +3,8 @@
 *.jpg binary
 *.jpeg binary
 *.zip binary
+*.mp4 binary
+*.srt text
 *.gz binary
 # Preserve copied Oracle exports and third-party notices byte for byte.
 plugins/apexrest-apex/resources/** -text -whitespace

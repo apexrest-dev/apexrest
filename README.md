@@ -12,6 +12,14 @@ The plugin provides six skills and ten MCP tools backed by one runtime that runs
 
 [APEX 26.2 partial imports](docs/apex-26.2.md) · [Get started](https://apexrest-dev.github.io/apexrest/getting-started/) · [Documentation](https://apexrest-dev.github.io/apexrest/docs/) · [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/) · [Verification status](https://apexrest-dev.github.io/apexrest/implementation-status/)
 
+## Watch: scoped APEXlang updates in 90 seconds
+
+[![Poster frame of the APEXREST 2.0 explainer: an application map with one dashboard page selected for a scoped update](docs/assets/apexrest-2-scoped-updates-poster.png)](docs/assets/apexrest-2-scoped-updates.mp4)
+
+[Watch the explainer (MP4, 1080×1350, English narration, burned-in captions)](docs/assets/apexrest-2-scoped-updates.mp4) · [Captions (SRT)](docs/assets/apexrest-2-scoped-updates.srt)
+
+The video is an illustrated walkthrough of one page change: selective export, local edit, compiler validation, scope planning, APEXlang snapshot, selected-file import and readback, plus the shared-component boundary. Data, page names and the narrator voice are synthetic; it is not a recording of a live deployment or a benchmark.
+
 ## APEX 26.2: import the pages and components you changed
 
 **Update a page and its shared list of values without re-importing the rest of the application.** APEXREST can automatically select eligible changes or import an explicit list of `.apx` files. It compares the saved baseline, local edits and a fresh server export, preserves remote-only changes and blocks conflicts before writing.
