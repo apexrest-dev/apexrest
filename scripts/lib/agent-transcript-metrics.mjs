@@ -120,6 +120,21 @@ async function scan(file, start, end, secrets, forceSidechain = false, state = {
         m.permissionPrompts = (m.permissionPrompts ?? 0) + 1;
         delete m.permissionReason;
       }
+      const denials =
+        r.message?.content?.filter?.(
+          (b) =>
+            b.type === 'tool_result' &&
+            b.is_error === true &&
+            /permission|denied|not allowed/i.test(JSON.stringify(b.content)),
+        ) ?? [];
+      for (const denial of denials) {
+        const key = (side ? 'side:' : 'main:') + 'permission:' + (denial.tool_use_id ?? position);
+        if (!ids.has(key)) {
+          ids.add(key);
+          m.permissionPrompts = (m.permissionPrompts ?? 0) + 1;
+          delete m.permissionReason;
+        }
+      }
       const p = r.payload ?? r;
       const role = r.type === 'response_item' ? p.role : r.message?.role;
       const assistant =
