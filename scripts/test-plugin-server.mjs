@@ -6,7 +6,13 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { sha256, sourceDigest } from './lib/release.mjs';
-import { tokenSnapshot, tokenDelta, statistics, savePrivateJson } from './lib/plugin-test-metrics.mjs';
+import {
+  tokenSnapshot,
+  usageSelection,
+  tokenDelta,
+  statistics,
+  savePrivateJson,
+} from './lib/plugin-test-metrics.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -15,6 +21,8 @@ const { values } = parseArgs({
     samples: { type: 'string', default: '3' },
     output: { type: 'string' },
     rollout: { type: 'string' },
+    transcript: { type: 'string' },
+    'usage-source': { type: 'string' },
     'allow-app-writes': { type: 'boolean', default: false },
     'user-request': { type: 'string' },
     'initialize-baseline': { type: 'boolean', default: false },
@@ -68,7 +76,7 @@ const evidence = {
     'No business DML, authentication changes, destructive fault injection or production operations.',
   ],
 };
-const before = await tokenSnapshot(values.rollout);
+const before = await tokenSnapshot(usageSelection(values));
 const start = performance.now();
 let calls = 0;
 async function measure(id, invoke, verify, repeat = 1) {
@@ -360,7 +368,7 @@ try {
   evidence.finishedAt = new Date().toISOString();
   evidence.wallTimeMs = performance.now() - start;
   evidence.mcpCalls = calls;
-  evidence.tokens = tokenDelta(before, await tokenSnapshot(values.rollout));
+  evidence.tokens = tokenDelta(before, await tokenSnapshot(usageSelection(values)));
   evidence.status =
     evidence.blocker || evidence.checks.some((c) => c.status === 'failed') ? 'failed' : 'partial';
   await savePrivateJson(output, evidence);

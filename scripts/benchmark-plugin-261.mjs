@@ -7,7 +7,14 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { sourceDigest, sha256 } from './lib/release.mjs';
-import { savePrivateJson, statistics, tokenSnapshot, tokenDelta } from './lib/plugin-test-metrics.mjs';
+import {
+  savePrivateJson,
+  statistics,
+  usageSelection,
+  tokenSnapshot,
+  usageSelection,
+  tokenDelta,
+} from './lib/plugin-test-metrics.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -16,6 +23,8 @@ const { values } = parseArgs({
     samples: { type: 'string', default: '20' },
     output: { type: 'string', default: 'docs/evidence/plugin-server/performance-20.json' },
     rollout: { type: 'string' },
+    transcript: { type: 'string' },
+    'usage-source': { type: 'string' },
     scenarios: { type: 'string' },
   },
 });
@@ -75,7 +84,7 @@ const report = {
   status: 'running',
 };
 const began = performance.now(),
-  before = await tokenSnapshot(values.rollout);
+  before = await tokenSnapshot(usageSelection(values));
 let client;
 async function connect() {
   const c = new Client({ name: 'apexrest-261-performance', version: '1.0.0' });
@@ -278,7 +287,7 @@ try {
   });
   report.finishedAt = new Date().toISOString();
   report.wallTimeMs = performance.now() - began;
-  report.tokens = tokenDelta(before, await tokenSnapshot(values.rollout));
+  report.tokens = tokenDelta(before, await tokenSnapshot(usageSelection(values)));
   await savePrivateJson(values.output, report);
   console.log(
     JSON.stringify({

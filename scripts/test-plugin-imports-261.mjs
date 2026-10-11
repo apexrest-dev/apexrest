@@ -6,7 +6,13 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { sha256, sourceDigest } from './lib/release.mjs';
-import { savePrivateJson, tokenSnapshot, tokenDelta, statistics } from './lib/plugin-test-metrics.mjs';
+import {
+  savePrivateJson,
+  tokenSnapshot,
+  usageSelection,
+  tokenDelta,
+  statistics,
+} from './lib/plugin-test-metrics.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -15,6 +21,8 @@ const { values } = parseArgs({
     mode: { type: 'string', default: 'plan' },
     page: { type: 'string', default: 'pages/p00001-home.apx' },
     rollout: { type: 'string' },
+    transcript: { type: 'string' },
+    'usage-source': { type: 'string' },
     'user-request': { type: 'string' },
   },
 });
@@ -54,7 +62,7 @@ const report = {
   checks: [],
   status: 'running',
 };
-const usage = await tokenSnapshot(values.rollout),
+const usage = await tokenSnapshot(usageSelection(values)),
   started = performance.now();
 let client,
   calls = 0;
@@ -241,7 +249,7 @@ try {
   report.finishedAt = new Date().toISOString();
   report.wallTimeMs = performance.now() - started;
   report.mcpCalls = calls;
-  report.tokens = tokenDelta(usage, await tokenSnapshot(values.rollout));
+  report.tokens = tokenDelta(usage, await tokenSnapshot(usageSelection(values)));
   await savePrivateJson(output, report);
   console.log(
     JSON.stringify({
