@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "version": "2.0.0",
-  "sourceDigest": "516cc3efdff24244c5c7bbd73993bc9b895ac66b785079aa6cc13001fe8281cd",
+  "sourceDigest": "e733a5e3d80b72981847540827297d271334b88b98c4becb47234eed1fb84831",
   "files": {
     ".claude-plugin/plugin.json": "8b7bee067a6cf78ba265eb267f8e843b1025f7c62f6727eb3d28e530b27fee35",
     ".codex-plugin/plugin.json": "792bcb393739047f8850b36c96c8831f27bcc3667f7345cfa91b2663999f0242",
@@ -1221,7 +1221,7 @@
     "resources/patterns/source/universal-theme-reference/snapshot.json": "c9ade33b001d9692e5e9df909d4bf8033ee9b6399eac8dd6330cea73d76c42b9",
     "resources/patterns/source/ux-pattern-catalog/inventory.json": "12ef617167ccef66dc96cc978bdd326fa5212d866f52da56ec08627611c5e33c",
     "resources/patterns/source/ux-pattern-catalog/snapshot.json": "7142713f31d44a6554ff1e25d47c7829688b0a87142b10fb81e7941c465a7b15",
-    "resources/policy/deployment-safety.md": "77c66fcbcdc53eef7f6cfbaf7d15f1136cf41475d0b701b1954c43244aad044c",
+    "resources/policy/deployment-safety.md": "86f36146b863e0b703d9a60c4011ec6ec63b7ed9e8c66ce90a7d71a549641fd1",
     "resources/references/26.2/ORACLE-LICENSE.txt": "939579ce6e384d07f665d3f8078d3596a41c3517465a92d9ce680ebb23e33205",
     "resources/references/26.2/documents/app/ai-agent/ai-agent.md": "5e8104a7a1635e759c5473d7faf8b3fa7a270197b4f5c61903c122bc5cd92eef",
     "resources/references/26.2/documents/app/ai-agent/tool/parameter/parameter.md": "f9b3644f06bb0b0376477093d0fabe91f95fe887db7a7e387d634e081962c0a0",

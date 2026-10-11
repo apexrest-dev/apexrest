@@ -4,6 +4,8 @@ These are the current APEXREST product rules for application and database work. 
 
 ## Environments and precedence
 
+Read-only dictionary batches verify identity from the same session before any row is returned. Queries may execute together, but a mismatch discards the entire batch.
+
 | Target                                             | Application deployment                                | Database changes                                                                                                          |
 | -------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | DEV (`development` or `dev`)                       | The identified application task authorizes plan/apply | Remote dangerous operations require exact-plan human confirmation                                                         |
