@@ -1401,7 +1401,8 @@ __export(oracle_exports, {
   parseCompilerDiagnostics: () => parseCompilerDiagnostics,
   resetCapabilityCache: () => resetCapabilityCache,
   sqlLiteral: () => sqlLiteral,
-  sqlclToken: () => sqlclToken
+  sqlclToken: () => sqlclToken,
+  targetIdentitySql: () => targetIdentitySql
 });
 import { performance } from "node:perf_hooks";
 import path11 from "node:path";
@@ -8051,6 +8052,7 @@ export {
   APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,
+  targetIdentitySql,
   sqlclToken,
   SCRIPT_RESTRICT_LEVEL,
   OracleAdapter,

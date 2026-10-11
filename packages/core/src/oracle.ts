@@ -28,7 +28,7 @@ import {
 import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
 import { localConnectionEndpoint, localServerHost } from './locality.ts';
 import { scopedExportFile, supportedFile } from './partial-import.ts';
-const targetIdentitySql = `select 'identity' target_record,
+export const targetIdentitySql = `select 'identity' target_record,
         sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
         sys_context('USERENV','SERVICE_NAME') service_name,
         sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,

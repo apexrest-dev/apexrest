@@ -79,9 +79,9 @@ test('metadata execution timings contain exact labels and never SQL, binds or us
   });
   assert.deepEqual(
     records.map((r) => r.label),
-    ['verifyTarget', 'metadata-batch'],
+    ['metadata-batch'],
   );
-  assert.equal(records.length, 2);
+  assert.equal(records.length, 1);
   assert.ok(records.every((r) => r.spawnMs === 2 && r.executeMs === 3 && r.totalMs === 5));
   assert.doesNotMatch(
     JSON.stringify(records),

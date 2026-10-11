@@ -46,8 +46,9 @@ import {
   sqlclToken,
   stageSelection,
   supportedFile,
-  syncPath
-} from "./chunk-RMP7YVGN.mjs";
+  syncPath,
+  targetIdentitySql
+} from "./chunk-4AZ44YOS.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -7850,7 +7851,6 @@ async function metadataRead(adapter, env2, connection, value) {
     if (["columns", "constraints", "constraint-columns", "signatures"].includes(r.kind) && !r.name)
       throw new Fault("OBJECT_REQUIRED", "Select a specific object first.", 2);
   }
-  await adapter.verifyTarget(env2, connection);
   const query = (r) => ({
     sql: queries[r.kind] + " offset :p_offset rows fetch next :p_limit rows only",
     bindings: {
@@ -7868,19 +7868,23 @@ async function metadataRead(adapter, env2, connection, value) {
     offset: r.offset,
     nextOffset: rows2.length === r.limit ? r.offset + r.limit : null
   });
-  if (!batch) {
-    const q = query(input);
-    return page2(input, await adapter.jsonQuery(q.sql, connection, q.bindings));
-  }
-  const rows = await adapter.jsonQueryBatch(requests.map(query), connection);
+  const rows = await adapter.jsonQueryBatch(
+    [
+      { sql: targetIdentitySql, bindings: { p_workspace: env2.workspace, p_app_id: env2.applicationId } },
+      ...requests.map(query)
+    ],
+    connection
+  );
+  if (rows.length !== requests.length + 1)
+    throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not answer every metadata request.", 1);
+  await adapter.verifyTarget(env2, connection, rows[0]);
+  if (!batch) return page2(input, rows[1]);
   const results = requests.map((r, index) => ({
     index,
     kind: r.kind,
     ...r.name ? { name: r.name } : {},
-    ...page2(r, rows[index] ?? [])
+    ...page2(r, rows[index + 1])
   }));
-  if (rows.length !== requests.length)
-    throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not answer every metadata request.", 1);
   return { results, targetVerifiedOnce: true };
 }
 
@@ -14868,29 +14872,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-OASPDRNJ.mjs");
+        const { ToolchainService } = await import("./chunk-WZCSO4EU.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-6YWRCWOM.mjs");
+        const { uninstallTools } = await import("./chunk-ET5L6PMI.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-K33UOCGP.mjs");
+        const { setup: setup2 } = await import("./chunk-NUYAXAA2.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-K33UOCGP.mjs");
+        const { validateNative } = await import("./chunk-NUYAXAA2.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-K33UOCGP.mjs");
+        const { uninstallNative } = await import("./chunk-NUYAXAA2.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

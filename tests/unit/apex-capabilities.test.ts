@@ -27,8 +27,9 @@ function fixture() {
       return rows;
     },
     async jsonQueryBatch(queries: { sql: string; bindings: Record<string, string | number> }[]) {
-      calls.push(...queries);
-      return queries.map(() => rows);
+      const results = [];
+      for (const q of queries) results.push(await adapter.jsonQuery(q.sql, connection, q.bindings));
+      return results;
     },
   };
   return {
@@ -83,16 +84,16 @@ test('capability pages retain observed values and unknown readiness after one fr
   const f = fixture();
   const result = await f.read({ ...request, offset: 4, limit: 3 });
   assert.equal(f.verified(), 1);
-  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls.length, 2);
   assert.equal(
-    f.calls[0]!.sql,
+    f.calls[1]!.sql,
     apexCapabilitiesQuery + ' offset :p_offset rows fetch next :p_limit rows only',
   );
-  assert.equal(f.calls[0]!.bindings.p_owner, 'FIXTURE');
-  assert.equal(f.calls[0]!.bindings.p_app_id, 1001);
-  assert.equal(f.calls[0]!.bindings.p_workspace, 'FIXTURE_WORKSPACE');
-  assert.equal(f.calls[0]!.bindings.p_offset, 4);
-  assert.equal(f.calls[0]!.bindings.p_limit, 3);
+  assert.equal(f.calls[1]!.bindings.p_owner, 'FIXTURE');
+  assert.equal(f.calls[1]!.bindings.p_app_id, 1001);
+  assert.equal(f.calls[1]!.bindings.p_workspace, 'FIXTURE_WORKSPACE');
+  assert.equal(f.calls[1]!.bindings.p_offset, 4);
+  assert.equal(f.calls[1]!.bindings.p_limit, 3);
   assert.ok('rows' in result);
   assert.equal(result.rows[0]!.observed_value, '26.2.0');
   assert.equal(result.rows[1]!.status, 'not-observed');
@@ -107,10 +108,10 @@ test('capabilities stay in bounded metadata batches without extra sessions or cr
   const result = await f.read({ requests: [request, { kind: 'objects', schema: 'FIXTURE', limit: 1 }] });
   assert.ok('results' in result);
   assert.equal(f.verified(), 1);
-  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls.length, 3);
   assert.equal(result.results[0]!.kind, 'apex-capabilities');
   assert.equal(result.results[0]!.nextOffset, null);
-  assert.match(f.calls[1]!.sql, /from all_objects where owner=:p_owner/);
+  assert.match(f.calls[2]!.sql, /from all_objects where owner=:p_owner/);
   for (const invalid of [
     { ...request, schema: 'SYS' },
     { requests: [request, { ...request, schema: 'OTHER' }] },
@@ -131,7 +132,7 @@ test('failed identity or inaccessible dictionary rejects diagnostics instead of 
     throw new Fault('TARGET_MISMATCH', 'Fixture mismatch.', 5);
   };
   await assert.rejects(identity.read(request), { code: 'TARGET_MISMATCH' });
-  assert.deepEqual(identity.calls, []);
+  assert.equal(identity.calls.length, 2, 'Fetched rows are discarded on identity mismatch.');
   const dictionary = fixture();
   dictionary.adapter.jsonQuery = async () => {
     throw new Fault('QUERY_FAILED', 'Dictionary inaccessible.', 1);

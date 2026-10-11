@@ -19,8 +19,10 @@ const constraints = { kind: 'constraints', schema: 'FIXTURE', name: 'CUSTOMERS' 
 function fixture() {
   const calls: { sql: string; bindings: Record<string, string | number> }[] = [];
   let targetChecks = 0;
+  let sessions = 0;
   const adapter = {
-    async verifyTarget() {
+    async verifyTarget(_env: unknown, _connection: unknown, observed: unknown) {
+      assert.ok(Array.isArray(observed));
       targetChecks++;
     },
     async jsonQuery(sql: string, _connection: unknown, bindings: Record<string, string | number>) {
@@ -33,13 +35,14 @@ function fixture() {
       queries: { sql: string; bindings?: Record<string, string | number> }[],
       connection: unknown,
     ) {
+      sessions++;
       const rows = [];
       for (const q of queries) rows.push(await adapter.jsonQuery(q.sql, connection, q.bindings ?? {}));
       return rows;
     },
   };
   const read = (input: unknown) => metadataRead(adapter as unknown as OracleAdapter, env, connection, input);
-  return { adapter, calls, read, targetChecks: () => targetChecks };
+  return { adapter, calls, read, targetChecks: () => targetChecks, sessions: () => sessions };
 }
 
 test('metadata batch validates every request before any Oracle call', async () => {
@@ -60,10 +63,12 @@ test('metadata batch checks the target once, preserves order and binds each quer
   const f = fixture();
   const result = await f.read({ requests: [columns, constraints] });
   assert.equal(f.targetChecks(), 1);
-  assert.equal(f.calls.length, 2);
-  assert.match(f.calls[0]!.sql, /from all_tab_columns/);
-  assert.match(f.calls[1]!.sql, /from all_constraints/);
-  for (const call of f.calls) {
+  assert.equal(f.sessions(), 1);
+  assert.equal(f.calls.length, 3);
+  assert.deepEqual(f.calls[0]!.bindings, { p_workspace: env.workspace, p_app_id: env.applicationId });
+  assert.match(f.calls[1]!.sql, /from all_tab_columns/);
+  assert.match(f.calls[2]!.sql, /from all_constraints/);
+  for (const call of f.calls.slice(1)) {
     assert.match(call.sql, /offset :p_offset rows fetch next :p_limit rows only$/);
     assert.deepEqual(call.bindings, {
       p_owner: 'FIXTURE',
@@ -98,9 +103,12 @@ test('legacy metadata reads preserve the response shape and fresh identity check
     offset: 0,
     nextOffset: null,
   });
+  assert.equal(f.sessions(), 1);
+  assert.equal(f.calls.length, 2);
   await f.read(constraints);
   assert.equal(f.targetChecks(), 2);
-  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls.length, 4);
+  assert.equal(f.sessions(), 2);
 });
 
 test('metadata rejects mixed forms, empty batches and requests outside bounded pages', async () => {
@@ -130,7 +138,8 @@ test('metadata rejects mixed forms, empty batches and requests outside bounded p
     Array.from({ length: 8 }, (_, index) => [index * 2, index * 2 + 1]),
   );
   assert.equal(f.targetChecks(), 1);
-  assert.equal(f.calls.length, 8);
+  assert.equal(f.calls.length, 9);
+  assert.equal(f.sessions(), 1);
 });
 
 test('metadata batch reads sequentially and stops on failure without returning partial success', async () => {
@@ -146,17 +155,25 @@ test('metadata batch reads sequentially and stops on failure without returning p
     return [{ column_name: 'CUSTOMER_ID' }];
   };
   await assert.rejects(f.read({ requests: [columns, constraints, columns] }), { code: 'QUERY_FAILED' });
-  assert.equal(f.targetChecks(), 1);
+  assert.equal(f.targetChecks(), 0);
   assert.equal(reads, 2);
 });
 
-test('failed target verification prevents all batch reads', async () => {
+test('failed target verification discards all batch rows with the original fault code', async () => {
   const f = fixture();
   f.adapter.verifyTarget = async () => {
     throw new Fault('TARGET_MISMATCH', 'Fixture mismatched target.', 5);
   };
-  await assert.rejects(f.read({ requests: [columns, constraints] }), { code: 'TARGET_MISMATCH' });
-  assert.deepEqual(f.calls, []);
+  let result: unknown;
+  await assert.rejects(
+    async () => {
+      result = await f.read({ requests: [columns, constraints] });
+    },
+    { code: 'TARGET_MISMATCH' },
+  );
+  assert.equal(result, undefined, 'No queried rows leave the rejected operation.');
+  assert.equal(f.calls.length, 3);
+  assert.equal(f.sessions(), 1);
 });
 
 test('metadata public input stays extendable without injecting single-request defaults into batches', async () => {
@@ -169,5 +186,5 @@ test('metadata public input stays extendable without injecting single-request de
   const result = await f.read(request);
   assert.ok('results' in result);
   assert.equal(result.results[0]!.offset, 0);
-  assert.equal(f.calls[0]!.bindings.p_limit, 30);
+  assert.equal(f.calls[1]!.bindings.p_limit, 30);
 });

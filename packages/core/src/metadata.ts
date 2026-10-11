@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { identifier, parse } from './config.ts';
 import type { Environment } from './config.ts';
 import type { Connection } from './connections.ts';
-import { OracleAdapter } from './oracle.ts';
+import { OracleAdapter, targetIdentitySql } from './oracle.ts';
 import { Fault } from './result.ts';
 import { apexCapabilitiesQuery } from './apex-capabilities.ts';
 const metadataOffset = z.number().int().min(0).max(100000);
@@ -68,7 +68,6 @@ export async function metadataRead(
     if (['columns', 'constraints', 'constraint-columns', 'signatures'].includes(r.kind) && !r.name)
       throw new Fault('OBJECT_REQUIRED', 'Select a specific object first.', 2);
   }
-  await adapter.verifyTarget(env, connection);
   const query = (r: z.infer<typeof metadataRequest>) => ({
     sql: queries[r.kind] + ' offset :p_offset rows fetch next :p_limit rows only',
     bindings: {
@@ -86,20 +85,24 @@ export async function metadataRead(
     offset: r.offset,
     nextOffset: rows.length === r.limit ? r.offset + r.limit : null,
   });
-  if (!batch) {
-    const q = query(input);
-    return page(input, await adapter.jsonQuery(q.sql, connection, q.bindings));
-  }
-  // One SQLcl session answers the whole batch in order. Any failure rejects
-  // the operation; do not fabricate a partial success.
-  const rows = await adapter.jsonQueryBatch(requests.map(query), connection);
+  // Identity and scoped reads share one batch. Validate identity before any
+  // queried content becomes a result; a mismatch discards all data rows.
+  const rows = await adapter.jsonQueryBatch(
+    [
+      { sql: targetIdentitySql, bindings: { p_workspace: env.workspace, p_app_id: env.applicationId } },
+      ...requests.map(query),
+    ],
+    connection,
+  );
+  if (rows.length !== requests.length + 1)
+    throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not answer every metadata request.', 1);
+  await adapter.verifyTarget(env, connection, rows[0]!);
+  if (!batch) return page(input, rows[1]!);
   const results = requests.map((r, index) => ({
     index,
     kind: r.kind,
     ...(r.name ? { name: r.name } : {}),
-    ...page(r, rows[index] ?? []),
+    ...page(r, rows[index + 1]!),
   }));
-  if (rows.length !== requests.length)
-    throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not answer every metadata request.', 1);
   return { results, targetVerifiedOnce: true };
 }
