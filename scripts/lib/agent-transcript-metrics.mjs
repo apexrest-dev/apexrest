@@ -67,8 +67,8 @@ export function classifyTool(name, args) {
     (parsed?.mode === 'apply' || /\bmode\s*[=:]\s*["']apply["']/.test(serialized));
   const shellWrite =
     category === 'shell' &&
-    /(?:apexrest\s+(?:ship[^\n]*--mode\s+apply|deploy\s+apply|apex\s+(?:import|restore))|apex\s+import)/i.test(
-      serialized,
+    /(?:^|[\s/])apexrest(?:\.mjs)?\s+(?:ship\b[^\n]*--mode[=\s]+apply\b|deploy\s+apply\b|apex\s+(?:import|restore)\b)|(?:^|[\s/])apex\s+(?:import|restore)\b|(?:^|[\s/])apexrest(?:\.mjs)?\s+[^\n]*--confirmation\b/i.test(
+      parsed?.command ?? parsed?.cmd ?? serialized,
     );
   const dangerous =
     shellWrite ||

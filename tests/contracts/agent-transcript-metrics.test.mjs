@@ -8,6 +8,26 @@ import {
   transcriptMetrics,
   classifyTool,
 } from '../../scripts/lib/agent-transcript-metrics.mjs';
+test('shell write classification covers binary and Node CLI import forms', () => {
+  for (const command of [
+    'apexrest ship --env test --mode apply',
+    'node dist/runtime/apexrest.mjs ship --env test --mode apply',
+    'node dist/runtime/apexrest.mjs ship --mode=apply',
+    'apexrest deploy apply --env test',
+    'node /private/plugin/apexrest.mjs deploy apply',
+    'apexrest apex import --env test',
+    'node dist/runtime/apexrest.mjs apex restore --env test',
+    'apex import -applicationid 102',
+    'apex restore',
+    'apexrest ship --confirmation private.json',
+  ])
+    assert.equal(classifyTool('Bash', { command }).write, 'import-capable', command);
+  assert.equal(
+    classifyTool('Bash', { command: 'node dist/runtime/apexrest.mjs ship --mode plan' }).write,
+    null,
+  );
+});
+
 async function fixture(records, verify) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'agent-metrics-')),
     file = path.join(dir, 'session.jsonl');
