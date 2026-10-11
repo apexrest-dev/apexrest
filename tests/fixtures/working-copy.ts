@@ -71,6 +71,9 @@ export async function workingCopyFixture() {
         throw new Fault('QUERY_FAILED', 'Fixture metadata failure.', 3);
       return { ...controls.metadata };
     },
+    async targetWithMetadata() {
+      return { target: await oracle.verifyTarget(), metadata: await oracle.applicationMetadata() };
+    },
     async exportApplication(_env: unknown, _connection: unknown, format = 'APEXLANG') {
       calls.push('export:' + format);
       const directory = path.join(ctx.root, 'export-' + calls.length);

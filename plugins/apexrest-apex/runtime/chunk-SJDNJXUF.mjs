@@ -2943,6 +2943,27 @@ var targetIdentitySql = `select 'identity' target_record,
        union all
        select 'application', null, null, null, null, workspace, application_id, alias, owner
        from apex_applications where application_id = :p_app_id`;
+var applicationMetadataSql = `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
+        last_updated_by,
+        case when last_updated_on is null then 'Y' else 'N' end last_updated_on_is_null,
+        case when last_updated_by is null then 'Y' else 'N' end last_updated_by_is_null
+        from apex_applications
+        where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`;
+function parseApplicationMetadata(rows) {
+  const row = rows[0];
+  if (row && !Object.hasOwn(row, "last_updated_on") && row.last_updated_on_is_null === "Y")
+    row.last_updated_on = null;
+  if (row && !Object.hasOwn(row, "last_updated_by") && row.last_updated_by_is_null === "Y")
+    row.last_updated_by = null;
+  if (rows.length !== 1 || !row || !Object.hasOwn(row, "last_updated_on") || !Object.hasOwn(row, "last_updated_by"))
+    throw new Fault("SYNC_METADATA_UNCONFIRMED", "Application update metadata is absent or inaccessible.", 5);
+  if ([row.last_updated_on, row.last_updated_by].some((v2) => v2 !== null && typeof v2 !== "string"))
+    throw new Fault("SYNC_METADATA_UNCONFIRMED", "Unexpected application update metadata.", 5);
+  return {
+    lastUpdatedOn: row.last_updated_on,
+    lastUpdatedBy: row.last_updated_by
+  };
+}
 var targetVersionSql = "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'";
 var capabilityCache = /* @__PURE__ */ new Map();
 var importHelpCache = /* @__PURE__ */ new Map();
@@ -3889,34 +3910,31 @@ prompt ${token}_${index}`
   }
   async applicationMetadata(env, connection) {
     const rows = await this.jsonQuery(
-      `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
-        last_updated_by,
-        case when last_updated_on is null then 'Y' else 'N' end last_updated_on_is_null,
-        case when last_updated_by is null then 'Y' else 'N' end last_updated_by_is_null
-        from apex_applications
-        where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`,
+      applicationMetadataSql,
       connection,
       { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema },
       void 0,
       "applicationMetadata"
     );
-    const row = rows[0];
-    if (row && !Object.hasOwn(row, "last_updated_on") && row.last_updated_on_is_null === "Y")
-      row.last_updated_on = null;
-    if (row && !Object.hasOwn(row, "last_updated_by") && row.last_updated_by_is_null === "Y")
-      row.last_updated_by = null;
-    if (rows.length !== 1 || !row || !Object.hasOwn(row, "last_updated_on") || !Object.hasOwn(row, "last_updated_by"))
-      throw new Fault(
-        "SYNC_METADATA_UNCONFIRMED",
-        "Application update metadata is absent or inaccessible.",
-        5
-      );
-    if ([row.last_updated_on, row.last_updated_by].some((v2) => v2 !== null && typeof v2 !== "string"))
-      throw new Fault("SYNC_METADATA_UNCONFIRMED", "Unexpected application update metadata.", 5);
-    return {
-      lastUpdatedOn: row.last_updated_on,
-      lastUpdatedBy: row.last_updated_by
-    };
+    return parseApplicationMetadata(rows);
+  }
+  async targetWithMetadata(env, connection) {
+    const rows = await this.jsonQueryBatch(
+      [
+        { sql: targetIdentitySql, bindings: { p_workspace: env.workspace, p_app_id: env.applicationId } },
+        {
+          sql: applicationMetadataSql,
+          bindings: { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema }
+        }
+      ],
+      connection,
+      void 0,
+      "targetWithMetadata"
+    );
+    if (rows.length !== 2)
+      throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not answer the complete target observation.", 1);
+    const target = await this.verifyTarget(env, connection, rows[0]);
+    return { target, metadata: parseApplicationMetadata(rows[1]) };
   }
   async nativeDeployment(ctx, env, source) {
     const output = path11.join(await this.stage(), "deployment.json");

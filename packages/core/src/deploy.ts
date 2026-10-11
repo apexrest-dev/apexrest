@@ -579,8 +579,7 @@ export class DeploymentService {
   async workingFingerprint(ctx: ProjectContext, name: string, state: SyncState) {
     const env = environment(ctx, name),
       connection = await resolveConnection(env.readConnectionRef);
-    const target = await this.oracle.verifyTarget(env, connection);
-    const metadata = await this.oracle.applicationMetadata(env, connection);
+    const { target, metadata } = await this.oracle.targetWithMetadata(env, connection);
     if (
       !target.application ||
       canonical(target) !== canonical(state.target) ||
@@ -595,6 +594,7 @@ export class DeploymentService {
     return {
       target,
       history,
+      metadata,
       exported: checkpoint(state),
       versions: null,
       fingerprint: hash(canonical({ target, history, metadata })),
@@ -1880,11 +1880,12 @@ export class DeploymentService {
     working: SyncState,
     target: Awaited<ReturnType<OracleAdapter['verifyTarget']>>,
     serverSnapshot: Awaited<ReturnType<typeof persistSnapshot>> | null,
+    observedMetadata?: Awaited<ReturnType<OracleAdapter['applicationMetadata']>>,
   ) {
     const selection =
       plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files' ? plan.importSelection : null;
     const syncStore = new SyncStore(ctx, env, plan.environment);
-    const metadata = await this.oracle.applicationMetadata(env, readConnection);
+    const metadata = observedMetadata ?? (await this.oracle.applicationMetadata(env, readConnection));
     const directory = '.apexrest/deployments/' + runId + '/snapshot/' + ctx.config.application.sourceDir;
     const files = await inventory(await syncPath(ctx, directory));
     const snapshot = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };

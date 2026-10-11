@@ -48,7 +48,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-4AZ44YOS.mjs";
+} from "./chunk-SJDNJXUF.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -12792,8 +12792,7 @@ var DeploymentService = class {
   }
   async workingFingerprint(ctx, name2, state) {
     const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
-    const target = await this.oracle.verifyTarget(env2, connection);
-    const metadata = await this.oracle.applicationMetadata(env2, connection);
+    const { target, metadata } = await this.oracle.targetWithMetadata(env2, connection);
     if (!target.application || canonical(target) !== canonical(state.target) || canonical(metadata) !== canonical(state.observedMetadata))
       throw new Fault(
         "SYNC_SERVER_CHANGED",
@@ -12804,6 +12803,7 @@ var DeploymentService = class {
     return {
       target,
       history,
+      metadata,
       exported: checkpoint(state),
       versions: null,
       fingerprint: hash(canonical({ target, history, metadata }))
@@ -13874,10 +13874,10 @@ prompt APEXREST_SCRIPT_COMPLETE`,
     }
   }
   /** Record a confirmed, verified import as the working copy's new successful checkpoint. */
-  async completeWorkingCopy(ctx, plan, env2, readConnection, runId, working, target, serverSnapshot) {
+  async completeWorkingCopy(ctx, plan, env2, readConnection, runId, working, target, serverSnapshot, observedMetadata) {
     const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
     const syncStore = new SyncStore(ctx, env2, plan.environment);
-    const metadata = await this.oracle.applicationMetadata(env2, readConnection);
+    const metadata = observedMetadata ?? await this.oracle.applicationMetadata(env2, readConnection);
     const directory = ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const files = await inventory(await syncPath(ctx, directory));
     const snapshot2 = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
@@ -14872,29 +14872,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-WZCSO4EU.mjs");
+        const { ToolchainService } = await import("./chunk-PCZHTWES.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-ET5L6PMI.mjs");
+        const { uninstallTools } = await import("./chunk-Q7SQ5KSV.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-NUYAXAA2.mjs");
+        const { setup: setup2 } = await import("./chunk-67IFC7Z3.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-NUYAXAA2.mjs");
+        const { validateNative } = await import("./chunk-67IFC7Z3.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-NUYAXAA2.mjs");
+        const { uninstallNative } = await import("./chunk-67IFC7Z3.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
