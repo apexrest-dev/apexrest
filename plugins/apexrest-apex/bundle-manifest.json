@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "version": "2.0.0",
-  "sourceDigest": "ad7347311537ac5a1be7d54351ba9c78069e951737fdbfc2bfe466c252173a5b",
+  "sourceDigest": "62170322a775328cbdc4f36340299c8825df9ea14c1bb8f2eb32c32ee1556f09",
   "files": {
     ".claude-plugin/plugin.json": "8b7bee067a6cf78ba265eb267f8e843b1025f7c62f6727eb3d28e530b27fee35",
     ".codex-plugin/plugin.json": "792bcb393739047f8850b36c96c8831f27bcc3667f7345cfa91b2663999f0242",
