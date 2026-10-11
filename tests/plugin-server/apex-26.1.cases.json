@@ -1008,7 +1008,7 @@
       "expected": [
         "Every cycle: confirmed import, server readback matches the marker and the grant is removed.",
         "Connected sessions per apply are 4 when the read and deploy connections match.",
-        "Median and p95 are reported against the 3-sample baseline (53.1 s median); the P1 estimate stays labeled as an estimate.",
+        "Median, min and max are reported against the 3-sample baseline (53.1 s median); with 10 samples p95 is descriptive only; the P1 estimate stays labeled as an estimate.",
         "Final audit is byte-identical to the initial backup."
       ],
       "evidence": [
@@ -1393,7 +1393,7 @@
       "acceptance": ["A36", "CMP038", "HOST-PARITY-01"],
       "execution": "manual",
       "surface": "specified-in-steps",
-      "authorization": "read-only-or-local",
+      "authorization": "per-task (agent-tasks.cases.json; AGT-015 needs reviewed database changes)",
       "steps": [
         "Run the agent-tasks.cases.json tasks with profile 26.1 on each host, following host-codex/host-claude run rules."
       ],

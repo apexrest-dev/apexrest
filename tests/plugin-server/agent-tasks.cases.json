@@ -441,7 +441,7 @@
       "acceptance": ["A19", "A14", "A37", "A38", "CMP038", "HOST-PARITY-01"],
       "execution": "manual",
       "surface": "native-host-session",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "profiles": ["26.1", "26.2"],
       "prompt": "See scenario-bitcoin-dashboard.json agentPrompt (uk is sent; en is the canonical meaning).",
       "steps": ["Run SCN-BTC-001 phases P0 to P15 as defined in scenario-bitcoin-dashboard.json."],

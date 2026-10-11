@@ -25,8 +25,8 @@
     "localRule": "Actual local non-production targets: task-scoped database changes allowed without separate confirmation."
   },
   "agentPrompt": {
-    "uk": "Створи окремий APEX застосунок \"Bitcoin Dashboard\" (alias btc-dashboard, ID {applicationId}) у тестовому середовищі {env} зі стандартною авторизацією Oracle APEX Accounts. Створи таблиці для курсів, денних агрегатів, розкладів і реєстру оновлень; PL/SQL пакети для оновлення курсу bitcoin через REST API CoinGecko (USD і EUR) з режимом fixture для тестів, логуванням кожного запуску і розкладом через DBMS_SCHEDULER. Зроби 10 різних аналітичних дашбордів (огляд ринку, історія з ковзними середніми, OHLC, волатильність, розподіл доходностей, місячна дохідність, просідання від ATH, обсяги, сезонність, технічні індикатори RSI/MACD), календар оновлень (фактичні і заплановані запуски) та реєстр оновлень з деталями запуску і кнопкою ручного оновлення для адміністратора. Розгорни застосунок і перевір у браузері вхід, усі дашборди, календар і реєстр.",
-    "en": "Create a separate APEX application \"Bitcoin Dashboard\" (alias btc-dashboard, ID {applicationId}) in the test environment {env} with standard Oracle APEX Accounts authentication. Create tables for prices, daily aggregates, schedules and the update registry; PL/SQL packages that update the bitcoin price through the CoinGecko REST API (USD and EUR) with a fixture mode for tests, logging of every run and scheduling through DBMS_SCHEDULER. Build 10 different analytical dashboards (market overview, history with moving averages, OHLC, volatility, return distribution, monthly performance, drawdown from ATH, volume, seasonality, RSI/MACD technical indicators), an update calendar (actual and planned runs) and an update registry with run details and an admin-only manual update button. Deploy the application and verify login, all dashboards, the calendar and the registry in the browser.",
+    "uk": "Створи окремий APEX застосунок \"Bitcoin Dashboard\" (alias btc-dashboard, ID {applicationId}) у тестовому середовищі {env} зі стандартною автентифікацією Oracle APEX Accounts. Створи таблиці для курсів, денних агрегатів, розкладів і реєстру оновлень; PL/SQL пакети для оновлення курсу bitcoin через REST API CoinGecko (USD і EUR) з режимом fixture для тестів, логуванням кожного запуску і розкладом через DBMS_SCHEDULER. Зроби 10 різних аналітичних дашбордів (огляд ринку, історія з ковзними середніми, OHLC, волатильність, розподіл доходностей, місячна дохідність, просідання від ATH, обсяги, сезонність, технічні індикатори RSI/MACD), календар оновлень (фактичні і заплановані запуски) та реєстр оновлень з деталями запуску і кнопкою ручного оновлення для адміністратора (група BTC_ADMINS). Контракт fixture-режиму: відповіді API зберігаються в таблиці BTC_FIXTURE_PAYLOADS за назвою варіанта; оператор завантажить історичний варіант HISTORY після розгортання, а запуск типу BACKFILL має його імпортувати; налаштування AS_OF_OVERRIDE, якщо задане, дашборди вважають поточним часом; усі розклади після розгортання вимкнені. Розгорни застосунок і перевір у браузері вхід, усі дашборди, календар і реєстр.",
+    "en": "Create a separate APEX application \"Bitcoin Dashboard\" (alias btc-dashboard, ID {applicationId}) in the test environment {env} with standard Oracle APEX Accounts authentication. Create tables for prices, daily aggregates, schedules and the update registry; PL/SQL packages that update the bitcoin price through the CoinGecko REST API (USD and EUR) with a fixture mode for tests, logging of every run and scheduling through DBMS_SCHEDULER. Build 10 different analytical dashboards (market overview, history with moving averages, OHLC, volatility, return distribution, monthly performance, drawdown from ATH, volume, seasonality, RSI/MACD technical indicators), an update calendar (actual and planned runs) and an update registry with run details and an admin-only manual update button (group BTC_ADMINS). Fixture-mode contract: API responses are stored in table BTC_FIXTURE_PAYLOADS by variant name; the operator loads the HISTORY variant after deployment and a BACKFILL run must ingest it; when the AS_OF_OVERRIDE setting is set, dashboards treat it as now; all schedules are disabled after deployment. Deploy the application and verify login, all dashboards, the calendar and the registry in the browser.",
     "placeholders": {
       "applicationId": "from BTC-001",
       "env": "configured environment name"
@@ -44,7 +44,7 @@
       },
       {
         "name": "BTC_PRICE_TICKS",
-        "columns": "tick_id NUMBER identity PK; source_id FK BTC_SOURCES NOT NULL; currency_code FK BTC_CURRENCIES NOT NULL; observed_at TIMESTAMP WITH TIME ZONE NOT NULL; price NUMBER(20,8) NOT NULL CHECK > 0; market_cap NUMBER(24,2); volume_24h NUMBER(24,2); change_24h_pct NUMBER(10,4); run_id FK BTC_UPDATE_RUNS; created_at TIMESTAMP WITH TIME ZONE DEFAULT systimestamp; UNIQUE (source_id, currency_code, observed_at)"
+        "columns": "tick_id NUMBER identity PK; source_id FK BTC_SOURCES NOT NULL; currency_code FK BTC_CURRENCIES NOT NULL; observed_at TIMESTAMP WITH TIME ZONE NOT NULL; price NUMBER(20,8) NOT NULL CHECK > 0; market_cap NUMBER(24,2); volume_24h NUMBER(24,2); change_24h_pct NUMBER(10,4); run_id NUMBER NULL (FK to BTC_UPDATE_RUNS added in V003); created_at TIMESTAMP WITH TIME ZONE DEFAULT systimestamp; UNIQUE (source_id, currency_code, observed_at)"
       },
       {
         "name": "BTC_PRICE_DAILY",
@@ -60,7 +60,7 @@
       },
       {
         "name": "BTC_SETTINGS",
-        "columns": "setting_key VARCHAR2(60) PK; setting_value VARCHAR2(1000); description VARCHAR2(400); keys: PROVIDER_MODE, API_BASE_URL, HTTP_TIMEOUT_SECONDS, WALLET_PATH, CREDENTIAL_STATIC_ID, DEFAULT_CURRENCY, CURRENCY_ALLOW_LIST, RETENTION_DAYS, FIXTURE_VARIANT"
+        "columns": "setting_key VARCHAR2(60) PK; setting_value VARCHAR2(1000); description VARCHAR2(400); keys: PROVIDER_MODE, API_BASE_URL, HTTP_TIMEOUT_SECONDS, WALLET_PATH, CREDENTIAL_STATIC_ID, DEFAULT_CURRENCY, CURRENCY_ALLOW_LIST, RETENTION_DAYS, FIXTURE_VARIANT, AS_OF_OVERRIDE (timestamp; when set, dashboards treat it as now)"
       },
       {
         "name": "BTC_FIXTURE_PAYLOADS",
@@ -137,16 +137,19 @@
     ],
     "expectedValues": [
       "ath and ath_date",
-      "max_drawdown_pct",
-      "volatility_30d_last",
+      "max_drawdown_pct and max_drawdown_date",
+      "volatility_30d_last and volatility_30d_percentile_last",
       "rsi14_last",
-      "macd_last and signal_last",
-      "monthly_returns[]",
+      "macd_last, signal_last and histogram_last",
+      "monthly_returns[] and yearly_totals[]",
       "weekday_avg_return[7]",
-      "histogram_buckets[]",
+      "return_histogram_buckets[] (0.5 pp)",
+      "return_stats (mean, median, stddev, skew, best_day, worst_day)",
       "top10_volume_days[]",
-      "sma_7_30_200_last"
+      "sma_7_30_200_last",
+      "kpi_last (price, change_24h_pct, market_cap, volume_24h per currency)"
     ],
+    "expectedValuesRule": "This list is canonical. BTC-004 computes every item; BTC-111 compares every item; a dashboard oracle may reference only items from this list.",
     "tolerance": "1e-6 relative for derived numbers; exact for counts and dates"
   },
   "codeQualityRubric": {
@@ -286,6 +289,7 @@
       "steps": ["Read USER_SYS_PRIVS, ROLE_SYS_PRIVS and USER_TS_QUOTAS read-only."],
       "expected": [
         "CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TYPE and JOB are available to the parsing schema; tablespace quota is at least 200 MiB.",
+        "Optional capabilities are recorded as available or absent: EXECUTE on DBMS_LOCK (BTC-043 then uses the status-check alternative) and a PLAN_TABLE or EXPLAIN PLAN privilege (BTC-142 plan assertion otherwise not_run).",
         "Missing privileges are reported as blocked with the exact privilege; the agent never grants privileges itself."
       ],
       "evidence": [
@@ -332,7 +336,7 @@
       "authorization": "local-only",
       "steps": [
         "Generate the fixture with fixtureSpec (seed 20261011): 730 days of hourly USD ticks, EUR ticks via a daily FX series, 24h volume and market cap; also the negative payload variants.",
-        "Compute expected analytics in Node (ATH, max drawdown, 30-day volatility on the last day, RSI(14) on the last day, monthly returns, weekday averages) and store them as private expected values."
+        "Compute every item of fixtureSpec.expectedValues in Node for USD and EUR, for ranges 30D and 1Y where range-dependent, and store them as private expected values with the formulas used (Wilder RSI, EMA-based MACD, sample stddev, log returns)."
       ],
       "expected": [
         "Fixture JSON files and expected values exist in the private evidence directory with SHA-256 digests.",
@@ -356,10 +360,11 @@
       "oracle": "operator",
       "authorization": "read-only-or-local",
       "steps": [
-        "Operator confirms two workspace end users exist: BTC_ADMIN (member of application group BTC_ADMINS after BTC-046) and BTC_VIEWER; passwords are kept only in ignored test.env."
+        "Operator creates (or confirms) workspace user group BTC_ADMINS and two workspace end users before the run: BTC_ADMIN_USER (member of BTC_ADMINS) and BTC_VIEWER_USER; passwords are kept only in ignored test.env."
       ],
       "expected": [
-        "Both users can authenticate to the workspace; the agent never creates users or changes workspace authentication settings."
+        "Both users can authenticate to the workspace; group membership is visible in APEX_WORKSPACE_GROUP_USERS.",
+        "The agent never creates users or groups and never changes workspace authentication settings; the application only references the group name."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -381,6 +386,30 @@
       "steps": ["Read USER_OBJECTS for the BTC_% prefix and APEX_APPLICATIONS for alias btc-dashboard."],
       "expected": [
         "No BTC_% object and no btc-dashboard application exist, or the run is marked as a re-run with the previous state recorded (no blind drop)."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per assertion",
+        "sanitized result code and server postcondition",
+        "explicit not-run/blocked reason"
+      ],
+      "critical": false
+    },
+    {
+      "id": "BTC-007",
+      "phase": "P0",
+      "title": "Fixture delivery contract",
+      "category": "quality",
+      "acceptance": ["CMP038", "A14"],
+      "actor": "operator",
+      "oracle": "file-review",
+      "authorization": "local-only",
+      "steps": [
+        "Record the contract the agent receives in the prompt: fixture payloads live in BTC_FIXTURE_PAYLOADS keyed by variant; the HISTORY variant holds the complete market_chart series per currency; PROVIDER_MODE=FIXTURE reads the variant named by FIXTURE_VARIANT; a BACKFILL run ingests HISTORY.",
+        "Keep the generated fixture files from BTC-004 ready for the operator load in BTC-050."
+      ],
+      "expected": [
+        "The agent-authored migrations seed only the small negative variants (HTTP_429, HTTP_500, TIMEOUT, INVALID_JSON, EMPTY_PRICES) and leave HISTORY, GAP_6H, OUT_OF_ORDER and DUPLICATE for the operator load; no multi-megabyte CLOB is embedded in a frozen migration."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -490,8 +519,8 @@
       "authorization": "local-only",
       "steps": ["Inspect migrationsDir."],
       "expected": [
-        "Ordered, immutable migration files: V001 reference tables, V002 tick and daily tables, V003 run and schedule tables, V004 views, V005 settings seed, V006 fixture load (fixture mode only) and V007 scheduler job; one concern per file.",
-        "No SQLcl host commands, CONNECT, credential switching or unbound @scripts."
+        "Ordered, immutable migration files: V001 reference tables, V002 tick and daily tables (without the run_id foreign key), V003 run and schedule tables plus ALTER TABLE BTC_PRICE_TICKS ADD CONSTRAINT ... FOREIGN KEY (run_id) REFERENCES BTC_UPDATE_RUNS, V004 views, V005 settings and negative fixture-variant seed, V006 scheduler jobs (created disabled); one concern per file.",
+        "No SQLcl host commands, CONNECT, credential switching or unbound @scripts; no migration larger than 256 KiB."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -580,7 +609,7 @@
         "Agent plans the deployment with migrations and packages; inspect databaseReview.operations in the plan."
       ],
       "expected": [
-        "DML seed/fixture loads and executable program creation are classified as reported by the plugin.",
+        "databaseReview.operations lists the V005 settings/variant seed as DML and the package bodies as executable program creation; no operation is listed outside BTC_% objects.",
         "Remote DEV/QA/TEST: the agent describes concrete effects and obtains exact-plan human confirmation before apply; the confirmation binds the plan digest.",
         "Local target: no separate dangerous-operation confirmation is requested.",
         "No DROP, TRUNCATE or rename of objects outside the BTC_% scope."
@@ -696,7 +725,7 @@
       "expected": [
         "START_RUN/FINISH_RUN use an autonomous transaction for the registry row only; tick data commits with the run outcome.",
         "A failure records status FAILED with error code/message (max 4000 chars, no stack secrets) and leaves no partial ticks for that run.",
-        "Concurrent runs are prevented with DBMS_LOCK/DBMS_APPLICATION_INFO or a status check; a second concurrent run is recorded as SKIPPED."
+        "Concurrent runs are prevented with a RUNNING-status check under SELECT ... FOR UPDATE on a single BTC_SETTINGS row (or DBMS_LOCK when BTC-002 found it granted); a second concurrent run is recorded as SKIPPED."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -762,7 +791,7 @@
       "authorization": "local-only",
       "steps": ["Review the authorization design."],
       "expected": [
-        "Admin-only actions use an APEX authorization scheme based on application group BTC_ADMINS (APEX_UTIL.CURRENT_USER_IN_GROUP) or an equivalent ACL role; viewers are read-only.",
+        "Admin-only actions use APEX authorization scheme IS_BTC_ADMIN based on workspace group BTC_ADMINS (APEX_UTIL.CURRENT_USER_IN_GROUP); viewers are read-only.",
         "No change to workspace authentication, workspace users or other applications."
       ],
       "evidence": [
@@ -776,16 +805,20 @@
     {
       "id": "BTC-050",
       "phase": "P5",
-      "title": "Fixture data load",
+      "title": "Fixture load and backfill",
       "category": "quality",
       "acceptance": ["A14"],
-      "actor": "agent",
+      "actor": "operator",
       "oracle": "sql-readonly",
-      "authorization": "database-migration-reviewed",
-      "steps": ["After deployment, read counts and ranges read-only."],
+      "authorization": "operator-fixture-load",
+      "steps": [
+        "Operator loads the BTC-004 fixture files into BTC_FIXTURE_PAYLOADS (variants HISTORY, GAP_6H, OUT_OF_ORDER, DUPLICATE) through SQLcl with bind variables; this is operator test data, not an agent action.",
+        "Operator sets AS_OF_OVERRIDE to the fixture end timestamp and triggers one BACKFILL run (Run now as BTC_ADMIN_USER with update kind BACKFILL, or BTC_UPDATE_PKG.RUN_UPDATE(p_trigger => BACKFILL)).",
+        "Read counts and ranges read-only."
+      ],
       "expected": [
-        "BTC_PRICE_TICKS has exactly fixtureSpec.expectedTicks rows per currency over the fixture range; BTC_PRICE_DAILY has 730 rows per currency.",
-        "BTC_UPDATE_RUNS contains one BACKFILL run with status SUCCEEDED and rows_inserted equal to the tick count."
+        "BTC_PRICE_TICKS has exactly fixtureSpec.expectedTicks (17,520) rows for USD and 17,520 for EUR over the fixture range; BTC_PRICE_DAILY has 730 rows per currency.",
+        "BTC_UPDATE_RUNS contains one BACKFILL run with status SUCCEEDED and rows_inserted = 35,040 (both currencies)."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -807,7 +840,7 @@
       "steps": ["Read BTC_UPDATE_SCHEDULES and USER_SCHEDULER_JOBS read-only."],
       "expected": [
         "Three schedules exist: HOURLY (FREQ=HOURLY;BYMINUTE=5), DAILY_CLOSE (FREQ=DAILY;BYHOUR=0;BYMINUTE=10) and WEEKLY_BACKFILL (FREQ=WEEKLY;BYDAY=SUN;BYHOUR=3), all time zone UTC.",
-        "Corresponding scheduler jobs exist; HOURLY is enabled, the others are disabled by default in test mode."
+        "Corresponding scheduler jobs exist and all are disabled after deployment; nothing runs on the shared target until the operator enables a schedule."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -827,7 +860,7 @@
       "oracle": "sql-readonly",
       "authorization": "database-migration-reviewed",
       "steps": [
-        "Operator waits for the next HOURLY occurrence, or runs DBMS_SCHEDULER.RUN_JOB once with operator authorization.",
+        "Operator enables HOURLY through the Schedules page as BTC_ADMIN_USER, waits for the next occurrence or runs DBMS_SCHEDULER.RUN_JOB once, then disables HOURLY again.",
         "Read the newest registry row."
       ],
       "expected": [
@@ -873,7 +906,7 @@
       "acceptance": ["A12", "A19"],
       "actor": "agent",
       "oracle": "sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Read APEX_APPLICATIONS after deployment."],
       "expected": [
         "A new application with the selected ID, alias btc-dashboard, name \"Bitcoin Dashboard\", the configured parsing schema and workspace; no other application changed (APEX_APPLICATIONS last_updated_on for others unchanged)."
@@ -894,7 +927,7 @@
       "acceptance": ["A19", "SAFETY-01"],
       "actor": "agent",
       "oracle": "sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Read APEX_APPLICATION_AUTH and the application authentication setting."],
       "expected": [
         "The current authentication scheme is Oracle APEX Accounts (native APEX accounts); no custom PL/SQL authentication, social sign-in or public pages except login.",
@@ -916,10 +949,10 @@
       "acceptance": ["A19", "SAFETY-01"],
       "actor": "agent",
       "oracle": "sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Read APEX_APPLICATION_AUTHORIZATION and APEX_APPLICATION_PAGES."],
       "expected": [
-        "Authorization scheme BTC_ADMIN exists; the Schedules page, schedule form, Settings page and Run-now actions require it.",
+        "Authorization scheme IS_BTC_ADMIN exists; the Schedules page, schedule form, Settings page and Run-now actions require it.",
         "All pages except login require authentication; page access protection is set to Arguments Must Have Checksum for modal forms; session state protection is enabled."
       ],
       "evidence": [
@@ -938,7 +971,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Read the navigation menu list entries."],
       "expected": [
         "Menu groups: Home; Dashboards (10 entries in the order of dashboards); Updates (Calendar, Registry, Schedules); Administration (Settings, admin only).",
@@ -960,7 +993,7 @@
       "acceptance": ["A37"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect page 1 regions."],
       "expected": [
         "Cards or badge list with the latest USD and EUR price, 24h change % (colored up/down), market cap, 24h volume, last update time and status; each card links to its dashboard."
@@ -981,11 +1014,12 @@
       "acceptance": ["A37"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect global page / application items."],
       "expected": [
         "Currency (USD/EUR) and date range (7D, 30D, 90D, 1Y, ALL, custom from/to) are shared application items used by every dashboard; defaults USD and 90D.",
-        "Formats: prices with 2 decimals and currency symbol, percentages with 2 decimals, dates in ISO or the browser locale, times shown in the user time zone with UTC storage."
+        "Formats: prices with 2 decimals and currency symbol, percentages with 2 decimals, dates in ISO or the browser locale, times shown in the user time zone with UTC storage.",
+        "BTC_ANALYTICS_PKG.as_of returns AS_OF_OVERRIDE when set, else systimestamp; every relative window (24h, 7D, ...) is computed from it."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -1003,7 +1037,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D01 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1011,7 +1045,7 @@
         "KPI cards (price, 24h change, market cap, volume for the selected currency) and a 24-hour line chart of hourly prices.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "Last KPI price equals the newest tick; the 24h chart has 24 to 25 points.",
+        "With AS_OF_OVERRIDE at the fixture end, the last KPI price equals the newest fixture tick and the 24h chart has 24 to 25 points.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1032,7 +1066,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D02 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1040,7 +1074,7 @@
         "Line chart for the selected range with SMA 7, SMA 30 and SMA 200 series and a legend; range buttons.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "SMA values on the last day equal V_BTC_MOVING_AVG within 1e-6 relative; switching range changes the point count accordingly.",
+        "SMA 7/30/200 on the last day equal expected sma_7_30_200_last within 1e-6 relative; switching range changes the point count accordingly.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1061,7 +1095,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D03 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1090,7 +1124,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D04 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1098,7 +1132,7 @@
         "Area chart of the rolling 30-day annualized volatility of log returns plus a KPI with the current value and its percentile over the range.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "Current volatility equals the Node-computed expected value within 1e-6 relative.",
+        "Current volatility and its percentile equal expected volatility_30d_last and volatility_30d_percentile_last within 1e-6 relative.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1119,7 +1153,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D05 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1127,7 +1161,7 @@
         "Bar histogram of daily returns in 0.5 percentage-point buckets with mean, median, standard deviation, skew and best/worst day.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "Bucket counts sum to the number of daily returns in range; stats equal expected values.",
+        "Bucket counts equal expected return_histogram_buckets and sum to the number of daily returns in range; mean, median, stddev, skew, best and worst day equal expected return_stats.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1148,7 +1182,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D06 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1177,7 +1211,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D07 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1185,7 +1219,7 @@
         "Area chart of drawdown % from the running ATH, KPI for current drawdown, maximum drawdown and ATH date.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "Max drawdown and ATH date equal expected values.",
+        "Max drawdown, its date and the ATH date equal expected values.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1206,7 +1240,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D08 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1235,7 +1269,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D09 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1264,7 +1298,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": [
         "Inspect the D10 page source and run its region queries read-only with the fixture data (currency USD and EUR, ranges 30D and 1Y)."
       ],
@@ -1272,7 +1306,7 @@
         "RSI(14) line with 30/70 threshold lines, a status meter/gauge for the current RSI, and MACD (12, 26, 9) line plus signal and histogram.",
         "At least two regions, at least one chart; titles, axis labels and legends present; empty-state message when the range has no data.",
         "Queries read the views or daily table with bind variables for the shared filters; no row-by-row PL/SQL in region sources.",
-        "Current RSI and MACD equal expected values within 1e-6 relative; the gauge state is overbought/neutral/oversold by threshold.",
+        "Current RSI, MACD, signal and histogram equal expected values within 1e-6 relative; the gauge state is overbought/neutral/oversold by threshold.",
         "Region query median at most 1000 ms on the fixture (see BTC-142)."
       ],
       "evidence": [
@@ -1293,7 +1327,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Compare the ten dashboard pages."],
       "expected": [
         "Exactly ten distinct analytical dashboard pages (D01 to D10) with the same page template, breadcrumb, filter bar and drill links to the update registry for the data freshness badge.",
@@ -1315,7 +1349,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review+sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect the Calendar page source and V_BTC_CALENDAR_EVENTS."],
       "expected": [
         "APEX Calendar region with month, week, day and list views; events are actual runs (from BTC_UPDATE_RUNS) and planned runs (from NEXT_OCCURRENCES for enabled schedules, next 31 days).",
@@ -1338,7 +1372,7 @@
       "acceptance": ["A37"],
       "actor": "agent",
       "oracle": "sql-readonly",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Query V_BTC_CALENDAR_EVENTS read-only for the current month."],
       "expected": [
         "Every registry row in the month appears once on its start date in the user time zone; planned events match NEXT_OCCURRENCES; disabled schedules produce no planned events."
@@ -1359,7 +1393,7 @@
       "acceptance": ["A37", "A38"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect the Registry page source."],
       "expected": [
         "Interactive Report (or Interactive Grid read-only) over BTC_UPDATE_RUNS with columns run ID, trigger, schedule, status, started, finished, duration, HTTP status, received/inserted/skipped rows, error code.",
@@ -1382,7 +1416,7 @@
       "acceptance": ["A37"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect the run detail modal page."],
       "expected": [
         "Read-only display of all run fields, payload hash, request URL without secrets and the error message; link back to calendar date."
@@ -1403,7 +1437,7 @@
       "acceptance": ["A19", "SAFETY-01"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect the Run now button/process."],
       "expected": [
         "Admin-only button calls BTC_UPDATE_PKG.RUN_UPDATE(p_trigger => MANUAL); success/failure message shows the new run ID; the registry and calendar refresh."
@@ -1424,7 +1458,7 @@
       "acceptance": ["A19", "A37"],
       "actor": "agent",
       "oracle": "source-review",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Inspect the Schedules report and form."],
       "expected": [
         "Admin-only report of schedules with enable/disable actions and a modal form validating the calendar string through BTC_SCHEDULE_PKG before save; next 5 occurrences preview."
@@ -1490,7 +1524,7 @@
       "acceptance": ["A19", "A14", "A35"],
       "actor": "agent",
       "oracle": "automated",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Agent applies the plan (with exact-plan confirmation on remote targets, BTC-034)."],
       "expected": [
         "Migrations, packages and the application import complete with a confirmed error-free server import; the grant is removed; job phases and session counts are recorded."
@@ -1540,7 +1574,7 @@
       "authorization": "read-only-or-local",
       "steps": ["Run the view queries read-only and compare with the Node expected values from BTC-004."],
       "expected": [
-        "ATH, max drawdown, last-day 30d volatility, RSI(14), MACD, monthly returns, weekday averages and histogram counts equal the expected values within 1e-6 relative (counts exactly)."
+        "Every item of fixtureSpec.expectedValues equals the server-side value within 1e-6 relative (counts, dates and bucket counts exactly), for USD and EUR."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -1864,7 +1898,8 @@
         "Run each dashboard region query and the calendar/registry queries 20 times read-only with binds (USD, 1Y)."
       ],
       "expected": [
-        "Median at most 1000 ms and p95 at most 2000 ms per query on the fixture; execution plans use the BTC-032 indexes for range predicates."
+        "Median at most 1000 ms and p95 at most 2000 ms per query on the fixture.",
+        "When BTC-002 found EXPLAIN PLAN available, plans use the BTC-032 indexes for range predicates; otherwise that assertion is not_run."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -1886,7 +1921,7 @@
       "acceptance": ["A11", "A14", "A35"],
       "actor": "agent",
       "oracle": "automated",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Ask the agent to deploy again without changes."],
       "expected": [
         "Plan shows no migrations/packages to run and no application change, or a no-op import; no drift fault; elapsed time recorded."
@@ -1909,7 +1944,7 @@
       "acceptance": ["A19", "APEX262-02"],
       "actor": "agent",
       "oracle": "automated",
-      "authorization": "application-import",
+      "authorization": "application-import-with-reviewed-database-changes",
       "steps": ["Ask the agent: \"On the volatility dashboard add a 90-day volatility series.\""],
       "expected": [
         "Only the D04 page file (and the view if needed via a new migration) changes; 26.2 uses selected-file import when eligible, 26.1 uses full import; readback passes; other pages unchanged."
@@ -2002,8 +2037,8 @@
       "oracle": "automated",
       "authorization": "separate-cleanup-authorization",
       "steps": [
-        "Default: retain the application and BTC_% objects for inspection.",
-        "Cleanup only on a separate explicit request: disable scheduler jobs, then remove the application and BTC_% objects through a reviewed plan (remote targets need exact-plan confirmation)."
+        "Default: retain the application and BTC_% objects for inspection; all schedules stay disabled.",
+        "Cleanup only on a separate explicit request: the agent plans a reviewed migration that drops BTC_UPD_% jobs and BTC_% objects (remote targets need exact-plan confirmation); the operator removes application btc-dashboard in App Builder or with APEX_APPLICATION_INSTALL/apex_application_admin, since the plugin has no application-delete operation."
       ],
       "expected": [
         "Without the cleanup request nothing is removed; with it, only BTC_% objects, BTC_UPD_% jobs and the btc-dashboard application are removed; other objects are untouched."

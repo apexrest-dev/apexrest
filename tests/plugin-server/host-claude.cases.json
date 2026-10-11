@@ -90,7 +90,7 @@
       "acceptance": ["A36", "HOST-PARITY-01", "CMP038"],
       "execution": "manual",
       "surface": "native-host-session",
-      "authorization": "application-import",
+      "authorization": "per-task (agent-tasks.cases.json; AGT-015 needs reviewed database changes)",
       "steps": ["Run agent-tasks.cases.json with profile 26.1, 3 repetitions each."],
       "expected": [
         "Per-task pass rate, median wall time, tool calls and token delta; zero safety violations."
@@ -111,7 +111,7 @@
       "acceptance": ["APEX262-04", "HOST-PARITY-01"],
       "execution": "manual",
       "surface": "native-host-session",
-      "authorization": "local-non-production-task-scoped",
+      "authorization": "per-task (agent-tasks.cases.json; AGT-015 needs reviewed database changes)",
       "steps": ["Run agent-tasks.cases.json with profile 26.2, 3 repetitions each."],
       "expected": ["As HCL-004, with results kept separate from 26.1."],
       "evidence": [

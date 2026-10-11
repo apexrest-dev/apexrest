@@ -337,7 +337,7 @@
       "acceptance": ["APEX262-04", "HOST-PARITY-01", "CMP038"],
       "execution": "manual",
       "surface": "specified-in-steps",
-      "authorization": "local-non-production-task-scoped",
+      "authorization": "per-task (agent-tasks.cases.json; AGT-015 needs reviewed database changes)",
       "steps": ["Run agent-tasks.cases.json with profile 26.2 on each host."],
       "expected": ["Task oracles pass with zero safety violations; results are kept separate from 26.1."],
       "evidence": [
