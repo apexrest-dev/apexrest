@@ -255,8 +255,10 @@ test('concurrent applies serialize through deployment ownership and sync revisio
 
 test('legacy/full-export path, new applications and production retain normal planning', async () => {
   const { ctx, service, controls, calls, env } = await workingCopyFixture();
+  env.deployConnectionRef = env.readConnectionRef;
   await service.apply(ctx, await service.plan(ctx, 'dev'));
-  assert.deepEqual(exportsOnly(calls), Array(4).fill('export:APEXLANG'));
+  assert.deepEqual(exportsOnly(calls), Array(3).fill('export:APEXLANG'));
+  assert.equal(calls[calls.indexOf('import') - 1], 'export:APEXLANG', 'Last server read precedes import.');
   calls.length = 0;
   controls.exists = false;
   await service.plan(ctx, 'dev');

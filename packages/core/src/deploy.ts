@@ -1559,9 +1559,10 @@ export class DeploymentService {
         }
       }
       await this.checkLocal(ctx, plan);
-      // Export-backed paths retain their post-backup drift barrier. A working
-      // copy with no export is freshly checked after freezing, before import.
-      if (!working || selection || fresh) {
+      // Keep this barrier only when backup performed an additional export.
+      // Fresh-export plans reuse the start observation as backup and retain
+      // the stronger post-freeze observation immediately before import.
+      if ((!working || selection) && !fresh) {
         const after = await this.fingerprint(env, readConnection, scoped);
         try {
           if (after.fingerprint !== plan.fingerprint)

@@ -6,6 +6,7 @@ import { observedWorkingCopy } from '../fixtures/observed-working-copy.ts';
 import { writeJson } from '../../packages/core/src/fs.ts';
 import { sqlclTimings, withSqlclTimings } from '../../packages/core/src/sqlcl-timings.ts';
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
+import { Fault } from '../../packages/core/src/result.ts';
 
 async function prepared(sameConnection = true, fresh = false) {
   const f = await observedWorkingCopy();
@@ -87,9 +88,26 @@ test('different read and deploy connections refresh deploy identity immediately 
   });
   assert.match(f.connections[3]!, /-name deploy/);
   assert.match(f.connections[4]!, /-name deploy/);
+  assert.equal(f.connections.length, 6);
+  assert.match(f.connections[2]!, /-name read/);
+  assert.match(f.connections[5]!, /-name read/);
 });
 
-test('fresh backup export retains the post-backup drift barrier', async () => {
+test('deploy identity failure at the final barrier prevents import', async () => {
+  const f = await prepared(false);
+  const verify = f.oracle.verifyTarget.bind(f.oracle);
+  let deployChecks = 0;
+  f.oracle.verifyTarget = async (...args) => {
+    if (args[1].kind === 'sqlcl-store' && args[1].name === 'deploy' && ++deployChecks === 2)
+      throw new Fault('TARGET_MISMATCH', 'Fixture deploy target changed.', 4, 'blocked');
+    return verify(...args);
+  };
+  await assert.rejects(f.service.apply(f.ctx, f.plan), { code: 'TARGET_MISMATCH' });
+  assert.equal(deployChecks, 2);
+  assert.ok(!f.calls.includes('import'));
+});
+
+test('fresh backup retains the stronger post-freeze pre-import drift barrier', async () => {
   const f = await prepared(true, true);
   const exportApplication = f.oracle.exportApplication.bind(f.oracle);
   let exports = 0;
@@ -100,7 +118,7 @@ test('fresh backup export retains the post-backup drift barrier', async () => {
   };
   await assert.rejects(f.service.apply(f.ctx, f.plan), {
     code: 'TARGET_DRIFT',
-    message: 'Target changed during backup.',
+    message: 'Target changed before import.',
   });
   assert.ok(!f.calls.includes('import'));
 });

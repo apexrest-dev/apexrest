@@ -13604,7 +13604,7 @@ var DeploymentService = class {
         }
       }
       await this.checkLocal(ctx, plan);
-      if (!working || selection || fresh) {
+      if ((!working || selection) && !fresh) {
         const after = await this.fingerprint(env2, readConnection, scoped);
         try {
           if (after.fingerprint !== plan.fingerprint)
