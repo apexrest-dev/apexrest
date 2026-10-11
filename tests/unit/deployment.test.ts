@@ -53,6 +53,7 @@ async function prepared(backup = false) {
   const app = { application_id: 123, alias: 'fixture' };
   plan.target = { identity: {}, workspace: {}, application: backup ? app : null };
   plan.backupRequired = backup;
+  plan.fingerprint = hash(canonical({ target: plan.target, history: [], exportDigest: null }));
   plan.digest = planDigest(plan);
   await grant(home, ctx.root);
   const fake = {
@@ -90,13 +91,20 @@ async function prepared(backup = false) {
     if (!reviewed.restore) await grant(home, ctx.root, reviewed);
     return apply(context, value, signal);
   };
-  service.fingerprint = async () =>
-    ({
-      target: { identity: {}, workspace: {}, application: backup ? app : null },
-      history: await service.history(ctx.config.environments.dev!, { kind: 'sqlcl-store', name: 'read' }),
+  service.fingerprint = async () => {
+    const target = { identity: {}, workspace: {}, application: backup ? app : null };
+    const history = await service.history(ctx.config.environments.dev!, {
+      kind: 'sqlcl-store',
+      name: 'read',
+    });
+    return {
+      target,
+      history,
       exported: null,
-      fingerprint: plan.fingerprint,
-    }) as Awaited<ReturnType<DeploymentService['fingerprint']>>;
+      versions: null,
+      fingerprint: hash(canonical({ target, history, exportDigest: null })),
+    } as Awaited<ReturnType<DeploymentService['fingerprint']>>;
+  };
   return { ctx, plan, calls, fake, service };
 }
 test('fixture apply backs up before import and verifies before success', async () => {

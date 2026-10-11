@@ -12790,8 +12790,8 @@ var DeploymentService = class {
       fingerprint: hash(canonical({ target, history, exportDigest: exported?.digest ?? null }))
     };
   }
-  async workingFingerprint(ctx, name2, state) {
-    const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
+  async workingFingerprint(ctx, name2, state, observedConnection) {
+    const env2 = environment(ctx, name2), connection = observedConnection ?? await resolveConnection(env2.readConnectionRef);
     const { target, metadata } = await this.oracle.targetWithMetadata(env2, connection);
     if (!target.application || canonical(target) !== canonical(state.target) || canonical(metadata) !== canonical(state.observedMetadata))
       throw new Fault(
@@ -13594,11 +13594,15 @@ var DeploymentService = class {
         }
       }
       await this.checkLocal(ctx, plan);
-      const after = fresh ? fingerprintCheck.value : working && !selection ? await this.workingFingerprint(ctx, plan.environment, working) : await this.fingerprint(env2, readConnection, scoped);
-      if (!working || selection)
-        await this.oracle.discardStage?.(after.exported?.stage);
-      if (after.fingerprint !== plan.fingerprint)
-        throw new Fault("TARGET_DRIFT", "Target changed during backup.", 5);
+      if (!working || selection || fresh) {
+        const after = await this.fingerprint(env2, readConnection, scoped);
+        try {
+          if (after.fingerprint !== plan.fingerprint)
+            throw new Fault("TARGET_DRIFT", "Target changed during backup.", 5);
+        } finally {
+          await this.oracle.discardStage?.(after.exported?.stage);
+        }
+      }
       const snapshot2 = path9.join(runDir, "snapshot");
       await mkdir5(snapshot2, { mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
@@ -13625,6 +13629,37 @@ var DeploymentService = class {
           syncMarked = true;
         });
       }
+      const completedMigrations = [];
+      const checkBeforeImport = async () => {
+        const sameConnection = canonical(readConnection) === canonical(deployConnection);
+        const observation = working && !selection && !fresh ? await this.workingFingerprint(
+          ctx,
+          plan.environment,
+          working,
+          sameConnection ? deployConnection : readConnection
+        ) : await this.fingerprint(env2, readConnection, scoped);
+        try {
+          const expectedHistory = [...plan.migrationHistory, ...completedMigrations].sort(
+            (a, b) => String(a.version).localeCompare(String(b.version))
+          );
+          if (canonical(observation.history) !== canonical(expectedHistory))
+            throw new Fault("TARGET_DRIFT", "Migration history changed before import.", 5);
+          const fingerprint = completedMigrations.length ? hash(
+            canonical({
+              target: observation.target,
+              history: plan.migrationHistory,
+              ..."metadata" in observation ? { metadata: observation.metadata } : { exportDigest: observation.exported?.digest ?? null }
+            })
+          ) : observation.fingerprint;
+          if (fingerprint !== plan.fingerprint)
+            throw new Fault("TARGET_DRIFT", "Target changed before import.", 5);
+          if (!sameConnection) await this.oracle.verifyTarget(env2, deployConnection);
+        } finally {
+          if (!working || selection || fresh)
+            await this.oracle.discardStage?.(observation.exported?.stage);
+        }
+      };
+      if (plan.operations.some((o) => ["migration", "package"].includes(o.kind))) await checkBeforeImport();
       await record("migrating");
       await new LocalDeploymentControl(env2).markWriting(runId);
       for (const operation of plan.operations.filter((o) => ["migration", "package"].includes(o.kind))) {
@@ -13655,17 +13690,23 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           "text",
           SCRIPT_RESTRICT_LEVEL
         );
-        if (operation.kind === "migration")
+        if (operation.kind === "migration") {
           await new LocalDeploymentControl(env2).migration(
             runId,
             path9.basename(file),
             operation.sha256,
             "succeeded"
           );
+          completedMigrations.push({
+            version: path9.basename(file),
+            checksum: operation.sha256,
+            status: "succeeded",
+            run_id: runId
+          });
+        }
       }
       await record("importing");
       await this.lease(env2, runId, false);
-      await this.oracle.verifyTarget(env2, deployConnection);
       if (plan.restore && plan.restore.format !== "APEXLANG") {
         const backupRoot = await contained(
           ctx.root,
@@ -13690,6 +13731,9 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           await syncStore.lock(
             () => syncStore.write({ ...restoredSync, status: "invalidated", revision: restoredSync.revision + 1 })
           );
+        await checkBeforeImport();
+        if (controller.signal.aborted)
+          throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
         writeStarted = true;
         await this.oracle.restoreApplication(
           env2,
@@ -13730,6 +13774,11 @@ prompt APEXREST_SCRIPT_COMPLETE`,
               })
             );
         }
+        await checkBeforeImport();
+        if (selection && canonical(await inventory(importSource)) !== canonical(selection.effective.files))
+          throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
+        if (controller.signal.aborted)
+          throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
         writeStarted = true;
         await this.oracle.importApplication(
           ctx,
@@ -13743,9 +13792,14 @@ prompt APEXREST_SCRIPT_COMPLETE`,
       importConfirmed = true;
       let serverSnapshot = null;
       let target;
+      let postImportMetadata;
       try {
         await record("verifying");
-        target = await this.oracle.verifyTarget(env2, readConnection);
+        if (working) {
+          const observed = await this.oracle.targetWithMetadata(env2, readConnection);
+          target = observed.target;
+          postImportMetadata = observed.metadata;
+        } else target = await this.oracle.verifyTarget(env2, readConnection);
         const expectedAlias = plan.restore ? plan.restore.alias ?? plan.target.application?.alias ?? ctx.config.application.alias : ctx.config.application.alias;
         if (!target.application || String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase())
           throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
@@ -13820,11 +13874,11 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           ctx,
           plan,
           env2,
-          readConnection,
           runId,
           working,
           target,
-          serverSnapshot
+          serverSnapshot,
+          postImportMetadata
         );
         syncSucceeded = true;
       }
@@ -13874,10 +13928,9 @@ prompt APEXREST_SCRIPT_COMPLETE`,
     }
   }
   /** Record a confirmed, verified import as the working copy's new successful checkpoint. */
-  async completeWorkingCopy(ctx, plan, env2, readConnection, runId, working, target, serverSnapshot, observedMetadata) {
+  async completeWorkingCopy(ctx, plan, env2, runId, working, target, serverSnapshot, metadata) {
     const selection = plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" ? plan.importSelection : null;
     const syncStore = new SyncStore(ctx, env2, plan.environment);
-    const metadata = observedMetadata ?? await this.oracle.applicationMetadata(env2, readConnection);
     const directory = ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const files = await inventory(await syncPath(ctx, directory));
     const snapshot2 = serverSnapshot ?? { directory, files, digest: hash(canonical(files)) };
@@ -14087,15 +14140,16 @@ prompt APEXREST_SCRIPT_COMPLETE`,
         if (result.importedSourcesMatch) {
           if (!working.importingRunId)
             await store.lock(() => store.write({ ...working, importingRunId: runId }));
+          const recoveredObservation = await this.oracle.targetWithMetadata(env2, connection);
           await this.completeWorkingCopy(
             ctx,
             plan,
             env2,
-            connection,
             runId,
             { ...working, importingRunId: runId },
-            current.target,
-            server
+            recoveredObservation.target,
+            server,
+            recoveredObservation.metadata
           );
         } else {
           const metadata = await this.oracle.applicationMetadata(env2, connection);

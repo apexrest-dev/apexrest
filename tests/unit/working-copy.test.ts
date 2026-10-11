@@ -256,7 +256,7 @@ test('concurrent applies serialize through deployment ownership and sync revisio
 test('legacy/full-export path, new applications and production retain normal planning', async () => {
   const { ctx, service, controls, calls, env } = await workingCopyFixture();
   await service.apply(ctx, await service.plan(ctx, 'dev'));
-  assert.deepEqual(exportsOnly(calls), ['export:APEXLANG', 'export:APEXLANG']);
+  assert.deepEqual(exportsOnly(calls), Array(4).fill('export:APEXLANG'));
   calls.length = 0;
   controls.exists = false;
   await service.plan(ctx, 'dev');
@@ -351,7 +351,7 @@ test('pre-write failure restores ready state without advancing success', async (
   const target = oracle.verifyTarget;
   let reads = 0;
   oracle.verifyTarget = async () => {
-    if (++reads === 4) throw new Fault('TARGET_MISMATCH', 'Fixture last pre-write target mismatch.', 5);
+    if (++reads === 3) throw new Fault('TARGET_MISMATCH', 'Fixture last pre-write target mismatch.', 5);
     return target();
   };
   await assert.rejects(service.apply(ctx, plan), { code: 'TARGET_MISMATCH' });
