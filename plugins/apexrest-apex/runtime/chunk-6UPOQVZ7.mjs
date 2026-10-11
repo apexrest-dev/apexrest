@@ -10913,7 +10913,7 @@ var toolCatalog = [
   {
     name: "apexrest_reference",
     operation: "reference",
-    description: "Offline syntax/components/patterns. Search top hit includes code; read result, grammar:, component:, pattern: or oracle: IDs. version overrides profile.",
+    description: "Offline syntax/components/patterns. Top hit includes code; read result, grammar:, component:, pattern: or oracle: IDs. version overrides profile.",
     readOnly: true
   },
   {
