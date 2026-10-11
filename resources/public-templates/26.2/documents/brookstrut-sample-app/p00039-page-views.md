@@ -1,0 +1,382 @@
+# Page Views — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00039-page-views.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: f3d7a9b5f57917523b811faccce5a52ffed87aa3bdc89fbdcbefe22d6623e3ac.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 39 (
+    name: Page Views
+    alias: PAGE-VIEWS
+    title: Page Views
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: rw-pillar--sienna
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region page-performance (
+        name: Page Performance
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select step_id page,
+                    USERID_LC username,
+                    nvl((   select page_title page_name
+                        from apex_application_pages p
+                        where p.page_id = l.step_id
+                            and p.application_id = :app_id ),'Unknown') page_name,
+                    elap                  elapsed,
+                    session_id,
+                    nvl(num_rows,0)       num_rows,
+                    decode(page_mode,'P','Partial Page','D','Full Page','Other - '||page_mode) page_mode,
+                    time_stamp,
+                    time_stamp time_stamp_since
+                from apex_activity_log l
+                where flow_id = :app_id
+                    and userid is not null
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 5562142418051774770
+        }
+
+        column ELAPSED (
+            type: plainText
+            heading {
+                heading: Elapsed
+                alignment: end
+            }
+            layout {
+                sequence: 12
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G990D000
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column NUM_ROWS (
+            type: plainText
+            heading {
+                heading: Num Rows
+                alignment: end
+            }
+            layout {
+                sequence: 32
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column PAGE (
+            type: plainText
+            heading {
+                heading: Page
+                alignment: end
+            }
+            layout {
+                sequence: 1
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column PAGE_MODE (
+            type: plainText
+            heading {
+                heading: Page Mode
+            }
+            layout {
+                sequence: 42
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+        )
+
+        column PAGE_NAME (
+            type: plainText
+            heading {
+                heading: Page Name
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column SESSION_ID (
+            type: plainText
+            heading {
+                heading: Session ID
+                alignment: end
+            }
+            layout {
+                sequence: 22
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column TIME_STAMP (
+            type: plainText
+            heading {
+                heading: Time Stamp
+            }
+            layout {
+                sequence: 52
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI:SS
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: S
+            }
+        )
+
+        column TIME_STAMP_SINCE (
+            type: plainText
+            heading {
+                heading: Date
+            }
+            layout {
+                sequence: 62
+            }
+            appearance {
+                formatMask: SINCE_SHORT
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column USERNAME (
+            type: plainText
+            heading {
+                heading: Username
+            }
+            layout {
+                sequence: 72
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Page Performance
+        }
+
+        savedReport 27689094 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ELAPSED (
+                sequence: 3
+            )
+
+            displayColumn NUM_ROWS (
+                sequence: 5
+            )
+
+            displayColumn PAGE (
+                sequence: 1
+            )
+
+            displayColumn PAGE_MODE (
+                sequence: 6
+            )
+
+            displayColumn PAGE_NAME (
+                sequence: 2
+            )
+
+            displayColumn SESSION_ID (
+                sequence: 7
+            )
+
+            displayColumn TIME_STAMP (
+                sequence: 8
+            )
+
+            displayColumn TIME_STAMP_SINCE (
+                sequence: 9
+            )
+
+            displayColumn USERNAME (
+                sequence: 4
+            )
+
+            sort (
+                column: TIME_STAMP_SINCE
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ELAPSED
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    button page-performance (
+        buttonName: page_performance
+        label: Page Performance
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 23
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: up
+        label: Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 4
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

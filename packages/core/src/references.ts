@@ -29,6 +29,7 @@ import { Fault, verifiedVendorReferencePage } from './result.ts';
 import { catalogSearch, catalogRead } from './composer/catalog.ts';
 import { componentSearch, componentRead } from './components.ts';
 import { patternSearch, patternRead } from './patterns.ts';
+import { publicTemplateSearch, publicTemplateRead } from './public-templates.ts';
 
 type Kind = 'grammar' | 'template' | 'contract' | 'guide';
 export type Reference = {
@@ -354,6 +355,9 @@ export async function referenceSearch(query: string, version?: string, options: 
   if (options.corpus === 'components') {
     if (selectedVersion.split('@')[0] === '26.2' && query.trim().startsWith('component:')) return [];
     if (selectedVersion.split('@')[0] === '26.2')
+      if (options.kind === 'template' || query.trim().startsWith('oracle:26.2:public-template/'))
+        return publicTemplateSearch(query, selectedVersion, options);
+    if (selectedVersion.split('@')[0] === '26.2')
       return referenceSearch(query, selectedVersion, {
         ...options,
         corpus: 'apexlang',
@@ -362,6 +366,8 @@ export async function referenceSearch(query: string, version?: string, options: 
       });
     return componentSearch(query, selectedVersion, options);
   }
+  if (query.trim().startsWith('oracle:26.2:public-template/'))
+    return publicTemplateSearch(query, selectedVersion, options);
   if (options.corpus === 'patterns') return patternSearch(query, selectedVersion, options);
   const terms = referenceQueryTerms(query);
   if (!terms.length) return [];
@@ -522,6 +528,8 @@ export async function referenceRead(
   if (version && qualifiedVersion && !versionMatches(version, qualifiedVersion))
     throw new Fault('REFERENCE_NOT_FOUND', 'The reference ID belongs to a different APEX release.', 2);
   const selectedVersion = await resolveReferenceVersion(project, version ?? qualifiedVersion);
+  if (id.startsWith('oracle:26.2:public-template/'))
+    return publicTemplateRead(id, offset, limit, selectedVersion);
   if (id === 'apexlang-lifecycle' && selectedVersion.split('@')[0] === '26.2')
     id = 'oracle:26.2:guide/file-import';
   if (id.startsWith('component:')) return componentRead(id, offset, limit, selectedVersion);

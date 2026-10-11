@@ -1,0 +1,494 @@
+# Initiative Approval Types — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p04012-initiative-approval-types.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: f9b15077cc9089a7ed93e253b4ae5702e6e58679a2f4ab001e0e107e9f667d7f.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 4012 (
+    name: Initiative Approval Types
+    alias: INITIATIVE-APPROVAL-TYPES
+    title: &NOMENCLATURE_INITIATIVE. Approval Types
+    pageGroup: @administration
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: rw-pillar--sienna
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    config {
+        buildOption: @approvals
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region nomenclature-initiative-approval-types (
+        name: &NOMENCLATURE_INITIATIVE. Approval Types
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select a.ID,
+                       a.approval_type_id,
+                       i.INITIATIVE,
+                       t.approval_type,
+                       case when a.active_yn = 'Y' then 'Active' else 'Inactive' end status,
+                       a.CREATED,
+                       a.CREATED_BY,
+                       a.UPDATED,
+                       a.UPDATED_BY,
+                       (select count(*) from sp_project_approvals
+                         where initiative_approval_id = a.id) projects,
+                       nvl((select listagg(case when c.alternate_team_member_id is not null and   
+                                                    (c.alternate_start_date <= sysdate or c.alternate_start_date is null) and 
+                                                    (c.alternate_end_date+1 > sysdate or c.alternate_end_date is null)
+                                                then 'Alternate - '||
+                                                     (select first_name||' '||last_name
+                                                        from sp_team_members
+                                                       where id = c.alternate_team_member_id)
+                                                else tm.first_name||' '||tm.last_name
+                                                end ,', ' on overflow truncate with count)
+                                   within group (order by approval_seq)
+                              from sp_initiative_approval_chain c,
+                                   sp_team_members tm
+                             where c.initiative_approval_id = a.id
+                               and c.team_member_id = tm.id
+                               and c.active_yn = 'Y'
+                              group by c.initiative_approval_id),'None Yet') approvers
+                  from SP_INITIATIVE_APPROVALS a,
+                       sp_approval_types t,
+                       sp_initiatives i
+                 where a.initiative_id = i.id
+                   and a.approval_type_id = t.id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 4013
+                items: {
+                    P4013_ID: \#ID#\
+                }
+                clearCache: 4013
+                action: resetPagination
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 23507279387413034473
+        }
+
+        column APPROVAL_TYPE (
+            type: plainText
+            heading {
+                heading: Approval Type
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column APPROVAL_TYPE_ID (
+            type: hidden
+            heading {
+                heading: Selected Approval Type
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column APPROVERS (
+            type: link
+            heading {
+                heading: Approvers
+            }
+            layout {
+                sequence: 50
+            }
+            link {
+                target: {
+                    page: 4014
+                    items: {
+                        IR_INITIATIVE_APPROVAL_ID: #ID#
+                    }
+                    clearCache: [
+                        4014
+                        CIR
+                        RIR
+                    ]
+                }
+                linkText: #APPROVERS#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 60
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column INITIATIVE (
+            type: plainText
+            heading {
+                heading: &NOMENCLATURE_INITIATIVE.
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column PROJECTS (
+            type: plainText
+            heading {
+                heading: &NOMENCLATURE_PROJECTS.
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Initiative Approval Types
+        }
+
+        savedReport 117529421 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn APPROVAL_TYPE (
+                sequence: 2
+            )
+
+            displayColumn APPROVERS (
+                sequence: 4
+            )
+
+            displayColumn INITIATIVE (
+                sequence: 1
+            )
+
+            displayColumn PROJECTS (
+                sequence: 5
+            )
+
+            displayColumn STATUS (
+                sequence: 3
+            )
+
+            displayColumn UPDATED (
+                sequence: 6
+            )
+
+            sort (
+                column: INITIATIVE
+                sort {
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: APPROVAL_TYPE
+                sort {
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Type
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconRight
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 4013
+                clearCache: 4013
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 10000
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction add-entry (
+        name: add entry
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @breadcrumb
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @nomenclature-initiative-approval-types
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction edit-report-dialog-closed (
+        name: Edit Report - Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @nomenclature-initiative-approval-types
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @nomenclature-initiative-approval-types
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

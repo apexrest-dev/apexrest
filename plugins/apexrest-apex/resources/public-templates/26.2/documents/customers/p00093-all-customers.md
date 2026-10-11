@@ -1,0 +1,783 @@
+# All Customers — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00093-all-customers.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: a2a60ab436956dc80e2ca6ae37cb787bc0a9c97d237b7ab124ca13a6eae031dc.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 93 (
+    name: All Customers
+    alias: ALL-CUSTOMERS
+    title: All Customers
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>This page provides an interactive report of all customers.  Click the customer name to view details.  Click on column headings to sort and filter data, click on the <strong>Actions</strong> menu to customize column display and many additional advanced features.</p>
+    }
+
+    region breadcrumbs (
+        name: Breadcrumbs
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region customers (
+        name: Customers
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select a.row_key,
+                    a.id,
+                    customer_name,
+                    status,
+                    category,
+                    nvl(geography_name,'Not Defined') geography_name,
+                    decode(referencable, null, 'No', referencable) referencable,
+                    number_of_users,
+                    decode(marquee_customer_yn, null, 'No', 'N', 'No', 'Y', 'Yes') marquee_customer,
+                    decode(greatest(length(summary),50),50,summary,substr(summary,1,50)||'...') summary,
+                    web_site,
+                    (   select listagg(p.product_name, ', ') within group (order by p.product_name) product_uses
+                        from eba_cust_customers c, eba_cust_product_uses u, eba_cust_products p
+                        where c.id = u.customer_id
+                            and u.product_id = p.id
+                            and c.id = a.id
+                        group by c.customer_name
+                    ) product_uses,
+                    tags,
+                    nvl((select INDUSTRY_NAME from EBA_CUST_INDUSTRIES i where i.id = a.INDUSTRY_ID),'Not Defined') industry,
+                    a.industry_id,
+                    a.created,
+                    a.created_by,
+                    a.updated,
+                    a.updated_by
+                from eba_cust_customers a,
+                    eba_cust_categories b,
+                    eba_cust_status c,
+                    eba_cust_geographies d
+                where a.category_id = b.id(+)
+                    and a.status_id = c.id(+)
+                    and a.geography_id = d.id(+)
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: CUSTOMERS
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+                pdf
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 12485757618114756691
+        }
+
+        column CATEGORY (
+            type: plainText
+            heading {
+                heading: Category
+            }
+            layout {
+                sequence: 16
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 20
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column CREATED_BY (
+            type: hidden
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CUSTOMER_NAME (
+            type: link
+            heading {
+                heading: Customer
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 50
+                    items: {
+                        P50_ID: #ID#
+                    }
+                    clearCache: 50
+                    action: resetPagination
+                }
+                linkText: #CUSTOMER_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column GEOGRAPHY_NAME (
+            type: plainText
+            heading {
+                heading: Geography
+            }
+            layout {
+                sequence: 22
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: V
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: wwv_flow_utilities.is_build_option_enabled('Geography')
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Selected Customer
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column INDUSTRY (
+            type: plainText
+            heading {
+                heading: Industry
+            }
+            layout {
+                sequence: 25
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Y
+            }
+        )
+
+        column INDUSTRY_ID (
+            type: hidden
+            heading {
+                heading: Selected Industry
+            }
+            layout {
+                sequence: 26
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: Z
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column MARQUEE_CUSTOMER (
+            type: plainText
+            heading {
+                heading: Marquee Customer
+            }
+            layout {
+                sequence: 24
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: X
+            }
+        )
+
+        column NUMBER_OF_USERS (
+            type: plainText
+            heading {
+                heading: # of Users
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+            serverSideCondition {
+                type: functionBody
+                plsqlFunctionBody: return wwv_flow_utilities.is_build_option_enabled('Number_of_users');
+            }
+        )
+
+        column PRODUCT_USES (
+            type: plainText
+            heading {
+                heading: Product Uses
+            }
+            layout {
+                sequence: 23
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: wwv_flow_utilities.is_build_option_enabled('Products and Services')
+            }
+        )
+
+        column REFERENCABLE (
+            type: plainText
+            heading {
+                heading: Publicly Referenceable
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Customer Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column ROW_KEY (
+            type: link
+            heading {
+                heading: View
+            }
+            layout {
+                sequence: 19
+            }
+            link {
+                target: {
+                    page: 50
+                    items: {
+                        P50_ID: #ID#
+                    }
+                    clearCache: 50
+                }
+                linkText: <span>#ROW_KEY#</span>
+                linkAttributes: class="uButton uButtonAlt" style="text-decoration: none;"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: S
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 17
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column SUMMARY (
+            type: plainText
+            heading {
+                heading: Summary
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 18
+            }
+            source {
+                dataType: varchar2
+            }
+            columnFilter {
+                type: definedLovWordContains
+                sqlQuery:
+                    ```sql
+                    select tag
+                      from eba_cust_tags_type_sum
+                     where content_type = 'CUSTOMER'
+                       and tag_count > 0
+                    ```
+            }
+            advanced {
+                endUserAlias: R
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 21
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        column UPDATED_BY (
+            type: hidden
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 15
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column WEB_SITE (
+            type: plainText
+            heading {
+                heading: Web Site
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 124857721 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CATEGORY (
+                sequence: 3
+            )
+
+            displayColumn CREATED (
+                sequence: 13
+            )
+
+            displayColumn CUSTOMER_NAME (
+                sequence: 1
+            )
+
+            displayColumn GEOGRAPHY_NAME (
+                sequence: 8
+            )
+
+            displayColumn INDUSTRY (
+                sequence: 9
+            )
+
+            displayColumn MARQUEE_CUSTOMER (
+                sequence: 4
+            )
+
+            displayColumn NUMBER_OF_USERS (
+                sequence: 11
+            )
+
+            displayColumn PRODUCT_USES (
+                sequence: 6
+            )
+
+            displayColumn REFERENCABLE (
+                sequence: 5
+            )
+
+            displayColumn STATUS (
+                sequence: 7
+            )
+
+            displayColumn SUMMARY (
+                sequence: 2
+            )
+
+            displayColumn TAGS (
+                sequence: 10
+            )
+
+            displayColumn UPDATED (
+                sequence: 14
+            )
+
+            displayColumn WEB_SITE (
+                sequence: 12
+            )
+
+            sort (
+                column: CUSTOMER_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    region timezone (
+        name: timezone
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                "TIMEZONE" 
+                 
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            expandShortcuts: true
+        }
+    )
+
+    button create-customer (
+        buttonName: CREATE_CUSTOMER
+        label: Add Customer
+        layout {
+            sequence: 30
+            region: @breadcrumbs
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconRight
+            ]
+            icon: fa-chevron-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 2
+                clearCache: 2
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button reset-report (
+        buttonName: Reset_Report
+        label: Reset
+        layout {
+            sequence: 10
+            region: @customers
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                clearCache: [
+                    &APP_PAGE_ID.
+                    RIR
+                    CIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button upload-customers (
+        buttonName: UPLOAD_CUSTOMERS
+        label: Upload Customers
+        layout {
+            sequence: 20
+            region: @breadcrumbs
+            slot: edit
+            startNewRow: false
+            newColumn: false
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 53
+                clearCache: [
+                    53
+                    54
+                    55
+                    56
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+        config {
+            buildOption: @customer-data-loading
+        }
+    )
+
+    computation last-view (
+        itemName: LAST_VIEW
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 1
+        }
+    )
+
+    process load-data (
+        name: Load Data
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                if :REQUEST = 'REPORTS' then 
+                    :LAST_VIEW := 20;
+                else
+                    :LAST_VIEW := 30 ;
+                end if;
+                ```
+        }
+        execution {
+            sequence: 20
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 13541311042611233440
+        }
+        serverSideCondition {
+            type: never
+        }
+    )
+
+    process reset-pagination (
+        name: Reset Pagination
+        type: resetPagination
+        execution {
+            sequence: 10
+        }
+        error {
+            errorMessage: Unable to reset pagination.
+            displayLocation: onErrorPage
+        }
+        advanced {
+            executionMappingIdentifier: 13541310624699233439
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: Go,P93_REPORT_SEARCH,RESET
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 93
+                successMessage: false
+            }
+            saveStateBeforeBranching: true
+        }
+    )
+
+)
+
+
+````

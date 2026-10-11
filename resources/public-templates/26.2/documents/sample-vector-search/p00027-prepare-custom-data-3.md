@@ -1,0 +1,256 @@
+# Prepare Custom Data (Step 3: Vector Embeddings) — Sample Vector Search
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-vector-search/apexlang/sample-vector-search/pages/p00027-prepare-custom-data-3.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 0df4ee466c9ee4d161662d2adf212a11573a97a785d8f60f3d1eebfc38546d5c.
+
+Application dependency inventory: oracle:26.2:public-template/sample-vector-search/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 27 (
+    name: Prepare Custom Data (Step 3: Vector Embeddings)
+    alias: PREPARE-CUSTOM-DATA-3
+    title: Prepare Custom Data
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region data-uploaded-successfully (
+        name: Data Uploaded Successfully
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Your data has been loaded successfully into the data table.</p>
+                <p>The next step to enable vector search is to generate <em>vector embeddings</em> that represent this data. These embeddings are then stored in the database and serve as the <strong>foundation for performing vector searches</strong>.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: [
+                #DEFAULT#
+                margin-bottom-md
+            ]
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                  from eba_vector_datatable
+                 where embedding_vector is null;
+                ```
+        }
+    )
+
+    region progress (
+        name: Progress
+        type: list
+        source {
+            list: @upload-data-progress
+        }
+        layout {
+            sequence: 10
+            slot: dialogHeader
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            listTemplate: @/wizard-progress
+            templateOptions: [
+                #DEFAULT#
+                t-WizardSteps--displayCurrentLabelOnly
+            ]
+        }
+    )
+
+    region summary (
+        name: Summary
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select count(id) as Row_Count,
+                       sum( case when embedding_vector is not null then 1 else 0 end ) as Vector_Count
+                  from eba_vector_datatable;
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                t-Region--scrollBody
+            ]
+        }
+        componentAppearance {
+            template: @/badge-list
+            templateOptions: [
+                #DEFAULT#
+                t-BadgeList--xlarge
+                t-BadgeList--circular
+                t-BadgeList--fixed
+                t-Report--hideNoPagination
+            ]
+        }
+
+        column ROW_COUNT (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Loaded Row Count
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+        )
+
+        column VECTOR_COUNT (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Vector Embeddings Count
+                alignment: end
+            }
+            layout {
+                sequence: 20
+                columnAlignment: end
+            }
+        )
+
+    )
+
+    button generate-vector-embeddings (
+        buttonName: GENERATE_VECTOR_EMBEDDINGS
+        label: Generate Vector Embeddings
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            showProcessing: true
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                  from eba_vector_datatable
+                 where embedding_vector is null;
+                ```
+        }
+    )
+
+    button prev (
+        buttonName: PREV
+        label: Back
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-chevron-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 26
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process generate-vectors-embeddings (
+        name: Generate Vectors Embeddings
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                
+                update eba_vector_datatable
+                   set embedding_vector = apex_ai.get_vector_embeddings(
+                                              p_value             => col1 || col2 || col3 || col4 || col5 || col6 || col7 || col8 ||col9 || col10,
+                                              p_service_static_id => case when :CURRENT_AI_PROVIDER = 'OCI' then 'EBA_VECTOR_OCI' else 'EBA_VECTOR_OPENAI' end );
+                end;
+                
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 2698275421096101
+        }
+        serverSideCondition {
+            whenButtonPressed: @generate-vector-embeddings
+        }
+    )
+
+    branch (
+        name: to Custom Vector Search
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 30
+            }
+        }
+    )
+
+)
+
+
+````

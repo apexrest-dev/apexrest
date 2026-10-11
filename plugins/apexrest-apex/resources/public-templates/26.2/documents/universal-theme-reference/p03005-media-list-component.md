@@ -1,0 +1,396 @@
+# Components - Media List — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p03005-media-list-component.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: da49256b27ab5cad251a8fb1edd4e3a38d625815ef072a642ba90b03d7267387.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 3005 (
+    name: Components - Media List
+    alias: MEDIA-LIST-COMPONENT
+    title: Media List - &APP_TITLE.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region components-media-list (
+        name: Components - Media List
+        type: themeTemplateComponent/mediaList
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select t.ID,
+                       t.PROJECT,
+                       t.PARENT_TASK,
+                       t.TASK_NAME,
+                       t.STATUS,
+                       t.ASSIGNED_TO,
+                       p.project as PROJ_NAME,
+                       case t.status
+                         when 'Open'    then 'fa-exclamation-circle-o'
+                         when 'Closed'  then 'fa-check-circle u-success-text'
+                         when 'On-Hold' then 'fa-minus-circle u-danger-text'
+                         when 'Pending' then 'fa-exclamation-triangle u-warning-text'
+                       end BADGE_STATE
+                  from EBA_UT_CHART_TASKS t,
+                       EBA_UT_CHART_PROJECTS p
+                  where t.project = p.id
+                ```
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P3005_ORDER_BY
+                orderBys: {
+                    TASK_NAME: TASK_NAME asc
+                    PROJ_NAME: PROJ_NAME asc
+                    STATUS: STATUS asc
+                }
+            }
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo
+            slot: subRegions
+            columnSpan: 8
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: region
+        }
+        advanced {
+            htmlDomId: MediaListDemo
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: TASK_NAME
+            description: PROJ_NAME
+            displayAvatar: true
+            displayBadge: true
+        }
+        plugin-avatar {
+            icon: fa-cloud
+        }
+        plugin-badge {
+            label: Status:
+            value: STATUS
+        }
+        pagination {
+            entitiesPerPage: 5
+        }
+
+        column ASSIGNED_TO (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: ASSIGNED_TO
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_STATE (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column PARENT_TASK (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: PARENT_TASK
+                dataType: number
+            }
+        )
+
+        column PROJECT (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: PROJECT
+                dataType: number
+            }
+        )
+
+        column PROJ_NAME (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: PROJ_NAME
+                dataType: varchar2
+            }
+        )
+
+        column STATUS (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: STATUS
+                dataType: varchar2
+            }
+        )
+
+        column TASK_NAME (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: TASK_NAME
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region configuration (
+        name: Configuration
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <h4>Region</h4>
+                <strong>Type:</strong> Media List<br/>
+                <strong>Template:</strong> Blank with Attributes (No Grid)<br/>
+                
+                <h4>Attributes</h4>
+                Each row has a <em>Title</em> and <em>Description</em>. Both <em>Avatar</em> and <em>Badge</em> are displayed.<br/>
+                
+                <h4>Avatar</h4>
+                <strong>Type:</strong> Icon<br/>
+                <strong>Icon:</strong> fa-cloud<br/>
+                <strong>Shape:</strong> Rounded<br/>
+                
+                <h4>Badge</h4>
+                Each badge has a <em>label</em> and <em>value</em> that each maps to a column from the region source. 
+                The <em>label</em> for each badge is set to not display, so that only the badge value is visible.
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @demo
+            slot: subRegions
+            startNewRow: false
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                js-headingLevel-2
+                t-Region--scrollBody
+                margin-top-sm
+            ]
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            staticId: MediaListDemo
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                    <strong>Media List</strong> is a very common design pattern that has an icon, heading, description, and a badge.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region sample-sql-query (
+        name: Sample SQL Query
+        type: plugin/regionSourceCode
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--lightBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            regionStaticId: MediaListDemo
+        }
+    )
+
+    pageItem P3005_ORDER_BY (
+        type: selectList
+        label {
+            label: Order By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Task;TASK_NAME,Project;PROJ_NAME,Status;STATUS
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @components-media-list
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+    )
+
+)
+
+
+````

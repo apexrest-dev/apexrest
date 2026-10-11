@@ -1,0 +1,253 @@
+# Reference — Ux Pattern Catalog
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/ux-pattern-catalog/apexlang/ux-pattern-catalog/pages/p00003-reference.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4136bd75c34f6a3b3343a92fee2418032af7b5c985aa401c80bc2740042fd65d.
+
+Application dependency inventory: oracle:26.2:public-template/ux-pattern-catalog/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 3 (
+    name: Reference
+    alias: REFERENCE
+    title: Reference
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+    }
+
+    region apex-ux-pattern-catalog (
+        name: Reference Intro
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Supporting documentation for the Oracle APEX UX Pattern Catalog. This section captures the design principles, conventions, and ongoing evolution of the catalog, providing guidance for developers and AI coding assistants adapting these patterns to new applications.</p>
+                <p>These principles guide every pattern in the catalog and help ensure consistent, reusable user experiences. A dedicated Design Principles page will provide expanded guidance in a future release.</p>
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h1
+                t-Region--removeHeader js-removeLandmark
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region catalog-updates (
+        name: Catalog Updates
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Track notable changes to the catalog, including new patterns, guidance updates, and structural refinements.</p>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.6</h3>
+                <p><strong>Component Pattern Updates</strong></p>
+                <ul>
+                  <li>Added example use case patterns for Charts in the Component Primitives section.</li>
+                  <li>Added example use case patterns for Metrics in the Component Primitives section.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.5</h3>
+                <p><strong>Dashboard, Search, and Item Detail Pattern Updates</strong></p>
+                <ul>
+                  <li>Added the Executive Dashboard pattern to Dashboards.</li>
+                  <li>Added the Full Page Search pattern to Browse and Search.</li>
+                  <li>Added the AI Chat pattern to Browse and Search.</li>
+                  <li>Moved the Tree Selection pattern to new page ID.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.4</h3>
+                <p><strong>Component and Item Detail Pattern Updates</strong></p>
+                <ul>
+                  <li>Fixed issues in the Cards pattern in the Component Primitives section.</li>
+                  <li>Fixed issues and did minor styling cleanup for the Tree Selection pattern in the Item Details section.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.3</h3>
+                <p><strong>Component and Item Detail Pattern Updates</strong></p>
+                <ul>
+                  <li>Added example use case patterns for Cards in the Component Primitives section.</li>
+                  <li>Added the Tree Selection pattern to Item Details.</li>
+                  <li>Renamed Item Selection with Details to Item Selection.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.2</h3>
+                <p><strong>Component Pattern Updates</strong></p>
+                <ul>
+                  <li>Added the Component Primitives section, including example use case patterns for Content Row.</li>
+                  <li>Renamed Patterns to Page Patterns to better distinguish page-level patterns from reusable component patterns.</li>
+                  <li>Fixed issues in the Item Selection and Details pattern.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.1</h3>
+                <p><strong>Item Detail Pattern Updates</strong></p>
+                <ul>
+                  <li>Added the Item Selection and Details pattern, combining a selectable item list with an adjacent detail view.</li>
+                  <li>Consolidated the placeholder Master-Detail category into Item Details.</li>
+                </ul>
+                
+                <h3 class="u-text-subheading-sm">Version 26.1.0</h3>
+                <p><strong>Initial Release</strong></p>
+                <ul>
+                  <li>Introduced the Oracle APEX UX Pattern Catalog.</li>
+                  <li>Added core pattern categories for dashboards, browse and search, item details, data entry, and master-detail layouts.</li>
+                  <li>Established design principles and pattern documentation conventions.</li>
+                  <li>Optimized pattern pages for both developers and AI-assisted application generation.</li>
+                </ul>
+                ```
+        }
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--padded
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+        }
+    )
+
+    region pattern-categories (
+        name: Design Principles
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'fa-target-arrow' as icon_class,
+                    'Design for User Tasks' as title,
+                    'Organize pages around what users need to accomplish rather than underlying data structures or database entities.' as description
+                from sys.dual
+                union all
+                select
+                    'fa-layers' as icon_class,
+                    'Establish Clear Hierarchy' as title,
+                    'Use layout, spacing, typography, and grouping to guide attention before relying on decorative elements.' as description
+                from sys.dual
+                union all
+                select
+                    'fa-mouse-pointer' as icon_class,
+                    'Choose the Right Pattern' as title,
+                    'Select the pattern that best supports the primary task, then adapt it to your application''s specific requirements.' as description
+                from sys.dual
+                union all
+                select
+                    'fa-synonym' as icon_class,
+                    'Create Reusable Patterns' as title,
+                    'Build representative examples that can be adapted across applications instead of modeling a single business process.' as description
+                from sys.dual
+                union all
+                select
+                    'fa-commenting-o' as icon_class,
+                    'Document Design Intent' as title,
+                    'Use Page Help, Comments, and metadata to explain when a pattern should be used and the decisions behind it.' as description
+                from sys.dual
+                union all
+                select
+                    'fa-sparkles' as icon_class,
+                    'Design for Humans and AI' as title,
+                    'Create patterns that are easy to understand, inspect, and adapt by both developers and AI coding assistants.' as description
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description: &DESCRIPTION.
+            displayAvatar: true
+        }
+        plugin-avatar {
+            icon: &ICON_CLASS. fa-2x u-opacity-75
+            shape: noShape
+        }
+        plugin-appearance {
+            hideBorders: true
+        }
+
+        column DESCRIPTION (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column ICON_CLASS (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ICON_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region reusable-apex-ux-patterns (
+        name: Reference
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+            icon: fa-book
+        }
+    )
+
+)
+
+
+````

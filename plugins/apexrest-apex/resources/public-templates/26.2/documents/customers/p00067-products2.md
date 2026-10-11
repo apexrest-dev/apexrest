@@ -1,0 +1,730 @@
+# Products — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00067-products2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c2089e15e872607d065785f0250b64b2d94ba00e8a9156e9076e0015dd9b6316.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 67 (
+    name: Products
+    alias: PRODUCTS2
+    title: Products
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region products (
+        name: Products
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select u.id,
+                    p.id id2,
+                    u.product_id,
+                    p.product_name,
+                    p.description,
+                    p.tags,
+                    p.is_active,
+                    u.valid_from,
+                    u.valid_to,
+                    nvl(u.updated, u.created) last_updated,
+                    lower(nvl(u.updated_by, u.created_by)) last_updated_by,
+                    u.reference_status_id,
+                    '#' delete_link,
+                    (
+                        select listagg(rt.reference_type,', ') within group (order by rt.reference_type)
+                          from eba_cust_reference_types rt
+                         where ':'||u.reference_type_ids||':' like '%:'||rt.id||':%'
+                    ) as reference_types,
+                    decode( u.customer_contact_id, null, null, (select decode(email, null, name, '<a href="mailto:'
+                                                                              || apex_escape.html(email) || '">'
+                                                                              || apex_escape.html(name) || '</a>')
+                                                                from EBA_CUST_CONTACTS where id = u.customer_contact_id) ) as customer_contact,
+                       case when instr(nvl(u.internal_contact,'xxx'), '@') = 0 then apex_escape.html(u.internal_contact)
+                           else '<a href="mailto:' || apex_escape.html(u.internal_contact) || '">'
+                                   || apex_escape.html(u.internal_contact) || '</a>' end as internal_contact
+                from eba_cust_product_uses u,
+                    eba_cust_products p
+                where u.customer_id = :P67_ID
+                    and u.product_id = p.id
+                order by u.created desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+            ]
+        }
+        advanced {
+            htmlDomId: PRODUCTS
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No products found
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2528506519570742504
+        }
+
+        column CUSTOMER_CONTACT (
+            type: plainText
+            heading {
+                heading: Customer Contact
+            }
+            layout {
+                sequence: 293
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AK
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column DELETE_LINK (
+            type: link
+            heading {
+                heading: Remove
+                alignment: center
+            }
+            layout {
+                sequence: 90
+                columnAlignment: center
+            }
+            appearance {
+                formatMask: &nbsp;
+            }
+            link {
+                target: {
+                    page: 67
+                    items: {
+                        P67_DELETE_PROD_ID: #PRODUCT_ID#
+                    }
+                    request: DELETE_PRODUCT
+                }
+                linkText: <span class="t-Icon fa fa-trash-o" aria-hidden="true"></span>
+                linkAttributes: class="t-Button t-Button--danger t-Button--simple t-Button--small" title="Delete Product: #PRODUCT_NAME#"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+            enableUsersTo {
+                hide: false
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+            }
+            security {
+                authorizationScheme: @contribution-rights
+            }
+        )
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AE
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ID2 (
+            type: link
+            heading {
+                heading: Edit
+                alignment: center
+            }
+            layout {
+                sequence: 263
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    page: 68
+                    items: {
+                        P68_CUSTOMER_ID: &P67_ID.
+                        P68_ID: #ID#
+                        P68_PRODUCT_ID: #PRODUCT_ID#
+                    }
+                    clearCache: 68
+                    action: resetPagination
+                }
+                linkText: <img src="#IMAGE_PREFIX#menu/pencil16x16.gif" alt="">
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AH
+            }
+            enableUsersTo {
+                hide: false
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+            security {
+                authorizationScheme: @contribution-rights
+            }
+        )
+
+        column INTERNAL_CONTACT (
+            type: plainText
+            heading {
+                heading: Internal Contact
+            }
+            layout {
+                sequence: 303
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AL
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column IS_ACTIVE (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Is Active
+            }
+            lov {
+                lov: @y-or-n
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column LAST_UPDATED (
+            type: plainText
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 313
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: AM
+            }
+        )
+
+        column LAST_UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Last Updated By
+            }
+            layout {
+                sequence: 323
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AN
+            }
+        )
+
+        column PRODUCT_ID (
+            type: hidden
+            heading {
+                heading: Product ID
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column PRODUCT_NAME (
+            type: plainText
+            heading {
+                heading: Product Name
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column REFERENCE_STATUS_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Status
+            }
+            lov {
+                lov: @product-statuses
+            }
+            layout {
+                sequence: 273
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AI
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Product Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column REFERENCE_TYPES (
+            type: plainText
+            heading {
+                heading: Reference Assets
+            }
+            layout {
+                sequence: 283
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AJ
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Product Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column VALID_FROM (
+            type: plainText
+            heading {
+                heading: Valid From
+            }
+            layout {
+                sequence: 261
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: AF
+            }
+        )
+
+        column VALID_TO (
+            type: plainText
+            heading {
+                heading: Valid To
+            }
+            layout {
+                sequence: 262
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: AG
+            }
+        )
+
+        savedReport 25285091 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CUSTOMER_CONTACT (
+                sequence: 7
+            )
+
+            displayColumn DELETE_LINK (
+                sequence: 11
+            )
+
+            displayColumn ID2 (
+                sequence: 1
+            )
+
+            displayColumn INTERNAL_CONTACT (
+                sequence: 8
+            )
+
+            displayColumn LAST_UPDATED (
+                sequence: 9
+            )
+
+            displayColumn LAST_UPDATED_BY (
+                sequence: 10
+            )
+
+            displayColumn PRODUCT_NAME (
+                sequence: 2
+            )
+
+            displayColumn REFERENCE_STATUS_ID (
+                sequence: 5
+            )
+
+            displayColumn REFERENCE_TYPES (
+                sequence: 6
+            )
+
+            displayColumn VALID_FROM (
+                sequence: 3
+            )
+
+            displayColumn VALID_TO (
+                sequence: 4
+            )
+
+            sort (
+                column: PRODUCT_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P67_DELETE_PROD_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @products
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P67_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @products
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-product (
+        buttonName: ADD_PRODUCT
+        label: Add Product
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+            icon: fa-chevron-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 68
+                items: {
+                    P68_CUSTOMER_ID: &P67_ID.
+                }
+                clearCache: 68
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @products
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-irr-on-close (
+        name: Refresh IRR on close
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-product
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @products
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-irr-on-edit-close (
+        name: Refresh IRR on Edit Close
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @products
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @products
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation p50-id (
+        itemName: P50_ID
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: item
+            itemName: P67_ID
+        }
+    )
+
+    process delete-product (
+        name: delete product
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                delete from eba_cust_product_uses
+                where product_id = :P67_DELETE_PROD_ID
+                and customer_id = :P67_ID;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        successMessage {
+            successMessage: Product deleted
+        }
+        advanced {
+            executionMappingIdentifier: 16594086382714334663
+        }
+        serverSideCondition {
+            type: request=Value
+            value: DELETE_PRODUCT
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,130 @@
+# Sample Approvals: application dependency inventory
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Pinned source: https://github.com/oracle/apex/tree/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/
+
+The list below is an inventory of the source application, not a statement that every file is required by each page. Inspect the page's SQL, item bindings, shared references, handlers and links, then retrieve the needed dependencies from the pinned source. Database setup is a separate authorized task. Do not copy the source application's deployments, authentication or authorization over an existing application.
+
+32 included page templates of 34 source pages; 89 source APEXlang files.
+
+## Source files
+
+- .apex/apexlang.json
+- application.apx
+- deployments/default.json
+- page-groups.apx
+- pages/p00000-global-page.apx
+- pages/p00001-home.apx
+- pages/p00002-task-details.apx
+- pages/p00003-my-tasks.apx
+- pages/p00004-request-salary-change.apx
+- pages/p00005-my-requests.apx
+- pages/p00006-task-administration.apx
+- pages/p00007-request-job-change.apx
+- pages/p00008-employees.apx
+- pages/p00009-approvers.apx
+- pages/p00010-test-approver-assignment.apx
+- pages/p00011-email-settings.apx
+- pages/p00012-pending-approvals.apx
+- pages/p00013-help.apx
+- pages/p00014-more-information.apx
+- pages/p00015-salary-change-details.apx
+- pages/p00016-request-employee-appraisal.apx
+- pages/p00017-employee-self-review-details.apx
+- pages/p00018-manage-sample-data.apx
+- pages/p00019-workflow-status.apx
+- pages/p00020-manage-vacation-rules.apx
+- pages/p00021-setup.apx
+- pages/p00022-request-laptop.apx
+- pages/p00023-laptop-order-management.apx
+- pages/p00024-sample-login.apx
+- pages/p00025-pending-actions.apx
+- pages/p00026-workflow-details.apx
+- pages/p00027-workflow-debug-messages.apx
+- pages/p00028-request-bank-account-change.apx
+- pages/p00029-appraisal-history.apx
+- pages/p00030-workflow-dashboard.apx
+- pages/p00031-workflow-diagram.apx
+- pages/p00032-manage-laptop-stock.apx
+- pages/p10010-theme-style-selection.apx
+- shared-components/app-computations.apx
+- shared-components/app-items.apx
+- shared-components/authentications.apx
+- shared-components/authorizations.apx
+- shared-components/breadcrumbs/breadcrumb.apx
+- shared-components/build-options.apx
+- shared-components/component-settings.apx
+- shared-components/email-templates/JOB-CHANGE-NOTIFICATION.apx
+- shared-components/email-templates/LAPTOP-DELIVERED-NOTIFICATION.apx
+- shared-components/lists/navigation-bar.apx
+- shared-components/lists/navigation-menu.apx
+- shared-components/lists/user-interface.apx
+- shared-components/lovs/all-enames-lov.apx
+- shared-components/lovs/approval-task-lov.apx
+- shared-components/lovs/available-laptop-types.apx
+- shared-components/lovs/dept-dname.apx
+- shared-components/lovs/desktop-theme-styles.apx
+- shared-components/lovs/distinct-job-codes-lov.apx
+- shared-components/lovs/eba-demo-conf-emp-lov.apx
+- shared-components/lovs/emp-ename.apx
+- shared-components/lovs/unified-task-list-lov-due.apx
+- shared-components/lovs/unified-task-list-lov-initiated.apx
+- shared-components/lovs/unified-task-list-lov-priority.apx
+- shared-components/lovs/unified-task-list-lov-state.apx
+- shared-components/lovs/unified-task-list-lov-type.apx
+- shared-components/lovs/user-theme-preference.apx
+- shared-components/lovs/workflow-charts-lov-time-unit.apx
+- shared-components/lovs/workflow-console-lov-initiated.apx
+- shared-components/lovs/workflow-console-lov-workflow-state.apx
+- shared-components/messages.apx
+- shared-components/plugins/region/markdownRegion/custom-attributes.apx
+- shared-components/plugins/region/markdownRegion/plugin.apx
+- shared-components/plugins/region/sampleAppsFooter/plugin.apx
+- shared-components/plugins/region/sourceDisplay/custom-attributes.apx
+- shared-components/plugins/region/sourceDisplay/plugin.apx
+- shared-components/static-files.apx
+- shared-components/static-files/AboutTheApprovalsFeature.md
+- shared-components/static-files/AboutTheSampleApplication.md
+- shared-components/static-files/AboutTheWorkflowFeature.md
+- shared-components/static-files/UsingTheSample.md
+- shared-components/static-files/app.css
+- shared-components/static-files/app.min.css
+- shared-components/static-files/icons/app-icon-192.png
+- shared-components/static-files/icons/app-icon-32.png
+- shared-components/static-files/icons/app-icon-512.png
+- shared-components/static-files/readme_appraisalworkflow.jpg
+- shared-components/static-files/readme_approvals.jpg
+- shared-components/static-files/readme_datamodel.jpg
+- shared-components/static-files/readme_employees.jpg
+- shared-components/static-files/readme_employees2.jpg
+- shared-components/static-files/readme_laptopordermgmt.jpg
+- shared-components/static-files/readme_laptopprocurementworkflow.jpg
+- shared-components/static-files/readme_laptopworkflow.jpg
+- shared-components/static-files/readme_salapprovers.jpg
+- shared-components/static-files/readme_selfeval.jpg
+- shared-components/static-files/readme_taskviews.jpg
+- shared-components/static-files/readme_workflowviews.jpg
+- shared-components/task-definitions/APPRAISAL-EMPLOYEE-INPUT.apx
+- shared-components/task-definitions/APPRAISAL-MANAGER-INPUT.apx
+- shared-components/task-definitions/APPRAISAL-VP-REVIEW.apx
+- shared-components/task-definitions/BANK-ACCOUNT-CHANGE.apx
+- shared-components/task-definitions/JOB-CHANGE.apx
+- shared-components/task-definitions/LAPTOP-APPROVAL.apx
+- shared-components/task-definitions/LAPTOP-DELIVERED.apx
+- shared-components/task-definitions/SALARY-CHANGE.apx
+- shared-components/themes/universal-theme/template-option-groups.apx
+- shared-components/themes/universal-theme/theme.apx
+- shared-components/workflows/EMPLOYEE-APPRAISAL.apx
+- shared-components/workflows/LAPTOP-PROCUREMENT.apx
+- shared-components/workflows/LAPTOP-REQUEST.apx
+- supporting-objects/deinstall-script.sql
+- supporting-objects/install-scripts.apx
+- supporting-objects/install-scripts/droptables.sql
+- supporting-objects/install-scripts/installlaptoprequeststable.sql
+- supporting-objects/install-scripts/installlaptoprequeststrigger.sql
+- supporting-objects/install-scripts/installotherschemaobjects.sql
+- supporting-objects/install-scripts/installsampledata.sql
+- supporting-objects/substitutions.apx
+- supporting-objects/supporting-objects.apx
+- workspace-components/app-groups/sample-apps.apx

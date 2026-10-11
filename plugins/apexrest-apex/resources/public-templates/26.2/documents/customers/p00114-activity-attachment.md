@@ -1,0 +1,465 @@
+# Activity Attachment — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00114-activity-attachment.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 32be1a88815305166cc0a30c3bd80df40dfa2f42ae50cb9b3c3ce114dd5400ff.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 114 (
+    name: Activity Attachment
+    alias: ACTIVITY-ATTACHMENT
+    title: Activity Attachment
+    pageGroup: @customers
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration: var htmldb_delete_message='"DELETE_CONFIRM_MSG"';
+    }
+    security {
+        authorizationScheme: @contribution-rights
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region activity-attachment (
+        name: Activity Attachment
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+                t-Region--scrollBody
+                t-Form--stretchInputs
+            ]
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    pageItem P114_ACTIVITY_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @activity-attachment
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: ACTIVITY_ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: Id to uniquely represent the Customer.
+        }
+    )
+
+    pageItem P114_FILE_BLOB (
+        type: fileUpload
+        label {
+            label: File
+            alignment: left
+        }
+        storage {
+            mimeTypeColumn: FILE_MIMETYPE
+            filenameColumn: FILE_NAME
+            charSetColumn: FILE_CHARSET
+            bobLastUpdatedColumn: FILE_LAST_UPDATE
+        }
+        layout {
+            sequence: 60
+            region: @activity-attachment
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-above
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        advanced {
+            postText: &nbsp;<em>Attachments must be under 15M in size.</em>
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: FILE_BLOB
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P114_FILE_COMMENTS (
+        type: textarea
+        label {
+            label: Description
+            alignment: left
+        }
+        settings {
+            resizable: false
+            trimSpaces: none
+        }
+        layout {
+            sequence: 90
+            region: @activity-attachment
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+            width: 64
+            height: 4
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: FILE_COMMENTS
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P114_FILE_MIMETYPE (
+        type: displayOnly
+        label {
+            label: Mimetype:
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @activity-attachment
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: FILE_MIMETYPE
+            used: always
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P114_ID
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: Enter MIME Type.
+        }
+    )
+
+    pageItem P114_FILE_NAME (
+        type: displayOnly
+        label {
+            label: Name:
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @activity-attachment
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: FILE_NAME
+            used: always
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P114_ID
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: Enter File Name.
+        }
+    )
+
+    pageItem P114_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @activity-attachment
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Attachment
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P114_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: javascript:apex.confirm(htmldb_delete_message,'DELETE');
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P114_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P114_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation file-must-be-uploaded-on-add (
+        name: File must be uploaded on add
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsNotNull
+            item: P114_FILE_BLOB
+        }
+        error {
+            errorMessage: #LABEL# must have some value.
+            associatedItem: @P114_FILE_BLOB
+        }
+        serverSideCondition {
+            whenButtonPressed: @create
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 18173439193863676550
+        }
+    )
+
+    process fetch-row-from-eba-cust-activity-files (
+        name: Fetch Row from EBA_CUST_ACTIVITY_FILES
+        type: autoRowFetch
+        source {
+            tableName: EBA_CUST_ACTIVITY_FILES
+            pkColumn: ID
+            pkItem: P114_ID
+        }
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        advanced {
+            executionMappingIdentifier: 18173439580807676551
+        }
+    )
+
+    process process-row-of-eba-cust-activity-files (
+        name: Process Row of EBA_CUST_ACTIVITY_FILES
+        type: autoRowProcessing
+        target {
+            tableName: EBA_CUST_ACTIVITY_FILES
+            pkColumn: ID
+            pkItem: P114_ID
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Action Processed.
+        }
+        error {
+            errorMessage: #SQLERRM_TEXT#
+        }
+        advanced {
+            executionMappingIdentifier: 18173440011799676552
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 18173440376884676553
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+)
+
+
+````

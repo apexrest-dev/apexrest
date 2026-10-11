@@ -1,0 +1,484 @@
+# Forms — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01600-forms.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c2c82b86d96fcb36c490ea926f7a2fecad8dd27309aae032548e87b9086baf15.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1600 (
+    name: Forms
+    alias: FORMS
+    title: Forms - &APP_TITLE.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline:
+            ```css
+            .ts-Placeholder {
+            height: 240px;
+            line-height: 240px;
+            text-align: center;
+            background-color: #D0D0D0;
+            color: #404040;
+            border-radius: 2px;
+            margin-bottom: 48px;
+            }
+            .ts-Container {
+            max-width: 1024px;
+            min-height: 50vh;
+            }
+            ```
+    }
+    security {
+        authentication: public
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 790
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--showBreadcrumb
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @floating-labels
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Floating Labels
+        }
+    )
+
+    region demo-2 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @label-above
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Label Above
+        }
+    )
+
+    region demo-3 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @label-horizontal
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Label Horizontal
+        }
+    )
+
+    region floating-labels (
+        name: Floating Labels
+        type: staticContent
+        layout {
+            sequence: 15
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 10
+            parentRegion: @floating-labels
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Floating Labels
+        }
+        settings {
+            componentType: item
+            staticId: P1600_FLOATING
+        }
+    )
+
+    region instructions-2 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 10
+            parentRegion: @label-above
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Label Above
+        }
+        settings {
+            componentType: item
+            staticId: P1600_ABOVE
+        }
+    )
+
+    region instructions-3 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 10
+            parentRegion: @label-horizontal
+            slot: regionBody
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Label Horizontal
+        }
+        settings {
+            componentType: item
+            staticId: P1600_HORIZONTAL
+        }
+    )
+
+    region label-above (
+        name: Label Above
+        type: staticContent
+        layout {
+            sequence: 25
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region label-horizontal (
+        name: Label Horizontal
+        type: staticContent
+        layout {
+            sequence: 35
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>Universal Theme enables easy form design by allowing developers to declaratively control form layout, field templates, and label column widths. This page introduces you to forms, field templates, and template options.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 800
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 40
+            parentRegion: @floating-labels
+            slot: regionBody
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Floating Labels
+        }
+        settings {
+            componentType: item
+            staticId: P1600_FLOATING
+        }
+    )
+
+    region template-options-2 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 30
+            parentRegion: @label-above
+            slot: regionBody
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Label Above
+        }
+        settings {
+            componentType: item
+            staticId: P1600_ABOVE
+        }
+    )
+
+    region template-options-3 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 30
+            parentRegion: @label-horizontal
+            slot: regionBody
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Label Horizontal
+        }
+        settings {
+            componentType: item
+            staticId: P1600_HORIZONTAL
+        }
+    )
+
+    pageItem P1600_ABOVE (
+        type: textField
+        label {
+            label: Text Field
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @demo-2
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P1600_FLOATING (
+        type: textField
+        label {
+            label: Text Field
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @demo
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P1600_HORIZONTAL (
+        type: textField
+        label {
+            label: Text Field
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @demo-3
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+)
+
+
+````

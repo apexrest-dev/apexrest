@@ -1,0 +1,527 @@
+# Contacts — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00105-contacts.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 7aa256b0adc9b5d878f218ef354157b357c46383063d299df4134466d7b4713c.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 105 (
+    name: Contacts
+    alias: CONTACTS
+    title: Contacts
+    pageGroup: @accounts
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-contacts-dialog
+        resizable: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    config {
+        buildOption: @contacts
+    }
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region contacts (
+        name: Contacts
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                  contact_name,
+                  contact_email,
+                  contact_phone,
+                  contact_cell,
+                  contact_address,
+                  contact_description,
+                  contact_linkedin,
+                  contact_facebook,
+                  created,
+                  updated,
+                  lower(created_by) created_by,
+                  lower(updated_by) updated_by
+                from eba_sales_customer_contacts
+                where customer_id = :P105_ID
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 106
+                items: {
+                    P106_ID: #ID#
+                    P106_SHOW_ACCOUNT: N
+                }
+                clearCache: 106
+                action: resetPagination
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit #CONTACT_NAME#"
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No contacts found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2389888027257460489
+        }
+
+        column CONTACT_ADDRESS (
+            type: plainText
+            heading {
+                heading: Address
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column CONTACT_CELL (
+            type: plainText
+            heading {
+                heading: Cell
+            }
+            layout {
+                sequence: 57
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        column CONTACT_DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 15
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column CONTACT_EMAIL (
+            type: plainText
+            heading {
+                heading: Email
+            }
+            layout {
+                sequence: 37
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        column CONTACT_FACEBOOK (
+            type: plainText
+            heading {
+                heading: Facebook
+            }
+            layout {
+                sequence: 17
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column CONTACT_LINKEDIN (
+            type: plainText
+            heading {
+                heading: LinkedIn
+            }
+            layout {
+                sequence: 16
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column CONTACT_NAME (
+            type: plainText
+            heading {
+                heading: Contact
+            }
+            layout {
+                sequence: 27
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column CONTACT_PHONE (
+            type: plainText
+            heading {
+                heading: Phone
+            }
+            layout {
+                sequence: 47
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: V
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Added
+            }
+            layout {
+                sequence: 67
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 87
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 107
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: X
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 77
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 97
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        savedReport 23898889 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CONTACT_CELL (
+                sequence: 4
+            )
+
+            displayColumn CONTACT_EMAIL (
+                sequence: 2
+            )
+
+            displayColumn CONTACT_NAME (
+                sequence: 1
+            )
+
+            displayColumn CONTACT_PHONE (
+                sequence: 3
+            )
+
+            displayColumn CREATED (
+                sequence: 6
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 5
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: COMPETITOR
+                sort {
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P105_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-contact (
+        buttonName: ADD_CONTACT
+        label: Add Contact
+        layout {
+            sequence: 20
+            region: @contacts
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 106
+                items: {
+                    P106_CUSTOMER_ID: &P105_ID.
+                    P106_SHOW_ACCOUNT: N
+                }
+                clearCache: 106
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @contacts
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 105
+                clearCache: RIR
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction dialog-closed (
+        name: Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Action Processed.');
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @contacts
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation last-page (
+        itemName: LAST_PAGE
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 105
+        }
+    )
+
+)
+
+
+````

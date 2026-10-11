@@ -1,0 +1,195 @@
+# Offline Fallback — Apex Pwa Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/apex-pwa-reference/apexlang/apex-pwa-reference/pages/p00011-offline-fallback.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 0824406af2feb52a48be92688986e3886fd7c92bedacebdbce86ff995177fea5.
+
+Application dependency inventory: oracle:26.2:public-template/apex-pwa-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 11 (
+    name: Offline Fallback
+    alias: OFFLINE-FALLBACK
+    title: Offline Fallback - &APP_NAME.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    css {
+        inline:
+            ```css
+            .image-wrap {
+                display: flex;
+                flex-flow: column;
+            }
+            
+            .img-installer-mobile {
+                width: 100%;
+                border-radius: 5px;
+            }
+            ```
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region image (
+        name: Image
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @offline-preview
+            slot: subRegions
+        }
+        appearance {
+            template: @/image
+            templateOptions: [
+                #DEFAULT#
+                t-ImageRegion--auto
+                t-ImageRegion--cover
+                t-ImageRegion--square
+                t-ImageRegion--noFilter
+            ]
+        }
+        image {
+            fileUrl: #APP_FILES#img/offline.png
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <ol>
+                    <li>In the <strong>App Builder</strong> go to <strong>Share Components</strong></li>
+                    <li>Under <strong>Globalization</strong> click <strong>Text Messages</strong></li>
+                    <li>Click button <strong>Create Text message</strong></li>
+                    <li>Create messages <strong>APEX.PWA.OFFLINE.TITLE</strong> and <strong>APEX.PWA.OFFLINE.BODY</strong></li>
+                    <li>Add some the content to be rendered on the offline fallback page</li>
+                </ol>
+                ```
+        }
+        layout {
+            sequence: 30
+            parentRegion: @overview
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Offline Fallback Instructions
+        }
+    )
+
+    region offline-preview (
+        name: Offline Preview
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @overview
+            slot: regionBody
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p class="col-8">The Offline Fallback page is displayed when the user performs an action that requires a connection but the device is offline.</p>
+                
+                <p class="col-8">You can add an offline fallback page to your PWA and customize it to suit your needs.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+            renderComponents: belowContent
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: navigation
+            landmarkLabel: Region Display Selector
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+)
+
+
+````

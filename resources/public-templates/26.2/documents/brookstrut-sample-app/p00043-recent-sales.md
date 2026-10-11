@@ -1,0 +1,236 @@
+# Recent Sales — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00043-recent-sales.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: fa36f64497c826be89f6fbc3a3b6fc0b2c96fba7bad57aa027f2aa66ea25ee0a.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 43 (
+    name: Recent Sales
+    alias: RECENT-SALES
+    title: Recent Sales
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region recent-sales (
+        name: Recent Sales
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with
+                    the_products as (
+                        select sp.store_id, sp.id product_id, i.item_name
+                        from oow_demo_store_products sp, oow_demo_items i
+                        where i.id = sp.item_id)
+                select p.item_name product_name,
+                       h.quantity units_sold,
+                       h.item_price total_sale,
+                       h.date_of_sale sold_on
+                from oow_demo_sales_history h, the_products p
+                where h.product_id = p.product_id
+                and h.store_id = :p3_id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        advanced {
+            savedReportMappingIdentifier: 1906164400115129281
+        }
+
+        column PRODUCT_NAME (
+            type: plainText
+            heading {
+                heading: Product Name
+                alignment: center
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column SOLD_ON (
+            type: plainText
+            heading {
+                heading: Sold On
+                alignment: center
+            }
+            layout {
+                sequence: 4
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column TOTAL_SALE (
+            type: plainText
+            heading {
+                heading: Total Sale
+                alignment: center
+            }
+            layout {
+                sequence: 3
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column UNITS_SOLD (
+            type: plainText
+            heading {
+                heading: Units Sold
+                alignment: center
+            }
+            layout {
+                sequence: 2
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 19061862 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn PRODUCT_NAME (
+                sequence: 1
+            )
+
+            displayColumn SOLD_ON (
+                sequence: 4
+            )
+
+            displayColumn TOTAL_SALE (
+                sequence: 3
+            )
+
+            displayColumn UNITS_SOLD (
+                sequence: 2
+            )
+
+            sort (
+                column: SOLD_ON
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            aggregate (
+                column: UNITS_SOLD
+            )
+
+            aggregate (
+                column: TOTAL_SALE
+            )
+
+        )
+
+    )
+
+)
+
+
+````

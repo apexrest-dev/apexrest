@@ -1,0 +1,212 @@
+# Manage Sample Data — Sample Application Search
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-application-search/apexlang/sample-application-search/pages/p00501-manage-sample-data.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 344eb828df66d09f2f6619a80ead4b961d89b866494a2c46290435bf5800ff97.
+
+Application dependency inventory: oracle:26.2:public-template/sample-application-search/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 501 (
+    name: Manage Sample Data
+    alias: MANAGE-SAMPLE-DATA
+    title: Manage Sample Data
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @manage-sample-application
+            slot: subRegions
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region manage-sample-application (
+        name: Manage Sample Application
+        type: staticContent
+        source {
+            htmlCode: <p>Click the Reset Data button to reset data used in this application to its initial defaults.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--wizard
+                t-Alert--defaultIcons
+                t-Alert--info
+            ]
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--large
+            ]
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 500
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset-data (
+        buttonName: RESET_DATA
+        label: Reset Data
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--large
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process loading-product-images (
+        name: Loading product images
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin 
+                    eba_demo_search_data_pkg.load_product_images(:APP_ID,'product_images.zip');
+                end;    
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: The sample data used for this application has been reset.
+        }
+        advanced {
+            executionMappingIdentifier: 2452929148436844912
+        }
+        serverSideCondition {
+            whenButtonPressed: @reset-data
+            type: noRowsReturned
+            sqlQuery: select * from eba_demo_search_products where product_image is not null
+        }
+    )
+
+    process reset-data (
+        name: Reset Data
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                  eba_demo_search_data_pkg.reset_data;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 2452174508479767279
+        }
+        serverSideCondition {
+            whenButtonPressed: @reset-data
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 1
+                clearCache: 1
+                action: resetPagination
+            }
+        }
+        comments {
+            comments: Created 14-DEC-2011 13:59 by MIKE
+        }
+    )
+
+)
+
+
+````

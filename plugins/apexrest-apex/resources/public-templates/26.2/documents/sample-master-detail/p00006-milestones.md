@@ -1,0 +1,436 @@
+# Milestones — Sample Master Detail
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-master-detail/apexlang/sample-master-detail/pages/p00006-milestones.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 51d0a859424dcd6fbe75fd42b292e9df43e8b4ad6887ec7336e84a4523e25565.
+
+Application dependency inventory: oracle:26.2:public-template/sample-master-detail/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 6 (
+    name: Milestones
+    alias: MILESTONES
+    title: Milestones
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+        formAutoComplete: true
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region eba-demo-md-milestones (
+        name: EBA_DEMO_MD_MILESTONES
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                "ID",
+                "PROJECT_ID",
+                "NAME",
+                "DESCRIPTION",
+                "DUE_DATE",
+                "CREATED",
+                "CREATED_BY",
+                "UPDATED",
+                "UPDATED_BY",
+                (select count('x')
+                 from eba_demo_md_tasks t
+                 where t.milestone_id = m.id
+                ) tasks
+                from EBA_DEMO_MD_MILESTONES m
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                update
+                delete
+            ]
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        messages {
+            whenNoDataFound: No Milestones
+        }
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+                saveButton
+            ]
+        }
+        enableUsersTo {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+                excel
+                pdf
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2819533640628476194
+        }
+
+        savedReport 14350 (
+            visibility: primary
+            view {
+                default: grid
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    frozen: true
+                    sequence: 1
+                }
+            )
+
+            displayColumn (
+                column: @ID
+                layout {
+                    frozen: true
+                    sequence: 2
+                }
+            )
+
+            displayColumn (
+                column: @PROJECT_ID
+                layout {
+                    show: false
+                    frozen: true
+                    width: 271
+                    sequence: 3
+                }
+            )
+
+            displayColumn (
+                column: @NAME
+                layout {
+                    width: 248
+                    sequence: 4
+                }
+            )
+
+            displayColumn (
+                column: @DESCRIPTION
+                layout {
+                    width: 461
+                    sequence: 6
+                }
+            )
+
+            displayColumn (
+                column: @DUE_DATE
+                layout {
+                    width: 105
+                    sequence: 5
+                }
+            )
+
+            displayColumn (
+                column: @TASKS
+                layout {
+                    width: 58
+                    sequence: 7
+                }
+            )
+
+            displayColumn (
+                column: @CREATED
+                layout {
+                    sequence: 8
+                }
+            )
+
+            displayColumn (
+                column: @CREATED_BY
+                layout {
+                    sequence: 9
+                }
+            )
+
+            displayColumn (
+                column: @UPDATED
+                layout {
+                    sequence: 10
+                }
+            )
+
+            displayColumn (
+                column: @UPDATED_BY
+                layout {
+                    sequence: 11
+                }
+            )
+
+            controlBreak (
+                column: @PROJECT_ID
+                sort {
+                    nulls: last
+                }
+                layout {
+                    sequence: 1
+                }
+            )
+
+        )
+
+        column APEX$ROW_ACTION (
+            type: actionsMenu
+            layout {
+                sequence: 20
+            }
+        )
+
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 10
+            }
+        )
+
+        column CREATED (
+            type: hidden
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: CREATED
+                dataType: timestampWithLocalTimeZone
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column CREATED_BY (
+            type: hidden
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: CREATED_BY
+                dataType: varchar2
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column DESCRIPTION (
+            type: textarea
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 60
+            }
+            validation {
+                maxLength: 4000
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column DUE_DATE (
+            type: datePickerJquery
+            heading {
+                heading: Due date
+            }
+            layout {
+                sequence: 70
+            }
+            validation {
+                valueRequired: true
+            }
+            source {
+                databaseColumn: DUE_DATE
+                dataType: date
+            }
+        )
+
+        column ID (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column NAME (
+            type: textField
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 50
+            }
+            validation {
+                valueRequired: true
+                maxLength: 255
+            }
+            source {
+                databaseColumn: NAME
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column PROJECT_ID (
+            type: selectList
+            heading {
+                heading: Project
+            }
+            lov {
+                type: sharedComponent
+                lov: @projects
+                displayExtraValues: false
+                nullDisplayValue: - Select Project -
+            }
+            layout {
+                sequence: 40
+            }
+            validation {
+                valueRequired: true
+            }
+            source {
+                databaseColumn: PROJECT_ID
+                dataType: number
+            }
+        )
+
+        column TASKS (
+            type: displayOnly
+            heading {
+                heading: Tasks
+                alignment: end
+            }
+            layout {
+                sequence: 80
+                columnAlignment: end
+            }
+            source {
+                databaseColumn: TASKS
+                dataType: number
+                queryOnly: true
+            }
+        )
+
+        column UPDATED (
+            type: hidden
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: UPDATED
+                dataType: timestampWithLocalTimeZone
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column UPDATED_BY (
+            type: hidden
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: UPDATED_BY
+                dataType: varchar2
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+    )
+
+    process eba-demo-md-milestones-save-interactive-grid-data (
+        name: EBA_DEMO_MD_MILESTONES - Save Interactive Grid Data
+        type: interactiveGridAutoRowProcessing
+        editableRegion: @eba-demo-md-milestones
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 3905479337243659168
+        }
+    )
+
+)
+
+
+````

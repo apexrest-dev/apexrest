@@ -1,0 +1,675 @@
+# Table with JSON Column — Json Sample Sources
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/json-sample-sources/apexlang/json-sample-sources/pages/p00101-table-with-json-column.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 231777e447a2b7db236214ee10b37fbe643fec50900a6413647d6e176359aacb.
+
+Application dependency inventory: oracle:26.2:public-template/json-sample-sources/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 101 (
+    name: Table with JSON Column
+    alias: TABLE-WITH-JSON-COLUMN
+    title: Table with JSON Column
+    pageGroup: @json-sources
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                This page demonstrates how to work with JSON data in Oracle APEX using two different approaches.
+                It includes Interactive Reports that can be switched using a region selector: the <strong>Report View on Data Source</strong>,
+                built on top of the <strong>EBA_DEMO_JSON_CUSTOMERS</strong> JSON Source, and the <strong>Raw JSON Documents</strong> report,
+                built on top of the underlying table that contains the JSON column. In both cases, the <strong>customer_metadata</strong>
+                JSON data is queried, displayed, and combined with structured data to enable flexible data exploration.
+                </p>
+                
+                <p>
+                To get started, use the region selector to switch between the JSON-based and relational views.
+                You can then interact with the report by filtering, searching, sorting, and exploring the customer metadata
+                stored in the <strong>customer_metadata</strong> JSON column alongside the structured relational data.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region raw-json-documents (
+        name: Raw JSON Documents
+        type: interactiveReport
+        source {
+            location: localDatabase
+            tableName: EBA_DEMO_JSON_CUSTOMERS
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        advanced {
+            savedReportMappingIdentifier: 11154374425860242
+        }
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer ID
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column CUSTOMER_METADATA (
+            type: plainText
+            heading {
+                heading: Customer Metadata
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: clob
+            }
+            columnFilter {
+                type: none
+            }
+            advanced {
+                endUserAlias: F
+            }
+            enableUsersTo {
+                sort: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column EMAIL_ADDRESS (
+            type: plainText
+            heading {
+                heading: Email Address
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column FULL_NAME (
+            type: plainText
+            heading {
+                heading: Full Name
+            }
+            layout {
+                sequence: 20
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column LATITUDE (
+            type: hidden
+            heading {
+                heading: Latitude
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LONGITUDE (
+            type: hidden
+            heading {
+                heading: Longitude
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 113274 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn CUSTOMER_ID (
+                sequence: 1
+            )
+
+            displayColumn CUSTOMER_METADATA (
+                sequence: 6
+            )
+
+            displayColumn EMAIL_ADDRESS (
+                sequence: 3
+            )
+
+            displayColumn FULL_NAME (
+                sequence: 2
+            )
+
+            displayColumn LATITUDE (
+                sequence: 4
+            )
+
+            displayColumn LONGITUDE (
+                sequence: 5
+            )
+
+        )
+
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            includeShowAll: false
+        }
+    )
+
+    region report-view-on-data-source (
+        name: Report View on Data Source
+        type: interactiveReport
+        source {
+            location: jsonSource
+            jsonSource: @eba_demo_json_customers
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        advanced {
+            savedReportMappingIdentifier: 9566518335679631
+        }
+
+        column ADDRESS_CITY (
+            type: plainText
+            heading {
+                heading: City
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column ADDRESS_COUNTRY (
+            type: plainText
+            heading {
+                heading: Country
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column ADDRESS_POSTAL_CODE (
+            type: plainText
+            heading {
+                heading: Postal Code
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column ADDRESS_STATE_PROVINCE (
+            type: plainText
+            heading {
+                heading: State Province
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column ADDRESS_STREET (
+            type: plainText
+            heading {
+                heading: Street
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column BIRTH_YEAR (
+            type: plainText
+            heading {
+                heading: Birth Year
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer ID
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column EMAIL_ADDRESS (
+            type: plainText
+            heading {
+                heading: Email Address
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column FULL_NAME (
+            type: plainText
+            heading {
+                heading: Full Name
+            }
+            layout {
+                sequence: 40
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column GENDER (
+            type: plainText
+            heading {
+                heading: Gender
+            }
+            layout {
+                sequence: 180
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column LATITUDE (
+            type: plainText
+            heading {
+                heading: Latitude
+            }
+            layout {
+                sequence: 160
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LONGITUDE (
+            type: plainText
+            heading {
+                heading: Longitude
+            }
+            layout {
+                sequence: 170
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column LOYALTY_TIER (
+            type: plainText
+            heading {
+                heading: Loyalty Tier
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column PREFERRED_LANG (
+            type: plainText
+            heading {
+                heading: Preferred Language
+            }
+            layout {
+                sequence: 190
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column SIGNUP_CHANNEL (
+            type: plainText
+            heading {
+                heading: Signup Channel
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column SUBSCRIBED (
+            type: plainText
+            heading {
+                heading: Subscribed
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 96137 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ADDRESS_CITY (
+                sequence: 4
+            )
+
+            displayColumn ADDRESS_COUNTRY (
+                sequence: 6
+            )
+
+            displayColumn ADDRESS_POSTAL_CODE (
+                sequence: 7
+            )
+
+            displayColumn ADDRESS_STATE_PROVINCE (
+                sequence: 8
+            )
+
+            displayColumn ADDRESS_STREET (
+                sequence: 5
+            )
+
+            displayColumn BIRTH_YEAR (
+                sequence: 3
+            )
+
+            displayColumn EMAIL_ADDRESS (
+                sequence: 2
+            )
+
+            displayColumn FULL_NAME (
+                sequence: 1
+            )
+
+            displayColumn LOYALTY_TIER (
+                sequence: 9
+            )
+
+            displayColumn SIGNUP_CHANNEL (
+                sequence: 10
+            )
+
+        )
+
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 102
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: PREVIOUS
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 100
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

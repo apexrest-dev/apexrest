@@ -4,7 +4,27 @@ Find a component, inspect its parameters and adapt its APEXlang recipe to your a
 
 Browse the component list and examples in [Universal Theme Reference](https://apex.oracle.com/ut).
 
-For `version:26.2`, `corpus:components` resolves the complete [official Oracle inventory](oracle-apexlang-coverage.md), including native/plugin variants and all properties. It returns version-qualified `oracle:26.2:inventory/...` IDs. The local UX recipe catalog described below remains independently bound to 26.1.
+For `version:26.2`, `corpus:components` resolves the complete [official Oracle inventory](oracle-apexlang-coverage.md) by default, including native/plugin variants and all properties. With `kind:template`, it searches **1,350 original APEXlang page examples from 33 public Oracle applications**. The local compiler-checked recipe catalog remains independently bound to 26.1.
+
+## Public page templates and ready recipes
+
+The [internet source inventory](internet-template-sources.md) records the reviewed repositories, exact revisions, licenses and exclusions. The public page library includes Cards, Charts, Calendar, Interactive Grids, Maps, Master Detail, Reporting, Dynamic Actions, Approvals, Search, Customers, Opportunities, Poll, QAsk, Strategic Planner and Team Calendar. Every page retains its original source bytes, source URL, SHA-256, UPL notice and required application dependency guide. Page-number filtering is not a security or runtime readiness classification.
+
+The 1,350 page records contain 1,349 distinct source hashes: Customers and Opportunities share the same help-dialog source. Both records retain their own application dependency context.
+
+```sh
+apexrest docs search --corpus components --version 26.2 --kind template --query "calendar drag drop" --limit 3 --json
+apexrest docs read --id oracle:26.2:public-template/catalog --json
+```
+
+Public pages have `readiness:reference`: they can depend on sample tables, APIs, plug-ins, assets, shared objects and destination pages. Read the linked dependency inventory, adapt the complete dependency set and compile in the target application. They are not standalone ready recipes, and their source authentication/configuration must not replace an existing application's security.
+
+The separate 26.1 catalog adds **30 dependency-closed recipes**: 12 dynamic actions, eight computations, seven validations, Area/Donut charts and a Classic Report with CASE/IF/LOOP directives. They use synthetic data and have exact-source attribution (29 Oracle UPL adaptations and one MIT adaptation with its complete notice). Offline compilation uses SQLcl 26.3 while retaining the original `26.1.0+3102` MMD; this does not upgrade the recipe's APEX version. SQL execution, import and browser verification remain `not-run`.
+
+```sh
+apexrest docs search --corpus components --version 26.1 --kind template --query "conditional field visibility" --limit 3 --json
+apexrest docs search --corpus components --version 26.1 --kind template --query "template directives" --limit 3 --json
+```
 
 ## Search and read
 
@@ -62,5 +82,7 @@ npm run build
 ```
 
 `catalog:verify` invokes SQLcl without a database connection and validates every supported recipe against its exact scaffold. It records file hashes and compiler output; it never executes prerequisite SQL. Review any source-count diff, unresolved recipe and version mismatch before packaging. For faster local iteration, `node scripts/verify-component-recipes.mjs --changed` rechecks changed inputs; the builder still requires valid evidence for every `ready` recipe.
+
+`npm run templates:check` verifies the public page library, exact file membership, source bytes, attribution and dependency links. To reproduce it, download the immutable archive identified in `resources/public-templates/26.2/source-lock.json` and run `node scripts/build-public-template-catalog.mjs --archive /path/to/archive.zip`. The importer enforces its reviewed archive hash and never runs upstream code. Ordinary builds are offline. Per-recipe public provenance is validated separately by the component builder; MIT recipes must include a retained license notice, whose completeness is reviewed during intake.
 
 The reviewed package contains factual metadata, original explanations, reusable examples and source attribution. It excludes raw application exports, deployment credentials, private URLs and the compiler bundle. A new source snapshot is reviewed through its inventory and content diff before it replaces the bundled revision. Preserve existing IDs where their meaning is unchanged.

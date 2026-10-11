@@ -1,0 +1,114 @@
+page 1 (
+    name: Reserved synthetic code validation
+    alias: HOME
+    title: Reserved synthetic code validation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Reserved codes are rejected by a query that must return no rows for valid input.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation check-input (
+        name: Validate input
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: noRowsReturned
+            sqlQuery:
+                ```sql
+                select 1 from dual where upper(trim(:P1_INPUT)) in ('ADMIN', 'SYSTEM') or trim(:P1_INPUT) is null
+                ```
+        }
+        error {
+            errorMessage: Enter a non-empty code other than ADMIN or SYSTEM.
+            associatedItem: @P1_INPUT
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+    )
+    process accepted (
+        name: Accept valid input
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := 'Accepted: ' || :P1_INPUT;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+        successMessage {
+            successMessage: Input passed validation.
+        }
+    )
+)

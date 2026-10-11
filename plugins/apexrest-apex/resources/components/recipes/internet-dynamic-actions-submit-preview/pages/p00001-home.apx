@@ -1,0 +1,117 @@
+page 1 (
+    name: Submit page to prepare a preview
+    alias: HOME
+    title: Submit page to prepare a preview
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Enter a value, then submit it to prepare a preview in session state without changing business tables.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Prepare preview
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @preview
+        }
+        action step-10 (
+            action: submitPage
+            settings {
+                requestButtonName: PREVIEW
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+    process preview-value (
+        name: Prepare preview
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := upper(trim(:P1_INPUT));
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            type: request=Value
+            value: PREVIEW
+        }
+        successMessage {
+            successMessage: Preview prepared in session state.
+        }
+    )
+)

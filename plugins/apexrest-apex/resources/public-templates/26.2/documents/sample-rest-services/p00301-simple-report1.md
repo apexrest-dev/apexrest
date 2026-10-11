@@ -1,0 +1,348 @@
+# Simple Report — Sample Rest Services
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-rest-services/apexlang/sample-rest-services/pages/p00301-simple-report1.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: d60439282fefc4bf7db538abce59bcb573df86c4d5cb114273e916e5e7e933bf.
+
+Application dependency inventory: oracle:26.2:public-template/sample-rest-services/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 301 (
+    name: Simple Report
+    alias: SIMPLE-REPORT1
+    title: Simple Report
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                     This page that uses an Interactive Report region to display REST data in a straightforward and read-only format, it demonstrates how to consume a REST endpoint with automatic JSON conversion to present data without advanced features ideal for quick and basic data views.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region simple-employees-report (
+        name: Simple  Employees Report
+        type: interactiveReport
+        source {
+            location: restSource
+            restSource: @Employee_ords_rest_source
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+        }
+        advanced {
+            savedReportMappingIdentifier: 9771984160812996
+        }
+
+        column COMM (
+            type: plainText
+            heading {
+                heading: Commission
+                alignment: end
+            }
+            layout {
+                sequence: 26
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column DEPTNO (
+            type: plainText
+            heading {
+                heading: Department
+                alignment: end
+            }
+            layout {
+                sequence: 36
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column EMPNO (
+            type: hidden
+            heading {
+                heading: Empno
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column ENAME (
+            type: plainText
+            heading {
+                heading: Employee
+            }
+            layout {
+                sequence: 2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column HIREDATE (
+            type: plainText
+            heading {
+                heading: Hiredate
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column JOB (
+            type: plainText
+            heading {
+                heading: Job
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column MGR (
+            type: plainText
+            heading {
+                heading: Manager
+                alignment: end
+            }
+            layout {
+                sequence: 16
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column SAL (
+            type: plainText
+            heading {
+                heading: Salary
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Simple Report
+        }
+
+        savedReport 25592 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn COMM (
+                sequence: 6
+            )
+
+            displayColumn DEPTNO (
+                sequence: 7
+            )
+
+            displayColumn ENAME (
+                sequence: 1
+            )
+
+            displayColumn HIREDATE (
+                sequence: 4
+            )
+
+            displayColumn JOB (
+                sequence: 2
+            )
+
+            displayColumn MGR (
+                sequence: 5
+            )
+
+            displayColumn SAL (
+                sequence: 3
+            )
+
+        )
+
+        parameter (
+            name: @query
+            value {
+                type: null
+            }
+        )
+
+    )
+
+    button next (
+        buttonName: Next
+        label: Next
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 302
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: Previous
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 300
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

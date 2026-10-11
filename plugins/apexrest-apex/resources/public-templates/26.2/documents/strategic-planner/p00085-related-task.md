@@ -1,0 +1,516 @@
+# Related Task — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00085-related-task.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 3118c094200be4753c518d4b30558c4b551b19a917b3a35acde5d888cdc53105.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 85 (
+    name: Related Task
+    alias: RELATED-TASK
+    title: Related Task
+    pageGroup: @projects
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+
+    region audit-info (
+        name: Audit info
+        type: dynamicContent
+        source {
+            plsqlFunctionBody:
+                ```plsql
+                return 'created '|| apex_util.get_since(to_date(:P85_CREATED)) ||' by '|| apex_escape.html(lower(:P85_CREATED_BY)) ||'<br/>'||
+                       'last updated '|| apex_util.get_since(to_date(:P85_UPDATED)) ||' by '|| apex_escape.html(lower(:P85_UPDATED_BY));
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @related-task
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region related-task (
+        name: Related Task
+        type: form
+        source {
+            location: localDatabase
+            tableName: SP_TASK_RELATED
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P85_CREATED (
+        type: hidden
+        layout {
+            sequence: 80
+            region: @related-task
+            slot: regionBody
+        }
+        source {
+            formRegion: @related-task
+            column: CREATED
+            dataType: date
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_CREATED_BY (
+        type: hidden
+        layout {
+            sequence: 70
+            region: @related-task
+            slot: regionBody
+        }
+        source {
+            formRegion: @related-task
+            column: CREATED_BY
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @related-task
+            slot: regionBody
+        }
+        source {
+            formRegion: @related-task
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_RELATED_TASK_ID (
+        type: selectOne
+        label {
+            label: Related Task
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select t.task || case when t.task is not null then ' (' end || tt.task_type || 
+                                 case when t.task is not null then ')' end d, 
+                       t.id   
+                  from sp_tasks t,
+                       sp_task_types tt    
+                 where t.project_id = (select project_id
+                                         from sp_tasks
+                                        where id = :P85_TASK_ID)
+                   and nvl(t.task_sub_type_id,t.task_type_id) = tt.id 
+                   and tt.static_id not like 'MILESTONE%'
+                   and tt.static_id not like 'REVIEW%'
+                   and t.id not in (select r.related_task_id   
+                                      from sp_task_related r
+                                     where r.task_id = :P85_TASK_ID
+                                       and id != :P85_ID)
+                   and t.id not in (select r.task_id   
+                                      from sp_task_related r
+                                     where r.related_task_id = :P85_TASK_ID
+                                       and id != :P85_ID)
+                   and t.id != :P85_TASK_ID
+                 order by 1
+                ```
+        }
+        layout {
+            sequence: 40
+            region: @related-task
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @related-task
+            column: RELATED_TASK_ID
+            dataType: number
+        }
+    )
+
+    pageItem P85_RELATION_DETAILS (
+        type: textarea
+        label {
+            label: Relation Details
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @related-task
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+            height: 5
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @related-task
+            column: RELATION_DETAILS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P85_RELATION_TYPE_ID (
+        type: selectOne
+        label {
+            label: Relation Type
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select relation_type, id
+                  from sp_relation_types
+                 where (active_yn = 'Y' or id = :P85_RELATION_TYPE_ID)
+                  order by 1
+                ```
+        }
+        layout {
+            sequence: 30
+            region: @related-task
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @related-task
+            column: RELATION_TYPE_ID
+            dataType: number
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_TASK_ID (
+        type: displayOnly
+        label {
+            label: Task
+            alignment: left
+        }
+        settings {
+            basedOn: lov
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select t.task || case when t.task is not null then ' (' end || tt.task_type || 
+                                 case when t.task is not null then ')' end d, 
+                       t.id   
+                  from sp_tasks t,
+                       sp_task_types tt    
+                 where nvl(t.task_sub_type_id,t.task_type_id) = tt.id 
+                ```
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 20
+            region: @related-task
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @related-task
+            column: TASK_ID
+            dataType: number
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_UPDATED (
+        type: hidden
+        layout {
+            sequence: 100
+            region: @related-task
+            slot: regionBody
+        }
+        source {
+            formRegion: @related-task
+            column: UPDATED
+            dataType: date
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P85_UPDATED_BY (
+        type: hidden
+        layout {
+            sequence: 90
+            region: @related-task
+            slot: regionBody
+        }
+        source {
+            formRegion: @related-task
+            column: UPDATED_BY
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P85_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P85_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P85_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 36441289442938621764
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process initialize-form-related-task (
+        name: Initialize form Related task
+        type: formInitialization
+        formRegion: @related-task
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 36441285798157621759
+        }
+    )
+
+    process process-form-related-task (
+        name: Process form Related Task
+        type: formAutoRowProcessing
+        formRegion: @related-task
+        target {
+            returnPksAfterInsert: false
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 36441286164168621759
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,389 @@
+# Competitor Analysis — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00049-competitor-analysis.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 5a03379b7d6a282be0e9878a43f15e70b398b4c4df56b0ec84bc06f9c4da1f9b.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 49 (
+    name: Competitor Analysis
+    alias: COMPETITOR-ANALYSIS
+    title: Competitor Analysis
+    pageGroup: @competition
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>View opportunity counts organized by Competitor, Quarter, and Status. Click the <strong>Reset</strong> button to reset the interactive report. Click the <strong>Actions</strong> button to define the number of rows displayed per page, filter, format, download, and/or save the interactive report.</p>
+    }
+    config {
+        buildOption: @competitors
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region competitor-analysis (
+        name: Competitor Analysis
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select	 decode(DEAL_PROBABILITY,0,'Lost',100,'Won','Open') status,
+                         c.COMPETITOR_NAME,
+                         o.qtr quarter,
+                         count(*) opportunity_count,
+                         count(distinct o.customer_id) accounts,
+                         case when apex_util.get_build_option_status(
+                                       p_application_id    => :APP_ID,
+                                       p_build_option_name => 'Opportunity Amount Set at Product Level'
+                                   ) = 'EXCLUDE' then
+                             sum(o.deal_amount)
+                         else
+                             sum(nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = o.id), 0))
+                         end as total_amount,
+                         case when apex_util.get_build_option_status(
+                                       p_application_id    => :APP_ID,
+                                       p_build_option_name => 'Opportunity Amount Set at Product Level'
+                                   ) = 'EXCLUDE' then
+                             sum(o.deal_probability * .01 * o.deal_amount)
+                         else
+                             sum(o.deal_probability * .01 * nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = o.id), 0))
+                         end as weighted,
+                         min(o."DEAL_PROBABILITY") minimum_probability,
+                         max(o."DEAL_PROBABILITY") maximum_probability
+                from	 
+                   EBA_SALES_OPPORTUNITIES_V o,
+                   EBA_SALES_DEAL_COMPETITION dc,
+                   EBA_SALES_COMPETITORS c
+                where 
+                   dc.deal_id = o.ID and
+                   dc.competitor_id = c.id
+                group by decode(DEAL_PROBABILITY,0,'Lost',100,'Won','Open'),
+                         c.COMPETITOR_NAME,
+                         o.qtr
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 3740800627091845396
+        }
+
+        column ACCOUNTS (
+            type: plainText
+            heading {
+                heading: Accounts
+                alignment: end
+            }
+            layout {
+                sequence: 4
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column COMPETITOR_NAME (
+            type: plainText
+            heading {
+                heading: Competitor
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column MAXIMUM_PROBABILITY (
+            type: plainText
+            heading {
+                heading: Maximum Probability
+                alignment: end
+            }
+            layout {
+                sequence: 12
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column MINIMUM_PROBABILITY (
+            type: plainText
+            heading {
+                heading: Minimum Probability
+                alignment: end
+            }
+            layout {
+                sequence: 11
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column OPPORTUNITY_COUNT (
+            type: plainText
+            heading {
+                heading: Opportunity Count
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column QUARTER (
+            type: plainText
+            heading {
+                heading: Quarter
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column TOTAL_AMOUNT (
+            type: plainText
+            heading {
+                heading: Total &AMT_HDR.
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G999G999
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column WEIGHTED (
+            type: plainText
+            heading {
+                heading: Weighted &AMT_HDR.
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G999G999
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        savedReport 9132461 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 100
+            }
+
+            displayColumn ACCOUNTS (
+                sequence: 4
+            )
+
+            displayColumn COMPETITOR_NAME (
+                sequence: 1
+            )
+
+            displayColumn OPPORTUNITY_COUNT (
+                sequence: 5
+            )
+
+            displayColumn QUARTER (
+                sequence: 2
+            )
+
+            displayColumn STATUS (
+                sequence: 3
+            )
+
+            displayColumn TOTAL_AMOUNT (
+                sequence: 6
+            )
+
+            displayColumn WEIGHTED (
+                sequence: 7
+            )
+
+            sort (
+                column: TOTAL_AMOUNT
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            aggregate (
+                column: TOTAL_AMOUNT
+            )
+
+            aggregate (
+                column: WEIGHTED
+            )
+
+        )
+
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @competitor-analysis
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 49
+                clearCache: [
+                    49
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,459 @@
+# Application Page Views — Poll
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/poll/apexlang/poll/pages/p00010-application-page-views.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: a8e7b8e33d16da69f02f1d7fa6a61306253123af9fe711e082ddb517de6338ce.
+
+Application dependency inventory: oracle:26.2:public-template/poll/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 10 (
+    name: Application Page Views
+    alias: APPLICATION-PAGE-VIEWS
+    title: Application Page Views
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+            t-Dialog--noPadding
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+    comments {
+        comments: Page Access Protection needs to be unrestricted for since filter to work correctly. Allan 23-jan-2020
+    }
+
+    region application-page-views (
+        name: Application Page views
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                lower(USERID)   UserID,
+                step_id         Page_number,
+                (select page_name from apex_application_pages p where p.page_id = l.step_id and p.application_id = :app_id) page_name,
+                TIME_STAMP  View_timestamp,
+                ELAP        Elapsed,
+                NUM_ROWS    Rows_returned,
+                IR_SEARCH   IR_Search,
+                SQLERRM     SQL_Error,
+                PAGE_MODE   page_Mode
+                from apex_activity_log l
+                where flow_id = :app_id and 
+                      time_stamp > sysdate - to_number(:P10_SINCE,'9999999990.99999999999','NLS_NUMERIC_CHARACTERS=''.,''')
+                  and userid is not null
+                
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            excludeTitleFromTranslation: true
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            pivot: false
+            subscription: false
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        heading {
+            fixedTo: none
+        }
+        advanced {
+            savedReportMappingIdentifier: 3753997052227405765
+        }
+
+        column ELAPSED (
+            type: plainText
+            heading {
+                heading: Elapsed
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990D000
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column IR_SEARCH (
+            type: plainText
+            heading {
+                heading: IR Search
+            }
+            layout {
+                sequence: 9
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column PAGE_MODE (
+            type: plainText
+            heading {
+                heading: Page Mode
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column PAGE_NAME (
+            type: plainText
+            heading {
+                heading: Page Name
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column PAGE_NUMBER (
+            type: plainText
+            heading {
+                heading: Page Number
+                alignment: end
+            }
+            layout {
+                sequence: 5
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column ROWS_RETURNED (
+            type: plainText
+            heading {
+                heading: Rows
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column SQL_ERROR (
+            type: plainText
+            heading {
+                heading: SQL Error
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column USERID (
+            type: plainText
+            heading {
+                heading: User ID
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        column VIEW_TIMESTAMP (
+            type: plainText
+            heading {
+                heading: Timestamp
+            }
+            layout {
+                sequence: 6
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: F
+            }
+            enableUsersTo {
+                pivot: false
+            }
+        )
+
+        savedReport 9206821 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 1000
+            }
+
+            displayColumn ELAPSED (
+                sequence: 5
+            )
+
+            displayColumn IR_SEARCH (
+                sequence: 7
+            )
+
+            displayColumn PAGE_NAME (
+                sequence: 2
+            )
+
+            displayColumn PAGE_NUMBER (
+                sequence: 1
+            )
+
+            displayColumn ROWS_RETURNED (
+                sequence: 6
+            )
+
+            displayColumn SQL_ERROR (
+                sequence: 8
+            )
+
+            displayColumn USERID (
+                sequence: 3
+            )
+
+            displayColumn VIEW_TIMESTAMP (
+                sequence: 4
+            )
+
+            sort (
+                column: VIEW_TIMESTAMP
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ELAPSED
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: "View"
+                sort {
+                    direction: desc
+                    sequence: 3
+                }
+            )
+
+        )
+
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    pageItem P10_SINCE (
+        type: selectList
+        label {
+            label: Timeframe
+            alignment: left
+        }
+        settings {
+            pageActionOnSelection: redirectSetValue
+        }
+        lov {
+            type: sharedComponent
+            lov: @timeframe-2-weeks
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        advanced {
+            customAttributes: style="width:200px;"
+        }
+        source {
+            type: staticValue
+            staticValue: 00001.0000000000
+        }
+        default {
+            type: static
+            staticValue: 00001.0000000000
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @application-page-views
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--link
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                clearCache: [
+                    &APP_PAGE_ID.
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

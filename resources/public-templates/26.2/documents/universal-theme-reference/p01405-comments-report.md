@@ -1,0 +1,543 @@
+# Reports - Comments — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01405-comments-report.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 09a2a2508b02e5838b86ee2d689c6498de4eba18d64cfbcf54a70fa7a860216c.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1405 (
+    name: Reports - Comments
+    alias: COMMENTS-REPORT
+    title: Comments Report - &APP_TITLE.
+    pageGroup: @components
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                  p.id,
+                  apex_string.get_initials(p.created_by) user_icon,
+                  p.created comment_date,
+                  lower(p.created_by) user_name,
+                  ' ' comment_text,
+                  'Delete' actions,
+                  ' ' attribute_1,
+                  ' ' attribute_2,
+                  ' ' attribute_3,
+                  ' ' attribute_4,
+                  t.created task_created,
+                  t.created_by task_owner,
+                  t.task_name task_name,
+                  'u-color-'||ora_hash(p.created_by,45) icon_modifier
+                from
+                  eba_ut_chart_tasks t,
+                  eba_ut_chart_projects p
+                where
+                  t.project = p.id
+                order by t.created
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h1
+            ]
+        }
+        advanced {
+            htmlDomId: Demo1
+        }
+        reportLayout {
+            numberOfRows: 6
+        }
+        componentAppearance {
+            template: @/comments
+            templateOptions: [
+                #DEFAULT#
+                t-Comments--chat
+            ]
+            cssClasses: dm-TemplateOption-previewTarget
+        }
+        pagination {
+            type: showAll
+        }
+
+        column ACTIONS (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            type: link
+            heading {
+                heading: Actions
+            }
+            layout {
+                sequence: 6
+            }
+            link {
+                target: {
+                    type: url
+                    url: javascript:alert('Implement delete for comment ID: ' + #ID#)
+                }
+                linkText: #ACTIONS#
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_1 (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Attribute 1
+            }
+            layout {
+                sequence: 7
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_2 (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Attribute 2
+            }
+            layout {
+                sequence: 8
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_3 (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Attribute 3
+            }
+            layout {
+                sequence: 9
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_4 (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: Attribute 4
+            }
+            layout {
+                sequence: 10
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_DATE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Comment date
+            }
+            layout {
+                sequence: 3
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_TEXT (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Comment text
+            }
+            layout {
+                sequence: 5
+            }
+            columnFormatting {
+                htmlExpression: #TASK_NAME# - #TASK_OWNER# (#TASK_CREATED#)
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ICON_MODIFIER (
+            reportColumnQueryId: 14
+            derivedColumn: N
+            heading {
+                heading: Icon modifier
+            }
+            layout {
+                sequence: 14
+            }
+            columnFormatting {
+                htmlExpression: u-color #ICON_MODIFIER#
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TASK_CREATED (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            heading {
+                heading: Task created
+            }
+            layout {
+                sequence: 11
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TASK_NAME (
+            reportColumnQueryId: 13
+            derivedColumn: N
+            heading {
+                heading: Task name
+            }
+            layout {
+                sequence: 13
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TASK_OWNER (
+            reportColumnQueryId: 12
+            derivedColumn: N
+            heading {
+                heading: Task owner
+            }
+            layout {
+                sequence: 12
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_ICON (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: User icon
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_NAME (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: User name
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>This report template is used to display user comments and status updates.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region sample-sql-query (
+        name: Sample SQL Query
+        type: plugin/regionSourceCode
+        layout {
+            sequence: 70
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--lightBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            regionStaticId: Demo1
+        }
+    )
+
+    region substution-strings (
+        name: Substution Strings
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select '#COMMENT_MODIFIERS#' d , 'CSS Class-based modifiers for a comment item' r from dual union all
+                select '#ICON_MODIFIER#' d     , 'CSS Class-based modifiers for comment icon'   r from dual union all
+                select '#USER_ICON#' d         , 'CSS Class-based modifiers for user icon'      r from dual union all
+                select '#USER_NAME#' d         , 'User name'                                    r from dual union all
+                select '#COMMENT_DATE#' d      , 'Date of the comment'                          r from dual union all
+                select '#ACTIONS#' d           , 'Actions for the comment'                      r from dual union all
+                select '#COMMENT_TEXT#' d      , 'Text of the comment'                          r from dual union all
+                select '#ATTRIBUTE_1#' d       , 'Additional attribute 1'                       r from dual union all
+                select '#ATTRIBUTE_2#' d       , 'Additional attribute 2'                       r from dual union all
+                select '#ATTRIBUTE_3#' d       , 'Additional attribute 3'                       r from dual union all
+                select '#ATTRIBUTE_4#' d       , 'Additional attribute 4'                       r from dual
+                ```
+        }
+        layout {
+            sequence: 60
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--lightBG
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-row
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+        }
+        pagination {
+            type: showAll
+        }
+
+        column D (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: D
+                alignment: center
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        column R (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: R
+                alignment: center
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 50
+            slot: body
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+)
+
+
+````

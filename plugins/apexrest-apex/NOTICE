@@ -11,6 +11,14 @@ Reference and matching compiler metadata, with source hashes and provenance.
 Oracle Universal Theme parameter help retained in the catalog is licensed under
 UPL-1.0 (Copyright Oracle and/or its affiliates); see resources/references/ORACLE-LICENSE.txt.
 Catalog explanations and synthetic recipes are maintained by APEXREST contributors.
+Public Oracle APEX 26.2 page sources are licensed under UPL-1.0.
+Copyright (c) Oracle and/or its affiliates. Their pinned source paths and hashes
+are in resources/public-templates/26.2/source-lock.json; the complete license is
+resources/public-templates/26.2/ORACLE-LICENSE.txt. They are reference fragments,
+not independently compiler-checked or runtime-qualified applications.
+The template-directives report recipe is an original adaptation of
+denioflavio/apex-template-directives, Copyright (c) 2026 Denio Flavio, MIT.
+The full notice is retained at resources/components/recipes/internet-report-template-directives/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.

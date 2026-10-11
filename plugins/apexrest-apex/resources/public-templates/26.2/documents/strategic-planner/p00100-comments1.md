@@ -1,0 +1,853 @@
+# Comments — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00100-comments1.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 8970654526e7718bdad48f633df764c310ca72e62eeb08b7afa71d360bcb6be9.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 100 (
+    name: Comments
+    alias: COMMENTS1
+    title: Comments
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    javaScript {
+        fileUrls: #APP_FILES#js/spCommentImageSupport#MIN#.js
+    }
+    css {
+        inline:
+            ```css
+            .t-Comments-comment img {
+              max-width: 1000px; 
+              height: auto;
+            }
+            ```
+    }
+
+    region buttons (
+        name: buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region comment-report (
+        name: Comment Report
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select pc.ID,
+                       -- Display Columns
+                       tm.initials user_icon,
+                       apex_util.get_since(pc.created) comment_date,
+                       tm.first_name || ' ' || tm.last_name user_name,
+                       --
+                       pc.comment_nbr,
+                       pc.body_html comment_text,
+                       case when pc.author_id = :APP_USER_ID
+                            then '<a href="'||apex_util.prepare_URL(
+                                              p_url => 'f?p='||:APP_ID||':28:'||:APP_SESSION||'::NO::P28_ID:'||pc.id,
+                                              p_checksum_type => '3'
+                                  )||'">edit</a>'
+                             end ||
+                             decode(pc.private_yn,null,null,'N',null,'Y',' <strong>Private</strong>') actions,
+                       decode(pc.private_yn,null,null,'N',null,'Y',' Private Comment') private_comment_label,
+                       ' ' attribute_1,
+                       ' ' attribute_2,
+                       ' ' attribute_3,
+                       ' ' attribute_4,
+                       'u-color-'||ora_hash(pc.created_by,45) icon_modifier,
+                
+                       -- Data Columns
+                       pc.PROJECT_ID,
+                       pc.BODY,
+                       pc.BODY_HTML,
+                       --
+                       pc.CREATED,
+                       pc.CREATED_BY,
+                       pc.UPDATED,
+                       pc.UPDATED_BY,
+                       tm.id team_member_id
+                  from SP_PROJECT_COMMENTS_V pc, 
+                       sp_team_members tm
+                where pc.author_id = tm.id (+)
+                  and pc.project_id = :P100_PROJECT_ID
+                  and (nvl(pc.private_yn,'N') = 'N' or lower(pc.created_by) = lower(:app_user) )
+                order by created desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: COMMENTS
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            template: @/comments
+            templateOptions: [
+                #DEFAULT#
+                t-Comments--chat
+            ]
+        }
+        messages {
+            whenNoDataFound: No Comments
+        }
+
+        column ACTIONS (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Actions
+                alignment: center
+            }
+            layout {
+                sequence: 170
+            }
+            sorting {
+                sortable: false
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ATTRIBUTE_1 (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Attribute 1
+                alignment: center
+            }
+            layout {
+                sequence: 180
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_2 (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: Attribute 2
+                alignment: center
+            }
+            layout {
+                sequence: 190
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_3 (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            heading {
+                heading: Attribute 3
+                alignment: center
+            }
+            layout {
+                sequence: 200
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_4 (
+            reportColumnQueryId: 12
+            derivedColumn: N
+            heading {
+                heading: Attribute 4
+                alignment: center
+            }
+            layout {
+                sequence: 210
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column BODY (
+            reportColumnQueryId: 15
+            derivedColumn: N
+            heading {
+                heading: Body
+                alignment: center
+            }
+            layout {
+                sequence: 30
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column BODY_HTML (
+            reportColumnQueryId: 16
+            derivedColumn: N
+            heading {
+                heading: Body Html
+                alignment: center
+            }
+            layout {
+                sequence: 40
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_DATE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Comment Date
+                alignment: center
+            }
+            layout {
+                sequence: 140
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_NBR (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Comment Nbr
+                alignment: end
+            }
+            layout {
+                sequence: 240
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_TEXT (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Comment Text
+                alignment: center
+            }
+            layout {
+                sequence: 160
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <div class="is-markdownified">
+                    {if PRIVATE_COMMENT_LABEL/}<strong class="u-danger-text">#PRIVATE_COMMENT_LABEL#</strong><br />{endif/}
+                    #COMMENT_TEXT#
+                    </div>
+                    ```
+            }
+            sorting {
+                sortable: false
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CREATED (
+            reportColumnQueryId: 17
+            derivedColumn: N
+            heading {
+                heading: Created
+                alignment: center
+            }
+            layout {
+                sequence: 90
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column CREATED_BY (
+            reportColumnQueryId: 18
+            derivedColumn: N
+            heading {
+                heading: Created By
+                alignment: center
+            }
+            layout {
+                sequence: 100
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ICON_MODIFIER (
+            reportColumnQueryId: 13
+            derivedColumn: N
+            heading {
+                heading: Icon Modifier
+                alignment: center
+            }
+            layout {
+                sequence: 220
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Id
+                alignment: center
+            }
+            layout {
+                sequence: 10
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PRIVATE_COMMENT_LABEL (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Private Comment Label
+            }
+            layout {
+                sequence: 250
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PROJECT_ID (
+            reportColumnQueryId: 14
+            derivedColumn: N
+            heading {
+                heading: Project Id
+                alignment: center
+            }
+            layout {
+                sequence: 20
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TEAM_MEMBER_ID (
+            reportColumnQueryId: 21
+            derivedColumn: N
+            heading {
+                heading: User ID
+            }
+            layout {
+                sequence: 230
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 19
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 110
+            }
+        )
+
+        column UPDATED_BY (
+            reportColumnQueryId: 20
+            derivedColumn: N
+            heading {
+                heading: Updated By
+                alignment: center
+            }
+            layout {
+                sequence: 120
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_ICON (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: User Icon
+                alignment: center
+            }
+            layout {
+                sequence: 130
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_NAME (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: User Name
+                alignment: center
+            }
+            layout {
+                sequence: 150
+            }
+            columnFormatting {
+                htmlExpression: Comment #COMMENT_NBR#, #USER_NAME#
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region comments (
+        name: Comments
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region post-comment-button-container (
+        name: Post Comment Button Container
+        type: staticContent
+        layout {
+            sequence: 40
+            parentRegion: @comments
+            slot: regionBody
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    pageItem P100_COMMENT (
+        type: richTextEditor
+        label {
+            label: Comment
+            alignment: left
+        }
+        settings {
+            minHeight: 180
+            allowCustomHtml: true
+        }
+        layout {
+            sequence: 20
+            region: @comments
+            slot: regionBody
+            alignment: left
+            labelColumnSpan: 0
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--stretchInputs
+            ]
+        }
+        advanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function(options) {
+                    return spCommentImageSupport.markdown.configEditor(options, {
+                        apexUpload: {
+                            // Application process name that that will handle the POST request when an image is dropped into
+                            // text box
+                            uploadApplicationProcess: 'POST_COMMENT_IMAGE',
+                            // Pass in any data that you want in the POST process 
+                            // Will be passed in as a JSON object and available in apex_application.g_x01
+                            data: {
+                                imageRefId: apex.item('P100_IMAGE_REF_ID').getValue()
+                            }
+                        },
+                        mentions: {
+                            scope: 'PROJECT',
+                            objectId: apex.items.P100_PROJECT_ID.value
+                        },
+                        docs: {
+                            scope: 'PROJECT',
+                            objectId: apex.items.P100_PROJECT_ID.value
+                        }
+                    });
+                }
+                ```
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    pageItem P100_IMAGE_REF_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @comments
+            slot: regionBody
+        }
+        default {
+            type: expression
+            plsqlExpression: to_number(sys_guid(), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+        }
+    )
+
+    pageItem P100_PRIVATE_YN (
+        type: checkbox
+        label {
+            label: This is a private comment
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @post-comment-button-container
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+        }
+        default {
+            type: static
+            staticValue: N
+        }
+    )
+
+    pageItem P100_PROJECT_ID (
+        type: displayOnly
+        label {
+            label: Project
+            alignment: left
+        }
+        settings {
+            basedOn: lov
+        }
+        lov {
+            type: sharedComponent
+            lov: @sp-projects-project
+        }
+        layout {
+            sequence: 10
+            region: @comments
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    button cancel (
+        buttonName: Cancel
+        label: Cancel
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button post-comment (
+        buttonName: POST_COMMENT
+        label: Post Comment
+        layout {
+            sequence: 10
+            region: @post-comment-button-container
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button view-project (
+        buttonName: View_Project
+        label: View Project
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 36
+                items: {
+                    P36_ID: &P100_PROJECT_ID.
+                }
+                clearCache: 36
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction add-comment (
+        name: Add Comment
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @post-comment
+        }
+        clientSideCondition {
+            type: itemIsNotNull
+            item: P100_COMMENT
+        }
+
+        action add-comment-and-do-alerts (
+            name: add comment and do alerts
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    sp_comment_util.add_project_comment (
+                        p_app_user_id   => :APP_USER_ID,
+                        p_app_user      => :APP_USER,
+                        p_comment       => :P100_COMMENT,
+                        p_project_id    => :P100_PROJECT_ID,
+                        p_private_yn    => nvl(:P100_PRIVATE_YN,'N'),
+                        p_app_id        => :APP_ID,
+                        p_permalink_pre => APEX_UTIL.HOST_URL('SCRIPT') || 'project-details?fi=',
+                        p_nomen_sp      => :NOMENCLATURE_STRATEGIC_PLANNER,
+                        p_nomen_project => :NOMENCLATURE_PROJECT,
+                        p_image_ref_id  => :P100_IMAGE_REF_ID );
+                    
+                    :P100_COMMENT      := null;
+                    :P100_IMAGE_REF_ID := to_number(sys_guid(), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
+                    ```
+                itemsToSubmit: [
+                    P100_COMMENT
+                    P100_PRIVATE_YN
+                    P100_PROJECT_ID
+                    P100_PERMALINK_PREFIX
+                    P100_IMAGE_REF_ID
+                ]
+                itemsToReturn: [
+                    P100_COMMENT
+                    P100_IMAGE_REF_ID
+                ]
+                showProcessing: true
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action native-disable (
+            action: disable
+            affectedElements {
+                selectionType: button
+                button: @post-comment
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-enable (
+            action: enable
+            affectedElements {
+                selectionType: button
+                button: @post-comment
+            }
+            execution {
+                sequence: 70
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.ariaAlertMessage("Comment Added Successfully");
+            }
+            execution {
+                sequence: 60
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @comment-report
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction close-dialog (
+        name: close dialog
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-close (
+            action: closeDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction links-in-comments-in-new-tab (
+        name: links in comments in new tab
+        execution {
+            sequence: 30
+        }
+        when {
+            event: ready
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: $('#COMMENTS a').attr('target','_blank');
+            }
+            execution {
+                sequence: 10
+            }
+        )
+
+    )
+
+    dynamicAction new-links-in-comments-in-new-tab (
+        name: new links in comments in new tab
+        execution {
+            sequence: 40
+        }
+        when {
+            event: apexafterrefresh
+            selectionType: region
+            region: @comment-report
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: $('#COMMENTS a').attr('target','_blank');
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

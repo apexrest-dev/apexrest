@@ -1,0 +1,268 @@
+# Copy &NOMENCLATURE_PROJECT. — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00116-copy-project.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 823770f0662b63e306b326fa149acbd48b3b492b7b7a890ed1fee1501e33f810.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 116 (
+    name: Copy &NOMENCLATURE_PROJECT.
+    alias: COPY-PROJECT
+    title: Copy &NOMENCLATURE_PROJECT.
+    pageGroup: @projects
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+
+    region button-container (
+        name: Button Container
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region copy (
+        name: Copy
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    pageItem P116_NEW_PROJECT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @copy
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P116_NEW_PROJECT_NAME (
+        type: textField
+        label {
+            label: New &NOMENCLATURE_PROJECT. Name
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @copy
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+        }
+    )
+
+    pageItem P116_PROJECT (
+        type: displayOnly
+        label {
+            label: &NOMENCLATURE_PROJECT.
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @copy
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P116_PROJECT_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @copy
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    button cancel (
+        buttonName: Cancel
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @button-container
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button copy (
+        buttonName: copy
+        label: Copy
+        layout {
+            sequence: 10
+            region: @button-container
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction close-dialog (
+        name: close dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-close (
+            action: closeDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation p116-project (
+        itemName: P116_PROJECT
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select project
+                from sp_projects p
+                where id = :P116_PROJECT_ID
+                ```
+        }
+    )
+
+    process copy (
+        name: copy
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                :P116_NEW_PROJECT_ID := sp_util.copy_project (
+                                            p_project_id       => :P116_PROJECT_ID,
+                                            p_new_project_name => :P116_NEW_PROJECT_NAME );
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: &NOMENCLATURE_PROJECT. copied.
+        }
+        advanced {
+            executionMappingIdentifier: 8791658213284982129
+        }
+        serverSideCondition {
+            whenButtonPressed: @copy
+        }
+    )
+
+    process log (
+        name: log
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                sp_log.log_interaction(
+                    p_project_id => :P116_PROJECT_ID);
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeRegions
+        }
+        advanced {
+            executionMappingIdentifier: 8791657807643982129
+        }
+    )
+
+    branch (
+        name: Go To Page 3
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 3
+                items: {
+                    P3_PROJECT_ID: &P116_NEW_PROJECT_ID.
+                }
+                clearCache: 3
+            }
+        }
+    )
+
+)
+
+
+````

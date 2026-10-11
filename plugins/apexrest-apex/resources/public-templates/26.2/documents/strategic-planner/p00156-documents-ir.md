@@ -1,0 +1,582 @@
+# Documents — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00156-documents-ir.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: d7ff8f71210f77677746e7135b2c7777f62582d0ff155744f0f49ff47630898a.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 156 (
+    name: Documents
+    alias: DOCUMENTS-IR
+    title: Documents
+    pageGroup: @cross-project-reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: All Documents within this application along with what object they are associated with (e.g. &NOMENCLATURE_INITIATIVE., &NOMENCLATURE_PROJECT.) and by whom and when they were added.  Additional attributes include whether or not they were deemed Important and the filesize, file extension and any tags associated.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region search-results (
+        name: Search Results
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select case doc_type when 'Project'
+                                     then :NOMENCLATURE_PROJECT
+                                     when 'Initiative'
+                                     then :NOMENCLATURE_INITIATIVE
+                                     when 'Initiative Focus Area'
+                                     then :NOMENCLATURE_INITIATIVE||' Focus Area'
+                                     else doc_type
+                                     end DOC_TYPE,
+                       LINK,
+                       case when doc_type = 'Task'
+                            then project ||' / '|| name
+                            else name
+                            end NAME,
+                       DOCUMENT_FILENAME,
+                       UPDATED,
+                       CREATED,
+                       DOC_DESCRIPTION,
+                       ADDED_BY,
+                       FILESIZE,
+                       FILE_EXTENSION,
+                       TAGS,
+                       RELEASE,
+                       important,
+                       DOCUMENT_ID,
+                       DOCUMENT_BLOB,
+                       DOCUMENT_MIMETYPE,
+                       DOCUMENT_LASTUPD,
+                       DOCUMENT_CHARSET
+                  from SP_DOCUMENTS_V
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: All Documents within this application along with what object they are associated with (e.g. Initiative, Project) and by whom and when they were added.
+        }
+        advanced {
+            savedReportMappingIdentifier: 23673309697946282933
+        }
+
+        column ADDED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 70
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column DOCUMENT_BLOB (
+            type: hidden
+            heading {
+                heading: Document Blob
+            }
+            layout {
+                sequence: 170
+            }
+            source {
+                dataType: other
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column DOCUMENT_CHARSET (
+            type: hidden
+            heading {
+                heading: Document Charset
+            }
+            layout {
+                sequence: 200
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column DOCUMENT_FILENAME (
+            type: link
+            heading {
+                heading: Filename
+            }
+            layout {
+                sequence: 40
+            }
+            link {
+                target: {
+                    type: url
+                    url: #LINK#
+                }
+                linkText: #DOCUMENT_FILENAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column DOCUMENT_ID (
+            type: downloadBlob
+            heading {
+                heading: Document
+            }
+            layout {
+                sequence: 160
+            }
+            appearance {
+                downloadText: Download
+            }
+            blobAttributes {
+                tableName: SP_DOCUMENTS_V
+                blobColumn: DOCUMENT_BLOB
+                primaryKeyColumn1: DOCUMENT_ID
+                mimeTypeColumn: DOCUMENT_MIMETYPE
+                filenameColumn: DOCUMENT_FILENAME
+                lastUpdatedColumn: DOCUMENT_LASTUPD
+                charSetColumn: DOCUMENT_CHARSET
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: N
+            }
+            enableUsersTo {
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column DOCUMENT_LASTUPD (
+            type: hidden
+            heading {
+                heading: Document Lastupd
+            }
+            layout {
+                sequence: 190
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column DOCUMENT_MIMETYPE (
+            type: hidden
+            heading {
+                heading: Document MIME Type
+            }
+            layout {
+                sequence: 180
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column DOC_DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column DOC_TYPE (
+            type: plainText
+            heading {
+                heading: Associated With
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+            genAI {
+                columnContext: Type of object this document is associated with (e.g. Initiative, Project)
+            }
+            help {
+                helpText: Type of object this document is associated with (e.g. &NOMENCLATURE_INITIATIVE., &NOMENCLATURE_PROJECT., ...)
+            }
+        )
+
+        column FILESIZE (
+            type: plainText
+            heading {
+                heading: Filesize
+                alignment: end
+            }
+            layout {
+                sequence: 110
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FILESIZE
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column FILE_EXTENSION (
+            type: plainText
+            heading {
+                heading: File Extension
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column IMPORTANT (
+            type: plainText
+            heading {
+                heading: Important
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+            genAI {
+                columnContext: Yes if document was flagged as important
+            }
+        )
+
+        column LINK (
+            type: hidden
+            heading {
+                heading: Link
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+            genAI {
+                columnContext: Name of the object that this document is associated with (e.g. name of the project or name of the release)
+            }
+            help {
+                helpText: Name of the object that this document is associated with (e.g. name of the &NOMENCLATURE_PROJECT. or name of the &NOMENCLATURE_INITIATIVE.)
+            }
+        )
+
+        column RELEASE (
+            type: plainText
+            heading {
+                heading: Release
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 60
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 239805111 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ADDED_BY (
+                sequence: 7
+            )
+
+            displayColumn DOCUMENT_FILENAME (
+                sequence: 2
+            )
+
+            displayColumn DOCUMENT_ID (
+                sequence: 6
+            )
+
+            displayColumn DOC_TYPE (
+                sequence: 1
+            )
+
+            displayColumn FILESIZE (
+                sequence: 5
+            )
+
+            displayColumn IMPORTANT (
+                sequence: 4
+            )
+
+            displayColumn NAME (
+                sequence: 3
+            )
+
+            displayColumn UPDATED (
+                sequence: 8
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: CREATED
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 156
+                clearCache: [
+                    CIR
+                    RIR
+                ]
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

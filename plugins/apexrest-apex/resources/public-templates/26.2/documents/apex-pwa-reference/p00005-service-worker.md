@@ -1,0 +1,245 @@
+# Service Worker — Apex Pwa Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/apex-pwa-reference/apexlang/apex-pwa-reference/pages/p00005-service-worker.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: fa8ce7f42d5f1f1036802e5aa5670cbf73330a9928953934c771ebab6aef1042.
+
+Application dependency inventory: oracle:26.2:public-template/apex-pwa-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 5 (
+    name: Service Worker
+    alias: SERVICE-WORKER
+    title: Service Worker - &APP_NAME.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region default (
+        name: Default
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>When PWA is enabled for an APEX application, the a default service worker is generated with the following strategy:</p>
+                <ul>
+                    <li>Install and activate the service worker</li>
+                    <li>Serve resources from cache if cache exists</li>
+                    <li>Otherwise serve from network, then put resource in cache</li>
+                    <li>Serve an offline page if network fails</li>
+                </ul>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region file-url (
+        name: File URL
+        type: staticContent
+        source {
+            htmlCode: <p>Alternatively, service worker hooks can be shared across multiple applications by providing a URL reference to a file that contains the service worker hooks interface. If using the file reference, make sure to follow the interface architecture appropriately or else the service worker will fail at runtime.</p>
+        }
+        layout {
+            sequence: 40
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region hooks (
+        name: Hooks
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>The service worker can be modified through hooks or by replacing events completely. By tapping into service worker hooks, developers are able to extend their APEX application to support advanced PWA features such as offline or push notifications, that are not yet offered declaratively in APEX.</p>
+                
+                <p>Developers can hook into service worker events to add their own JavaScript code.</p>
+                
+                <ul>
+                    <li>Function and Variable Declaration</li>
+                    <li>Event: install</li>
+                    <li>Event: activate</li>
+                    <li>Event: fetch</li>
+                    <li>Event: sync</li>
+                    <li>Event: push</li>
+                    <li>Event: notificationclick</li>
+                    <li>Event: notificationclose</li>
+                    <li>Event: canmakepayment</li>
+                    <li>Event: paymentrequest</li>
+                </ul>
+                
+                <p>Go to the PWA attributes page in the APEX Builder to read more about how to leverage service worker hooks.</p>
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>Service workers is a foundational technology for PWAs. Service workers react to incoming requests from web apps, allowing a web app to be designed for offline, receiving push notification and much more. Service workers can execute JavaScript code even when the app is not in use.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: navigation
+            landmarkLabel: Region Display Selector
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            rememberSelection: false
+        }
+    )
+
+    region service-worker-interface (
+        name: Service Worker Interface
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <code>const swHooks = {
+                  FUNCTION_VARIABLE_DECLARATION: ({ apex })                         => { console.log(1, { apex }); },
+                  EVENT_INSTALL:                 ({ apex, event })                  => { console.log(2, { apex, event }); },
+                  EVENT_INSTALL_BEFORE:          ({ apex, event })                  => { console.log(3, { apex, event }); },
+                  EVENT_INSTALL_AFTER:           ({ apex, event })                  => { console.log(4, { apex, event }); },
+                  EVENT_ACTIVATE:                ({ apex, event })                  => { console.log(5, { apex, event }); },
+                  EVENT_ACTIVATE_BEFORE:         ({ apex, event })                  => { console.log(6, { apex, event }); },
+                  EVENT_ACTIVATE_AFTER:          ({ apex, event })                  => { console.log(7, { apex, event }); },
+                  EVENT_FETCH:                   ({ apex, event })                  => { console.log(8, { apex, event }); },
+                  EVENT_FETCH_BEFORE:            ({ apex, event })                  => { console.log(9, { apex, event }); },
+                  EVENT_FETCH_CACHE_DEFINITION:  ({ apex, event, cacheName })       => { console.log(10, { apex, event, cacheName }); },
+                  EVENT_FETCH_CACHE_RESPONSE:    ({ apex, event, cache, response }) => { console.log(11, { apex, event, cache, response }); },
+                  EVENT_FETCH_NETWORK_RESP_SUC:  ({ apex, event, response })        => { console.log(12, { apex, event, response }); },
+                  EVENT_FETCH_NETWORK_RESP_ERR:  ({ apex, event, error })           => { console.log(13, { apex, event, error }); },
+                  EVENT_FETCH_OFFLINE_PAGE:      ({ apex, event, offlinePage })     => { console.log(14, { apex, event, offlinePage }); },
+                  EVENT_FETCH_NETWORK_FALLBACK:  ({ apex, event })                  => { console.log(15, { apex, event }); },
+                  EVENT_SYNC:                    ({ apex, event })                  => { console.log(16, { apex, event }); },
+                  EVENT_PUSH:                    ({ apex, event })                  => { console.log(17, { apex, event }); },
+                  EVENT_NOTIFICATIONCLICK:       ({ apex, event })                  => { console.log(18, { apex, event }); },
+                  EVENT_NOTIFICATIONCLOSE:       ({ apex, event })                  => { console.log(19, { apex, event }); },
+                  EVENT_CANMAKEPAYMENT:          ({ apex, event })                  => { console.log(20, { apex, event }); },
+                  EVENT_PAYMENTREQUEST:          ({ apex, event })                  => { console.log(21, { apex, event }); },
+                };</code>
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @file-url
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+)
+
+
+````

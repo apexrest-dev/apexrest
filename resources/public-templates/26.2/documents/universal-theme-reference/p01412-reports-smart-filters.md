@@ -1,0 +1,456 @@
+# Reports - Smart Filters — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01412-reports-smart-filters.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4d0e4ee372e1f5b127af2eac0fb3130c5deb7a8fb57837329032a9aceba9d8e3.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1412 (
+    name: Reports - Smart Filters
+    alias: REPORTS-SMART-FILTERS
+    title: Smart Filters - &APP_TITLE.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>A smart filters page features a single search field with filters at the top of the page and a report. Each filter displays as a suggestion chip with a single count of how often the specific suggestion value occurs.</p>
+                <p>You can create a smart filters page with either the Create Application Wizard or Create Page Wizard, or add a smart filters region to an existing report in Page Designer.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region search (
+        name: Search
+        type: smartFilters
+        source {
+            filteredRegion: @search-results
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: Demo1
+        }
+        settings {
+            compactNosThreshold: 10000
+        }
+
+        filter P1412_ASSIGNED_TO (
+            type: checkboxGroup
+            label {
+                label: Assigned To
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 40
+            }
+            listEntries {
+                allowToExclude: false
+            }
+            suggestions {
+                type: dynamic
+            }
+            source {
+                databaseColumn: ASSIGNED_TO
+            }
+        )
+
+        filter P1412_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dbColumns: TASK_NAME,STATUS,ASSIGNED_TO,UPDATED_BY
+            }
+        )
+
+        filter P1412_STATUS (
+            type: checkboxGroup
+            label {
+                label: Status
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                allowToExclude: false
+            }
+            suggestions {
+                type: dynamic
+            }
+            source {
+                databaseColumn: STATUS
+            }
+        )
+
+        filter P1412_TASK_NAME (
+            type: checkboxGroup
+            label {
+                label: Task Name
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                allowToExclude: false
+            }
+            suggestions {
+                type: dynamic
+            }
+            source {
+                databaseColumn: TASK_NAME
+            }
+        )
+
+        filter P1412_UPDATED_BY (
+            type: checkboxGroup
+            label {
+                label: Updated By
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 50
+            }
+            listEntries {
+                allowToExclude: false
+            }
+            suggestions {
+                type: dynamic
+            }
+            source {
+                databaseColumn: UPDATED_BY
+            }
+        )
+
+    )
+
+    region search-results (
+        name: Search Results
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    task_name,
+                    status,
+                    start_date,
+                    end_date,
+                    assigned_to,
+                    cost,
+                    budget,
+                    updated_by,
+                    updated
+                from
+                    EBA_UT_chart_tasks
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @demo
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlight
+                t-Report--inline
+                t-Report--hideNoPagination
+            ]
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: no data found
+        }
+
+        column ASSIGNED_TO (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 5
+            }
+        )
+
+        column BUDGET (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Budget
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+        )
+
+        column COST (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Cost
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+        )
+
+        column END_DATE (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: End Date
+                alignment: center
+            }
+            layout {
+                sequence: 4
+                columnAlignment: center
+            }
+        )
+
+        column START_DATE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Start Date
+                alignment: center
+            }
+            layout {
+                sequence: 3
+                columnAlignment: center
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 2
+            }
+        )
+
+        column TASK_NAME (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 1
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Updated
+                alignment: center
+            }
+            layout {
+                sequence: 9
+                columnAlignment: center
+            }
+        )
+
+        column UPDATED_BY (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 8
+            }
+        )
+
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 40
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+)
+
+
+````

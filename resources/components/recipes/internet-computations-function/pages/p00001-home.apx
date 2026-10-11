@@ -1,0 +1,61 @@
+page 1 (
+    name: Procedural calendar label
+    alias: HOME
+    title: Procedural calendar label
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>This value is computed before the page header using a side-effect-free computation.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Computed value
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    computation derive (
+        itemName: P1_OUTPUT
+        computation {
+            type: functionBody
+            plsqlFunctionBody:
+                ```plsql
+                begin
+                    if trunc(sysdate) = trunc(sysdate, 'MM') then
+                        return 'First day of the month';
+                    end if;
+                    return 'Current month: ' || to_char(sysdate, 'YYYY-MM');
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+)

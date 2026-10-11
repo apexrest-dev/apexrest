@@ -1,0 +1,500 @@
+# Referenceability Report — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00122-referenceability-report2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 23f486f29446ff38d6bbc19448c88838207b54c0a39cf5718370ec759a07b012.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 122 (
+    name: Referenceability Report
+    alias: REFERENCEABILITY-REPORT2
+    title: Referenceability Report
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+    config {
+        buildOption: @product-referencability
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 1
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region by-asset-commitment (
+        name: by Asset Commitment
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select rt.reference_type,
+                    p.product_name,
+                    c.customer_name,
+                    c.industry_id,
+                    ( select cc.category from eba_cust_categories cc where cc.id = c.status_id ) category,
+                    rt.id reference_type_id,
+                    ( select g.geography_name from eba_cust_geographies g where g.id = c.geography_id ) geography_name,
+                    pu.created,
+                    pu.updated,
+                    ( select s.status from eba_cust_status s where s.id = c.status_id ) status,
+                    c.marquee_customer_yn marquee,
+                    c.id customer_id,
+                    ( select ps.status from eba_cust_product_statuses ps where ps.id = pu.reference_status_id ) ref_phase,
+                    pu.internal_contact ref_recruitment_owner
+                from eba_cust_product_uses pu,
+                    eba_cust_products p,
+                    eba_cust_customers c,
+                    eba_cust_reference_types rt
+                where p.id = pu.product_id
+                    and c.id = pu.customer_id
+                    and ':'||pu.reference_type_ids||':' like '%:'||rt.id||':%'
+                ```
+            pageItemsToSubmit: P122_CATEGORY
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            subscription: false
+        }
+        advanced {
+            savedReportMappingIdentifier: 19252475799370618983
+        }
+
+        column CATEGORY (
+            type: plainText
+            heading {
+                heading: Category
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 8
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer Id
+            }
+            layout {
+                sequence: 12
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CUSTOMER_NAME (
+            type: link
+            heading {
+                heading: Customer Name
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 50
+                    items: {
+                        P50_ID: #CUSTOMER_ID#
+                    }
+                    clearCache: 50
+                }
+                linkText: #CUSTOMER_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column GEOGRAPHY_NAME (
+            type: plainText
+            heading {
+                heading: Geography
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column INDUSTRY_ID (
+            type: hidden
+            heading {
+                heading: Industry
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: C
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column MARQUEE (
+            type: plainText
+            heading {
+                heading: Marquee
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column PRODUCT_NAME (
+            type: plainText
+            heading {
+                heading: Product
+            }
+            layout {
+                sequence: 24
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column REFERENCE_TYPE (
+            type: plainText
+            heading {
+                heading: Asset Commitment
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column REFERENCE_TYPE_ID (
+            type: hidden
+            heading {
+                heading: Reference Type
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column REF_PHASE (
+            type: plainText
+            heading {
+                heading: Ref Phase
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column REF_RECRUITMENT_OWNER (
+            type: plainText
+            heading {
+                heading: Ref Recruitment Owner
+            }
+            layout {
+                sequence: 14
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 9
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 192524815 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn CATEGORY (
+                sequence: 4
+            )
+
+            displayColumn CUSTOMER_ID (
+                sequence: 9
+            )
+
+            displayColumn CUSTOMER_NAME (
+                sequence: 2
+            )
+
+            displayColumn GEOGRAPHY_NAME (
+                sequence: 6
+            )
+
+            displayColumn INDUSTRY_ID (
+                sequence: 3
+            )
+
+            displayColumn MARQUEE (
+                sequence: 8
+            )
+
+            displayColumn PRODUCT_NAME (
+                sequence: 12
+            )
+
+            displayColumn REFERENCE_TYPE (
+                sequence: 1
+            )
+
+            displayColumn REFERENCE_TYPE_ID (
+                sequence: 5
+            )
+
+            displayColumn REF_PHASE (
+                sequence: 10
+            )
+
+            displayColumn REF_RECRUITMENT_OWNER (
+                sequence: 11
+            )
+
+            displayColumn STATUS (
+                sequence: 7
+            )
+
+            sort (
+                column: CUSTOMER_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P122_CATEGORY (
+        type: selectList
+        label {
+            label: Category
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @cat
+            nullDisplayValue: - All -
+            nullReturnValue: 0
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            type: staticValue
+            staticValue: 0
+        }
+        default {
+            type: static
+            staticValue: 0
+        }
+    )
+
+)
+
+
+````

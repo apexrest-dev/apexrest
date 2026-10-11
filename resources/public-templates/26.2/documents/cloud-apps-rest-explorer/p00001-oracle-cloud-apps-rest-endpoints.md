@@ -1,0 +1,1237 @@
+# Oracle Cloud Apps REST Endpoints — Cloud Apps Rest Explorer
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/utility-apps/cloud-apps-rest-explorer/apexlang/cloud-apps-rest-explorer/pages/p00001-oracle-cloud-apps-rest-endpoints.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: e832a5903cf51d85756d91fc3d4266ec69914a4990c4fc93893d2ade92992bd3.
+
+Application dependency inventory: oracle:26.2:public-template/cloud-apps-rest-explorer/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1 (
+    name: Oracle Cloud Apps REST Endpoints
+    alias: ORACLE-CLOUD-APPS-REST-ENDPOINTS
+    title: Oracle Cloud Apps REST Endpoints
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    javaScript {
+        executeWhenPageLoads:
+            ```javascript-browser
+            app.setupCopyHandlersForInteractiveReport("fa-rest-endpoints-tab");
+            app.setupCopyHandlersForInteractiveReport("all-endpoints-tab");
+            
+            ```
+    }
+    css {
+        inline:
+            ```css
+            th#action,
+            td[headers=action]
+            {
+              width:80px;
+              text-align: center !important;
+            }
+            
+            th#service-endpoint,
+            td[headers=service-endpoint]
+            {
+              width:50px;
+              text-align: center !important;
+            }
+            
+            th#all-endpoint-url,
+            td[headers=all-endpoint-url]
+            {
+              width:50px;
+              text-align: center !important;
+            }
+            
+            ```
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region all-endpoints (
+        name: All Endpoints
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select c.ID,
+                       c.TITLE,
+                       c.ENDPOINT_URL,
+                       b.ENDPOINT_URL BASE_URL,
+                       c.RESOURCE_NAME
+                  from eba_util_farest_catalog c
+                  left outer join eba_util_farest_cat_baseurl b on b.id = c.baseurl_id
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @tabs
+            slot: tabs
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: all-endpoints-tab
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        advanced {
+            savedReportMappingIdentifier: 659743281263019509
+        }
+
+        column BASE_URL (
+            type: plainText
+            heading {
+                heading: Base Url
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column ENDPOINT_URL (
+            type: plainText
+            heading {
+                heading: Endpoint&nbsp;URL
+                alignment: center
+            }
+            layout {
+                sequence: 20
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <button type="button" title="Copy #RESOURCE_NAME# endpoint URL to clipboard" aria-label="Copy #RESOURCE_NAME# endpoint URL to clipboard" data-text="#ENDPOINT_URL#"
+                    class="t-Button t-Button--noLabel t-Button--icon">
+                        <span aria-hidden="true" class="t-Icon fa fa-clone"></span>
+                    </button>
+                    ```
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                htmlDomId: all-endpoint-url
+                endUserAlias: C
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column RESOURCE_NAME (
+            type: plainText
+            heading {
+                heading: Resource Name
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column TITLE (
+            type: plainText
+            heading {
+                heading: Title
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: All Endpoints
+        }
+
+        savedReport 6674043 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 100000
+            }
+
+            displayColumn BASE_URL (
+                sequence: 4
+            )
+
+            displayColumn ENDPOINT_URL (
+                sequence: 1
+            )
+
+            displayColumn RESOURCE_NAME (
+                sequence: 2
+            )
+
+            displayColumn TITLE (
+                sequence: 3
+            )
+
+            sort (
+                column: RESOURCE_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+            controlBreak (
+                column: BASE_URL
+                layout {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    region background-progress (
+        name: Background Progress
+        type: staticContent
+        layout {
+            sequence: 70
+            parentRegion: @tabs
+            slot: tabs
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region endpoints-in-use (
+        name: Endpoints In Use
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select case 
+                            when e.id is not null 
+                            then 
+                                apex_page.get_url(
+                                   p_page => 3,
+                                   p_items => 'P3_ID',
+                                   p_values => e.id,
+                                   p_request => 'IR[attributes]_ALL')
+                        end as details_url,
+                        apex_page.get_url(
+                           p_page    => 1,
+                           p_items   => 'P1_INGEST_APPLICATION_ID,P1_INGEST_MODULE_STATIC_ID',
+                           p_values  => wsm.application_id||','||wsm.module_static_id,
+                           p_request => 'INGEST') as refresh_url,
+                           wsm.application_name, 
+                       wsm.application_id, 
+                       wsm.module_static_id, 
+                       wsm.url_endpoint,
+                       case when e.id is null then 'Install' else 'Refresh' end available_action
+                from apex_appl_web_src_modules wsm
+                left outer join eba_util_farest_endpoints e on e.module_static_id = wsm.module_static_id
+                                                           and e.application_id  = wsm.application_id
+                where wsm.web_source_type_code = 'NATIVE_ADFBC'
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @tabs
+            slot: tabs
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: fa-rest-endpoints-tab
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No Oracle Cloud Apps REST data sources defined in any app in the workspace. Add at least one REST data source of type "Oracle Cloud Applications (SaaS) REST Service" to get started...
+        }
+        advanced {
+            savedReportMappingIdentifier: 14403799720316114
+        }
+
+        column APPLICATION_ID (
+            type: plainText
+            heading {
+                heading: Application Id
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column APPLICATION_NAME (
+            type: plainText
+            heading {
+                heading: Application
+            }
+            layout {
+                sequence: 20
+            }
+            columnFormatting {
+                htmlExpression: #APPLICATION_NAME# (#APPLICATION_ID#)
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column AVAILABLE_ACTION (
+            type: plainText
+            heading {
+                heading: Action
+                alignment: center
+            }
+            layout {
+                sequence: 80
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <span>
+                    {case AVAILABLE_ACTION/}
+                       {when Install/}<a class="fa fa-download" 
+                                         title="Download the service definition info for this data source" 
+                                          href="#REFRESH_URL#"></a>
+                       {when Refresh/}<a class="fa fa-repeat" 
+                                         title="Refresh the service definition info for this data source"
+                                         href="#REFRESH_URL#"></a>
+                    {endcase/}
+                    </span>
+                    ```
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                htmlDomId: action
+                endUserAlias: R
+            }
+        )
+
+        column DETAILS_URL (
+            type: hidden
+            heading {
+                heading: Details Url
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column MODULE_STATIC_ID (
+            type: plainText
+            heading {
+                heading: REST Data Source Static Id
+            }
+            layout {
+                sequence: 40
+            }
+            columnFormatting {
+                htmlExpression: "<div>{if DETAILS_URL/}<b><a href=\"#DETAILS_URL#\" rel=\"noopener noreferrer\">{endif/}#MODULE_STATIC_ID#{if DETAILS_URL/}</a></b>{endif/}</div>"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column REFRESH_URL (
+            type: hidden
+            heading {
+                heading: Refresh Url
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column URL_ENDPOINT (
+            type: plainText
+            heading {
+                heading: Endpoint&nbsp;URL
+                alignment: center
+            }
+            layout {
+                sequence: 50
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <button type="button" title="Copy #MODULE_STATIC_ID# endpoint URL to clipboard" aria-label="Copy #MODULE_STATIC_ID# endpoint URL to clipboard" data-text="#URL_ENDPOINT#"
+                    class="t-Button t-Button--noLabel t-Button--icon">
+                        <span aria-hidden="true" class="t-Icon fa fa-clone"></span>
+                    </button>
+                    ```
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                htmlDomId: service-endpoint
+                endUserAlias: J
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Endpoints In Use
+        }
+
+        savedReport 9043154 (
+            visibility: alternativeDefault
+            name: For All Apps
+            view {
+                rowsPerPage: 100000
+            }
+
+            displayColumn APPLICATION_NAME (
+                sequence: 4
+            )
+
+            displayColumn AVAILABLE_ACTION (
+                sequence: 1
+            )
+
+            displayColumn MODULE_STATIC_ID (
+                sequence: 3
+            )
+
+            displayColumn URL_ENDPOINT (
+                sequence: 2
+            )
+
+            sort (
+                column: MODULE_STATIC_ID
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+        savedReport 9043163 (
+            visibility: alternativeDefault
+            name: By App
+            view {
+                rowsPerPage: 100000
+            }
+
+            displayColumn APPLICATION_NAME (
+                sequence: 4
+            )
+
+            displayColumn AVAILABLE_ACTION (
+                sequence: 1
+            )
+
+            displayColumn MODULE_STATIC_ID (
+                sequence: 3
+            )
+
+            displayColumn URL_ENDPOINT (
+                sequence: 2
+            )
+
+            sort (
+                column: MODULE_STATIC_ID
+                sort {
+                    sequence: 1
+                }
+            )
+
+            controlBreak (
+                column: APPLICATION_NAME
+                layout {
+                    sequence: 1
+                }
+            )
+
+        )
+
+        savedReport 94763 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 100000
+            }
+
+            displayColumn APPLICATION_NAME (
+                sequence: 4
+            )
+
+            displayColumn AVAILABLE_ACTION (
+                sequence: 1
+            )
+
+            displayColumn MODULE_STATIC_ID (
+                sequence: 3
+            )
+
+            displayColumn URL_ENDPOINT (
+                sequence: 2
+            )
+
+            sort (
+                column: MODULE_STATIC_ID
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    region help (
+        name: Help
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <span class="info">
+                    <p>All the <em>Oracle Cloud Application (SaaS) REST Service </em> data sources in your workspace appear on the <em>Endpoints In Use</em> tab.</p>
+                    <p>All endpoints available from the Fusion Apps pillars in use show on the <em>All Endpoints</em> tab.</p>
+                    <p>After downloading the description of an in-use data source, click its name to explore its attributes and child objects...</p>
+                </span>
+                ```
+        }
+        layout {
+            sequence: 100
+            slot: body
+        }
+        appearance {
+            template: @/inline-dialog
+            templateOptions: [
+                #DEFAULT#
+                js-dialog-size480x320
+            ]
+        }
+    )
+
+    region oracle-cloud-apps-rest-describe-explorer (
+        name: Oracle Cloud Apps REST Describe Explorer
+        type: staticContent
+        source {
+            htmlCode: <span class="apex-logo-text"> -&nbsp; REST Data Sources</span>
+        }
+        layout {
+            sequence: 10
+            slot: afterLogo
+        }
+    )
+
+    region show-progress (
+        name: Show Progress
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                        case bgp.process_name
+                             when 'On Refresh Catalog'   
+                             then 'All catalog endpoints'
+                             when 'On Download Services' 
+                             then 'Remaining in-use service descriptions'
+                        end as refresh_task,
+                        bgp.status_message,  
+                        case when bgp.sofar is not null and bgp.totalwork is not null
+                             then round(bgp.sofar/bgp.totalwork*100)||'%'
+                        end progress,
+                        round(bgp.sofar/bgp.totalwork*100) progress_bar
+                from apex_appl_page_bg_proc_status bgp
+                left join apex_application_page_proc pp on bgp.process_id = pp.process_id
+                where      pp.process_name   in ('On Download Services','On Refresh Catalog')
+                       and bgp.status_code   in ( 'ENQUEUED','SCHEDULED', 'EXECUTING')
+                       and pp.application_id = :APP_ID
+                       and pp.page_id        = 1
+                ```
+        }
+        layout {
+            sequence: 60
+            parentRegion: @background-progress
+            slot: regionBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: background-progress-tab
+        }
+        reportLayout {
+            numberOfRows: 50
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlight
+                t-Report--inline
+                t-Report--hideNoPagination
+            ]
+        }
+        performance {
+            maxRowsToProcess: 500
+        }
+        messages {
+            whenNoDataFound: No background service description retrieval happening at the moment
+        }
+
+        column PROGRESS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column PROGRESS_BAR (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            type: percentGraph
+            heading {
+                heading: Progress
+                alignment: center
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                foregroundColor: #fb0b0b
+                barWidth: 100
+            }
+            advanced {
+                cellWidth: 100
+            }
+        )
+
+        column REFRESH_TASK (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Download Task
+            }
+            layout {
+                sequence: 10
+            }
+            advanced {
+                cellWidth: 150
+            }
+        )
+
+        column STATUS_MESSAGE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Status Message
+            }
+            layout {
+                sequence: 50
+            }
+        )
+
+    )
+
+    region tabs (
+        name: Tabs
+        type: staticContent
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/tabs-container
+            templateOptions: [
+                #DEFAULT#
+                js-useLocalStorage
+                t-TabsRegion-mod--simple
+            ]
+        }
+        advanced {
+            htmlDomId: tabs
+        }
+    )
+
+    pageItem P1_INGEST_APPLICATION_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            slot: body
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P1_INGEST_MODULE_STATIC_ID (
+        type: hidden
+        layout {
+            sequence: 40
+            slot: body
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P1_TAB_ACTIVATED (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 60
+            slot: body
+        }
+    )
+
+    button close (
+        buttonName: Close
+        label: Close
+        layout {
+            sequence: 10
+            region: @help
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button download-remaining-service-descriptions-in-background (
+        buttonName: Download_Remaining_Service_Descriptions_in_Background
+        label: Download Remaining Service Descriptions In Background
+        layout {
+            sequence: 20
+            region: @endpoints-in-use
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-cloud-download
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select * 
+                from(select application_id, module_static_id
+                       from apex_appl_web_src_modules
+                      where web_source_type_code = 'NATIVE_ADFBC'
+                      minus
+                     select application_id, module_static_id
+                       from eba_util_farest_endpoints)
+                fetch first row only
+                ```
+        }
+    )
+
+    button help (
+        buttonName: Help
+        label: Help
+        layout {
+            sequence: 70
+            slot: beforeNavigationBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--primary
+            ]
+            icon: fa-info-circle-o
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button refresh-catalog-endpoints (
+        buttonName: Refresh_Catalog_Endpoints
+        label: Refresh List
+        layout {
+            sequence: 10
+            region: @all-endpoints
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-refresh
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button refresh-catalog-in-background (
+        buttonName: Refresh_Catalog_in_Background
+        label: Refresh Catalog In Background
+        layout {
+            sequence: 20
+            region: @all-endpoints
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-repeat
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button refresh-endpoints-in-use (
+        buttonName: Refresh_Endpoints_in_Use
+        label: Refresh List
+        layout {
+            sequence: 10
+            region: @endpoints-in-use
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-refresh
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button refresh-progress-display (
+        buttonName: Refresh_Progress_Display
+        label: Refresh Progress Display
+        layout {
+            sequence: 10
+            region: @show-progress
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            cssClasses: [
+                margin-top-md
+                margin-bottom-md
+            ]
+            icon: fa-refresh
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction on-refresh-progress (
+        name: On Refresh Progress
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @refresh-progress-display
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @show-progress
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-close-clicked (
+        name: When Close Clicked
+        execution {
+            sequence: 60
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @close
+        }
+
+        action native-close-region (
+            action: closeRegion
+            affectedElements {
+                selectionType: region
+                region: @help
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-help-clicked (
+        name: When Help Clicked
+        execution {
+            sequence: 50
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @help
+        }
+
+        action native-open-region (
+            action: openRegion
+            affectedElements {
+                selectionType: region
+                region: @help
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-refresh-catalog-endpoints-clicked (
+        name: When Refresh Catalog Endpoints Clicked
+        execution {
+            sequence: 40
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @refresh-catalog-endpoints
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @all-endpoints
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-refresh-endpoints-in-use-clicked (
+        name: When Refresh Endpoints in Use Clicked
+        execution {
+            sequence: 30
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @refresh-endpoints-in-use
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @endpoints-in-use
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-tab-changed (
+        name: When Tab Changed
+        execution {
+            sequence: 20
+        }
+        when {
+            event: custom
+            customEvent: atabsactivate
+            selectionType: jQuerySelector
+            jquerySelector: #tabs
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    // Find the active tab and its associated region
+                    let active_tab = apex.region(this.triggeringElement.id).widget().aTabs("getActive");
+                    let active_region = $('[id$=-tab]',$(active_tab.panel$));
+                    
+                    // If we have region, find its ID and record that for use in the regions
+                    if(active_region){
+                        let active_id = $(active_region).attr('id');
+                        apex.items.P1_TAB_ACTIVATED.setValue(active_id);
+                    
+                        // If we want to auto refresh...
+                        if( active_id == "background-progress-tab" ){
+                            // If we can refresh the current region;
+                            if( active_id && apex.regions[active_id] && apex.regions[active_id].refresh ){        
+                                apex.regions[active_id].refresh();
+                            }
+                        }
+                    }
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process call-refresh-catalog (
+        name: Call Refresh Catalog
+        type: invokeApi
+        executionChain: @on-refresh-catalog
+        invoke {
+            package: EBA_UTIL_FAREST_EXPLORER
+            procedureOrFunction: REFRESH_CATALOG
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 659744374017019520
+        }
+    )
+
+    process describe-and-ingest-json (
+        name: Describe and Ingest JSON
+        type: invokeApi
+        executionChain: @if-ingest-link-clicked
+        invoke {
+            package: EBA_UTIL_FAREST_EXPLORER
+            procedureOrFunction: INGEST_JSON_DESCRIBE
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 9457011165307235
+        }
+
+        parameter p_application_id (
+            parameter {
+                dataType: number
+            }
+            value {
+                type: item
+                item: P1_INGEST_APPLICATION_ID
+            }
+            advanced {
+                displaySequence: 10
+            }
+        )
+
+        parameter p_module_static_id (
+            value {
+                type: item
+                item: P1_INGEST_MODULE_STATIC_ID
+            }
+            advanced {
+                displaySequence: 20
+            }
+        )
+
+    )
+
+    process download-missing-descriptions (
+        name: Download Missing Descriptions
+        type: invokeApi
+        executionChain: @on-download-services
+        invoke {
+            package: EBA_UTIL_FAREST_EXPLORER
+            procedureOrFunction: INGEST_JSON_FOR_DATA_SOURCES
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 659744811830019525
+        }
+    )
+
+    process if-ingest-link-clicked (
+        name: If Ingest Link Clicked...
+        type: executionChain
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 9456944416307234
+        }
+        serverSideCondition {
+            type: request=Value
+            value: INGEST
+        }
+    )
+
+    process on-download-services (
+        name: On Download Services
+        type: executionChain
+        backgroundExecution {
+            runInBackground: true
+            executionsLimit: 1
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 659744617302019523
+        }
+        serverSideCondition {
+            whenButtonPressed: @download-remaining-service-descriptions-in-background
+        }
+    )
+
+    process on-refresh-catalog (
+        name: On Refresh Catalog
+        type: executionChain
+        backgroundExecution {
+            runInBackground: true
+            executionsLimit: 1
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 659744226653019519
+        }
+        serverSideCondition {
+            whenButtonPressed: @refresh-catalog-in-background
+        }
+    )
+
+)
+
+
+````

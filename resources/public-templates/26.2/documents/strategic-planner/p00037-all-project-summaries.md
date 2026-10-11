@@ -1,0 +1,531 @@
+# All Project Summaries — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00037-all-project-summaries.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: e8f337f396812c01440291949196376b66d423f2b068e981985a1591753f7b90.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 37 (
+    name: All Project Summaries
+    alias: ALL-PROJECT-SUMMARIES
+    title: All &NOMENCLATURE_PROJECT. Summaries
+    pageGroup: @administration
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: All the AI Summaries for all &NOMENCLATURE_PROJECTS..  This includes the data sent to the AI engine along with the JSON return, the summary, highlights and risks extracted from the return.
+    }
+    config {
+        buildOption: @ai-project-summaries-view
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region summaries (
+        name: Summaries
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select s.ID,
+                       s.PROJECT_ID,
+                       s.PROMPT_SENT,
+                       sys.dbms_lob.substr(s.DETAILS_SENT,3000)||
+                           case when length(s.details_sent) > 3000
+                            then ' ...'
+                            end details_sent,
+                       sys.dbms_lob.substr(s.DETAILS_JSON,3000)||
+                           case when length(s.details_json) > 3000
+                            then ' ...'
+                            end details_json,
+                       s.SUMMARY_TYPE,
+                       s.DATA_RECEIVED,
+                       s.SUMMARY,
+                       s.RISK,
+                       s.HIGHLIGHTS,
+                       s.CREATED,
+                       p.project
+                  from SP_PROJECT_AI_SUMMARIES s,
+                       sp_projects p
+                 where p.id = s.project_id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: singleRowView
+            uniquelyIdentifyRowsBy: uniqueColumn
+            uniqueColumn: ID
+            linkIcon: <img src="#APEX_FILES#app_ui/img/icons/apex-edit-view.png" class="apex-edit-view" alt="">
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: All the AI Summaries for all projects.  This includes the data sent to the AI engine along with the JSON return, the summary, highlights and risks extracted from the return.
+        }
+        actionsMenu {
+            controlBreak: false
+            compute: false
+            aggregate: false
+            chart: false
+            groupBy: false
+            pivot: false
+            flashback: false
+            saveReport: false
+            subscription: false
+        }
+        advanced {
+            savedReportMappingIdentifier: 132111888330694420199
+        }
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 130
+            }
+            appearance {
+                formatMask: SINCE_SHORT
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column DATA_RECEIVED (
+            type: plainText
+            heading {
+                heading: Data Received
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: clob
+            }
+            columnFilter {
+                type: none
+            }
+            advanced {
+                endUserAlias: T
+            }
+            enableUsersTo {
+                sort: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column DETAILS_JSON (
+            type: plainText
+            heading {
+                heading: Details JSON
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AA
+            }
+        )
+
+        column DETAILS_SENT (
+            type: plainText
+            heading {
+                heading: Details Sent
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Z
+            }
+        )
+
+        column HIGHLIGHTS (
+            type: removeHtml
+            heading {
+                heading: Highlights
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: X
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 20
+            }
+            link {
+                target: {
+                    page: 36
+                    items: {
+                        P36_ID: #PROJECT_ID#
+                    }
+                    clearCache: 36
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Y
+            }
+        )
+
+        column PROJECT_ID (
+            type: plainText
+            heading {
+                heading: Project ID
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column PROMPT_SENT (
+            type: plainText
+            heading {
+                heading: Prompt Sent
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: clob
+            }
+            columnFilter {
+                type: none
+            }
+            advanced {
+                endUserAlias: R
+            }
+            enableUsersTo {
+                sort: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column RISK (
+            type: plainText
+            heading {
+                heading: Risk
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: V
+            }
+            genAI {
+                referenceDataType: staticValues
+                staticValues: STATIC:Low,Moderate,High,None
+            }
+        )
+
+        column SUMMARY (
+            type: plainText
+            heading {
+                heading: Summary
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: clob
+            }
+            columnFilter {
+                type: none
+            }
+            advanced {
+                endUserAlias: U
+            }
+            enableUsersTo {
+                sort: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column SUMMARY_TYPE (
+            type: plainText
+            heading {
+                heading: Summary Type
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+            genAI {
+                referenceDataType: staticValues
+                staticValues: STATIC:update,full
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Countries
+        }
+
+        savedReport 108310478 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 1000
+            }
+
+            displayColumn CREATED (
+                sequence: 6
+            )
+
+            displayColumn HIGHLIGHTS (
+                sequence: 5
+            )
+
+            displayColumn PROJECT (
+                sequence: 1
+            )
+
+            displayColumn RISK (
+                sequence: 4
+            )
+
+            displayColumn SUMMARY (
+                sequence: 3
+            )
+
+            displayColumn SUMMARY_TYPE (
+                sequence: 2
+            )
+
+            sort (
+                column: CREATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: STATIC_ID
+                sort {
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: COUNTRY_NAME
+                sort {
+                    sequence: 3
+                }
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 4
+                }
+            )
+
+        )
+
+    )
+
+    button reset (
+        buttonName: reset
+        label: Reset
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: change
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 37
+                clearCache: [
+                    37
+                    CIR
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction edit-report-dialog-closed (
+        name: Edit Report - Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @summaries
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @summaries
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

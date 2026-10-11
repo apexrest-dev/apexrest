@@ -1,0 +1,213 @@
+# Dashboards — Ux Pattern Catalog
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/ux-pattern-catalog/apexlang/ux-pattern-catalog/pages/p00100-dashboards.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 123f3f6bd040a298a8b87c8b02b0a84720f3d9472c5d40e4bffd2d41f175a257.
+
+Application dependency inventory: oracle:26.2:public-template/ux-pattern-catalog/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 100 (
+    name: Dashboards
+    alias: DASHBOARDS
+    title: Dashboards
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+    }
+    help {
+        helpText:
+            ```html
+            ## Purpose
+            
+            The Dashboards index is a catalog context page that introduces dashboard patterns and helps users choose an appropriate overview pattern. It is not itself a dashboard pattern to copy.
+            
+            ## When to Use
+            
+            Use dashboard patterns when users need to understand status, monitor progress, identify exceptions, or decide where to focus next.
+            
+            ## When to Avoid
+            
+            Avoid dashboard patterns when users primarily need to browse individual records, complete data entry, or inspect the full details of a single item.
+            
+            ## AI Guidance
+            
+            Treat this page as catalog navigation, not as a dashboard pattern example. Use the linked dashboard pages as implementation references. Preserve the distinction between summary, exception, trend, and follow-up content when adapting dashboard patterns.
+            ```
+    }
+
+    region dashboards (
+        name: About
+        type: staticContent
+        source {
+            htmlCode: Dashboard patterns help users understand status, spot exceptions, and decide where to focus next. Use these examples when a page needs to summarize information across records, categories, or time periods.
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            icon: fa-mouse-pointer
+        }
+    )
+
+    region dashboards_1 (
+        name: Dashboards
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+            icon: fa-dashboard
+        }
+    )
+
+    region patterns (
+        name: Patterns
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'fa-dashboard' as icon_class,
+                    'Simple Dashboard' as title,
+                    'A focused overview with a small set of metrics, supporting summaries, and clear follow-up paths.' as description,
+                    'dashboard-simple' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-area-chart' as icon_class,
+                    'Advanced Dashboard' as title,
+                    'A richer dashboard layout for comparing multiple signals, reviewing trends, and balancing summary metrics with deeper supporting detail.' as description,
+                    'dashboard-advanced' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-line-chart' as icon_class,
+                    'Executive Dashboard' as title,
+                    'A high-level view for leadership audiences, emphasizing outcomes, trends, risks, and concise status indicators.' as description,
+                    'dashboard-executive' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-tasks' as icon_class,
+                    'Operational Dashboard' as title,
+                    'A work-focused view for monitoring activity, exceptions, queues, and time-sensitive follow-up.' as description,
+                    cast(null as varchar2(100)) as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-bar-chart' as icon_class,
+                    'Analytical Dashboard' as title,
+                    'A data-rich view for exploring trends, comparisons, and performance drivers across dimensions.' as description,
+                    cast(null as varchar2(100)) as page_alias
+                from sys.dual
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description: &DESCRIPTION.
+            displayAvatar: true
+        }
+        plugin-avatar {
+            icon: &ICON_CLASS. fa-2x u-opacity-50
+            shape: noShape
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+
+        column DESCRIPTION (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column ICON_CLASS (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ICON_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column PAGE_ALIAS (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: PAGE_ALIAS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: f?p=&APP_ID.:&PAGE_ALIAS.:&SESSION.::&DEBUG.::::
+            }
+            serverSideCondition {
+                type: itemIsNotNull
+                item: PAGE_ALIAS
+            }
+        )
+
+    )
+
+)
+
+
+````

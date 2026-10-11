@@ -1,0 +1,111 @@
+page 1 (
+    name: Required input validation
+    alias: HOME
+    title: Required input validation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Submit an empty input to see the item-level error; enter a value to pass.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation check-input (
+        name: Validate input
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsNotNull
+            item: P1_INPUT
+        }
+        error {
+            errorMessage: Enter a reference before submitting.
+            associatedItem: @P1_INPUT
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+    )
+    process accepted (
+        name: Accept valid input
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := 'Accepted: ' || :P1_INPUT;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+        successMessage {
+            successMessage: Input passed validation.
+        }
+    )
+)

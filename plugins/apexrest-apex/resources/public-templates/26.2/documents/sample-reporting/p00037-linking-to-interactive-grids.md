@@ -1,0 +1,572 @@
+# Linking to Interactive Grids — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00037-linking-to-interactive-grids.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 8b0d5f8168ffe95bde1ed80b3f34a96ec9b423d57c4baa63c1becc6561dc581d.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 37 (
+    name: Linking to Interactive Grids
+    alias: LINKING-TO-INTERACTIVE-GRIDS
+    title: Linking to Interactive Grids
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>This page demonstrates how to create URLs that link to interactive grid pages.  Click on the example links below and note the URL syntax used.  Use <strong>RR</strong> to reset an interactive grid, use <strong>CR</strong> to clear an interactive grid filter settings.  Use <strong>IG_&lt;your_report_column&gt;</strong> syntax to filter a report for an exact match.  Use <strong>IGC_&lt;your_report_column&gt;</strong> for a contains match, use <strong>IGGT_</strong> and <strong>IGLT_</strong> for greater than and less than filters.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 60
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region container (
+        name: Container
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region developer-supplied-query (
+        name: Developer Supplied Query
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 40
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: IG_EXAMPLE
+        }
+    )
+
+    region interactive-grid (
+        name: Interactive Grid
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select	
+                       PROJECT,
+                       TASK_NAME,
+                       START_DATE,
+                       END_DATE,
+                       STATUS,
+                       ASSIGNED_TO,
+                       COST,
+                       BUDGET,
+                       budget - cost available_budget
+                from EBA_DEMO_IR_PROJECTS
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @container
+            slot: subRegions
+            startNewRow: false
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: IG_EXAMPLE
+        }
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+                saveButton
+            ]
+        }
+        download {
+            formats: [
+                csv
+                html
+                pdf
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 1029854616445718135
+        }
+
+        savedReport 14145 (
+            visibility: primary
+            view {
+                default: grid
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+
+            displayColumn (
+                column: @PROJECT
+                layout {
+                    sequence: 1
+                }
+            )
+
+            displayColumn (
+                column: @TASK_NAME
+                layout {
+                    sequence: 2
+                }
+            )
+
+            displayColumn (
+                column: @START_DATE
+                layout {
+                    sequence: 3
+                }
+            )
+
+            displayColumn (
+                column: @END_DATE
+                layout {
+                    sequence: 4
+                }
+            )
+
+            displayColumn (
+                column: @STATUS
+                layout {
+                    sequence: 5
+                }
+            )
+
+            displayColumn (
+                column: @ASSIGNED_TO
+                layout {
+                    sequence: 6
+                }
+            )
+
+            displayColumn (
+                column: @COST
+                layout {
+                    sequence: 7
+                }
+            )
+
+            displayColumn (
+                column: @BUDGET
+                layout {
+                    sequence: 8
+                }
+            )
+
+            displayColumn (
+                column: @AVAILABLE_BUDGET
+                layout {
+                    sequence: 9
+                }
+            )
+
+        )
+
+        savedReport Status (
+            visibility: alternative
+            name: Status
+            view {
+                default: grid
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+
+            displayColumn (
+                column: @PROJECT
+                layout {
+                    sequence: 1
+                }
+            )
+
+            displayColumn (
+                column: @TASK_NAME
+                layout {
+                    sequence: 2
+                }
+            )
+
+            displayColumn (
+                column: @START_DATE
+                layout {
+                    sequence: 3
+                }
+            )
+
+            displayColumn (
+                column: @END_DATE
+                layout {
+                    sequence: 4
+                }
+            )
+
+            displayColumn (
+                column: @STATUS
+                layout {
+                    show: false
+                    sequence: 5
+                }
+            )
+
+            displayColumn (
+                column: @ASSIGNED_TO
+                layout {
+                    sequence: 6
+                }
+            )
+
+            displayColumn (
+                column: @COST
+                layout {
+                    sequence: 7
+                }
+            )
+
+            displayColumn (
+                column: @BUDGET
+                layout {
+                    sequence: 8
+                }
+            )
+
+            displayColumn (
+                column: @AVAILABLE_BUDGET
+                layout {
+                    sequence: 9
+                }
+            )
+
+            controlBreak (
+                column: @STATUS
+                layout {
+                    sequence: 1
+                }
+            )
+
+        )
+
+        column ASSIGNED_TO (
+            type: textField
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 60
+            }
+            validation {
+                maxLength: 30
+            }
+            source {
+                databaseColumn: ASSIGNED_TO
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column AVAILABLE_BUDGET (
+            type: numberField
+            heading {
+                heading: Available Budget
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
+            }
+            layout {
+                sequence: 90
+                columnAlignment: end
+            }
+            source {
+                databaseColumn: AVAILABLE_BUDGET
+                dataType: number
+            }
+            columnFilter {
+                lovType: none
+            }
+        )
+
+        column BUDGET (
+            type: numberField
+            heading {
+                heading: Budget
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
+            }
+            layout {
+                sequence: 80
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                databaseColumn: BUDGET
+                dataType: number
+            }
+            columnFilter {
+                lovType: none
+            }
+        )
+
+        column COST (
+            type: numberField
+            heading {
+                heading: Cost
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                databaseColumn: COST
+                dataType: number
+            }
+            columnFilter {
+                lovType: none
+            }
+        )
+
+        column END_DATE (
+            type: datePickerJquery
+            heading {
+                heading: End Date
+                alignment: center
+            }
+            layout {
+                sequence: 40
+                columnAlignment: center
+            }
+            source {
+                databaseColumn: END_DATE
+                dataType: date
+            }
+        )
+
+        column PROJECT (
+            type: textField
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 10
+            }
+            validation {
+                maxLength: 30
+            }
+            source {
+                databaseColumn: PROJECT
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column START_DATE (
+            type: datePickerJquery
+            heading {
+                heading: Start Date
+                alignment: center
+            }
+            layout {
+                sequence: 30
+                columnAlignment: center
+            }
+            source {
+                databaseColumn: START_DATE
+                dataType: date
+            }
+        )
+
+        column STATUS (
+            type: textField
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 50
+            }
+            validation {
+                maxLength: 30
+            }
+            source {
+                databaseColumn: STATUS
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column TASK_NAME (
+            type: textarea
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 20
+            }
+            validation {
+                maxLength: 255
+            }
+            source {
+                databaseColumn: TASK_NAME
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: none
+            }
+            enableUsersTo {
+                sort: false
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Interactive Grid
+        }
+    )
+
+    region report-linking-examples (
+        name: Report Linking Examples
+        type: list
+        source {
+            list: @ig-report-linking-examples
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            listTemplate: @/links-list
+            templateOptions: #DEFAULT#
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,593 @@
+# Opportunities Past Due — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00131-opportunities-past-due.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: cc0930b1a6fa5249876cb62bca8a862462588e349ae6b0a861febde443439580.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 131 (
+    name: Opportunities Past Due
+    alias: OPPORTUNITIES-PAST-DUE
+    title: Opportunities Past Due
+    pageGroup: @reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: This is an interactive report of all opportunities open but with a close date in the past. Click the <strong>Reset</strong> button to reset the interactive report. Click the <strong>Actions</strong> button to define the number of rows displayed per page, filter, format, download, and/or save the interactive report.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region opportunities-past-due (
+        name: Opportunities Past Due
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select d.id,
+                  d.row_key,
+                  d.deal_name,
+                  t.id territory_id,
+                  t.territory_name,
+                  c.id account_id,
+                  c.customer_name account,
+                  d.deal_amount,
+                  d.deal_probability,
+                  deal_close_date,
+                  d.qtr,
+                  dsc.status_code,
+                  d.tags,
+                  d.updated,
+                  lower(d.updated_by) updated_by,
+                  d.created,
+                  lower(d.created_by) created_by,
+                  sr.rep_first_name || ' ' || sr.rep_last_name as sales_rep_name,
+                  nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = d.id), 0) as calculated_amount
+                from eba_sales_deals d
+                join eba_sales_customers c
+                  on c.id = d.customer_id
+                left join eba_sales_deal_status_codes dsc
+                  on dsc.id = d.deal_status_code_id
+                left join eba_sales_territories t
+                  on t.id = c.customer_territory_id
+                left join eba_sales_salesreps sr
+                  on sr.id = d.salesrep_id_01
+                where (deal_close_date < sysdate and deal_probability != 0 and deal_probability != 100)
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2359332542035628180
+        }
+
+        column ACCOUNT (
+            type: link
+            heading {
+                heading: Account
+            }
+            layout {
+                sequence: 88
+            }
+            link {
+                target: {
+                    page: 94
+                    items: {
+                        P94_ID: #ACCOUNT_ID#
+                    }
+                    clearCache: 94
+                    action: resetPagination
+                }
+                linkText: #ACCOUNT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        column ACCOUNT_ID (
+            type: hidden
+            heading {
+                heading: Specified Account
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CALCULATED_AMOUNT (
+            type: plainText
+            heading {
+                heading: Amount
+                alignment: end
+            }
+            layout {
+                sequence: 18
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AE
+            }
+            config {
+                buildOption: @opportunity-amount-set-at-product-level
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 118
+            }
+            appearance {
+                formatMask: &APP_DATE_TIME_FMT.
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: AB
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 128
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AC
+            }
+        )
+
+        column DEAL_AMOUNT (
+            type: plainText
+            heading {
+                heading: Amount
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+            config {
+                buildOption: !@opportunity-amount-set-at-product-level
+            }
+        )
+
+        column DEAL_CLOSE_DATE (
+            type: plainText
+            heading {
+                heading: Close Date
+            }
+            layout {
+                sequence: 7
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column DEAL_NAME (
+            type: link
+            heading {
+                heading: Opportunity
+            }
+            layout {
+                sequence: 6
+            }
+            link {
+                target: {
+                    page: 80
+                    items: {
+                        P80_ID: #ID#
+                    }
+                    clearCache: 80
+                    action: resetPagination
+                }
+                linkText: #DEAL_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column DEAL_PROBABILITY (
+            type: plainText
+            heading {
+                heading: Probability
+                alignment: end
+            }
+            layout {
+                sequence: 28
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column QTR (
+            type: plainText
+            heading {
+                heading: Quarter
+            }
+            layout {
+                sequence: 68
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column ROW_KEY (
+            type: plainText
+            heading {
+                heading: Key
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column SALES_REP_NAME (
+            type: plainText
+            heading {
+                heading: &REP_TITLE.
+            }
+            layout {
+                sequence: 138
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AD
+            }
+        )
+
+        column STATUS_CODE (
+            type: plainText
+            heading {
+                heading: Stage
+            }
+            layout {
+                sequence: 38
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 78
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        column TERRITORY_ID (
+            type: hidden
+            heading {
+                heading: Territory ID
+            }
+            layout {
+                sequence: 58
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: S
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column TERRITORY_NAME (
+            type: plainText
+            heading {
+                heading: Acount Territory
+            }
+            layout {
+                sequence: 48
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    apex_util.get_build_option_status(
+                      p_application_id    => :APP_ID,
+                      p_build_option_name => 'Territories'
+                    ) = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 98
+            }
+            appearance {
+                formatMask: &APP_DATE_TIME_FMT.
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: Z
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 108
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AA
+            }
+        )
+
+        savedReport 8724512 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn ACCOUNT (
+                sequence: 5
+            )
+
+            displayColumn CALCULATED_AMOUNT (
+                sequence: 6
+            )
+
+            displayColumn DEAL_NAME (
+                sequence: 1
+            )
+
+            displayColumn DEAL_PROBABILITY (
+                sequence: 7
+            )
+
+            displayColumn QTR (
+                sequence: 3
+            )
+
+            displayColumn ROW_KEY (
+                sequence: 2
+            )
+
+            displayColumn STATUS_CODE (
+                sequence: 4
+            )
+
+            sort (
+                column: DEAL_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ROW_KEY
+                sort {
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @opportunities-past-due
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 131
+                clearCache: [
+                    131
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,220 @@
+# Time Zone Preference — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00043-time-zone-preference.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 27bd76f79c684a4be53aa6829e86d12450817d835b414f489f9b43288741a648.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 43 (
+    name: Time Zone Preference
+    alias: TIME-ZONE-PREFERENCE
+    title: Time Zone Preference
+    pageGroup: @administration
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText:
+            ```html
+            <p>
+              Select your preferred time zone and click the <strong>Apply Changes</strong> button to set your time zone. Click the <strong>Cancel</strong> button to leave this page.
+            </p>
+            <p>
+              Various other functions in this app record and report timestamps according to this setting.  
+            </p>
+            ```
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region preference (
+        name: Preference
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+    )
+
+    pageItem P43_TIMEZONE (
+        type: selectList
+        label {
+            label: Timezone
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select distinct tzname d, tzname r
+                  from V$TIMEZONE_NAMES
+                 order by 1
+                ```
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @preference
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            type: sqlQuerySingleValue
+            sqlQuery: select timezone_preference from eba_sales_tz_pref where userid = :APP_USER
+            used: always
+        }
+        default {
+            type: static
+            staticValue: US/Pacific
+        }
+    )
+
+    button apply-changes (
+        buttonName: APPLY_CHANGES
+        label: Apply Changes
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_PAGE.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process set-timezone (
+        name: set timezone
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                   c integer := 0;
+                begin
+                   for c1 in (select id, timezone_preference 
+                              from eba_sales_tz_pref 
+                              where userid = :APP_USER) loop
+                      update eba_sales_tz_pref
+                      set timezone_preference = nvl(:P43_TIMEZONE,'UTC')
+                      where id = c1.id;
+                      c := c + 1;
+                   end loop;
+                   if c = 0 then
+                      insert into eba_sales_tz_pref (userid, timezone_preference)
+                      values (:APP_USER,:P43_TIMEZONE);
+                   end if;
+                   APEX_UTIL.SET_SESSION_TIME_ZONE (  
+                          P_TIME_ZONE => :P43_TIMEZONE); 
+                   commit;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Time Zone Set
+        }
+        advanced {
+            executionMappingIdentifier: 9052438548583025045
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: &LAST_PAGE.
+            }
+        }
+        comments {
+            comments: Created 02-MAR-2012 09:45 by MIKE
+        }
+    )
+
+)
+
+
+````

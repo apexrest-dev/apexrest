@@ -1,0 +1,53 @@
+page 1 (
+    name: Expression-derived month label
+    alias: HOME
+    title: Expression-derived month label
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>This value is computed before the page header using a side-effect-free computation.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Computed value
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    computation derive (
+        itemName: P1_OUTPUT
+        computation {
+            type: expression
+            plsqlExpression: to_char(sysdate, 'YYYY-MM')
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+)

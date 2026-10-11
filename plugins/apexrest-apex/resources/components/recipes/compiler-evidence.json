@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-09-24T08:37:04.983Z",
+  "timestamp": "2026-10-11T17:59:38.168Z",
   "mock": false,
   "scope": "Real offline Oracle APEXlang validation only. Synthetic SQL is not executed. No database connection, application import or browser/runtime verification.",
-  "compiler": "SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334",
+  "compiler": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
   "mmdVersion": "26.1.0+3102",
   "sourceHashAlgorithm": "sha256(JSON.stringify(inputFiles sorted by application-relative path using en locale)); inputFiles contains sha256 of every scaffold and overlay file; overlays replace scaffold paths",
   "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
@@ -17,6 +17,492 @@
     "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
   },
   "runs": [
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-date",
+      "passed": true,
+      "sourceSha256": "7ea342e04bc9e8f5dc95e2a6605386c6551e58f428e98552d9234ef482fe5026",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "6cd9ac4cdf34da1992c93443443d467c4427e9cd5a151c4afc3f1c3a51cd3270",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-expression",
+      "passed": true,
+      "sourceSha256": "689cea0c59e35b41783eb0c47aec045ee5a4c612d1593951995e16e496f8a0b9",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "fd95811dc88eacc6e935e25d174dba6226e708058e19d024c0a27e9a3449149a",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-function",
+      "passed": true,
+      "sourceSha256": "bdc7220c26d8f31511d8a133b5923aef0e719a079bb8964c042e7c4b863e137e",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "18a351613922f3817f5b2ed416939f87b77fec67b834cee8250e3bf26af77162",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-item-copy",
+      "passed": true,
+      "sourceSha256": "d0f94ac62499feeafcaff3a8737f9bdfddc19868e17498bbf085b04368fb5042",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "7d2aba5c7741eae09623f61e4299a51fb5def0ebb01a7f2bd36f528935d9128a",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-multi-select",
+      "passed": true,
+      "sourceSha256": "cac2419c8064ad0435f78448ea28f4f25973dc7bc5fce6a62c41fb3e99b18011",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "edc299ccda8d1cb90cec04d2af1d81be8f34df673ffec353be3f498cb5596cb8",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-scalar-sql",
+      "passed": true,
+      "sourceSha256": "6a4ad7378797095dbcbc316aaea3e711d872fd372af1be742b93520c71c3cacf",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "8b149624bb6db3b773368b349311a3de5b45bcfadcc716329a22c04fb9280d50",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-static-default",
+      "passed": true,
+      "sourceSha256": "236dce641aaa47f754c790114d82f0f044d01b66d83da3b58b4877fdd5fb6508",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "14edb865a03357249ad36d83eecb1cb517b25c80703ea7e7bde40d0428c05d97",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/computations/recipes/computations-timestamp",
+      "passed": true,
+      "sourceSha256": "aa464516c8ce87a3ef9990e1f1387fb81bcf02e239907bc6533b86514e4ee60d",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "2a8b402c25f4fa9188f11e2014549e300af4305ba72682eddf51b65b1ea0f502",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-client-normalize",
+      "passed": true,
+      "sourceSha256": "ef01e4064a62784a4102bdb4bd4d3fdfb703ec049e3677fbb2395f67c033a8f0",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "7b6c262e89df7c600ef7cfdbaad718c5460e3ebb4f357a3ad86984550247f1f5",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-enabled",
+      "passed": true,
+      "sourceSha256": "2bb664b4910a0dae3cd91cf17a2f0084be98df600f323978ad53534267d0343f",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "86de97c08498c01de004aa1933a6b81b64e2caba1e18dcb08b486a3d32af196c",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-field-class",
+      "passed": true,
+      "sourceSha256": "5edcaf023b3259eca3a1ac7cbc1fa588949bdc775cbd2ef6b64a4fe872b4e0f2",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "f4dcda1fefe903e470d642f2b4d539b942e5df6e639960037e6b91f127d460ac",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-initial-focus",
+      "passed": true,
+      "sourceSha256": "9de84ee1f61389730e2a32665a93d82449ef0f217e91181bb6f313b545a902bd",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "fca4a41f37f1dd2d610f34368ae5cc22ad52aaf0cba31329be5df9c50d777e69",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-live-search",
+      "passed": true,
+      "sourceSha256": "a676cec8c043d8de05dd6e0ceacd096844a6a94224b428aebb0dfa07e52e2b40",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "e96d77abfa9062b066b6021366cfb83b5354855dfb81c2ac6b7255666f93825e",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-plsql-value",
+      "passed": true,
+      "sourceSha256": "3636f2829198c85232369132926d2176097265386eb1ee05074e74f3da74dc7e",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "2b371bbe6e03f7c3b63426898271f04ecfc104ff3a7cc91bca7898fd9762e85d",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-report-filter",
+      "passed": true,
+      "sourceSha256": "141e9a9d0482829d2cd4512934a7d98605c0872624a78d09f7375d6edb54e7f8",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "8f05510ca490658a918005d41e7ae19c0cf1ed301949bbfab892c8a8de475478",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-server-code",
+      "passed": true,
+      "sourceSha256": "e66b7e23583902043bd0801ccda7a9d2bde7c217361c64d87c2301e5e09e17a3",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "e44a66546ef77b1ae18a464c7ec4c75d075c6fa12758bb26f50b000d18deb9e4",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-sql-value",
+      "passed": true,
+      "sourceSha256": "bee7d177b74513a3138423b74552bab933fd1e3366d84324fa957f005076a295",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "1af396a54892e49633dea23974bae3ccd4129f473e441498bb1b6e0bb8d8fad6",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-static-reset",
+      "passed": true,
+      "sourceSha256": "59277d50377ae06dbf61fbc356b52906d7c7bb4c8cd8f2e81e0232af4fa5a73a",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "13ecc5b347807efcc3c8c8e1ab95e2ce2d1d3a56d86dd9b03c98fa064751d5a5",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-submit-preview",
+      "passed": true,
+      "sourceSha256": "e5e7a55022fd0ceb0ab2ce6d83b0d0eaa3a085826da4498e71918f3589ca0233",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "ee4cb386bf4a81b09e9f47cad8ba78a9eeba6c33f82a722cda0fd0bccaf880d7",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/dynamic-actions/recipes/dynamic-actions-visibility",
+      "passed": true,
+      "sourceSha256": "5a3bd3ca4c39f6375b60bf30391c34c79bbdb4e5a90fb228eee2bd1a2e56ca6f",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "f35a732ea3e022f66e592d6795bf21ab1f54bd2536ccaa76a3631adcb06ce3ca",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-function-message",
+      "passed": true,
+      "sourceSha256": "a88672e07a0217b29779c17e1f13467d5c60daf63e0d3c91fbf4c26872bc39c1",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "33de4ee53c601d6f5241057f7aa1eac0adef592b2510bbb04064410c889fbd8c",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-number-range",
+      "passed": true,
+      "sourceSha256": "716a1741a1ebdeb54ca6d53fcda392ac72fc17cc5ad9553268ce51c09a93c17e",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "b90d4d0239f16cc4c13ce19bebf65d58d8102bf0cdd1910c9aee43b9959a0bc1",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-procedural-boolean",
+      "passed": true,
+      "sourceSha256": "d28b8aba614a90b51f9ee22661ebe356b6b1c825c420848298c6aee139fadc9b",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "55df80ba532a7f0b8fe82d5ef0f62c06e0e7855640f25e024ce9e54da75349b9",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-reference-format",
+      "passed": true,
+      "sourceSha256": "9eb866d8564a7f4cd80c8c7526fda4df2ab110cbc97c851519bd538b9abee38f",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "6673c32777b808b31b95d7cdbee2a9714e1ab89a65f7a6b87c50a07f71ab8c2d",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-required",
+      "passed": true,
+      "sourceSha256": "6801ab664ccfdfe26a43356bef2e05fcb3eeecdeb4820993f748d6bf15f530e2",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "ff412628335844cdc2d6b67bdc87e66420a6b73a3a9f3325b3f3659c870c1d75",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-sql-exclusion",
+      "passed": true,
+      "sourceSha256": "a7f263aa4716717e189f917d5073451f9c2309f860bda116735e97feb099fd30",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "21af1c17a58fbe988f3d125ceb9cee24ccee2dcc2fc8c03e908040272b57e471",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:business-logic/validations/recipes/validations-sql-exists",
+      "passed": true,
+      "sourceSha256": "021f8f7160667acc721e0d149a142f65173590197440684bacc613023cff341f",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "c996f756d508d5311e9624c6ae4f76327aa3380c0afbf80b049b6f417b806f72",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
     {
       "recipeId": "component:buttons/icon/recipes/basic",
       "passed": true,
@@ -1116,6 +1602,42 @@
       "output": "Validation successful."
     },
     {
+      "recipeId": "component:regions/chart/recipes/chart-area",
+      "passed": true,
+      "sourceSha256": "4903dbc0302a97a179350a1fe8b85ab2fb6b01ca88405d52f17626db73c3d30c",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "b293574a40d6230b7cbffd64141fdb81bf758746dd0bd060968a093565b6c719",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:regions/chart/recipes/chart-donut",
+      "passed": true,
+      "sourceSha256": "ad66ed3f8df10838659f0344ad6956e6a9498c60cb8f30b8a16f4253414b5ec6",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "add67e4cc498bda401a514028260ddcdbab81c056c110ea5e10e69e14795c8d6",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
       "recipeId": "component:regions/chart/recipes/line",
       "passed": true,
       "sourceSha256": "0e45e73b00a695971aef7cb219718115d033a3d2445dac758bcb0466bf07b84f",
@@ -1650,6 +2172,25 @@
         "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
         "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
         "pages/p00001-home.apx": "60fb79ba989c1655d5cfc3d43457a6a60b0be4e8c585944573f254318494a387",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:reports/classic-report/recipes/template-directives",
+      "passed": true,
+      "sourceSha256": "8abfca0c3f75ba2c37cedfe606ac57ca658d16f32a2a7aa8b4c38f11fe948538",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "LICENSE.txt": "34b8ecc29152a433bee0d47a849db095a9fca5f14e2b2cba8412312a370468b2",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "bd9c10a61e30c5f03d6ff77735061df684e20ebdb58f7f6001d2ae70d3b507a2",
         "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
         "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
         "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",

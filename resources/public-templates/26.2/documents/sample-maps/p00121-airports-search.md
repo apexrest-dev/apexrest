@@ -1,0 +1,719 @@
+# Airports Search — Sample Maps
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-maps/apexlang/sample-maps/pages/p00121-airports-search.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 6ce26fce7fc97a275d056a3ba493ce6bb139d56efcfd0ae123768986d13bdd46.
+
+Application dependency inventory: oracle:26.2:public-template/sample-maps/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 121 (
+    name: Airports Search
+    alias: AIRPORTS-SEARCH
+    title: &APP_NAME. - Airports Search
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration:
+            ```javascript-browser
+            function showFeature( pId ) {
+                apex.item( "P121_ID").setValue( pId );
+                apex.event.trigger( $("#airport-map-region"), "refresh_and_center" );
+            }
+            ```
+    }
+    css {
+        inline: "td[headers=\"LINK\"] {text-align: center;}"
+    }
+
+    region about-this-page (
+        name: About This Page
+        type: staticContent
+        source {
+            htmlCode: <p>This page shows how to combine an Interactive Report with a Map Region. First look up an airport in the interactive report. Clicking the <strong><span class="fa fa-map-marker"></span></strong> button shows this airport within the map region on the right.</p>
+        }
+        layout {
+            sequence: 10
+            slot: dialogsDrawersAndPopups
+        }
+        appearance {
+            template: @/inline-popup
+            templateOptions: [
+                #DEFAULT#
+                js-dialog-autoheight
+                js-popup-noOverlay
+                js-popup-callout
+                js-dialog-size480x320
+            ]
+        }
+        advanced {
+            htmlDomId: about_this_page
+            customAttributes: data-parent-element="#help_button"
+            regionDisplaySelector: true
+        }
+    )
+
+    region airports (
+        name: Airports
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       IATA_CODE,
+                       initcap(AIRPORT_NAME) airport_name,
+                       initcap(CITY) as city,
+                       STATE_NAME,
+                       ELEVATION,
+                       DIST_CITY_TO_AIRPORT,
+                       LAND_AREA_COVERED,
+                       ACTIVATION_DATE_dt as ACTIVATION_DATE,
+                       nvl(COMMERCIAL_OPS,0) COMMERCIAL_OPS,
+                       AIR_TAXI_OPS,
+                       GEOMETRY
+                  from EBA_SAMPLE_MAP_AIRPORTS
+                 where airport_type = 'AIRPORT'
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 6
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                type: url
+                url: javascript:showFeature('#ID#')
+            }
+            linkIcon: <span class="t-Icon fa fa-lg fa-map-marker-s u-danger-text" aria-hidden="true"></span>
+            linkAttributes: style="text-align: center;"
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        advanced {
+            savedReportMappingIdentifier: 1607133098636613
+        }
+
+        column ACTIVATION_DATE (
+            type: plainText
+            heading {
+                heading: Opened
+                alignment: center
+            }
+            layout {
+                sequence: 50
+                columnAlignment: center
+            }
+            appearance {
+                formatMask: YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column AIRPORT_NAME (
+            type: plainText
+            heading {
+                heading: Airport Name
+                alignment: center
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column AIR_TAXI_OPS (
+            type: hidden
+            heading {
+                heading: Air Taxi Ops
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CITY (
+            type: plainText
+            heading {
+                heading: City
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column COMMERCIAL_OPS (
+            type: plainText
+            heading {
+                heading: Operations
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column DIST_CITY_TO_AIRPORT (
+            type: hidden
+            heading {
+                heading: Dist City To Airport
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ELEVATION (
+            type: hidden
+            heading {
+                heading: Elevation
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column GEOMETRY (
+            type: hidden
+            heading {
+                heading: Geometry
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: other
+            }
+            advanced {
+                endUserAlias: M
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column IATA_CODE (
+            type: plainText
+            heading {
+                heading: Code
+                alignment: center
+            }
+            layout {
+                sequence: 20
+                columnAlignment: center
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column LAND_AREA_COVERED (
+            type: hidden
+            heading {
+                heading: Land Area Covered
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column STATE_NAME (
+            type: plainText
+            heading {
+                heading: State
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: New
+        }
+
+        savedReport 21131 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn AIRPORT_NAME (
+                sequence: 1
+            )
+
+            displayColumn CITY (
+                sequence: 3
+            )
+
+            displayColumn COMMERCIAL_OPS (
+                sequence: 5
+            )
+
+            displayColumn IATA_CODE (
+                sequence: 2
+            )
+
+            displayColumn STATE_NAME (
+                sequence: 4
+            )
+
+            sort (
+                column: COMMERCIAL_OPS
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ACTIVATION_DATE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            filter ir-condition (
+                column: COMMERCIAL_OPS
+                operator: >
+                value: 0
+            )
+
+        )
+
+        savedReport 26478 (
+            visibility: alternativeDefault
+            name: Commercial Airports
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn AIRPORT_NAME (
+                sequence: 2
+            )
+
+            displayColumn COMMERCIAL_OPS (
+                sequence: 4
+            )
+
+            displayColumn IATA_CODE (
+                sequence: 1
+            )
+
+            displayColumn STATE_NAME (
+                sequence: 3
+            )
+
+            sort (
+                column: COMMERCIAL_OPS
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ACTIVATION_DATE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            filter ir-condition (
+                column: COMMERCIAL_OPS
+                operator: >
+                value: 0
+            )
+
+        )
+
+        savedReport 26488 (
+            visibility: alternativeDefault
+            name: Large Airports
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn AIRPORT_NAME (
+                sequence: 2
+            )
+
+            displayColumn COMMERCIAL_OPS (
+                sequence: 4
+            )
+
+            displayColumn IATA_CODE (
+                sequence: 1
+            )
+
+            displayColumn STATE_NAME (
+                sequence: 3
+            )
+
+            sort (
+                column: COMMERCIAL_OPS
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ACTIVATION_DATE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            filter ir-condition (
+                column: COMMERCIAL_OPS
+                operator: >
+                value: 100000
+            )
+
+        )
+
+        savedReport 26498 (
+            visibility: alternativeDefault
+            name: All Airports
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn AIRPORT_NAME (
+                sequence: 1
+            )
+
+            displayColumn COMMERCIAL_OPS (
+                sequence: 4
+            )
+
+            displayColumn IATA_CODE (
+                sequence: 2
+            )
+
+            displayColumn STATE_NAME (
+                sequence: 3
+            )
+
+            sort (
+                column: COMMERCIAL_OPS
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: ACTIVATION_DATE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+        )
+
+    )
+
+    region map (
+        name: Map
+        type: map
+        layout {
+            sequence: 30
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: airport-map-region
+            regionDisplaySelector: true
+        }
+        controls {
+            options: [
+                scaleBar
+                infiniteMap
+                rectangleZoom
+            ]
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer airport (
+            name: Airport
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select
+                        ID,
+                        IATA_CODE,
+                        AIRPORT_TYPE,
+                        AIRPORT_NAME,
+                        CITY,
+                        STATE_NAME,
+                        to_char(ACTIVATION_DATE_DT,'fmDDfm-MON-YYYY') as ACTIVATION_DATE,
+                        ELEVATION,
+                        DIST_CITY_TO_AIRPORT,
+                        LAND_AREA_COVERED,
+                        COMMERCIAL_OPS,
+                        to_char(COMMERCIAL_OPS,'999G999G999G999') as com_ops_fmtd,
+                        AIR_TAXI_OPS,
+                        to_char(AIR_TAXI_OPS,'999G999G999G999') as air_ops_fmtd,
+                        GEOMETRY
+                    from 
+                        eba_sample_map_airports
+                    where
+                        ID = :P121_ID
+                    ```
+                pageItemsToSubmit: P121_ID
+            }
+            columnMapping {
+                geometryColumn: GEOMETRY
+                primaryKeyColumn: ID
+            }
+            pointObjects {
+                shapeScale: 2
+            }
+            appearance {
+                fillColor: #ff0000
+                fillOpacity: .8
+                strokeColor: #ffffff
+            }
+            infoWindow {
+                advancedFormatting: true
+                htmlExpression:
+                    ```html
+                    <h3>&AIRPORT_NAME. (&IATA_CODE.)</h3>
+                    <p><strong>&CITY., &STATE_NAME.</strong><br>
+                    {if ACTIVATION_DATE/}
+                    Activation Date: &ACTIVATION_DATE.<br>
+                    {endif/}
+                    {if COMMERCIAL_OPS/}
+                    Commercial Operations: &COM_OPS_FMTD.<br>
+                    {endif/}
+                    {if AIR_TAXI_OPS/}
+                    Taxi Operations: &AIR_OPS_FMTD.<br>
+                    {endif/}
+                    ```
+            }
+        )
+
+    )
+
+    pageItem P121_ID (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 10
+            region: @map
+            slot: regionBody
+        }
+    )
+
+    dynamicAction map-refresh (
+        name: Map Refresh
+        execution {
+            sequence: 10
+        }
+        when {
+            event: custom
+            customEvent: refresh_and_center
+            selectionType: jQuerySelector
+            jquerySelector: #airport-map-region
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @map
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction show-feature (
+        name: Show Feature
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterrefresh
+            selectionType: region
+            region: @map
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    var lMapRegion   = apex.region("airport-map-region"),
+                        // important: Use the layer name exactly as specified in the "name" attribute in Page Designer
+                        lLayerId     = lMapRegion.call("getLayerIdByName", "Airport"),
+                        lCurrentZoom = lMapRegion.call("getMapCenterAndZoomLevel").zoom,
+                        lAirportId   = apex.item("P121_ID").getValue(),
+                        lFeature     = lMapRegion.call("getFeature", lLayerId, lAirportId ),
+                        lPosition;
+                    
+                    if ( lFeature.geometry ) {
+                        lPosition    = lFeature.geometry.coordinates;
+                            
+                        // close all Info Windows, which might currently be open
+                        lMapRegion.call( "closeAllInfoWindows" );
+                    
+                        // focus the map to the chosen feature
+                        lMapRegion.call( "setCenter", lPosition );
+                    
+                        // if the current zoom level is below 8, zoom in. Otherwise do nothing.
+                        if ( lCurrentZoom < 12 ) {
+                            lMapRegion.call( "setZoomLevel", 12 );
+                        }
+                        setTimeout( function() {lMapRegion.call( "displayPopup", "infoWindow", lLayerId, lAirportId.toString(), false )}, 500 );
+                    }
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+            clientSideCondition {
+                type: itemIsNotNull
+                item: P121_ID
+            }
+        )
+
+    )
+
+)
+
+
+````

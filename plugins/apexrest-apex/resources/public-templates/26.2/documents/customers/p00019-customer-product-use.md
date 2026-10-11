@@ -1,0 +1,495 @@
+# Customer Product Use — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00019-customer-product-use.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4372ec283f9ae642d30266f18a547a275c794f4369eddae84d569410b19033c5.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 19 (
+    name: Customer Product Use
+    alias: CUSTOMER-PRODUCT-USE
+    title: Customer Product Use
+    pageGroup: @products
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region customer-product-use (
+        name: Customer Product Use
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select p.product_name,
+                    c.customer_name,
+                    c.row_key customer_row_key,
+                    c.referencable,
+                    c.tags,
+                    u.customer_id,
+                    u.product_id,
+                    u.reference_status_id,
+                    (
+                        select listagg(rt.reference_type,', ') within group (order by rt.reference_type)
+                          from eba_cust_reference_types rt
+                         where ':'||u.reference_type_ids||':' like '%:'||rt.id||':%'
+                    ) as reference_types,
+                    decode( u.customer_contact_id, null, null,
+                        (select decode(email, null, name, '<a href="mailto:' || apex_escape.html(email) || '">'
+                                       || apex_escape.html(name) || '</a>')
+                         from EBA_CUST_CONTACTS where id = u.customer_contact_id) ) as customer_contact,
+                    case when instr(nvl(u.internal_contact,'xxx'), '@') = 0 then
+                            apex_escape.html(u.internal_contact)
+                         else '<a href="mailto:' || apex_escape.html(u.internal_contact) || '">'
+                             || apex_escape.html(u.internal_contact) || '</a>' end as internal_contact,
+                    u.valid_from,
+                    u.valid_to
+                from eba_cust_customers c,
+                    eba_cust_product_uses u,
+                    eba_cust_products p
+                where p.id = u.product_id
+                    and c.id = u.customer_id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: CUSTOMERS_PRODUCTS
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 3739546248715243583
+        }
+
+        column CUSTOMER_CONTACT (
+            type: plainText
+            heading {
+                heading: Customer Contact
+            }
+            layout {
+                sequence: 79
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AZ
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CUSTOMER_NAME (
+            type: link
+            heading {
+                heading: Customer
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 50
+                    items: {
+                        P50_ID: #CUSTOMER_ID#
+                    }
+                    clearCache: 50
+                    action: resetPagination
+                }
+                linkText: #CUSTOMER_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column CUSTOMER_ROW_KEY (
+            type: plainText
+            heading {
+                heading: Customer Row Key
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column INTERNAL_CONTACT (
+            type: plainText
+            heading {
+                heading: Internal Contact
+            }
+            layout {
+                sequence: 89
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: BA
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column PRODUCT_ID (
+            type: hidden
+            heading {
+                heading: Product
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column PRODUCT_NAME (
+            type: plainText
+            heading {
+                heading: Product / Service
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column REFERENCABLE (
+            type: plainText
+            heading {
+                heading: Publicly Referenceable
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Customer Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column REFERENCE_STATUS_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Reference Status
+            }
+            lov {
+                lov: @product-statuses
+            }
+            layout {
+                sequence: 59
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AX
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Product Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column REFERENCE_TYPES (
+            type: plainText
+            heading {
+                heading: Reference Assets
+            }
+            layout {
+                sequence: 69
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AY
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression:
+                    ```plsql
+                    APEX_UTIL.GET_BUILD_OPTION_STATUS(
+                        P_APPLICATION_ID => :APP_ID,
+                        P_BUILD_OPTION_NAME => 'Product Referencability') = 'INCLUDE'
+                    ```
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column VALID_FROM (
+            type: plainText
+            heading {
+                heading: Valid From
+            }
+            layout {
+                sequence: 99
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: BB
+            }
+        )
+
+        column VALID_TO (
+            type: plainText
+            heading {
+                heading: Valid Until
+            }
+            layout {
+                sequence: 109
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: BC
+            }
+        )
+
+        savedReport 9117469 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn CUSTOMER_CONTACT (
+                sequence: 5
+            )
+
+            displayColumn CUSTOMER_NAME (
+                sequence: 1
+            )
+
+            displayColumn PRODUCT_NAME (
+                sequence: 2
+            )
+
+            displayColumn REFERENCE_STATUS_ID (
+                sequence: 3
+            )
+
+            displayColumn REFERENCE_TYPES (
+                sequence: 4
+            )
+
+            displayColumn TAGS (
+                sequence: 8
+            )
+
+            displayColumn VALID_FROM (
+                sequence: 6
+            )
+
+            displayColumn VALID_TO (
+                sequence: 7
+            )
+
+            sort (
+                column: CUSTOMER_NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_VIEW.
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @customer-product-use
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 19
+                clearCache: [
+                    19
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

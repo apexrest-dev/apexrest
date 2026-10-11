@@ -1,0 +1,1353 @@
+# Activities — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00102-activities.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 6c4c3617a6d3dccec485f1afeeb9afc3f11bdf5e3fbd77352ac26c22d3b000b1.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 102 (
+    name: Activities
+    alias: ACTIVITIES
+    title: Activities
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: [
+            #DEFAULT#
+            t-PageBody--noContentPadding
+        ]
+    }
+    css {
+        inline:
+            ```css
+            .no-item-ui {
+              --a-field-input-border-width: 0px;
+              --a-field-input-background-color: transparent;
+            }
+            
+            .overline {
+              color: var(--ut-region-text-color, var(--ut-component-text-default-color));
+            }
+            
+            /* Vertically Align cells to top */
+            .t-Report td {
+              vertical-align: top;
+            }
+            
+            @media (min-width: 640px) {
+              .t-ContentRow-body {
+                align-items: flex-start;
+              }
+            
+              .t-ContentRow-misc {
+                flex-basis: 40%;
+              }
+            }
+            ```
+    }
+    help {
+        helpText: All Activities along with who they are related to and the timeframe.
+    }
+    config {
+        buildOption: @activity-planning
+    }
+    comments {
+        comments: Filterable by Project Relates (yes or no), Timeframe (past, current, future), Owner, &NOMENCLATURE_INITIATIVE., Release, Team Member tags, and Type.
+    }
+
+    region activities (
+        name: Activities
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ap.id, 
+                       ap.project_id,
+                       decode(ap.project_id,null,'No','Yes') project_related,
+                       at.activity_type,
+                       ap.activity,
+                       ap.start_date,
+                       ap.end_date,
+                       to_char(ap.end_date,'YYYY.MM') end_month,
+                       to_char(ap.start_date,'YYYY.MM') start_month,
+                       to_char(ap.end_date,'fmDay DD-Mon-YYYY') end_date_formatted,
+                       to_char(ap.start_date,'fmDay DD-Mon-YYYY')||' to '||to_char(ap.end_date,'fmDay DD-Mon-YYYY') TIMELINE,
+                       ap.end_date - ap.start_date days,
+                       round(ap.end_date - sysdate) days_remaining,
+                       ap.url,
+                       case when tm.id is null then '(No Owner)' else tm.first_name||' '||tm.last_name end person,
+                       tm.id team_member_id,
+                       --
+                       --
+                       apex_util.get_since(ap.updated) last_updated,
+                       --
+                       decode(tm.id,:APP_USER_ID,'Yes','No') my_activity,
+                       ap.private_yn,
+                       decode(ap.private_yn,'Y','Private',null) private_label,
+                       --
+                       decode(trunc(sysdate),trunc(ap.end_date),'success',
+                       decode(trunc(sysdate),trunc(ap.start_date),'success',
+                           decode(
+                               greatest( trunc(sysdate), ap.start_date ),
+                               ap.start_date,
+                               'Future',
+                               decode(greatest( trunc(sysdate), ap.end_date), ap.end_date, 'success','danger'))))
+                           as badge_class,
+                       --
+                       -- project related
+                       --
+                       decode(ap.project_id,null,null,(select project              from sp_projects p where p.id = ap.project_id and p.ARCHIVED_YN = 'N' and p.DUPLICATE_OF_PROJECT_ID is null)) project,
+                       decode(ap.project_id,null,null,(select PROJECT_SIZE         from sp_projects p where p.id = ap.project_id and p.ARCHIVED_YN = 'N' and p.DUPLICATE_OF_PROJECT_ID is null)) PROJECT_SIZE,
+                       decode(ap.project_id,null,null,(select friendly_identifier  from sp_projects p where p.id = ap.project_id and p.ARCHIVED_YN = 'N' and p.DUPLICATE_OF_PROJECT_ID is null)) friendly_identifier,
+                       decode(ap.project_id,null,null,(select PROJECT_URL_NAME     from sp_projects p where p.id = ap.project_id and p.ARCHIVED_YN = 'N' and p.DUPLICATE_OF_PROJECT_ID is null)) PROJECT_URL_NAME,
+                       --
+                       -- release
+                       --
+                       case when ap.project_id is null
+                            then null
+                            else nvl((select RELEASE_TRAIN||' '||RELEASE
+                                        from SP_RELEASE_TRAINS rt 
+                                       where rt.id = (select release_id 
+                                                        from sp_projects p 
+                                                       where p.id = ap.project_id)),'None')
+                            end release,
+                       --
+                       -- optional initiative
+                       --
+                       decode(ap.initiative_id,null,null,
+                                               (select initiative from sp_initiatives where id = ap.initiative_id)) initiative,
+                       ap.initiative_id,
+                
+                       --
+                       -- tags
+                       --
+                       tm.tags team_member_tags,
+                       ap.tags activity_tags,
+                       decode(ap.project_id,null,null,(select tags from sp_projects p where p.id = ap.project_id and p.ARCHIVED_YN = 'N')) project_tags,
+                       --
+                       -- timeframe
+                       --
+                       decode(trunc(sysdate),trunc(ap.end_date),'Current',
+                       decode(trunc(sysdate),trunc(ap.start_date),'Current',
+                           decode(
+                               greatest( trunc(sysdate), ap.start_date ),
+                               ap.start_date,
+                               'Future',
+                               decode(greatest( trunc(sysdate), ap.end_date), ap.end_date, 'Current','Past')))) timeframe,
+                       --
+                       -- pie chart icon in 10% chunks that show time percent complete
+                       --
+                        'fa-pie-chart-'||sp_date_range_pct_comp(ap.start_date, ap.end_date) icon,
+                        ap.updated,
+                        ap.created
+                from sp_activities ap,
+                     sp_activity_types at,
+                     sp_team_members tm
+                where 
+                      (nvl(ap.private_yn,'N') = 'N' or ap.team_member_id = :APP_USER_ID) and
+                      ap.activity_type_id = at.id and
+                      ap.team_member_id = tm.id
+                
+                ```
+            pageItemsToSubmit: APP_USER_ID
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P102_ORDER_BY
+                orderBys: {
+                    LASTUPD: Updated desc
+                    CREATED: Created desc
+                    PERSON: Person
+                    PROJECT: Project
+                    START_DATE: Start_date
+                    END_DATE: End_date
+                }
+            }
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                t-Region--scrollBody
+                margin-bottom-none
+            ]
+        }
+        accessibility {
+            landmarkType: region
+        }
+        config {
+            buildOption: @activity-planning
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &ACTIVITY!HTML.
+            description:
+                ```html
+                <strong>Owner</strong>: &PERSON!HTML.<br />
+                <strong>&ACTIVITY_TYPE.</strong>: &TIMELINE.<br>
+                {if PROJECT/}<strong>&NOMENCLATURE_PROJECT!HTML.</strong>: &PROJECT!HTML.<br>{endif/}
+                {if INITIATIVE/}<strong>&NOMENCLATURE_INITIATIVE!HTML.</strong>: &INITIATIVE!HTML.{endif/}
+                ```
+            miscellaneous:
+                ```html
+                {if PRIVATE_LABEL/}<strong class="u-danger-text">&PRIVATE_LABEL!HTML.</strong><br/>{endif/}&LAST_UPDATED.
+                
+                ```
+            displayAvatar: true
+            displayBadge: true
+        }
+        plugin-avatar {
+            icon: &ICON.
+            description: Percentage of activity time elapsed
+            shape: noShape
+            size: medium
+        }
+        plugin-badge {
+            label: &NOMENCLATURE_PROJECTS.
+            value: TIMEFRAME
+            state: BADGE_CLASS
+            columnWidth: large
+        }
+        pagination {
+            entitiesPerPage: 30
+        }
+
+        column ACTIVITY (
+            layout {
+                sequence: 560
+            }
+            source {
+                databaseColumn: ACTIVITY
+                dataType: varchar2
+            }
+        )
+
+        column ACTIVITY_TAGS (
+            layout {
+                sequence: 530
+            }
+            source {
+                databaseColumn: ACTIVITY_TAGS
+                dataType: varchar2
+            }
+        )
+
+        column ACTIVITY_TYPE (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: ACTIVITY_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_CLASS (
+            layout {
+                sequence: 420
+            }
+            source {
+                databaseColumn: BADGE_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column CREATED (
+            layout {
+                sequence: 460
+            }
+            source {
+                databaseColumn: CREATED
+                dataType: date
+            }
+        )
+
+        column DAYS (
+            layout {
+                sequence: 230
+            }
+            source {
+                databaseColumn: DAYS
+                dataType: number
+            }
+        )
+
+        column DAYS_REMAINING (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: DAYS_REMAINING
+                dataType: number
+            }
+        )
+
+        column END_DATE (
+            layout {
+                sequence: 220
+            }
+            source {
+                databaseColumn: END_DATE
+                dataType: date
+            }
+        )
+
+        column END_DATE_FORMATTED (
+            layout {
+                sequence: 310
+            }
+            source {
+                databaseColumn: END_DATE_FORMATTED
+                dataType: varchar2
+            }
+        )
+
+        column END_MONTH (
+            layout {
+                sequence: 330
+            }
+            source {
+                databaseColumn: END_MONTH
+                dataType: varchar2
+            }
+        )
+
+        column FRIENDLY_IDENTIFIER (
+            layout {
+                sequence: 270
+            }
+            source {
+                databaseColumn: FRIENDLY_IDENTIFIER
+                dataType: varchar2
+            }
+        )
+
+        column ICON (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: ICON
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column INITIATIVE (
+            layout {
+                sequence: 500
+            }
+            source {
+                databaseColumn: INITIATIVE
+                dataType: varchar2
+            }
+        )
+
+        column INITIATIVE_ID (
+            layout {
+                sequence: 510
+            }
+            source {
+                databaseColumn: INITIATIVE_ID
+                dataType: number
+            }
+        )
+
+        column LAST_UPDATED (
+            layout {
+                sequence: 300
+            }
+            source {
+                databaseColumn: LAST_UPDATED
+                dataType: varchar2
+            }
+        )
+
+        column MY_ACTIVITY (
+            layout {
+                sequence: 430
+            }
+            source {
+                databaseColumn: MY_ACTIVITY
+                dataType: varchar2
+            }
+        )
+
+        column PERSON (
+            layout {
+                sequence: 340
+            }
+            source {
+                databaseColumn: PERSON
+                dataType: varchar2
+            }
+        )
+
+        column PRIVATE_LABEL (
+            layout {
+                sequence: 570
+            }
+            source {
+                databaseColumn: PRIVATE_LABEL
+                dataType: varchar2
+            }
+        )
+
+        column PRIVATE_YN (
+            layout {
+                sequence: 550
+            }
+            source {
+                databaseColumn: PRIVATE_YN
+                dataType: varchar2
+            }
+        )
+
+        column PROJECT (
+            layout {
+                sequence: 260
+            }
+            source {
+                databaseColumn: PROJECT
+                dataType: varchar2
+            }
+        )
+
+        column PROJECT_ID (
+            layout {
+                sequence: 490
+            }
+            source {
+                databaseColumn: PROJECT_ID
+                dataType: number
+            }
+        )
+
+        column PROJECT_RELATED (
+            layout {
+                sequence: 480
+            }
+            source {
+                databaseColumn: PROJECT_RELATED
+                dataType: varchar2
+            }
+        )
+
+        column PROJECT_SIZE (
+            layout {
+                sequence: 360
+            }
+            source {
+                databaseColumn: PROJECT_SIZE
+                dataType: varchar2
+            }
+        )
+
+        column PROJECT_TAGS (
+            layout {
+                sequence: 540
+            }
+            source {
+                databaseColumn: PROJECT_TAGS
+                dataType: varchar2
+            }
+        )
+
+        column PROJECT_URL_NAME (
+            layout {
+                sequence: 290
+            }
+            source {
+                databaseColumn: PROJECT_URL_NAME
+                dataType: varchar2
+            }
+        )
+
+        column RELEASE (
+            layout {
+                sequence: 410
+            }
+            source {
+                databaseColumn: RELEASE
+                dataType: varchar2
+            }
+        )
+
+        column START_DATE (
+            layout {
+                sequence: 210
+            }
+            source {
+                databaseColumn: START_DATE
+                dataType: date
+            }
+        )
+
+        column START_MONTH (
+            layout {
+                sequence: 440
+            }
+            source {
+                databaseColumn: START_MONTH
+                dataType: varchar2
+            }
+        )
+
+        column TEAM_MEMBER_ID (
+            layout {
+                sequence: 470
+            }
+            source {
+                databaseColumn: TEAM_MEMBER_ID
+                dataType: number
+            }
+        )
+
+        column TEAM_MEMBER_TAGS (
+            layout {
+                sequence: 520
+            }
+            source {
+                databaseColumn: TEAM_MEMBER_TAGS
+                dataType: varchar2
+            }
+        )
+
+        column TIMEFRAME (
+            layout {
+                sequence: 400
+            }
+            source {
+                databaseColumn: TIMEFRAME
+                dataType: varchar2
+            }
+        )
+
+        column TIMELINE (
+            layout {
+                sequence: 280
+            }
+            source {
+                databaseColumn: TIMELINE
+                dataType: varchar2
+            }
+        )
+
+        column UPDATED (
+            layout {
+                sequence: 450
+            }
+            source {
+                databaseColumn: UPDATED
+                dataType: date
+            }
+        )
+
+        column URL (
+            layout {
+                sequence: 240
+            }
+            source {
+                databaseColumn: URL
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 129
+                    items: {
+                        P129_ACTIVITY_ID: &ID.
+                    }
+                    clearCache: 129
+                    action: resetPagination
+                }
+            }
+        )
+
+        action actions-2 (
+            position: primaryActions
+            template: menu
+            label: Actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+                cssClasses: t-Button--noUI
+            }
+
+            menu activity-quick-look (
+                label: Activity Quick Look
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    target: {
+                        page: 140
+                        items: {
+                            P140_ID: &ID.
+                        }
+                        clearCache: 140
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-badge-check
+                }
+            )
+
+            menu comp_menu_entry (
+                type: separator
+                layout {
+                    sequence: 30
+                }
+            )
+
+            menu edit-activity (
+                label: Edit Activity
+                layout {
+                    sequence: 10
+                }
+                behavior {
+                    target: {
+                        page: 101
+                        items: {
+                            P101_ID: &ID.
+                        }
+                        clearCache: 101
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-edit
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+            menu owner-quick-look (
+                label: Owner Quick Look
+                layout {
+                    sequence: 50
+                }
+                behavior {
+                    target: {
+                        page: 73
+                        items: {
+                            P73_TEAM_MEMBER_ID: &TEAM_MEMBER_ID.
+                        }
+                        clearCache: 73
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-user
+                }
+            )
+
+            menu view-nomenclature-project-detail (
+                label: View &NOMENCLATURE_PROJECT. Detail
+                layout {
+                    sequence: 40
+                }
+                behavior {
+                    target: {
+                        page: 3
+                        items: {
+                            FI: &FRIENDLY_IDENTIFIER.
+                            PN: &PROJECT_URL_NAME.
+                        }
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-glasses
+                }
+                serverSideCondition {
+                    type: itemIsNotNull
+                    item: PROJECT_ID
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+        )
+
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region buttons-container (
+        name: Buttons Container
+        type: staticContent
+        source {
+            htmlCode: <div id="active_facets"></div>
+        }
+        layout {
+            sequence: 19
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region faceted-search (
+        name: Faceted Search
+        type: facetedSearch
+        source {
+            filteredRegion: @activities
+        }
+        layout {
+            sequence: 30
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: selector
+            currentFacetsSelector: #active_facets
+            displayChartForTopNValues: 10
+        }
+
+        facet P102_ACTIVITY_TAGS (
+            type: checkboxGroup
+            label {
+                label: Activity Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 130
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: ACTIVITY_TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+        facet P102_ACTIVITY_TYPE (
+            type: checkboxGroup
+            label {
+                label: Type
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 150
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: ACTIVITY_TYPE
+            }
+        )
+
+        facet P102_END_MONTH (
+            type: checkboxGroup
+            label {
+                label: End Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 90
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: END_MONTH
+            }
+        )
+
+        facet P102_INITIATIVE (
+            type: checkboxGroup
+            label {
+                label: Related &NOMENCLATURE_INITIATIVE.
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 100
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: INITIATIVE
+            }
+        )
+
+        facet P102_MY_ACTIVITY (
+            type: checkboxGroup
+            label {
+                label: My Activity
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 160
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: MY_ACTIVITY
+            }
+        )
+
+        facet P102_MY_PRIVATE (
+            type: checkboxGroup
+            label {
+                label: My Private
+            }
+            lov {
+                type: staticValues
+                staticValues: STATIC2:Yes;Y,No;N
+            }
+            layout {
+                sequence: 70
+            }
+            listEntries {
+                sortByTopCounts: false
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            actionsMenu {
+                chart: false
+            }
+            source {
+                databaseColumn: PRIVATE_YN
+            }
+            serverSideCondition {
+                type: rowsReturned
+                sqlQuery:
+                    ```sql
+                    select 1
+                      from sp_activities
+                     where private_yn = 'Y' 
+                       and team_member_id = :APP_USER_ID
+                    ```
+            }
+        )
+
+        facet P102_PERSON (
+            type: checkboxGroup
+            label {
+                label: Owner
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 60
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: PERSON
+            }
+        )
+
+        facet P102_PROJECT_RELATED (
+            type: checkboxGroup
+            label {
+                label: &NOMENCLATURE_PROJECT. Related
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: PROJECT_RELATED
+            }
+        )
+
+        facet P102_PROJECT_TAGS (
+            type: checkboxGroup
+            label {
+                label: Project Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 140
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: PROJECT_TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+        facet P102_RELEASE (
+            type: checkboxGroup
+            label {
+                label: Release
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 110
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: RELEASE
+            }
+            config {
+                buildOption: @releases
+            }
+        )
+
+        facet P102_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P102_START_MONTH (
+            type: checkboxGroup
+            label {
+                label: Start Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: START_MONTH
+            }
+        )
+
+        facet P102_TEAM_MEMBER_TAGS (
+            type: checkboxGroup
+            label {
+                label: Team Member Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 120
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: TEAM_MEMBER_TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+        facet P102_TIMEFRAME (
+            type: checkboxGroup
+            label {
+                label: Timeframe
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: TIMEFRAME
+            }
+        )
+
+    )
+
+    pageItem P102_ORDER_BY (
+        type: selectList
+        label {
+            label: Order By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Last Updated;LASTUPD,Created;CREATED,Person;PERSON,Project;PROJECT,Start Date;START_DATE,End Date;END_DATE
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @buttons-container
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            icon: fa-sort-amount-asc
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: [
+                w200
+                no-item-ui
+            ]
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: LASTUPD
+        }
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about-activity (
+            label: About Activity
+            layout {
+                sequence: 40
+            }
+            behavior {
+                target: {
+                    page: 110
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu new_1 (
+            type: separator
+            layout {
+                sequence: 50
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 60
+            }
+            behavior {
+                target: {
+                    page: 102
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 70
+            }
+            behavior {
+                target: {
+                    page: 102
+                    clearCache: 102
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+    )
+
+    button add-activity (
+        buttonName: add_activity
+        label: Add Activity
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 101
+                items: {
+                    P101_TEAM_MEMBER_ID: &APP_USER_ID.
+                }
+                clearCache: 101
+            }
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction on-dc (
+        name: refresh after add
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-activity
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @activities
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-ar-on-dialog-close (
+        name: refresh ar on dialog close
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @activities
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @activities
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation last-project-view (
+        itemName: LAST_PROJECT_VIEW
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 102
+        }
+    )
+
+    computation p102-order-by (
+        itemName: P102_ORDER_BY
+        execution {
+            sequence: 40
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: CREATED
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P102_ORDER_BY
+        }
+    )
+
+)
+
+
+````

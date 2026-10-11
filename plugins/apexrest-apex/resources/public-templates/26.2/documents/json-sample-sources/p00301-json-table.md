@@ -1,0 +1,489 @@
+# JSON_TABLE — Json Sample Sources
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/json-sample-sources/apexlang/json-sample-sources/pages/p00301-json-table.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: f1c21d8f48c979cd36325b89f00cd8fe90639e246229dbf61dd1b144a32775a2.
+
+Application dependency inventory: oracle:26.2:public-template/json-sample-sources/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 301 (
+    name: JSON_TABLE
+    alias: JSON-TABLE
+    title: JSON_TABLE
+    pageGroup: @sql-json-functions
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region json-table (
+        name: JSON_TABLE
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select      o.order_id,
+                            o.order_status,
+                            c.full_name,
+                            c.email_address,
+                            j.shipment_method,
+                            j.shipment_status,
+                            j.estimated_delivery,
+                            j.payment_method,
+                            j.payment_status,
+                            j.street,
+                            j.city,
+                            j.state_province,
+                            j.country,
+                            j.postal_code,
+                            j.notes
+                from        eba_demo_json_orders           o,
+                            eba_demo_json_customers        c,
+                            json_table(o.order_metadata, '$'
+                                        columns (
+                                            shipment_method         varchar2(20)    path '$.shipment.method',
+                                            shipment_status         varchar2(20)    path '$.shipment.status',
+                                            estimated_delivery      date            path '$.shipment.estimated_delivery',
+                                            payment_method          varchar2(20)    path '$.payment.method',
+                                            payment_status          varchar2(20)    path '$.payment.status',
+                                            street                  varchar2(100)   path '$.delivery_address.street',
+                                            city                    varchar2(100)   path '$.delivery_address.city',
+                                            state_province          varchar2(100)   path '$.delivery_address.state_province',
+                                            country                 varchar2(50)    path '$.delivery_address.country',
+                                            postal_code             varchar2(20)    path '$.delivery_address.postal_code',
+                                            notes                   varchar2(200)   path '$.notes'
+                                        )
+                                    ) j
+                where       o.customer_id = c.customer_id
+                
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 3858123697515674
+        }
+
+        column CITY (
+            type: plainText
+            heading {
+                heading: City
+            }
+            layout {
+                sequence: 83
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column COUNTRY (
+            type: plainText
+            heading {
+                heading: Country
+            }
+            layout {
+                sequence: 103
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column EMAIL_ADDRESS (
+            type: plainText
+            heading {
+                heading: Email Address
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column ESTIMATED_DELIVERY (
+            type: plainText
+            heading {
+                heading: Estimated Delivery
+            }
+            layout {
+                sequence: 43
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column FULL_NAME (
+            type: plainText
+            heading {
+                heading: Full Name
+            }
+            layout {
+                sequence: 2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column NOTES (
+            type: plainText
+            heading {
+                heading: Notes
+            }
+            layout {
+                sequence: 123
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column ORDER_ID (
+            type: hidden
+            heading {
+                heading: Order ID
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column ORDER_STATUS (
+            type: plainText
+            heading {
+                heading: Order Status
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column PAYMENT_METHOD (
+            type: plainText
+            heading {
+                heading: Payment Method
+            }
+            layout {
+                sequence: 53
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column PAYMENT_STATUS (
+            type: plainText
+            heading {
+                heading: Payment Status
+            }
+            layout {
+                sequence: 63
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column POSTAL_CODE (
+            type: plainText
+            heading {
+                heading: Postal Code
+            }
+            layout {
+                sequence: 113
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column SHIPMENT_METHOD (
+            type: plainText
+            heading {
+                heading: Shipment Method
+            }
+            layout {
+                sequence: 23
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column SHIPMENT_STATUS (
+            type: plainText
+            heading {
+                heading: Shipment Status
+            }
+            layout {
+                sequence: 33
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column STATE_PROVINCE (
+            type: plainText
+            heading {
+                heading: State Province
+            }
+            layout {
+                sequence: 93
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column STREET (
+            type: plainText
+            heading {
+                heading: Street
+            }
+            layout {
+                sequence: 73
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: JSON_TABLE
+        }
+
+        savedReport 38646 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ESTIMATED_DELIVERY (
+                sequence: 5
+            )
+
+            displayColumn FULL_NAME (
+                sequence: 1
+            )
+
+            displayColumn ORDER_STATUS (
+                sequence: 2
+            )
+
+            displayColumn PAYMENT_METHOD (
+                sequence: 6
+            )
+
+            displayColumn PAYMENT_STATUS (
+                sequence: 7
+            )
+
+            displayColumn SHIPMENT_METHOD (
+                sequence: 3
+            )
+
+            displayColumn SHIPMENT_STATUS (
+                sequence: 4
+            )
+
+        )
+
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                This page demonstrates the use of the <strong>JSON_TABLE</strong> function in Oracle APEX to transform JSON data into relational columns. Based on the <strong>EBA_DEMO_JSON_ORDERS</strong> table, it extracts structured information from the <strong>order_metadata</strong> JSON field, enabling seamless querying and reporting alongside customer data.
+                </p>
+                
+                <p>
+                To get started, explore the Interactive Report to see how JSON attributes are extracted into relational columns for filtering, sorting, and reporting purposes.
+                </p>
+                
+                <p>
+                To view the SQL query used in this example, open the Page Designer for this page and navigate to <strong>SQL Query</strong> under the source section of the Interactive Report region.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 302
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: PREVIOUS
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 300
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

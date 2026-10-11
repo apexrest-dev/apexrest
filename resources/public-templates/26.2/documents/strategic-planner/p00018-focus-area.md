@@ -1,0 +1,537 @@
+# Focus Area — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00018-focus-area.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: d9adc9ef7584c91f4b92da391cd4cb1a35e80fbe609e38c209f8bddb82d8e927.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 18 (
+    name: Focus Area
+    alias: FOCUS-AREA
+    title: &NOMENCLATURE_AREA.
+    pageGroup: @areas
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region nomenclature-area (
+        name: &NOMENCLATURE_AREA.
+        type: form
+        source {
+            location: localDatabase
+            tableName: SP_AREAS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P18_AREA (
+        type: textField
+        label {
+            label: &NOMENCLATURE_AREA.
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            valueRequired: true
+            maxLength: 50
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: AREA
+            dataType: varchar2
+        }
+    )
+
+    pageItem P18_DESCRIPTION (
+        type: textarea
+        label {
+            label: Description
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+            height: 4
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: DESCRIPTION
+            dataType: varchar2
+        }
+    )
+
+    pageItem P18_HIDDEN_BY_DEFAULT_YN (
+        type: switch
+        label {
+            label: Hidden By Default
+            alignment: left
+        }
+        layout {
+            sequence: 70
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: HIDDEN_BY_DEFAULT_YN
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: N
+        }
+        help {
+            helpText: Use this switch to reduce clutter of abandoned &NOMENCLATURE_AREAS..  If an &NOMENCLATURE_AREA. is no longer in use enable this hidden by default.
+        }
+    )
+
+    pageItem P18_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @nomenclature-area
+            slot: regionBody
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P18_IMAGE (
+        type: imageUpload
+        label {
+            label: Drag and Drop Icon Image here
+            alignment: left
+        }
+        display {
+            downloadLinkText: Download Icon
+        }
+        storage {
+            mimeTypeColumn: IMAGE_MIMETYPE
+            filenameColumn: IMAGE_NAME
+            blobLastUpdatedColumn: IMAGE_LAST_UPDATED
+        }
+        cropping {
+            allowCropping: true
+            aspectRatio: square
+        }
+        resizeTo {
+            maxWidth: 256
+            maxHeight: 256
+        }
+        layout {
+            sequence: 50
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: IMAGE
+            dataType: blob
+        }
+    )
+
+    pageItem P18_IMAGE_LAST_UPDATED (
+        type: hidden
+        layout {
+            sequence: 130
+            region: @nomenclature-area
+            slot: regionBody
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: IMAGE_LAST_UPDATED
+            dataType: date
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P18_IMAGE_MIMETYPE (
+        type: hidden
+        layout {
+            sequence: 120
+            region: @nomenclature-area
+            slot: regionBody
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: IMAGE_MIMETYPE
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P18_IMAGE_NAME (
+        type: hidden
+        layout {
+            sequence: 110
+            region: @nomenclature-area
+            slot: regionBody
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: IMAGE_NAME
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P18_OWNER_ID (
+        type: selectOne
+        label {
+            label: Owner
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select last_name||', '||first_name||' ('||lower(email)||')' d, id r
+                  from SP_TEAM_MEMBERS
+                 where is_current_yn = 'Y'
+                    or id = :P18_OWNER_ID
+                 order by 1
+                ```
+        }
+        layout {
+            sequence: 40
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: OWNER_ID
+            dataType: number
+        }
+    )
+
+    pageItem P18_STATUS_SCALE (
+        type: hidden
+        layout {
+            sequence: 100
+            region: @nomenclature-area
+            slot: regionBody
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: STATUS_SCALE
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P18_TAGS (
+        type: combobox
+        label {
+            label: Tags
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+            maxValuesInList: 7
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'UNDER-CONSIDERATION' d from dual union all
+                select 'MARKETING' d from dual union all
+                select 'SALES' d from dual union all
+                select 'SUPPORT' d from dual
+                order by 1
+                ```
+        }
+        multipleValues {
+            type: delimitedList
+            separator: ,
+        }
+        layout {
+            sequence: 60
+            region: @nomenclature-area
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @nomenclature-area
+            column: TAGS
+            dataType: varchar2
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add &NOMENCLATURE_AREA.
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P18_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P18_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P18_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 139342528713164605975
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process initialize-form-focus-area (
+        name: Initialize form Focus Area
+        type: formInitialization
+        formRegion: @nomenclature-area
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 139342527677895605971
+        }
+    )
+
+    process process-form-focus-area (
+        name: Process form Focus Area
+        type: formAutoRowProcessing
+        formRegion: @nomenclature-area
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Action Processed
+        }
+        advanced {
+            executionMappingIdentifier: 139342528013648605973
+        }
+    )
+
+)
+
+
+````

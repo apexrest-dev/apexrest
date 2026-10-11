@@ -1,0 +1,537 @@
+# New User Details — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00192-new-user-details.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4b464ecc1db953516fd4bdf6850a6b8c2716e4be03cca0ac017b605ff3c6561e.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 192 (
+    name: New User Details
+    alias: NEW-USER-DETAILS
+    title: New User Details
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration: var htmldb_delete_message='"DELETE_CONFIRM_MSG"';
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region form-items (
+        name: Form Items
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @user-details
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region information (
+        name: Information
+        type: plSqlDynamicContent
+        source {
+            plsqlCode:
+                ```plsql
+                htp.prn(replace(
+                    apex_lang.message('ACCESS_CONTROL_INFO'),
+                    '#IMAGE_PREFIX'||'#',
+                    :image_prefix));
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: dialogHeader
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            excludeTitleFromTranslation: true
+        }
+    )
+
+    region user-details (
+        name: User Details
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    pageItem P192_ACCESS_LEVEL_ID (
+        type: radioGroup
+        label {
+            label: Access Level
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @access-levels
+            displayNullValue: false
+        }
+        layout {
+            sequence: 30
+            region: @form-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        default {
+            type: static
+            staticValue: 2
+        }
+        readOnly {
+            type: expression
+            plsqlExpression: :P192_SEQUENCE is not null and lower(:APP_USER) = lower(:P192_USERNAME)
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: The access level assigned to this user.
+        }
+    )
+
+    pageItem P192_SEQUENCE (
+        type: hidden
+        layout {
+            sequence: 40
+            region: @form-items
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P192_USERNAME (
+        type: textField
+        label {
+            label: Username
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 20
+            region: @form-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        readOnly {
+            type: expression
+            plsqlExpression: :P192_SEQUENCE is not null and lower(:APP_USER) = lower(:P192_USERNAME)
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: The username assigned by this user.
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add User
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P192_SEQUENCE
+        }
+    )
+
+    button create-again (
+        buttonName: CREATE_AGAIN
+        label: Add and Add Another
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P192_SEQUENCE
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 50
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--simple
+                t-Button--danger
+            ]
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: javascript:apex.confirm(htmldb_delete_message,'DELETE');
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: expression
+            plsqlExpression: :P192_SEQUENCE is not null and lower(:APP_USER) != lower(:P192_USERNAME)
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P192_SEQUENCE
+        }
+    )
+
+    dynamicAction close-dialog (
+        name: Close Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-close (
+            action: closeDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation cannot-update-yourself (
+        name: cannot update yourself
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: noRowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                  from eba_cust_users
+                 where upper(username) = :APP_USER
+                   and upper(username) = upper(:P192_USERNAME)
+                ```
+        }
+        error {
+            errorMessage: You cannot update your own record.
+            displayLocation: inlineInNotification
+        }
+        serverSideCondition {
+            whenButtonPressed: @save
+        }
+    )
+
+    validation p192-username-email-is-valid (
+        name: P192_USERNAME Email is Valid
+        execution {
+            sequence: 30
+        }
+        validation {
+            type: itemMatchesRegexp
+            item: P192_USERNAME
+            regexp: "^[-!#$%&''''*+/0-9=?A-Z^_a-z{|}~](\\.?[-!#$%&''''*+/0-9=?A-Z^_a-z{|}~])*@(-?[a-zA-Z0-9+])+(\\.(-?[a-zA-Z0-9+])*)+$"
+        }
+        error {
+            errorMessage: Username is not in a valid email address format. Please note the application's username format below.
+            associatedItem: @P192_USERNAME
+        }
+        serverSideCondition {
+            type: expression
+            plsqlExpression: eba_cust_fw.get_preference_value ('USERNAME_FORMAT') = 'EMAIL'
+        }
+    )
+
+    validation username-is-unique (
+        name: Username is unique
+        execution {
+            sequence: 40
+        }
+        validation {
+            type: noRowsReturned
+            sqlQuery:
+                ```sql
+                select
+                    null
+                from
+                    apex_collections
+                where
+                    collection_name = 'NEW_USERS'
+                and
+                    lower(c001) = lower(:P192_USERNAME)
+                and
+                    :P192_SEQUENCE is null;
+                ```
+        }
+        error {
+            errorMessage: This username has already been added. Please enter a unique username.
+            associatedItem: @P192_USERNAME
+        }
+    )
+
+    process add-user-to-collection (
+        name: Add User to Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                apex_collection.add_member(
+                    p_collection_name => 'NEW_USERS',
+                    p_c001            => lower(:P192_USERNAME),
+                    p_n001            => :P192_ACCESS_LEVEL_ID);
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: &P192_USERNAME. added successfully.
+        }
+        advanced {
+            executionMappingIdentifier: 1162472707022596157
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,CREATE_AGAIN
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 1162473123635596157
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process remove-user-from-collection (
+        name: Remove User from Collection
+        type: executeCode
+        source {
+            plsqlCode: apex_collection.delete_member(p_collection_name => 'NEW_USERS', p_seq => :P192_SEQUENCE);
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 1162473494522596157
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 1162474339929596158
+        }
+        serverSideCondition {
+            whenButtonPressed: @create-again
+        }
+    )
+
+    process update-user-in-collection (
+        name: Update User in Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                apex_collection.update_member(
+                    p_collection_name => 'NEW_USERS',
+                    p_c001            => lower(:P192_USERNAME),
+                    p_n001            => :P192_ACCESS_LEVEL_ID,
+                    p_seq             => :P192_SEQUENCE);
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 1162473910141596158
+        }
+        serverSideCondition {
+            whenButtonPressed: @save
+        }
+    )
+
+    branch (
+        name: Add and Add Another
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: &APP_PAGE_ID.
+                clearCache: &APP_PAGE_ID.
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @create-again
+        }
+    )
+
+)
+
+
+````

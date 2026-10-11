@@ -1,0 +1,607 @@
+# Buttons — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01500-buttons.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: d1d9ed6ddc146b19cd023f46df6bd3a539b9659079db18754fcdab864c552a82.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1500 (
+    name: Buttons
+    alias: BUTTONS
+    title: Buttons - &APP_TITLE.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline:
+            ```css
+            .ts-Placeholder {
+            height: 240px;
+            line-height: 240px;
+            text-align: center;
+            background-color: #D0D0D0;
+            color: #404040;
+            border-radius: 2px;
+            margin-bottom: 48px;
+            }
+            .ts-Container {
+            max-width: 1024px;
+            min-height: 50vh;
+            }
+            
+            .a-HowTo-value ul {
+             margin-top: 0px;
+            }
+            .a-ButtonTemplate {
+             width: 90%;
+             margin:auto;
+            }
+            ```
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumbs (
+        name: Breadcrumbs
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @icon-only
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Icon Only
+        }
+    )
+
+    region demo-2 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @text-with-icon
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Text with Icon
+        }
+    )
+
+    region demo-3 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @text-only
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Text Only
+        }
+    )
+
+    region demo-4 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @hot
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Hot
+        }
+    )
+
+    region hot (
+        name: Hot
+        type: staticContent
+        layout {
+            sequence: 80
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region icon-only (
+        name: Icon Only
+        type: staticContent
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 5
+            parentRegion: @icon-only
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Icon Only
+        }
+        settings {
+            componentType: button
+            staticId: Button2
+        }
+    )
+
+    region instructions-2 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 5
+            parentRegion: @text-with-icon
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Text with Icon
+        }
+        settings {
+            componentType: button
+            staticId: Button3
+        }
+    )
+
+    region instructions-3 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 5
+            parentRegion: @text-only
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Text Only
+        }
+        settings {
+            componentType: button
+            staticId: Button1
+        }
+    )
+
+    region instructions-4 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 5
+            parentRegion: @hot
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Hot
+        }
+        settings {
+            componentType: button
+            staticId: Button4
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>Universal Theme provides several options for adding buttons to your applications. This page introduces you to the three button templates and the various template options.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 20
+            parentRegion: @icon-only
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Icon Only
+        }
+        settings {
+            componentType: button
+            staticId: Button2
+        }
+    )
+
+    region template-options-2 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 20
+            parentRegion: @text-with-icon
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Text with Icon
+        }
+        settings {
+            componentType: button
+            staticId: Button3
+        }
+    )
+
+    region template-options-3 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 20
+            parentRegion: @text-only
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Text Only
+        }
+        settings {
+            componentType: button
+            staticId: Button1
+        }
+    )
+
+    region template-options-4 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 20
+            parentRegion: @hot
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+            ]
+        }
+        accessibility {
+            landmarkLabel: Template Options Hot
+        }
+        settings {
+            componentType: button
+            staticId: Button4
+        }
+    )
+
+    region text-only (
+        name: Text Only
+        type: staticContent
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region text-with-icon (
+        name: Text with Icon
+        type: staticContent
+        layout {
+            sequence: 70
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    button hot (
+        buttonName: HOT
+        label: Button
+        layout {
+            sequence: 10
+            region: @demo-4
+            slot: regionBody
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+        advanced {
+            htmlDomId: Button4
+        }
+    )
+
+    button icon (
+        buttonName: ICON
+        label: Button
+        layout {
+            sequence: 10
+            region: @demo
+            slot: regionBody
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-check
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+        advanced {
+            htmlDomId: Button2
+        }
+    )
+
+    button text (
+        buttonName: TEXT
+        label: Button
+        layout {
+            sequence: 10
+            region: @demo-3
+            slot: regionBody
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+        advanced {
+            htmlDomId: Button1
+        }
+    )
+
+    button text-with-icon (
+        buttonName: TEXT_WITH_ICON
+        label: Button
+        layout {
+            sequence: 10
+            region: @demo-2
+            slot: regionBody
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-check
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+        advanced {
+            htmlDomId: Button3
+        }
+    )
+
+)
+
+
+````

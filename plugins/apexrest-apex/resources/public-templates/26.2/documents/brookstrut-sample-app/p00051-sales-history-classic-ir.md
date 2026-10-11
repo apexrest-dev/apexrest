@@ -1,0 +1,659 @@
+# Sales History Interactive Report — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00051-sales-history-classic-ir.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 2cba94a68ab7035744a45442717e0c83aaadaa4b89bac634baadd3a100db4911.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 51 (
+    name: Sales History Interactive Report
+    alias: SALES-HISTORY-CLASSIC-IR
+    title: Sales History IR
+    pageGroup: @reporting
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region facets (
+        name: Facets
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: [
+                #DEFAULT#
+                margin-bottom-md
+            ]
+        }
+        advanced {
+            htmlDomId: active_facets
+            regionDisplaySelector: true
+        }
+    )
+
+    region sales-history (
+        name: Sales History
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    h.ID            id,
+                    r.REGION_NAME   region,
+                    s.store_name    store,
+                    i.item_Name     product,
+                    h.DATE_OF_SALE,
+                    to_char(h.DATE_OF_SALE,'YYYY.MM.W') the_week,
+                    to_char(h.DATE_OF_SALE,'YYYY.MM') the_month,
+                    to_char(h.DATE_OF_SALE,'YYYY') the_year,
+                    h.QUANTITY,
+                    h.TRANSACTION_ID,
+                    h.ITEM_PRICE,
+                    h.QUANTITY * h.ITEM_PRICE sale,
+                    i.id product_id,
+                    s.id store_id
+                from #OWNER#.OOW_DEMO_SALES_HISTORY h,
+                     #OWNER#.OOW_DEMO_REGIONS r,
+                     #OWNER#.OOW_DEMO_STORES s,
+                     #OWNER#.OOW_DEMO_STORE_PRODUCTS p,
+                     #OWNER#.OOW_DEMO_ITEMS i
+                where s.region_id = r.id and
+                      h.store_id = s.id and
+                      p.ITEM_ID = h.PRODUCT_ID and
+                      p.item_id = i.id
+                
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: Report provides sales of products by store, and stores are grouped by geographic region.
+        }
+        advanced {
+            savedReportMappingIdentifier: 12014204872062923921
+        }
+
+        column DATE_OF_SALE (
+            type: plainText
+            heading {
+                heading: Date of Sale
+            }
+            layout {
+                sequence: 50
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI:SS
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column ID (
+            type: plainText
+            heading {
+                heading: Transaction Line Item ID
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column ITEM_PRICE (
+            type: plainText
+            heading {
+                heading: Item Price
+                alignment: end
+            }
+            layout {
+                sequence: 90
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column PRODUCT (
+            type: plainText
+            heading {
+                heading: Product
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            genAI {
+                columnContext: The product name
+                referenceDataType: sqlQuery
+                sqlQuery: select item_name d, item_name r from "#OWNER#"."OOW_DEMO_ITEMS"
+            }
+        )
+
+        column PRODUCT_ID (
+            type: plainText
+            heading {
+                heading: Product Id
+                alignment: end
+            }
+            layout {
+                sequence: 110
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column QUANTITY (
+            type: plainText
+            heading {
+                heading: Quantity
+                alignment: end
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column REGION (
+            type: plainText
+            heading {
+                heading: Region
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+            genAI {
+                referenceDataType: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select region_name d,
+                           region_name r
+                    from #OWNER#.OOW_DEMO_REGIONS 
+                    
+                    ```
+            }
+        )
+
+        column SALE (
+            type: plainText
+            heading {
+                heading: Sale
+                alignment: end
+            }
+            layout {
+                sequence: 100
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column STORE (
+            type: plainText
+            heading {
+                heading: Store
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+            genAI {
+                referenceDataType: sqlQuery
+                sqlQuery: select store_name d, store_name r from "#OWNER#"."OOW_DEMO_STORES"
+            }
+        )
+
+        column STORE_ID (
+            type: plainText
+            heading {
+                heading: Store Id
+                alignment: end
+            }
+            layout {
+                sequence: 120
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column THE_MONTH (
+            type: plainText
+            heading {
+                heading: The Month
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+            genAI {
+                columnContext: The month of the sale in YYYY.MM Oracle date format
+            }
+        )
+
+        column THE_WEEK (
+            type: plainText
+            heading {
+                heading: Month Week
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+            genAI {
+                columnContext: The year, month, and week of month in oracle date format "YYYY.MM.W"
+            }
+        )
+
+        column THE_YEAR (
+            type: plainText
+            heading {
+                heading: The Year
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+            genAI {
+                columnContext: The year of the sale in YYYY Oracle date format
+            }
+        )
+
+        column TRANSACTION_ID (
+            type: link
+            heading {
+                heading: Transaction ID
+            }
+            layout {
+                sequence: 80
+            }
+            link {
+                target: {
+                    page: 36
+                    items: {
+                        P36_TRANSACTION_ENTRY_ID: #ID#
+                    }
+                    clearCache: 36
+                    action: resetPagination
+                }
+                linkText: #TRANSACTION_ID#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Sales History
+        }
+
+        savedReport 120167826 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 100
+            }
+
+            displayColumn DATE_OF_SALE (
+                sequence: 5
+            )
+
+            displayColumn ITEM_PRICE (
+                sequence: 8
+            )
+
+            displayColumn PRODUCT (
+                sequence: 4
+            )
+
+            displayColumn QUANTITY (
+                sequence: 7
+            )
+
+            displayColumn REGION (
+                sequence: 2
+            )
+
+            displayColumn SALE (
+                sequence: 9
+            )
+
+            displayColumn STORE (
+                sequence: 3
+            )
+
+            displayColumn THE_WEEK (
+                sequence: 6
+            )
+
+            displayColumn TRANSACTION_ID (
+                sequence: 1
+            )
+
+            sort (
+                column: DATE_OF_SALE
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: SALE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: THE_WEEK
+                sort {
+                    direction: desc
+                    sequence: 3
+                }
+            )
+
+            aggregate (
+                column: SALE
+            )
+
+        )
+
+    )
+
+    region timer (
+        name: Timer
+        type: dynamicContent
+        source {
+            plsqlFunctionBody:
+                ```plsql
+                declare
+                   x clob;
+                begin
+                    x := to_char(oow_demo_timing.get_elap,'99G9990D000')||' seconds';
+                    return x;
+                end;
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P51_NAVIGATION (
+        type: selectList
+        label {
+            label: Navigation
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @sales-history-navigation
+            displayNullValue: false
+        }
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        default {
+            type: static
+            staticValue: &APP_PAGE_ID.
+        }
+    )
+
+    button reset (
+        buttonName: reset
+        label: Reset
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 51
+                clearCache: 51
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: up
+        label: Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction on-report-view-change (
+        name: on report view change
+        execution {
+            sequence: 10
+        }
+        when {
+            selectionType: items
+            items: P51_NAVIGATION
+        }
+
+        action native-submit-page (
+            action: submitPage
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process start-timer (
+        name: start timer
+        type: executeCode
+        source {
+            plsqlCode: oow_demo_timing.START_TIMER;
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 12016506779898005716
+        }
+    )
+
+    branch (
+        name: branch to requested page
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: &P51_NAVIGATION.
+                clearCache: &P51_NAVIGATION.
+                action: resetPagination
+            }
+        }
+    )
+
+)
+
+
+````

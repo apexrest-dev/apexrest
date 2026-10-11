@@ -35,6 +35,7 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Application verification
 
+- Qualify adapted public page templates and the 30 new 26.1 recipes on explicit DEV/QA/TEST applications. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.
 - Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.
 - Reconcile the nine advisory CodeScan findings in the local 26.2 CRM fixture before claiming security qualification.
 - Existing projects can drop retired `tests` and `database.testsDir` settings; the loader ignores them. Regenerate old plans and reconcile unresolved deployment state rather than rewriting journals.

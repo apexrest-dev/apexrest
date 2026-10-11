@@ -1,0 +1,1131 @@
+# Releases — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00008-releases.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 26cdb7f895b7bc0bfa0981b1ca8d6beb5503eecfc7390e7032628bd891292f8f.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 8 (
+    name: Releases
+    alias: RELEASES
+    title: Releases
+    pageGroup: @releases
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: [
+            #DEFAULT#
+            t-PageBody--noContentPadding
+        ]
+    }
+    css {
+        inline:
+            ```css
+            .no-item-ui {
+              --a-field-input-border-width: 0px;
+              --a-field-input-background-color: transparent;
+            }
+            
+            .overline {
+              color: var(--ut-region-text-color, var(--ut-component-text-default-color));
+            }
+            ```
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+    help {
+        helpText: All Releases.
+    }
+    comments {
+        comments: Filterable by Window (Open, Closed, Future), Release Train (product), Release Type (full or patch), Owner and Release Year.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region faceted-search (
+        name: Faceted Search
+        type: facetedSearch
+        source {
+            filteredRegion: @releases
+        }
+        layout {
+            sequence: 30
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            compactNosThreshold: 10000
+            displayChartForTopNValues: 10
+        }
+
+        facet P8_RELEASE_OWNER (
+            type: checkboxGroup
+            label {
+                label: Owner
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 50
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: RELEASE_OWNER
+            }
+        )
+
+        facet P8_RELEASE_TARGET_YEAR (
+            type: checkboxGroup
+            label {
+                label: Release Year
+            }
+            lov {
+                type: distinctValues
+                sortDirection: desc
+            }
+            layout {
+                sequence: 60
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: RELEASE_TARGET_YEAR
+            }
+        )
+
+        facet P8_RELEASE_TRAIN (
+            type: checkboxGroup
+            label {
+                label: Release Train
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: RELEASE_TRAIN
+            }
+        )
+
+        facet P8_RELEASE_TYPE (
+            type: checkboxGroup
+            label {
+                label: Release Type
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 40
+            }
+            listEntries {
+                sortByTopCounts: false
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: RELEASE_TYPE
+            }
+        )
+
+        facet P8_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P8_WINDOW (
+            type: checkboxGroup
+            label {
+                label: Window
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: WINDOW
+            }
+        )
+
+    )
+
+    region items (
+        name: Items
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region releases (
+        name: Releases
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id, 
+                       release_train, 
+                       release_owner_id,
+                       nvl(release_owner,'(No Owner)') release_owner,
+                       release,
+                       timeline,
+                       days_remaining,
+                       badge_state,
+                       RELEASE_OPEN_DATE,
+                       RELEASE_TARGET_DATE,
+                       to_char(RELEASE_TARGET_DATE,'YYYY') RELEASE_TARGET_YEAR,
+                       UPDATED,
+                       duration_in_days,
+                       AVG_PCT_COMPLETE,
+                       completed,
+                       not_completed,
+                       contributors,
+                       last_updated,
+                       projects,
+                       --
+                       -- release type Full or Patch
+                       --
+                       initcap(nvl(release_type,'FULL')) release_type,
+                       --
+                       -- percent of projects fully completed
+                       --
+                       round(
+                           100 *
+                           decode(nvl(not_completed,0),
+                                  0,0,
+                                  completed / (nvl(completed,0) + nvl(not_completed,0))
+                                  )
+                            ) pct_complete,
+                       'fa-pie-chart-'||round(.1 * 
+                           AVG_PCT_COMPLETE)*10 icon,
+                      window,
+                      --
+                      -- release milestone counts
+                      --
+                      milestones,
+                      completed_milestones
+                from (
+                --
+                -- Inline Query
+                --
+                select 
+                       r.ID,
+                       --
+                       -- release attributes
+                       --
+                       r.RELEASE_OPEN_DATE,
+                       r.RELEASE_TARGET_DATE,
+                       r.UPDATED,
+                       r.RELEASE_TARGET_DATE - r.RELEASE_OPEN_DATE duration_in_days,
+                       r.RELEASE_TRAIN,
+                       r.RELEASE_OWNER_ID,
+                       --
+                       -- release owner
+                       --
+                       (select first_Name||' '||last_name from sp_team_members tm where tm.id =  r.RELEASE_OWNER_ID) release_owner,
+                       --
+                       -- release
+                       --
+                       r.RELEASE_TRAIN||' '||r.RELEASE RELEASE, 
+                       --
+                       -- release date timeline (from open to targeted complete) for display in UI
+                       --
+                       to_char(r.RELEASE_OPEN_DATE,'Day DD-MON-YYYY')||' to '||to_char(r.RELEASE_TARGET_DATE,'Day DD-MON-YYYY') timeline,
+                       --
+                       -- Days remaining for release
+                       --
+                       case 
+                           when r.release_completed = 'Y'
+                           then 'Completed'
+                           else trunc(r.RELEASE_TARGET_DATE) - trunc(sysdate) || ' Days Remaining'
+                           end as days_remaining,
+                       --
+                       -- State of release "danger", "warning", or "success"
+                       --
+                       case 
+                           when r.release_completed = 'Y' then 'success'
+                           when trunc(r.release_open_date) > trunc(sysdate) then 'success'
+                           when trunc(r.RELEASE_TARGET_DATE) > trunc(sysdate) then 'success'
+                           when trunc(r.RELEASE_TARGET_DATE) - trunc(sysdate) < 15 then 'warning'  
+                           else 'danger'
+                        end as badge_state,
+                       --
+                       -- Count of projects targeted for release
+                       --
+                       (select count(*) 
+                          from sp_projects p 
+                         where p.release_id = r.id  
+                           and p.ARCHIVED_YN = 'N'
+                           and p.duplicate_of_project_id is null) projects,
+                       --
+                       -- average percent complete of projects for a release
+                       --
+                       nvl((select round(avg(p.PCT_COMPLETE))
+                              from sp_projects p 
+                             where p.release_id = r.id
+                               and p.ARCHIVED_YN = 'N'
+                               and p.duplicate_of_project_id is null), 0) AVG_PCT_COMPLETE,
+                       --
+                       -- fully completed projects for a given release
+                       --
+                       (select count(*) 
+                          from sp_projects p 
+                         where p.release_id = r.id 
+                           and p.pct_complete = 100  
+                           and p.ARCHIVED_YN = 'N'
+                           and p.duplicate_of_project_id is null) completed,
+                       --
+                       -- Open (not completed) projects for a given release
+                       --
+                       (select count(*) 
+                          from sp_projects p 
+                         where p.release_id = r.id 
+                           and p.pct_complete != 100  
+                           and p.ARCHIVED_YN = 'N'
+                           and p.duplicate_of_project_id is null)  not_completed,
+                       --
+                       -- Count of distinct team members identified as a task owner
+                       --
+                       (select count(distinct OWNER_ID) 
+                          from SP_TASKS c 
+                         where c.PROJECT_ID in (select id 
+                                                  from sp_projects p
+                                                 where p.release_id = r.id
+                                                   and p.ARCHIVED_YN = 'N'
+                                                   and p.duplicate_of_project_id is null)) contributors,
+                       --
+                       -- Most recent update to release project or release train
+                       --
+                       greatest(nvl((select max(updated) 
+                                       from sp_projects p 
+                                      where p.release_id = r.id
+                                        and p.ARCHIVED_YN = 'N'
+                                        and p.duplicate_of_project_id is null),r.updated),r.updated) last_updated,
+                       case when release_open_completed = 'Y' and nvl(release_completed,'N') = 'N'
+                            then 'Open'
+                            when nvl(release_open_completed,'N') = 'N'
+                            then 'Future'
+                            else 'Closed' 
+                            end window,
+                       --
+                       -- milestone counts
+                       --
+                       (select count(*) from SP_RELEASE_MILESTONES m where m.RELEASE_ID = r.id) milestones,
+                       (select count(*) from SP_RELEASE_MILESTONES m where m.RELEASE_ID = r.id and m.MILESTONE_COMPLETED_YN = 'Y') completed_milestones,
+                       release_type
+                  from SP_RELEASE_TRAINS r
+                ) x
+                ```
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P8_ORDER_BY
+                orderBys: {
+                    RELEASE: release
+                    RELEASE_OPEN_DATE: release_open_date
+                    RELEASE_TARGET_DATE1: release_target_date
+                    UPDATED: updated desc
+                }
+            }
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            overline: &TIMELINE!HTML.
+            title: &RELEASE!HTML. - &RELEASE_TYPE.
+            description: &COMPLETED./&PROJECTS. Completed (&AVG_PCT_COMPLETE.% Progress based on status, &PCT_COMPLETE.% Fully Complete)
+            miscellaneous:
+                ```html
+                Updated: &LAST_UPDATED.<br />
+                &MILESTONES. Milestones, &COMPLETED_MILESTONES. completed
+                ```
+            displayAvatar: true
+            displayBadge: true
+        }
+        plugin-avatar {
+            icon: &ICON.
+            shape: noShape
+            size: medium
+        }
+        plugin-badge {
+            label: &NOMENCLATURE_PROJECTS.
+            value: DAYS_REMAINING
+            state: BADGE_STATE
+            columnWidth: large
+        }
+        pagination {
+            entitiesPerPage: 30
+        }
+
+        column AVG_PCT_COMPLETE (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: AVG_PCT_COMPLETE
+                dataType: number
+            }
+        )
+
+        column BADGE_STATE (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+        column COMPLETED (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: COMPLETED
+                dataType: number
+            }
+        )
+
+        column COMPLETED_MILESTONES (
+            layout {
+                sequence: 250
+            }
+            source {
+                databaseColumn: COMPLETED_MILESTONES
+                dataType: number
+            }
+        )
+
+        column CONTRIBUTORS (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: CONTRIBUTORS
+                dataType: number
+            }
+        )
+
+        column DAYS_REMAINING (
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: DAYS_REMAINING
+                dataType: varchar2
+            }
+        )
+
+        column DURATION_IN_DAYS (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: DURATION_IN_DAYS
+                dataType: number
+            }
+        )
+
+        column ICON (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: ICON
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column LAST_UPDATED (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: LAST_UPDATED
+                dataType: date
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column MILESTONES (
+            layout {
+                sequence: 240
+            }
+            source {
+                databaseColumn: MILESTONES
+                dataType: number
+            }
+        )
+
+        column NOT_COMPLETED (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: NOT_COMPLETED
+                dataType: number
+            }
+        )
+
+        column PCT_COMPLETE (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: PCT_COMPLETE
+                dataType: number
+            }
+        )
+
+        column PROJECTS (
+            layout {
+                sequence: 200
+            }
+            source {
+                databaseColumn: PROJECTS
+                dataType: number
+            }
+        )
+
+        column RELEASE (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: RELEASE
+                dataType: varchar2
+            }
+        )
+
+        column RELEASE_OPEN_DATE (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: RELEASE_OPEN_DATE
+                dataType: date
+            }
+        )
+
+        column RELEASE_OWNER (
+            layout {
+                sequence: 230
+            }
+            source {
+                databaseColumn: RELEASE_OWNER
+                dataType: varchar2
+            }
+        )
+
+        column RELEASE_OWNER_ID (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: RELEASE_OWNER_ID
+                dataType: number
+            }
+        )
+
+        column RELEASE_TARGET_DATE (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: RELEASE_TARGET_DATE
+                dataType: date
+            }
+        )
+
+        column RELEASE_TARGET_YEAR (
+            layout {
+                sequence: 210
+            }
+            source {
+                databaseColumn: RELEASE_TARGET_YEAR
+                dataType: varchar2
+            }
+        )
+
+        column RELEASE_TRAIN (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: RELEASE_TRAIN
+                dataType: varchar2
+            }
+        )
+
+        column RELEASE_TYPE (
+            layout {
+                sequence: 260
+            }
+            source {
+                databaseColumn: RELEASE_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column TIMELINE (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: TIMELINE
+                dataType: varchar2
+            }
+        )
+
+        column UPDATED (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: UPDATED
+                dataType: date
+            }
+        )
+
+        column WINDOW (
+            layout {
+                sequence: 220
+            }
+            source {
+                databaseColumn: WINDOW
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 117
+                    items: {
+                        P117_RELEASE_ID: &ID.
+                    }
+                    clearCache: 117
+                    action: resetPagination
+                }
+            }
+        )
+
+        action actions (
+            position: primaryActions
+            template: menu
+            label: Actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+                cssClasses: t-Button--noUI
+            }
+
+            menu ai-summaries (
+                label: AI Summaries
+                layout {
+                    sequence: 40
+                }
+                behavior {
+                    target: {
+                        page: 165
+                        items: {
+                            P165_RELEASE_ID: &ID.
+                        }
+                        clearCache: 165
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-ai-sparkle-generate-text
+                }
+                config {
+                    buildOption: @ai-release-summaries-view
+                }
+            )
+
+            menu dashboard (
+                label: Dashboard
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    target: {
+                        page: 202
+                        items: {
+                            P202_RELEASE_ID: &ID.
+                        }
+                        clearCache: 202
+                        action: resetRegions
+                    }
+                }
+                appearance {
+                    icon: fa-area-chart
+                }
+            )
+
+            menu edit-release (
+                label: Edit Release
+                layout {
+                    sequence: 30
+                }
+                behavior {
+                    target: {
+                        page: 27
+                        items: {
+                            P27_ID: &ID.
+                        }
+                        clearCache: 27
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-edit
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+            menu release-details (
+                label: Release Details
+                layout {
+                    sequence: 10
+                }
+                behavior {
+                    target: {
+                        page: 117
+                        items: {
+                            P117_RELEASE_ID: &ID.
+                        }
+                        clearCache: 117
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-ship
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P8_ORDER_BY (
+        type: selectList
+        label {
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Updated - Most Recent First;UPDATED,Release;RELEASE,Release Open Date;RELEASE_OPEN_DATE,Release Target Date;RELEASE_TARGET_DATE1
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @items
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            icon: fa-sort-amount-asc
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: [
+                w300
+                no-item-ui
+            ]
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: UPDATED
+        }
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about-releases (
+            label: About Releases
+            layout {
+                sequence: 60
+            }
+            behavior {
+                target: {
+                    page: 108
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu copy-release (
+            label: Copy Release
+            layout {
+                sequence: 30
+            }
+            behavior {
+                target: {
+                    page: 63
+                    clearCache: 63
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-copy
+            }
+            security {
+                authorizationScheme: @contribution-rights
+            }
+        )
+
+        menu cross-release-milestone-calendar (
+            label: Cross-Release Milestone Calendar
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 55
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-calendar-month
+            }
+        )
+
+        menu focus-areas-by-release (
+            label: Focus Areas by Release
+            layout {
+                sequence: 20
+            }
+            behavior {
+                target: {
+                    page: 66
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-bar-chart
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 80
+            }
+            behavior {
+                target: {
+                    page: 8
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 90
+            }
+            behavior {
+                target: {
+                    page: 8
+                    clearCache: 8
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+        menu sep1 (
+            type: separator
+            layout {
+                sequence: 50
+            }
+        )
+
+        menu sep2 (
+            type: separator
+            layout {
+                sequence: 70
+            }
+        )
+
+    )
+
+    button add-release (
+        buttonName: add_release
+        label: Add Release
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 27
+                clearCache: 27
+            }
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction after-edit-closed (
+        name: after edit closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @releases
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @releases
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-releases-on-dc (
+        name: after add
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-release
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh_1 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @releases
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation last-proj-jump-pg (
+        itemName: LAST_PROJ_JUMP_PG
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 8
+        }
+    )
+
+)
+
+
+````

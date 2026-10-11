@@ -37,6 +37,7 @@
     "catalog:build": "node scripts/build-component-catalog.mjs",
     "catalog:check": "node scripts/build-component-catalog.mjs --check",
     "catalog:verify": "node scripts/verify-component-recipes.mjs",
+    "templates:check": "node scripts/build-public-template-catalog.mjs",
     "patterns:build": "node scripts/build-pattern-catalog.mjs",
     "patterns:check": "node scripts/build-pattern-catalog.mjs --check",
     "patterns:capture": "node scripts/capture-pattern-snapshot.mjs",

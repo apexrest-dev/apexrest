@@ -1,0 +1,84 @@
+page 1 (
+    name: Client text normalization
+    alias: HOME
+    title: Client text normalization
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Type a value to see its trimmed uppercase form without a server request.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: input
+            selectionType: items
+            items: P1_INPUT
+        }
+        action step-10 (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: String(apex.item("P1_INPUT").getValue() || "").trim().toUpperCase()
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_OUTPUT
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

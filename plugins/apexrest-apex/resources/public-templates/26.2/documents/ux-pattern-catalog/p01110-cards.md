@@ -1,0 +1,1642 @@
+# Cards — Ux Pattern Catalog
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/ux-pattern-catalog/apexlang/ux-pattern-catalog/pages/p01110-cards.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 7ec9370fec720929fac2b31c6881e75a3d5011b5620ebe5b520f99cd5090a7c2.
+
+Application dependency inventory: oracle:26.2:public-template/ux-pattern-catalog/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1110 (
+    name: Cards
+    alias: CARDS
+    title: Cards
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: #DEFAULT#
+    }
+    css {
+        inline:
+            ```css
+            .ux-about-text {
+                padding: 1rem;
+                border-bottom: 1px solid var(--ut-component-border-color);
+                background: var(--ut-component-toolbar-background-color);
+            }
+            
+            .app-PatternGuidance > p:first-child {
+                font-weight: 600;
+            }
+            
+            .app-PatternGuidance h4 {
+                text-transform: uppercase;
+                font-size: 0.75rem;
+                color: var(--ut-component-text-muted-color);
+                margin-bottom: 0.25rem;
+            }
+            
+            .a-CardView-items--row .has-media {
+                grid-template-columns: minmax(32px,128px) minmax(0,var(--a-cv-icon-spacer,44px)) 1fr minmax(0,auto);
+            }
+            
+            /* Position the Media Cards favorite button over the image */
+            /* Make each card the positioning context */
+            .product-listings .a-CardView-item {
+                position: relative;
+            }
+            
+            /* Remove the action row from normal document flow */
+            .product-listings .a-CardView-actions {
+                display: contents !important;
+                pointer-events: none;
+            }
+            
+            /* Position the button */
+            .product-listings .a-CardView-actions .product-favorite-button,
+            .product-listings .a-CardView-actions .a-CardView-button.product-favorite-button {
+                position: absolute;
+                top: 0.75rem;
+                right: 0.75rem;
+                z-index: 10;
+            
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            
+                width: 2.5rem;
+                height: 2.5rem;
+                min-width: 2.5rem;
+                padding: 0;
+            
+                border: 1px solid rgb(255 255 255 / 0.9);
+                border-radius: 50%;
+                background: rgb(255 255 255 / 0.95);
+                color: #102a43;
+                box-shadow: 0 0.2rem 0.5rem rgb(15 23 42 / 0.2);
+            
+                font-size: 1.15rem;
+                line-height: 1;
+                pointer-events: auto;
+            
+                transition:
+                    background-color 160ms ease,
+                    color 160ms ease,
+                    transform 160ms ease,
+                    box-shadow 160ms ease;
+            }
+            ```
+    }
+    security {
+        authentication: public
+    }
+    help {
+        helpText:
+            ```html
+            ## Purpose
+            
+            The Cards pattern page demonstrates reusable card-based patterns for presenting related information as distinct, visually grouped items. Examples show how cards can support navigation, people, item details, approvals and actions, product catalogs, media-rich content, and files or documents.
+            
+            ## When to Use
+            
+            Use cards when users need to scan, compare, select, or act on a collection of items that benefit from a clear identity, supporting context, optional media, status, links, or actions.
+            
+            ## When to Avoid
+            
+            Avoid cards when information is better represented as a compact list, comparison table, data-entry form, or unstructured text. Do not use cards merely to decorate simple navigation or dense result sets, and do not overload each card with excessive attributes, badges, images, or competing actions.
+            
+            ## AI Guidance
+            
+            Use the examples on this page as references for adapting Cards regions to different interaction roles. Choose the card layout, hierarchy, media, icon, badge, link target, and actions according to the use case. Preserve a clear emphasis on the item identity and its primary purpose; include only the supporting information needed to scan, compare, navigate, or act confidently. Keep cards structurally consistent within a region, use one primary interaction per card, and ensure that buttons or links represent meaningful next steps.
+            ```
+    }
+
+    region about (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Helps users move between related areas by presenting each destination with enough context to understand where it leads.</p>
+                
+                <h4>Best For</h4>
+                <p>Small sets of peer destinations where a label alone may not be enough, such as related record areas, settings categories, or application sections.</p>
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @nav-list-container
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region about_1 (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Presents identifiable records with key context, helping users quickly scan, compare, and open the right item.</p>
+                
+                <h4>Best For</h4>
+                <p>Small to medium collections of business records, such as requests, plans, contracts, or related items, where a compact summary is more useful than a table row alone.</p>
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @status-list
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region about_1_1 (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Presents items that require a decision or next step with enough context to act confidently, using clear buttons or links for the available actions.</p>
+                
+                <h4>Best For</h4>
+                <p>Small to medium queues of approvals, requests, tasks, or other work items where users need to review information and take a direct action.</p>
+                ```
+        }
+        layout {
+            sequence: 50
+            parentRegion: @section-overview
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region about_1_1_1 (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Helps users browse visually identifiable items by combining imagery with concise descriptions, key attributes, status, and optional actions.</p>
+                
+                <h4>Best For</h4>
+                <p>Product catalogs and media-rich lists where images help users recognize content, view high-level details, and take actions on items.</p>
+                ```
+        }
+        layout {
+            sequence: 110
+            parentRegion: @related-information_1
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region about_1_1_1_1_1_1 (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Makes files and documents easy to recognize, evaluate, and act on by combining a visual preview with file type, ownership, version, status, and update information.</p>
+                
+                <h4>Best For</h4>
+                <p>Document libraries, project workspaces, attachment areas, template galleries, and knowledge bases where users need more context than a filename alone provides and commonly perform actions such as viewing or downloading.</p>
+                ```
+        }
+        layout {
+            sequence: 240
+            parentRegion: @decision-and-action-list
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region about_1_2 (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Displays a list of people with an avatar or initials, lightweight role context, and current presence or account state.</p>
+                
+                <h4>Best For</h4>
+                <p>Small to medium user lists where names, roles, presence, and recent activity help users quickly understand who is involved or available.</p>
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @users-list_1
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: app-PatternGuidance
+            icon: fa-info-circle-o
+        }
+    )
+
+    region action-list (
+        name: Pattern: Files and Documents
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                File and Document Cards Pattern Guidance
+                ----------------------------------------
+                Use this region to present documents, files, templates, or knowledge
+                resources with enough context for users to recognize and evaluate them.
+                
+                Design intent:
+                - Use the document name as the primary label.
+                - Use the subtitle for the file type or document category.
+                - Use the body for a concise description of the document's purpose.
+                - Use the secondary body for owner, version, size, and recency.
+                - Use one badge for the document's most important state.
+                - Use a file preview image as the card media.
+                - Use a file-type icon to reinforce the document format.
+                - Link the title to a document preview or document details page.
+                - Use Card Actions for common operations such as View and Download.
+                - Keep image URLs, action labels, and action targets in separate columns.
+                - Use Advanced Formatting to combine secondary attributes with
+                  separators such as &middot;.
+                */
+                select
+                    201 as document_id,
+                    'Project Charter' as document_name,
+                    'project-charter.pdf' as document_filename,
+                    'Defines the project purpose, scope, stakeholders, milestones, and success criteria.' as document_summary,
+                    'Project Management Office' as document_owner,
+                    'v1.0' as document_version,
+                    '2.4 MB' as document_size,
+                    apex_util.get_since( sysdate - 8 ) as last_updated,
+                    '#APP_FILES#documents/project-charter-preview.jpg' as document_preview_url,
+                    'Preview of the Project Charter document' as document_preview_description,
+                    'fa fa-file-pdf-o' as document_icon_class,
+                    'u-color-36' document_icon_color,
+                    'PDF document' as document_icon_description,
+                    'Approved' as status_label,
+                    'u-success' as status_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    202 as document_id,
+                    'Research Findings' as document_name,
+                    'research_findings.ppt' as document_filename,
+                    'Summarizes user research findings, key observations, and recommended design opportunities.' as document_summary,
+                    'Maya Chen' as document_owner,
+                    'v0.9' as document_version,
+                    '8.7 MB' as document_size,
+                    apex_util.get_since( sysdate - 5 ) as last_updated,
+                    '#APP_FILES#documents/research-findings-preview.jpg' as document_preview_url,
+                    'Preview of the Research Findings presentation' as document_preview_description,
+                    'fa fa-file-powerpoint-o' as document_icon_class,
+                    'u-color-22' document_icon_color,
+                    'Presentation document' as document_icon_description,
+                    'Draft' as status_label,
+                    'u-warning' as status_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    203 as document_id,
+                    'Launch Plan' as document_name,
+                    'launch_plan.doc' as document_filename,
+                    'Lists launch activities, owners, dependencies, dates, and readiness checkpoints.' as document_summary,
+                    'Jordan Lee' as document_owner,
+                    'v2.1' as document_version,
+                    '1.1 MB' as document_size,
+                    apex_util.get_since( sysdate - 3 ) as last_updated,
+                    '#APP_FILES#documents/launch-plan-preview.jpg' as document_preview_url,
+                    'Preview of the Project Launch Plan document' as document_preview_description,
+                    'fa fa-file-word-o' as document_icon_class,
+                    'u-color-41' document_icon_color,
+                    'Word document' as document_icon_description,
+                    'In Review' as status_label,
+                    'u-info' as status_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    204 as document_id,
+                    'Budget Forecast' as document_name,
+                    'budget_forecast.xls' as document_filename,
+                    'Provides projected costs, approved funding, and the expected variance for the project.' as document_summary,
+                    'Priya Patel' as document_owner,
+                    'v3.0' as document_version,
+                    '640 KB' as document_size,
+                    apex_util.get_since( sysdate - 1 ) as last_updated,
+                    '#APP_FILES#documents/budget-forecast-preview.jpg' as document_preview_url,
+                    'Preview of the Budget Forecast spreadsheet' as document_preview_description,
+                    'fa fa-file-excel-o' as document_icon_class,
+                    'u-color-27' document_icon_color,
+                    'Spreadsheet document' as document_icon_description,
+                    'Approved' as status_label,
+                    'u-success' as status_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    205 as document_id,
+                    'Release Readiness Checklist' as document_name,
+                    'release-checklist' as document_filename,
+                    'Tracks required validation, sign-offs, communications, and deployment preparation.' as document_summary,
+                    'Daniel Kim' as document_owner,
+                    'v1.3' as document_version,
+                    '320 KB' as document_size,
+                    apex_util.get_since( sysdate - 12 ) as last_updated,
+                    '#APP_FILES#documents/release-readiness-checklist-preview.jpg' as document_preview_url,
+                    'Preview of the Release Readiness Checklist' as document_preview_description,
+                    'fa fa-check-square-o' as document_icon_class,
+                    'u-color-39' document_icon_color,
+                    'Checklist document' as document_icon_description,
+                    'Needs Attention' as status_label,
+                    'u-danger' as status_css_class
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 220
+            parentRegion: @decision-and-action-list
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+                t-CardsRegion--styleA
+            ]
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for presenting files, documents, templates, and knowledge resources with enough context for users to recognize, evaluate, and act on them. Each card combines a visual preview, file-type icon, ownership, version, status, and update information.
+                
+                ## When to Use
+                
+                Use for document libraries, project workspaces, attachment areas, template galleries, and knowledge bases where users need more context than a filename alone provides and commonly perform actions such as viewing or downloading.
+                
+                ## When to Avoid
+                
+                Avoid when the collection is very large, when users need to compare detailed document metadata, or when a simple filename list is sufficient. Use a report, interactive grid, search result list, or file-management view instead.
+                
+                ## AI Guidance
+                
+                Use the document name as the title and link it to a document preview or detail page. Use the subtitle for file type, filename, or size; use the body for a concise summary; and use the secondary body for owner, version, and recency. Use a file preview as media when it aids recognition and a file-type icon to reinforce format. Use one badge for the document's most important state. Add actions such as View and Download only when they are common, meaningful operations.
+                ```
+        }
+        componentAppearance {
+            layout: horizontal
+        }
+        card {
+            primaryKeyColumn1: DOCUMENT_ID
+        }
+        title {
+            column: DOCUMENT_NAME
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression: &DOCUMENT_FILENAME. (&DOCUMENT_SIZE.)
+        }
+        body {
+            column: DOCUMENT_SUMMARY
+        }
+        secondaryBody {
+            advancedFormatting: true
+            htmlExpression: Updated &LAST_UPDATED. by &DOCUMENT_OWNER.
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: DOCUMENT_ICON_CLASS
+            iconCssClasses: &DOCUMENT_ICON_COLOR.
+            iconDescription: &DOCUMENT_ICON_DESCRIPTION.
+        }
+        media {
+            source: urlColumn
+            urlColumn: DOCUMENT_PREVIEW_URL
+            position: first
+            appearance: square
+            sizing: cover
+            imageDescription: &DOCUMENT_PREVIEW_DESCRIPTION.
+        }
+
+        action action (
+            label: View
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+        action action_1 (
+            label: Download
+            layout {
+                position: secondary
+                sequence: 30
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                displayType: textWithIcon
+                icon: fa-download
+                hot: true
+            }
+        )
+
+        action action_2 (
+            label: Bookmark
+            layout {
+                sequence: 20
+            }
+            behavior {
+                type: triggerAction
+            }
+            appearance {
+                displayType: icon
+                icon: fa-bookmark-o
+            }
+
+            triggerAction native-javascript-code (
+                action: executeJsCode
+                settings {
+                    jsCode:
+                        ```javascript-browser
+                        // Ensure we always target the icon span when updating the icon class
+                        $icon = $(this.triggeringElement).closest(".a-CardView-button ").children(".a-CardView-buttonIcon");
+                        $icon.toggleClass("fa-bookmark fa-bookmark-o");
+                        ```
+                }
+                execution {
+                    sequence: 10
+                }
+            )
+
+        )
+
+    )
+
+    region dashboards (
+        name: About
+        type: staticContent
+        source {
+            htmlCode: Cards present related information as distinct, visually grouped items that are easy to scan, compare, and select. They work well for collections where each item benefits from a clear identity, supporting context, optional media, status, or actions. These patterns demonstrate common ways to use the APEX Cards component for navigation, summaries, entities, media-rich content, and other reusable card-based layouts.
+        }
+        layout {
+            sequence: 10
+            slot: leftColumn
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            cssClasses: margin-md
+            icon: fa-mouse-pointer
+        }
+    )
+
+    region dashboards_1 (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region decision-and-action-list (
+        name: File and Document Cards
+        type: staticContent
+        layout {
+            sequence: 80
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region nav-list-container (
+        name: Navigation Cards
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region patterns (
+        name: Pattern: Navigation
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'fa-home' as icon_class,
+                    'Overview' as title,
+                    'Review the primary summary, current status, and key information for this area.' as description,
+                    'cards' as page_alias
+                from sys.dual
+                
+                union all
+                
+                select
+                    'fa-info-circle-o' as icon_class,
+                    'Details' as title,
+                    'View supporting attributes, context, and additional information.' as description,
+                    'cards' as page_alias
+                from sys.dual
+                
+                union all
+                
+                select
+                    'fa-link' as icon_class,
+                    'Related Information' as title,
+                    'Open associated records, resources, and other relevant content.' as description,
+                    'cards' as page_alias
+                from sys.dual
+                
+                union all
+                
+                select
+                    'fa-history' as icon_class,
+                    'Activity' as title,
+                    'Review recent changes, updates, and other notable events.' as description,
+                    'cards' as page_alias
+                from sys.dual
+                
+                union all
+                
+                select
+                    'fa-cog' as icon_class,
+                    'Settings' as title,
+                    'Manage configuration, preferences, and supporting options.' as description,
+                    'cards' as page_alias
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @nav-list-container
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                #DEFAULT#
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+            renderComponents: belowContent
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for moving between related destinations within the same application area. Each card gives a destination a clear label, supporting context, and recognizable icon so users understand where it leads before selecting it.
+                
+                ## When to Use
+                
+                Use when users need to choose from a small set of peer destinations, such as an overview, details, related information, activity, or settings. This pattern works best when a label alone does not provide enough context.
+                
+                ## When to Avoid
+                
+                Avoid when destinations represent a sequential process, a large navigation hierarchy, or frequently used global navigation. Use tabs, breadcrumbs, a navigation menu, or a step-based pattern instead.
+                
+                ## AI Guidance
+                
+                Use a concise, task-oriented title and a brief description that explains what users will find after opening the destination. Use icons only when they reinforce meaning. Make the full card selectable and link it to a stable page alias or URL. Do not add buttons when opening the destination is the only meaningful action.
+                ```
+        }
+        title {
+            column: TITLE
+        }
+        subtitle {
+            column: DESCRIPTION
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: ICON_CLASS
+            iconCssClasses: fa
+            iconPosition: top
+        }
+
+        action action (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: f?p=&APP_ID.:&PAGE_ALIAS.:&SESSION.::&DEBUG.::::
+            }
+        )
+
+    )
+
+    region related-information (
+        name: Pattern: Product Catalog
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                Hotel Stays — Product/Catalog Cards Pattern Guidance
+                ----------------------------------------------------
+                Use this region to present hotel and hostel listings that users can
+                browse, compare, save, and open for more information.
+                
+                Design intent:
+                - Use HOTEL_NAME as the card title.
+                - Use Subtitle Advanced Formatting to combine HIGHLIGHT, RATING,
+                  and REVIEWS_DISPLAY.
+                - Use the secondary body for HOTEL_GRADE and TAGS.
+                - Use Body Advanced Formatting to display DEAL_PRICE when present;
+                  otherwise display CURRENT_PRICE.
+                - Use the property photograph as the card media.
+                - Use one badge for the deal state.
+                - Use a dummy # target for Full Card and Button actions.
+                - Use Grid layout with the default Cards column behavior.
+                - Use REVIEWS for sorting and filtering.
+                - Use REVIEWS_DISPLAY for visible card text only.
+                - Store TAGS as comma-separated values and format them in the
+                  Secondary Body expression using Template Directives.
+                
+                Recommended Card column mappings:
+                - Primary Key Column 1: HOTEL_ID
+                - Title: HOTEL_NAME
+                - Subtitle: Advanced Formatting using HIGHLIGHT, RATING, REVIEWS_DISPLAY
+                - Body: Advanced Formatting using CURRENT_PRICE and DEAL_PRICE
+                - Secondary Body: Advanced Formatting using HOTEL_GRADE and TAGS
+                - Badge Column: DEAL_LABEL
+                - Badge CSS Classes: &DEAL_CSS_CLASS.
+                - Media URL: IMAGE_URL
+                - Image Description: IMAGE_DESCRIPTION
+                */
+                
+                select
+                    301 as hotel_id,
+                    'Luxury Hotel' as hotel_name,
+                    'Excellent location' as highlight,
+                    '$310' as current_price,
+                    '$265' as deal_price,
+                    4.8 as rating,
+                    1257 as reviews,
+                    to_char(1257, 'FM999G999G999') as reviews_display,
+                    '5-Star Hotel' as hotel_grade,
+                    'Free WiFi,Pool,Parking,Food' as tags,
+                    '#APP_FILES#media-cards/luxury-hotel.png' as image_url,
+                    'Elegant luxury hotel exterior with landscaped entrance' as image_description,
+                    'Deal' as deal_label,
+                    'u-success' as deal_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    302 as hotel_id,
+                    'Business Travel Hotel' as hotel_name,
+                    'Connected to downtown' as highlight,
+                    '$220' as current_price,
+                    cast(null as varchar2(50)) as deal_price,
+                    4.6 as rating,
+                    842 as reviews,
+                    to_char(842, 'FM999G999G999') as reviews_display,
+                    '4-Star Hotel' as hotel_grade,
+                    'Free WiFi,Parking,Business Center,Bar' as tags,
+                    '#APP_FILES#media-cards/business-travel-hotel.png' as image_url,
+                    'Modern business hotel lobby with workspaces and natural light' as image_description,
+                    cast(null as varchar2(50)) as deal_label,
+                    cast(null as varchar2(50)) as deal_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    303 as hotel_id,
+                    'Family Stay Hotel' as hotel_name,
+                    'Spacious rooms' as highlight,
+                    '$285' as current_price,
+                    '$249' as deal_price,
+                    4.7 as rating,
+                    2103 as reviews,
+                    to_char(2103, 'FM999G999G999') as reviews_display,
+                    '4-Star Hotel' as hotel_grade,
+                    'Free WiFi,Pool,Breakfast,Parking' as tags,
+                    '#APP_FILES#media-cards/family-stay-hotel.png' as image_url,
+                    'Family-friendly hotel with a bright outdoor pool area' as image_description,
+                    'Deal' as deal_label,
+                    'u-success' as deal_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    304 as hotel_id,
+                    'City Hostel' as hotel_name,
+                    'Best value' as highlight,
+                    '$72' as current_price,
+                    '$59' as deal_price,
+                    4.4 as rating,
+                    693 as reviews,
+                    to_char(693, 'FM999G999G999') as reviews_display,
+                    'Hostel' as hotel_grade,
+                    'Free WiFi,Shared Kitchen,Lockers,Transit' as tags,
+                    '#APP_FILES#media-cards/city-hostel.png' as image_url,
+                    'Bright shared hostel lounge in a central city location' as image_description,
+                    'Deal' as deal_label,
+                    'u-success' as deal_css_class
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 100
+            parentRegion: @related-information_1
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                #DEFAULT#
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for browsing and comparing visually identifiable offerings. Each card combines imagery with concise descriptions, key attributes, availability or deal status, and optional actions that help users evaluate and select an item.
+                
+                ## When to Use
+                
+                Use for product catalogs and media-rich lists where images help users recognize content, view high-level details, and take actions on items.
+                
+                ## When to Avoid
+                
+                Avoid when items do not benefit from visual recognition, when users need to compare many structured attributes, or when the collection is too dense for image-led browsing. Use a report, comparison table, or compact list instead.
+                
+                ## AI Guidance
+                
+                Use meaningful media with an accurate image description. Use the title for the offering name, the subtitle for concise comparison context, and the body and secondary body for the attributes that influence selection. Use one badge for the most important availability, deal, or lifecycle state. Link the full card, title, or media to item details. Add a focused secondary action, such as Favorite or Save, only when it does not compete with the primary navigation action.
+                ```
+        }
+        componentAppearance {
+            cssClasses: product-listings
+        }
+        card {
+            primaryKeyColumn1: HOTEL_ID
+        }
+        title {
+            column: HOTEL_NAME
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression: <span class="u-color-17-text">&#9733;</span> &RATING. (&REVIEWS_DISPLAY. reviews) &middot; &HIGHLIGHT.
+        }
+        body {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                {if DEAL_PRICE/}
+                <span class="u-text-body-md">&DEAL_PRICE.</span>
+                <span class="u-text-body-sm">per night</span>  <span class="u-text-body-xs">was <del>&CURRENT_PRICE.</del></span>
+                {else/}
+                <span class="u-text-body-md">&CURRENT_PRICE.</span>
+                <span class="u-text-body-sm">per night</span>
+                {endif/}
+                ```
+        }
+        secondaryBody {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <strong>&HOTEL_GRADE.</strong>
+                {loop "," TAGS/}
+                &middot; &APEX$ITEM.
+                {endloop/}
+                ```
+        }
+        iconAndBadge {
+            badgeColumn: DEAL_LABEL
+            badgeCssClasses: &DEAL_CSS_CLASS.
+        }
+        media {
+            source: urlColumn
+            urlColumn: IMAGE_URL
+            position: first
+            appearance: widescreen
+            sizing: cover
+            imageDescription: &IMAGE_DESCRIPTION.
+        }
+
+        action action (
+            label: Favorite
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: triggerAction
+            }
+            appearance {
+                displayType: icon
+                icon: fa-heart-o
+                hot: true
+                cssClasses: product-favorite-button
+            }
+
+            triggerAction native-remove-class (
+                action: executeJsCode
+                settings {
+                    jsCode:
+                        ```javascript-browser
+                        // Ensure we always target the icon span when updating the icon class
+                        $icon = $(this.triggeringElement).closest(".product-favorite-button").children(".a-CardView-buttonIcon");
+                        $icon.toggleClass("fa-heart fa-heart-o");
+                        ```
+                }
+                execution {
+                    sequence: 10
+                }
+            )
+
+        )
+
+        action action_1 (
+            type: fullCard
+            layout {
+                sequence: 30
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+    )
+
+    region related-information_1 (
+        name: Media Cards
+        type: staticContent
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region section-overview (
+        name: Action Cards
+        type: staticContent
+        layout {
+            sequence: 70
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region section-summary (
+        name: Pattern: Approvals
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                Work Item Cards Pattern Guidance
+                --------------------------------
+                Use this region to present actionable work items with enough context
+                for users to prioritize, review, and act on them.
+                
+                Design intent:
+                - Use the expense description as the primary label.
+                - Use the subtitle for the work item or expense category.
+                - Use the body for a concise explanation of the request.
+                - Use separate columns for amount, requester, due date, priority, and
+                  submission age.
+                - Combine those values in the Subtitle or Secondary Body using Advanced
+                  Formatting.
+                - Use status_label for the visible workflow state.
+                - Use status_code for Server-Side Conditions on Card Actions.
+                - Use one badge for the current workflow state.
+                - Use an icon to distinguish work item types.
+                - Use a title link for review/details.
+                - Use buttons only when the current status permits an action.
+                - Do not make the full card a link when buttons are present.
+                
+                Recommended Cards attributes:
+                - Layout: Grid
+                - Title Column: work_item_name
+                - Subtitle Column: work_item_type
+                - Body Column: work_item_summary
+                - Secondary Body: Advanced Formatting
+                - Icon Source: Icon Class Column
+                - Icon Column: work_item_icon_class
+                - Icon Position: Start
+                - Badge Column: status_label
+                - Badge CSS Classes: &STATUS_CSS_CLASS.
+                - Primary Key Column 1: work_item_id
+                */
+                
+                select
+                    201 as work_item_id,
+                    'Client Workshop Travel' as work_item_name,
+                    'Travel Expense' as work_item_type,
+                    'Travel and lodging expenses for the Northstar client workshop in Chicago.' as work_item_summary,
+                    to_char(1248.60, 'FM$999G999G990D00',
+                        'NLS_NUMERIC_CHARACTERS=''.,''') as expense_amount,
+                    'Maya Chen' as requester_name,
+                    'Due today' as due_date_label,
+                    'High' as priority_label,
+                    apex_util.get_since( sysdate - 3 ) as submitted_since,
+                    'fa fa-hourglass-half' as work_item_icon_class,
+                    'Pending Approval' as status_label,
+                    'PENDING_APPROVAL' as status_code,
+                    'u-warning' as status_css_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    202,
+                    'Software Subscription Renewal',
+                    'Software Expense',
+                    'Annual renewal for the design collaboration and prototyping workspace.',
+                    to_char(2400.00, 'FM$999G999G990D00',
+                        'NLS_NUMERIC_CHARACTERS=''.,'''),
+                    'Priya Patel',
+                    'Due in 5 days',
+                    'High',
+                    apex_util.get_since( sysdate - 5 ),
+                    'fa fa-hourglass-half',
+                    'Pending Approval',
+                    'PENDING_APPROVAL',
+                    'u-warning'
+                from sys.dual
+                
+                union all
+                
+                select
+                    203,
+                    'Accessibility Conference Registration',
+                    'Professional Development',
+                    'Additional supporting information is required before a decision can be made.',
+                    to_char(895.00, 'FM$999G999G990D00',
+                        'NLS_NUMERIC_CHARACTERS=''.,'''),
+                    'Jordan Lee',
+                    'Review requested',
+                    'Standard',
+                    apex_util.get_since( sysdate - 2 ),
+                    'fa fa-search',
+                    'Needs Review',
+                    'NEEDS_REVIEW',
+                    'u-info'
+                from sys.dual
+                
+                union all
+                
+                select
+                    204,
+                    'Team Lunch Reimbursement',
+                    'Meals Expense',
+                    'The reimbursement request was reviewed and accepted.',
+                    to_char(182.45, 'FM$999G999G990D00',
+                        'NLS_NUMERIC_CHARACTERS=''.,'''),
+                    'Avery Smith',
+                    'Decision completed',
+                    'Standard',
+                    apex_util.get_since( sysdate - 1 ),
+                    'fa fa-check',
+                    'Approved',
+                    'APPROVED',
+                    'u-success'
+                from sys.dual
+                
+                union all
+                
+                select
+                    205,
+                    'Home Office Equipment',
+                    'Equipment Expense',
+                    'Supporting information is available for context but requires no action.',
+                    to_char(684.20, 'FM$999G999G990D00',
+                        'NLS_NUMERIC_CHARACTERS=''.,'''),
+                    'Daniel Kim',
+                    'Reference only',
+                    'Standard',
+                    apex_util.get_since( sysdate - 7 ),
+                    'fa fa-info-circle',
+                    'No Action Required',
+                    'NO_ACTION_REQUIRED',
+                    null
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @section-overview
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+                t-CardsRegion--styleC
+            ]
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for presenting actionable work items that require a decision, review, or follow-up. Each card combines the work item identity, supporting context, workflow state, priority, timing, and actions that are appropriate for the item's current state.
+                
+                ## When to Use
+                
+                Use for small to medium queues of approvals, requests, tasks, issues, or cases where users need to review information and take a direct action.
+                
+                ## When to Avoid
+                
+                Avoid when users need to process large volumes of work, compare many attributes, perform bulk actions, or complete a complex multi-step workflow. Use a report, interactive grid, dedicated task page, or workflow interface instead.
+                
+                ## AI Guidance
+                
+                Use the title as a link to the review or detail page. Include only the information needed to understand and prioritize the decision, such as requester, amount, due date, priority, and submission age. Use one badge for the visible workflow state and use status data separately to control when actions are available. Show buttons only when the current state permits an action. Do not make the full card a link when it contains decision buttons, as this creates competing interaction targets. Use confirmation for consequential or difficult-to-reverse actions.
+                ```
+        }
+        componentAppearance {
+            gridColumns: 2
+        }
+        card {
+            primaryKeyColumn1: WORK_ITEM_ID
+        }
+        title {
+            column: WORK_ITEM_NAME
+        }
+        subtitle {
+            advancedFormatting: true
+            htmlExpression: &WORK_ITEM_TYPE. &middot; Submitted &SUBMITTED_SINCE.
+        }
+        body {
+            column: WORK_ITEM_SUMMARY
+        }
+        secondaryBody {
+            advancedFormatting: true
+            htmlExpression: &EXPENSE_AMOUNT. &middot; &REQUESTER_NAME. &middot; &DUE_DATE_LABEL. &middot; Priority: &PRIORITY_LABEL.
+        }
+        iconAndBadge {
+            badgeColumn: STATUS_LABEL
+            badgeCssClasses: &STATUS_CSS_CLASS.
+        }
+
+        action action (
+            label: Approve
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                hot: true
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: :STATUS_CODE = 'PENDING_APPROVAL'
+            }
+        )
+
+        action action_1 (
+            label: Reject
+            layout {
+                sequence: 20
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: :STATUS_CODE = 'PENDING_APPROVAL'
+            }
+        )
+
+        action action_2 (
+            label: Review
+            layout {
+                sequence: 30
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: :STATUS_CODE = 'NEEDS_REVIEW'
+            }
+        )
+
+        action action_3 (
+            type: fullCard
+            layout {
+                sequence: 40
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: :STATUS_CODE IN ('PENDING_APPROVAL', 'NEEDS_REVIEW')
+            }
+        )
+
+    )
+
+    region status-list (
+        name: Item Detail Cards
+        type: staticContent
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region status-list-2 (
+        name: Pattern: Item Details
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                Item Details Cards Pattern Guidance
+                ----------------------------------
+                Use this region to present identifiable business records with enough
+                supporting context for users to recognize, compare, and open an item.
+                
+                Design intent:
+                - Use the item name as the primary label.
+                - Use the subtitle to identify the item type or category.
+                - Use the body for a concise description of the item's purpose or context.
+                - Use the secondary body for a small number of key attributes, such as
+                  owner, date, location, or related information.
+                - Use an icon to distinguish item types when imagery is unnecessary.
+                - Make the full card the primary action that links to the item's detail page.
+                - Make the Edit button a secondary action that opens the edit page or dialog.
+                */
+                select
+                    101 as item_id,
+                    'Finance Reporting Access Review' as item_name,
+                    'Access Request' as item_category,
+                    'Request to confirm reporting access for the quarterly close process.' as item_summary,
+                    'Maya Chen' as assigned_to,
+                    apex_util.get_since( sysdate - 2.5 ) as last_updated,
+                    'fa fa-key' as item_icon_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    102 as item_id,
+                    'Denver Office Hardware Refresh' as item_name,
+                    'Equipment Request' as item_category,
+                    'Replacement laptops and docking stations are being reviewed for approval.' as item_summary,
+                    'Jordan Lee' as assigned_to,
+                    apex_util.get_since( sysdate - 1 ) as last_updated,
+                    'fa fa-laptop' as item_icon_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    103 as item_id,
+                    'Northstar Labs Client Onboarding' as item_name,
+                    'Onboarding Plan' as item_category,
+                    'Required setup activities and supporting materials are awaiting confirmation.' as item_summary,
+                    'Avery Smith' as assigned_to,
+                    apex_util.get_since( sysdate - 1 ) as last_updated,
+                    'fa fa-rocket' as item_icon_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    104 as item_id,
+                    'Apex Supply Contract Renewal' as item_name,
+                    'Contract Record' as item_category,
+                    'Renewal terms and supporting documentation are ready for stakeholder review.' as item_summary,
+                    'Priya Patel' as assigned_to,
+                    apex_util.get_since( sysdate - 1 ) as last_updated,
+                    'fa fa-file-text-o' as item_icon_class
+                from sys.dual
+                
+                union all
+                
+                select
+                    105 as item_id,
+                    'Remote Work Policy Exception' as item_name,
+                    'Policy Request' as item_category,
+                    'The requested exception has been reviewed and recorded for reference.' as item_summary,
+                    'Daniel Kim' as assigned_to,
+                    apex_util.get_since( sysdate - 1 ) as last_updated,
+                    'fa fa-check-circle-o' as item_icon_class
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @status-list
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+                t-CardsRegion--styleA
+            ]
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for presenting identifiable business records with enough supporting context for users to recognize, compare, and open an item. Each card emphasizes the item identity, key attributes, and its most important current state.
+                
+                ## When to Use
+                
+                Use for small to medium collections of business records, such as requests, plans, contracts, assets, or related items, where a compact summary is more useful than a table row alone.
+                
+                ## When to Avoid
+                
+                Avoid when users need to compare many attributes across a large result set, perform bulk actions, or edit records directly in the collection. Use a report, interactive grid, or dedicated form instead.
+                
+                ## AI Guidance
+                
+                Use the title for the item name, the subtitle for its type or category, and the body for a concise description or context. Use the secondary body for a small number of useful attributes, such as owner, date, location, or related information. Use an icon when imagery is unnecessary. Make the full card a link to the item detail page and the Edit button open the edit page or dialog; the full card action is the primary action, and the Edit button is the secondary action.
+                ```
+        }
+        card {
+            primaryKeyColumn1: ITEM_ID
+        }
+        title {
+            column: ITEM_NAME
+        }
+        subtitle {
+            column: ITEM_CATEGORY
+        }
+        body {
+            column: ITEM_SUMMARY
+        }
+        secondaryBody {
+            advancedFormatting: true
+            htmlExpression: &ASSIGNED_TO. &middot; Last updated &LAST_UPDATED.
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: ITEM_ICON_CLASS
+            iconCssClasses: u-normal
+        }
+
+        action action (
+            label: Edit
+            layout {
+                position: secondary
+                sequence: 20
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                displayType: icon
+                icon: fa-pencil
+            }
+        )
+
+        action action_1 (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+    )
+
+    region tabs (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region users-list (
+        name: Pattern: Users
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                Users List Pattern Guidance
+                ---------------------------
+                Use this region to present people or application users with a clear
+                identity hierarchy and lightweight presence information.
+                
+                Design intent:
+                - Use the person's name as the primary label.
+                - Use initials as the avatar when no profile image is available.
+                - Use the description for one concise attribute such as role or team.
+                - Use the badge for a meaningful presence or account state.
+                - Use last-active time as secondary metadata and apply the SINCE format in APEX.
+                - Do not add row actions unless the adapted experience requires them.
+                */
+                select
+                    1 as user_id,
+                    'Maya Chen' as title,
+                    'Product Manager' as description,
+                    apex_string.get_initials('Maya Chen') as initials,
+                    '#APP_FILES#avatars/persona-female03.png' as avatar,
+                    'Active' as badge,
+                    'u-success' as badge_state,
+                    sysdate - interval '12' minute as last_active
+                from sys.dual
+                
+                union all
+                
+                select
+                    2,
+                    'Jordan Lee',
+                    'Senior Developer',
+                    apex_string.get_initials('Jordan Lee'),
+                    '#APP_FILES#avatars/persona-male01.png',
+                    'Active',
+                    'u-success',
+                    sysdate - interval '45' minute
+                from sys.dual
+                
+                union all
+                
+                select
+                    3,
+                    'Avery Smith',
+                    'UX Designer',
+                    apex_string.get_initials('Avery Smith'),
+                    '#APP_FILES#avatars/persona-female01.png',
+                    'Away',
+                    'u-warning',
+                    sysdate - interval '4' hour
+                from sys.dual
+                
+                union all
+                
+                select
+                    4,
+                    'Priya Patel',
+                    'Business Analyst',
+                    apex_string.get_initials('Priya Patel'),
+                    '#APP_FILES#avatars/persona-female02.png',
+                    'Busy',
+                    'u-danger',
+                    sysdate - interval '1' day
+                from sys.dual
+                
+                union all
+                
+                select
+                    5,
+                    'Daniel Kim',
+                    'Reviewer',
+                    apex_string.get_initials('Daniel Kim'),
+                    '#APP_FILES#avatars/persona-male02.png',
+                    'Inactive',
+                    'u-info',
+                    sysdate - interval '7' day
+                from sys.dual;
+                ```
+        }
+        layout {
+            sequence: 20
+            parentRegion: @users-list_1
+            slot: regionBody
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                #DEFAULT#
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+                t-CardsRegion--styleB
+            ]
+        }
+        comments {
+            comments:
+                ```
+                ## Purpose
+                
+                Demonstrates Cards for presenting people or application users with a clear identity hierarchy, concise role or team context, and lightweight presence or account state.
+                
+                ## When to Use
+                
+                Use for small to medium user lists where names, roles, presence, and recent activity help users quickly understand who is involved, responsible, or available.
+                
+                ## When to Avoid
+                
+                Avoid when users need to compare many user attributes, manage accounts in bulk, or perform complex filtering and administration. Use a report, table, or dedicated user-management view instead.
+                
+                ## AI Guidance
+                
+                Use the person's name as the card title and show one useful supporting attribute, such as role or team. Use an avatar or initials to establish identity; initials are an appropriate fallback when a profile image is unavailable. Use a badge only for a meaningful presence or account state, and show recent activity as secondary metadata only when it helps users understand availability or engagement. Keep the full card or title link focused on the user profile or related details. Do not add actions by default; add them only when the experience has a clear user-management or collaboration need.
+                ```
+        }
+        card {
+            primaryKeyColumn1: USER_ID
+        }
+        title {
+            column: TITLE
+        }
+        subtitle {
+            column: DESCRIPTION
+        }
+        iconAndBadge {
+            iconSource: imageUrl
+            imageUrl: &AVATAR.
+            badgeColumn: BADGE
+            badgeCssClasses: &BADGE_STATE.
+        }
+
+        action action (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+    )
+
+    region users-list_1 (
+        name: User Cards
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+)
+
+
+````

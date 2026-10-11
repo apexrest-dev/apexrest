@@ -1,0 +1,182 @@
+# Reset Sample Data Tables — Sample Vector Search
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-vector-search/apexlang/sample-vector-search/pages/p00051-reset-sample-data-tables.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 3ffef0e1c94678fe54b45cc645e9471a9593ab316e1a680c68ce55588ef682d9.
+
+Application dependency inventory: oracle:26.2:public-template/sample-vector-search/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 51 (
+    name: Reset Sample Data Tables
+    alias: RESET-SAMPLE-DATA-TABLES
+    title: Reset Sample Data Tables
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @reset-data
+            slot: subRegions
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region reset-data (
+        name: Reset Data
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Would you like to reset your data?</p>
+                <p>This action will restore the data tables to their initial state, clearing all current data.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--wizard
+                t-Alert--defaultIcons
+                t-Alert--info
+            ]
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 50
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Reset
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: Are you sure you want to clear data from all data tables?
+            style: danger
+        }
+    )
+
+    process delete-data (
+        name: Delete Data
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    delete from eba_vector_moviedata;
+                    delete from eba_vector_datatable;
+                    delete from eba_vector_ai_helper;
+                end;
+                
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Data has been successfully reset.
+        }
+        error {
+            errorMessage: Error: Failed to reset data.
+        }
+        advanced {
+            executionMappingIdentifier: 2087595012618758
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+    branch (
+        name: to Home Page
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 1
+            }
+        }
+    )
+
+)
+
+
+````

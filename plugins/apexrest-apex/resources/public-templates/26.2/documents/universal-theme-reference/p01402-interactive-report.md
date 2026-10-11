@@ -1,0 +1,552 @@
+# Reports - Interactive Report — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01402-interactive-report.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 82bb3699256630f4587e4ff56fc987f7725528623dab4857f6014cd185180802.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1402 (
+    name: Reports - Interactive Report
+    alias: INTERACTIVE-REPORT
+    title: Interactive Report - &APP_TITLE.
+    pageGroup: @components
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-positions (
+        name: Button Positions
+        type: staticContent
+        source {
+            htmlCode: <p>You can place buttons in the toolbar by setting the button position to <strong>Right of Interactive Report Search Bar</strong>.</p>
+        }
+        layout {
+            sequence: 60
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    region interactive-report-with-buttons (
+        name: Interactive Report with Buttons
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                  task_name,
+                  start_date,
+                  status,
+                  assigned_to,
+                  case status 
+                    when 'Open' then 'fa-clock-o is-open'
+                    when 'Closed' then 'fa-check-circle is-closed'
+                    when 'On-Hold' then 'fa-exclamation-circle is-holding'
+                    when 'Pending' then 'fa-exclamation-triangle is-pending'
+                  end status_icon
+                  
+                from eba_ut_chart_tasks
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @button-positions
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        heading {
+            fixedTo: none
+        }
+        componentAdvanced {
+            maxRowsPerPageInSelector: 6
+        }
+        advanced {
+            savedReportMappingIdentifier: 405292196447637818
+        }
+
+        column ASSIGNED_TO (
+            type: plainText
+            heading {
+                heading: Assigned to
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column START_DATE (
+            type: plainText
+            heading {
+                heading: Start date
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression: <span class="fa #STATUS_ICON#"></span> #STATUS#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column STATUS_ICON (
+            type: plainText
+            heading {
+                heading: Status icon
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column TASK_NAME (
+            type: plainText
+            heading {
+                heading: Task name
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        page {
+            width: 8.5
+            height: 11
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+
+        savedReport 4161076 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 6
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 4
+            )
+
+            displayColumn START_DATE (
+                sequence: 2
+            )
+
+            displayColumn STATUS (
+                sequence: 3
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 1
+            )
+
+        )
+
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Interactive Reports provide powerful features for customizing your report such as searching, filtering, sorting, highlighting, group-by, pivot, aggregations, calculations, charting, and more.</p>
+                <p class="dm-Hero-steps">Create a new Region with <strong>Interactive Report</strong> as the region type.</p>
+                
+                <p>You can further enhance Interactive Reports by using the <strong>Interactive Report</strong> region template, and enable template options such as <strong>Show Maximize Button</strong>.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region simple-interactive-report (
+        name: Simple Interactive Report
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                  task_name,
+                  start_date,
+                  status,
+                  assigned_to
+                from eba_ut_chart_tasks
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: Demo1
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        heading {
+            fixedTo: none
+        }
+        componentAdvanced {
+            maxRowsPerPageInSelector: 6
+        }
+        advanced {
+            savedReportMappingIdentifier: 415958145470171602
+        }
+
+        column ASSIGNED_TO (
+            type: plainText
+            heading {
+                heading: Assigned to
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column START_DATE (
+            type: plainText
+            heading {
+                heading: Start date
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column TASK_NAME (
+            type: plainText
+            heading {
+                heading: Task name
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        page {
+            width: 8.5
+            height: 11
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+
+        savedReport 4159599 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 4
+            )
+
+            displayColumn START_DATE (
+                sequence: 2
+            )
+
+            displayColumn STATUS (
+                sequence: 3
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 1
+            )
+
+        )
+
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 50
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    button right-of-ir-bar (
+        buttonName: RIGHT_OF_IR_BAR
+        label: Right of Search Bar
+        layout {
+            sequence: 10
+            region: @interactive-report-with-buttons
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+)
+
+
+````

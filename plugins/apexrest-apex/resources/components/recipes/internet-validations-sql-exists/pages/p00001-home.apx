@@ -1,0 +1,114 @@
+page 1 (
+    name: Allowed synthetic code validation
+    alias: HOME
+    title: Allowed synthetic code validation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Only A and B exist in this synthetic lookup; other values and empty input fail.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation check-input (
+        name: Validate input
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1 from (select 'A' CODE from dual union all select 'B' from dual) where CODE = :P1_INPUT
+                ```
+        }
+        error {
+            errorMessage: Choose the code A or B.
+            associatedItem: @P1_INPUT
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+    )
+    process accepted (
+        name: Accept valid input
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := 'Accepted: ' || :P1_INPUT;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+        successMessage {
+            successMessage: Input passed validation.
+        }
+    )
+)

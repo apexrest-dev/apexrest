@@ -1,0 +1,1899 @@
+# Item Selection — Ux Pattern Catalog
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/ux-pattern-catalog/apexlang/ux-pattern-catalog/pages/p00330-item-selection.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 32b8db0bc79400dce04562dcb3a73b707e7a080e4e2e16ad6401e7df85126387.
+
+Application dependency inventory: oracle:26.2:public-template/ux-pattern-catalog/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 330 (
+    name: Item Selection
+    alias: ITEM-SELECTION
+    title: Item Selection
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: #DEFAULT#
+    }
+    javaScript {
+        fileUrls: #APP_FILES#js/split-view-selection#MIN#.js
+    }
+    css {
+        inline:
+            ```css
+            /* Keep contextual information compact and make its status badges easy to scan. */
+            .app-ContextualInfo {
+              --ut-contextualinfo-item-label-stacked-margin-y: 0;
+              --ut-badge-font-weight: 600;
+            }
+            
+            /* Establish visual hierarchy between featured, standard, and compact activity rows. */
+            .app-ActivityTimeline .is-standard {
+              --ut-cr-title-font-weight: 600;
+            }
+            
+            .app-ActivityTimeline .is-compact {
+              --ut-cr-title-font-size: 0.875rem;
+              --ut-cr-title-font-weight: 400;
+            }
+            
+            /* Temporarily loading utility class for full height */
+            .u-block-size-full {
+              block-size: 100%;
+            }
+            ```
+    }
+    security {
+        authentication: public
+    }
+    help {
+        helpText:
+            ```html
+            ## Purpose
+            
+            Demonstrates a split-view item detail pattern with a searchable, selectable list on the left and contextual details for the selected item on the right.
+            
+            ## When to Use
+            
+            Use when users need to inspect several items one at a time while keeping the surrounding list visible. This works well for inbox, review, triage, queue, and administrative experiences.
+            
+            ## When to Avoid
+            
+            Avoid when users need bulk actions, detailed comparison, extensive editing, or a long multi-step workflow. Use a report, browse, sectioned, or tabbed pattern instead.
+            
+            ## AI Guidance
+            
+            Preserve the split-view hierarchy: search and filtering, single-selection list, then selected-item identity, actions, summary, supporting details, related information, and activity.
+            
+            The page loads `split-view-selection.js` to restore or reconcile list selection, select the first available row when needed, handle empty results, toggle detail and empty-state regions, and keep the selected row visible.
+            
+            Initialize `appSplitViewSelection` on Page Ready and call `reconcile()` after `tablemodelviewpagechange`.
+            
+            Use `P330_SELECTED_ITEM_ID_UI` for the Content Row selection and `P330_SELECTED_ITEM_ID` as the canonical context used by detail-region queries.
+            
+            Mark data-dependent regions with `.js-item-refresh` and submit `P330_SELECTED_ITEM_ID` when they refresh. Mark selected-item content with `.js-selected-item-content` and the empty-state region with `.js-selected-item-empty`.
+            
+            Keep terminology generic, summaries concise, semantic states consistent, and the action hierarchy clear. Use component comments to explain intent, data mappings, refresh dependencies, and custom behavior.
+            
+            ```
+    }
+
+    region activity (
+        name: Recent Activity
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                /*
+                Activity timeline pattern sample
+                
+                Purpose:
+                
+                * Demonstrates how to build a representative activity timeline for an item detail pattern.
+                * Shows a balanced mix of event types, row densities, and content shapes so AI-generated pages can learn the intended UX structure.
+                
+                Implementation notes:
+                
+                * The timeline is intentionally data-driven but not business-dependent.
+                * The selected item ID is used as a seed so the example changes when the current record changes, while remaining stable for the same record.
+                * Hash-based variation is used to produce realistic-looking labels, titles, and metrics without hardcoding business data.
+                * Some rows are rich and descriptive; others are compact or title-only to show that not every activity needs equal detail.
+                * Attribute changes should communicate the new state directly in the title.
+                * Comment and file events should surface the meaningful payload as early as possible.
+                * Description text should add only supporting context such as prior value, author, or follow-up note.
+                
+                Pattern guidance:
+                
+                * Use this region as a reusable reference for AI-generated item detail pages.
+                * Keep labels generic and interaction-focused so the pattern can be adapted to any business domain.
+                * Prefer representative structure over realistic transactional completeness.
+                * Avoid encoding domain-specific meaning into the sample unless the pattern is explicitly tied to that domain.
+                  */
+                
+                
+                with seed as (
+                    select nvl(:P330_SELECTED_ITEM_ID, '0') as item_id
+                    from dual
+                )
+                select 'Today' as activity_group,
+                       10 as display_sequence,
+                       sysdate - interval '1' hour as activity_time,
+                       'Maya Chen' as actioned_by,
+                       'Updated' as action_type,
+                       null as badge_label,
+                       'Status changed to ' ||
+                           case mod(ora_hash(seed.item_id || ':status'), 4)
+                               when 0 then 'On Track'
+                               when 1 then 'Needs Review'
+                               when 2 then 'At Risk'
+                               else 'Blocked'
+                           end as title,
+                       'Previous status: ' ||
+                           case mod(ora_hash(seed.item_id || ':prev_status'), 4)
+                               when 0 then 'On Track'
+                               when 1 then 'Needs Review'
+                               when 2 then 'At Risk'
+                               else 'Blocked'
+                           end as description,
+                       'fa-check-circle-o u-success-text' as icon_class,
+                       'is-featured' as row_class,
+                       1 as id
+                  from seed
+                union all
+                select 'Today',
+                       20,
+                       sysdate - interval '4' hour,
+                       'Jordan Lee',
+                       'Reviewed',
+                       null,
+                       'Review completed for item ' || seed.item_id,
+                       'Next step confirmed for the current owner',
+                       'fa-check-circle-o u-success-text',
+                       'is-standard',
+                       2
+                  from seed
+                union all
+                select 'This Week',
+                       30,
+                       trunc(sysdate) - 2 + (9/24),
+                       'Maya Chen',
+                       'Commented',
+                       null,
+                       'We should confirm the owner before moving item ' || seed.item_id || ' forward.',
+                       'Comment added to the current record',
+                       'fa-comments-o u-info-text',
+                       'is-standard',
+                       3
+                  from seed
+                union all
+                select 'This Week',
+                       40,
+                       trunc(sysdate) - 3 + (14/24),
+                       'Jordan Lee',
+                       'Adjusted',
+                       null,
+                       'Target Date set to October 1',
+                       'Previous target date: September 18',
+                       'fa-calendar-o u-info-text',
+                       'is-standard',
+                       4
+                  from seed
+                union all
+                select 'Earlier',
+                       50,
+                       trunc(sysdate) - 7 + (11/24),
+                       null,
+                       null,
+                       null,
+                       'Ownership assigned to Avery Smith for ongoing follow-up',
+                       null,
+                       'fa-user u-info-text',
+                       'is-compact',
+                       5
+                  from seed
+                union all
+                select 'Earlier',
+                       60,
+                       trunc(sysdate) - 9 + (10/24),
+                       null,
+                       null,
+                       null,
+                       'Standard Intake linked to support the current record',
+                       null,
+                       'fa-link u-info-text',
+                       'is-compact',
+                       6
+                  from seed
+                union all
+                select 'Earlier',
+                       70,
+                       trunc(sysdate) - 10 + (12/24),
+                       null,
+                       null,
+                       null,
+                       'Reference removed after duplicate values were identified',
+                       null,
+                       'fa-minus-circle-o u-danger-text',
+                       'is-compact',
+                       7
+                  from seed
+                union all
+                select 'Earlier',
+                       80,
+                       trunc(sysdate) - 11 + (16/24),
+                       null,
+                       null,
+                       null,
+                       'Initial record created and prepared for first review',
+                       null,
+                       'fa-plus-circle-o u-info-text',
+                       'is-compact',
+                       8
+                  from seed;
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        orderBy {
+            type: staticValue
+            orderByClause: display_sequence, activity_group
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+            cssClasses: [
+                js-item-refresh
+                js-selected-item-content
+            ]
+        }
+        comments {
+            comments:
+                ```
+                Intent: Shows meaningful changes, decisions, comments, and events associated with the current item.
+                
+                Pattern role: Activity timeline.
+                
+                AI guidance: Make the event title carry the meaningful payload at a glance. Attribute changes should describe the new value or state. File events should identify the file. Comment events should surface the comment text. Use the description only for useful supporting context such as a previous value, author, or note. Keep some rows title-only and retain a mix of featured, standard, and compact rows to demonstrate different event shapes. Use featured rows for especially important events and compact rows for lower-detail history.
+                
+                Implementation note: This region participates in selected-item refreshes through `.js-item-refresh` and submits `P330_SELECTED_ITEM_ID` when refreshed.
+                ```
+        }
+        componentAppearance {
+            display: report
+            cssClasses: app-ActivityTimeline
+        }
+        settings {
+            overline:
+                ```html
+                {if ACTIONED_BY/}
+                    &ACTIONED_BY.{if ACTION_TYPE/} &middot; &ACTION_TYPE.{endif/}
+                {elseif ACTION_TYPE/}
+                    &ACTION_TYPE.
+                {endif/}
+                ```
+            title: &TITLE.
+            description: &DESCRIPTION.
+            miscellaneous: &ACTIVITY_TIME.
+            displayAvatar: true
+            itemCssClasses: &ROW_CLASS.
+        }
+        plugin-avatar {
+            icon: &ICON_CLASS.
+            shape: noShape
+            size: small
+        }
+        plugin-grouping {
+            title: <div class="u-text-uppercase u-text-muted-color u-text-body-xs u-text-bold">&ACTIVITY_GROUP.</div>
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+
+        column ACTIONED_BY (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: ACTIONED_BY
+                dataType: varchar2
+            }
+        )
+
+        column ACTION_TYPE (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: ACTION_TYPE
+                dataType: varchar2
+            }
+        )
+
+        column ACTIVITY_GROUP (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ACTIVITY_GROUP
+                dataType: varchar2
+            }
+            appearance {
+                group: true
+            }
+        )
+
+        column ACTIVITY_TIME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: ACTIVITY_TIME
+                dataType: date
+            }
+        )
+
+        column BADGE_LABEL (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: BADGE_LABEL
+                dataType: varchar2
+            }
+        )
+
+        column DESCRIPTION (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column DISPLAY_SEQUENCE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: DISPLAY_SEQUENCE
+                dataType: number
+            }
+        )
+
+        column ICON_CLASS (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: ICON_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column ROW_CLASS (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: ROW_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region details (
+        name: Details 1
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Item Reference ' || nvl(:P330_SELECTED_ITEM_ID, 0) as reference,
+                       'Standard Intake' as source,
+                       'Summary Record' as type,
+                       'Tracked, Reviewable' as tags
+                  from dual;
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        layout {
+            sequence: 40
+            parentRegion: @summary-container
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: js-item-refresh
+        }
+        comments {
+            comments:
+                ```
+                Intent: Presents stable, descriptive attributes that characterize the selected item.
+                
+                Pattern role: Attribute-pair detail layout.
+                
+                AI guidance: Use this group for classification-style properties such as type, category, source, and tags. Keep labels concise and values consistently formatted for scanning. Do not mix in ownership, timing, progress, or operational status; place those in separate groups.
+                
+                Implementation note: This region participates in selected-item refreshes through `.js-item-refresh` and submits `P330_SELECTED_ITEM_ID` when refreshed.
+                ```
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-column
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+        }
+        pagination {
+            type: showAll
+        }
+
+        column REFERENCE (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Reference
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        column SOURCE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Source
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column TAGS (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 60
+            }
+        )
+
+        column TYPE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Type
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+    )
+
+    region details-2 (
+        name: Details 2
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    to_char(mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0')), 101)) || '%' as progress,
+                    case mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':priority'), 4)
+                        when 0 then 'Low'
+                        when 1 then 'Medium'
+                        when 2 then 'High'
+                        else 'Critical'
+                    end as priority,
+                    case mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':owner'), 4)
+                        when 0 then 'Maya Chen'
+                        when 1 then 'Alex Rivera'
+                        when 2 then 'Jordan Patel'
+                        else 'Sam Taylor'
+                    end as owner,
+                    trunc(sysdate) + mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':due'), 21) as due
+                from dual;
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        layout {
+            sequence: 50
+            parentRegion: @summary-container
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: js-item-refresh
+        }
+        comments {
+            comments:
+                ```
+                Intent: Presents supporting item attributes in compact value-and-attribute groups.
+                
+                Pattern role: Attribute-pair detail layout.
+                
+                AI guidance: Use this group for additional descriptive properties that do not fit into the primary classification set. Maintain consistency in formatting and avoid introducing operational, ownership, or timing-related fields.
+                
+                Implementation note: This region participates in selected-item refreshes through .js-item-refresh and submits P330_SELECTED_ITEM_ID when refreshed.
+                ```
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-column
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+        }
+        pagination {
+            type: showAll
+        }
+
+        column DUE (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Due
+            }
+            layout {
+                sequence: 40
+            }
+        )
+
+        column OWNER (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Owner
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column PRIORITY (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Priority
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column PROGRESS (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Progress
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+    )
+
+    region faceted-search (
+        name: Faceted Search
+        type: facetedSearch
+        source {
+            filteredRegion: @list-selection
+        }
+        layout {
+            sequence: 10
+            parentRegion: @flex-container
+            slot: plugin-body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: u-flex-shrink-0
+        }
+        comments {
+            comments:
+                ```
+                Intent: Helps users narrow the primary item list before selecting a record.
+                
+                Pattern role: List search and filtering controls.
+                
+                AI guidance: Expose facets only through the Add Filter dialog; do not display them inline. Use faceted search primarily to power search and provide advanced filtering via the popup dialog button. Include only facets that materially help users locate an item, keeping the set small and high-value so the selection list remains visually dominant.
+                
+                Implementation note: This region filters the List Selection region. After filtering, ensure the page still has a valid selected row or deliberately clear the detail context when no matching rows remain.
+                ```
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: true
+            displayChartForTopNValues: 10
+        }
+
+        facet P330_CATEGORY (
+            type: checkboxGroup
+            label {
+                label: Category
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: CATEGORY
+            }
+        )
+
+        facet P330_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P330_STATUS (
+            type: checkboxGroup
+            label {
+                label: Status
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+                allowToExclude: false
+            }
+            actionsMenu {
+                chart: false
+            }
+            source {
+                databaseColumn: STATUS
+            }
+        )
+
+    )
+
+    region flex-container (
+        name: Flex Container
+        type: themeTemplateComponent/flexboxContainer
+        layout {
+            sequence: 10
+            slot: leftColumn
+        }
+        comments {
+            comments:
+                ```
+                Intent: Organizes the search controls and selectable item list as one continuous left-side selection panel.
+                
+                Pattern role: Structural container for the master-list area.
+                
+                AI guidance: Keep search and filtering above the results they control. Allow the list region to grow into the remaining available space. Do not place unrelated detail content inside this container.
+                ```
+        }
+        componentAppearance {
+            display: regionOnly
+            cssClasses: u-block-size-full
+        }
+        settings {
+            direction: column
+            overflow: hidden
+        }
+    )
+
+    region item-header (
+        name: Item Details
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: fullWidthContent
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noBorder
+            ]
+            cssClasses: js-selected-item-content
+        }
+        comments {
+            comments:
+                ```
+                Intent: Establishes the identity and current state of the item before users inspect details or take action.
+                
+                Pattern role: Item detail header with contextual information.
+                
+                AI guidance: Keep the most important identity, ownership, status, impact, and timing information near the item title. Use contextual information for quick scanning rather than a full attribute report. Map status values to supported semantic states such as success, warning, danger, or info. Keep badge value, state, label, and styling semantically aligned. Use relative time only when it is useful for recency; use an explicit date when the exact date matters.
+                ```
+        }
+    )
+
+    region item-summary-details (
+        name: Summary
+        type: staticContent
+        source {
+            htmlCode: This record represents a standard item that is being reviewed, tracked, or acted on. The summary explains the current state, expected outcome, and any context needed before taking action.
+        }
+        layout {
+            sequence: 20
+            parentRegion: @summary-container
+            slot: regionBody
+            columnSpan: 4
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        comments {
+            comments:
+                ```
+                Intent: Gives users concise narrative context about what the item represents and why it matters.
+                
+                Pattern role: Item summary narrative.
+                
+                AI guidance: Keep the summary short, generic, and decision-relevant. Explain the item's current purpose, state, or expected outcome without adding instructional or tutorial text. Move detailed attributes, history, and related records into their dedicated regions.
+                ```
+        }
+    )
+
+    region key-facts (
+        name: Item Contextual Info
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'Item ' || nvl(:P330_SELECTED_ITEM_ID, 0) as item_title,
+                    'Record Owner' as owner,
+                    'Standard Category' as category,
+                    case mod(nvl(:P330_SELECTED_ITEM_ID, 0), 4)
+                        when 1 then 'On Track'
+                        when 2 then 'Paused'
+                        when 3 then 'Blocked'
+                        else 'Pending Review'
+                    end as status,
+                    case mod(nvl(:P330_SELECTED_ITEM_ID, 0), 4)
+                        when 1 then 'success'
+                        when 2 then 'warning'
+                        when 3 then 'danger'
+                        else 'info'
+                    end as status_state,
+                    sysdate - 1 / 24 as last_updated,
+                    'High' as impact,
+                    'danger' as impact_state,
+                    sysdate + 14 as target_date
+                from dual;
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        layout {
+            sequence: 10
+            parentRegion: @item-header
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                app-ContextualInfo
+                js-item-refresh
+            ]
+        }
+        comments {
+            comments:
+                ```
+                Intent: Presents the highest-value item facts for quick assessment before users take action.
+                
+                Pattern role: Contextual information summary.
+                
+                AI guidance: Keep this region limited to ownership, classification, status, impact, recency, and timing information that users need for quick decisions. Keep visible values and their semantic state columns aligned. Use supported state values such as success, warning, danger, or info. Expose target timing when it materially affects the user’s decision; otherwise remove the unused supporting column.
+                
+                Implementation note: This region participates in selected-item refreshes through `.js-item-refresh` and submits `P330_SELECTED_ITEM_ID` when refreshed.
+                ```
+        }
+        componentAppearance {
+            template: @/contextual-info
+            templateOptions: [
+                #DEFAULT#
+                t-ContextualInfo--hideNulls
+                t-ContextualInfo-label--stacked
+                t-Report--hideNoPagination
+            ]
+        }
+        pagination {
+            type: showAll
+        }
+
+        column CATEGORY (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Category
+            }
+            layout {
+                sequence: 40
+            }
+        )
+
+        column IMPACT (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Impact
+            }
+            layout {
+                sequence: 80
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {with/}
+                      LABEL:=Impact
+                      VALUE:=#IMPACT#
+                      STATE:=#IMPACT_STATE#
+                      LABEL_DISPLAY:=N
+                      STYLE:=t-Badge--subtle
+                      SIZE:=t-Badge--sm
+                    {apply THEME$BADGE/}
+                    ```
+            }
+            serverSideCondition {
+                type: never
+            }
+        )
+
+        column IMPACT_STATE (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 90
+            }
+        )
+
+        column ITEM_TITLE (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            layout {
+                sequence: 10
+            }
+            columnFormatting {
+                htmlExpression: <div class="u-text-subheading-sm">#ITEM_TITLE#</div>
+            }
+        )
+
+        column LAST_UPDATED (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 50
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column OWNER (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Owner
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            layout {
+                sequence: 20
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {with/}
+                      LABEL:=Status
+                      VALUE:=#STATUS#
+                      STATE:=#STATUS_STATE#
+                      LABEL_DISPLAY:=Y
+                      STYLE:=t-Badge--subtle margin-top-xs
+                      SHAPE:=t-Badge--circle
+                      SIZE:=t-Badge--md
+                    {apply THEME$BADGE/}
+                    ```
+            }
+        )
+
+        column STATUS_STATE (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 70
+            }
+        )
+
+        column TARGET_DATE (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 60
+            }
+        )
+
+    )
+
+    region list-selection (
+        name: List Selection
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    q.item_id,
+                    q.title,
+                    q.category,
+                    q.last_updated,
+                    q.badge as status,
+                    q.badge_state
+                from (
+                    /*
+                      Content Row Pattern Guidance
+                      ----------------------------
+                      Use this region to present a primary collection on the left and the
+                      detail view for the selected row on the right.
+                
+                      Design intent:
+                - Show one clear primary item per row.
+                - Keep titles simple and representative.
+                - Use category as a general-purpose facet.
+                - Use the badge to surface the item's current status.
+                - Show a date-based field that makes the list feel more realistic and varied.
+                - Use single selection because the detail area represents one current item.
+                - Store the selected primary key in the configured Current Selection Page Item.
+                - Use multi-selection only when the adapted page supports bulk actions rather than a single contextual detail view.
+                - Change the hard-coded row_count value below to show 10 or 50 rows.
+                    */
+                    with params as (
+                        select 50 as row_count from dual   -- change 10 to 50 when needed
+                    )
+                    select
+                        level as item_id,
+                        'Item ' || level as title,
+                        case mod(level - 1, 4)
+                            when 0 then 'Planning'
+                            when 1 then 'Operations'
+                            when 2 then 'Review'
+                            else 'Reporting'
+                        end as category,
+                        sysdate - mod(level - 1, 14) as last_updated,
+                        case mod(level, 4)
+                            when 1 then 'On Track'
+                            when 2 then 'Paused'
+                            when 3 then 'Blocked'
+                            else 'Pending Review'
+                        end as badge,
+                        case mod(level, 4)
+                            when 1 then 'success'
+                            when 2 then 'warning'
+                            when 3 then 'danger'
+                            else 'info'
+                        end as badge_state
+                    from dual
+                    connect by level <= (select row_count from params)
+                ) q
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @flex-container
+            slot: plugin-body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: [
+                u-flex-grow-1
+                u-overflow-auto
+            ]
+        }
+        accessibility {
+            landmarkType: region
+        }
+        advanced {
+            htmlDomId: primary_items_list
+        }
+        comments {
+            comments:
+                ```
+                Intent: Provides the searchable, single-selection collection that controls the item shown in the detail area.
+                
+                Pattern role: Master list and UI selection source.
+                
+                AI guidance: Keep each row concise and make its title, status, category, and recency easy to scan. Use a stable primary key for selection. Preserve single-selection behavior when the right side represents one current item. Do not enable multi-selection controls unless the adapted workflow supports bulk actions.
+                
+                Implementation note: The Content Row writes the selected primary key to P330_SELECTED_ITEM_ID_UI through Current Selection Page Item. The primary_items_list Static ID is used by the page-load JavaScript to restore an existing selection or select the first row.
+                ```
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description: &LAST_UPDATED.
+            displayBadge: true
+        }
+        plugin-badge {
+            label: Status
+            value: STATUS
+            state: BADGE_STATE
+            style: subtle
+            shape: circular
+            size: small
+            columnWidth: auto
+            position: end
+            alignment: end
+        }
+        plugin-appearance {
+            applyThemeColors: false
+            style: compact
+        }
+        rowSelection {
+            type: singleSelection
+            currentSelectionPageItem: P330_SELECTED_ITEM_ID_UI
+        }
+        pagination {
+            entitiesPerPage: 100
+        }
+        messages {
+            whenNoDataFound:
+                ```
+                No items found
+                
+                ```
+        }
+
+        column BADGE_STATE (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+        column CATEGORY (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: CATEGORY
+                dataType: varchar2
+            }
+        )
+
+        column ITEM_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ITEM_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column LAST_UPDATED (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: LAST_UPDATED
+                dataType: date
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column STATUS (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: STATUS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region metric-cards (
+        name: Key Metrics
+        type: themeTemplateComponent/metricCard
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'fa-line-chart' as icon,
+                    'Primary KPI'   as label,
+                    50000 + mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':primary'), 50000) as metric_value
+                from dual
+                union all
+                select
+                    'fa-bar-chart'  as icon,
+                    'Secondary KPI' as label,
+                    5000 + mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':secondary'), 20000) as metric_value
+                from dual
+                union all
+                select
+                    'fa-area-chart' as icon,
+                    'Trend KPI'     as label,
+                    mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':trend'), 100) as metric_value
+                from dual
+                union all
+                select
+                    'fa-dashboard'  as icon,
+                    'Status KPI'    as label,
+                    100 + mod(ora_hash(nvl(:P330_SELECTED_ITEM_ID, '0') || ':status'), 900) as metric_value
+                from dual
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+            cssClasses: [
+                app-MetricCards
+                js-item-refresh
+                js-selected-item-content
+            ]
+        }
+        comments {
+            comments:
+                ```
+                Intent: Highlights a small number of measures that help users assess the current item quickly.
+                
+                Pattern role: Item-level KPI summary.
+                
+                AI guidance: Use only the most relevant measures for this item, generally two to four cards. Keep metrics comparable in importance and avoid turning the region into a dense report. Format large values with thousands separators and use consistent units. If badges or icons are added, keep their value, state, and icon semantically aligned.
+                
+                Implementation note: This region participates in selected-item refreshes through `.js-item-refresh` and submits `P330_SELECTED_ITEM_ID` when refreshed.
+                ```
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            metric: &METRIC_VALUE.
+            metricCssClasses: u-text-subheading-md
+            meta: &LABEL.
+            layout: 4Columns
+        }
+        plugin-avatar {
+            displayAvatar: true
+            icon: &ICON.
+            style: subtle
+            position: inline
+        }
+
+        column ICON (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ICON
+                dataType: varchar2
+            }
+        )
+
+        column LABEL (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: LABEL
+                dataType: varchar2
+            }
+        )
+
+        column METRIC_VALUE (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: METRIC_VALUE
+                dataType: number
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+        )
+
+    )
+
+    region no-item-selected (
+        name: No Item Selected
+        type: staticContent
+        source {
+            htmlCode: Select an item to view its details.
+        }
+        layout {
+            sequence: 70
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--wizard
+                t-Alert--customIcons
+                t-Alert--info
+                t-Alert--removeHeading js-removeLandmark
+            ]
+            cssClasses: [
+                js-selected-item-empty
+                u-hidden
+                u-tC
+            ]
+            icon: fa-search
+        }
+    )
+
+    region related-information (
+        name: Related Information
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with seed as (
+                    select nvl(:P330_SELECTED_ITEM_ID, '0') as item_id
+                    from dual
+                )
+                select 'fa-users' as icon,
+                       'People' as title,
+                       'Associated people and owners' as description,
+                       1 + mod(ora_hash(seed.item_id || ':people'), 10) as item_count,
+                       'PEOPLE' as page_alias
+                  from seed
+                union all
+                select 'fa-file-o' as icon,
+                       'Files' as title,
+                       'Documents and attachments' as description,
+                       1 + mod(ora_hash(seed.item_id || ':files'), 20) as item_count,
+                       'FILES' as page_alias
+                  from seed
+                union all
+                select 'fa-comments-o' as icon,
+                       'Comments' as title,
+                       'Discussion and feedback' as description,
+                       1 + mod(ora_hash(seed.item_id || ':comments'), 30) as item_count,
+                       'COMMENTS' as page_alias
+                  from seed
+                union all
+                select 'fa-sitemap' as icon,
+                       'Child Records' as title,
+                       'Associated child records' as description,
+                       1 + mod(ora_hash(seed.item_id || ':child_records'), 15) as item_count,
+                       'CHILD_RECORDS' as page_alias
+                  from seed
+                union all
+                select 'fa-link' as icon,
+                       'Related Records' as title,
+                       'Connected business entities' as description,
+                       1 + mod(ora_hash(seed.item_id || ':related_records'), 8) as item_count,
+                       'RELATED_RECORDS' as page_alias
+                  from seed;
+                ```
+            pageItemsToSubmit: P330_SELECTED_ITEM_ID
+        }
+        layout {
+            sequence: 60
+            slot: body
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+            cssClasses: [
+                js-item-refresh
+                js-selected-item-content
+            ]
+        }
+        comments {
+            comments:
+                ```
+                Intent: Provides compact entry points to related information without overwhelming the item summary.
+                
+                Pattern role: Related-content navigation list.
+                
+                AI guidance: Keep rows concise and use the description to clarify what the related area contains. Use the badge to show the number of related items when that count is meaningful. Row titles should navigate to the corresponding related area or item-level detail. Keep this region focused on navigation and summary; use a full report or dedicated page for extensive related data.
+                
+                Implementation note: Each row represents a navigation entry to a related-information area. Replace the placeholder action target with the destination represented by PAGE_ALIAS, passing the current item context and selected related-information category.
+                ```
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description: &DESCRIPTION.
+            displayAvatar: true
+            displayBadge: true
+        }
+        plugin-avatar {
+            icon: &ICON. fa-lg
+            shape: noShape
+        }
+        plugin-badge {
+            label: Related Item Count
+            value: ITEM_COUNT
+            style: subtle
+            columnWidth: auto
+            position: end
+            alignment: center
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+
+        column DESCRIPTION (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column ICON (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: ICON
+                dataType: varchar2
+            }
+        )
+
+        column ITEM_COUNT (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: ITEM_COUNT
+                dataType: number
+            }
+        )
+
+        column PAGE_ALIAS (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: PAGE_ALIAS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+    )
+
+    region summary-container (
+        name: Overview
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--padded
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+            ]
+            cssClasses: js-selected-item-content
+        }
+        comments {
+            comments:
+                ```
+                Intent: Provides the primary scan-first container for the item detail summary.
+                
+                Pattern role: Item detail overview.
+                
+                AI guidance: Keep this region visually dominant and place the most decision-relevant summary content here. Use a concise narrative summary alongside logically grouped attribute pairs. Preserve the overview-first structure and avoid turning this region into a dense report or long-form documentation area.
+                ```
+        }
+    )
+
+    pageItem P330_SELECTED_ITEM_ID (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 10
+            region: @list-selection
+            slot: regionBody
+        }
+        comments {
+            comments: Stores the canonical selected-item context used by the detail-region queries. Changes to this item refresh all dependent regions marked with .js-item-refresh.
+        }
+    )
+
+    pageItem P330_SELECTED_ITEM_ID_UI (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 20
+            region: @list-selection
+            slot: regionBody
+        }
+        comments {
+            comments: Stores the current primary-key selection maintained by the Content Row component. Changes to this item are synchronized into P330_SELECTED_ITEM_ID.
+        }
+    )
+
+    button actions-menu (
+        buttonName: ACTIONS_MENU
+        label: Actions Menu
+        layout {
+            sequence: 40
+            region: @item-header
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+        comments {
+            comments:
+                ```
+                Intent: Groups optional or lower-frequency actions so they remain available without competing with the primary action hierarchy.
+                
+                Pattern role: Overflow actions.
+                
+                AI guidance: Place destructive, administrative, export, duplicate, or infrequently used actions here when they do not need persistent prominence. Do not hide the primary task in the overflow menu. Use clear action labels and preserve a logical menu order.
+                ```
+        }
+
+        menu menu-action-a (
+            label: Action 1
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+        menu menu-action-b (
+            label: Action 2
+            layout {
+                sequence: 20
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+        menu menu-action-c (
+            label: Action 3
+            layout {
+                sequence: 30
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+
+    )
+
+    button primary-action (
+        buttonName: PRIMARY_ACTION
+        label: Primary Action
+        layout {
+            sequence: 30
+            region: @item-header
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        comments {
+            comments:
+                ```
+                Intent: Represents the most important next step available from the item detail page.
+                
+                Pattern role: Primary page action.
+                
+                AI guidance: Keep this action prominent and use a clear, domain-specific verb when adapting the pattern. There should normally be one primary action. The action should be directly related to the item's current state and intended workflow.
+                ```
+        }
+    )
+
+    button secondary-action (
+        buttonName: SECONDARY_ACTION
+        label: Secondary Action
+        layout {
+            sequence: 20
+            region: @item-header
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        comments {
+            comments:
+                ```
+                Intent: Provides a useful follow-up action that is less important than the primary action.
+                
+                Pattern role: Secondary page action.
+                
+                AI guidance: Keep this action visually subordinate to the primary action. Use it for a common but non-primary path, and avoid presenting several actions with equal visual emphasis.
+                ```
+        }
+    )
+
+    button view-details-link-3 (
+        buttonName: VIEW_ALL_ACTIVITY
+        label: View All Activity
+        layout {
+            sequence: 30
+            region: @activity
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--link
+                t-Button--iconRight
+                t-Button--padTop
+            ]
+            icon: fa-arrow-right
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: #
+        }
+        comments {
+            comments:
+                ```
+                Intent: Provides a contextual path from the activity summary to the complete activity history.
+                
+                Pattern role: Region-level detail action.
+                
+                AI guidance: Use this action when the summary is intentionally truncated or when users may need to inspect the full history. Keep it visually attached to the Recent Activity region and lower in emphasis than the page's primary action. Omit it when the region already contains the complete activity history.
+                
+                Implementation note: This action should navigate to the complete activity history for the current item. Replace the placeholder target URL when the activity-history destination is available.
+                ```
+        }
+    )
+
+    dynamicAction focus-first-item-in-list (
+        name: Initialize List Selection
+        execution {
+            sequence: 20
+        }
+        when {
+            event: ready
+        }
+        comments {
+            comments: Initializes the reusable split-view selection controller. The controller restores the canonical item when it remains in the list, selects the first available row when necessary, or shows the empty state when no rows are available.
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    appSplitViewSelection.initialize({
+                        regionId: "primary_items_list",
+                        uiItem: "P330_SELECTED_ITEM_ID_UI",
+                        contextItem: "P330_SELECTED_ITEM_ID"
+                    });
+                    ```
+            }
+            execution {
+                sequence: 10
+            }
+            comments {
+                comments: Configures split-view-selection.js with the List Selection region Static ID, the Content Row UI selection item, and the canonical selected-item context.
+            }
+        )
+
+    )
+
+    dynamicAction reconcile-selection-after-list-refresh (
+        name: Reconcile Selection After List Refresh
+        execution {
+            sequence: 40
+            eventScope: dynamic
+        }
+        when {
+            event: custom
+            customEvent: tablemodelviewpagechange
+            selectionType: region
+            region: @list-selection
+        }
+        comments {
+            comments:
+                ```
+                Runs after the Content Row model view changes because of search, filtering, pagination, or another list update. It reconciles the selected-item context after the refreshed rows are available.
+                
+                Implementation Note: This page uses the dynamically scoped tablemodelviewpagechange event because it reliably runs after the Content Row model view has updated for this workflow.
+                ```
+        }
+
+        action console-log (
+            name: Console Log
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    console.warn(
+                        "List Selection after refresh fired",
+                        new Date().toISOString(),
+                        $("#primary_items_list .t-ContentRow-item").length
+                    );
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: appSplitViewSelection.reconcile();
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+            comments {
+                comments: Calls the reusable split-view controller to preserve the current selection when possible, select the first available row when necessary, or show the empty state when no rows remain.
+            }
+        )
+
+    )
+
+    dynamicAction refresh-item-contextual-details (
+        name: Sync Selected Item Context
+        execution {
+            sequence: 10
+        }
+        when {
+            selectionType: items
+            items: P330_SELECTED_ITEM_ID_UI
+        }
+        comments {
+            comments: Runs when the Content Row updates its UI selection item. This separates the selection state maintained by the component from the canonical item context used by the detail regions.
+        }
+
+        action set-p330-selected-item-id (
+            name: Set Item Context from UI Selection
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    /*
+                     * Copy the component-managed UI selection into the canonical item
+                     * context only when the value has actually changed.
+                     */
+                    var uiId =
+                        apex.item("P330_SELECTED_ITEM_ID_UI").getValue();
+                    
+                    var contextId =
+                        apex.item("P330_SELECTED_ITEM_ID").getValue();
+                    
+                    /*
+                     * Do not suppress this change event. Updating the canonical item is
+                     * what triggers the dependent detail-region refresh Dynamic Action.
+                     */
+                    if (uiId && uiId !== contextId) {
+                        apex.item("P330_SELECTED_ITEM_ID").setValue(uiId);
+                    }
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+            comments {
+                comments: Copies the current UI selection into P330_SELECTED_ITEM_ID only when the value has changed. This item is the canonical context used by the detail-region queries.
+            }
+        )
+
+    )
+
+    dynamicAction selection-item-changes (
+        name: Refresh Selected Item Details
+        execution {
+            sequence: 30
+            eventScope: dynamic
+        }
+        when {
+            selectionType: items
+            items: P330_SELECTED_ITEM_ID
+        }
+        clientSideCondition {
+            type: itemIsNotNull
+            item: P330_SELECTED_ITEM_ID
+        }
+        comments {
+            comments: Runs when the canonical selected-item context changes. It refreshes all dependent regions marked with .js-item-refresh so the detail area reflects the selected row.
+        }
+
+        action native-refresh (
+            name: Refresh Item Detail Regions
+            action: refresh
+            affectedElements {
+                selectionType: jquerySelector
+                jquerySelector: .js-item-refresh
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+            comments {
+                comments: Refreshes every region marked with .js-item-refresh. Add this class only to regions whose content depends on P330_SELECTED_ITEM_ID, and include that item in Page Items to Submit for each dependent region.
+            }
+        )
+
+    )
+
+)
+
+
+````

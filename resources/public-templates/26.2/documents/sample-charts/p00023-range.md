@@ -1,0 +1,465 @@
+# Range — Sample Charts
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-charts/apexlang/sample-charts/pages/p00023-range.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: e108e9a1018a08026dfbf73adf602f074e3fe7042732c2d5a41c422e73a62ecb.
+
+Application dependency inventory: oracle:26.2:public-template/sample-charts/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 23 (
+    name: Range
+    alias: RANGE
+    title: Range
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>&PRODUCT_NAME. native Range charts, using Oracle JET Data Visualizations, are showcased on this page. Range charts support two types of series: Bar Range, or Area Range. For range charts, each data point may have up to two labels, one for the low value and one for the high value..</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--customIcons
+                t-Alert--info
+            ]
+            icon: fa-range-chart-bar
+        }
+    )
+
+    region breadcrumb (
+        name: breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region information-area-range (
+        name: Information - Area Range
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                This example demonstrates an Area Range chart with lines and markers displayed.<p/>
+                <strong>Orientation</strong> - chart-level attribute to set to Horizontal.<p/>
+                <strong>Type</strong> - Series-level attribute to set the type of range, which is Area Range in this example.<p/> 
+                <strong>Line Type</strong> - series-level attribute to set to <strong>None</strong>.<p/>
+                <strong>Marker Show</strong> - series-level attribute to set to <strong>Yes</strong>.<p/>
+                <p/>
+                For more information on the Range chart settings, refer to the Oracle JET Cookbook <a href="https://www.oracle.com/webfolder/technetwork/jet/jetCookbook.html?component=rangeChart&demo=lineTypes" target="_blank" rel="noopener noreferrer external">Range Chart: Line Types</a> example.
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @range-area-range
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region information-bar-range (
+        name: Information - Bar Range
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                This example demonstrates a Bar Range chart with data labels.<p/>
+                <strong>Type</strong> - Series-level attribute to set the type of range, which is Bar Range in this example.<p/> 
+                <strong>Maximum Width & Height</strong> - Chart-level attributes Maximum Width and Height have been set to 600px and 450px respectively, to size the chart within its region.  If you wish to default to using 100% width and height of the given region, simply remove these values, and utilitise the Template Options of the region to control the height as you wish.<p/> 
+                <strong>Label Position</strong> - Use the series-level attribute to define the position of the labels. Valid label positions for a Bar Range series are 'Automatic', 'Center', 'Inside Bar Edge', and 'Outside Bar Edge'. The default is 'Inside Bar Edge'. Use the <strong>Series Type</strong> attribute to change the series to Area Range. Valid label positions for an Area Range chart are 'Automatic', 'Center', 'Above Marker', 'Below Marker', 'Before Marker', and 'After Marker'. The default is 'Below Marker' for the low label and 'Above Marker'for the high label.<p/>
+                <strong>Orientation</strong> - Through the use of Dynamic actions, use the Horizontal/Vertical button to the top left of the chart to change the orientiation of the data items on the charts.<p/>
+                <strong>Format</strong> - use this axis-level setting to apply date or numeric formatting to the values displayed on the chart and axes.  For the Y-axis, a 'Decimal' format has been used, to set the number of decimals to zero, overwriting the default setting of 2 decimal places that Oracle JET applies.<p/>
+                For more information on the Range chart settings, refer to the Oracle JET Cookbook <a href="https://www.oracle.com/webfolder/technetwork/jet/jetCookbook.html?component=rangeChart&demo=dataLabels" target="_blank" rel="noopener noreferrer external">Range Chart: Data Labels</a> example.
+                ```
+        }
+        layout {
+            sequence: 30
+            parentRegion: @range-bar-range
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region range-area-range (
+        name: Range - Area Range
+        type: chart
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        chart {
+            type: range
+        }
+        chartAppearance {
+            orientation: horizontal
+        }
+        chartLayout {
+            maxWidth: 600
+            height: 450
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series product-sales (
+            name: Product Sales
+            type: areaRange
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select b.product_name, min(a.quantity), max(a.quantity) from eba_demo_chart_orders a, eba_demo_chart_products b
+                    where a.product_id = b.product_id
+                    group by a.product_id, b.product_name
+                    order by b.product_name asc
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                low: MIN(A.QUANTITY)
+                high: MAX(A.QUANTITY)
+            }
+            line {
+                type: none
+            }
+            marker {
+                show: true
+            }
+            label {
+                show: true
+                position: outsideBarEdge
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+    )
+
+    region range-bar-range (
+        name: Range - Bar Range
+        type: chart
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: range
+            regionDisplaySelector: true
+        }
+        chart {
+            type: range
+        }
+        chartLayout {
+            maxWidth: 600
+            height: 450
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series product-sales (
+            name: Product Sales
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select b.product_name, min(a.quantity), max(a.quantity) from eba_demo_chart_orders a, eba_demo_chart_products b
+                    where a.product_id = b.product_id
+                    group by a.product_id, b.product_name
+                    order by b.product_name asc
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                low: MIN(A.QUANTITY)
+                high: MAX(A.QUANTITY)
+            }
+            label {
+                show: true
+                position: outsideBarEdge
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: body
+        }
+        settings {
+            rememberSelection: false
+        }
+    )
+
+    button horizontal (
+        buttonName: Horizontal_1
+        label: Horizontal
+        layout {
+            sequence: 10
+            region: @range-area-range
+            slot: belowBox
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-bars
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button horizontal-2 (
+        buttonName: Horizontal
+        label: Horizontal
+        layout {
+            sequence: 10
+            region: @range-bar-range
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-bars
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button vertical (
+        buttonName: Vertical_1
+        label: Vertical
+        layout {
+            sequence: 20
+            region: @range-area-range
+            slot: belowBox
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--pillEnd
+            ]
+            icon: fa-bar-chart
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button vertical-2 (
+        buttonName: Vertical
+        label: Vertical
+        layout {
+            sequence: 20
+            region: @range-bar-range
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--pillEnd
+            ]
+            icon: fa-bar-chart
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    dynamicAction horizontal-orientation (
+        name: Horizontal Orientation
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @horizontal-2
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: "apex.region(\"range\").widget().ojChart({orientation: 'horizontal'});"
+            }
+            affectedElements {
+                selectionType: region
+                region: @range-bar-range
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction vertical-orientation (
+        name: Vertical Orientation
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @vertical-2
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: "apex.region(\"range\").widget().ojChart({orientation: 'vertical'});"
+            }
+            affectedElements {
+                selectionType: region
+                region: @range-bar-range
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

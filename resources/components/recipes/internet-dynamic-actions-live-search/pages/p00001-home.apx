@@ -1,0 +1,122 @@
+page 1 (
+    name: Debounced live report search
+    alias: HOME
+    title: Debounced live report search
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Search the two sample titles. Clear the filter to see all rows; unmatched text produces no rows.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Search title
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    region results (
+            name: Example Results
+            type: classicReport
+            source {
+                location: localDatabase
+                type: sqlQuery
+                pageItemsToSubmit: P1_INPUT
+                sqlQuery:
+                    ```sql
+                    select ID, TITLE, STATUS from (select 1 ID, 'Alpha sample' TITLE, 'Open' STATUS from dual union all select 2, 'Beta sample', 'Closed' from dual) where :P1_INPUT is null or instr(upper(TITLE), upper(:P1_INPUT)) > 0 order by ID
+                    ```
+            }
+            layout {
+                sequence: 20
+                slot: body
+            }
+            appearance {
+                template: @/interactive-report
+                templateOptions: #DEFAULT#
+            }
+            componentAppearance {
+                template: @/standard
+                templateOptions: #DEFAULT#
+            }
+            column ID (
+                reportColumnQueryId: 1
+                derivedColumn: N
+                heading {
+                    heading: Id
+                }
+                layout {
+                    sequence: 10
+                }
+            )
+            column TITLE (
+                reportColumnQueryId: 2
+                derivedColumn: N
+                heading {
+                    heading: Title
+                }
+                layout {
+                    sequence: 20
+                }
+            )
+            column STATUS (
+                reportColumnQueryId: 3
+                derivedColumn: N
+                heading {
+                    heading: Status
+                }
+                layout {
+                    sequence: 30
+                }
+            )
+        )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+            type: debounce
+            time: 300
+            immediate: false
+        }
+        when {
+            event: input
+            selectionType: items
+            items: P1_INPUT
+        }
+        action step-10 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @results
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

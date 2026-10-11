@@ -1,0 +1,1174 @@
+# Person Details — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00020-person-details.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 9953888edd913a5aa05823c48e2848fd8926dd9914079c103c507f1fa02a9541.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 20 (
+    name: Person Details
+    alias: PERSON-DETAILS
+    title: &NOMENCLATURE_USER. Details
+    pageGroup: @users
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region home-page-display (
+        name: Home Page Display
+        type: staticContent
+        layout {
+            sequence: 30
+            parentRegion: @user
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--noUI
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region user (
+        name: User
+        type: form
+        source {
+            location: localDatabase
+            tableName: SP_TEAM_MEMBERS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P20_COMMENT_NOTIF_PREF (
+        type: checkboxGroup
+        label {
+            label: Comment Alerts
+            alignment: left
+        }
+        settings {
+            noOfCols: 3
+        }
+        lov {
+            type: sharedComponent
+            lov: @email-alert-pref
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 90
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: COMMENT_NOTIF_PREF
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: APP:EMAIL
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: If no preference is set, comment alerts will be shown within the application and sent via email.
+        }
+    )
+
+    pageItem P20_COMPETENCIES (
+        type: combobox
+        label {
+            label: Competencies
+            alignment: left
+        }
+        settings {
+            multiSelection: true
+            infiniteScroll: false
+            maxValuesInList: 250
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery: select competency d from SP_COMPETENCIES order by competency
+        }
+        multipleValues {
+            type: delimitedList
+            separator: ,
+        }
+        layout {
+            sequence: 120
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @user
+            column: COMPETENCIES
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_COUNTRY_ID (
+        type: popupLov
+        label {
+            label: Country
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select country_name||' ('||region||') - '||country_code d, id r
+                from sp_countries c
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 140
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @user
+            column: COUNTRY_ID
+            dataType: number
+        }
+    )
+
+    pageItem P20_EMAIL (
+        type: textField
+        label {
+            label: Email
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @user
+            column: EMAIL
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_FIRST_NAME (
+        type: textField
+        label {
+            label: First Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @user
+            column: FIRST_NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_HP_MY_ACTIVITES_YN (
+        type: switch
+        label {
+            label: Include My Activities
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @home-page-display
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: HP_MY_ACTIVITIES_YN
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: Identifies if My Activities region will display on the home page (contains current and future activities).
+        }
+    )
+
+    pageItem P20_HP_MY_FAV_PROJECTS_YN (
+        type: switch
+        label {
+            label: Include My Favorite &NOMENCLATURE_PROJECTS.
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @home-page-display
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: HP_MY_FAV_PROJECTS_YN
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: Identifies if My Favorite &NOMENCLATURE_PROJECTS. region will display on the home page (all &NOMENCLATURE_PROJECTS. you have favorited).
+        }
+    )
+
+    pageItem P20_HP_MY_INITIATIVES_YN (
+        type: switch
+        label {
+            label: Include My Initiatives
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @home-page-display
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: HP_MY_INITIATIVES_YN
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: Identifies if My &NOMENCLATURE_INITIATIVES. region will display on the home page (you own the &NOMENCLATURE_INITIATIVE., own a &NOMENCLATURE_PROJECT. within, or are a &NOMENCLATURE_PROJECT. contributor within).
+        }
+    )
+
+    pageItem P20_HP_MY_OPEN_RELEASES_YN (
+        type: switch
+        label {
+            label: Include My Open Releases
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @home-page-display
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: HP_MY_OPEN_RELEASES_YN
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: Identifies if My Open Releases region will display on the home page (you own the Release, own a &NOMENCLATURE_PROJECT. within, own a milestone/review/task within a &NOMENCLATURE_PROJECT. within, or own a &NOMENCLATURE_PROJECT. activity within).
+        }
+        config {
+            buildOption: @releases
+        }
+    )
+
+    pageItem P20_HP_MY_PROJECTS_YN (
+        type: switch
+        label {
+            label: Include My &NOMENCLATURE_PROJECTS.
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @home-page-display
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: HP_MY_PROJECTS_YN
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: Identifies if My &NOMENCLATURE_PROJECTS. region will display on the home page (you own the &NOMENCLATURE_PROJECT. or have an active milestone, review or task on that &NOMENCLATURE_PROJECT.).
+        }
+    )
+
+    pageItem P20_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @user
+            slot: regionBody
+        }
+        source {
+            formRegion: @user
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P20_INITIALS (
+        type: textField
+        label {
+            label: Initials
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 10
+        }
+        validation {
+            valueRequired: true
+            maxLength: 3
+        }
+        source {
+            formRegion: @user
+            column: INITIALS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_IS_CURRENT_YN (
+        type: switch
+        label {
+            label: Current
+            alignment: left
+        }
+        layout {
+            sequence: 100
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @user
+            column: IS_CURRENT_YN
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: Y
+        }
+    )
+
+    pageItem P20_LAST_NAME (
+        type: textField
+        label {
+            label: Last Name
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @user
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @user
+            column: LAST_NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_LOCATION (
+        type: textField
+        label {
+            label: Location
+            alignment: left
+        }
+        layout {
+            sequence: 160
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 500
+        }
+        source {
+            formRegion: @user
+            column: LOCATION
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_NOTIFICATION_PREF (
+        type: checkboxGroup
+        label {
+            label: Assignment Alerts
+            alignment: left
+        }
+        settings {
+            noOfCols: 3
+        }
+        lov {
+            type: sharedComponent
+            lov: @email-alert-pref
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 80
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @user
+            column: NOTIFICATION_PREF
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: APP:EMAIL
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        help {
+            helpText: If no preference is set, assignment alerts will be shown within the application and sent via email.
+        }
+    )
+
+    pageItem P20_PHOTO (
+        type: fileUpload
+        label {
+            label: Photo
+            alignment: left
+        }
+        display {
+            displayAs: inlineDropzone
+        }
+        storage {
+            mimeTypeColumn: PHOTO_MIMETYPE
+            filenameColumn: PHOTO_FILENAME
+            charSetColumn: PHOTO_CHARSET
+            bobLastUpdatedColumn: PHOTO_LASTUPD
+        }
+        layout {
+            sequence: 170
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            formRegion: @user
+            column: PHOTO
+            dataType: blob
+        }
+        security {
+            authorizationScheme: @administration-rights
+        }
+    )
+
+    pageItem P20_PHOTO_CHARSET (
+        type: hidden
+        layout {
+            sequence: 200
+            region: @user
+            slot: regionBody
+        }
+        source {
+            formRegion: @user
+            column: PHOTO_CHARSET
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P20_PHOTO_FILENAME (
+        type: hidden
+        layout {
+            sequence: 180
+            region: @user
+            slot: regionBody
+        }
+        source {
+            formRegion: @user
+            column: PHOTO_FILENAME
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P20_PHOTO_LASTUPD (
+        type: hidden
+        layout {
+            sequence: 210
+            region: @user
+            slot: regionBody
+        }
+        source {
+            formRegion: @user
+            column: PHOTO_LASTUPD
+            dataType: date
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P20_PHOTO_MIMETYPE (
+        type: hidden
+        layout {
+            sequence: 190
+            region: @user
+            slot: regionBody
+        }
+        source {
+            formRegion: @user
+            column: PHOTO_MIMETYPE
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P20_SCREEN_NAME (
+        type: textField
+        label {
+            label: Screen Name
+            alignment: left
+        }
+        settings {
+            textCase: lower
+        }
+        layout {
+            sequence: 70
+            region: @user
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 50
+        }
+        source {
+            formRegion: @user
+            column: SCREEN_NAME
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: noSpecialCharNoNewline
+        }
+        help {
+            helpText: This attribute is used to reference another application user in a comment, for example @somename, where "someone" is the screen name.
+        }
+        config {
+            buildOption: @configure-application-features
+        }
+    )
+
+    pageItem P20_TAGS (
+        type: combobox
+        label {
+            label: Tags
+            alignment: left
+        }
+        settings {
+            multiSelection: true
+            infiniteScroll: false
+            maxValuesInList: 250
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery: select tag d from SP_DEFAULT_PEOPLE_TAGS order by display_sequence, tag
+        }
+        multipleValues {
+            type: delimitedList
+            separator: ,
+        }
+        layout {
+            sequence: 110
+            region: @user
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @user
+            column: TAGS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P20_TIMEZONE (
+        type: selectOne
+        label {
+            label: Timezone
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sharedComponent
+            lov: @unique-timezones
+        }
+        layout {
+            sequence: 150
+            region: @user
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 32
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            formRegion: @user
+            column: TIMEZONE
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+        config {
+            buildOption: @team-calendar
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add &NOMENCLATURE_USER.
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P20_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P20_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P20_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-comment-pref-set-to-none (
+        name: when comment pref set to none
+        execution {
+            sequence: 30
+        }
+        when {
+            event: click
+            selectionType: items
+            items: P20_COMMENT_NOTIF_PREF
+        }
+        clientSideCondition {
+            type: jsExpression
+            javaScriptExpression:
+                ```javascript-browser
+                $v("P20_COMMENT_NOTIF_PREF") == 'APP:NONE' || 
+                $v("P20_COMMENT_NOTIF_PREF") == 'APP:EMAIL:NONE' ||
+                $v("P20_COMMENT_NOTIF_PREF") == 'EMAIL:NONE'
+                ```
+        }
+
+        action native-set-value (
+            action: setValue
+            settings {
+                value: NONE
+            }
+            affectedElements {
+                selectionType: items
+                items: P20_COMMENT_NOTIF_PREF
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction when-notification-pref-set-to-none (
+        name: when notification pref set to none
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: items
+            items: P20_NOTIFICATION_PREF
+        }
+        clientSideCondition {
+            type: jsExpression
+            javaScriptExpression:
+                ```javascript-browser
+                $v("P20_NOTIFICATION_PREF") == 'APP:NONE' || 
+                $v("P20_NOTIFICATION_PREF") == 'APP:EMAIL:NONE' ||
+                $v("P20_NOTIFICATION_PREF") == 'EMAIL:NONE'
+                ```
+        }
+
+        action native-set-value (
+            action: setValue
+            settings {
+                value: NONE
+            }
+            affectedElements {
+                selectionType: items
+                items: P20_NOTIFICATION_PREF
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation email-valid (
+        name: email valid
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemMatchesRegexp
+            item: P20_EMAIL
+            regexp: "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}"
+        }
+        error {
+            errorMessage: Email is not valid
+            associatedItem: @P20_EMAIL
+        }
+    )
+
+    validation no-dup-screen-names (
+        name: no dup screen names
+        execution {
+            sequence: 20
+        }
+        validation {
+            type: noRowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                  from sp_team_members
+                 where id != :P20_ID
+                   and screen_name = lower(:P20_SCREEN_NAME)
+                ```
+        }
+        error {
+            errorMessage: This screen name is already in use.
+            associatedItem: @P20_SCREEN_NAME
+        }
+        config {
+            buildOption: @comment-tagging
+        }
+    )
+
+    validation screen-name-no-or-space (
+        name: screen name, no #,., @ or space
+        execution {
+            sequence: 30
+        }
+        validation {
+            plsqlExpression:
+                ```plsql
+                instr(:P20_SCREEN_NAME,'#') = 0 and
+                instr(:P20_SCREEN_NAME,'@') = 0 and
+                instr(:P20_SCREEN_NAME,'.') = 0 and
+                instr(:P20_SCREEN_NAME,' ') = 0
+                ```
+        }
+        error {
+            errorMessage: Screen name cannot contain #, @ or space.
+            associatedItem: @P20_SCREEN_NAME
+        }
+        config {
+            buildOption: @comment-tagging
+        }
+    )
+
+    computation p20-comment-notif-pref (
+        itemName: P20_COMMENT_NOTIF_PREF
+        execution {
+            sequence: 40
+            point: afterHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: APP:EMAIL
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P20_COMMENT_NOTIF_PREF
+        }
+        config {
+            buildOption: @email-configured
+        }
+    )
+
+    computation p20-notification-pref (
+        itemName: P20_NOTIFICATION_PREF
+        execution {
+            sequence: 30
+            point: afterHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: APP:EMAIL
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P20_NOTIFICATION_PREF
+        }
+        config {
+            buildOption: @email-configured
+        }
+    )
+
+    computation p20-timezone (
+        itemName: P20_TIMEZONE
+        execution {
+            sequence: 40
+            point: afterHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: UTC
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P20_TIMEZONE
+        }
+        config {
+            buildOption: @team-calendar
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 139342804346323623278
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process initialize-form-user (
+        name: "Initialize form User "
+        type: formInitialization
+        formRegion: @user
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 139342803427782623277
+        }
+    )
+
+    process process-form-user (
+        name: "Process form user "
+        type: formAutoRowProcessing
+        formRegion: @user
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: &NOMENCLATURE_USER. Processed
+        }
+        advanced {
+            executionMappingIdentifier: 139342803918209623277
+        }
+    )
+
+)
+
+
+````

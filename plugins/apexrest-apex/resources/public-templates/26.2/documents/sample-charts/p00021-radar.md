@@ -1,0 +1,234 @@
+# Radar — Sample Charts
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-charts/apexlang/sample-charts/pages/p00021-radar.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: df04de9999b77609085e949aa498bc5b619fe2d2605aa0ff69e509d1a867bb84.
+
+Application dependency inventory: oracle:26.2:public-template/sample-charts/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 21 (
+    name: Radar
+    alias: RADAR
+    title: Radar
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>&PRODUCT_NAME. native Radar charts, using Oracle JET Data Visualizations, are showcased on this page.  A radar chart is a polygonal grid shaped polar line, area or area range chart. Polar charts are recommended for directional data. (e.g. air drag vs. boat angle). Polar charts are also recommended for categorical data where all categories are equally important. (e.g performance appraisal categories).</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--customIcons
+                t-Alert--info
+            ]
+            icon: fa-radar-chart
+        }
+    )
+
+    region breadcrumb (
+        name: breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region information (
+        name: Information
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                This example demonstrates a Radar chart with varying line types and styles.<p/>
+                <strong>Maximum Width & Height</strong> - Chart-level attributes Maximum Width and Height have been set to 500px and 450px respectively, to size the chart within its region.  If you wish to default to using 100% width and height of the given region, simply remove these values, and utilitize the Template Options of the region to control the height as you wish.<p/> 
+                <strong>Grid Shape</strong> - our native Radar chart corresponds with Oracle JET's polygon polar grid shape and polar coordinate system.<p/>
+                For more information on the Radar chart settings, refer to the Oracle JET Cookbook <a href="https://www.oracle.com/webfolder/technetwork/jet/jetCookbook.html?component=polarChart&demo=default" target="_blank" rel="noopener noreferrer external">Polar Chart: Basic</a> example and select the <strong>Polygon</strong> option.
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region radar (
+        name: Radar
+        type: chart
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        chart {
+            type: radar
+        }
+        chartLayout {
+            maxWidth: 600
+            height: 450
+        }
+        performance {
+            lazyLoading: true
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series acme-store (
+            name: Acme Store
+            type: line
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Acme Store'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+            label {
+                show: true
+            }
+        )
+
+        series shop-c (
+            name: Shop C
+            type: line
+            execution {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Shop C'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+            label {
+                show: true
+            }
+        )
+
+        series store-a (
+            name: Store A
+            type: line
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Store A'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+            label {
+                show: true
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+    )
+
+)
+
+
+````

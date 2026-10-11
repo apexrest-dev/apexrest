@@ -1,0 +1,408 @@
+# Products — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00042-products.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4fd00b0b8e1ae7dcae509329db836e14039f53119baebdf0c2ab4a7dad1ab51f.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 42 (
+    name: Products
+    alias: PRODUCTS
+    title: Products
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+            t-Dialog--noPadding
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>Products are used to associate with customers. A customer can be associated with multiple products. The product association is very important when you are searching for specific customers that use a given product. Click the <strong>Add Product ></strong> button to create a new product.</p>
+    }
+
+    region products (
+        name: Products
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                    ID, 
+                    PRODUCT_NAME,
+                    product_family_id,
+                    DESCRIPTION,
+                    decode(is_active,'Y','Yes',null,'No','N','No') IS_ACTIVE,
+                    nvl(updated,created) last_updated,
+                    nvl(updated_by,created_by) last_updated_by
+                from EBA_CUST_PRODUCTS
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: PRODUCTS
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 3739105123485509681
+        }
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column IS_ACTIVE (
+            type: plainText
+            heading {
+                heading: Is Active
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LAST_UPDATED (
+            type: plainText
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 22
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: V
+            }
+        )
+
+        column LAST_UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Last Updated By
+            }
+            layout {
+                sequence: 23
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        column PRODUCT_FAMILY_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Product Family
+                alignment: end
+            }
+            lov {
+                lov: @product-families
+            }
+            layout {
+                sequence: 54
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AS
+            }
+            serverSideCondition {
+                type: rowsReturned
+                sqlQuery:
+                    ```sql
+                    select null
+                    from eba_cust_product_families
+                    ```
+            }
+        )
+
+        column PRODUCT_NAME (
+            type: link
+            heading {
+                heading: Product Name
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 43
+                    items: {
+                        P43_ID: #ID#
+                    }
+                    clearCache: 43
+                    action: resetPagination
+                }
+                linkText: #PRODUCT_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        savedReport 9113066 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn DESCRIPTION (
+                sequence: 3
+            )
+
+            displayColumn IS_ACTIVE (
+                sequence: 4
+            )
+
+            displayColumn LAST_UPDATED (
+                sequence: 6
+            )
+
+            displayColumn LAST_UPDATED_BY (
+                sequence: 5
+            )
+
+            displayColumn PRODUCT_FAMILY_ID (
+                sequence: 1
+            )
+
+            displayColumn PRODUCT_NAME (
+                sequence: 2
+            )
+
+            sort (
+                column: LAST_UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: IS_ACTIVE
+                sort {
+                    direction: desc
+                    nulls: last
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: PRODUCT_NAME
+                sort {
+                    sequence: 3
+                }
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Product
+        layout {
+            sequence: 20
+            region: @products
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 43
+                clearCache: 43
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @products
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 42
+                clearCache: [
+                    42
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-add (
+        name: Refresh on Add
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @create
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @products
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-edit (
+        name: Refresh on Edit
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @products
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @products
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

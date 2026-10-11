@@ -108,7 +108,7 @@ test('catalog exact manifest membership, hashes and publication boundary survive
         `Raw or private artifact: ${file}`,
       );
       assert.ok(
-        /^(?:source\/[^/]+\.json|recipes\/.+\.(?:apx|json|sql|svg)|documents\/.+\.md|index\.json)$/.test(
+        /^(?:source\/[^/]+\.json|recipes\/.+\.(?:apx|json|sql|svg)|recipes\/[^/]+\/LICENSE\.txt|documents\/.+\.md|index\.json)$/.test(
           file,
         ),
         `Unsupported catalog publication path: ${file}`,

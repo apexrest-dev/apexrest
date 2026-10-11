@@ -1,0 +1,340 @@
+# Create Calendar Events — Sample Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-calendar/apexlang/sample-calendar/pages/p00052-create-calendar-events.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: a8a8ecc16436582ecb54ad208410497a6292c4fd861fa2d6113393a2266139f5.
+
+Application dependency inventory: oracle:26.2:public-template/sample-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 52 (
+    name: Create Calendar Events
+    alias: CREATE-CALENDAR-EVENTS
+    title: Create Calendar Events
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This is a standard Oracle APEX calendar region component showing a <b>weekly</b> view on events with a time component. This region component is well-suited for displaying conference or similar type schedules. Upon clicking an existing event, the edit dialog opens, like on page <a href="f?p=&APP_ID.:33:&APP_SESSION.">"Weekly Calendar: Edit Sessions</a>. When an empty date is selected, the new event is being created <i>immediately</i> using a default title (<b>New Event</b>). The newly created event can then be edited by simply clicking on it.</p>
+                <p>This page uses a dynamic action on a <b>Date Selected [Calendar]</b> event which the calendar component fires upon selecting an empty date or date range. The event passes information about the selection as the <b>data</b> event object (<b>this.data</b>). In this object, the <b>newStartDate</b> and <b>newEndDate</b> attributes contain the selected start and end timestamp as strings in <b>YYYYMMDDHH24MMSS</b> format.
+                </p><p>Note that this dynamic action is only fired when the calendar attribute <b>Create Link</b> <i>is empty</i>.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: [
+                #DEFAULT#
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region items-container (
+        name: Items Container
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region sessions (
+        name: Sessions
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                   id,
+                   case when speaker is not null then 
+                       title || ' (' || speaker || ')' 
+                       else title
+                   end as title,
+                   speaker,
+                   start_date,
+                   end_date,
+                   case
+                      when status       = 'INACTIVE' then  'apex-cal-gray'
+                      when session_type = 'BREAK'    then  'apex-cal-silver'
+                      when session_type = 'BUSINESS' then  'apex-cal-orange'
+                      when session_type = 'GENERAL'  then  'apex-cal-blue'
+                      when session_type = 'TECHNICAL' then 'apex-cal-green'
+                      when session_type = 'HANDS_ON' then 'apex-cal-lime'
+                   end as css_class
+                from eba_demo_cal_sessions
+                where status='ACTIVE' or :P52_SHOW_INACTIVE='Y'
+                
+                ```
+            pageItemsToSubmit: P52_SHOW_INACTIVE
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                list
+                navigation
+            ]
+            viewEditLink: {
+                page: 301
+                items: {
+                    P301_ID: &ID.
+                }
+                action: resetPagination
+            }
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+
+    pageItem P52_ENDDATE (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 30
+            region: @items-container
+            slot: regionBody
+        }
+    )
+
+    pageItem P52_SHOW_INACTIVE (
+        type: switch
+        label {
+            label: Show Inactive Sessions
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @items-container
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P52_STARTDATE (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 20
+            region: @items-container
+            slot: regionBody
+        }
+    )
+
+    dynamicAction change-show-inactive-sessions (
+        name: Change Show Inactive Sessions
+        execution {
+            sequence: 20
+        }
+        when {
+            selectionType: items
+            items: P52_SHOW_INACTIVE
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @sessions
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction date-range-selected-create-new-event (
+        name: Date Range Selected: Create new Event
+        execution {
+            sequence: 30
+        }
+        when {
+            event: region/calendar/apexcalendardateselect
+            selectionType: region
+            region: @sessions
+        }
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    begin
+                    insert into eba_demo_cal_sessions (title, speaker, session_type, status, start_date, end_date)
+                    values ('New Event', 'N/A', 'GENERAL', 'ACTIVE', to_date(:P52_STARTDATE, 'YYYYMMDDHH24MISS'),  to_date(:P52_ENDDATE, 'YYYYMMDDHH24MISS'));
+                    end;
+                    ```
+                itemsToSubmit: [
+                    P52_STARTDATE
+                    P52_ENDDATE
+                ]
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @sessions
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+        action native-set-value (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.newStartDate
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P52_STARTDATE
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-set-value-2 (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.newEndDate
+            }
+            affectedElements {
+                selectionType: items
+                items: P52_ENDDATE
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction dialog-closed-refresh-calendar (
+        name: Dialog Closed: Refresh Calendar
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @sessions
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @sessions
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

@@ -1,0 +1,1063 @@
+# Create/Edit Tasks — Sample Trees
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-trees/apexlang/sample-trees/pages/p00009-create-edit-tasks.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 1a804ad109bde6c388fd7feee2d39cad502dd1c5c0794eaeb573bc286e8d2d18.
+
+Application dependency inventory: oracle:26.2:public-template/sample-trees/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 9 (
+    name: Create/Edit Tasks
+    alias: CREATE-EDIT-TASKS
+    title: Create/Edit Tasks
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration:
+            ```javascript-browser
+            var htmldb_delete_message='"DELETE_CONFIRM_MSG"';
+            var htmldb_ch_message='"OK_TO_GET_NEXT_PREV_PK_VALUE"';
+            ```
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region create-edit-tasks (
+        name: Create/Edit Tasks
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+    )
+
+    region subtask-information (
+        name: Subtask Information
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select rowid, a.* from eba_demo_tree_subtask a
+                where a.task_id = :P9_TASK_ID
+                and a.proj_id = :P9_PROJ_ID
+                ```
+            pageItemsToSubmit: [
+                P9_TASK_ID
+                P9_PROJ_ID
+            ]
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P9_TASK_ID
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+            showNullValuesAs: " - "
+        }
+        performance {
+            maxRowsToProcess: 500
+        }
+        messages {
+            whenNoDataFound: No subtasks found.
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column CREATED (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 110
+            }
+        )
+
+        column CREATED_BY (
+            reportColumnQueryId: 16
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 160
+            }
+        )
+
+        column PROJ_ID (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 20
+            }
+            sorting {
+                defaultSequence: 1
+            }
+        )
+
+        column ROWID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: link
+            heading {
+                heading: Edit
+            }
+            layout {
+                sequence: 10
+            }
+            link {
+                target: {
+                    page: 10
+                    items: {
+                        P10_ROWID: #ROWID#
+                        P10_PROJ_ID: #PROJ_ID#
+                    }
+                }
+                linkText: <img src="#IMAGE_PREFIX#menu/pencil2_16x16.gif" alt="Edit">
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ROW_VERSION_NUMBER (
+            reportColumnQueryId: 15
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 150
+            }
+        )
+
+        column SUB_ASSIGN (
+            reportColumnQueryId: 13
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 130
+            }
+        )
+
+        column SUB_COMP (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Completed
+            }
+            layout {
+                sequence: 80
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SUB_DESC (
+            reportColumnQueryId: 14
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 140
+            }
+        )
+
+        column SUB_EST_COMP (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Estimated Completion
+            }
+            layout {
+                sequence: 70
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SUB_ID (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column SUB_NAME (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 50
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SUB_PRIORITY (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Priority
+            }
+            layout {
+                sequence: 90
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SUB_START (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Start
+            }
+            layout {
+                sequence: 60
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SUB_STATUS (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 100
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TASK_ID (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 12
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 120
+            }
+        )
+
+        column UPDATED_BY (
+            reportColumnQueryId: 17
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 170
+            }
+        )
+
+    )
+
+    pageItem P9_PROJ_ID (
+        type: selectList
+        label {
+            label: Project:
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @projects
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 20
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: PROJ_ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_ASSIGN (
+        type: textField
+        label {
+            label: Task Assign
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 110
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_ASSIGN
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_COMP (
+        type: datePicker
+        label {
+            label: Completed
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_COMP
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_DESC (
+        type: textarea
+        label {
+            label: Details
+            alignment: left
+        }
+        settings {
+            resizable: false
+            trimSpaces: none
+        }
+        layout {
+            sequence: 120
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+            height: 4
+        }
+        validation {
+            maxLength: 32000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_DESC
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_EST_COMP (
+        type: datePicker
+        label {
+            label: Estimated Completion
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_EST_COMP
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @create-edit-tasks
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_ID_COUNT (
+        type: hidden
+        layout {
+            sequence: 180
+            region: @create-edit-tasks
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        comments {
+            comments: This item is needed for Get Next or Previous Primary Key Value process.
+        }
+    )
+
+    pageItem P9_TASK_ID_NEXT (
+        type: hidden
+        layout {
+            sequence: 160
+            region: @create-edit-tasks
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        comments {
+            comments: This item is needed for Get Next or Previous Primary Key Value process.
+        }
+    )
+
+    pageItem P9_TASK_ID_PREV (
+        type: hidden
+        layout {
+            sequence: 170
+            region: @create-edit-tasks
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        comments {
+            comments: This item is needed for Get Next or Previous Primary Key Value process.
+        }
+    )
+
+    pageItem P9_TASK_NAME (
+        type: textField
+        label {
+            label: Task Name
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 5
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            valueRequired: true
+            maxLength: 4000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_NAME
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_PRIORITY (
+        type: selectList
+        label {
+            label: Priority
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @priority
+            nullDisplayValue: - None -
+        }
+        layout {
+            sequence: 70
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_PRIORITY
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_START (
+        type: datePicker
+        label {
+            label: Start Date
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_START
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P9_TASK_STATUS (
+        type: selectList
+        label {
+            label: Status
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @status
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 80
+            region: @create-edit-tasks
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: TASK_STATUS
+            used: always
+        }
+        default {
+            type: static
+            staticValue: 0
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 50
+            region: @breadcrumb
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_VIEW.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P9_TASK_ID
+        }
+    )
+
+    button create-subtask (
+        buttonName: CREATE_SUBTASK
+        label: Create Subtask
+        layout {
+            sequence: 10
+            region: @subtask-information
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 10
+                items: {
+                    P10_PROJ_ID: &P9_PROJ_ID.
+                    P10_TASK_ID: &P9_TASK_ID.
+                }
+                clearCache: 10
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 40
+            region: @breadcrumb
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--simple
+                t-Button--danger
+            ]
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+            databaseAction: delete
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P9_TASK_ID
+        }
+    )
+
+    button get-next-task-id (
+        buttonName: GET_NEXT_TASK_ID
+        label: NEXT
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-chevron-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 9
+                items: {
+                    P9_TASK_ID: &P9_TASK_ID_NEXT.
+                }
+                request: T
+            }
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P9_TASK_ID_NEXT
+        }
+        comments {
+            comments: This button is needed for Get Next or Previous Primary Key Value process.
+        }
+    )
+
+    button get-previous-task-id (
+        buttonName: GET_PREVIOUS_TASK_ID
+        label: PREVIOUS
+        layout {
+            sequence: 60
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-chevron-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 9
+                items: {
+                    P9_TASK_ID: &P9_TASK_ID_PREV.
+                }
+                request: T
+            }
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P9_TASK_ID_PREV
+        }
+        comments {
+            comments: This button is needed for Get Next or Previous Primary Key Value process.
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P9_TASK_ID
+        }
+    )
+
+    dynamicAction delete-task (
+        name: Delete task
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @delete
+        }
+
+        action native-confirm (
+            action: confirm
+            settings {
+                title: Delete Task
+                message: Are you sure you want to delete this task?
+                style: danger
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-submit-page (
+            action: submitPage
+            settings {
+                requestButtonName: DELETE
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation completion-date-required (
+        name: Completion Date Required
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsNotNull
+            item: P9_TASK_COMP
+        }
+        error {
+            errorMessage: #LABEL# must be specified when status is set to 100%.
+            displayLocation: inlineInNotification
+            associatedItem: @P9_TASK_COMP
+        }
+        serverSideCondition {
+            whenButtonPressed: @create
+            type: item=value
+            item: P9_TASK_STATUS
+            value: 100
+        }
+    )
+
+    computation p10-rowid (
+        itemName: P10_ROWID
+        execution {
+            sequence: 1
+            point: afterSubmit
+        }
+        computation {
+            type: staticValue
+        }
+        serverSideCondition {
+            type: request=Value
+            value: CREATE
+        }
+    )
+
+    process fetch-row-from-eba-demo-tree-task (
+        name: Fetch Row from EBA_DEMO_TREE_TASK
+        type: autoRowFetch
+        source {
+            tableName: EBA_DEMO_TREE_TASK
+            pkColumn: TASK_ID
+            pkItem: P9_TASK_ID
+        }
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        advanced {
+            executionMappingIdentifier: 3170835600432658361
+        }
+    )
+
+    process get-next-or-previous-primary-key-value (
+        name: Get Next or Previous Primary Key Value
+        type: formPagination
+        target {
+            tableName: EBA_DEMO_TREE_TASK
+            pkColumn: TASK_ID
+            pkItem: P9_TASK_ID
+            nextPkItem: P9_TASK_ID_NEXT
+            prevPkItem: P9_TASK_ID_PREV
+            currentRowCountItem: P9_TASK_ID_COUNT
+        }
+        execution {
+            sequence: 20
+            point: afterHeader
+        }
+        advanced {
+            executionMappingIdentifier: 3170839182023658379
+        }
+    )
+
+    process process-row-of-eba-demo-tree-task (
+        name: Process Row of EBA_DEMO_TREE_TASK
+        type: autoRowProcessing
+        target {
+            tableName: EBA_DEMO_TREE_TASK
+            pkColumn: TASK_ID
+            pkItem: P9_TASK_ID
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Action Processed.
+        }
+        advanced {
+            executionMappingIdentifier: 3170835786773658362
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 3170835995119658362
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+    process set-page-navigation (
+        name: Set Page Navigation
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                if :REQUEST = 'T' then 
+                    :LAST_VIEW := 3;
+                else
+                    :LAST_VIEW := 8;
+                end if;
+                ```
+        }
+        execution {
+            sequence: 50
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 3174608499834011171
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 30
+        }
+        behavior {
+            target: {
+                page: &LAST_VIEW.
+            }
+        }
+    )
+
+)
+
+
+````

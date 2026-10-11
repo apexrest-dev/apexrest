@@ -1,0 +1,577 @@
+# Links — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00089-links.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 33e87ae5c64bd5523bcc08775f7e4bf56435e8fd62e63828408dfa10027d69b6.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 89 (
+    name: Links
+    alias: LINKS
+    title: Links
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-links-dialog
+        resizable: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region links (
+        name: Links
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                  link_target,
+                  link_text,
+                  link_comments,
+                  tags,
+                  created,
+                  lower(created_by) created_by,
+                  updated,
+                  lower(updated_by) updated_by,
+                  null delete_link
+                from eba_sales_links
+                where (
+                  (:P89_ENTITY_TYPE = 'OPPORTUNITY' and deal_id = :P89_ENTITY_ID)
+                    or (:P89_ENTITY_TYPE = 'TERRITORY' and territory_id = :P89_ENTITY_ID)
+                    or (:P89_ENTITY_TYPE = 'LEAD' and lead_id = :P89_ENTITY_ID)
+                    or (:P89_ENTITY_TYPE = 'ACCOUNT' and account_id = :P89_ENTITY_ID)
+                    or (:P89_ENTITY_TYPE = 'CONTACT' and contact_id = :P89_ENTITY_ID)
+                    or (:P89_ENTITY_TYPE = 'PRODUCT' and product_id = :P89_ENTITY_ID)
+                )
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 114
+                items: {
+                    P114_ID: #ID#
+                }
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit #LINK_TEXT# Link"
+            authorizationScheme: @contribution-rights
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2503692616450319710
+        }
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Added
+            }
+            layout {
+                sequence: 7
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column DELETE_LINK (
+            type: link
+            heading {
+                heading: Delete
+                alignment: center
+            }
+            layout {
+                sequence: 20
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    type: url
+                    url: javascript:void(0);
+                }
+                linkText: <span aria-hidden="true" class="t-Icon fa fa-trash-o"></span>
+                linkAttributes: data-link-id="#ID#" title="Delete Link" class="t-Button t-Button--small t-Button--danger t-Button--simple delete-link"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column LINK_COMMENTS (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column LINK_TARGET (
+            type: plainText
+            heading {
+                heading: URL
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column LINK_TEXT (
+            type: link
+            heading {
+                heading: Link
+            }
+            layout {
+                sequence: 4
+            }
+            link {
+                target: {
+                    type: url
+                    url: #LINK_TARGET#
+                }
+                linkText: #LINK_TEXT#
+                linkAttributes: target="_blank"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 9
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        savedReport 25036940 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CREATED (
+                sequence: 3
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 4
+            )
+
+            displayColumn DELETE_LINK (
+                sequence: 5
+            )
+
+            displayColumn LINK_COMMENTS (
+                sequence: 2
+            )
+
+            displayColumn LINK_TEXT (
+                sequence: 1
+            )
+
+            sort (
+                column: LINK_TEXT
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P89_DELETE_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @links
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P89_ENTITY_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @links
+            slot: regionBody
+        }
+        serverSideCondition {
+            type: never
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P89_ENTITY_TYPE (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @links
+            slot: regionBody
+        }
+        serverSideCondition {
+            type: never
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-link (
+        buttonName: ADD_LINK
+        label: Add Link
+        layout {
+            sequence: 20
+            region: @links
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 114
+                items: {
+                    P114_ENTITY_TYPE: &P89_ENTITY_TYPE.
+                    P114_ENTITY_ID: &P89_ENTITY_ID.
+                }
+                clearCache: 114
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @links
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 89
+                clearCache: RIR
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction delete-link-clicked (
+        name: Delete Link clicked
+        execution {
+            sequence: 20
+            eventScope: dynamic
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: .delete-link
+        }
+
+        action native-confirm (
+            action: confirm
+            settings {
+                message: Are you sure you want to delete this link?
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    delete from eba_sales_links
+                    where id = :P89_DELETE_ID;
+                    
+                    :P89_DELETE_ID := null;
+                    ```
+                itemsToSubmit: P89_DELETE_ID
+                itemsToReturn: P89_DELETE_ID
+                showProcessing: true
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    var linkId = $(this.triggeringElement).data('link-id');
+                    
+                    $s('P89_DELETE_ID', linkId);
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code-2 (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Link Deleted.');
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @links
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction dialog-closed (
+        name: Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    if (this.data.REQUEST === 'CREATE') {
+                      apex.message.showPageSuccess('Link Added.');
+                    } if (this.data.REQUEST === 'SAVE') {
+                      apex.message.showPageSuccess('Link Updated.');
+                    } if (this.data.REQUEST === 'DELETE') {
+                      apex.message.showPageSuccess('Link Deleted.');
+                    }
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @links
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

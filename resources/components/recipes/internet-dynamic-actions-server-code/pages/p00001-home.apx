@@ -1,0 +1,86 @@
+page 1 (
+    name: AJAX server code with returned item
+    alias: HOME
+    title: AJAX server code with returned item
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Change the input to normalize it through PL/SQL and return the result item in the same request.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P1_INPUT
+        }
+        action step-10 (
+            action: executeServerSideCode
+            settings {
+                itemsToSubmit: P1_INPUT
+                itemsToReturn: P1_OUTPUT
+                plsqlCode:
+                    ```plsql
+                    begin
+                        :P1_OUTPUT := upper(trim(:P1_INPUT));
+                    end;
+                    ```
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

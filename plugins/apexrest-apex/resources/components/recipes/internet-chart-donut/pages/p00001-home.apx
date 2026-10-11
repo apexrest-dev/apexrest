@@ -1,0 +1,44 @@
+page 1 (
+    name: Native Donut Chart
+    alias: HOME
+    title: Native Donut Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region example (
+            name: Synthetic Donut Chart
+            type: chart
+            layout {
+                sequence: 10
+                slot: body
+            }
+            appearance {
+                template: @/standard
+                templateOptions: #DEFAULT#
+            }
+            chart {
+                type: donut
+            }
+            series values (
+                name: Example Values
+                execution {
+                    sequence: 10
+                }
+                source {
+                    type: sqlQuery
+                    sqlQuery:
+                        ```sql
+                        select 'Alpha' LABEL, 12 VALUE from dual union all select 'Beta', 7 from dual
+                        ```
+                }
+                columnMapping {
+                    label: LABEL
+                    value: VALUE
+                }
+            )
+        )
+)

@@ -1,0 +1,827 @@
+# Color and Status Modifiers — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p06302-color-and-status-modifiers.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 9102c55aa0e0a5dc51ac7cc246077ae7537068a0b900943d45bba9e90ec88570.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 6302 (
+    name: Color and Status Modifiers
+    alias: COLOR-AND-STATUS-MODIFIERS
+    title: Color and Status Modifiers - &APP_TITLE.
+    pageGroup: @tools-and-utilities
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: dm-Page
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline:
+            ```css
+            .color-cell-block {
+              display: block;
+              padding: .5rem;
+              text-align: center;
+              border-radius: .125rem;
+            }
+            
+            .color-border {
+              border-width: 1px;
+              border-style: solid;
+              padding: .5rem;
+            }
+            ```
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region general-color-utilities (
+        name: General Color Utilities
+        type: staticContent
+        source {
+            htmlCode: <p>While many components within Universal Theme automatically make use of these colors, you can use them in several custom components as well.  Universal Theme provides a number of CSS utility classes that can be used to apply this color palette to any HTML markup.</p>
+        }
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region general-utility-classes (
+        name: General Utility Classes
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                SELECT LEVEL num, null color, null color_text, null color_bg, null color_bd
+                  FROM DUAL
+                CONNECT BY LEVEL <= 45
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @general-color-utilities
+            slot: subRegions
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 45
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlightOff
+                t-Report--horizontalBorders
+            ]
+            cssClasses: colors-table
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column COLOR (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Block
+                alignment: center
+            }
+            layout {
+                sequence: 2
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block u-color-#NUM#">u-color-#NUM#</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COLOR_BD (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Border
+                alignment: center
+            }
+            layout {
+                sequence: 5
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-border u-color-#NUM#-border">u-color-#NUM#-border</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COLOR_BG (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Background
+                alignment: center
+            }
+            layout {
+                sequence: 4
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-background u-color-#NUM#-bg">u-color-#NUM#-bg</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COLOR_TEXT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Text
+                alignment: center
+            }
+            layout {
+                sequence: 3
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-text u-color-#NUM#-text">u-color-#NUM#-text</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column NUM (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 1
+            }
+        )
+
+    )
+
+    region opacity-class (
+        name: Opacity Class
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 seq, 'Opacity 10%' opacity_label, 'u-opacity-10' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 2 seq, 'Opacity 20%' opacity_label, 'u-opacity-20' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 3 seq, 'Opacity 30%' opacity_label, 'u-opacity-30' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 4 seq, 'Opacity 40%' opacity_label, 'u-opacity-40' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 5 seq, 'Opacity 50%' opacity_label, 'u-opacity-50' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 6 seq, 'Opacity 60%' opacity_label, 'u-opacity-60' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 7 seq, 'Opacity 70%' opacity_label, 'u-opacity-70' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 8 seq, 'Opacity 80%' opacity_label, 'u-opacity-80' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 9 seq, 'Opacity 90%' opacity_label, 'u-opacity-90' opacity, 'u-info' status, null u_color from dual
+                union all
+                select 10 seq, 'Opacity 100%' opacity_label, 'u-opacity-100' opacity, 'u-info' status, null u_color from dual
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 70
+            parentRegion: @opacity-utility-class
+            slot: subRegions
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 45
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlightOff
+                t-Report--horizontalBorders
+            ]
+            cssClasses: colors-table
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column OPACITY (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 20
+            }
+        )
+
+        column OPACITY_LABEL (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Opacity Level
+            }
+            layout {
+                sequence: 10
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SEQ (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 60
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column U_COLOR (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Block
+                alignment: center
+            }
+            layout {
+                sequence: 30
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block #STATUS# #OPACITY#">#OPACITY#</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region opacity-utility-class (
+        name: Opacity Utility Class
+        type: staticContent
+        source {
+            htmlCode: <p>The opacity class allows for control over the opacity of elements. Combine u-opacity with any percentage amount to set the opacity of an element.</p>
+        }
+        layout {
+            sequence: 60
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region rds (
+        name: RDS
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: bySession
+        }
+    )
+
+    region shadow-class (
+        name: Shadow Class
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 seq, 'None' shadow_label, 'none' shadow_size from dual
+                union all
+                select 2 seq, 'Small' shadow_label, 'sm' shadow_size from dual
+                union all
+                select 3 seq, 'Medium' shadow_label, 'md' shadow_size from dual
+                union all
+                select 4 seq, 'Large' shadow_label, 'lg' shadow_size from dual
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @shadow-utility-class
+            slot: subRegions
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 45
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlightOff
+                t-Report--horizontalBorders
+            ]
+            cssClasses: colors-table
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column SEQ (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+
+        column SHADOW_LABEL (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Shadow
+            }
+            layout {
+                sequence: 60
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SHADOW_SIZE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Block
+            }
+            layout {
+                sequence: 70
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-border u-color-29-border u-flex u-margin-block-#SHADOW_SIZE# u-justify-content-center u-padding-lg u-shadow-#SHADOW_SIZE#">u-shadow-#SHADOW_SIZE#</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region shadow-utility-class (
+        name: Shadow Utility Class
+        type: staticContent
+        source {
+            htmlCode: <p>The shadow class allows for control over the drop shadow of elements.</p>
+        }
+        layout {
+            sequence: 70
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region stateful-color-utilities (
+        name: Stateful Color Utilities
+        type: staticContent
+        source {
+            htmlCode: <p>Universal Theme provides 6 stateful colors: normal, hot, informational, danger, warning, and success. Here are the CSS modifier classes you can use to apply these states to your own UI controls.</p>
+        }
+        layout {
+            sequence: 50
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region stateful-utility-classes (
+        name: Stateful Utility Classes
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 seq, 'Normal' status_label, 'u-normal' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                union all
+                select 2 seq, 'Hot' status_label, 'u-hot' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                union all
+                select 3 seq, 'Warning' status_label, 'u-warning' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                union all
+                select 4 seq, 'Danger' status_label, 'u-danger' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                union all
+                select 5 seq, 'Info' status_label, 'u-info' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                union all
+                select 6 seq, 'Success' status_label, 'u-success' status, null u_color, null u_color_text, null u_color_bg, null u_color_bd from dual
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 60
+            parentRegion: @stateful-color-utilities
+            slot: subRegions
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 45
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlightOff
+                t-Report--horizontalBorders
+            ]
+            cssClasses: colors-table
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column SEQ (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 61
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 51
+            }
+        )
+
+        column STATUS_LABEL (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column U_COLOR (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Block
+                alignment: center
+            }
+            layout {
+                sequence: 11
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block #STATUS#">#STATUS#</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column U_COLOR_BD (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Border
+                alignment: center
+            }
+            layout {
+                sequence: 41
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-border #STATUS#-border">#STATUS#-border</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column U_COLOR_BG (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Background
+                alignment: center
+            }
+            layout {
+                sequence: 31
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-background #STATUS#-bg">#STATUS#-bg</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column U_COLOR_TEXT (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Text
+                alignment: center
+            }
+            layout {
+                sequence: 21
+                columnAlignment: center
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block color-text #STATUS#-text">#STATUS#-text</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region subtle-color-modifier (
+        name: Subtle Color Utility
+        type: staticContent
+        source {
+            htmlCode: <p>Use <code>u-color-subtle</code> with a color utility to create a low-emphasis background with matching color text.</p>
+        }
+        layout {
+            sequence: 40
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region subtle-modifier-classe (
+        name: Subtle Utility Class
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                SELECT LEVEL num, null color, null color_text
+                  FROM DUAL
+                CONNECT BY LEVEL <= 45
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 50
+            parentRegion: @subtle-color-modifier
+            slot: subRegions
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 1
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlightOff
+                t-Report--horizontalBorders
+            ]
+            cssClasses: colors-table
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column COLOR (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Solid
+            }
+            layout {
+                sequence: 20
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block u-color-1">u-color-1</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COLOR_TEXT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Subtle
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression: <span class="color-cell-block u-color-1 u-color-subtle">u-color-subtle</span>
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column NUM (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+    )
+
+)
+
+
+````

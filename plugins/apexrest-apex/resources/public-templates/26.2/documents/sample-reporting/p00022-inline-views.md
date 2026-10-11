@@ -1,0 +1,437 @@
+# Inline Views — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00022-inline-views.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: a6930f1e4f075613dc9b8d5af532be5b559276d9b9d88be86041ed65548d1ded.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 22 (
+    name: Inline Views
+    alias: INLINE-VIEWS
+    title: Inline Views
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This report highlights the use of inline views to collect additional data for a report. Three methods of creating an inline view are demonstrated. First, the total_sal inline view is created using the with clause prior to the initial select statement. This creates a view which can be referenced in the from clause(s) of the SQL query. Second, the dept_info inline view is created directly in the from clause through the use of parentheses. And third, the employees, dept_sal, avg_sal, and median_sal columns are populated by single-row, single column inline views which are created directly in the select clause.</p>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region container (
+        name: Container
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region inline-views (
+        name: Inline Views
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with total_sal as (
+                    select sum(sal) tsal
+                    from EBA_DEMO_IR_EMP
+                )
+                select dept_info.deptno,
+                    dept_info.dname,
+                    dept_info.loc,
+                    dept_info.employees,
+                    dept_info.dept_sal,
+                    dept_info.avg_sal,
+                    dept_info.median_sal,
+                    100*(dept_info.dept_sal/total_sal.tsal) pct_of_total
+                from (  select deptno,
+                            dname,
+                            loc,
+                            (   select count(*)
+                                from EBA_DEMO_IR_EMP e
+                                where e.deptno = d.deptno) employees,
+                            (   select sum(sal)
+                                from EBA_DEMO_IR_EMP e
+                                where e.deptno = d.deptno) dept_sal,
+                            (   select avg(sal)
+                                from EBA_DEMO_IR_EMP e
+                                where e.deptno = d.deptno) avg_sal,
+                            (   select median(sal)
+                                from EBA_DEMO_IR_EMP e
+                                where e.deptno = d.deptno) median_sal
+                        from eba_demo_ir_dept d) dept_info,
+                    total_sal
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: QUERY
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 657289918925735107
+        }
+
+        column AVG_SAL (
+            type: plainText
+            heading {
+                heading: Average Salary
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column DEPTNO (
+            type: plainText
+            heading {
+                heading: Department
+                alignment: end
+            }
+            layout {
+                sequence: 1
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column DEPT_SAL (
+            type: plainText
+            heading {
+                heading: Total Salary for Department
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column DNAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column EMPLOYEES (
+            type: plainText
+            heading {
+                heading: Employees
+                alignment: end
+            }
+            layout {
+                sequence: 4
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LOC (
+            type: plainText
+            heading {
+                heading: Location
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column MEDIAN_SAL (
+            type: plainText
+            heading {
+                heading: Median Salary
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column PCT_OF_TOTAL (
+            type: plainText
+            heading {
+                heading: Pct of Total
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        savedReport 6572910 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn AVG_SAL (
+                sequence: 6
+            )
+
+            displayColumn DEPTNO (
+                sequence: 1
+            )
+
+            displayColumn DEPT_SAL (
+                sequence: 5
+            )
+
+            displayColumn DNAME (
+                sequence: 2
+            )
+
+            displayColumn EMPLOYEES (
+                sequence: 4
+            )
+
+            displayColumn LOC (
+                sequence: 3
+            )
+
+            displayColumn MEDIAN_SAL (
+                sequence: 7
+            )
+
+            displayColumn PCT_OF_TOTAL (
+                sequence: 8
+            )
+
+            sort (
+                column: DEPTNO
+                sort {
+                    sequence: 1
+                }
+            )
+
+            aggregate (
+                column: TOTAL_SALARIES
+            )
+
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 20
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: QUERY
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @inline-views
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 22
+                clearCache: [
+                    22
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

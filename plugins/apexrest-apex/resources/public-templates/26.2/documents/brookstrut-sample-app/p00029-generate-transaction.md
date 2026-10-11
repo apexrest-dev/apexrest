@@ -1,0 +1,390 @@
+# Generate Transaction — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00029-generate-transaction.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 33a9e7258477c4c09025936d5e0bf45fc069137daf22a4e7980c162cd50bca4f.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 29 (
+    name: Generate Transaction
+    alias: GENERATE-TRANSACTION
+    title: Generate Transaction
+    pageGroup: @data-generation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>Click the button to generate a transaction.  A dynamic action will generate a transaction and refresh a transaction details report.</p>
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region transaction-details (
+        name: Transaction Details
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                       created_on,
+                       store_id, 
+                       product_id, 
+                       quantity, 
+                       item_price,
+                       quantity * item_price as sale_amount,
+                       date_of_sale,
+                       --
+                       -- store name
+                       --
+                       (select store_name 
+                        from OOW_demo_stores s 
+                        where s.id = h.store_id) store,
+                       --
+                       -- product
+                       --
+                       (select item_Name 
+                        from OOW_demo_items i
+                        where i.id = h.product_id) product
+                       --
+                from oow_demo_sales_history h
+                where id = :P29_TRANSACTION_ID
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-column
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+        }
+        pagination {
+            type: showAll
+        }
+
+        column CREATED_ON (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Created On
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column DATE_OF_SALE (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Date Of Sale
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                formatMask: DD-MON-YYYY HH24:MI:SS
+            }
+        )
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Transaction ID
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+        )
+
+        column ITEM_PRICE (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Item Price
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+        )
+
+        column PRODUCT (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: Product
+            }
+            layout {
+                sequence: 110
+            }
+        )
+
+        column PRODUCT_ID (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column QUANTITY (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Quantity
+                alignment: end
+            }
+            layout {
+                sequence: 50
+                columnAlignment: end
+            }
+        )
+
+        column SALE_AMOUNT (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Sale Amount
+                alignment: end
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+        )
+
+        column STORE (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Store
+            }
+            layout {
+                sequence: 100
+            }
+        )
+
+        column STORE_ID (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 30
+            }
+        )
+
+    )
+
+    pageItem P29_TRANSACTION_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @transaction-details
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button generate-transaction (
+        buttonName: GENERATE_TRANSACTION
+        label: Generate Transaction
+        layout {
+            sequence: 40
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-gear
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button reset (
+        buttonName: reset
+        label: Reset
+        layout {
+            sequence: 50
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 29
+                clearCache: 29
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: up
+        label: Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 28
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction generate-sale (
+        name: generate sale
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @generate-transaction
+        }
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode: :P29_TRANSACTION_ID := oow_demo_gen_data_pkg.generate_transaction;
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @transaction-details
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process generate-transaction (
+        name: generate transaction
+        type: executeCode
+        source {
+            plsqlCode: :P29_TRANSACTION_ID := oow_demo_gen_data_pkg.generate_transaction;
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Action Processed
+        }
+        advanced {
+            executionMappingIdentifier: 16593357768636034583
+        }
+        serverSideCondition {
+            whenButtonPressed: @generate-transaction
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 29
+                request: SHOW_SALE
+                successMessage: false
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @generate-transaction
+        }
+    )
+
+)
+
+
+````

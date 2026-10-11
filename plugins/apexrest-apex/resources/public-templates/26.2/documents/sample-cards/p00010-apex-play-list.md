@@ -1,0 +1,218 @@
+# APEX Play List — Sample Cards
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-cards/apexlang/sample-cards/pages/p00010-apex-play-list.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4ccc40cfea46037bcb41127a12a34b10526b336bf3c867a90f4439a75c3080ca.
+
+Application dependency inventory: oracle:26.2:public-template/sample-cards/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 10 (
+    name: APEX Play List
+    alias: APEX-PLAY-LIST
+    title: &APP_NAME. - Video Images with Durations
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    css {
+        inline:
+            ```css
+            .a-CardView-videoLength {
+                position: absolute;
+                bottom: 8px;
+                right: 8px;
+                display: inline-block;
+                padding: 2px 8px;
+                font-weight: 700;
+                font-size: 11px;
+                line-height: 16px;
+                color: #fff;
+                background-color: rgba(0,0,0,.75);
+                border-radius: 2px;
+            }
+            ```
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Instead of embedding videos inline, this page displays the image and duration of the video using <strong>Cards Media Advanced Formatting</strong>. This page uses two different REST Data Sources based on the <a href="https://developers.google.com/youtube/v3/getting-started" title="YouTube Data API" target="_blank" rel="noopener noreferrer external">YouTube Data API</a> to display the &PRODUCT_NAME. videos in that playlist.</p>
+                
+                <ul>
+                    <li><a href="https://developers.google.com/youtube/v3/docs/playlistItems" title="Playlistitems Resource" target="_blank" rel="noopener noreferrer external">Playlistitems</a>: Gets videos for a given playlist</li>
+                    <li><a href="https://developers.google.com/youtube/v3/docs/videos" title="Videos Resource" target="_blank" rel="noopener noreferrer external">Video</a>: Gets video duration for each video</li>
+                    <li>The <code>eba_demo_card_pkg.get_video_duration</code> function calls a Video REST Data Source using the <a href="https://docs.oracle.com/en/database/oracle/application-express/20.2/aeapi/APEX_EXEC.html#GUID-3CF1D2DD-AEA4-4982-9857-548567AB7169" title="&PRODUCT_NAME. API Guide" target="_blank" rel="noopener noreferrer external">APEX_EXEC</a> API to get the duration for each video</li>
+                    <li>Playlistitems REST Data source has an extra data profile column that is derived from a SQL Expression calling the function above</li>
+                    <li>All these REST Data Sources are cached for 7 days, so there are no extra requests made until the cache expires</li>
+                    <li>To display the video duration, the Media HTML Expression uses an inline CSS class, <code>.a-CardView-videoLength</code>, which is defined on the page (in the <strong>CSS</strong> section's <strong>Inline</strong> attribute)</li>
+                    <li>A <strong>Full Card Action</strong> is defined to watch the video on YouTube when a card is clicked</li>
+                </ul>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+            icon: fa-play
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region apex-play-list (
+        name: APEX Play List
+        type: cards
+        source {
+            location: restSource
+            restSource: @APEX_Youtube_PlayList_Items
+        }
+        localPostProcessing {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       ETAG,
+                       KIND,
+                       TITLE,
+                       CHANNELID,
+                       PLAYLISTID,
+                       VIDEOID,
+                       URL,
+                       WIDTH,
+                       HEIGHT,
+                       DESCRIPTION,
+                       PUBLISHEDAT,
+                       VIDEOPUBLISHEDAT,
+                       eba_demo_card_pkg.get_video_duration( p_video_id => VIDEOID ) VIDEO_DURATION
+                  from #APEX$SOURCE_DATA#
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+
+        parameter (
+            name: @maxresults
+            value {
+                type: restSourceDefault
+            }
+        )
+
+        parameter (
+            name: @part
+            value {
+                type: restSourceDefault
+            }
+        )
+
+        parameter (
+            name: @playlistid
+            value {
+                type: restSourceDefault
+            }
+        )
+
+        title {
+            column: TITLE
+        }
+        media {
+            advancedFormatting: true
+            htmlExpression:
+                ```html
+                <img class="a-CardView-mediaImg" src="&URL!ATTR." alt="&TITLE!ATTR." />
+                <span class="a-CardView-videoLength"><span class="fa fa-play"></span> &VIDEO_DURATION!HTML.</span>
+                ```
+            position: first
+            cssClasses: [
+                a-CardView-media--cover
+                a-CardView-media--widescreen
+            ]
+        }
+
+        action action (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: https://www.youtube.com/watch?v=&VIDEOID.
+                linkAttributes: target="_blank"
+            }
+        )
+
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P10_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @apex-play-list
+            slot: regionBody
+        }
+        default {
+            type: static
+            staticValue: PLUo-NIMouZ_vsHnHudl3W0JfeB-3F4J8_
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+)
+
+
+````

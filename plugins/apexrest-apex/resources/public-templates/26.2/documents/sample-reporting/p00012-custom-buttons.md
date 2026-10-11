@@ -1,0 +1,490 @@
+# Custom Buttons — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00012-custom-buttons.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 47579c15014fbfdf8b5894ee01695cfb7916eb2bfe39614c509a05dfcd4f4e64.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 12 (
+    name: Custom Buttons
+    alias: CUSTOM-BUTTONS
+    title: Custom Buttons
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    htmlHeader {
+        htmlHeader:
+            ```html
+            <style>
+            .apexir_WORKSHEET_ICONS {border: none !important; -moz-box-shadow: none !important; -box-shadow: none !important; -webkit-box-shadow: none !important;}
+            .apexir_WORKSHEET_ICONS td {border-bottom: none !important}
+            .apexir_WORKSHEET_ICONS td img {border: 4px solid #CCC; -moz-border-radius: 4px; -webkit-border-radius: 4px;}
+            .apexir_WORKSHEET_CUSTOM td {
+            border-right: none !important;}
+            .reportDetail td.separator { border-top: 1px solid #DDD !important;}
+            </style>
+            ```
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>This example shows how to format report link columns to look like buttons using theme 25.  You include placeholder columns in your select statement and then use the Column Link definition to provide a class and style, along with target details.  Edit any of the columns used as buttons to view the class and styles used.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region container (
+        name: Container
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region interactive-report (
+        name: Interactive Report
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select	
+                       PROJECT,
+                       count(distinct TASK_NAME) tasks,
+                       min(START_DATE) first_start_date,
+                       max(END_DATE) last_end_date,
+                       count(distinct ASSIGNED_TO) assignees,
+                       sum(cost) total_COST,
+                       sum(BUDGET) total_budget,
+                       1 Action,
+                       2 Edit,
+                       3 Copy
+                from EBA_DEMO_IR_PROJECTS
+                group by project
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: IR_EXAMPLE
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 657148701171534472
+        }
+
+        column ACTION (
+            type: link
+            heading {
+                heading: Action
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                    }
+                    clearCache: [
+                        1
+                        RIR
+                    ]
+                }
+                linkText: View Project
+                linkAttributes: class="t-Button t-Button--hot"
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column ASSIGNEES (
+            type: plainText
+            heading {
+                heading: Assignees
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column COPY (
+            type: link
+            heading {
+                heading: Copy
+                alignment: end
+            }
+            layout {
+                sequence: 12
+                columnAlignment: end
+            }
+            link {
+                target: {
+                    type: url
+                    url: #
+                }
+                linkText: <span class="t-Icon fa fa-copy"></span><span class="visuallyhidden">Copy</span>
+                linkAttributes: class="t-Button t-Button--warning" title="Copy"
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column EDIT (
+            type: link
+            heading {
+                heading: Edit
+                alignment: end
+            }
+            layout {
+                sequence: 11
+                columnAlignment: end
+            }
+            link {
+                target: {
+                    type: url
+                    url: #
+                }
+                linkText: <span class="t-Icon fa fa-pencil"></span><span class="visuallyhidden">Edit</span>
+                linkAttributes: class="t-Button" title="Copy"
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column FIRST_START_DATE (
+            type: plainText
+            heading {
+                heading: First Start Date
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LAST_END_DATE (
+            type: plainText
+            heading {
+                heading: Last End Date
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column PROJECT (
+            type: plainText
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column TASKS (
+            type: plainText
+            heading {
+                heading: Tasks
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column TOTAL_BUDGET (
+            type: plainText
+            heading {
+                heading: Total Budget
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column TOTAL_COST (
+            type: plainText
+            heading {
+                heading: Total Cost
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        savedReport 6571499 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 5
+            }
+
+            displayColumn ACTION (
+                sequence: 10
+            )
+
+            displayColumn ASSIGNEES (
+                sequence: 5
+            )
+
+            displayColumn COPY (
+                sequence: 9
+            )
+
+            displayColumn EDIT (
+                sequence: 1
+            )
+
+            displayColumn FIRST_START_DATE (
+                sequence: 3
+            )
+
+            displayColumn LAST_END_DATE (
+                sequence: 4
+            )
+
+            displayColumn PROJECT (
+                sequence: 2
+            )
+
+            displayColumn TASKS (
+                sequence: 8
+            )
+
+            displayColumn TOTAL_BUDGET (
+                sequence: 7
+            )
+
+            displayColumn TOTAL_COST (
+                sequence: 6
+            )
+
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 20
+            parentRegion: @container
+            slot: subRegions
+            startNewRow: false
+            newColumn: false
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: IR_EXAMPLE
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @interactive-report
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 12
+                clearCache: [
+                    12
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

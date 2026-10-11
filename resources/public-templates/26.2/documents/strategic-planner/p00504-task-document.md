@@ -1,0 +1,677 @@
+# Task Document — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00504-task-document.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 2625d906540d0777da6ede88297aee9b769bc4df21fecdd44c55ab5bef5df3a4.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 504 (
+    name: Task Document
+    alias: TASK-DOCUMENT
+    title: Document
+    pageGroup: @projects
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region document (
+        name: Document
+        type: form
+        source {
+            location: localDatabase
+            tableName: SP_TASK_DOCUMENTS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P504_CREATED (
+        type: hidden
+        layout {
+            sequence: 120
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: CREATED
+            dataType: date
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_CREATED_BY (
+        type: hidden
+        layout {
+            sequence: 130
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: CREATED_BY
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_DOCUMENT_BLOB (
+        type: fileUpload
+        label {
+            label: Document
+            alignment: left
+        }
+        display {
+            displayAs: inlineDropzone
+        }
+        storage {
+            mimeTypeColumn: DOCUMENT_MIMETYPE
+            filenameColumn: DOCUMENT_FILENAME
+            charSetColumn: DOCUMENT_CHARSET
+            bobLastUpdatedColumn: DOCUMENT_LASTUPD
+        }
+        layout {
+            sequence: 30
+            region: @document
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            formRegion: @document
+            column: DOCUMENT_BLOB
+            dataType: blob
+        }
+    )
+
+    pageItem P504_DOCUMENT_CHARSET (
+        type: hidden
+        layout {
+            sequence: 90
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: DOCUMENT_CHARSET
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P504_DOCUMENT_FILENAME (
+        type: hidden
+        layout {
+            sequence: 70
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: DOCUMENT_FILENAME
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P504_DOCUMENT_LASTUPD (
+        type: hidden
+        layout {
+            sequence: 100
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: DOCUMENT_LASTUPD
+            dataType: date
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P504_DOCUMENT_MIMETYPE (
+        type: hidden
+        layout {
+            sequence: 80
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: DOCUMENT_MIMETYPE
+            dataType: varchar2
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P504_DOC_DESCRIPTION (
+        type: textarea
+        label {
+            label: Description
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @document
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+            height: 5
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @document
+            column: DOC_DESCRIPTION
+            dataType: varchar2
+        }
+    )
+
+    pageItem P504_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_IMPORTANT_YN (
+        type: switch
+        label {
+            label: Important
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @document
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @document
+            column: IMPORTANT_YN
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: N
+        }
+    )
+
+    pageItem P504_ON_DELETE (
+        type: hidden
+        layout {
+            sequence: 160
+            region: @document
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_PREV_PAGE (
+        type: hidden
+        layout {
+            sequence: 170
+            region: @document
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_TAGS (
+        type: combobox
+        label {
+            label: Tags
+            alignment: left
+        }
+        settings {
+            multiSelection: true
+            infiniteScroll: false
+            maxValuesInList: 20
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery: select 1 from dual where 1=2
+        }
+        multipleValues {
+            type: delimitedList
+            separator: ,
+        }
+        layout {
+            sequence: 50
+            region: @document
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @document
+            column: TAGS
+            dataType: varchar2
+        }
+        security {
+            restrictedChars: webSafe
+        }
+    )
+
+    pageItem P504_TASK_ID (
+        type: displayOnly
+        label {
+            label: Link For
+            alignment: left
+        }
+        settings {
+            basedOn: lov
+        }
+        lov {
+            type: sharedComponent
+            lov: @task-names-for-display-lovs
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 20
+            region: @document
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @document
+            column: TASK_ID
+            dataType: number
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_UPDATED (
+        type: hidden
+        layout {
+            sequence: 140
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: UPDATED
+            dataType: date
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_UPDATED_BY (
+        type: hidden
+        layout {
+            sequence: 150
+            region: @document
+            slot: regionBody
+        }
+        source {
+            formRegion: @document
+            column: UPDATED_BY
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Document
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P504_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P504_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P504_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 90
+        }
+        advanced {
+            executionMappingIdentifier: 18160054331824749421
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE
+        }
+    )
+
+    process close-dialog_1 (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 100
+        }
+        advanced {
+            executionMappingIdentifier: 19710761991700881510
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+            type: item=value
+            item: P504_ON_DELETE
+            value: CLOSE
+        }
+    )
+
+    process initialize-form (
+        name: Initialize form
+        type: formInitialization
+        formRegion: @document
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 18160051496318749418
+        }
+    )
+
+    process log (
+        name: log
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                for c1 in (
+                    select project_id
+                      from sp_tasks
+                     where id = :P504_TASK_ID
+                ) loop
+                    sp_log.log_interaction(
+                        p_project_id => c1.project_id);
+                end loop;
+                ```
+        }
+        execution {
+            sequence: 100
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 1437017425099642222
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P504_TASK_ID
+        }
+    )
+
+    process process-form (
+        name: Process form
+        type: formAutoRowProcessing
+        formRegion: @document
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 18160051860861749418
+        }
+    )
+
+    branch (
+        name: delete, prev page
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: &P504_PREV_PAGE.
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+            type: item=value
+            item: P504_ON_DELETE
+            value: PREV_PAGE
+        }
+    )
+
+    branch (
+        name: delete, no prev page
+        execution {
+            sequence: 20
+        }
+        behavior {
+            target: {
+                page: 23
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+            type: item=value
+            item: P504_ON_DELETE
+            value: HOME
+        }
+    )
+
+)
+
+
+````

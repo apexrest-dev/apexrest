@@ -1,0 +1,193 @@
+# Page Patterns — Ux Pattern Catalog
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/ux-pattern-catalog/apexlang/ux-pattern-catalog/pages/p00002-patterns.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: e1acef46197684eae58f09459b7879a9d0612a1f4cfc365f612229083bf60c85.
+
+Application dependency inventory: oracle:26.2:public-template/ux-pattern-catalog/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 2 (
+    name: Page Patterns
+    alias: PATTERNS
+    title: Patterns
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+    }
+
+    region apex-ux-pattern-catalog (
+        name: Page Pattern Catalog
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Browse reusable Oracle APEX UX patterns organized by common application tasks. Each pattern combines representative implementations with documented design intent to help developers and AI coding assistants produce more consistent, high-quality application experiences.</p>
+                
+                <p>Choose the pattern that best supports the user's primary task, then adapt it to your application's specific requirements.</p>
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h1
+                t-Region--removeHeader js-removeLandmark
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region patterns (
+        name: Page Pattern Categories
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    'fa-dashboard' as icon_class,
+                    'Dashboards' as title,
+                    'Summarize status, highlight exceptions, and guide users toward meaningful follow-up actions.' as description,
+                    'dashboards' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-mouse-pointer' as icon_class,
+                    'Browse and Search' as title,
+                    'Help users find, filter, compare, and open records using the right browsing experience for the task.' as description,
+                    'browse-search' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-id-card-o' as icon_class,
+                    'Item Details' as title,
+                    'Inspect one record with supporting context and actions in a standalone or selection-driven detail view.' as description,
+                    'item-details' as page_alias
+                from sys.dual
+                union all
+                select
+                    'fa-forms' as icon_class,
+                    'Data Entry' as title,
+                    'Create and update information with form patterns that match the complexity, context, and confidence required by the task.' as description,
+                    'data-entry' as page_alias
+                from sys.dual
+                ```
+        }
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+                margin-top-md
+            ]
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description: &DESCRIPTION.
+            displayAvatar: true
+        }
+        plugin-avatar {
+            icon: &ICON_CLASS. fa-2x u-opacity-50
+            shape: noShape
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+
+        column DESCRIPTION (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column ICON_CLASS (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ICON_CLASS
+                dataType: varchar2
+            }
+        )
+
+        column PAGE_ALIAS (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: PAGE_ALIAS
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: f?p=&APP_ID.:&PAGE_ALIAS.:&SESSION.::&DEBUG.::::
+            }
+            serverSideCondition {
+                type: itemIsNotNull
+                item: PAGE_ALIAS
+            }
+        )
+
+    )
+
+    region reusable-apex-ux-patterns (
+        name: Page Patterns
+        type: staticContent
+        layout {
+            sequence: 90
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+            icon: fa-cards
+        }
+    )
+
+)
+
+
+````

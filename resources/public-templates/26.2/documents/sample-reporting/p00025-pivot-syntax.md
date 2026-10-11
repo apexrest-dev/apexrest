@@ -1,0 +1,249 @@
+# Pivot Syntax — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00025-pivot-syntax.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: f14bd5cb63a20cf6a09c44a8f22c023ba63d4ad674e9f60f616a9fab9296500d.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 25 (
+    name: Pivot Syntax
+    alias: PIVOT-SYNTAX
+    title: Pivot Syntax
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".highlight {background-color: yellow;}"
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This report highlights the use of the <a href="http://docs.oracle.com/cd/E11882_01/server.112/e25554/analysis.htm#BCFHHHHF" target="_blank"><strong>PIVOT operator</strong></a>.  This operator takes data in separate rows, aggregates it, and converts it into columns.  Expand the <strong>SQL Source</strong> region to see the SQL syntax.</p>
+                <p>Note that in APEX 5.0, the <strong>PIVOT</strong> functionality was added to interactive reports.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region pivot-query-syntax (
+        name: Pivot Query Syntax
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select * from (
+                    select project, status
+                    from eba_demo_ir_projects
+                )
+                pivot
+                (
+                    count(status)
+                    for status in ('Open' as "Open",'Closed' as "Closed",'Pending' as "Pending",'On-Hold' as "On-Hold")
+                )
+                order by project
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: QUERY
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+            showNullValuesAs: -
+        }
+        pagination {
+            type: setPaginationSelectList
+        }
+
+        column Closed (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Closed
+            }
+            layout {
+                sequence: 3
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column On-Hold (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: On-hold
+            }
+            layout {
+                sequence: 5
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column Open (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Open
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PROJECT (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column Pending (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Pending
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 10
+            parentRegion: @pivot-query-syntax
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: QUERY
+            highlightTermPageItem: P25_OPERATOR
+        }
+    )
+
+    pageItem P25_OPERATOR (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @about-this-page
+            slot: regionBody
+        }
+        source {
+            type: staticValue
+            staticValue: PIVOT
+            used: always
+        }
+        default {
+            type: static
+            staticValue: PIVOT
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+)
+
+
+````

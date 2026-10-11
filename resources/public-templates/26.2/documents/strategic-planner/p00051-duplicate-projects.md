@@ -1,0 +1,559 @@
+# Duplicate Projects — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00051-duplicate-projects.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 66ab3af4e0410fe710e264c6e658940bd9d8699ea0e3ab819c903bd0a50114da.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 51 (
+    name: Duplicate Projects
+    alias: DUPLICATE-PROJECTS
+    title: Duplicate Projects
+    pageGroup: @reporting
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: All &NOMENCLATURE_PROJECTS. that have been marked as duplicates and which they are a duplicate of.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region duplidate-nomenclature-projects (
+        name: Duplidate &NOMENCLATURE_PROJECTS.
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       (select initiative from sp_initiatives i where i.id = p.INITIATIVE_ID) initiative,
+                       (select area from sp_areas f where id = (select area_id from sp_initiatives i where i.id = p.INITIATIVE_ID)) area,
+                       PROJECT,
+                       (select FIRST_NAME ||' '||last_name from SP_TEAM_MEMBERS x where x.ID = p.OWNER_ID) owner,
+                       TARGET_COMPLETE,
+                       pct_complete,
+                       (select t.release_train||' '||t.release from SP_RELEASE_TRAINS t where t.id = p.release_id) release,
+                       PROJECT_SIZE,
+                       DESCRIPTION,
+                       TAGS,
+                       CREATED,
+                       CREATED_BY,
+                       UPDATED,
+                       UPDATED_BY,
+                       DUPLICATE_OF_PROJECT_ID,
+                       (select project from sp_projects p2 where p2.id = p.DUPLICATE_OF_PROJECT_ID) duplicate_of,
+                       --
+                       -- initiative focus area
+                       --
+                       nvl((select focus_area from sp_initiative_focus_areas where id = p.focus_area_id),'Not Identified') Init_focus_area
+                  from SP_PROJECTS p
+                 where p.DUPLICATE_OF_PROJECT_ID is not null
+                   and p.ARCHIVED_YN = 'N'
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: All Projects that have been marked as duplicates and which they are a duplicate of.
+        }
+        advanced {
+            savedReportMappingIdentifier: 23339553644738760030
+        }
+
+        column AREA (
+            type: plainText
+            heading {
+                heading: Area
+            }
+            layout {
+                sequence: 98
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AI
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+                alignment: center
+            }
+            layout {
+                sequence: 20
+                columnAlignment: center
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 21
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: clob
+            }
+            columnFilter {
+                type: none
+            }
+            advanced {
+                endUserAlias: K
+            }
+            enableUsersTo {
+                sort: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column DUPLICATE_OF (
+            type: link
+            heading {
+                heading: Duplicate of
+            }
+            layout {
+                sequence: 108
+            }
+            link {
+                target: {
+                    page: 3
+                    items: {
+                        P3_PROJECT_ID: #DUPLICATE_OF_PROJECT_ID#
+                    }
+                    clearCache: 3
+                    action: resetPagination
+                }
+                linkText: #DUPLICATE_OF#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AJ
+            }
+        )
+
+        column DUPLICATE_OF_PROJECT_ID (
+            type: hidden
+            heading {
+                heading: Duplicate of Project ID
+            }
+            layout {
+                sequence: 28
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AB
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column INITIATIVE (
+            type: plainText
+            heading {
+                heading: Initiative
+            }
+            layout {
+                sequence: 88
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AH
+            }
+        )
+
+        column INIT_FOCUS_AREA (
+            type: plainText
+            heading {
+                heading: Focus Area
+            }
+            layout {
+                sequence: 128
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AL
+            }
+        )
+
+        column OWNER (
+            type: plainText
+            heading {
+                heading: Owner
+            }
+            layout {
+                sequence: 148
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AO
+            }
+        )
+
+        column PCT_COMPLETE (
+            type: plainText
+            heading {
+                heading: Pct Complete
+                alignment: end
+            }
+            layout {
+                sequence: 118
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AK
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: &NOMENCLATURE_PROJECT.
+            }
+            layout {
+                sequence: 3
+            }
+            link {
+                target: {
+                    page: 3
+                    items: {
+                        P3_PROJECT_ID: #ID#
+                    }
+                    clearCache: 3
+                    action: resetPagination
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column PROJECT_SIZE (
+            type: plainText
+            heading {
+                heading: Project Size
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column RELEASE (
+            type: plainText
+            heading {
+                heading: Release
+            }
+            layout {
+                sequence: 138
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AM
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 17
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column TARGET_COMPLETE (
+            type: plainText
+            heading {
+                heading: Target Complete
+                alignment: center
+            }
+            layout {
+                sequence: 5
+                columnAlignment: center
+            }
+            appearance {
+                formatMask: DD-Mon-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 22
+            }
+            appearance {
+                formatMask: SINCE_SHORT
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: V
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 23
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Duplidate &NOMENCLATURE_PROJECTS.
+        }
+
+        savedReport 116649051 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn AREA (
+                sequence: 2
+            )
+
+            displayColumn DUPLICATE_OF (
+                sequence: 7
+            )
+
+            displayColumn INITIATIVE (
+                sequence: 3
+            )
+
+            displayColumn INIT_FOCUS_AREA (
+                sequence: 4
+            )
+
+            displayColumn OWNER (
+                sequence: 5
+            )
+
+            displayColumn PROJECT (
+                sequence: 1
+            )
+
+            displayColumn UPDATED (
+                sequence: 6
+            )
+
+            sort (
+                column: PROJECT
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 51
+                clearCache: [
+                    51
+                    CIR
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

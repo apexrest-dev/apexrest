@@ -1,0 +1,387 @@
+# Transaction Summary by Minute — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00034-transaction-summary-by-minute.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c56394a7d9c43ece89d2bcc82605a65bd6d8697a7d2bb5347a5ad4375cd798e7.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 34 (
+    name: Transaction Summary by Minute
+    alias: TRANSACTION-SUMMARY-BY-MINUTE
+    title: Transaction Summary by Minute
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region transaction-generation-log-summarized-by-minute (
+        name: Transaction Generation Log Summarized by Minute
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    count(distinct OWNER) owners,
+                    sum(NUM_DAYS) total_days,
+                    sum(MAX_ORDERS) total_orders,
+                    sum(num_days*max_orders) orders_xactions_attempted,
+                    count(*) api_invocations,
+                    sum(num_days*max_orders)/60 orders_ps,
+                    count(*)/60 api_ps,
+                    to_char(start_time,'YYYY.MM.DD HH24:MI')
+                    the_minute
+                from OOW_DEMO_HIST_GEN_LOG
+                group by to_char(start_time,'YYYY.MM.DD HH24:MI')
+                ```
+        }
+        layout {
+            sequence: 11
+            slot: body-3
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2727841700000875559
+        }
+
+        column API_INVOCATIONS (
+            type: plainText
+            heading {
+                heading: API Invocations
+                alignment: end
+            }
+            layout {
+                sequence: 4
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column API_PS (
+            type: plainText
+            heading {
+                heading: API calls / second
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990D0000
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column ORDERS_PS (
+            type: plainText
+            heading {
+                heading: Orders / second
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990D0000
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column ORDERS_XACTIONS_ATTEMPTED (
+            type: plainText
+            heading {
+                heading: Order Transactions Attempted
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column OWNERS (
+            type: plainText
+            heading {
+                heading: Submitting Users
+                alignment: end
+            }
+            layout {
+                sequence: 1
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column THE_MINUTE (
+            type: plainText
+            heading {
+                heading: Hour: Minute
+            }
+            layout {
+                sequence: 5
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column TOTAL_DAYS (
+            type: plainText
+            heading {
+                heading: Total Days
+                alignment: end
+            }
+            layout {
+                sequence: 2
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column TOTAL_ORDERS (
+            type: plainText
+            heading {
+                heading: Total Orders
+                alignment: end
+            }
+            layout {
+                sequence: 3
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        savedReport 27278426 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn API_INVOCATIONS (
+                sequence: 3
+            )
+
+            displayColumn API_PS (
+                sequence: 6
+            )
+
+            displayColumn ORDERS_PS (
+                sequence: 5
+            )
+
+            displayColumn ORDERS_XACTIONS_ATTEMPTED (
+                sequence: 4
+            )
+
+            displayColumn OWNERS (
+                sequence: 2
+            )
+
+            displayColumn THE_MINUTE (
+                sequence: 1
+            )
+
+            sort (
+                column: THE_MINUTE
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: START_TIME
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            aggregate (
+                column: ORDERS_XACTIONS_ATTEMPTED
+            )
+
+            aggregate (
+                column: API_INVOCATIONS
+            )
+
+        )
+
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @transaction-generation-log-summarized-by-minute
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 34
+                clearCache: [
+                    34
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: up
+        label: Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 19
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

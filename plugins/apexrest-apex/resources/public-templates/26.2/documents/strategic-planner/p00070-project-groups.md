@@ -1,0 +1,505 @@
+# Project Groups — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00070-project-groups.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 40b4bbed1fdd16600e675ce8672123e30774eb5e10f6feb127768ddac9fbf4b1.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 70 (
+    name: Project Groups
+    alias: PROJECT-GROUPS
+    title: &NOMENCLATURE_PROJECT. Groups
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: All &NOMENCLATURE_PROJECT. Groups along with how many projects are associated with each.
+    }
+    config {
+        buildOption: @project-groups
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region project-groups (
+        name: Project Groups
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.ID,
+                       g.GROUP_NAME,
+                       g.GROUP_DESCRIPTION,
+                       CREATED,
+                       lower(g.created_by) CREATED_BY,
+                       --
+                       --
+                       --
+                       greatest(nvl(
+                           (select max(p.updated)
+                            from sp_projects p
+                            where p.ARCHIVED_YN = 'N'
+                              and p.DUPLICATE_OF_PROJECT_ID is null
+                              and p.project_group_id = g.id),
+                           g.updated),
+                           g.UPDATED) updated,
+                       --
+                       lower(g.updated_by) UPDATED_BY,
+                       --
+                       -- is group active
+                       --
+                       decode(g.is_active_yn,'Y','Yes','No') group_active,
+                       --
+                       -- associated projects
+                       --
+                       (select count(*) 
+                       from sp_projects p 
+                       where g.id = p.project_group_id and
+                             p.ARCHIVED_YN = 'N' and
+                             p.DUPLICATE_OF_PROJECT_ID is null and
+                             p.PCT_COMPLETE != 0 and 
+                             p.PCT_COMPLETE != 100) active_project_count,
+                       (select count(*) 
+                          from sp_projects p 
+                         where g.id = p.project_group_id and
+                               p.ARCHIVED_YN = 'N' and
+                               p.DUPLICATE_OF_PROJECT_ID is null) total_project_count,
+                       (select listagg(distinct i.initiative,', ' on overflow truncate with count) 
+                               within group (order by i.initiative)
+                          from sp_projects p,
+                               sp_initiatives i
+                         where g.id = p.project_group_id
+                           and p.ARCHIVED_YN = 'N'
+                           and p.DUPLICATE_OF_PROJECT_ID is null
+                           and p.initiative_id = i.id) initiatives
+                  from SP_PROJECT_GROUPS g
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 90
+                items: {
+                    P90_ID: \#ID#\
+                }
+                action: resetPagination
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+            authorizationScheme: @contribution-rights
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 1228115950949770726
+        }
+
+        column ACTIVE_PROJECT_COUNT (
+            type: plainText
+            heading {
+                heading: Active &NOMENCLATURE_PROJECTS.
+                alignment: end
+            }
+            layout {
+                sequence: 17
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 4
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column GROUP_ACTIVE (
+            type: plainText
+            heading {
+                heading: Active
+            }
+            layout {
+                sequence: 37
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column GROUP_DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column GROUP_NAME (
+            type: link
+            heading {
+                heading: &NOMENCLATURE_PROJECT. Group
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 119
+                    items: {
+                        P119_PROJECT_GROUP_ID: #ID#
+                    }
+                    action: resetPagination
+                }
+                linkText: #GROUP_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column INITIATIVES (
+            type: plainText
+            heading {
+                heading: Initiatives
+            }
+            layout {
+                sequence: 47
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column TOTAL_PROJECT_COUNT (
+            type: plainText
+            heading {
+                heading: Total &NOMENCLATURE_PROJECTS.
+                alignment: end
+            }
+            layout {
+                sequence: 27
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 6
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Project Groups
+        }
+
+        savedReport 12282376 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ACTIVE_PROJECT_COUNT (
+                sequence: 3
+            )
+
+            displayColumn GROUP_NAME (
+                sequence: 1
+            )
+
+            displayColumn INITIATIVES (
+                sequence: 2
+            )
+
+            displayColumn TOTAL_PROJECT_COUNT (
+                sequence: 4
+            )
+
+            displayColumn UPDATED (
+                sequence: 5
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            aggregate (
+                column: ACTIVE_PROJECT_COUNT
+            )
+
+            aggregate (
+                column: TOTAL_PROJECT_COUNT
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Group
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 90
+                clearCache: 90
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_PROJECT_VIEW.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction edit-report-dialog-closed (
+        name: Edit Report - Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @project-groups
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @project-groups
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-report-on-dc (
+        name: refresh report on dc
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @create
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @project-groups
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

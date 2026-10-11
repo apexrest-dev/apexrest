@@ -1,0 +1,420 @@
+# REST Data & PL/SQL — Sample Rest Services
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-rest-services/apexlang/sample-rest-services/pages/p00404-rest-data-pl-sql2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4e841ae6d7430d28dbfdbd6c15c5ed0a77b9a06abe1142ea24918882b87fd161.
+
+Application dependency inventory: oracle:26.2:public-template/sample-rest-services/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 404 (
+    name: REST Data & PL/SQL
+    alias: REST-DATA-PL-SQL2
+    title: REST Data & PL/SQL
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region actions (
+        name: Actions
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <ul>
+                    <li>
+                      <strong>Start process & send report:</strong> the button initiates the entire ETL process. When clicked, it triggers a PL/SQL process that retrieves and aggregates data from two REST Data Sources and then sends a summary report via email. Please ensure you enter a valid email address to receive the report.
+                    </li>
+                   
+                  </ul>
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region etl-order-summary-results (
+        name: ETL Order Summary Results
+        type: interactiveReport
+        source {
+            location: localDatabase
+            tableName: EBA_DEMO_REST_STOREORDERSUMMARY
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found. Use the Process Data & Send Report button to generate data.
+        }
+        advanced {
+            savedReportMappingIdentifier: 20000899968203929
+        }
+
+        column LAST_ORDER_DATETIME (
+            type: plainText
+            heading {
+                heading: Last Order Datetime
+            }
+            layout {
+                sequence: 40
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LOAD_TIMESTAMP (
+            type: plainText
+            heading {
+                heading: Load Timestamp
+            }
+            layout {
+                sequence: 50
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column STORE_ID (
+            type: plainText
+            heading {
+                heading: Store Id
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column STORE_NAME (
+            type: plainText
+            heading {
+                heading: Store Name
+            }
+            layout {
+                sequence: 20
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column TOTAL_ORDERS (
+            type: plainText
+            heading {
+                heading: Total Orders
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 53612 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn LAST_ORDER_DATETIME (
+                sequence: 4
+            )
+
+            displayColumn LOAD_TIMESTAMP (
+                sequence: 5
+            )
+
+            displayColumn STORE_ID (
+                sequence: 1
+            )
+
+            displayColumn STORE_NAME (
+                sequence: 2
+            )
+
+            displayColumn TOTAL_ORDERS (
+                sequence: 3
+            )
+
+        )
+
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div>
+                  <p>
+                 This page demonstrates an ETL process within Oracle APEX by dynamically retrieving and aggregating data from two external REST Data Sources.
+                  </p>
+                  <p>
+                    <strong>Data Source Calls:</strong>
+                  </p>
+                  <ul>
+                    <li>
+                      <strong>Stores Data:</strong> Fetches key store details such as <strong>STORE_ID</strong> and <strong>STORE_NAME</strong> from the <strong>EBA_REST_STORES</strong> REST Data Source.
+                    </li>
+                    <li>
+                      <strong>Orders Data:</strong> Retrieves order records  <strong>STORE_ID</strong> and <strong>ORDER_DATETIME</strong>  from the <strong>EBA_REST_ORDERS</strong> REST Data Source.
+                    </li>
+                  </ul>
+                  <p>
+                    <strong>Data Processing and Transformation:</strong> The PL/SQL code uses the <strong>APEX_EXEC</strong> package to process JSON responses row-by-row. Order datetime strings are converted to dates and the data is aggregated per store—calculating total orders and the latest order date/time—using PL/SQL collections.
+                  </p>
+                  <p>
+                    <strong>Data Storage and Display:</strong> Aggregated results (store ID, store name, total orders, and latest order datetime) are inserted into the local summary table <strong>STORE_ORDER_SUMMARY</strong>. An Interactive Report then queries this table to provide users with an up-to-date summary of store performance. Users can refresh the data or schedule the process to run at intervals.
+                  </p>
+                    <strong>Note:</strong> The PL/SQL code for this ETL can be viewed in the <em>Process_ETL</em> process in Page Designer.
+                </div>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    pageItem P404_EMAIL (
+        type: textField
+        label {
+            label: Email
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @actions
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            valueRequired: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button download (
+        buttonName: Download
+        label: Process Data & Send report
+        layout {
+            sequence: 40
+            region: @actions
+            slot: regionBody
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--large
+                t-Button--pill
+                t-Button--gapTop
+                t-Button--padBottom
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 405
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: PREVIOUS
+        label: Previous
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 402
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process process-etl (
+        name: Process_ETL
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    eba_demo_rest_etl_pkg.process_store_order_summary(
+                        p_email => :P404_EMAIL
+                    );
+                end;
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 7351768010533561
+        }
+        serverSideCondition {
+            whenButtonPressed: @download
+        }
+    )
+
+    process truncate-table-before-processing (
+        name: Truncate Table Before Processing
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin 
+                    execute immediate 'truncate table eba_demo_rest_storeordersummary';
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 7784579219706901
+        }
+    )
+
+)
+
+
+````

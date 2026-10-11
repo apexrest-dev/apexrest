@@ -1,0 +1,459 @@
+# Data Entry — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p00423-data-entry2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: fa3d396d1557479ca6b5f32e6da7f15220c79feddc6d3a627f5a24b898a4455f.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 423 (
+    name: Data Entry
+    alias: DATA-ENTRY2
+    title: Data Entry
+    pageGroup: @design
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region form-design (
+        name: Form Design
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>When designing your data entry screens for mobile, consider using the <b>Floating Labels</b> field templates for your page items.  These templates are especially optimized for mobile use cases as they provide a much larger tap area to gain focus and provides larger text for improved readibility.  The field label will automatically shrink as a value is populated, but still remaining on screen so context is not lost.</p>
+                
+                <p>Be sure to visit the <a href="f?p=&APP_ID.:1600">Components &rarr; Forms &rarr; Floating Labels</a> page for additional examples.</p>
+                
+                <p><b>Steps</b></p>
+                <ol>
+                  <li>Select the page item in Page Designer</li>
+                  <li>Modify the Template property under Appearance</li>
+                  <li>Select either the <b>Optional - Floating</b> or <b>Required - Floating</b> template from the select list.</li>
+                </ol>
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region good-design-practices (
+        name: Good Design Practices
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Here are some good design practices to follow when designing pages and apps for small screen devices.</p>
+                
+                <ul class="dm-UL">
+                <li><strong>Limit the number of fields to fill out</strong><br />
+                      Fewer fields to complete means a higher successrate of users completing the form. Whenever possible, use smart defaults, and employ HTML5 apis such as <a href="https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/Using_geolocation" target="_blank" rel="noopener noreferrer">geolocation</a> to capture location data rather than asking the user to enter it manually.</li>
+                <li><strong>Use radio buttons in place of select lists when possible</strong><br />
+                      You can improve the usability of your form by replacing select lists which have a few options to a radio button.  This will result in fewer taps to see the available options as they will already be displayed on screen.  You can go even further by setting the <a href="f?p=&APP_ID.:1204">Display as Pill Button</a> template option to provide a more user friendly control.</li>
+                <li><strong>Position submit buttons near the end of the form</strong><br />
+                      This simple trick will make it far more easier to reach and tap on the submit button.</li>
+                <li><strong>Avoid using heavy controls and widgets</strong><br />
+                      While it may be tempting to use Interactive Grid on a phone, there may be alternatives that provide better usability and mobile performance. When in doubt, try to avoid large controls like Interactive Grids on mobile screens and instead try to optimize for user experience.</li>
+                <li><strong>Use numeric keyboards for numeric fields</strong><br />
+                      Using the keyboard on mobile devices to write a numerical value can be very annoying, to avoid this exists an alternative in the configuration of your numeric field that provides you a list of virtual keyboards to make your processes easier.</li>
+                
+                </ul>
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region mobile-form-example (
+        name: Mobile Form Example
+        type: staticContent
+        layout {
+            sequence: 50
+            parentRegion: @form-design
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>Data entry is a key component of many APEX apps and should be very carefully considered when designing screens for mobile use cases.  This page outlines a few patterns that Universal Theme provides as well as some general guidelines when designing forms and data entry pages for small screens.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    pageItem P423_CHECKBOX_GROUP (
+        type: checkboxGroup
+        label {
+            label: Checkbox Group
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Display1;Return1,Display2;Return2,Display3;Return3
+        }
+        layout {
+            sequence: 50
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P423_COLOR_PICKER (
+        type: colorPicker
+        label {
+            label: Color Picker
+            alignment: left
+        }
+        layout {
+            sequence: 70
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P423_DATE_PICKER (
+        type: datePicker
+        label {
+            label: Date Picker
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P423_FILE_BROWSE (
+        type: fileUpload
+        label {
+            label: File Browse
+            alignment: left
+        }
+        storage {
+            type: appTempFiles
+        }
+        layout {
+            sequence: 120
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P423_NUMBER_FIELD (
+        type: numberField
+        label {
+            label: Number Field
+            alignment: left
+        }
+        settings {
+            numberAlignment: end
+            virtualKeyboard: numeric
+        }
+        layout {
+            sequence: 20
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P423_PASSWORD (
+        type: password
+        label {
+            label: Password
+            alignment: left
+        }
+        layout {
+            sequence: 90
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P423_PERCENT_GRAPH (
+        type: percentGraph
+        label {
+            label: Percent Graph
+            alignment: left
+        }
+        layout {
+            sequence: 100
+            region: @mobile-form-example
+            slot: regionBody
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        default {
+            type: static
+            staticValue: 33
+        }
+    )
+
+    pageItem P423_RADIO_GROUP (
+        type: radioGroup
+        label {
+            label: Radio Group
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Display1;Return1,Display2;Return2,Display3;Return3
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 60
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P423_SELECT_LIST (
+        type: selectList
+        label {
+            label: Select List
+            alignment: left
+        }
+        lov {
+            type: staticValues
+        }
+        layout {
+            sequence: 80
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+    )
+
+    pageItem P423_SWITCH (
+        type: switch
+        label {
+            label: Switch
+            alignment: left
+        }
+        layout {
+            sequence: 110
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P423_TEXTAREA (
+        type: textarea
+        label {
+            label: Textarea
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+            height: 5
+        }
+    )
+
+    pageItem P423_TEXT_FIELD (
+        type: textField
+        label {
+            label: Text Field
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @mobile-form-example
+            slot: regionBody
+            alignment: left
+            columnSpan: 4
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+)
+
+
+````

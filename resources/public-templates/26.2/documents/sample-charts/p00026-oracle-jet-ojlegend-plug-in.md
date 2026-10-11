@@ -1,0 +1,552 @@
+# Oracle JET ojLegend Plug-in — Sample Charts
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-charts/apexlang/sample-charts/pages/p00026-oracle-jet-ojlegend-plug-in.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 670b2206692b76ccd6d5fbe23528b4332712b44554b954a257fc87f3cc89fa9f.
+
+Application dependency inventory: oracle:26.2:public-template/sample-charts/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 26 (
+    name: Oracle JET ojLegend Plug-in
+    alias: ORACLE-JET-OJLEGEND-PLUG-IN
+    title: JET Plug-in
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                While we may not declaratively support all available <a href="http://www.oracle.com/webfolder/technetwork/jet-720/jetCookbook.html?component=home&demo=rootVisualizations" target="_blank" rel="noopener noreferrer external">Oracle JET Data Visualizations</a>, you can easily create a plug-in to integrate other Oracle JET components in to your application.  This page demonstrates the integration of an Oracle JET <a href="https://www.oracle.com/webfolder/technetwork/jet-720/jetCookbook.html?component=legend&demo=default" target="_blank" rel="noopener noreferrer external">Legend</a> component. Take a look at the <a href="https://www.oracle.com/webfolder/technetwork/jet-720/jetCookbook.html?component=dataVisualizations&demo=filtering" target="_blank" rel="noopener noreferrer external">Associated Views: Filtering</a> use case in the Oracle JET Cookbook, to see where the idea for this plug-in came from. Explore the <a href="http://www.oracle.com/webfolder/technetwork/jet-720/jetCookbook.html?component=home&demo=rootVisualizations" target="_blank" rel="noopener noreferrer external">Oracle JET Data Visualizations Cookbook</a> to see other visualizations you can integrate as plug-ins in your application.
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--customIcons
+                t-Alert--info
+            ]
+            icon: fa-plug
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 60
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region information (
+        name: Information
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                This example demonstrates the use of an APEX plug-in based on the Oracle JET Legend, using the <a href="https://docs.oracle.com/en/middleware/developer-tools/jet/7.2/reference-api/oj.ojLegend.html" target="_blank" rel="noopener noreferrer external">ojLegend API</a>.<p/><p/>
+                
+                <strong>Note that in order for this example to work, the charts must be rendering series with the same names, and those series names are then used to populate the Legend.</strong><p/><p/>
+                <strong>1.</strong> Create 3 separate chart regions, which all render series with the same name e.g Acme Store, Deli, Shop C and Store A.<p/>
+                <strong>2.</strong> Set the Legend 'Show' attribute to 'No' for each of the charts.<p/>
+                <strong>3.</strong> Create a new JET Legend plug-in region on the page, based on the jetLegend Plug-in. Navigate to Shared Components > Plug-ins > jetLegend, to inspect the plug-in.<p/>
+                <p>
+                For more information on the Legend visualization settings, refer to the Oracle JET Cookbook <a href="https://www.oracle.com/webfolder/technetwork/jet/jetCookbook.html?component=legend&demo=default" target="_blank" rel="noopener noreferrer external">Legend: Basic</a> example and <a href="https://www.oracle.com/webfolder/technetwork/jet-800/jsdocs/oj.ojLegend.html" target="_blank" rel="noopener noreferrer external">ojLegend</a> API.  For more information on working with Plug-ins, refer to Chapter 19.2 <a href="https://docs.oracle.com/en/database/oracle/apex/22.2/htmdb/implementing-plug-ins.html" target="_blank" rel="noopener noreferrer external">Implementing Plug-ins</a> in the &PRODUCT_NAME. 20.1 User's Guide.
+                
+                
+                ```
+        }
+        layout {
+            sequence: 100
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region legend (
+        name: Legend
+        type: plugin/jetLegend
+        source {
+            sqlQuery:
+                ```sql
+                select distinct customer, 
+                       'Filter: '|| customer "description"
+                from eba_demo_chart_orders 
+                order by customer asc
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @oracle-jet-legend-component-as-a-plug-in
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                t-Region--scrollBody
+                t-Form--noPadding
+                margin-top-none
+                margin-bottom-sm
+                margin-left-none
+                margin-right-none
+            ]
+        }
+        advanced {
+            customAttributes: style="width:100%; height:100px;"
+        }
+        settings {
+            orientation: horizontal
+            horizontalAlignment: center
+        }
+    )
+
+    region oracle-jet-legend-component-as-a-plug-in (
+        name: Oracle JET Legend Component as a Plug-in
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region order-total-per-customer (
+        name: Order Total per Customer
+        type: chart
+        layout {
+            sequence: 40
+            parentRegion: @oracle-jet-legend-component-as-a-plug-in
+            slot: subRegions
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: pie
+        }
+        chartLayout {
+            height: 200
+        }
+        performance {
+            lazyLoading: true
+        }
+        value {
+            format: currency
+            decimalPlaces: 0
+            currency: EUR
+        }
+        legend {
+            show: false
+        }
+
+        series sales (
+            name: Sales
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select oi.customer,
+                           SUM(oi.quantity * p.list_price) sales
+                    from eba_demo_chart_orders oi
+                    ,    eba_demo_chart_products p
+                    where oi.product_id = p.product_id
+                    group by oi.customer
+                    order by oi.customer asc
+                    ```
+            }
+            columnMapping {
+                label: CUSTOMER
+                value: SALES
+            }
+        )
+
+    )
+
+    region orders-by-date (
+        name: Orders By Date
+        type: chart
+        layout {
+            sequence: 30
+            parentRegion: @oracle-jet-legend-component-as-a-plug-in
+            slot: subRegions
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: lineWithArea
+        }
+        chartLayout {
+            height: 200
+        }
+        performance {
+            lazyLoading: true
+        }
+        settings {
+            timeAxisType: mixedFrequency
+        }
+        legend {
+            show: false
+        }
+
+        series acme-store (
+            name: Acme Store
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select oi.sales_date,
+                           SUM(oi.quantity * p.list_price) sales
+                    from eba_demo_chart_orders oi
+                    ,    eba_demo_chart_products p
+                    where oi.product_id = p.product_id
+                    and oi.customer = 'Acme Store'
+                    group by oi.sales_date
+                    order by 1 asc
+                    ```
+            }
+            columnMapping {
+                label: SALES_DATE
+                value: SALES
+            }
+        )
+
+        series deli (
+            name: Deli
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select oi.sales_date,
+                           SUM(oi.quantity * p.list_price) sales
+                    from eba_demo_chart_orders oi
+                    ,    eba_demo_chart_products p
+                    where oi.product_id = p.product_id
+                    and oi.customer = 'Deli'
+                    group by oi.sales_date
+                    order by 1 asc
+                    ```
+            }
+            columnMapping {
+                label: SALES_DATE
+                value: SALES
+            }
+        )
+
+        series shop-c (
+            name: Shop C
+            execution {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select oi.sales_date,
+                           SUM(oi.quantity * p.list_price) sales
+                    from eba_demo_chart_orders oi
+                    ,    eba_demo_chart_products p
+                    where oi.product_id = p.product_id
+                    and oi.customer = 'Shop C'
+                    group by oi.sales_date
+                    order by 1 asc
+                    ```
+            }
+            columnMapping {
+                label: SALES_DATE
+                value: SALES
+            }
+        )
+
+        series store-a (
+            name: Store A
+            execution {
+                sequence: 40
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select oi.sales_date,
+                           SUM(oi.quantity * p.list_price) sales
+                    from eba_demo_chart_orders oi
+                    ,    eba_demo_chart_products p
+                    where oi.product_id = p.product_id
+                    and oi.customer = 'Store A'
+                    group by oi.sales_date
+                    order by 1 asc
+                    ```
+            }
+            columnMapping {
+                label: SALES_DATE
+                value: SALES
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y2
+            title: Y2 Axis Title
+            minorTicks {
+                show: false
+            }
+            dualYAxes {
+                show: true
+                splitterPosition: 0.7
+            }
+        )
+
+        axis y-2 (
+            name: y
+            title: Y1 Axis Title
+            value {
+                format: currency
+                decimalPlaces: 0
+                currency: EUR
+                formatScaling: none
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+    )
+
+    region orders-by-product (
+        name: Orders by Product
+        type: chart
+        layout {
+            sequence: 20
+            parentRegion: @oracle-jet-legend-component-as-a-plug-in
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chartLayout {
+            height: 200
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        legend {
+            show: false
+        }
+
+        series acme-store (
+            name: Acme Store
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Acme Store'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+        )
+
+        series deli (
+            name: Deli
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Deli'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+        )
+
+        series shop-c (
+            name: Shop C
+            execution {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Shop C'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+        )
+
+        series store-a (
+            name: Store A
+            execution {
+                sequence: 40
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select a.product_name, b.quantity, b.customer
+                    from eba_demo_chart_products a, eba_demo_chart_orders b
+                    where a.product_id = b.product_id
+                    and customer = 'Store A'
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Y1 Axis Title
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y-2 (
+            name: y2
+            title: Y2 Axis Title
+            minorTicks {
+                show: false
+            }
+            dualYAxes {
+                show: true
+                splitterPosition: 0.7
+            }
+        )
+
+    )
+
+)
+
+
+````

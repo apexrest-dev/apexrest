@@ -1,0 +1,410 @@
+# Sales by Store by Week — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00022-sales-by-store-by-week.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 0b02a7872e3d807c3c2e032bc1eebd25a2b3c5abddf5cd4f24ee524350b8ebe9.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 22 (
+    name: Sales by Store by Week
+    alias: SALES-BY-STORE-BY-WEEK
+    title: Sales by Store by Week
+    pageGroup: @reporting
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region sales-by-region-by-week (
+        name: Sales by Region by Week
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                    yyyy_ww yyyy_w,
+                    sum(decode(x.region_id,1,units_sold,0)) r1_units,
+                    sum(decode(x.region_id,2,units_sold,0)) r2_units,
+                    sum(decode(x.region_id,3,units_sold,0)) r3_units,
+                    sum(decode(x.region_id,1,total_sale,0)) r1_total_sale,
+                    sum(decode(x.region_id,2,total_sale,0)) r2_total_sale,
+                    sum(decode(x.region_id,3,total_sale,0)) r3_total_sale
+                from
+                (
+                select (select region_id 
+                        from OOW_DEMO_STORES s 
+                        where s.id = sh.store_id) region_id, 
+                       to_char(sh.date_of_sale, 'YYYY.WW') yyyy_ww,
+                       sum(sh.item_price * sh.QUANTITY) total_sale,
+                       sum(sh.quantity) units_sold
+                from OOW_DEMO_SALES_HISTORY sh
+                group by sh.store_id, to_char(sh.date_of_sale, 'YYYY.WW')
+                ) x
+                group by yyyy_ww
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2712029319722118413
+        }
+
+        column R1_TOTAL_SALE (
+            type: plainText
+            heading {
+                heading: &R1. Total Sale
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: $999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column R1_UNITS (
+            type: plainText
+            heading {
+                heading: &R1. Units
+                alignment: end
+            }
+            layout {
+                sequence: 4
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column R2_TOTAL_SALE (
+            type: plainText
+            heading {
+                heading: &R2. Total Sale
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: $999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column R2_UNITS (
+            type: plainText
+            heading {
+                heading: &R2. Units
+                alignment: end
+            }
+            layout {
+                sequence: 5
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column R3_TOTAL_SALE (
+            type: plainText
+            heading {
+                heading: &R3. Total Sale
+                alignment: end
+            }
+            layout {
+                sequence: 11
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: $999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column R3_UNITS (
+            type: plainText
+            heading {
+                heading: &R3. Units
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column YYYY_W (
+            type: plainText
+            heading {
+                heading: Week
+                alignment: center
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        savedReport 27120301 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn R1_TOTAL_SALE (
+                sequence: 3
+            )
+
+            displayColumn R1_UNITS (
+                sequence: 2
+            )
+
+            displayColumn R2_TOTAL_SALE (
+                sequence: 5
+            )
+
+            displayColumn R2_UNITS (
+                sequence: 4
+            )
+
+            displayColumn R3_TOTAL_SALE (
+                sequence: 7
+            )
+
+            displayColumn R3_UNITS (
+                sequence: 6
+            )
+
+            displayColumn YYYY_W (
+                sequence: 1
+            )
+
+            sort (
+                column: YYYY_W
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: TOTAL_SALE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            aggregate (
+                column: PRODUCT_SALES
+            )
+
+        )
+
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @sales-by-region-by-week
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 22
+                clearCache: [
+                    22
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: up
+        label: Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 19
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process set-regions (
+        name: set regions
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                   i integer := 0;
+                begin
+                
+                for c1 in (select region_name from OOW_DEMO_REGIONS order by id) loop
+                   i := i + 1;
+                   if i = 1 then :R1 := c1.region_name; end if;
+                   if i = 2 then :R2 := c1.region_name; end if;
+                   if i = 3 then :R3 := c1.region_name; end if;
+                   if i = 4 then :R4 := c1.region_name; end if;
+                   if i = 5 then :R5 := c1.region_name; end if;
+                end loop;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 16594361276569978206
+        }
+    )
+
+)
+
+
+````

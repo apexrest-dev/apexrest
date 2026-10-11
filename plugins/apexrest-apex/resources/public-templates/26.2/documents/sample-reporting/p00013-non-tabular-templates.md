@@ -1,0 +1,378 @@
+# Non-Tabular Templates — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00013-non-tabular-templates.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 3f6a96efbd4c3aa20db97f297eeee4349f5823200d0bf197b1a49b2886af1c13.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 13 (
+    name: Non-Tabular Templates
+    alias: NON-TABULAR-TEMPLATES
+    title: Non-Tabular Templates
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>This classic report is a standard report region created using the create page wizard. The SQL used to create the report is displayed in the show/hide region at the bottom of the page. This report demonstrates a <strong>Comment Bubbles</strong> report template, rather than a strictly tabular output.</p><p>Report templates define the layout for a specific row. The columns are positioned in the row using column position or column name syntax.  In this example, column name is used; the aliases given to columns must match the names specified in the template. You can also create custom report templates using column position, so the first column selected by the report is <strong>#1#</strong>, the second is <strong>#2#</strong>, etc.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region comment-bubbles (
+        name: Comment Bubbles
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select null class,
+                    'fa fa-user' icon_modifier,
+                    null user_icon,
+                    'Project: '||PROJECT comment_text,
+                    '<br>Task: '||apex_escape.html(TASK_NAME) attribute_1,
+                    '<br>Status: '||apex_escape.html(Status) attribute_2,
+                    null attribute_3,
+                    null attribute_4,
+                    ASSIGNED_TO user_name,
+                    apex_util.get_since(START_DATE) as comment_date,
+                    null actions
+                from EBA_DEMO_IR_PROJECTS
+                where (nvl(:P13_STATUS,'0') = '0' or :P13_STATUS = status)
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: comment_bubbles
+        }
+        reportLayout {
+            numberOfRowsType: itemValue
+            item: P13_ROWS
+        }
+        componentAppearance {
+            template: @/comments
+            templateOptions: [
+                #DEFAULT#
+                t-Comments--chat
+            ]
+        }
+        messages {
+            whenNoDataFound: No data found.
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column ACTIONS (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            heading {
+                heading: Actions
+            }
+            layout {
+                sequence: 9
+            }
+        )
+
+        column ATTRIBUTE_1 (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Attribute 1
+            }
+            layout {
+                sequence: 3
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ATTRIBUTE_2 (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Attribute 2
+            }
+            layout {
+                sequence: 4
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ATTRIBUTE_3 (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Attribute 3
+            }
+            layout {
+                sequence: 5
+            }
+        )
+
+        column ATTRIBUTE_4 (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Attribute 4
+            }
+            layout {
+                sequence: 6
+            }
+        )
+
+        column CLASS (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Class
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_DATE (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: Comment date
+            }
+            layout {
+                sequence: 8
+            }
+        )
+
+        column COMMENT_TEXT (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Comment text
+            }
+            layout {
+                sequence: 2
+            }
+        )
+
+        column ICON_MODIFIER (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Icon modifier
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        column USER_ICON (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: User icon
+            }
+            layout {
+                sequence: 11
+            }
+        )
+
+        column USER_NAME (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: User name
+            }
+            layout {
+                sequence: 7
+            }
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 10
+            parentRegion: @comment-bubbles
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: comment_bubbles
+        }
+    )
+
+    pageItem P13_ROWS (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @comment-bubbles
+            slot: regionBody
+        }
+        source {
+            type: staticValue
+            staticValue: 5
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P13_STATUS (
+        type: selectList
+        label {
+            label: Status
+            alignment: left
+        }
+        settings {
+            pageActionOnSelection: redirectSetValue
+        }
+        lov {
+            type: sharedComponent
+            lov: @distinct-status-values
+            nullDisplayValue: - All Status Codes -
+            nullReturnValue: 0
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        security {
+            restrictedChars: webSafe
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 13
+                clearCache: 13
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

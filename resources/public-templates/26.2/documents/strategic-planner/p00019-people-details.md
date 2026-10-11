@@ -1,0 +1,1120 @@
+# People Details — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00019-people-details.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 87367e73d8568344c709bf47e1079a4daaa78436d4a0d99c287b108465e11915.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 19 (
+    name: People Details
+    alias: PEOPLE-DETAILS
+    title: &NOMENCLATURE_USERS. Details
+    pageGroup: @users
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: [
+            #DEFAULT#
+            t-PageBody--noContentPadding
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    help {
+        helpText: Summary statistics for all &NOMENCLATURE_USERS. identified in the application.
+    }
+    comments {
+        comments:
+            ```
+            Includes counts where user is the &NOMENCLATURE_AREA. owner, &NOMENCLATURE_INITIATIVE. Owner, &NOMENCLATURE_PROJECT. Owner, count of Current and Future Activities, Documents they uploaded, Comments they have added, as well as Milestones, Reviews, and Tasks they own.
+            Filterable on their Application Role (App Role), Tags, Country, whether or not they have Current or Future Activities, their email domain, whether or not they have subscriptions (Automated notifications about Project Changes, Project Exceptions, Weekly Summary) and whether or not they have a profile photo.
+            ```
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region faceted-search (
+        name: Faceted Search
+        type: facetedSearch
+        source {
+            filteredRegion: @users
+        }
+        layout {
+            sequence: 30
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: selector
+            currentFacetsSelector: #active_facets
+            displayChartForTopNValues: 20
+        }
+
+        facet P19_APP_ROLE (
+            type: checkboxGroup
+            label {
+                label: App Role
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: APP_ROLE
+            }
+        )
+
+        facet P19_COUNTRY (
+            type: checkboxGroup
+            label {
+                label: Country
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 50
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: COUNTRY
+            }
+        )
+
+        facet P19_EMAIL_DOMAIN (
+            type: checkboxGroup
+            label {
+                label: Email Domain
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 70
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: EMAIL_DOMAIN
+            }
+        )
+
+        facet P19_HAS_ACTIVITIES (
+            type: checkboxGroup
+            label {
+                label: Current or Future Activities
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 60
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: HAS_ACTIVITIES
+            }
+        )
+
+        facet P19_HAS_PROFILE_PHOTO (
+            type: checkboxGroup
+            label {
+                label: Has Profile Photo
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 110
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: HAS_PROFILE_PHOTO
+            }
+        )
+
+        facet P19_HAS_SUBSCRIPTIONS (
+            type: checkboxGroup
+            label {
+                label: Has Subscriptions
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 100
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: HAS_SUBSCRIPTIONS
+            }
+        )
+
+        facet P19_IS_CURRENT (
+            type: checkboxGroup
+            label {
+                label: Is Current
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 90
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: IS_CURRENT
+            }
+        )
+
+        facet P19_PROJECT_LEAD (
+            type: checkboxGroup
+            label {
+                label: &NOMENCLATURE_PROJECT. Owner
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: PROJECT_LEAD
+            }
+        )
+
+        facet P19_REGION (
+            type: checkboxGroup
+            label {
+                label: Region
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 40
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: REGION
+            }
+        )
+
+        facet P19_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P19_TAGS (
+            type: checkboxGroup
+            label {
+                label: Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+    )
+
+    region filters (
+        name: filters
+        type: staticContent
+        source {
+            htmlCode: <div id="active_facets"></div>
+        }
+        layout {
+            sequence: 3
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: [
+                #DEFAULT#
+                margin-top-md
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region users (
+        name: "Users "
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                   id, 
+                   name,
+                   email_domain,
+                   email,
+                   tags,
+                   is_current,
+                   updated,
+                   focus_area_leads,
+                   initiatives_leads,
+                   project_leads,
+                   documents,
+                   comments,
+                   activities,
+                   --
+                   -- total
+                   --
+                   nvl(focus_area_leads,0) + 
+                   nvl(initiatives_leads,0) + 
+                   nvl(project_leads,0) + 
+                   nvl(documents,0) + 
+                   nvl(comments,0) + 
+                   nvl(comment_mentions,0) +
+                   nvl(activities,0) +
+                   nvl(milestones,0) +
+                   nvl(reviews,0)+
+                   nvl(tasks,0) total,
+                   --
+                   --
+                   --
+                   decode(nvl(project_leads,0),0,'No','Yes') project_lead,
+                   comment_mentions,
+                   app_role,
+                   nvl((select COUNTRY_NAME from sp_countries cc where cc.id = x.country_id),'Unknown') country,
+                   nvl((select region from sp_countries cc where cc.id = x.country_id),'Unknown') region,
+                   milestones,
+                   reviews,
+                   tasks,
+                   has_activities,
+                   active_subscriptions,
+                   decode(active_subscriptions,0,'No','Yes') has_subscriptions,
+                   has_profile_photo
+                from (
+                select 
+                    t.ID,
+                    t.FIRST_NAME||' '||t.last_name name,
+                    t.country_id,
+                    t.TAGS,
+                    t.app_role,
+                    decode(t.IS_CURRENT_YN,'Y','Yes','N','No',IS_CURRENT_YN) IS_CURRENT,
+                    t.UPDATED,
+                    t.email,
+                    t.email_domain,
+                    --
+                    --flags
+                    --
+                    nvl((select 'Yes' from dual where exists (
+                        select 1 
+                        from SP_ACTIVITIES ap 
+                        where ap.TEAM_MEMBER_ID = t.id and 
+                              ap.end_date >= trunc(sysdate) and
+                              (nvl(ap.private_yn,'N') = 'N' or ap.team_member_id = :APP_USER_ID)
+                        )),'No') has_activities,
+                    --
+                    -- project child attributes
+                    --
+                    (select count(*) from SP_AREAS f where f.owner_id = t.id) focus_area_leads,
+                    (select count(*) from SP_INITIATIVES i where i.sponsor_id = t.id) initiatives_leads,
+                    (select count(*) from sp_projects p where p.owner_id = t.id and ARCHIVED_YN = 'N') project_leads,
+                    (select count(*) from SP_TASKS a, sp_task_types tt 
+                      where nvl(a.task_sub_type_id,a.task_type_id) = tt.id
+                        and tt.static_id like 'MILESTONE%'
+                        and a.owner_id = t.id) milestones,
+                    (select count(*) from SP_TASKS a, sp_task_types tt 
+                      where nvl(a.task_sub_type_id,a.task_type_id) = tt.id
+                        and tt.static_id like 'REVIEW%'
+                        and a.owner_id = t.id) reviews,
+                    (select count(*) from SP_TASKS a, sp_task_types tt 
+                      where nvl(a.task_sub_type_id,a.task_type_id) = tt.id
+                        and tt.static_id not like 'MILESTONE%'
+                        and tt.static_id not like 'REVIEW%'
+                        and a.owner_id = t.id) tasks,
+                    (select count(*) from SP_PROJECT_DOCUMENTS d where d.created_by = upper(t.email)) documents,
+                    (select count(*) from SP_PROJECT_COMMENTS c where c.AUTHOR_ID = t.id) comments,
+                    (select count(*) from SP_ACTIVITIES ap 
+                      where ap.TEAM_MEMBER_ID = t.id and ap.end_date >= trunc(sysdate)
+                        and (nvl(ap.private_yn,'N') = 'N' or ap.team_member_id = :APP_USER_ID)) activities,
+                    --
+                    -- subscriptions
+                    --
+                    nvl((select count(*) from SP_NOTIFICATION_SUBSCRIPTIONS ns where ns.team_member_id = t.id and ns.opted_in_yn = 'Y'),0) active_subscriptions,
+                    --
+                    -- profile photo
+                    --
+                    decode(dbms_lob.getlength(photo),null,'No',decode(dbms_lob.getlength(photo),0,'No','Yes')) has_profile_photo,
+                    --
+                    -- comment mentions
+                    --
+                    (   
+                    select count(distinct p.id)
+                    from SP_PROJECT_COMMENTS_EMAILS e,
+                         sp_projects p, 
+                         sp_team_members tm,
+                         SP_PROJECT_COMMENTS c
+                    where t.id = tm.id and
+                          e.email = tm.email and
+                          c.id = e.COMMENT_ID and
+                          c.project_id = p.id) comment_mentions
+                from SP_TEAM_MEMBERS t
+                ) x
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+                t-Region--scrollBody
+                margin-bottom-none
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        reportLayout {
+            numberOfRows: 30
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--staticRowColors
+                t-Report--rowHighlight
+                t-Report--inline
+            ]
+        }
+        breakFormatting {
+            reportSumLabel: Total
+        }
+
+        column ACTIVE_SUBSCRIPTIONS (
+            reportColumnQueryId: 24
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 260
+            }
+        )
+
+        column ACTIVITIES (
+            reportColumnQueryId: 13
+            derivedColumn: N
+            heading {
+                heading: Current or Future Activities
+                alignment: end
+            }
+            layout {
+                sequence: 90
+                columnAlignment: end
+            }
+            advanced {
+                computeSum: true
+            }
+            config {
+                buildOption: @activity-planning
+            }
+        )
+
+        column APP_ROLE (
+            reportColumnQueryId: 17
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 230
+            }
+        )
+
+        column COMMENTS (
+            reportColumnQueryId: 12
+            derivedColumn: N
+            heading {
+                heading: Comments
+                alignment: end
+            }
+            layout {
+                sequence: 110
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column COMMENT_MENTIONS (
+            reportColumnQueryId: 16
+            derivedColumn: N
+            heading {
+                heading: Mentions
+                alignment: end
+            }
+            layout {
+                sequence: 120
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+        )
+
+        column COUNTRY (
+            reportColumnQueryId: 18
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 180
+            }
+        )
+
+        column DOCUMENTS (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            heading {
+                heading: Documents
+                alignment: end
+            }
+            layout {
+                sequence: 100
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column EMAIL (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Email
+            }
+            layout {
+                sequence: 190
+            }
+        )
+
+        column EMAIL_DOMAIN (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 210
+            }
+        )
+
+        column FOCUS_AREA_LEADS (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: &NOMENCLATURE_AREA. Owner
+                alignment: end
+            }
+            layout {
+                sequence: 50
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column HAS_ACTIVITIES (
+            reportColumnQueryId: 23
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 250
+            }
+        )
+
+        column HAS_PROFILE_PHOTO (
+            reportColumnQueryId: 26
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 280
+            }
+        )
+
+        column HAS_SUBSCRIPTIONS (
+            reportColumnQueryId: 25
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 270
+            }
+        )
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: link
+            heading {
+                alignment: center
+            }
+            layout {
+                sequence: 10
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    page: 20
+                    items: {
+                        P20_ID: #ID#
+                    }
+                    clearCache: 20
+                    action: resetPagination
+                }
+                linkText: <span aria-hidden="true" class="fa fa-pencil-square-o"></span>
+            }
+            security {
+                authorizationScheme: @administration-rights
+            }
+        )
+
+        column INITIATIVES_LEADS (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: &NOMENCLATURE_INITIATIVE. Owner
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column IS_CURRENT (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 170
+            }
+        )
+
+        column MILESTONES (
+            reportColumnQueryId: 20
+            derivedColumn: N
+            heading {
+                heading: Milestones
+                alignment: end
+            }
+            layout {
+                sequence: 130
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+        )
+
+        column NAME (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            type: link
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 30
+            }
+            link {
+                target: {
+                    page: 73
+                    items: {
+                        P73_TEAM_MEMBER_ID: #ID#
+                    }
+                    clearCache: 73
+                    action: resetPagination
+                }
+                linkText: #NAME#
+            }
+        )
+
+        column PROJECT_LEAD (
+            reportColumnQueryId: 15
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 220
+            }
+        )
+
+        column PROJECT_LEADS (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: &NOMENCLATURE_PROJECT. Owner
+                alignment: end
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column REGION (
+            reportColumnQueryId: 19
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 240
+            }
+        )
+
+        column REVIEWS (
+            reportColumnQueryId: 21
+            derivedColumn: N
+            heading {
+                heading: Reviews
+                alignment: end
+            }
+            layout {
+                sequence: 140
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+        )
+
+        column TAGS (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+
+        column TASKS (
+            reportColumnQueryId: 22
+            derivedColumn: N
+            heading {
+                heading: Tasks
+                alignment: end
+            }
+            layout {
+                sequence: 150
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+        )
+
+        column TOTAL (
+            reportColumnQueryId: 14
+            derivedColumn: N
+            heading {
+                heading: Total
+                alignment: end
+            }
+            layout {
+                sequence: 160
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G999G990
+            }
+            advanced {
+                computeSum: true
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 200
+            }
+            appearance {
+                formatMask: SINCE_SHORT
+            }
+            sorting {
+                defaultSequence: 1
+                direction: desc
+            }
+        )
+
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about-users (
+            label: About &NOMENCLATURE_USERS.
+            layout {
+                sequence: 50
+            }
+            behavior {
+                target: {
+                    page: 109
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu add-users (
+            label: Add Multiple &NOMENCLATURE_USERS.
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 54
+                    clearCache: 54
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-users
+            }
+            security {
+                authorizationScheme: @administration-rights
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 70
+            }
+            behavior {
+                target: {
+                    page: 19
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 80
+            }
+            behavior {
+                target: {
+                    page: 19
+                    clearCache: 19
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+        menu sep (
+            type: separator
+            layout {
+                sequence: 60
+            }
+        )
+
+        menu user-details (
+            label: View &NOMENCLATURE_USERS. List
+            layout {
+                sequence: 40
+            }
+            behavior {
+                target: {
+                    page: 74
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-users
+            }
+        )
+
+    )
+
+    button add-person (
+        buttonName: add_person
+        label: Add &NOMENCLATURE_USER.
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 20
+                clearCache: 20
+                action: resetPagination
+            }
+        }
+        security {
+            authorizationScheme: @administration-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 74
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction dc (
+        name: DC
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @users
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @users
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-dialog-closed (
+        name: refresh on dialog closed
+        execution {
+            sequence: 40
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @breadcrumb
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @users
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process sync-roles (
+        name: sync roles
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                sp_util.sync_team_members_app_role (
+                    p_app_id => :APP_ID);
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 9209641616217814331
+        }
+    )
+
+)
+
+
+````

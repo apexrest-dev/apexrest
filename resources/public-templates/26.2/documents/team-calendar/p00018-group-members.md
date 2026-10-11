@@ -1,0 +1,494 @@
+# Group Members — Team Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/team-calendar/apexlang/team-calendar/pages/p00018-group-members.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: cf911d675afc68217472e03316c32a002aa9b52bf9dd455a7dcb4ebc93edd4c8.
+
+Application dependency inventory: oracle:26.2:public-template/team-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 18 (
+    name: Group Members
+    alias: GROUP-MEMBERS
+    title: Group Members
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+            t-Dialog--noPadding
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>Groups allow you to email events to a set of emails.</p>
+    }
+
+    region breadcrumb (
+        name: breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: dialogHeader
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        serverSideCondition {
+            type: never
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region group-members (
+        name: Group Members
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.group_name,
+                       m.mbr_id,
+                       m.email_address,
+                       m.CREATED_ON,
+                       lower(m.CREATED_BY) created_by,
+                       m.LAST_UPDATED_ON,
+                       lower(m.LAST_UPDATED_BY) last_updated_by,
+                       g.group_id
+                  from EBA_CA_EMAIL_GROUPS g,
+                       EBA_ca_email_group_mbrs m
+                 where g.group_id = m.group_id
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 19
+                items: {
+                    P19_MBR_ID: #MBR_ID#
+                }
+                clearCache: 19
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit Member #EMAIL_ADDRESS#"
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No group members found.
+            whenMoreDataFound: This query returns more than 10,000 rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 7364559298280393615
+        }
+
+        columnGroup audit-info (
+            name: Audit Info
+            layout {
+                sequence: 20
+            }
+        )
+
+        columnGroup details (
+            name: Details
+            layout {
+                sequence: 10
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 4
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            help {
+                helpText: The user who created the record.
+            }
+        )
+
+        column CREATED_ON (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 10
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column EMAIL_ADDRESS (
+            type: plainText
+            heading {
+                heading: Email Address
+            }
+            layout {
+                sequence: 9
+                group: @details
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column GROUP_ID (
+            type: hidden
+            heading {
+                heading: Selected Group
+            }
+            layout {
+                sequence: 12
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: M
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column GROUP_NAME (
+            type: plainText
+            heading {
+                heading: Group Name
+            }
+            layout {
+                sequence: 7
+                group: @details
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column LAST_UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Last Updated By
+            }
+            layout {
+                sequence: 5
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+            help {
+                helpText: The user who last updated the record.
+            }
+        )
+
+        column LAST_UPDATED_ON (
+            type: plainText
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 11
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column MBR_ID (
+            type: hidden
+            heading {
+                heading: Mbr Id
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        savedReport 6244322 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn EMAIL_ADDRESS (
+                sequence: 2
+            )
+
+            displayColumn GROUP_NAME (
+                sequence: 1
+            )
+
+            sort (
+                column: GROUP_NAME
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: EMAIL_ADDRESS
+                sort {
+                    sequence: 2
+                }
+            )
+
+        )
+
+        savedReport 6244324 (
+            visibility: alternativeDefault
+            name: with Audit Info
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CREATED_BY (
+                sequence: 4
+            )
+
+            displayColumn CREATED_ON (
+                sequence: 3
+            )
+
+            displayColumn EMAIL_ADDRESS (
+                sequence: 2
+            )
+
+            displayColumn GROUP_NAME (
+                sequence: 1
+            )
+
+            displayColumn LAST_UPDATED_BY (
+                sequence: 6
+            )
+
+            displayColumn LAST_UPDATED_ON (
+                sequence: 5
+            )
+
+            sort (
+                column: GROUP_NAME
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Member
+        layout {
+            sequence: 30
+            region: @group-members
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 19
+                clearCache: 19
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button create-multiple (
+        buttonName: CREATE_MULTIPLE
+        label: Add Multiple Members
+        layout {
+            sequence: 20
+            region: @group-members
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconRight
+            ]
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 21
+                clearCache: 21
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @group-members
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-calendar (
+        name: Refresh Calendar
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Action Processed.');
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @group-members
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

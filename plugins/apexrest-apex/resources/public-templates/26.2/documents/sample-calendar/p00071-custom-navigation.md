@@ -1,0 +1,521 @@
+# Custom Navigation — Sample Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-calendar/apexlang/sample-calendar/pages/p00071-custom-navigation.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 7b30e58f4dd7635b68efd4101a096b613df5dc8d2395c563f24146572d55cfbd.
+
+Application dependency inventory: oracle:26.2:public-template/sample-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 71 (
+    name: Custom Navigation
+    alias: CUSTOM-NAVIGATION
+    title: Custom Navigation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration:
+            ```javascript-browser
+            function formatYYYYMMDD( pDate ) {
+                var date = pDate || new Date(),
+                    separator = "-";
+            
+                return ( "0000" + date.getFullYear() ).substr( -4 ) + separator + ( "00" + ( date.getMonth() + 1 ) ).substr( -2 ) + separator + ( "00" + date.getDate() ).substr( -2 );
+            }
+            ```
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This calendar component has all navigation elements being disabled. Instead, APEX buttons (<strong>NEXT</strong> and <strong>PREV</strong>) have been created to move to the next or previous pages. After entering a date (format <strong>YYYY-MM-DD</strong>) into the <strong>P71_GOTODATE</strong> text field, the calendar component displays that date immediately.</p>
+                <p>Dynamic actions with <strong>Execute JavaScript Code</strong> action have been created on the buttons as well as on the text field. The <em>APEX region interface</em> allows to access the calendar widget Javascript object, onto which <a href="https://fullcalendar.io/docs/" target="_blank" rel="noopener noreferrer external">FullCalendar</a> API methods are being executed as follows.</p>
+                <pre>
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").gotoDate("<em>YYYY-MM-DD</em>");
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").next();
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").prev();
+                </pre>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: [
+                #DEFAULT#
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            excludeTitleFromTranslation: true
+        }
+    )
+
+    region tasks (
+        name: Tasks
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                   id,
+                   project,
+                   task_name,
+                   status,
+                   assigned_to,
+                   cost,
+                   start_date,
+                   end_date,
+                   case
+                      when status = 'Pending' then 'apex-cal-blue'
+                      when status = 'Open' then 'apex-cal-green'
+                      when status = 'Closed' then 'apex-cal-gray'
+                      when status = 'On-Hold' then 'apex-cal-orange'
+                   end as css_class
+                from eba_demo_cal_projects
+                where (nvl(:P71_PROJECTS,'0') = '0' or project = :P71_PROJECTS)
+                order by end_date
+                ```
+            pageItemsToSubmit: P71_PROJECTS
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: project_tasks
+        }
+        settings {
+            displayColumn: TASK_NAME
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            viewEditLink: {
+                page: 3
+                items: {
+                    P3_ID: &ID.
+                    P3_LASTVIEW: &APP_PAGE_ID.
+                }
+                action: resetPagination
+            }
+            maxEventsDay: 5
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+
+    pageItem P71_GOTODATE (
+        type: datePicker
+        label {
+            label: Goto date
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD
+            width: 30
+        }
+    )
+
+    pageItem P71_PROJECTS (
+        type: selectList
+        label {
+            label: Project
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @distinct-projects
+            nullDisplayValue: - All Projects -
+            nullReturnValue: 0
+        }
+        layout {
+            sequence: 30
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            type: staticValue
+            staticValue: 0
+        }
+        default {
+            type: static
+            staticValue: 0
+        }
+    )
+
+    pageItem P71_VIEWTYPE (
+        type: selectList
+        label {
+            label: View Type
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Month;dayGridMonth,Week;timeGridWeek,Day;timeGridDay,List;list
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 40
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next Calendar Page
+        layout {
+            sequence: 20
+            region: @button-bar
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconRight
+            ]
+            icon: fa-angle-double-right
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+    )
+
+    button prev (
+        buttonName: PREV
+        label: Previous Calendar Page
+        layout {
+            sequence: 30
+            region: @button-bar
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-angle-double-left
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+    )
+
+    button today (
+        buttonName: TODAY
+        label: Today
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+            executeValidations: false
+        }
+    )
+
+    dynamicAction calendar-next-month (
+        name: Calendar: Next Month
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @next
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.region("project_tasks").widget().data("fullCalendar").next()
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction calendar-prev-month (
+        name: Calendar: Prev Month
+        execution {
+            sequence: 30
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @prev
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.region("project_tasks").widget().data("fullCalendar").prev()
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-project-refresh-calendar (
+        name: Change Project - Refresh Calendar
+        execution {
+            sequence: 10
+        }
+        when {
+            selectionType: items
+            items: P71_PROJECTS
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @tasks
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction change-view (
+        name: Change View
+        execution {
+            sequence: 60
+        }
+        when {
+            selectionType: items
+            items: P71_VIEWTYPE
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.region("project_tasks").widget().data("fullCalendar").changeView($v("P71_VIEWTYPE"))
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction focus-date (
+        name: Focus Date
+        execution {
+            sequence: 40
+        }
+        when {
+            selectionType: items
+            items: P71_GOTODATE
+        }
+        clientSideCondition {
+            type: jsExpression
+            javaScriptExpression: $v("P71_GOTODATE").match(/\d\d\d\d\-\d\d\-\d\d/) != null
+        }
+
+        action native-alert (
+            action: alert
+            settings {
+                message: Please use YYYY-MM-DD
+            }
+            execution {
+                sequence: 10
+                fireWhenEventResultIs: false
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.region("project_tasks").widget().data("fullCalendar").gotoDate($v("P71_GOTODATE"))
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction set-goto-date-to-today (
+        name: Set Goto Date to "today"
+        execution {
+            sequence: 70
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @today
+        }
+
+        action native-set-value (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: formatYYYYMMDD()
+            }
+            affectedElements {
+                selectionType: items
+                items: P71_GOTODATE
+            }
+            execution {
+                sequence: 10
+            }
+        )
+
+    )
+
+    dynamicAction set-view-type (
+        name: set View Type
+        execution {
+            sequence: 50
+        }
+        when {
+            event: ready
+        }
+
+        action native-set-value (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: apex.region("project_tasks").widget().data("fullCalendar").view.type
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: [
+                    P71_PROJECTS
+                    P71_VIEWTYPE
+                ]
+            }
+            execution {
+                sequence: 10
+            }
+        )
+
+    )
+
+)
+
+
+````

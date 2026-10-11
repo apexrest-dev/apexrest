@@ -1,0 +1,386 @@
+# Validate Customer — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00010-validate-customer.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: bf7aadc3b6874997e28b14335c52b7b8f8b29f0ffebafc18a15772e1bf9deede.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 10 (
+    name: Validate Customer
+    alias: VALIDATE-CUSTOMER
+    title: Validate Customer
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @contribution-rights
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region form-items (
+        name: form items
+        type: staticContent
+        layout {
+            sequence: 30
+            parentRegion: @validate-account
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region introduction-text (
+        name: Introduction text
+        type: staticContent
+        source {
+            htmlCode: <p>If you feel this customer's contacts, products, updates, links, and attachments are correct and accurate please validate the customer by clicking the highlighted button.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: infoTextRegion
+        }
+    )
+
+    region previous-verifications (
+        name: Previous Verifications
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                	lower(verified_by) as validated_by,
+                        created last_validated,
+                	created validation_date,
+                	verification_comment
+                from
+                	eba_cust_verifications
+                where
+                	cust_id = :P10_ID
+                order by
+                	created desc
+                ```
+        }
+        layout {
+            sequence: 40
+            parentRegion: @validate-account
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        reportLayout {
+            numberOfRows: 50
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+            showNullValuesAs: " - "
+        }
+        messages {
+            whenNoDataFound: No validations have been recorded
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column LAST_VALIDATED (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Last Validated
+            }
+            layout {
+                sequence: 2
+            }
+            appearance {
+                formatMask: since
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column VALIDATED_BY (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Validated By
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column VALIDATION_DATE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Validation Date
+            }
+            layout {
+                sequence: 3
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column VERIFICATION_COMMENT (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Comment
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region validate-account (
+        name: Validate Account
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+    )
+
+    pageItem P10_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @form-items
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P10_I_VALIDATE (
+        type: checkboxGroup
+        label {
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:I validate this project status is accurate;VALIDATED
+        }
+        layout {
+            sequence: 30
+            region: @form-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P10_VERIFICATION_COMMENT (
+        type: textarea
+        label {
+            label: Comment
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 20
+            region: @form-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 80
+            height: 5
+        }
+        validation {
+            maxLength: 4000
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_VIEW.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: I verify customer content is accurate
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process verify-customer (
+        name: verify customer
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                insert into eba_cust_verifications
+                (cust_id, verified_by, verification_comment)
+                values
+                (:P10_ID, :app_user, :P10_VERIFICATION_COMMENT);
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Account verified
+        }
+        error {
+            errorMessage: Unable to verify account
+        }
+        advanced {
+            executionMappingIdentifier: 14932467684980786875
+        }
+        serverSideCondition {
+            whenButtonPressed: @create
+        }
+    )
+
+    branch (
+        name: back to customer
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 50
+                items: {
+                    P50_ID: &P10_ID.
+                }
+                clearCache: 10
+                action: resetPagination
+            }
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,344 @@
+# Create/Edit Customer — Json Sample Sources
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/json-sample-sources/apexlang/json-sample-sources/pages/p00406-customers.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 897c4055bc83811453787d19085daa3e080657aa07a292ffc414a2a4284135bb.
+
+Application dependency inventory: oracle:26.2:public-template/json-sample-sources/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 406 (
+    name: Create/Edit Customer
+    alias: CUSTOMERS
+    title: Create/Edit Customer
+    pageGroup: @data-presentation
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        chained: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region master-detail (
+        name: Master Detail
+        type: form
+        source {
+            location: jsonDualityView
+            jsonDualityView: @eba_demo_json_customer_orders_dv
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P406_EMAIL_ADDRESS (
+        type: textField
+        label {
+            label: Email Address
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @master-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 32
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @master-detail
+            column: EMAIL_ADDRESS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P406_FULL_NAME (
+        type: textField
+        label {
+            label: Full Name
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @master-detail
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 32
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @master-detail
+            column: FULL_NAME
+            dataType: varchar2
+        }
+    )
+
+    pageItem P406_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @master-detail
+            slot: regionBody
+        }
+        source {
+            formRegion: @master-detail
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P406_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P406_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P406_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 9929778692444820
+        }
+        serverSideCondition {
+            whenButtonPressed: @save
+        }
+    )
+
+    process initialize-form-master-detail (
+        name: Initialize form Master Detail
+        type: formInitialization
+        formRegion: @master-detail
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 9928931913444819
+        }
+    )
+
+    process process-form-master-detail (
+        name: Process form Master Detail
+        type: formAutoRowProcessing
+        formRegion: @master-detail
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 9929360285444820
+        }
+    )
+
+    branch (
+        name: Redirect to new
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 405
+                items: {
+                    P405_ID: &P406_ID.
+                }
+                action: resetPagination
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @create
+        }
+    )
+
+    branch (
+        name: Redirect to all
+        execution {
+            sequence: 20
+        }
+        behavior {
+            target: {
+                page: 405
+                clearCache: 405
+                action: resetPagination
+            }
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+)
+
+
+````

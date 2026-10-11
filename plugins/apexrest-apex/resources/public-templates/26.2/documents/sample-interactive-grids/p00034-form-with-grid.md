@@ -1,0 +1,705 @@
+# Form with Grid — Sample Interactive Grids
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-interactive-grids/apexlang/sample-interactive-grids/pages/p00034-form-with-grid.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 91f2f1f114e6cc2b4f2ee2e37d21619f4f8d17c028b844bca0e4d2b4b8fc685e.
+
+Application dependency inventory: oracle:26.2:public-template/sample-interactive-grids/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 34 (
+    name: Form with Grid
+    alias: FORM-WITH-GRID
+    title: Form with Grid
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            excludeTitleFromTranslation: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region change-control (
+        name: Change Control
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region employees (
+        name: Employees
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select EMPNO,
+                       ENAME,
+                       JOB,
+                       MGR,
+                       HIREDATE,
+                       SAL,
+                       COMM,
+                       ONLEAVE,
+                       NOTES,
+                       DEPTNO
+                  from EBA_DEMO_IG_EMP
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: emp
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: page
+        }
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+            ]
+        }
+        download {
+            formats: [
+                csv
+                html
+                excel
+                pdf
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 1411867162368370289
+        }
+
+        savedReport 14482 (
+            visibility: primary
+            view {
+                default: grid
+                rowsPerPage: 5
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    sequence: 1
+                }
+            )
+
+            displayColumn (
+                column: @EMPNO
+                layout {
+                    sequence: 2
+                }
+            )
+
+            displayColumn (
+                column: @ENAME
+                layout {
+                    sequence: 3
+                }
+            )
+
+            displayColumn (
+                column: @JOB
+                layout {
+                    sequence: 4
+                }
+            )
+
+            displayColumn (
+                column: @MGR
+                layout {
+                    sequence: 5
+                }
+            )
+
+            displayColumn (
+                column: @HIREDATE
+                layout {
+                    sequence: 6
+                }
+            )
+
+            displayColumn (
+                column: @SAL
+                layout {
+                    sequence: 7
+                }
+            )
+
+            displayColumn (
+                column: @COMM
+                layout {
+                    sequence: 8
+                }
+            )
+
+            displayColumn (
+                column: @ONLEAVE
+                layout {
+                    sequence: 9
+                }
+            )
+
+            displayColumn (
+                column: @NOTES
+                layout {
+                    sequence: 10
+                }
+            )
+
+            displayColumn (
+                column: @DEPTNO
+                layout {
+                    sequence: 11
+                }
+            )
+
+        )
+
+        column APEX$ROW_ACTION (
+            type: actionsMenu
+            layout {
+                sequence: 20
+            }
+        )
+
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 10
+            }
+        )
+
+        column COMM (
+            type: numberField
+            heading {
+                heading: Commission
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
+            }
+            layout {
+                sequence: 90
+                columnAlignment: end
+            }
+            source {
+                databaseColumn: COMM
+                dataType: number
+            }
+        )
+
+        column DEPTNO (
+            type: selectList
+            heading {
+                heading: Department
+            }
+            lov {
+                type: sqlQuery
+                sqlQuery: select DNAME as d, DEPTNO as r from EBA_DEMO_IG_DEPT order by 1
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: DEPTNO
+                dataType: number
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column EMPNO (
+            type: hidden
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: EMPNO
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column ENAME (
+            type: textField
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 40
+            }
+            validation {
+                valueRequired: true
+                maxLength: 60
+            }
+            source {
+                databaseColumn: ENAME
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column HIREDATE (
+            type: datePickerJquery
+            heading {
+                heading: Hire Date
+            }
+            settings {
+                navigationListFor: month
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: HIREDATE
+                dataType: date
+            }
+        )
+
+        column JOB (
+            type: radioGroup
+            heading {
+                heading: Job
+            }
+            lov {
+                type: sharedComponent
+                lov: @emp-jobs
+                displayNullValue: false
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: JOB
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column MGR (
+            type: selectList
+            heading {
+                heading: Manager
+            }
+            lov {
+                type: sqlQuery
+                sqlQuery: select ENAME as d, EMPNO as r from EBA_DEMO_IG_EMP order by 1
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: MGR
+                dataType: number
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column NOTES (
+            type: textarea
+            heading {
+                heading: Notes
+            }
+            layout {
+                sequence: 110
+            }
+            appearance {
+                width: 60
+                height: 8
+            }
+            validation {
+                maxLength: 1000
+            }
+            source {
+                databaseColumn: NOTES
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column ONLEAVE (
+            type: switch
+            heading {
+                heading: On Leave
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: ONLEAVE
+                dataType: varchar2
+            }
+            default {
+                type: static
+                staticValue: N
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column SAL (
+            type: numberField
+            heading {
+                heading: Salary
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
+            }
+            layout {
+                sequence: 80
+                columnAlignment: end
+            }
+            source {
+                databaseColumn: SAL
+                dataType: number
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+    )
+
+    region overview-form-with-grid (
+        name: Overview: Form with Grid
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>The Save button on an Interactive Grid only saves the changes made to the grid. 
+                If you also have a form on the page then you should use a normal submit button 
+                which will save the form as well as the grid. 
+                </p>
+                <p>This example adds a couple form fields. In this example, these fields are not 
+                persisted to the database; they are just stored in session state on the server.
+                The Save button is removed by unchecking the Toolbar: Controls Save checkbox.
+                A normal submit button is added.
+                Validations were added for Salary and Authorized By to demonstrate how errors
+                are handled. The Justification field and Name column are required.
+                The page attribute Advanced: Reload on Submit must be set to Only for Success
+                (this is the default).
+                </p>
+                <p>Notice that required fields are validated on the client before the page is
+                submitted (in addition to being checked on the server).
+                For this to work Execute Validations on the submit button must be Yes
+                and Application Compatibility Mode must be >= 5.1.
+                </p>
+                <p>Notice also that leaving the page while there are unsaved changes applies
+                to the form fields as well. See the Warn on Unsaved Changes attribute on
+                the Page, Buttons, and Items.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-expanded
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    pageItem P34_AUTH (
+        type: textField
+        label {
+            label: Authorized By
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @change-control
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+    )
+
+    pageItem P34_JUSTIFICATION (
+        type: textarea
+        label {
+            label: Justification
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @change-control
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 30
+            height: 5
+        }
+        validation {
+            valueRequired: true
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @change-control
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button next (
+        buttonName: Next
+        label: Next
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--pillEnd
+            ]
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 35
+                action: resetPagination
+            }
+        }
+    )
+
+    button prev (
+        buttonName: PREV
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--pillStart
+            ]
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 33
+                action: resetPagination
+            }
+        }
+    )
+
+    button submit (
+        buttonName: SUBMIT
+        label: Apply Changes
+        layout {
+            sequence: 20
+            region: @change-control
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    validation is-manager (
+        name: is manager
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: rowsReturned
+            sqlQuery: select ename from EBA_DEMO_IG_EMP where ENAME = :P34_AUTH and ( JOB = 'MANAGER' or JOB = 'PRESIDENT')
+        }
+        error {
+            errorMessage: Enter the name of a manager or president
+            associatedItem: @P34_AUTH
+        }
+    )
+
+    validation new (
+        name: New
+        execution {
+            sequence: 20
+        }
+        validation {
+            editableRegion: @employees
+            language: sql
+            sqlExpression: :SAL < 6000
+        }
+        error {
+            errorMessage: #COLUMN_HEADER# must be less than 6000.
+            associatedColumn: SAL
+        }
+    )
+
+    process save-interactive-grid-data (
+        name: " - Save Interactive Grid Data"
+        type: interactiveGridAutoRowProcessing
+        editableRegion: @employees
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 715744679400123465
+        }
+    )
+
+)
+
+
+````

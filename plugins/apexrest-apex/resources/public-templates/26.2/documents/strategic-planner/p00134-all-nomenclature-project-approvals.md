@@ -1,0 +1,491 @@
+# All Project Approvals — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00134-all-nomenclature-project-approvals.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 794129664453ee6d237fd6b66090f91f1cbf14d3ee43a240e03f492ba82d178b.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 134 (
+    name: All Project Approvals
+    alias: ALL-NOMENCLATURE-PROJECT-APPROVALS
+    title: All &NOMENCLATURE_PROJECT. Approvals
+    pageGroup: @cross-project-reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: All Approvals, regardless of status.  Includes &NOMENCLATURE_PROJECT., approval type, status, justification, list of approvers, and submitter.
+    }
+
+    region all-project-approvals (
+        name: All Project Approvals
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select p.id project_id,
+                       i.initiative,
+                       p.project,
+                       t.approval_type,
+                       m.first_name||' '||m.last_name submitted_by,
+                       a.submitted,
+                       initcap(replace(a.status,'-',' ')) status,
+                       case when a.status in ('PENDING','CLARIFICATION-REQUESTED') then 'Active' else 'Complete' end state,
+                       a.justification,
+                       case when a.status in ('CLARIFICATION-REQUESTED','REJECTED')
+                            then (select comments from 
+                                         (select comments, created, max(created) over (partition by project_approval_id) last_created
+                                            from sp_project_approval_chain
+                                           where a.id = project_approval_id)
+                                    where last_created = created)
+                            end last_comment,
+                       (select max(updated) from sp_project_approval_chain
+                         where project_approval_id = a.id) last_action,
+                       i.id initiative_id,
+                       (select listagg(t.first_name||' '||t.last_name,', ' on overflow truncate with count)
+                               within group (order by c.last_status_on)
+                         from sp_project_approval_chain c,
+                              sp_team_members t
+                        where c.project_approval_id = a.id
+                          and c.team_member_id = t.id
+                          and c.final_yn = 'Y') approvers
+                  from sp_project_approvals a,
+                       sp_approval_types t,
+                       sp_team_members m,
+                       sp_projects p,
+                       sp_initiatives i
+                 where a.project_id = p.id
+                   and a.approval_type_id = t.id    
+                   and a.submitted_by_team_member_id = m.id
+                   and p.initiative_id = i.id
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: All Approvals, regardless of status.  Includes Project, approval type, status, justification, list of approvers, and submitter.  There is a default filter to only include those approvals which are active.
+        }
+        advanced {
+            savedReportMappingIdentifier: 13590359693946819038
+        }
+
+        column APPROVAL_TYPE (
+            type: plainText
+            heading {
+                heading: Approval Type
+            }
+            layout {
+                sequence: 31
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column APPROVERS (
+            type: plainText
+            heading {
+                heading: Approvers
+            }
+            layout {
+                sequence: 141
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+            genAI {
+                columnContext: List of approvers, if status is Pending, the last approver listed is who it is pending for
+            }
+        )
+
+        column INITIATIVE (
+            type: link
+            heading {
+                heading: Initiative
+            }
+            layout {
+                sequence: 11
+            }
+            link {
+                target: {
+                    page: 94
+                    items: {
+                        P94_INITIATIVE_ID: #INITIATIVE_ID##ID#
+                    }
+                    clearCache: 94
+                }
+                linkText: #INITIATIVE#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column INITIATIVE_ID (
+            type: hidden
+            heading {
+                heading: Initiative Id
+            }
+            layout {
+                sequence: 121
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: S
+            }
+        )
+
+        column JUSTIFICATION (
+            type: plainText
+            heading {
+                heading: Justification
+            }
+            layout {
+                sequence: 41
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column LAST_ACTION (
+            type: plainText
+            heading {
+                heading: Last Action
+            }
+            layout {
+                sequence: 81
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column LAST_COMMENT (
+            type: plainText
+            heading {
+                heading: Last Comment
+            }
+            layout {
+                sequence: 161
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 21
+            }
+            link {
+                target: {
+                    page: 3
+                    items: {
+                        P3_PROJECT_ID: #PROJECT_ID#
+                    }
+                    clearCache: 3
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column PROJECT_ID (
+            type: hidden
+            heading {
+                heading: Project Id
+            }
+            layout {
+                sequence: 131
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column STATE (
+            type: plainText
+            heading {
+                heading: State
+            }
+            layout {
+                sequence: 151
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: V
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 51
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column SUBMITTED (
+            type: plainText
+            heading {
+                heading: Submitted
+            }
+            layout {
+                sequence: 61
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column SUBMITTED_BY (
+            type: plainText
+            heading {
+                heading: Submitted By
+            }
+            layout {
+                sequence: 71
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: All &NOMENCLATURE_PROJECT. Approvals
+        }
+
+        savedReport 135904991 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn APPROVAL_TYPE (
+                sequence: 3
+            )
+
+            displayColumn APPROVERS (
+                sequence: 6
+            )
+
+            displayColumn INITIATIVE (
+                sequence: 1
+            )
+
+            displayColumn JUSTIFICATION (
+                sequence: 5
+            )
+
+            displayColumn LAST_ACTION (
+                sequence: 10
+            )
+
+            displayColumn LAST_COMMENT (
+                sequence: 7
+            )
+
+            displayColumn PROJECT (
+                sequence: 2
+            )
+
+            displayColumn STATUS (
+                sequence: 4
+            )
+
+            displayColumn SUBMITTED (
+                sequence: 9
+            )
+
+            displayColumn SUBMITTED_BY (
+                sequence: 8
+            )
+
+            sort (
+                column: LAST_ACTION
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            filter ir-condition (
+                column: STATE
+                value: Active
+            )
+
+        )
+
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 134
+                clearCache: [
+                    134
+                    CIR
+                    RIR
+                ]
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

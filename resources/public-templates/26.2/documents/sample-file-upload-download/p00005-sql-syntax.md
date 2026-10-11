@@ -1,0 +1,196 @@
+# SQL Syntax — Sample File Upload Download
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-file-upload-download/apexlang/sample-file-upload-download/pages/p00005-sql-syntax.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 3967f6766e2ed4b5a6b15024d88f674b1263a8a615cd270eac2cba34ed643666.
+
+Application dependency inventory: oracle:26.2:public-template/sample-file-upload-download/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 5 (
+    name: SQL Syntax
+    alias: SQL-SYNTAX
+    title: SQL Syntax
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        pageAccessProtection: noArgumentsSupported
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This page shows the recommended SQL syntax to build file upload and download into your Oracle APEX application.  You need more than just a <strong>BLOB</strong> column as the browser will need to know the filename, mime type and character sets when downloading files.</p>
+                <p>Recommended column details</p>
+                <ul>
+                <li><strong>FILENAME</strong>: ICON_NAME in the example below.  Tracks the actual filename so that downloads of the file are given an appropriate name.  Without this attribute a download link would not know what filename to download a file as.</li>
+                <li><strong>BLOB</strong>: ICON_BLOB in the example below.  The Binary Large Object (BLOB) database column used to store uploaded files into database tables.  The Oracle BLOB datatype is virtually unlimited in size.</li>
+                <li><strong>MIMETYPE</strong>: ICON_MIMETYPE in the example below.  The mimetype is used by the bowser to identify which application should be used to display the content of a downloaded BLOB data.  The BLOB datatype does not maintain this information so it is important to manage this data in its own column.</li>
+                <li><strong>CHARACTER SET</strong>: ICON_CHARSET in the example below.  Identifies the character set used to download the file.  The character set of a BLOB column is not automatically tracked so it will need to be maintained in a separate column.</li>
+                <li><strong>LAST_UPDATED</strong>: ICON_LAST_UPDATED in the example below.  Tracks the timestamp of when the file was last updated and can be used for browser caching.  It is not required but can dramatically improve performance of some applications.</li>
+                
+                </ul>
+                <p>Reference Oracle APEX documentation for additional information.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region about-this-page-2 (
+        name: About this page2
+        type: staticContent
+        source {
+            htmlCode: <p>The <strong>sys.dbms_lob.getlength</strong> function is a high performance database package used to get the length of a BLOB column.</p>
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region example-sql-queries-used-in-this-application (
+        name: Example SQL Queries used in this application
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <pre>
+                select
+                    ID,
+                    ROW_VERSION_NUMBER,
+                    PROJECT_ID,
+                    FILENAME,
+                    FILE_MIMETYPE,
+                    FILE_CHARSET,
+                    FILE_BLOB,
+                    FILE_COMMENTS,
+                    TAGS,
+                    CREATED,
+                    CREATED_BY,
+                    UPDATED,
+                    UPDATED_BY,
+                    sys.dbms_lob.getlength(file_blob) file_size,
+                    sys.dbms_lob.getlength(file_blob) download
+                from EBA_DEMO_FILES
+                
+                </pre>
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region sql-create-table-syntax-used-in-this-sample-application (
+        name: SQL create table syntax used in this sample application
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <pre>
+                CREATE TABLE EBA_DEMO_FILE_PROJECTS
+                   (
+                    ID                 NUMBER, 
+                    row_version_number NUMBER,
+                    project            VARCHAR2(30) not null, 
+                    task_name          VARCHAR2(255) not null, 
+                    start_date         DATE not null, 
+                    end_date           DATE not null, 
+                    status             VARCHAR2(30) not null, 
+                    assigned_to        VARCHAR2(30), 
+                    cost               NUMBER, 
+                    budget             NUMBER, 
+                    created_on         TIMESTAMP,
+                    created_by         VARCHAR2(255),
+                    browser_env        VARCHAR2(4000),
+                    <strong>icon_name          VARCHAR2(4000)</strong>,
+                    <strong>icon_blob          BLOB</strong>,
+                    <strong>icon_mimetype      VARCHAR2(512)</strong>,
+                    <strong>icon_charset       VARCHAR2(512)</strong>,
+                    <strong>icon_last_updated  TIMESTAMP</strong>,
+                    icon_comments      VARCHAR2(4000),
+                    CONSTRAINT EBA_DEMO_FILE_PROJECTS_PK PRIMARY KEY (ID) ENABLE
+                   ) ;
+                
+                </pre>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+)
+
+
+````

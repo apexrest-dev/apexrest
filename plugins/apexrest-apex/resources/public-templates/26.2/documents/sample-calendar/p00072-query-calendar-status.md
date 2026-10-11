@@ -1,0 +1,353 @@
+# Query Calendar Status — Sample Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-calendar/apexlang/sample-calendar/pages/p00072-query-calendar-status.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: fcfa1ec28a6b9031e06ee2eb6081dd99240b632ce4d8ca19b64d7742b072fc82.
+
+Application dependency inventory: oracle:26.2:public-template/sample-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 72 (
+    name: Query Calendar Status
+    alias: QUERY-CALENDAR-STATUS
+    title: Query Calendar Status
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This page shows how to get the current calendar status with javascript methods. Upon switching the view type or navigating to the next or previous page, a dynamic action is being executed. The <a href="https://fullcalendar.io/docs/" target="_blank" rel="noopener noreferrer external">FullCalendar API</a> <strong>view</strong> object is being used to get the current <em>calendar view</em> object. Its attributes can then be used to query the view type or start and end dates. Use a <strong>Set Value</strong> action to store this information in APEX page items.</p>
+                <pre>
+                // get the view type (dayGridMonth, timeGridWeek, timeGridDay or list
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").view.type 
+                
+                // get the start date of the view
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").view.activeStart
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").view.currentStart
+                
+                // get the end date of the view
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").view.activeEnd
+                apex.region("<em>{Region Static ID}</em>").widget().data("fullCalendar").view.currentEnd
+                </pre>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: [
+                #DEFAULT#
+                margin-bottom-md
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: texfields-container
+            excludeTitleFromTranslation: true
+        }
+    )
+
+    region tasks (
+        name: Tasks
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                   id,
+                   project,
+                   task_name,
+                   status,
+                   assigned_to,
+                   cost,
+                   start_date,
+                   end_date,
+                   case
+                      when status = 'Pending' then 'apex-cal-blue'
+                      when status = 'Open' then 'apex-cal-green'
+                      when status = 'Closed' then 'apex-cal-gray'
+                      when status = 'On-Hold' then 'apex-cal-orange'
+                   end as css_class
+                from eba_demo_cal_projects
+                
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: project_tasks
+        }
+        settings {
+            displayColumn: TASK_NAME
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                month
+                week
+                day
+                list
+                navigation
+            ]
+            viewEditLink: {
+                page: 3
+                items: {
+                    P3_ID: &ID.
+                    P3_LASTVIEW: &APP_PAGE_ID.
+                }
+                action: resetPagination
+            }
+            maxEventsDay: 5
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+
+    pageItem P72_END_DATE (
+        type: textField
+        label {
+            label: to
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            icon: fa-calendar
+            width: 30
+        }
+    )
+
+    pageItem P72_START_DATE (
+        type: textField
+        label {
+            label: View from
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            icon: fa-calendar
+            width: 30
+        }
+    )
+
+    pageItem P72_VIEW_TYPE (
+        type: textField
+        label {
+            label: View type
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            icon: fa-calendar-search
+            width: 30
+        }
+    )
+
+    dynamicAction change-project-refresh-calendar (
+        name: Change Project - Refresh Calendar
+        execution {
+            sequence: 10
+        }
+        when {
+            selectionType: items
+            items: P72_PROJECTS
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @tasks
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction get-calendar-status (
+        name: Get Calendar Status
+        execution {
+            sequence: 30
+        }
+        when {
+            event: region/calendar/apexcalendarviewchange
+            selectionType: region
+            region: @tasks
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    $("#texfields-container input")
+                             .animate({"background-color": "#FFEC8B"}, 300)
+                             .animate({"background-color": "white"},300)
+                        ;
+                    ```
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+        action native-set-value (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.viewType
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P72_VIEW_TYPE
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-set-value-2 (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.dates.startDate.toDateString()
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P72_START_DATE
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-set-value-3 (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.dates.endDate.toDateString()
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P72_END_DATE
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

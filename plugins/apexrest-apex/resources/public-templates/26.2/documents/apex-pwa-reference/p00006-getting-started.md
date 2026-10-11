@@ -1,0 +1,354 @@
+# Getting Started — Apex Pwa Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/apex-pwa-reference/apexlang/apex-pwa-reference/pages/p00006-getting-started.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 340bd83b12bd1cd1a387bdf7f90680ab17c831e6c8d8d71c24fa6b5743d2bae2.
+
+Application dependency inventory: oracle:26.2:public-template/apex-pwa-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 6 (
+    name: Getting Started
+    alias: GETTING-STARTED
+    title: Getting Started - &APP_NAME.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region example (
+        name: Example
+        type: staticContent
+        layout {
+            sequence: 90
+            parentRegion: @existing-application
+            slot: regionBody
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Example Edit a PWA
+        }
+    )
+
+    region example-2 (
+        name: Example
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @new-application
+            slot: regionBody
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Example Create a PWA
+        }
+    )
+
+    region existing-application (
+        name: Existing Application
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p class="col-8">
+                
+                    To activate PWA functionality for your existing APEX application, you can
+                    enable two options located in the "General" section of the Progressive Web
+                    App settings page. By switching on these options, you can make your app
+                    installable on users' devices, and provide them with a more native app-like
+                    experience.
+                
+                </p>
+                ```
+        }
+        layout {
+            sequence: 80
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region image (
+        name: Image
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @example
+            slot: regionBody
+        }
+        appearance {
+            template: @/image
+            templateOptions: [
+                #DEFAULT#
+                t-ImageRegion--auto
+                t-ImageRegion--cover
+                t-ImageRegion--rounded
+                t-ImageRegion--noFilter
+            ]
+        }
+        image {
+            fileUrl: #APP_FILES#img/edit-pwa.jpeg
+            accessibleDescription: Editing an APEX PWA
+        }
+    )
+
+    region image-2 (
+        name: Image
+        type: staticContent
+        layout {
+            sequence: 10
+            parentRegion: @example-2
+            slot: regionBody
+        }
+        appearance {
+            template: @/image
+            templateOptions: [
+                #DEFAULT#
+                t-ImageRegion--auto
+                t-ImageRegion--cover
+                t-ImageRegion--rounded
+                t-ImageRegion--noFilter
+            ]
+        }
+        image {
+            fileUrl: #APP_FILES#img/create-pwa.jpeg
+            accessibleDescription: Creating a new APEX PWA
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <ol>
+                    <li>Edit your application</li>
+                    <li>Go to <strong>Shared Components</strong></li>
+                    <li>Go to <strong>Progressive Web App</strong></li>
+                    <li>Under General, enable <strong>Progressive Web App</strong> switch
+                        <ul>
+                            <li style="list-style-type: none;">
+                               This adds a default service worker to your application
+                            </li>
+                        </ul>
+                    </li>
+                    <li>Under General, enable <strong>Installable</strong> switch
+                        <ul>
+                            <li style="list-style-type: none;">
+                              This adds a default web app manifest to your application,
+                              and a new <strong>Install App</strong> navigation bar entry
+                              users can click to install the app
+                            </li>
+                        </ul> 
+                    </li>
+                    <li>(Optional) Configure PWA attributes</li>
+                </ol>
+                ```
+        }
+        layout {
+            sequence: 100
+            parentRegion: @existing-application
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Edit a PWA
+        }
+    )
+
+    region instructions-2 (
+        name: Instructions
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <ol>
+                    <li>In <strong>App Builder</strong>, click <strong>Create</strong></li>
+                    <li>Select <strong>New Application</strong></li>
+                    <li>Fill the required fields for creating a new application</li>
+                    <li>Under Features, select <strong>Install Progressive Web App</strong> checkbox</li>
+                    <li>Click <strong>Create Application</strong></li>
+                </ol>
+                ```
+        }
+        layout {
+            sequence: 30
+            parentRegion: @new-application
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Instructions Create a PWA
+        }
+    )
+
+    region new-application (
+        name: New Application
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p class="col-8">
+                
+                    To take advantage of PWA capabilities when developing your APEX application,
+                    simply select the <strong>Install Progressive Web App</strong> feature when
+                    creating a new application.
+                
+                </p>
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+            renderComponents: belowContent
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: navigation
+            landmarkLabel: Region Display Selector
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region requirements (
+        name: Requirements
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p class="col-8">For your APEX PWA application to be installable, it must:</p>
+                <ul>
+                    <li>Enable <strong>Friendly URLs</strong></li>    
+                    <li>Use <strong>HTTPS</strong></li>
+                </ul>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+)
+
+
+````

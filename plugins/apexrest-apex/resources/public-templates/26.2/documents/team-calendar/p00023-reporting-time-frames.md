@@ -1,0 +1,512 @@
+# Reporting Time Frames — Team Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/team-calendar/apexlang/team-calendar/pages/p00023-reporting-time-frames.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 52975f3ce5d3492652b06c383fbb5484378f624b0148d15ffe1aa3040990ecf6.
+
+Application dependency inventory: oracle:26.2:public-template/team-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 23 (
+    name: Reporting Time Frames
+    alias: REPORTING-TIME-FRAMES
+    title: Reporting Time Frames
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+            t-Dialog--noPadding
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: <p>Reporting Time Frames allow you to quickly narrow your event search to just those events that occur during a defined time frame.  Examples of time frames are fiscal months or fiscal quarters.</p>
+    }
+
+    region reporting-time-frames (
+        name: Reporting Time Frames
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select tf_id,
+                       tf_name,
+                       start_date tf_start_date,
+                       end_date tf_end_date,
+                       CREATED_ON,
+                       LOWER(CREATED_BY) CREATED_BY,
+                       LAST_UPDATED_ON,
+                       LOWER(LAST_UPDATED_BY) LAST_UPDATED_BY
+                  from EBA_ca_timeframes
+                
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 24
+                items: {
+                    P24_TF_ID: #TF_ID#
+                }
+                clearCache: 24
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit #TF_NAME#"
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No reporting time frames found.
+            whenMoreDataFound: This query returns more than 10,000 rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 7372359288839735857
+        }
+
+        columnGroup audit-info (
+            name: Audit Info
+            layout {
+                sequence: 20
+            }
+        )
+
+        columnGroup details (
+            name: Details
+            layout {
+                sequence: 10
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 4
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            help {
+                helpText: The user who created the record.
+            }
+        )
+
+        column CREATED_ON (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 10
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column LAST_UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Last Updated By
+            }
+            layout {
+                sequence: 5
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+            help {
+                helpText: The user who last updated the record.
+            }
+        )
+
+        column LAST_UPDATED_ON (
+            type: plainText
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 11
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column TF_END_DATE (
+            type: plainText
+            heading {
+                heading: End Date
+            }
+            layout {
+                sequence: 9
+                group: @details
+            }
+            appearance {
+                formatMask: &APP_DATE_FORMAT.
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column TF_ID (
+            type: hidden
+            heading {
+                heading: Tf Id
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column TF_NAME (
+            type: plainText
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 7
+                group: @details
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column TF_START_DATE (
+            type: plainText
+            heading {
+                heading: Start Date
+            }
+            layout {
+                sequence: 8
+                group: @details
+            }
+            appearance {
+                formatMask: &APP_DATE_FORMAT.
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        savedReport 6322323 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn TF_END_DATE (
+                sequence: 3
+            )
+
+            displayColumn TF_NAME (
+                sequence: 1
+            )
+
+            displayColumn TF_START_DATE (
+                sequence: 2
+            )
+
+            sort (
+                column: TF_START_DATE
+                sort {
+                    sequence: 1
+                }
+            )
+
+            filter ir-condition (
+                type: rowExpression
+                rowExpression: sysdate <= J
+                identification {
+                    name: Future
+                }
+            )
+
+        )
+
+        savedReport 6322325 (
+            visibility: alternativeDefault
+            name: with Audit Info
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CREATED_BY (
+                sequence: 5
+            )
+
+            displayColumn CREATED_ON (
+                sequence: 4
+            )
+
+            displayColumn LAST_UPDATED_BY (
+                sequence: 7
+            )
+
+            displayColumn LAST_UPDATED_ON (
+                sequence: 6
+            )
+
+            displayColumn TF_END_DATE (
+                sequence: 3
+            )
+
+            displayColumn TF_NAME (
+                sequence: 1
+            )
+
+            displayColumn TF_START_DATE (
+                sequence: 2
+            )
+
+            sort (
+                column: TF_START_DATE
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            filter ir-condition (
+                type: rowExpression
+                rowExpression: sysdate <= J
+                identification {
+                    name: Future
+                }
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create Time Frame
+        layout {
+            sequence: 20
+            region: @reporting-time-frames
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 24
+                clearCache: 24
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: reset
+        label: Reset
+        layout {
+            sequence: 10
+            region: @reporting-time-frames
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-calendar (
+        name: Refresh Calendar
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Action Processed.');
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @reporting-time-frames
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-add (
+        name: Refresh on Add
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @create
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @reporting-time-frames
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-edit (
+        name: Refresh on Edit
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @reporting-time-frames
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @reporting-time-frames
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

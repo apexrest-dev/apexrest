@@ -1,0 +1,122 @@
+page 1 (
+    name: Structured code Boolean validation
+    alias: HOME
+    title: Structured code Boolean validation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>The procedural validator checks length before checking the two parts of a structured code.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation check-input (
+        name: Validate input
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody:
+                ```plsql
+                declare
+                    l_code varchar2(4000) := trim(:P1_INPUT);
+                begin
+                    if l_code is null or length(l_code) != 4 then
+                        return false;
+                    end if;
+                    return regexp_like(substr(l_code, 1, 2), '^[A-Z]{2}$')
+                       and regexp_like(substr(l_code, 3, 2), '^[0-9]{2}$');
+                end;
+                ```
+        }
+        error {
+            errorMessage: Use two uppercase letters followed by two digits, for example AB12.
+            associatedItem: @P1_INPUT
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+    )
+    process accepted (
+        name: Accept valid input
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := 'Accepted: ' || :P1_INPUT;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+        successMessage {
+            successMessage: Input passed validation.
+        }
+    )
+)

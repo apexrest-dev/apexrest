@@ -1,0 +1,582 @@
+# Maintain Update — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00007-maintain-update.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 6a7f6f8a84f3793e3313ac019cb9c48916d3ccf14bb3ac5a4553b1356a6d1052.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 7 (
+    name: Maintain Update
+    alias: MAINTAIN-UPDATE
+    title: Maintain Update
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    htmlHeader {
+        htmlHeader:
+            ```html
+            <script language="JavaScript" type="text/javascript">
+            <!--
+            
+             htmldb_delete_message='"DELETE_CONFIRM_MSG"';
+            
+            //-->
+            </script>
+            ```
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region audit-information (
+        name: Audit Information
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @maintain-update
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        advanced {
+            excludeTitleFromTranslation: true
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region maintain-update (
+        name: Maintain Update
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+    )
+
+    pageItem P7_CONTATCT_ID (
+        type: popupLov
+        label {
+            label: Contact
+            alignment: left
+        }
+        settings {
+            displayAs: modalDialog
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select name d, id r
+                from   eba_cust_contacts
+                where customer_id = :P7_CUSTOMER_ID
+                order by 1
+                ```
+            displayExtraValues: false
+            nullDisplayValue: - Select -
+        }
+        layout {
+            sequence: 50
+            region: @maintain-update
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: CONTACT_ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: Enter short description.
+        }
+    )
+
+    pageItem P7_CREATED (
+        type: displayOnly
+        label {
+            label: <b>Created On:</b>
+            alignment: left
+        }
+        settings {
+            showLineBreaks: false
+            sendOnPageSubmit: false
+        }
+        layout {
+            sequence: 70
+            region: @audit-information
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            formatMask: &APP_DATE_FORMAT.
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: CREATED
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: The date on which the Category was created.
+        }
+    )
+
+    pageItem P7_CREATED_BY (
+        type: displayOnly
+        label {
+            label: <b>Created By:</b>
+            alignment: left
+        }
+        settings {
+            showLineBreaks: false
+            sendOnPageSubmit: false
+        }
+        layout {
+            sequence: 80
+            region: @audit-information
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: CREATED_BY
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: The User who created this Category.
+        }
+    )
+
+    pageItem P7_CUSTOMER_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @maintain-update
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: CUSTOMER_ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @maintain-update
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_NOTE (
+        type: textarea
+        label {
+            label: Note
+            alignment: left
+        }
+        settings {
+            resizable: false
+            trimSpaces: none
+        }
+        layout {
+            sequence: 30
+            region: @maintain-update
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            width: 80
+            height: 5
+        }
+        validation {
+            valueRequired: true
+            maxLength: 32767
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: NOTE
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_NOTE_DATE (
+        type: datePicker
+        label {
+            label: Date
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @maintain-update
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            formatMask: &APP_DATE_FORMAT.
+            width: 64
+        }
+        validation {
+            maxLength: 2000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: NOTE_DATE
+            used: always
+        }
+        default {
+            type: expression
+            plsqlExpression: case when :P7_ID is null then 'Y' end;
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_SS (
+        type: stopAndStartGridLayout
+        label {
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @maintain-update
+            slot: regionBody
+        }
+    )
+
+    pageItem P7_UPDATED (
+        type: displayOnly
+        label {
+            label: <b>Updated On:</b>
+            alignment: left
+        }
+        settings {
+            showLineBreaks: false
+            sendOnPageSubmit: false
+        }
+        layout {
+            sequence: 90
+            region: @audit-information
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            formatMask: &APP_DATE_FORMAT.
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: UPDATED
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: The date on which the Category details was last Updated.
+        }
+    )
+
+    pageItem P7_UPDATED_BY (
+        type: displayOnly
+        label {
+            label: <b>Updated By:</b>
+            alignment: left
+        }
+        settings {
+            showLineBreaks: false
+            sendOnPageSubmit: false
+        }
+        layout {
+            sequence: 100
+            region: @audit-information
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: UPDATED_BY
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText: The User who last updated the Category Details.
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_VIEW.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: javascript:apex.confirm(htmldb_delete_message,'DELETE');
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P7_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: change
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P7_ID
+        }
+    )
+
+    process fetch-row-from-eba-cust-notes (
+        name: Fetch Row from EBA_CUST_NOTES
+        type: autoRowFetch
+        source {
+            tableName: EBA_CUST_NOTES
+            pkColumn: ID
+            pkItem: P7_ID
+        }
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        error {
+            errorMessage: Unable to fetch row.
+        }
+        advanced {
+            executionMappingIdentifier: 16632598689364603663
+        }
+    )
+
+    process load-data (
+        name: Load data
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                if :REQUEST = 'HOME' then
+                   :LAST_VIEW := 100 ;
+                elsif :REQUEST = 'CUSTOMER' then
+                   :LAST_VIEW := 50 ;
+                else
+                   :LAST_VIEW := 47 ;
+                end if;
+                ```
+        }
+        execution {
+            sequence: 40
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 16632599291009603665
+        }
+    )
+
+    process process-row-of-eba-cust-notes (
+        name: Process Row of EBA_CUST_NOTES
+        type: autoRowProcessing
+        target {
+            tableName: EBA_CUST_NOTES
+            pkColumn: ID
+            pkItem: P7_ID
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Action Processed.
+        }
+        error {
+            errorMessage: Unable to process row of table EBA_CUST_CATEGORIES.
+            displayLocation: onErrorPage
+        }
+        advanced {
+            executionMappingIdentifier: 16632598897318603664
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        execution {
+            sequence: 30
+        }
+        error {
+            displayLocation: onErrorPage
+        }
+        advanced {
+            executionMappingIdentifier: 16632599088268603664
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: &LAST_VIEW.
+            }
+            saveStateBeforeBranching: true
+        }
+    )
+
+)
+
+
+````

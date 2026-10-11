@@ -1,0 +1,728 @@
+# Store — Brookstrut Sample App
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/brookstrut-sample-app/apexlang/brookstrut/pages/p00007-store.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: d955a7f2015389bbe8718a1ded5b382f847ab33de81b90012ad056c94589a0ba.
+
+Application dependency inventory: oracle:26.2:public-template/brookstrut-sample-app/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 7 (
+    name: Store
+    alias: STORE
+    title: Store
+    pageGroup: @stores
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration: var htmldb_delete_message = '"DELETE_CONFIRM_MSG"';
+    }
+    css {
+        inline:
+            ```css
+            .addressCheckMessage {
+              display: none;
+            }
+            #adrchkres {
+              width: 80%;
+            }
+            
+            ```
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region store (
+        name: Store
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: storeForm
+        }
+    )
+
+    pageItem P7_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @store
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_REGION_ID (
+        type: selectList
+        label {
+            label: Region
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery: select region_name, id from oow_demo_regions order by 1
+            nullDisplayValue: - Select Value -
+        }
+        layout {
+            sequence: 55
+            region: @store
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: mnw180
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: REGION_ID
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_ADDRESS (
+        type: textField
+        label {
+            label: Address
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 70
+            region: @store
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_ADDRESS
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_CITY (
+        type: textField
+        label {
+            label: City
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 80
+            region: @store
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 50
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_CITY
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_ITEMS (
+        type: shuttle
+        label {
+            label: Store Inventory
+            alignment: left
+        }
+        settings {
+            showControls: movingOnly
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select item_name, id
+                from OOW_DEMO_items i
+                order by upper(item_name)
+                ```
+        }
+        layout {
+            sequence: 130
+            region: @store
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 10
+        }
+        source {
+            type: functionBody
+            plsqlFunctionBody:
+                ```plsql
+                declare
+                    l_vc_arr2   apex_application_global.vc_arr2;
+                begin
+                    select item_id
+                    bulk collect into l_vc_arr2 
+                    from OOW_DEMO_STORE_PRODUCTS
+                    where store_id = :P7_ID;
+                 
+                    return apex_util.table_to_string ( l_vc_arr2 ); 
+                end;
+                ```
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_LAT (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 110
+            region: @store
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_LAT
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_STORE_LNG (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 120
+            region: @store
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_LNG
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P7_STORE_NAME (
+        type: textField
+        label {
+            label: Store Name
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 40
+            region: @store
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_NAME
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_OPEN_DATE (
+        type: datePickerJquery
+        label {
+            label: Store Opened On
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @store
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: DD-MON-YYYY
+            width: 64
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_OPEN_DATE
+            used: always
+        }
+        default {
+            type: sqlQuerySingleValue
+            sqlQuerySingleValue: select sysdate from dual
+        }
+    )
+
+    pageItem P7_STORE_STATE (
+        type: textField
+        label {
+            label: State
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 90
+            region: @store
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 50
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_STATE
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_TYPE (
+        type: selectList
+        label {
+            label: Store Type
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @store-type
+            nullDisplayValue: - Select Value -
+        }
+        layout {
+            sequence: 60
+            region: @store
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: mnw180
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_TYPE
+            used: always
+        }
+    )
+
+    pageItem P7_STORE_ZIP (
+        type: textField
+        label {
+            label: Zip
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 100
+            region: @store
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            valueRequired: true
+            maxLength: 12
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: STORE_ZIP
+            used: always
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &LAST_VIEW.
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Store
+        layout {
+            sequence: 40
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+            icon: fa-plus
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P7_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: javascript:apex.confirm(htmldb_delete_message,'DELETE');
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P7_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: change
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P7_ID
+        }
+    )
+
+    validation p7-store-address-not-null (
+        name: P7_STORE_ADDRESS Not Null
+        execution {
+            sequence: 20
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody: return trim(:P7_STORE_ADDRESS) is not null
+        }
+        error {
+            errorMessage: #LABEL# must have some value.
+            associatedItem: @P7_STORE_ADDRESS
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE
+        }
+    )
+
+    validation p7-store-city-not-null (
+        name: P7_STORE_CITY Not Null
+        execution {
+            sequence: 30
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody: return trim(:P7_STORE_CITY) is not null
+        }
+        error {
+            errorMessage: #LABEL# must have some value.
+            associatedItem: @P7_STORE_CITY
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE
+        }
+    )
+
+    validation p7-store-name-not-null (
+        name: P7_STORE_NAME Not Null
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody: return trim(:P7_STORE_NAME) is not null
+        }
+        error {
+            errorMessage: #LABEL# must have some value.
+            associatedItem: @P7_STORE_NAME
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE
+        }
+    )
+
+    process fetch-row-from-oow-demo-stores (
+        name: Fetch Row from OOW_DEMO_STORES
+        type: autoRowFetch
+        source {
+            tableName: OOW_DEMO_STORES
+            pkColumn: ID
+            pkItem: P7_ID
+        }
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        advanced {
+            executionMappingIdentifier: 16574553282555984965
+        }
+    )
+
+    process process-row-of-oow-demo-stores (
+        name: Process Row of OOW_DEMO_STORES
+        type: autoRowProcessing
+        target {
+            tableName: OOW_DEMO_STORES
+            pkColumn: ID
+            pkItem: P7_ID
+            returnKeyIntoItem: P7_ID
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Action Processed.
+        }
+        error {
+            errorMessage: #SQLERRM#
+        }
+        advanced {
+            executionMappingIdentifier: 16574553490038984966
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 16574553695939984966
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+    process save-inventory (
+        name: Save Inventory
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare 
+                	l_inv apex_application_global.vc_arr2; 
+                begin 
+                	-- convert the colon separated string into an array 
+                	l_inv := apex_util.string_to_table(:P7_STORE_ITEMS);
+                
+                	delete from OOW_DEMO_STORE_PRODUCTS where store_id = :P7_ID;
+                	for i in 1..l_inv.count loop 
+                		insert into OOW_DEMO_STORE_PRODUCTS (store_id, item_id)
+                		values( :P7_ID, l_inv(i) );
+                	end loop; 
+                end;
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        successMessage {
+            successMessage: Inventory updated.
+        }
+        error {
+            errorMessage: #SQLERRM#
+        }
+        advanced {
+            executionMappingIdentifier: 16574557185475032348
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P7_STORE_ITEMS
+        }
+    )
+
+    branch (
+        execution {
+            sequence: 10
+        }
+        behavior {
+            target: {
+                page: 6
+            }
+        }
+    )
+
+)
+
+
+````

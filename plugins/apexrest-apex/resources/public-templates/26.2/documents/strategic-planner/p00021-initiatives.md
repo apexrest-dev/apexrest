@@ -1,0 +1,1060 @@
+# Initiatives — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00021-initiatives.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: ba66962b1ef614d6fc306d512af130a66ec4b1a54f8bc0923246f7c3d0354f1c.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 21 (
+    name: Initiatives
+    alias: INITIATIVES
+    title: &NOMENCLATURE_INITIATIVES.
+    pageGroup: @initiatives
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: [
+            #DEFAULT#
+            t-PageBody--noContentPadding
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline:
+            ```css
+            .a-CardView-actions {
+              --a-cv-actions-padding-x: .5rem;
+              --a-cv-actions-padding-y: .5rem;
+              --a-cv-actions-background-color: transparent;
+            }
+            
+            .no-item-ui {
+              --a-field-input-border-width: 0px;
+              --a-field-input-background-color: transparent;
+            }
+            
+            .a-CardView-iconWrap {
+              align-self: flex-start;
+            }
+            ```
+    }
+    help {
+        helpText: All &NOMENCLATURE_INITIATIVES..
+    }
+    comments {
+        comments: Filterable by &NOMENCLATURE_AREA., Owner, and tags.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region faceted-search (
+        name: Faceted Search
+        type: facetedSearch
+        source {
+            filteredRegion: @nomenclature-initiatives
+        }
+        layout {
+            sequence: 20
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: selector
+            currentFacetsSelector: #active_facets
+            displayChartForTopNValues: 10
+        }
+
+        facet P21_CREATED_MONTH (
+            type: checkboxGroup
+            label {
+                label: Created Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 70
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: CREATED_MONTH
+            }
+        )
+
+        facet P21_FOCUS_AREA (
+            type: checkboxGroup
+            label {
+                label: &NOMENCLATURE_AREA.
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: FOCUS_AREA
+            }
+        )
+
+        facet P21_HIDDEN_BY_DEFAULT (
+            type: checkboxGroup
+            label {
+                label: Default Display
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 60
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: HIDDEN_BY_DEFAULT
+            }
+        )
+
+        facet P21_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P21_SPONSOR (
+            type: checkboxGroup
+            label {
+                label: Owner
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: SPONSOR
+            }
+        )
+
+        facet P21_TAGS (
+            type: checkboxGroup
+            label {
+                label: Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 50
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+        facet P21_UPDATED_MONTH (
+            type: checkboxGroup
+            label {
+                label: Updated Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                display: addFilterDialog
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: UPDATED_MONTH
+            }
+        )
+
+    )
+
+    region items (
+        name: items
+        type: staticContent
+        source {
+            htmlCode: <div id="active_facets"></div>
+        }
+        layout {
+            sequence: 2
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+                margin-bottom-none
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region nomenclature-initiatives (
+        name: &NOMENCLATURE_INITIATIVES.
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select i.ID,
+                       --
+                       i.AREA_ID,
+                       i.INITIATIVE,
+                       --
+                       --shortened objective
+                       --
+                       decode(i.OBJECTIVE,null,'No description provided',substr(i.OBJECTIVE,1,80)||decode(greatest(length(i.objective),80),80,null,'...')) OBJECTIVE,
+                       --
+                       -- owner
+                       --
+                       tm.id owner_id,
+                       case when tm.id is null then '(No Owner)' else tm.first_name||' '||tm.last_name end SPONSOR,
+                       --
+                       -- updated and created dates
+                       --
+                       i.CREATED,
+                       i.CREATED_BY,
+                       greatest(i.updated,nvl((
+                           select max(updated) 
+                           from sp_projects p 
+                           where p.initiative_id = i.id and
+                                 p.DUPLICATE_OF_PROJECT_ID is null and
+                                 ARCHIVED_YN = 'N'),
+                                 i.updated)) updated,
+                       i.UPDATED_BY,
+                       to_char(i.created,'YYYY.MM') created_month,
+                       to_char(i.updated,'YYYY.MM') updated_month,
+                       --
+                       -- project counts
+                       --
+                       (select count(*) 
+                       from sp_projects p 
+                       where p.initiative_id = i.id and 
+                             p.DUPLICATE_OF_PROJECT_ID is null and
+                             ARCHIVED_YN = 'N') projects,
+                       --
+                       (select count(*) 
+                       from sp_projects p 
+                       where p.initiative_id = i.id and 
+                             p.DUPLICATE_OF_PROJECT_ID is null and
+                             p.pct_complete != 0 and 
+                             p.pct_complete != 100 and
+                             ARCHIVED_YN = 'N') open_projects,
+                       --
+                       (select count(*) 
+                       from sp_projects p 
+                       where p.initiative_id = i.id and 
+                             p.DUPLICATE_OF_PROJECT_ID is null and
+                             p.pct_complete = 100 and
+                             ARCHIVED_YN = 'N') projects_100,
+                       --
+                       -- last project update
+                       --
+                       nvl((select max(p.updated) 
+                        from sp_projects p 
+                        where p.initiative_id = i.id and 
+                              p.ARCHIVED_YN = 'N' and 
+                              p.DUPLICATE_OF_PROJECT_ID is null ),i.updated) last_project_update,
+                       --
+                       -- image
+                       --
+                       case when i.image is not null then i.image else f.image end image,
+                       case when i.image is not null then i.image_mimetype else f.image_mimetype end image_mimetype,
+                       case when i.image is not null then i.image_name else f.image_name end image_name, 
+                       case when i.image is not null then i.image_last_updated else f.image_last_updated end image_last_updated,  
+                       --
+                       -- other
+                       --
+                       f.AREA focus_area,
+                       i.tags,
+                       decode(i.hidden_by_default_yn,'Y','Hidden','N','Visible','Visible') hidden_by_default
+                  from SP_INITIATIVES i, 
+                       sp_areas f,
+                       sp_team_members tm
+                  where i.area_id = f.id and
+                        i.SPONSOR_ID = tm.id(+)
+                ```
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P21_ORDER_BY
+                orderBys: {
+                    INITIATIVE: initiative
+                    UPDATED: updated desc
+                    PROJECTS: projects desc
+                    OPEN_PROJECTS: open_projects desc
+                    LAST_PROJECT_UPDATE: last_project_update desc nulls last
+                }
+            }
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: clear-avatar-icons
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &INITIATIVE!HTML.
+            description:
+                ```html
+                &NOMENCLATURE_AREA!HTML.: <strong>&FOCUS_AREA!HTML.</strong><br>
+                &NOMENCLATURE_PROJECTS!HTML.: <strong>&PROJECTS.</strong>, with &OPEN_PROJECTS. open, and &PROJECTS_100. resolved<br>
+                &OBJECTIVE!HTML.
+                
+                ```
+            miscellaneous:
+                ```html
+                &SPONSOR!HTML.<br>
+                &LAST_PROJECT_UPDATE.
+                ```
+            displayAvatar: true
+        }
+        plugin-avatar {
+            type: image
+            image: {
+                type: blobColumn
+                blobColumn: IMAGE
+                filenameColumn: IMAGE_NAME
+                mimeTypeColumn: IMAGE_MIMETYPE
+                lastUpdatedColumn: IMAGE_LAST_UPDATED
+            }
+            description: &NOMENCLATURE_INITIATIVES. Icon
+            size: medium
+        }
+
+        column AREA_ID (
+            layout {
+                sequence: 300
+            }
+            source {
+                databaseColumn: AREA_ID
+                dataType: number
+            }
+        )
+
+        column CREATED (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: CREATED
+                dataType: date
+            }
+        )
+
+        column CREATED_BY (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: CREATED_BY
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_MONTH (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: CREATED_MONTH
+                dataType: varchar2
+            }
+        )
+
+        column FOCUS_AREA (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: FOCUS_AREA
+                dataType: varchar2
+            }
+        )
+
+        column HIDDEN_BY_DEFAULT (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: HIDDEN_BY_DEFAULT
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column IMAGE (
+            layout {
+                sequence: 250
+            }
+            source {
+                databaseColumn: IMAGE
+                dataType: blob
+            }
+        )
+
+        column IMAGE_LAST_UPDATED (
+            layout {
+                sequence: 280
+            }
+            source {
+                databaseColumn: IMAGE_LAST_UPDATED
+                dataType: date
+            }
+        )
+
+        column IMAGE_MIMETYPE (
+            layout {
+                sequence: 260
+            }
+            source {
+                databaseColumn: IMAGE_MIMETYPE
+                dataType: varchar2
+            }
+        )
+
+        column IMAGE_NAME (
+            layout {
+                sequence: 270
+            }
+            source {
+                databaseColumn: IMAGE_NAME
+                dataType: varchar2
+            }
+        )
+
+        column INITIATIVE (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: INITIATIVE
+                dataType: varchar2
+            }
+        )
+
+        column LAST_PROJECT_UPDATE (
+            layout {
+                sequence: 310
+            }
+            source {
+                databaseColumn: LAST_PROJECT_UPDATE
+                dataType: date
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column OBJECTIVE (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: OBJECTIVE
+                dataType: varchar2
+            }
+        )
+
+        column OPEN_PROJECTS (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: OPEN_PROJECTS
+                dataType: number
+            }
+        )
+
+        column OWNER_ID (
+            layout {
+                sequence: 290
+            }
+            source {
+                databaseColumn: OWNER_ID
+                dataType: number
+            }
+        )
+
+        column PROJECTS (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: PROJECTS
+                dataType: number
+            }
+        )
+
+        column PROJECTS_100 (
+            layout {
+                sequence: 200
+            }
+            source {
+                databaseColumn: PROJECTS_100
+                dataType: number
+            }
+        )
+
+        column SPONSOR (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: SPONSOR
+                dataType: varchar2
+            }
+        )
+
+        column TAGS (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: TAGS
+                dataType: varchar2
+            }
+        )
+
+        column UPDATED (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: UPDATED
+                dataType: date
+            }
+        )
+
+        column UPDATED_BY (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: UPDATED_BY
+                dataType: varchar2
+            }
+        )
+
+        column UPDATED_MONTH (
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: UPDATED_MONTH
+                dataType: varchar2
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 94
+                    items: {
+                        P94_INITIATIVE_ID: &ID.
+                    }
+                    clearCache: 94
+                    action: resetPagination
+                }
+            }
+        )
+
+        action actions (
+            position: primaryActions
+            template: menu
+            label: Actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+                cssClasses: t-Button--noUI
+            }
+
+            menu add-project (
+                label: Add Project
+                layout {
+                    sequence: 30
+                }
+                behavior {
+                    target: {
+                        page: 24
+                        items: {
+                            P24_INITIATIVE_ID: &ID.
+                            P24_DEF_INITIATIVE_ID: &ID.
+                        }
+                        clearCache: 24
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-plus
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+            menu edit-nomenclature-initiative (
+                label: Edit &NOMENCLATURE_INITIATIVE.
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    target: {
+                        page: 22
+                        items: {
+                            P22_ID: &ID.
+                        }
+                        clearCache: 22
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-edit
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+            menu kanban (
+                label: Kanban
+                layout {
+                    sequence: 60
+                }
+                behavior {
+                    target: {
+                        page: 158
+                        items: {
+                            P158_INITIATIVE_ID: &ID.
+                        }
+                        clearCache: 158
+                    }
+                }
+                appearance {
+                    icon: fa-columns
+                }
+                config {
+                    buildOption: @kanban
+                }
+            )
+
+            menu milestones (
+                label: Milestones
+                layout {
+                    sequence: 70
+                }
+                behavior {
+                    target: {
+                        page: 112
+                        items: {
+                            P112_INITIATIVE_ID: &ID.
+                        }
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-calendar-o
+                }
+                config {
+                    buildOption: @kanban
+                }
+            )
+
+            menu nomenclature-initiative-details (
+                label: &NOMENCLATURE_INITIATIVE. Details
+                layout {
+                    sequence: 10
+                }
+                behavior {
+                    target: {
+                        page: 94
+                        items: {
+                            P94_INITIATIVE_ID: &ID.
+                        }
+                        clearCache: 94
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-lightbulb-o
+                }
+            )
+
+            menu nomenclature-projects (
+                label: &NOMENCLATURE_PROJECTS.
+                layout {
+                    sequence: 50
+                }
+                behavior {
+                    target: {
+                        page: 23
+                        items: {
+                            P23_INITIATIVE: &INITIATIVE.
+                            P23_FOCUS_AREA: &FOCUS_AREA.
+                        }
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-package
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P21_DEFAULT_AREA_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @nomenclature-initiatives
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P21_ORDER_BY (
+        type: selectList
+        label {
+            label: Order By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:&NOMENCLATURE_INITIATIVE.;INITIATIVE,&NOMENCLATURE_INITIATIVE. Updated;UPDATED,&NOMENCLATURE_PROJECTS.;PROJECTS,Open &NOMENCLATURE_PROJECTS.;OPEN_PROJECTS,Last &NOMENCLATURE_PROJECT. Updated;LAST_PROJECT_UPDATE
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @items
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            cssClasses: u-pullRight
+            icon: fa-sort-amount-desc
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: [
+                w240
+                no-item-ui
+            ]
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: LAST_PROJECT_UPDATE
+        }
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about-initiatives (
+            label: About &NOMENCLATURE_INITIATIVES.
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 106
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu new (
+            type: separator
+            layout {
+                sequence: 20
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 40
+            }
+            behavior {
+                target: {
+                    page: 21
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 30
+            }
+            behavior {
+                target: {
+                    page: 21
+                    clearCache: 21
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+    )
+
+    button add-initiative (
+        buttonName: add_initiative
+        label: Add &NOMENCLATURE_INITIATIVE.
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 170
+                clearCache: [
+                    170
+                    171
+                    172
+                    173
+                    174
+                    175
+                ]
+                action: resetPagination
+            }
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 17
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction dialog-close (
+        name: dialog close
+        execution {
+            sequence: 40
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @items
+        }
+    )
+
+    dynamicAction refresh-on-dc (
+        name: refresh on DC
+        execution {
+            sequence: 80
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @nomenclature-initiatives
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @nomenclature-initiatives
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation last-proj-jump-pg (
+        itemName: LAST_PROJ_JUMP_PG
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 21
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,79 @@
+page 1 (
+    name: Ordered item-to-item computation
+    alias: HOME
+    title: Ordered item-to-item computation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>An initial source value is assigned first, then copied to the second item with an explicit execution sequence.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    computation initialize (
+        itemName: P1_INPUT
+        computation {
+            type: staticValue
+            staticValue: Sample reference
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+    computation derive (
+        itemName: P1_OUTPUT
+        computation {
+            type: item
+            itemName: P1_INPUT
+        }
+        execution {
+            sequence: 20
+            point: beforeHeader
+        }
+    )
+)

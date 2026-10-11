@@ -1,0 +1,338 @@
+# Workflow Debug Messages — Sample Approvals
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/pages/p00027-workflow-debug-messages.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 741fc56cf91939b090afc1312e727f293c8f2f17389e5277e41afcc6b7ea4e41.
+
+Application dependency inventory: oracle:26.2:public-template/sample-approvals/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 27 (
+    name: Workflow Debug Messages
+    alias: WORKFLOW-DEBUG-MESSAGES
+    title: Workflow Debug Messages
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: @operations-team
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                    This page is handy for debugging purposes to show APEX debug messages related to 
+                    workflows from the current application. To enable more verbose debug logging for one
+                    of the sample's workflow, you can set the <em>Debug Level</em> property on its workflow
+                    version, or use the <code>set_log_level</code> procedure in the <code>APEX_WORKFLOWS</code>
+                    package. Since the APEX workflow engine works in the background, using a distinct APEX
+                    session from the end-user running the user interface of your application, some debug
+                    messages related to workflows will not appear in the usual debug log window, but they are
+                    logged in the <code>APEX_DEBUG_MESSAGES</code> view, which the report region in this page
+                    is using to show its contents. 
+                </p>
+                
+                ```
+        }
+        layout {
+            sequence: 1
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                js-useLocalStorage
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region workflow-debug-messages (
+        name: Workflow Debug Messages
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select message_timestamp,
+                       elapsed_time,
+                       execution_time,
+                       message,
+                       page_id,
+                       workflow_instance_id,
+                       session_id,
+                       message_level,
+                       trim(replace(call_stack,'%')) as call_stack
+                 from apex_debug_messages
+                where application_id = :APP_ID
+                and apex_user = 'nobody'
+                and call_stack like '%\%WORKFLOW.%' escape '\'
+                and message_level < 9
+                order by message_timestamp desc
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 866295632768486808
+        }
+
+        column CALL_STACK (
+            type: plainText
+            heading {
+                heading: Call Stack
+            }
+            layout {
+                sequence: 14
+            }
+            columnFormatting {
+                htmlExpression: <code>#CALL_STACK#</code>
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column ELAPSED_TIME (
+            type: plainText
+            heading {
+                heading: Elapsed
+                alignment: end
+            }
+            layout {
+                sequence: 4
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column EXECUTION_TIME (
+            type: plainText
+            heading {
+                heading: Execution
+                alignment: end
+            }
+            layout {
+                sequence: 5
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column MESSAGE (
+            type: plainText
+            heading {
+                heading: Message
+            }
+            layout {
+                sequence: 6
+            }
+            columnFormatting {
+                htmlExpression: <code>#MESSAGE#</code>
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column MESSAGE_LEVEL (
+            type: plainText
+            heading {
+                heading: Message Level
+                alignment: end
+            }
+            layout {
+                sequence: 12
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column MESSAGE_TIMESTAMP (
+            type: plainText
+            heading {
+                heading: Timestamp
+            }
+            layout {
+                sequence: 3
+            }
+            appearance {
+                formatMask: since
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column PAGE_ID (
+            type: plainText
+            heading {
+                heading: Page
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column SESSION_ID (
+            type: plainText
+            heading {
+                heading: Session Id
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column WORKFLOW_INSTANCE_ID (
+            type: plainText
+            heading {
+                heading: Instance Id
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Workflow Debug Messages
+        }
+
+        savedReport 8663046 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn CALL_STACK (
+                sequence: 5
+            )
+
+            displayColumn MESSAGE (
+                sequence: 2
+            )
+
+            displayColumn MESSAGE_TIMESTAMP (
+                sequence: 1
+            )
+
+            displayColumn SESSION_ID (
+                sequence: 4
+            )
+
+            displayColumn WORKFLOW_INSTANCE_ID (
+                sequence: 3
+            )
+
+        )
+
+    )
+
+)
+
+
+````

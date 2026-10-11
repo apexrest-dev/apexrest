@@ -1,0 +1,495 @@
+# Agreements — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00130-agreements2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 7941e5ea9a7880e215afb9cc1563c31a0c22c03c3e094b18b063e17c787247d1.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 130 (
+    name: Agreements
+    alias: AGREEMENTS2
+    title: Agreements
+    pageGroup: @accounts
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-agreements-dialog
+        resizable: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+
+    region agreements (
+        name: Agreements
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    id,
+                    name,
+                    close_date,
+                    term_id,
+                    agreement_id,
+                    quote_price,
+                    created_by,
+                    created,
+                    updated_by,
+                    updated
+                from
+                    EBA_SALES_CUST_AGRMNT_MAP
+                where
+                    customer_id = :P94_ID;
+                ```
+        }
+        layout {
+            sequence: 1210
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No agreements found.
+        }
+        advanced {
+            savedReportMappingIdentifier: 5170100822761510472
+        }
+
+        column AGREEMENT_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Agreement
+            }
+            lov {
+                lov: @agreements
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column CLOSE_DATE (
+            type: plainText
+            heading {
+                heading: Close Date
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created by
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column ID (
+            type: link
+            heading {
+                heading: Edit
+                alignment: center
+            }
+            layout {
+                sequence: 10
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    page: 102
+                    items: {
+                        P102_CUSTOMER_ID: &P127_ID.
+                        P102_ID: #ID#
+                    }
+                    clearCache: 102
+                    action: resetPagination
+                }
+                linkText: <span class="fa fa-edit" aria-hidden="true"></span>
+                linkAttributes: title="Edit #NAME#"
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            enableUsersTo {
+                hide: false
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Account Support Amount
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+            serverSideCondition {
+                type: rowsReturned
+                sqlQuery:
+                    ```sql
+                    select null
+                      from EBA_SALES_CUST_SPT_AMT_MAP m
+                     where m.name not in (select distinct name from EBA_SALES_SUPPORT_AMTS where id = m.amount_id)
+                      and m.customer_id = :P130_ID
+                    ```
+            }
+        )
+
+        column QUOTE_PRICE (
+            type: plainText
+            heading {
+                heading: Quote Price
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G999
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column TERM_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Term
+            }
+            lov {
+                lov: @terms-id-return-value
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 100
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated by
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        page {
+            width: 8.5
+            height: 11
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+
+        savedReport 25850735 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn AGREEMENT_ID (
+                sequence: 9
+            )
+
+            displayColumn CLOSE_DATE (
+                sequence: 4
+            )
+
+            displayColumn CREATED (
+                sequence: 6
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 5
+            )
+
+            displayColumn ID (
+                sequence: 1
+            )
+
+            displayColumn QUOTE_PRICE (
+                sequence: 2
+            )
+
+            displayColumn TERM_ID (
+                sequence: 3
+            )
+
+            displayColumn UPDATED (
+                sequence: 8
+            )
+
+            displayColumn UPDATED_BY (
+                sequence: 7
+            )
+
+        )
+
+    )
+
+    pageItem P130_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @agreements
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-agreement (
+        buttonName: ADD_AGREEMENT
+        label: Add Agreement
+        layout {
+            sequence: 20
+            region: @agreements
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 102
+                items: {
+                    P102_CUSTOMER_ID: &P130_ID.
+                }
+                clearCache: 102
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @agreements
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                items: {
+                    P130_ID: &P130_ID.
+                }
+                clearCache: [
+                    &APP_PAGE_ID.
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-add (
+        name: Refresh on Add
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-agreement
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @agreements
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-edit (
+        name: Refresh on Edit
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @agreements
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @agreements
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

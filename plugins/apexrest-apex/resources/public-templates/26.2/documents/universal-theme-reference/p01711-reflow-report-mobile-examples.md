@@ -1,0 +1,472 @@
+# Reflow Report - Mobile Examples — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01711-reflow-report-mobile-examples.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 05b64e3187ca19b34032af7d6dc40a3437a07b2ec62fe4277b8d0b8437232d2a.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1711 (
+    name: Reflow Report - Mobile Examples
+    alias: REFLOW-REPORT-MOBILE-EXAMPLES
+    title: Reflow Report - Mobile Examples
+    pageGroup: @components
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigationMenu {
+        overrideUserInterfaceLevel: true
+        list: @ut-application-navigation
+        listPosition: top
+        listTemplate: @/top-navigation-tabs
+        templateOptions: [
+            #DEFAULT#
+            t-NavTabs--inlineLabels-lg
+            t-NavTabs--hiddenLabels-sm
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+        pageAccessProtection: unrestricted
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region tasks (
+        name: Tasks
+        type: reflowReport
+        source {
+            location: localDatabase
+            tableName: EBA_UT_CHART_TASKS
+        }
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        serverSideCondition {
+            type: request=Value
+            value: sample2
+        }
+        settings {
+            layoutOptions: [
+                stripes
+                stroke
+            ]
+        }
+
+        column ASSIGNED_TO (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 130
+            }
+        )
+
+        column BUDGET (
+            source {
+                dataType: NUMBER
+            }
+            heading {
+                heading: Budget
+                alignment: end
+            }
+            layout {
+                sequence: 150
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+        )
+
+        column COST (
+            source {
+                dataType: NUMBER
+            }
+            heading {
+                heading: Cost
+                alignment: end
+            }
+            layout {
+                sequence: 140
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+        )
+
+        column CREATED (
+            show: false
+            source {
+                dataType: TIMESTAMP_LTZ
+            }
+            layout {
+                sequence: 40
+            }
+        )
+
+        column CREATED_BY (
+            show: false
+            source {
+                dataType: VARCHAR2
+            }
+            layout {
+                sequence: 50
+            }
+        )
+
+        column END_DATE (
+            source {
+                dataType: DATE
+            }
+            heading {
+                heading: End Date
+                alignment: center
+            }
+            layout {
+                sequence: 110
+                columnAlignment: center
+            }
+        )
+
+        column ID (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        column PARENT_TASK (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 80
+            }
+        )
+
+        column PROJECT (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column ROW_VERSION_NUMBER (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column START_DATE (
+            source {
+                dataType: DATE
+            }
+            heading {
+                heading: Start Date
+                alignment: center
+            }
+            layout {
+                sequence: 100
+                columnAlignment: center
+            }
+        )
+
+        column STATUS (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 120
+            }
+        )
+
+        column TASK_NAME (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 90
+            }
+        )
+
+        column UPDATED (
+            show: false
+            source {
+                dataType: TIMESTAMP_LTZ
+            }
+            layout {
+                sequence: 60
+            }
+        )
+
+        column UPDATED_BY (
+            show: false
+            source {
+                dataType: VARCHAR2
+            }
+            layout {
+                sequence: 70
+            }
+        )
+
+    )
+
+    region tasks-2 (
+        name: Tasks
+        type: reflowReport
+        source {
+            location: localDatabase
+            tableName: EBA_UT_CHART_TASKS
+        }
+        layout {
+            sequence: 50
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--showIcon
+                t-Region--scrollBody
+            ]
+            icon: fa-tasks u-color-4
+        }
+        serverSideCondition {
+            type: request=Value
+            value: sample1
+        }
+        settings {
+            layoutOptions: stripes
+        }
+
+        column ASSIGNED_TO (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 130
+            }
+        )
+
+        column BUDGET (
+            source {
+                dataType: NUMBER
+            }
+            heading {
+                heading: Budget
+                alignment: end
+            }
+            layout {
+                sequence: 150
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+        )
+
+        column COST (
+            source {
+                dataType: NUMBER
+            }
+            heading {
+                heading: Cost
+                alignment: end
+            }
+            layout {
+                sequence: 140
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+        )
+
+        column CREATED (
+            show: false
+            source {
+                dataType: TIMESTAMP_LTZ
+            }
+            layout {
+                sequence: 50
+            }
+        )
+
+        column CREATED_BY (
+            show: false
+            source {
+                dataType: VARCHAR2
+            }
+            layout {
+                sequence: 60
+            }
+        )
+
+        column END_DATE (
+            source {
+                dataType: DATE
+            }
+            heading {
+                heading: End Date
+                alignment: center
+            }
+            layout {
+                sequence: 110
+                columnAlignment: center
+            }
+        )
+
+        column ID (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        column PARENT_TASK (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 90
+            }
+        )
+
+        column PROJECT (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column ROW_VERSION_NUMBER (
+            show: false
+            source {
+                dataType: NUMBER
+            }
+            layout {
+                sequence: 40
+            }
+        )
+
+        column START_DATE (
+            source {
+                dataType: DATE
+            }
+            heading {
+                heading: Start Date
+                alignment: center
+            }
+            layout {
+                sequence: 100
+                columnAlignment: center
+            }
+        )
+
+        column STATUS (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 120
+            }
+        )
+
+        column TASK_NAME (
+            source {
+                dataType: VARCHAR2
+            }
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column UPDATED (
+            show: false
+            source {
+                dataType: TIMESTAMP_LTZ
+            }
+            layout {
+                sequence: 70
+            }
+        )
+
+        column UPDATED_BY (
+            show: false
+            source {
+                dataType: VARCHAR2
+            }
+            layout {
+                sequence: 80
+            }
+        )
+
+    )
+
+)
+
+
+````

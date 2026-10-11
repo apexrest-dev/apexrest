@@ -1,0 +1,538 @@
+# Report from Collection — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00038-report-from-collection.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 6656eb324c0644a4c8f7e87409b4ac13501dfb5dd3d27029fb0d0f96b5bcfcf2.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 38 (
+    name: Report from Collection
+    alias: REPORT-FROM-COLLECTION
+    title: Report from Collection
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>This interactive report is based on a collection.  This page automatically creates an Oracle APEX collection if the collection does not exist.  If it does exist, the collection is recreated.  Collections are an Oracle APEX user session specific utility to manage an array of session state.  Since Oracle APEX is stateless, Oracle Temporary tables cannot be used to persist session state over page views.  Therefore, Oracle APEX applications need to use an Oracle APEX collections PL/SQL API to manage Oracle APEX collections.  Oracle APEX collections are used for complex reporting applications, to improve performance, as well as to allow a developer to gather information from multiple tables in multiple passes or by using PL/SQL.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region before-header-page-process (
+        name: Before Header Page Process
+        type: plSqlDynamicContent
+        source {
+            plsqlCode:
+                ```plsql
+                for c1 in (
+                select process_source
+                from apex_application_page_proc
+                where application_id = :APP_ID
+                and page_id = :APP_PAGE_ID)
+                loop
+                sys.htp.prn('<pre>');
+                sys.htp.prn(apex_escape.html(c1.process_source));
+                sys.htp.prn('</pre>');
+                end loop;
+                ```
+        }
+        layout {
+            sequence: 50
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region container (
+        name: Container
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region interactive-report-on-collection (
+        name: Interactive Report on Collection
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select n001 id, c001 project, c002 task_name, d001 start_date, d002 end_date, c003 status, c004 assigned_to, n002 cost, n003 budget, n004 available_budget
+                  from apex_collections
+                 where collection_name = 'PROJECTS_COLLECTION'
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: REPORT1
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 676849824131536152
+        }
+
+        column ASSIGNED_TO (
+            type: plainText
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column AVAILABLE_BUDGET (
+            type: plainText
+            heading {
+                heading: Available Budget
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column BUDGET (
+            type: plainText
+            heading {
+                heading: Budget
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column COST (
+            type: plainText
+            heading {
+                heading: Cost
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column END_DATE (
+            type: plainText
+            heading {
+                heading: End Date
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column ID (
+            type: plainText
+            heading {
+                heading: ID
+                alignment: end
+            }
+            layout {
+                sequence: 1
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column PROJECT (
+            type: plainText
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column START_DATE (
+            type: plainText
+            heading {
+                heading: Start Date
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column TASK_NAME (
+            type: plainText
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        savedReport 6768511 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 5
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 6
+            )
+
+            displayColumn AVAILABLE_BUDGET (
+                sequence: 9
+            )
+
+            displayColumn BUDGET (
+                sequence: 8
+            )
+
+            displayColumn COST (
+                sequence: 7
+            )
+
+            displayColumn END_DATE (
+                sequence: 4
+            )
+
+            displayColumn PROJECT (
+                sequence: 1
+            )
+
+            displayColumn START_DATE (
+                sequence: 3
+            )
+
+            displayColumn STATUS (
+                sequence: 5
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 2
+            )
+
+            sort (
+                column: BUDGET
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: START_DATE
+                sort {
+                    direction: desc
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: PROJECT
+                sort {
+                    sequence: 3
+                }
+            )
+
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 40
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: REPORT1
+        }
+    )
+
+    button recreate-collection (
+        buttonName: RECREATE_COLLECTION
+        label: Recreate Collection
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @interactive-report-on-collection
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 38
+                clearCache: [
+                    38
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process create-collection (
+        name: Create Collection
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                --
+                -- While apex_util.create_collection_from_query_b could be used to quickly create the collection, 
+                -- we're doing this manually so the column values are mapped to the appropriately typed member
+                -- attributes.
+                --
+                apex_collection.create_or_truncate_collection( p_collection_name => 'PROJECTS_COLLECTION' );
+                
+                for c1 in (select id, project, task_name, start_date, end_date, status, assigned_to, cost, budget, budget-cost available_budget from eba_demo_ir_projects) loop
+                    apex_collection.add_member(
+                        p_collection_name => 'PROJECTS_COLLECTION',
+                        p_c001 => c1.project,
+                        p_c002 => c1.task_name,
+                        p_c003 => c1.status,
+                        p_c004 => c1.assigned_to,
+                        p_n001 => c1.id,
+                        p_n002 => c1.cost,
+                        p_n003 => c1.budget,
+                        p_n004 => c1.available_budget,
+                        p_d001 => c1.start_date,
+                        p_d002 => c1.end_date );
+                end loop;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 1319265066464041242
+        }
+        serverSideCondition {
+            type: expression
+            plsqlExpression: apex_collection.collection_exists( p_collection_name => 'PROJECTS_COLLECTION') = FALSE or :REQUEST = 'RECREATE_COLLECTION'
+        }
+    )
+
+)
+
+
+````

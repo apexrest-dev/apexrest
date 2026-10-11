@@ -1,0 +1,557 @@
+# Customer Links — Customers
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/customers/apexlang/customers/pages/p00051-customer-links.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: fa3ca9123470a665ea48d605826777800b5808e6767dc1f4051e54b24275a4a3.
+
+Application dependency inventory: oracle:26.2:public-template/customers/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 51 (
+    name: Customer Links
+    alias: CUSTOMER-LINKS
+    title: Customer Links
+    pageGroup: @customers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region customer-links (
+        name: Customer Links
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb-2
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region customer-links-2 (
+        name: Customer Links
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                customer_id,
+                nvl(link,link_desc) link_text,
+                link link_target,
+                link_comments,
+                tags,
+                created date_added,
+                lower(created_by) added_by,
+                updated,
+                updated_by,
+                '#' delete_link
+                from eba_cust_links
+                where customer_id = :P51_ID
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No links found
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2525643629424384487
+        }
+
+        column ADDED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 17
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer Id
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column DATE_ADDED (
+            type: plainText
+            heading {
+                heading: Date Added
+            }
+            layout {
+                sequence: 16
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column DELETE_LINK (
+            type: link
+            heading {
+                heading: &nbsp;
+            }
+            layout {
+                sequence: 18
+            }
+            link {
+                target: {
+                    page: 51
+                    items: {
+                        P51_DELETE_LINK_ID: #ID#
+                    }
+                    request: DELETE_LINK
+                }
+                linkText: <span class="t-Icon fa fa-trash-o" aria-hidden="true"></span>
+                linkAttributes: class="t-Button t-Button--danger t-Button--simple t-Button--small" title="Delete Link: #LINK_TEXT#"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+            enableUsersTo {
+                hide: false
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+            }
+            serverSideCondition {
+                type: never
+            }
+            security {
+                authorizationScheme: @contribution-rights
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column LINK_COMMENTS (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 12
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column LINK_TARGET (
+            type: plainText
+            heading {
+                heading: Link Target
+            }
+            layout {
+                sequence: 15
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column LINK_TEXT (
+            type: link
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 14
+            }
+            link {
+                target: {
+                    page: 66
+                    items: {
+                        P66_ID: #ID#
+                    }
+                    clearCache: 66
+                    action: resetPagination
+                }
+                linkText: #LINK_TEXT#
+                linkAttributes: target="_blank"
+            }
+            source {
+                dataType: varchar2
+            }
+            columnFilter {
+                type: definedLovWordContains
+                sqlQuery:
+                    ```sql
+                    select nvl(link_desc, link) d
+                    from eba_cust_links
+                    where customer_id = :p51_id
+                    order by 1
+                    ```
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 10
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        savedReport 25256526 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn ADDED_BY (
+                sequence: 4
+            )
+
+            displayColumn DATE_ADDED (
+                sequence: 3
+            )
+
+            displayColumn DELETE_LINK (
+                sequence: 6
+            )
+
+            displayColumn LINK_TARGET (
+                sequence: 2
+            )
+
+            displayColumn LINK_TEXT (
+                sequence: 1
+            )
+
+            displayColumn TAGS (
+                sequence: 5
+            )
+
+        )
+
+    )
+
+    pageItem P51_DELETE_LINK_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @customer-links-2
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P51_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @customer-links-2
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-link (
+        buttonName: ADD_LINK
+        label: Add Link
+        layout {
+            sequence: 10
+            region: @customer-links
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+            icon: fa-chevron-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 66
+                items: {
+                    P66_CUSTOMER_ID: &P51_ID.
+                }
+                clearCache: 66
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @customer-links-2
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 51
+                clearCache: RIR
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-irr-on-close (
+        name: Refresh IRR on close
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-link
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @customer-links-2
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-irr-on-edit-close (
+        name: Refresh IRR on Edit Close
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @customer-links-2
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @customer-links-2
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation p50-id (
+        itemName: P50_ID
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: item
+            itemName: P51_ID
+        }
+    )
+
+    process delete-link (
+        name: delete link
+        type: executeCode
+        source {
+            plsqlCode: delete from eba_cust_links where id = :P51_DELETE_LINK_ID;
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        successMessage {
+            successMessage: Link deleted
+        }
+        advanced {
+            executionMappingIdentifier: 16589857193488359373
+        }
+        serverSideCondition {
+            type: request=Value
+            value: DELETE_LINK
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,114 @@
+page 1 (
+    name: Null-safe numeric range validation
+    alias: HOME
+    title: Null-safe numeric range validation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Try 42 to pass; empty input, zero, negative values and three digits must fail.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation check-input (
+        name: Validate input
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: expression
+            plsqlExpression:
+                ```plsql
+                :P1_INPUT is not null and regexp_like(:P1_INPUT, '^[0-9]{1,2}$') and nvl(length(ltrim(:P1_INPUT, '0')), 0) > 0
+                ```
+        }
+        error {
+            errorMessage: Enter a whole number from 1 through 99.
+            associatedItem: @P1_INPUT
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+    )
+    process accepted (
+        name: Accept valid input
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_OUTPUT := 'Accepted: ' || :P1_INPUT;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @preview
+        }
+        successMessage {
+            successMessage: Input passed validation.
+        }
+    )
+)

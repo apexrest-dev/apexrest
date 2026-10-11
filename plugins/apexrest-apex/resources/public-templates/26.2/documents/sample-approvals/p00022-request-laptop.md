@@ -1,0 +1,394 @@
+# Request Laptop — Sample Approvals
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/pages/p00022-request-laptop.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 6a606c815c2c9bda6a4021451b63ce48588b0eed13ac1f030cb486efc9d147e9.
+
+Application dependency inventory: oracle:26.2:public-template/sample-approvals/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 22 (
+    name: Request Laptop
+    alias: REQUEST-LAPTOP
+    title: Request Laptop
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        width: 340
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    javaScript {
+        executeWhenPageLoads:
+            ```javascript-browser
+            apex.items.P22_NEED_BY.dayFormatter = function (pDateISOString) {
+              const day = apex.date.parse(pDateISOString, "YYYY-MM-DD").getDay();
+              return {
+                  // disable when day is Saturday or Sunday
+                  disabled: [0, 6].includes(day),
+                  // set a styling css class like u-danger-text
+                  class: null,
+                  // set a tooltip that is shown on hover
+                  tooltip: null
+              };
+            };
+            apex.items.P22_NEED_BY.refresh();
+            ```
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region request-laptop (
+        name: Request Laptop
+        type: form
+        source {
+            location: localDatabase
+            tableName: EBA_DEMO_APPR_LAPTOP_REQUESTS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P22_EMPNO (
+        type: displayOnly
+        label {
+            label: Employee
+            alignment: left
+        }
+        settings {
+            basedOn: lov
+        }
+        lov {
+            type: sharedComponent
+            lov: @eba-demo-conf-emp-lov
+            displayExtraValues: false
+        }
+        layout {
+            sequence: 40
+            region: @request-laptop
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @request-laptop
+            column: EMPNO
+            dataType: number
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P22_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @request-laptop
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-laptop
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P22_LAPTOP_TYPE (
+        type: selectList
+        label {
+            label: Laptop Type
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @available-laptop-types
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 90
+            region: @request-laptop
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        source {
+            formRegion: @request-laptop
+            column: LAPTOP_TYPE
+            dataType: varchar2
+        }
+    )
+
+    pageItem P22_MINIMUM_DATE (
+        type: hidden
+        layout {
+            sequence: 110
+            region: @request-laptop
+            slot: regionBody
+        }
+        appearance {
+            formatMask: YYYYMMDDHH24MI
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P22_NEED_BY (
+        type: datePicker
+        label {
+            label: Need By
+            alignment: left
+        }
+        settings {
+            displayAs: inline
+            minDate: item
+            minItem: P22_MINIMUM_DATE
+            useDefaults: false
+            appearanceBehavior: monthPicker
+        }
+        layout {
+            sequence: 100
+            region: @request-laptop
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: YYYYMMDDHH24MI
+            width: 30
+        }
+        source {
+            formRegion: @request-laptop
+            column: NEED_BY
+            dataType: date
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button submit-for-approval (
+        buttonName: SUBMIT_FOR_APPROVAL
+        label: Submit
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P22_EMPNO
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation p22-minimum-date (
+        itemName: P22_MINIMUM_DATE
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: expression
+            language: sql
+            sqlExpression: to_char((sysdate + 7) + case to_char(sysdate + 7, 'fmDay','NLS_DATE_LANGUAGE = AMERICAN') when 'Saturday' then 2 when 'Sunday' then 1 else 0 end,'YYYYMMDDHH24MI') min_date
+        }
+    )
+
+    computation p22-need-by (
+        itemName: P22_NEED_BY
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: expression
+            language: sql
+            sqlExpression: to_char((sysdate + 14) + case to_char(sysdate + 14, 'fmDay','NLS_DATE_LANGUAGE = AMERICAN') when 'Saturday' then 2 when 'Sunday' then 1 else 0 end,'YYYYMMDDHH24MI') min_date
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 614607877278872788
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SUBMIT_FOR_APPROVAL,DELETE
+        }
+    )
+
+    process initialize-form-request-salary-change (
+        name: Initialize form Request Salary Change
+        type: formInitialization
+        formRegion: @request-laptop
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 614604012173872775
+        }
+    )
+
+    process process-form-request-laptop (
+        name: Process form Request Laptop
+        type: formAutoRowProcessing
+        formRegion: @request-laptop
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 614604471300872775
+        }
+    )
+
+    process start-laptop-request-workflow (
+        name: Start Laptop Request Workflow
+        type: workflow
+        workflow {
+            definition: @LAPTOP_REQUEST
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 614606978267872787
+        }
+        serverSideCondition {
+            whenButtonPressed: @submit-for-approval
+        }
+
+        parameter (
+            name: @P_EMPNO
+            value {
+                item: P22_EMPNO
+            }
+        )
+
+        parameter (
+            name: @P_LAPTOP_REQUEST_ID
+            value {
+                item: P22_ID
+            }
+        )
+
+        parameter (
+            name: @P_LAPTOP_TYPE
+            value {
+                item: P22_LAPTOP_TYPE
+            }
+        )
+
+    )
+
+)
+
+
+````

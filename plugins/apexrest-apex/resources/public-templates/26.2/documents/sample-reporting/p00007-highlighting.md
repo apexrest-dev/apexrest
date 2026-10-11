@@ -1,0 +1,627 @@
+# Highlighting — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00007-highlighting.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: cb4329da0b69321602bce92832c1a04cb9c003b377a34c6899ffc0253c41b3c6.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 7 (
+    name: Highlighting
+    alias: HIGHLIGHTING
+    title: Highlighting
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>This page demonstrates interactive report column highlighting features.  Developers cannot set interactive report highlighting by editing the page, it must be set by running the page.  Both developers and end users can set column highlighting.  To set highlighting, click the <strong>Actions</strong> pull down menu, then select <strong>Highlight</strong>.  When a column matches a specific condition, you can highlight at the row or column level.  The example below highlights the report <strong>Total Cost</strong> column in yellow when the value is greater then 5,000.  Developers can save report highlighting by clicking the <strong>Actions</strong> menu, then <strong>Save Report</strong>, and then <strong>Save as Default Report Settings</strong>.  Developers can include or exclude each end-user feature of an interactive report by editing the interactive report settings.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region container (
+        name: Container
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--removeHeader js-removeLandmark
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region highlighting (
+        name: Highlighting
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region projects (
+        name: Projects
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                       PROJECT,
+                       count(*) tasks,
+                       min(START_DATE) first_start_date,
+                       max(END_DATE) last_end_date,
+                       sum(decode(STATUS,'Open',1,0)) open,
+                       sum(decode(STATUS,'Closed',1,0)) closed,
+                       sum(decode(STATUS,'Pending',1,0)) pending,
+                       sum(decode(STATUS,'On-Hold',1,0)) on_hold,   
+                       count(distinct ASSIGNED_TO) assignees,
+                       sum(COST) total_cost,
+                       sum(BUDGET) total_budget,
+                       sum(BUDGET) - sum(COST) cost_vs_budget
+                from EBA_DEMO_IR_PROJECTS
+                group by project
+                ```
+        }
+        layout {
+            sequence: 30
+            parentRegion: @container
+            slot: subRegions
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            htmlDomId: projects_report
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2024022530411407526
+        }
+
+        column ASSIGNEES (
+            type: plainText
+            heading {
+                heading: Assignees
+                alignment: end
+            }
+            layout {
+                sequence: 9
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column CLOSED (
+            type: link
+            heading {
+                heading: Closed
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                        IR_STATUS: Closed
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #CLOSED#
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column COST_VS_BUDGET (
+            type: plainText
+            heading {
+                heading: Cost vs Budget
+                alignment: end
+            }
+            layout {
+                sequence: 12
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column FIRST_START_DATE (
+            type: plainText
+            heading {
+                heading: First Start Date
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column LAST_END_DATE (
+            type: plainText
+            heading {
+                heading: Last End Date
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column ON_HOLD (
+            type: link
+            heading {
+                heading: On Hold
+                alignment: end
+            }
+            layout {
+                sequence: 8
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                        IR_STATUS: On-Hold
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #ON_HOLD#
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column OPEN (
+            type: link
+            heading {
+                heading: Open
+                alignment: end
+            }
+            layout {
+                sequence: 5
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                        IR_STATUS: Open
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #OPEN#
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column PENDING (
+            type: link
+            heading {
+                heading: Pending
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                        IR_STATUS: Pending
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #PENDING#
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 1
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column TASKS (
+            type: link
+            heading {
+                heading: Tasks
+                alignment: end
+            }
+            layout {
+                sequence: 2
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            link {
+                target: {
+                    page: 1
+                    items: {
+                        IR_PROJECT: #PROJECT#
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: #TASKS#
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column TOTAL_BUDGET (
+            type: plainText
+            heading {
+                heading: Total Budget
+                alignment: end
+            }
+            layout {
+                sequence: 11
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column TOTAL_COST (
+            type: plainText
+            heading {
+                heading: Total Cost
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        savedReport 20240239 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CLOSED (
+                sequence: 4
+            )
+
+            displayColumn COST_VS_BUDGET (
+                sequence: 9
+            )
+
+            displayColumn ON_HOLD (
+                sequence: 6
+            )
+
+            displayColumn OPEN (
+                sequence: 3
+            )
+
+            displayColumn PENDING (
+                sequence: 5
+            )
+
+            displayColumn PROJECT (
+                sequence: 1
+            )
+
+            displayColumn TASKS (
+                sequence: 2
+            )
+
+            displayColumn TOTAL_BUDGET (
+                sequence: 8
+            )
+
+            displayColumn TOTAL_COST (
+                sequence: 7
+            )
+
+            aggregate (
+                column: TOTAL_COST
+            )
+
+            aggregate (
+                column: TOTAL_BUDGET
+            )
+
+            aggregate (
+                column: COST_VS_BUDGET
+            )
+
+            highlight ir-condition (
+                name: Over Budget
+                condition {
+                    column: COST_VS_BUDGET
+                    operator: <
+                    value: 0
+                }
+                colors {
+                    background: #FF7755
+                }
+                execution {
+                    sequence: 10
+                }
+            )
+
+            highlight ir-condition-2 (
+                name: Expensive Projects
+                condition {
+                    column: TOTAL_COST
+                    operator: >
+                    value: 5000
+                }
+                highlight {
+                    type: cell
+                }
+                colors {
+                    background: #FFFF99
+                }
+                execution {
+                    sequence: 10
+                }
+            )
+
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 40
+            parentRegion: @container
+            slot: subRegions
+            startNewRow: false
+            newColumn: false
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: projects_report
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @projects
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 7
+                clearCache: RIR
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,62 @@
+page 1 (
+    name: Keyboard focus on page ready
+    alias: HOME
+    title: Keyboard focus on page ready
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>The reference field receives keyboard focus when this page opens.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Reference
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: ready
+        }
+        action step-10 (
+            action: setFocus
+            affectedElements {
+                selectionType: items
+                items: P1_INPUT
+            }
+            execution {
+                sequence: 10
+            }
+        )
+    )
+)

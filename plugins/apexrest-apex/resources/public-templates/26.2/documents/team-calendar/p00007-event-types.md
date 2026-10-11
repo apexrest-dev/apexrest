@@ -1,0 +1,623 @@
+# Event Types — Team Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/team-calendar/apexlang/team-calendar/pages/p00007-event-types.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 06b4e5431390256858a2b62bb949005305d4bf6ac9659b2fd109f80f56cb9ed3.
+
+Application dependency inventory: oracle:26.2:public-template/team-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 7 (
+    name: Event Types
+    alias: EVENT-TYPES
+    title: Event Types
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+            t-Dialog--noPadding
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: Event Types allow you to categorize events.  You can choose to associate a display color with an event type.
+    }
+
+    region event-types (
+        name: Event Types
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select type_id,
+                       (select color_name from EBA_CA_color_prefs p where p.id = et.color_pref_id) color_preference,
+                       case when display_color is not null
+                            then '<span style="white-space:nowrap;">' || 
+                                 apex_escape.html(type_name) || '</span>'
+                            else '<span style="white-space:nowrap;">' ||
+                                 apex_escape.html(type_name) || '</span>'
+                            end type_name,
+                       type_name type_name_disp,
+                       display_color,
+                       border_color,
+                       (select count(*) from EBA_CA_EVENTS e
+                         where e.type_id = et.type_id) cnt_events,
+                       CREATED_ON,
+                       decode(nvl(internal_yn, 'N'), 'N', 'External', 'Internal Only') internal_yn,
+                       LOWER(CREATED_BY) CREATED_BY,
+                       nvl(last_updated_on, created_on) LAST_UPDATED_ON,
+                       LOWER(LAST_UPDATED_BY) LAST_UPDATED_BY,
+                       type_name as type_name_raw
+                  from EBA_CA_EVENT_TYPES et
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 8
+                items: {
+                    P8_TYPE_ID: #TYPE_ID#
+                }
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit #TYPE_NAME_RAW#"
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No event types found.
+            whenMoreDataFound: This query returns more than 10,000 rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 8278312869474751362
+        }
+
+        columnGroup audit-info (
+            name: Audit Info
+            layout {
+                sequence: 20
+            }
+        )
+
+        columnGroup details (
+            name: Details
+            layout {
+                sequence: 10
+            }
+        )
+
+        column BORDER_COLOR (
+            type: hidden
+            heading {
+                heading: Border Color
+            }
+            layout {
+                sequence: 83
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CNT_EVENTS (
+            type: plainText
+            heading {
+                heading: Number of Events
+                alignment: end
+            }
+            layout {
+                sequence: 53
+                columnAlignment: end
+                group: @details
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column COLOR_PREFERENCE (
+            type: plainText
+            heading {
+                heading: Color Preference
+            }
+            layout {
+                sequence: 93
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 23
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+            help {
+                helpText: The user who created the record.
+            }
+        )
+
+        column CREATED_ON (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 63
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column DISPLAY_COLOR (
+            type: hidden
+            heading {
+                heading: Display Color
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column INTERNAL_YN (
+            type: plainText
+            heading {
+                heading: "External / Internal "
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+            config {
+                buildOption: @include-external-internal-event-types
+            }
+        )
+
+        column LAST_UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Last Updated By
+            }
+            layout {
+                sequence: 33
+                group: @audit-info
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+            help {
+                helpText: The user who last updated the record.
+            }
+        )
+
+        column LAST_UPDATED_ON (
+            type: plainText
+            heading {
+                heading: Last Updated
+            }
+            layout {
+                sequence: 73
+                group: @audit-info
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column TYPE_ID (
+            type: hidden
+            heading {
+                heading: Type Id
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column TYPE_NAME (
+            type: plainText
+            heading {
+                heading: Event Type
+            }
+            layout {
+                sequence: 2
+                group: @details
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+            security {
+                escapeSpecialChars: false
+            }
+            help {
+                helpText: Type of event.
+            }
+        )
+
+        column TYPE_NAME_DISP (
+            type: plainText
+            heading {
+                heading: Event Type for Sorting
+            }
+            layout {
+                sequence: 43
+                group: @details
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column TYPE_NAME_RAW (
+            type: plainText
+            heading {
+                heading: Type Name Raw
+                alignment: center
+            }
+            layout {
+                sequence: 103
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        savedReport 1588307 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CNT_EVENTS (
+                sequence: 4
+            )
+
+            displayColumn COLOR_PREFERENCE (
+                sequence: 2
+            )
+
+            displayColumn INTERNAL_YN (
+                sequence: 3
+            )
+
+            displayColumn LAST_UPDATED_ON (
+                sequence: 5
+            )
+
+            displayColumn TYPE_NAME (
+                sequence: 1
+            )
+
+            displayColumn TYPE_NAME_RAW (
+                sequence: 6
+            )
+
+            sort (
+                column: LAST_UPDATED_ON
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: TYPE_NAME_DISP
+                sort {
+                    sequence: 2
+                }
+            )
+
+        )
+
+        savedReport 3772805 (
+            visibility: alternativeDefault
+            name: with Audit Info
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CNT_EVENTS (
+                sequence: 4
+            )
+
+            displayColumn COLOR_PREFERENCE (
+                sequence: 2
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 6
+            )
+
+            displayColumn CREATED_ON (
+                sequence: 5
+            )
+
+            displayColumn INTERNAL_YN (
+                sequence: 3
+            )
+
+            displayColumn LAST_UPDATED_BY (
+                sequence: 8
+            )
+
+            displayColumn LAST_UPDATED_ON (
+                sequence: 7
+            )
+
+            displayColumn TYPE_NAME (
+                sequence: 1
+            )
+
+            sort (
+                column: TYPE_NAME_DISP
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Event Type
+        layout {
+            sequence: 20
+            region: @event-types
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 8
+                clearCache: 8
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @event-types
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 7
+                clearCache: [
+                    7
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-add (
+        name: Refresh on Add
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @create
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @event-types
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-edit (
+        name: Refresh on Edit
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @event-types
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @event-types
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-report (
+        name: Refresh Report
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Action Processed.');
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @event-types
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

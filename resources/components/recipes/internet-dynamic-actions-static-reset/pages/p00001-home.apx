@@ -1,0 +1,85 @@
+page 1 (
+    name: Reset item to a known default
+    alias: HOME
+    title: Reset item to a known default
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Edit the value, then choose Reset to replace it with Draft.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Status
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button preview (
+        buttonName: PREVIEW
+        label: Reset
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @preview
+        }
+        action step-10 (
+            action: setValue
+            settings {
+                type: static
+                value: Draft
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_OUTPUT
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

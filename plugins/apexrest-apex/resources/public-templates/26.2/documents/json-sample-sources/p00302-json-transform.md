@@ -1,0 +1,538 @@
+# JSON_TRANSFORM — Json Sample Sources
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/json-sample-sources/apexlang/json-sample-sources/pages/p00302-json-transform.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c7126f0c9ca5077650f05a04e4e57d08c5b6dc33d51dfac17f11720dccfc1fdd.
+
+Application dependency inventory: oracle:26.2:public-template/json-sample-sources/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 302 (
+    name: JSON_TRANSFORM
+    alias: JSON-TRANSFORM
+    title: JSON_TRANSFORM
+    pageGroup: @sql-json-functions
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region json-transform (
+        name: JSON_TRANSFORM
+        type: interactiveReport
+        source {
+            location: jsonSource
+            jsonSource: @eba_demo_json_customers
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 303
+                items: {
+                    P303_CUSTOMER_ID: \#CUSTOMER_ID#\
+                }
+                action: resetPagination
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 10717612031814414
+        }
+
+        column ADDRESS_CITY (
+            type: plainText
+            heading {
+                heading: City
+            }
+            layout {
+                sequence: 7
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column ADDRESS_COUNTRY (
+            type: plainText
+            heading {
+                heading: Country
+            }
+            layout {
+                sequence: 9
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column ADDRESS_POSTAL_CODE (
+            type: plainText
+            heading {
+                heading: Postal Code
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column ADDRESS_STATE_PROVINCE (
+            type: plainText
+            heading {
+                heading: State Province
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column ADDRESS_STREET (
+            type: plainText
+            heading {
+                heading: Street
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column BIRTH_YEAR (
+            type: hidden
+            heading {
+                heading: Birth Year
+            }
+            layout {
+                sequence: 12
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column CUSTOMER_ID (
+            type: hidden
+            heading {
+                heading: Customer ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column EMAIL_ADDRESS (
+            type: hidden
+            heading {
+                heading: Email Address
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column FULL_NAME (
+            type: plainText
+            heading {
+                heading: Full Name
+            }
+            layout {
+                sequence: 2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column GENDER (
+            type: hidden
+            heading {
+                heading: Gender
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column LATITUDE (
+            type: hidden
+            heading {
+                heading: Latitude
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column LONGITUDE (
+            type: hidden
+            heading {
+                heading: Longitude
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column LOYALTY_TIER (
+            type: hidden
+            heading {
+                heading: Loyalty Tier
+            }
+            layout {
+                sequence: 14
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+        )
+
+        column PREFERRED_LANG (
+            type: hidden
+            heading {
+                heading: Preferred Language
+            }
+            layout {
+                sequence: 15
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column SIGNUP_CHANNEL (
+            type: hidden
+            heading {
+                heading: Signup Channel
+            }
+            layout {
+                sequence: 16
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column SUBSCRIBED (
+            type: hidden
+            heading {
+                heading: Subscribed
+            }
+            layout {
+                sequence: 13
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: JSON_TRANSFORM
+        }
+
+        savedReport 107273 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ADDRESS_CITY (
+                sequence: 7
+            )
+
+            displayColumn ADDRESS_COUNTRY (
+                sequence: 9
+            )
+
+            displayColumn ADDRESS_POSTAL_CODE (
+                sequence: 10
+            )
+
+            displayColumn ADDRESS_STATE_PROVINCE (
+                sequence: 11
+            )
+
+            displayColumn ADDRESS_STREET (
+                sequence: 8
+            )
+
+            displayColumn BIRTH_YEAR (
+                sequence: 12
+            )
+
+            displayColumn CUSTOMER_ID (
+                sequence: 1
+            )
+
+            displayColumn EMAIL_ADDRESS (
+                sequence: 3
+            )
+
+            displayColumn FULL_NAME (
+                sequence: 2
+            )
+
+            displayColumn GENDER (
+                sequence: 6
+            )
+
+            displayColumn LATITUDE (
+                sequence: 4
+            )
+
+            displayColumn LONGITUDE (
+                sequence: 5
+            )
+
+            displayColumn LOYALTY_TIER (
+                sequence: 14
+            )
+
+            displayColumn PREFERRED_LANG (
+                sequence: 15
+            )
+
+            displayColumn SIGNUP_CHANNEL (
+                sequence: 16
+            )
+
+            displayColumn SUBSCRIBED (
+                sequence: 13
+            )
+
+        )
+
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                This page is built on top of the <strong>EBA_DEMO_JSON_CUSTOMERS</strong> JSON data source and allows you to update a customer's address. When an address is modified, the system automatically synchronizes the delivery address of related active orders using <strong>JSON_TRANSFORM</strong>. Only orders that are still using the customer's original address are updated, while orders with customized delivery addresses remain unchanged.
+                </p>
+                
+                <p>
+                This demonstrates the power of <strong>JSON_TRANSFORM</strong>, which gives developers full control over JSON document updates through precise and explicit transformations, allowing them to manage every detail of the modification process.
+                </p>
+                
+                <p>
+                To get started, select a customer and update their address information. After saving the changes, the delivery addresses of related active orders are automatically synchronized where applicable.
+                </p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 600
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: PREVIOUS
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 301
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction edit-report-dialog-closed (
+        name: Edit Report - Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @json-transform
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @json-transform
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

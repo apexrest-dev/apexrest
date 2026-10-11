@@ -1,0 +1,469 @@
+# Dashboard - Pies — Sample Charts
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-charts/apexlang/sample-charts/pages/p00024-dashboard-pies.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: f862b30961dc5af25c5e1e5b8f39ce585d6d3639294f2e55a9aa0b3e889eb631.
+
+Application dependency inventory: oracle:26.2:public-template/sample-charts/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 24 (
+    name: Dashboard - Pies
+    alias: DASHBOARD-PIES
+    title: Dashboard - Pies
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>&PRODUCT_NAME. native Pie and Donut charts, using Oracle JET Data Visualizations, are showcased on this page as part of a dashboard. The charts are rendered the same size, regardless of the number of data points, and are fully responsive, rendering appropriately on the device being used to run the application. Explore the wide range of chart attributes declaratively available with our native charts, to format and customise the style of your charts.</p><p/>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--customIcons
+                t-Alert--info
+            ]
+            icon: fa-columns
+        }
+    )
+
+    region breadcrumb (
+        name: breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region employee-commissions (
+        name: Employee Commissions
+        type: chart
+        layout {
+            sequence: 70
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        chart {
+            type: donut
+        }
+        title {
+            title: Increased Font Size
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            show: false
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        halign: 'center', 
+                        style: 'font-size:20px;color:green;'
+                    });
+                    return options; 
+                }
+                ```
+        }
+
+        series tasks (
+            name: Tasks
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery: select * from eba_demo_chart_emp
+            }
+            columnMapping {
+                label: ENAME
+                value: COMM
+            }
+            label {
+                show: true
+                position: center
+                displayAs: percentage
+            }
+        )
+
+    )
+
+    region employee-salaries (
+        name: Employee Salaries
+        type: chart
+        layout {
+            sequence: 60
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        chart {
+            type: donut
+        }
+        title {
+            title: Title at End
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        value {
+            format: decimal
+            decimalPlaces: 0
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            show: false
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        halign: 'end', 
+                        style: 'font-style:oblique;color:blue;'
+                    });
+                    return options; 
+                }
+                ```
+        }
+
+        series tasks (
+            name: Tasks
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery: select * from eba_demo_chart_emp
+            }
+            columnMapping {
+                label: ENAME
+                value: SAL
+            }
+        )
+
+    )
+
+    region information (
+        name: Information
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                These examples demonstrate the various ways to style the chart title.<p/><p/>
+                
+                <strong>Default</strong> - This chart demonstrates the default styling of the chart tile - positioned above the chart, and centered.<p/>
+                
+                <strong>Title at Start</strong> - Using the following JavaScript code snippet, update the chart-level attribute <strong>JavaScript Initialization Code</strong> to style the chart title:<br/>
+                <pre>
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        halign: 'start', 
+                        style: 'font-style:italic;color:red;'
+                    });
+                    return options; 
+                }</pre>
+                <p/>
+                
+                <strong>Title at End</strong> - Using the following JavaScript code snippet, update the chart-level attribute <strong>JavaScript Initialization Code</strong> to style the chart title:<br/>
+                <pre>
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        halign: 'end', 
+                        style: 'font-style:oblique;color:blue;'
+                    });
+                    return options; 
+                }</pre>
+                <p/>
+                
+                <strong>Increased Font Size</strong> - Using the following JavaScript code snippet, update the chart-level attribute <strong>JavaScript Initialization Code</strong> to style the chart title:<br/>
+                <pre>
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        style: 'font-size:20px;color:green;'
+                    });
+                    return options; 
+                }</pre>
+                <p/>
+                
+                ```
+        }
+        layout {
+            sequence: 80
+            slot: body
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region tasks (
+        name: Tasks
+        type: chart
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: pie1
+            regionDisplaySelector: true
+        }
+        chart {
+            type: pie
+        }
+        title {
+            title: Default
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        settings {
+            pieSelectionEffect: highlightAndExplode
+        }
+        value {
+            formatScaling: none
+        }
+        legend {
+            show: false
+        }
+
+        series tasks (
+            name: Tasks
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select b.id,
+                           b.project label,
+                           sum(a.cost) value
+                      from eba_demo_chart_tasks a,
+                           eba_demo_chart_projects b
+                     where a.project = b.id
+                     group by b.id, b.project
+                    order by 3 desc
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+            label {
+                show: true
+                displayAs: percentage
+            }
+        )
+
+    )
+
+    region tasks-sorted (
+        name: Tasks (Sorted)
+        type: chart
+        layout {
+            sequence: 50
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: donut1
+            regionDisplaySelector: true
+        }
+        chart {
+            type: donut
+        }
+        title {
+            title: Title at Start
+        }
+        performance {
+            lazyLoading: true
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        value {
+            pieChartOtherThreshold: 0.05
+            format: decimal
+            decimalPlaces: 0
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            show: false
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( options ){ 
+                    
+                    // Set chart title styling 
+                    options.title = $.extend( options.title, {
+                        halign: 'start', 
+                        style: 'font-style:italic;color:red;'
+                    });
+                    return options; 
+                }
+                ```
+        }
+
+        series tasks (
+            name: Tasks
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select b.id,
+                           b.project label,
+                           sum(a.cost) value
+                      from eba_demo_chart_tasks a,
+                           eba_demo_chart_projects b
+                     where a.project = b.id
+                     group by b.id, b.project
+                    order by 3 desc
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+            label {
+                show: true
+                position: outsideSlice
+            }
+        )
+
+    )
+
+    computation last-view (
+        itemName: LAST_VIEW
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: &APP_PAGE_ID.
+        }
+    )
+
+)
+
+
+````

@@ -44,6 +44,10 @@
       "route": "/apexrest/testing/"
     },
     {
+      "source": "docs/plugin-qualification-harness.md",
+      "route": "/apexrest/plugin-qualification-harness/"
+    },
+    {
       "source": "docs/troubleshooting.md",
       "route": "/apexrest/troubleshooting/"
     },
@@ -78,6 +82,10 @@
     {
       "source": "docs/component-catalog.md",
       "route": "/apexrest/component-catalog/"
+    },
+    {
+      "source": "docs/internet-template-sources.md",
+      "route": "/apexrest/internet-template-sources/"
     },
     {
       "source": "docs/pattern-catalog.md",
@@ -165,6 +173,8 @@
     "implementation-status.html",
     "index.html",
     "install/index.html",
+    "internet-template-sources/index.html",
+    "internet-template-sources.html",
     "llms.txt",
     "next-actions/index.html",
     "next-actions.html",
@@ -174,6 +184,8 @@
     "ords.html",
     "pattern-catalog/index.html",
     "pattern-catalog.html",
+    "plugin-qualification-harness/index.html",
+    "plugin-qualification-harness.html",
     "publishing/index.html",
     "publishing.html",
     "release-notes/index.html",

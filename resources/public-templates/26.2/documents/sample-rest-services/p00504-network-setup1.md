@@ -1,0 +1,392 @@
+# Network Setup — Sample Rest Services
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-rest-services/apexlang/sample-rest-services/pages/p00504-network-setup1.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 1f5b5f299635a2016cc56866fdc416ed653e539ccde4c7e2e1c7add9c7c30e1c.
+
+Application dependency inventory: oracle:26.2:public-template/sample-rest-services/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 504 (
+    name: Network Setup
+    alias: NETWORK-SETUP1
+    title: Network Setup
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region general-guide (
+        name: General Guide
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div style="margin-bottom: 1em; padding: 10px;">
+                  <strong>Remote Server Update Guide:</strong>
+                  <p style="margin: 5px 0;">
+                    1. Enter the base portion of your ORDS URL  into the first field.  
+                    <em>Example:</em> https://oracleapex.com/pls/apex/
+                  </p>
+                  <p style="margin: 5px 0;">
+                    2. In the second field, enter the  schema name that appears in the URL path.  
+                    <em>Example:</em> trainingworkspace or whatever
+                  </p>
+                  <p style="margin: 5px 0;">
+                    3. Click <strong>Save</strong> to save the changes. The application will use this configuration to construct REST endpoints for data retrieval and updates.
+                  </p>
+                </div>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region update-odata-base-url (
+        name: Update OData Base URL
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <br/>
+                <p>Enter the URL of a working OData endpoint returning "Northwind" data</p>
+                
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--noIcon
+                t-Alert--info
+                t-Alert--accessibleHeading
+            ]
+            icon: fa-number-2
+            renderComponents: belowContent
+        }
+    )
+
+    region update-or-set-proxy-server (
+        name: Update Or Set Proxy Server
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <br/>
+                <p>
+                    Use this field to specify a proxy server to be used by the application.
+                    Using a proxy server may be required for REST requests done by the application, for instance when REST Data Sources or the APEX_WEB_SERVICE package is used.
+                </p>
+                
+                <br/>
+                <p>
+                    Example: http://www-proxy.example.com
+                </p>
+                
+                ```
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--noIcon
+                t-Alert--info
+                t-Alert--accessibleHeading
+            ]
+            renderComponents: belowContent
+        }
+        serverSideCondition {
+            type: expression
+            plsqlExpression: not apex_application_global.g_cloud
+        }
+    )
+
+    region update-remote-server (
+        name: Update Remote Server
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <br/>
+                <p>Enter the remote server Base URL and Schema Alias (follow the guide above to ensure remote server is properly set up)</p>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--noIcon
+                t-Alert--info
+                t-Alert--accessibleHeading
+            ]
+            icon: fa-number-1
+            renderComponents: belowContent
+        }
+    )
+
+    pageItem P504_BASE_URL (
+        type: textField
+        label {
+            label: Base URL
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @update-remote-server
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--indicatorAsterisk
+                t-Form-fieldContainer--xlarge
+                t-Form-fieldContainer--boldDisplay
+            ]
+            width: 80
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            type: expression
+            plsqlExpression: apex_util.host_url('APEX_PATH');
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_ODATA (
+        type: textField
+        label {
+            label: OData Endpoint URL
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @update-odata-base-url
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--xlarge
+            ]
+            width: 80
+        }
+        default {
+            type: expression
+            plsqlExpression: apex_app_setting.get_value(p_name =>'ODATA_URL')
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+        help {
+            helpText:
+                ```html
+                <p>Please enter the URL of a valid OData endpoint that provides "Northwind" data</p> </br>
+                Example: <em>https://ODataBaseUrl/version/Northwind/</em>
+                ```
+        }
+    )
+
+    pageItem P504_PROXY_SERVER (
+        type: textField
+        label {
+            label: Proxy Server
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @update-or-set-proxy-server
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--xlarge
+            ]
+            width: 80
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P504_SCHEMA (
+        type: textField
+        label {
+            label: Schema Alias
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @update-remote-server
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--indicatorAsterisk
+                t-Form-fieldContainer--xlarge
+                t-Form-fieldContainer--boldDisplay
+            ]
+            width: 80
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            type: sqlQuerySingleValue
+            sqlQuery:
+                ```sql
+                select lower(path_prefix)
+                    from apex_workspaces
+                   where workspace_id = v('workspace_id');
+                ```
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button save (
+        buttonName: Save
+        label: Save
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process set-remote-server (
+        name: Set Remote Server
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                    
+                begin 
+                    apex_app_setting.set_value('REMOTE_SERVER_BASE_URL', :P504_BASE_URL);
+                    apex_app_setting.set_value('REMOTE_SERVER_SCHEMA_ALIAS', :P504_SCHEMA);
+                    apex_app_setting.set_value('ODATA_URL', :P504_ODATA);
+                    if :P504_PROXY_SERVER is not null and not apex_application_global.g_cloud then
+                      apex_application_admin.set_proxy_server(
+                         p_application_id => v('APP_ID'),
+                         p_proxy_server   => :P504_PROXY_SERVER
+                      );
+                    end if;
+                    :REMOTE_SERVER := 'YES';
+                    apex_app_setting.set_value('REMOTE_SERVER_INITIALIZED', 'YES');
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+        successMessage {
+            successMessage: Remote Server set successfully
+        }
+        error {
+            errorMessage: error while setting remote server
+        }
+        advanced {
+            executionMappingIdentifier: 7473100434836990
+        }
+        serverSideCondition {
+            whenButtonPressed: @save
+        }
+    )
+
+    branch (
+        name: Go To Page 500
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+        behavior {
+            target: {
+                page: 500
+            }
+        }
+    )
+
+)
+
+
+````

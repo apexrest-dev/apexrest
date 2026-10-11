@@ -27,6 +27,46 @@ const words = (value) =>
     .replace(/[_$-]/g, ' ')
     .toLowerCase();
 
+export function validateComponentRecipeProvenance(recipe) {
+  const provenance = recipe.provenance;
+  if (provenance === undefined) {
+    if (!recipe.sourcePageIds?.length)
+      throw new Error(`Recipe without captured source pages requires public provenance: ${recipe.id}`);
+    return;
+  }
+  if (
+    provenance === null ||
+    typeof provenance !== 'object' ||
+    Array.isArray(provenance) ||
+    !Array.isArray(recipe.sourcePageIds) ||
+    recipe.sourcePageIds.length !== 0
+  )
+    throw new Error(`External recipe provenance requires an empty sourcePageIds array: ${recipe.id}`);
+  const keys = ['sourceUrl', 'repository', 'commit', 'path', 'sourceSha256', 'license', 'derivation'];
+  if (
+    Object.keys(provenance).some((key) => !keys.includes(key)) ||
+    keys.some((key) => typeof provenance[key] !== 'string' || !provenance[key])
+  )
+    throw new Error(`Incomplete or unsupported public recipe provenance: ${recipe.id}`);
+  if (
+    !/^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*$/.test(
+      provenance.repository,
+    )
+  )
+    throw new Error(`Recipe provenance requires a canonical public GitHub repository URL: ${recipe.id}`);
+  if (!/^[a-f0-9]{40}$/.test(provenance.commit) || !/^[a-f0-9]{64}$/.test(provenance.sourceSha256))
+    throw new Error(`Recipe provenance requires an exact commit and source SHA-256: ${recipe.id}`);
+  if (!/^[a-zA-Z0-9_./-]+$/.test(provenance.path))
+    throw new Error(`Unsafe recipe provenance source path: ${recipe.id}`);
+  safe(provenance.path);
+  if (provenance.sourceUrl !== `${provenance.repository}/blob/${provenance.commit}/${provenance.path}`)
+    throw new Error(`Recipe provenance URL does not match its pinned source: ${recipe.id}`);
+  if (!['UPL-1.0', 'MIT'].includes(provenance.license) || provenance.derivation !== 'original-adaptation')
+    throw new Error(`Recipe provenance requires UPL-1.0 or MIT and original-adaptation: ${recipe.id}`);
+  if (provenance.license === 'MIT' && !recipe.files?.includes('LICENSE.txt'))
+    throw new Error(`MIT recipe requires its complete LICENSE.txt notice: ${recipe.id}`);
+}
+
 export async function buildComponentCatalog(root = 'resources/components', check = false) {
   const read = async (name) => JSON.parse(await readFile(path.join(root, name), 'utf8'));
   const [snapshot, inventory, parameters, componentList, registry] = await Promise.all([
@@ -38,6 +78,7 @@ export async function buildComponentCatalog(root = 'resources/components', check
   ]);
   if (snapshot.schemaVersion !== 1 || registry.schemaVersion !== 1)
     throw new Error('Unsupported component source schema.');
+  for (const recipe of registry.recipes) validateComponentRecipeProvenance(recipe);
   if (
     !/^26\.1(?:\.|$)/.test(snapshot.source.apexVersion) ||
     snapshot.source.themeVersion !== '26.1' ||
@@ -101,7 +142,7 @@ export async function buildComponentCatalog(root = 'resources/components', check
       kind: record.kind ?? 'guide',
       family: record.family ?? 'catalog',
       version,
-      source,
+      source: record.source ?? source,
       document,
       sha256: sha256(text),
       searchText: record.searchText ?? record.title,
@@ -278,7 +319,11 @@ export async function buildComponentCatalog(root = 'resources/components', check
   add({ id: 'component:scaffold', title: 'Recipe compiler scaffold', family: 'catalog' }, scaffold);
   for (const recipe of ordered(recipes)) {
     let text = `# ${recipe.title}\n\n${recipe.description}\n\nStatus: ${recipe.readiness}.${recipe.reason ? ' ' + recipe.reason : ''}\n\n`;
-    text += `Source pages: ${(recipe.sourcePageIds ?? []).join(', ')}. Component: ${recipe.componentId}.\n\n## Data contract\n\n${code(recipe.dataContract ?? {})}`;
+    if (recipe.provenance)
+      text += `Component: ${recipe.componentId}.\n\n## Source attribution\n\nOriginal adaptation of the pinned public source below. This source is separate from the captured Universal Theme reference application. The source hash identifies the reviewed upstream file; compiler evidence binds the authored recipe files.\n\n${code(recipe.provenance)}\n`;
+    else
+      text += `Source pages: ${(recipe.sourcePageIds ?? []).join(', ')}. Component: ${recipe.componentId}.\n\n`;
+    text += `## Data contract\n\n${code(recipe.dataContract ?? {})}`;
     text += '\n## Adaptation\n\n' + (recipe.adaptation ?? []).map((line) => '- ' + line).join('\n') + '\n\n';
     text +=
       'Apply the files below as an overlay to component:scaffold for offline validation. In an existing project, adapt and merge the component into its existing page and shared objects. The example is not an import authorization.\n\n';
@@ -293,12 +338,13 @@ export async function buildComponentCatalog(root = 'resources/components', check
         )
       )
         throw new Error(`Demo dependency in recipe: ${recipe.id}`);
-      text += `## ${file}\n\n\`\`\`${file.endsWith('.json') ? 'json' : file.endsWith('.sql') ? 'sql' : file.endsWith('.svg') ? 'xml' : 'apexlang'}\n${content}\n\`\`\`\n\n`;
+      text += `## ${file}\n\n\`\`\`${file.endsWith('.json') ? 'json' : file.endsWith('.sql') ? 'sql' : file.endsWith('.svg') ? 'xml' : file.endsWith('.txt') ? 'text' : 'apexlang'}\n${content}\n\`\`\`\n\n`;
     }
     text += `## Verification\n\n${code(recipe.verification)}\nCompile again after adapting. Compiler success is not SQL, imported application or browser evidence.`;
     add(
       {
         ...recipe,
+        source: recipe.provenance?.sourceUrl,
         kind: 'template',
         searchText: `${recipe.title} ${(recipe.aliases ?? []).join(' ')} ${labelsFor(recipe.componentId)[0] ?? ''} ${recipe.description}`,
         requires: [recipe.componentId + '/parameters', 'component:scaffold', ...(recipe.requires ?? [])],

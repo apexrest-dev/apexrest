@@ -1,0 +1,197 @@
+# Workflow Diagram — Sample Approvals
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/pages/p00031-workflow-diagram.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 83c0b88d3cc3f889e83dae66dabb981c00b236b5b0d084b1dc212d8f7eeae7bb.
+
+Application dependency inventory: oracle:26.2:public-template/sample-approvals/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 31 (
+    name: Workflow Diagram
+    alias: WORKFLOW-DIAGRAM
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        width: 1000
+        height: 640
+        chained: false
+        resizable: false
+    }
+    css {
+        inline:
+            ```css
+            .diagram-vstretch {
+               height: calc( 100vh - 10rem);
+            }
+            ```
+    }
+    security {
+        authorizationScheme: @operations-team
+    }
+
+    region workflow-diagram (
+        name: Workflow Diagram
+        type: workflowDiagram
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: diagram-vstretch
+        }
+        advanced {
+            htmlDomId: workflow_diagram
+        }
+        settings {
+            workflowId: P31_CURRENT_WORKFLOW
+            enableNavigator: false
+            enableExport: false
+        }
+    )
+
+    pageItem P31_CURRENT_WORKFLOW (
+        type: selectList
+        label {
+            label: Workflow
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select workflow_def_name, workflow_id
+                from apex_workflows
+                connect by prior workflow_id = parent_workflow_id
+                start with workflow_id = :P31_WORKFLOW_ID
+                ```
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        default {
+            type: item
+            item: P31_WORKFLOW_ID
+        }
+        sessionState {
+            storage: request
+        }
+    )
+
+    pageItem P31_WORKFLOW_ID (
+        type: hidden
+        layout {
+            sequence: 40
+            slot: contentBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P31_WORKFLOW_TITLE (
+        type: hidden
+        layout {
+            sequence: 50
+            slot: contentBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    dynamicAction on-change-current-workflow (
+        name: On Change Current Workflow
+        execution {
+            sequence: 20
+        }
+        when {
+            selectionType: items
+            items: P31_CURRENT_WORKFLOW
+        }
+
+        action refresh-diagram (
+            name: Refresh Diagram
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @workflow-diagram
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction set-dialog-title-to-workflow-title (
+        name: Set Dialog Title to Workflow Title
+        execution {
+            sequence: 10
+        }
+        when {
+            event: ready
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    apex.util.getTopApex()
+                             .jQuery(".ui-dialog-content")
+                             .dialog("option", 
+                                     "title",
+                                     apex.items.P31_WORKFLOW_TITLE.value);
+                    ```
+            }
+            execution {
+                sequence: 10
+            }
+        )
+
+    )
+
+    computation p31-workflow-title (
+        itemName: P31_WORKFLOW_TITLE
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select title
+                from apex_workflows
+                where workflow_id = :P31_WORKFLOW_ID
+                ```
+        }
+    )
+
+)
+
+
+````

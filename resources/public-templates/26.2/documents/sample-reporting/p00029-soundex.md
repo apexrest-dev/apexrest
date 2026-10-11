@@ -1,0 +1,348 @@
+# Soundex — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00029-soundex.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 662d570bb85fc2225f849a9af710e188640ed0993d69bbaf08fdce05c64d05f4.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 29 (
+    name: Soundex
+    alias: SOUNDEX
+    title: Soundex
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".highlight {background-color: yellow;}"
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>The following use case shows how to use the <a href="http://docs.oracle.com/cd/E11882_01/server.112/e26088/functions167.htm#i78853" target="_blank"><strong>SOUNDEX()</strong></a> function to compare words that are spelled differently, but sound alike in English.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 50
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region soundex-query (
+        name: SOUNDEX Query
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select empno,
+                    ename,
+                    job,
+                    hiredate,
+                    sal,
+                    (select dname from eba_demo_ir_dept d where d.deptno = e.deptno) Department,
+                    soundex(ename) sndex_of_ename
+                from eba_demo_ir_emp e
+                where soundex(ename) = soundex(:P29_NAME_SEARCH)
+                    or :P29_NAME_SEARCH is null
+                order by ename
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--scrollBody
+                t-Region--noBorder
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        advanced {
+            htmlDomId: QUERY
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+            ]
+            showNullValuesAs: " - "
+        }
+        messages {
+            whenNoDataFound: no data found
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column DEPARTMENT (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Department
+            }
+            layout {
+                sequence: 6
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column EMPNO (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Employee #
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ENAME (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column HIREDATE (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Hiredate
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column JOB (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Job
+            }
+            layout {
+                sequence: 3
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SAL (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Salary
+            }
+            layout {
+                sequence: 5
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SNDEX_OF_ENAME (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Soundex Of Ename
+            }
+            layout {
+                sequence: 7
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 10
+            parentRegion: @soundex-query
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: QUERY
+            highlightTermPageItem: P29_FUNCTION
+        }
+    )
+
+    pageItem P29_FUNCTION (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @button-bar
+            slot: regionBody
+        }
+        source {
+            type: staticValue
+            staticValue: SOUNDEX
+            used: always
+        }
+        default {
+            type: static
+            staticValue: SOUNDEX
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P29_NAME_SEARCH (
+        type: textField
+        label {
+            label: Name Search
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 4000
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset Report
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 29
+                clearCache: [
+                    29
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

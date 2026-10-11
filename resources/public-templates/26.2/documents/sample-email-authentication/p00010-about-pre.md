@@ -1,0 +1,95 @@
+# About — Sample Email Authentication
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-email-authentication/apexlang/ema/pages/p00010-about-pre.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 260dc8f747d3f373b73bea7b86c28ab276d9fc583829c6cf1860bf5efd1b386c.
+
+Application dependency inventory: oracle:26.2:public-template/sample-email-authentication/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 10 (
+    name: About
+    alias: ABOUT-PRE
+    title: About
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+    }
+    help {
+        helpText: All application help text can be accessed from this page. The links in the "Documentation" region give a much more in-depth explanation of the application's features and functionality.
+    }
+    config {
+        buildOption: @feature-about-page
+    }
+
+    region about (
+        name: About
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This application illustrates the use of email authentication.  Usernames must be email addresses and tokens are emailed to users at login time to verify their identities, instead of using passwords.</p>
+                
+                <p>It utilizes the APEX Application Control List (ACL) for user management along with custom tables for managing tokens.</p>
+                
+                <p>The tables used by this application are:
+                    <ul>
+                        <li>EBA_EMA_LOG</li>
+                        <li>EBA_EMA_SETTINGS</li>
+                        <li>EBA_EMA_VERIFY_TOKENS</li>
+                    </ul>
+                and the associated package is EBA_EMA_UTIL.</p>
+                
+                <p>The EBA_EMA_SETTINGS table contains the following:
+                    <ul>
+                        <li>from_email - used as the from address for the emails sent (for tokens)</li>
+                        <li>max_tokens - how many tokens can be generated during the reset window</li>
+                        <li>max_verify_attempts_per_token - how many verification attempts before a token is no longer valid</li>
+                        <li>reset_verify_after_x_hours - how many hours a user will be locked out after exceeding max tokens/max attempts</li>
+                    </ul>
+                </p>
+                
+                <p>The following settings are currently hardcoded into EBA_EMA_UTIL.GENERATE_TOKEN:
+                    <ul>
+                        <li>l_grace_minutes   number := 5;</li>
+                        <li>l_token_length    number := 6;</li>
+                        <li>l_expire_minutes  number := 15;</li>
+                    </ul>
+                If you wish to make these dynamic, they should be added as settings.</p>
+                
+                <p>To authenticate, a user must be in the application's ACL.  They provide their email address and request a verification code and then provide the resulting verification code that was sent to thier email.</p>
+                
+                <p>The first Administrator is created during the installation process using the email of the user that installed the application.  The user is able to authenticate because the email with their verification code will be sent from their email.  Once they are authenticated, they will be prompted to set the from_email that will then be used for all other verification emails sent from this application.</p>
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--padded
+                t-ContentBlock--h1
+                t-ContentBlock--lightBG
+            ]
+        }
+    )
+
+)
+
+
+````

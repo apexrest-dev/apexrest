@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile, cp, rm, chmod } from 'node:fs/promises';
 import { buildComponentCatalog } from './build-component-catalog.mjs';
 import { buildPatternCatalog } from './build-pattern-catalog.mjs';
 import { buildComposerCatalog } from './build-composer-catalog.mjs';
+import { checkPublicTemplateCatalog } from './build-public-template-catalog.mjs';
+await checkPublicTemplateCatalog();
 await buildComposerCatalog(true);
 await buildComponentCatalog('resources/components', true);
 await buildPatternCatalog('resources/patterns', true);

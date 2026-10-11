@@ -1,0 +1,596 @@
+# Project Contributors — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00159-project-contributors-ir.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 5acaa7f00210b231bb8346c7cb7e409c76bdd1f5a1821918fe4a1bf4d8bdba02.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 159 (
+    name: Project Contributors
+    alias: PROJECT-CONTRIBUTORS-IR
+    title: &NOMENCLATURE_PROJECT. Contributors
+    pageGroup: @cross-project-reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    css {
+        inline:
+            ```css
+            .no-item-ui {
+                --a-field-input-border-width: 0;
+                --a-field-input-background-color: transparent;
+            }
+            .overline {
+              color: var(--ut-region-text-color,var(--ut-component-text-default-color));
+            }
+            
+            .a-FS-facetsDashboard {--a-fs-chart-grid-gap: 0;
+                   --a-fs-chart-border-width: 0;
+                   --a-fs-chart-shadow: none;
+            }
+            
+            ```
+    }
+    help {
+        helpText: Each &NOMENCLATURE_USER. contributing to a &NOMENCLATURE_PROJECT. along with the role they are assigned.
+    }
+    comments {
+        comments: The &NOMENCLATURE_AREA., &NOMENCLATURE_INITIATIVE., priority, size, percent complete, release, tags and target complete of the &NOMENCLATURE_PROJECT. is also available.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region search-results (
+        name: Search Results
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select x.*, case when release_link is not null
+                                 then '<a href="'||release_link||'">'||apex_escape.html(release)||'</a>'
+                                 else apex_escape.html(release)
+                                 end release_display
+                  from
+                 (
+                select tm.first_name||' '||tm.last_name name, 
+                       tm.id team_member_id,
+                       r.resource_type, 
+                       p.project, 
+                       i.INITIATIVE,
+                       (select f.area from sp_areas f where f.id = i.area_id) area,
+                       (select focus_area from sp_initiative_focus_areas where id = p.focus_area_id) focus_area,
+                       p.tags,
+                       p.updated,
+                       p.friendly_identifier,
+                       p.project_url_name,
+                       case when p.release_id is not null
+                            then (select t.release_train||' '||t.release from SP_RELEASE_TRAINS t where t.id = p.release_id)
+                            else 'Not Targeted'
+                            end release,
+                       case when p.release_id is not null
+                            then APEX_PAGE.GET_URL (
+                                     p_page   => 117,
+                                     p_items  => 'P117_RELEASE_ID',
+                                     p_values => p.release_id ) 
+                            end release_link,
+                       p.target_complete,
+                       p.PROJECT_SIZE,
+                       'P'||nvl(to_char(pp.PRIORITY),'X') PRIORITY,
+                       to_char(p.PCT_COMPLETE)||'%' PCT_COMPLETE,
+                       case when p.archived_yn = 'Y' then 'Yes' else 'No' end archived
+                from SP_PROJECT_CONTRIBUTORS pc,
+                     SP_TEAM_MEMBERS tm,
+                     SP_PROJECTS p,
+                     SP_RESOURCE_TYPES r,
+                     SP_INITIATIVES i,
+                     SP_PROJECT_PRIORITIES pp
+                where pc.TEAM_MEMBER_ID = tm.id and
+                      pc.PROJECT_ID = p.id and
+                      p.duplicate_of_project_id is null and
+                      p.INITIATIVE_ID = i.id and
+                      pc.RESPONSIBILITY_ID  = r.id and
+                      p.PRIORITY_ID = pp.id(+)
+                 ) x
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: Each Team Member contributing to a Project along with the role (Resource Type) they are assigned.
+        }
+        advanced {
+            savedReportMappingIdentifier: 24158964563186031231
+        }
+
+        column ARCHIVED (
+            type: plainText
+            heading {
+                heading: Archived
+            }
+            layout {
+                sequence: 200
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AC
+            }
+        )
+
+        column AREA (
+            type: plainText
+            heading {
+                heading: Area
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column FOCUS_AREA (
+            type: plainText
+            heading {
+                heading: Focus Area
+            }
+            layout {
+                sequence: 190
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AA
+            }
+        )
+
+        column FRIENDLY_IDENTIFIER (
+            type: hidden
+            heading {
+                heading: Friendly Identifier
+            }
+            layout {
+                sequence: 170
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: X
+            }
+        )
+
+        column INITIATIVE (
+            type: plainText
+            heading {
+                heading: Initiative
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column NAME (
+            type: link
+            heading {
+                heading: Contributor
+            }
+            layout {
+                sequence: 10
+            }
+            link {
+                target: {
+                    page: 73
+                    items: {
+                        P73_TEAM_MEMBER_ID: #TEAM_MEMBER_ID#
+                    }
+                    clearCache: 73
+                }
+                linkText: #NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column PCT_COMPLETE (
+            type: plainText
+            heading {
+                heading: Pct Complete
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: V
+            }
+        )
+
+        column PRIORITY (
+            type: plainText
+            heading {
+                heading: Priority
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: S
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 30
+            }
+            link {
+                target: {
+                    page: 3
+                    items: {
+                        FI: #FRIENDLY_IDENTIFIER#
+                        PN: #PROJECT_URL_NAME#
+                    }
+                    clearCache: 3
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column PROJECT_SIZE (
+            type: plainText
+            heading {
+                heading: Project Size
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+        )
+
+        column PROJECT_URL_NAME (
+            type: hidden
+            heading {
+                heading: Project Url Name
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column RELEASE (
+            type: hidden
+            heading {
+                heading: Release
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column RELEASE_DISPLAY (
+            type: plainText
+            heading {
+                heading: Release
+            }
+            layout {
+                sequence: 100
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column RELEASE_LINK (
+            type: hidden
+            heading {
+                heading: Release Link
+            }
+            layout {
+                sequence: 160
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column RESOURCE_TYPE (
+            type: plainText
+            heading {
+                heading: Resource Type
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Project Tags
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column TARGET_COMPLETE (
+            type: plainText
+            heading {
+                heading: Target Complete
+            }
+            layout {
+                sequence: 110
+            }
+            appearance {
+                formatMask: DD-Mon-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: AB
+            }
+        )
+
+        column TEAM_MEMBER_ID (
+            type: hidden
+            heading {
+                heading: Team Member Id
+            }
+            layout {
+                sequence: 180
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: Z
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 130
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 241804837 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn AREA (
+                sequence: 5
+            )
+
+            displayColumn FOCUS_AREA (
+                sequence: 6
+            )
+
+            displayColumn INITIATIVE (
+                sequence: 4
+            )
+
+            displayColumn NAME (
+                sequence: 1
+            )
+
+            displayColumn PROJECT (
+                sequence: 3
+            )
+
+            displayColumn RESOURCE_TYPE (
+                sequence: 2
+            )
+
+            displayColumn UPDATED (
+                sequence: 7
+            )
+
+            sort (
+                column: NAME
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 159
+                clearCache: [
+                    159
+                    CIR
+                    RIR
+                ]
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

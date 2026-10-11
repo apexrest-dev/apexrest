@@ -1,0 +1,495 @@
+# Support Amounts — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00127-support-amounts2.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 95630a907ec55903bed6547a15362bef8e9478bb3931b3d6946217ebab557441.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 127 (
+    name: Support Amounts
+    alias: SUPPORT-AMOUNTS2
+    title: Support Amounts
+    pageGroup: @accounts
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-supportamounts-dialog
+        resizable: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+
+    region support-amounts (
+        name: Support Amounts
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                    id,
+                    name,
+                    close_date,
+                    term_id,
+                    amount_id,
+                    quote_price,
+                    created_by,
+                    created,
+                    updated_by,
+                    updated
+                from
+                    EBA_SALES_CUST_SPT_AMT_MAP
+                where
+                    customer_id = :P127_ID;
+                ```
+        }
+        layout {
+            sequence: 1210
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No support amounts found.
+        }
+        advanced {
+            savedReportMappingIdentifier: 2585032847355075712
+        }
+
+        column AMOUNT_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Support Amount
+            }
+            lov {
+                lov: @support-amounts
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column CLOSE_DATE (
+            type: plainText
+            heading {
+                heading: Close Date
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created by
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column ID (
+            type: link
+            heading {
+                heading: Edit
+                alignment: center
+            }
+            layout {
+                sequence: 10
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    page: 122
+                    items: {
+                        P122_CUSTOMER_ID: &P127_ID.
+                        P122_ID: #ID#
+                    }
+                    clearCache: 122
+                    action: resetPagination
+                }
+                linkText: <span class="fa fa-edit" aria-hidden="true"></span>
+                linkAttributes: title="Edit #NAME#"
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+            enableUsersTo {
+                hide: false
+                sort: false
+                filter: false
+                highlight: false
+                controlBreak: false
+                aggregate: false
+                compute: false
+                chart: false
+                groupBy: false
+                pivot: false
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Account Support Amount
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+            serverSideCondition {
+                type: rowsReturned
+                sqlQuery:
+                    ```sql
+                    select null
+                      from EBA_SALES_CUST_SPT_AMT_MAP m
+                     where m.name not in (select distinct name from EBA_SALES_SUPPORT_AMTS where id = m.amount_id)
+                      and m.customer_id = :P127_ID
+                    ```
+            }
+        )
+
+        column QUOTE_PRICE (
+            type: plainText
+            heading {
+                heading: Quote Price
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G999
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column TERM_ID (
+            type: plainTextBasedOnLov
+            heading {
+                heading: Term
+            }
+            lov {
+                lov: @terms-id-return-value
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 100
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated by
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        page {
+            width: 8.5
+            height: 11
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+
+        savedReport 25850615 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn AMOUNT_ID (
+                sequence: 2
+            )
+
+            displayColumn CLOSE_DATE (
+                sequence: 5
+            )
+
+            displayColumn CREATED (
+                sequence: 7
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 6
+            )
+
+            displayColumn ID (
+                sequence: 1
+            )
+
+            displayColumn QUOTE_PRICE (
+                sequence: 3
+            )
+
+            displayColumn TERM_ID (
+                sequence: 4
+            )
+
+            displayColumn UPDATED (
+                sequence: 9
+            )
+
+            displayColumn UPDATED_BY (
+                sequence: 8
+            )
+
+        )
+
+    )
+
+    pageItem P127_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @support-amounts
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-amount (
+        buttonName: ADD_AMOUNT
+        label: Add Support Amount
+        layout {
+            sequence: 20
+            region: @support-amounts
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 122
+                items: {
+                    P122_CUSTOMER_ID: &P127_ID.
+                }
+                clearCache: 122
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @support-amounts
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                items: {
+                    P127_ID: &P127_ID.
+                }
+                clearCache: [
+                    &APP_PAGE_ID.
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-on-add (
+        name: Refresh on Add
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-amount
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @support-amounts
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-edit (
+        name: Refresh on Edit
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @support-amounts
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @support-amounts
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

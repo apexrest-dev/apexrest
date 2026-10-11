@@ -1,0 +1,91 @@
+page 1 (
+    name: Set item from a PL/SQL function
+    alias: HOME
+    title: Set item from a PL/SQL function
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Change the input to receive a server-generated label. Empty input receives a clear fallback.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Input
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: textField
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P1_INPUT
+        }
+        action step-10 (
+            action: setValue
+            settings {
+                type: plsqlFunctionBody
+                itemsToSubmit: P1_INPUT
+                plsqlFunctionBody:
+                    ```plsql
+                    begin
+                        return case when trim(:P1_INPUT) is null then 'No input supplied'
+                                    else 'Reference: ' || upper(trim(:P1_INPUT)) end;
+                    end;
+                    ```
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_OUTPUT
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

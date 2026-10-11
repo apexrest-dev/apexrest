@@ -1,0 +1,117 @@
+page 1 (
+    name: Conditional report templates
+    alias: HOME
+    title: Conditional report templates
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    css {
+        inline:
+            ```css
+            .recipe-state { display: grid; gap: .4rem; }
+            .recipe-state p { margin: 0; }
+            .recipe-completed { color: #166534; }
+            .recipe-processing { color: #075985; }
+            .recipe-waiting { color: #854d0e; }
+            .recipe-failed { color: #991b1b; }
+            .recipe-tags { display: flex; flex-wrap: wrap; gap: .35rem; }
+            .recipe-tag { border: 1px solid #cbd5e1; border-radius: 1rem; padding: .1rem .5rem; }
+            ```
+    }
+    region results (
+        name: Synthetic job states
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 ID, 'INV-001' REFERENCE, 'COMPLETED' STATUS, cast(null as varchar2(100)) ERROR_MESSAGE, 'invoice:priority' TAGS from dual
+                union all select 2, 'INV-002', 'FAILED', 'The sample payload requires a reference.', 'invoice:review' from dual
+                union all select 3, 'ORD-003', 'PROCESSING', null, 'order' from dual
+                union all select 4, 'ORD-004', 'WAITING', null, null from dual
+                order by ID
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+        column REFERENCE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Reference
+            }
+            layout {
+                sequence: 20
+            }
+        )
+        column STATUS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    <div class="recipe-state">
+                      {case STATUS/}
+                        {when COMPLETED/}<strong class="recipe-completed">Completed</strong>
+                        {when PROCESSING/}<strong class="recipe-processing">Processing</strong>
+                        {when WAITING/}<strong class="recipe-waiting">Waiting</strong>
+                        {when FAILED/}<strong class="recipe-failed">Failed</strong>
+                        {otherwise/}<strong>#STATUS!HTML#</strong>
+                      {endcase/}
+                      {if ?ERROR_MESSAGE/}<p class="recipe-failed">#ERROR_MESSAGE!HTML#</p>{endif/}
+                      {if ?TAGS/}
+                        <div class="recipe-tags" aria-label="Tags">
+                          {loop ":" TAGS/}<span class="recipe-tag">&APEX$ITEM!HTML.</span>{endloop/}
+                        </div>
+                      {endif/}
+                    </div>
+                    ```
+            }
+        )
+        column ERROR_MESSAGE (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 40
+            }
+        )
+        column TAGS (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 50
+            }
+        )
+    )
+)

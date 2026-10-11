@@ -1,0 +1,537 @@
+# Value Attribute Pairs — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01403-value-attr-pairs-report.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 7625b67ea002abb788839c12811eb4ad614403e25d9754c90e3ce81a1b2e9368.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 1403 (
+    name: Value Attribute Pairs
+    alias: VALUE-ATTR-PAIRS-REPORT
+    title: Value Attribute Pairs - &APP_TITLE.
+    pageGroup: @components
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: [
+            dm-Page
+            dm-Page--center
+        ]
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region column-based (
+        name: Column Based
+        type: staticContent
+        layout {
+            sequence: 160
+            slot: body
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 11
+            parentRegion: @row-based
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Row
+        }
+    )
+
+    region demo-2 (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 21
+            parentRegion: @column-based
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Demo Column
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 1
+            parentRegion: @row-based
+            slot: subRegions
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Row Instructions
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    region instructions-2 (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 11
+            parentRegion: @column-based
+            slot: subRegions
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Column Instructions
+        }
+        settings {
+            staticId: Demo2
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>This report template is useful for displaying attribute value / key value pairs and works well with both Row or Column based queries.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region row-based (
+        name: Row Based
+        type: staticContent
+        layout {
+            sequence: 130
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region sample-sql-query (
+        name: Sample SQL Query
+        type: plugin/regionSourceCode
+        layout {
+            sequence: 41
+            parentRegion: @row-based
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Row Sample Query
+        }
+        settings {
+            regionStaticId: Demo1
+        }
+    )
+
+    region sample-sql-query-2 (
+        name: Sample SQL Query
+        type: plugin/regionSourceCode
+        layout {
+            sequence: 190
+            parentRegion: @column-based
+            slot: subRegions
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--lightBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Column Sample Query
+        }
+        settings {
+            regionStaticId: Demo2
+        }
+    )
+
+    region template-options (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 31
+            parentRegion: @row-based
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Row Template Options
+        }
+        settings {
+            staticId: Demo1
+        }
+    )
+
+    region template-options-2 (
+        name: Template Options
+        type: plugin/previewTemplateOptions
+        layout {
+            sequence: 180
+            parentRegion: @column-based
+            slot: subRegions
+            startNewRow: false
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+                t-ContentBlock--shadowBG
+                js-headingLevel-3
+            ]
+        }
+        accessibility {
+            landmarkLabel: Column Template Options
+        }
+        settings {
+            staticId: Demo2
+        }
+    )
+
+    region value-attribute-pairs-column-based (
+        name: Value Attribute Pairs (Column Based)
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                  id,
+                  project, 
+                  created, 
+                  created_by, 
+                  updated, 
+                  updated_by
+                from eba_ut_chart_projects
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo-2
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: Demo2
+        }
+        reportLayout {
+            numberOfRows: 1
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-column
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+            cssClasses: dm-TemplateOption-previewTarget
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column CREATED (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 3
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column CREATED_BY (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Created by
+            }
+            layout {
+                sequence: 4
+            }
+        )
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 1
+            }
+        )
+
+        column PROJECT (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 2
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 5
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column UPDATED_BY (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Updated by
+            }
+            layout {
+                sequence: 6
+            }
+        )
+
+    )
+
+    region value-attribute-pairs-row-based (
+        name: Value Attribute Pairs (Row Based)
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery: select task_name, status from eba_ut_chart_tasks
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: Demo1
+        }
+        reportLayout {
+            numberOfRows: 6
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-row
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--rightAligned
+            ]
+            cssClasses: dm-TemplateOption-previewTarget
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+        }
+
+        column STATUS (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 2
+            }
+        )
+
+        column TASK_NAME (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Task name
+            }
+            layout {
+                sequence: 1
+            }
+        )
+
+    )
+
+)
+
+
+````

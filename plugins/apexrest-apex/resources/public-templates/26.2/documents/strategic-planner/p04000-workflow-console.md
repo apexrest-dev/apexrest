@@ -1,0 +1,508 @@
+# Workflow Console — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p04000-workflow-console.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 344c27996b62b8d0a6df6d6635b79e88c5a3c93dd9b5eb40ac4ea7de38b86866.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 4000 (
+    name: Workflow Console
+    alias: WORKFLOW-CONSOLE
+    title: Workflow Console
+    pageGroup: @administration
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+        cssClasses: rw-pillar--sienna
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    config {
+        buildOption: @approvals
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region report (
+        name: Report
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select workflow_id,
+                       workflow_def_name,
+                       application_name workflow_def_app_name,
+                       title,
+                       initiator,
+                       state_code,
+                       start_time created_on,
+                       apex_util.get_since(start_time) created_ago,
+                       last_updated_on,
+                       state badge_text,
+                       case state when 'Active' then 'success' 
+                                  when 'Terminated' then 'warning'
+                                  when 'Completed' then 'primary'
+                                  when 'Faulted' then 'danger'
+                            end badge_state
+                  from apex_workflows
+                 where application_id = :APP_ID
+                   and (state = :P4000_FILTER or nvl(:P4000_FILTER,'all') = 'all')
+                ```
+            optimizerHint: APEX$USE_NO_GROUPING_SETS
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P4000_SORT_BY
+                orderBys: {
+                    CREATED_ON: created_on desc
+                    LAST_UPDATED_ON: last_updated_on desc
+                }
+            }
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: region
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &TITLE.
+            description:
+                ```html
+                <strong>&WORKFLOW_DEF_NAME!HTML.</strong>
+                
+                ```
+            miscellaneous:
+                ```html
+                begun &CREATED_AGO.<br/>
+                last updated &LAST_UPDATED_ON.
+                ```
+            displayBadge: true
+        }
+        plugin-badge {
+            label: State
+            value: BADGE_TEXT
+            state: BADGE_STATE
+        }
+        plugin-appearance {
+            applyThemeColors: false
+        }
+        pagination {
+            type: scroll
+        }
+        entityTitle {
+            singular: workflow
+            plural: workflows
+        }
+        messages {
+            whenNoDataFound: No Workflows
+            noDataFoundIcon: fa-workflow fa-lg
+        }
+
+        column BADGE_STATE (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_TEXT (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: BADGE_TEXT
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_AGO (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: CREATED_AGO
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_ON (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: CREATED_ON
+                dataType: timestampWithTimeZone
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column INITIATOR (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: INITIATOR
+                dataType: varchar2
+            }
+        )
+
+        column LAST_UPDATED_ON (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: LAST_UPDATED_ON
+                dataType: date
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column STATE_CODE (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: STATE_CODE
+                dataType: varchar2
+            }
+        )
+
+        column TITLE (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: TITLE
+                dataType: varchar2
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+        )
+
+        column WORKFLOW_DEF_APP_NAME (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: WORKFLOW_DEF_APP_NAME
+                dataType: varchar2
+            }
+        )
+
+        column WORKFLOW_DEF_NAME (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: WORKFLOW_DEF_NAME
+                dataType: varchar2
+            }
+        )
+
+        column WORKFLOW_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: WORKFLOW_ID
+                dataType: number
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 4001
+                    items: {
+                        P4001_WORKFLOW_ID: &WORKFLOW_ID.
+                    }
+                    clearCache: 4001
+                    action: resetPagination
+                }
+            }
+        )
+
+    )
+
+    pageItem P4000_FILTER (
+        type: selectList
+        label {
+            label: Display
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select unique state d, state r
+                  from apex_workflows
+                 where application_id = :APP_ID
+                  order by 1
+                ```
+            displayExtraValues: false
+            nullDisplayValue: Display All
+            nullReturnValue: all
+        }
+        layout {
+            sequence: 10
+            region: @report
+            slot: sortOrder
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            icon: fa-filter
+            height: 1
+        }
+        advanced {
+            cssClasses: mnw160
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: all
+        }
+        sessionState {
+            storage: user
+        }
+    )
+
+    pageItem P4000_SORT_BY (
+        type: selectList
+        label {
+            label: Sort By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Create Date;CREATED_ON,Last Update;LAST_UPDATED_ON
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 20
+            region: @report
+            slot: sortOrder
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            icon: fa-sort-amount-desc
+            height: 1
+        }
+        advanced {
+            cssClasses: mnw160
+            warnOnUnsavedChanges: ignore
+        }
+        source {
+            type: staticValue
+            staticValue: LAST_UPDATED_ON
+        }
+        sessionState {
+            storage: user
+        }
+    )
+
+    button resume-suspended (
+        buttonName: RESUME_SUSPENDED
+        label: Resume All Suspended
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                  from apex_workflows
+                where application_id = :APP_ID
+                   and state_code = 'SUSPENDED'
+                ```
+        }
+        config {
+            buildOption: @approvals
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 10000
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction after-action (
+        name: after dc
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @report
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @report
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction after-filter-change (
+        name: after filter change
+        execution {
+            sequence: 20
+        }
+        when {
+            selectionType: items
+            items: P4000_FILTER
+        }
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode: null;
+                itemsToSubmit: P4000_FILTER
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @report
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process resume-suspended (
+        name: Resume Suspended
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                for c1 in (
+                    select workflow_id
+                      from apex_workflows
+                    where application_id = :APP_ID
+                       and state_code = 'SUSPENDED'
+                ) loop
+                    apex_workflow.resume (p_instance_id => c1.workflow_id);
+                end loop;
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 16818429063874086107
+        }
+        serverSideCondition {
+            whenButtonPressed: @resume-suspended
+        }
+    )
+
+)
+
+
+````

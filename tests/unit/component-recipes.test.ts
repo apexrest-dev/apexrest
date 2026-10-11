@@ -33,7 +33,7 @@ test('every ready component recipe is bound to real, warning-free compiler evide
   const { registry, evidence } = await load();
   assert.equal(evidence.mock, false);
   assert.equal(evidence.mmdVersion, registry.mmdVersion);
-  assert.equal(registry.compilerVersion, 'SQLcl: Release 26.1.2.0 Production Build: 26.1.2.132.1334');
+  assert.equal(registry.compilerVersion, 'SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620');
   assert.equal(evidence.compiler, registry.compilerVersion);
   const scaffold: Record<string, string> = {};
   for (const file of await files(path.join(root, registry.scaffold.directory)))
@@ -44,7 +44,10 @@ test('every ready component recipe is bound to real, warning-free compiler evide
   for (const recipe of registry.recipes) {
     assert.equal(ids.has(recipe.id), false, recipe.id);
     ids.add(recipe.id);
-    assert.ok(recipe.sourcePageIds.length, recipe.id);
+    if (recipe.provenance) {
+      assert.deepEqual(recipe.sourcePageIds, [], `${recipe.id}: external sources are not captured UT pages`);
+      assert.match(recipe.provenance.sourceSha256, /^[a-f0-9]{64}$/);
+    } else assert.ok(recipe.sourcePageIds.length, recipe.id);
     for (const kind of ['sql', 'import', 'browser'])
       assert.equal(recipe.verification[kind], 'not-run', `${recipe.id}: compiler cannot assert ${kind}`);
     if (recipe.readiness !== 'ready') {

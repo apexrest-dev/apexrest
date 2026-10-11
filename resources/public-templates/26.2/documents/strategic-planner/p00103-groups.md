@@ -1,0 +1,634 @@
+# Groups — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00103-groups.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c33fbe658e7c2635be24c6c8e7568025dafcf422cd695a83acd9e4c43a1bb896.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 103 (
+    name: Groups
+    alias: GROUPS
+    title: Groups
+    pageGroup: @groups
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: Groups defined to group &NOMENCLATURE_USERS. together.  Each &NOMENCLATURE_USER. in the group is identified as full or part time and each group can have members identified as a Leader of that group (there can be more than one).  This allows viewing all the &NOMENCLATURE_PROJECTS. assigned to a group.
+    }
+    config {
+        buildOption: @groups
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region groups (
+        name: Groups
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select g.ID,
+                       g.GROUP_NAME,
+                       g.DESCRIPTION,
+                       g.group_tag,
+                       --
+                       -- tracking columns
+                       --
+                       g.CREATED,
+                       g.CREATED_BY,
+                       g.UPDATED,
+                       g.UPDATED_BY,
+                       --
+                       -- members
+                       --
+                       (select count(*) 
+                       from SP_GROUP_MEMBERS gm, 
+                            SP_TEAM_MEMBERS tm 
+                       where tm.id = gm.TEAM_MEMBER_ID and 
+                             gm.group_id = g.id and 
+                             nvl(tm.IS_CURRENT_YN,'Y') = 'Y') group_members,
+                       --
+                       -- full time
+                       --
+                       (select count(*) 
+                        from SP_GROUP_MEMBERS gm, 
+                             SP_TEAM_MEMBERS tm 
+                        where tm.id = TEAM_MEMBER_ID and 
+                              gm.group_id = g.id and 
+                              gm.full_time_yn = 'Y' and 
+                              tm.IS_CURRENT_YN = 'Y') full_time,
+                       --
+                       -- laeders
+                       --
+                       (select count(*) 
+                        from SP_GROUP_MEMBERS gm, 
+                             SP_TEAM_MEMBERS tm 
+                        where tm.id = TEAM_MEMBER_ID and 
+                              gm.group_id = g.id and 
+                              gm.group_leader_yn = 'Y' and 
+                              tm.IS_CURRENT_YN = 'Y') group_Leaders
+                  from SP_GROUPS g
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 150
+                items: {
+                    P150_ID: \#ID#\
+                }
+                action: resetPagination
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+            authorizationScheme: @contribution-rights
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        advanced {
+            savedReportMappingIdentifier: 8987502047894338702
+        }
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 5
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 6
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column FULL_TIME (
+            type: plainText
+            heading {
+                heading: Full Time
+                alignment: end
+            }
+            layout {
+                sequence: 28
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column GROUP_LEADERS (
+            type: plainText
+            heading {
+                heading: Group Leaders
+                alignment: end
+            }
+            layout {
+                sequence: 38
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column GROUP_MEMBERS (
+            type: plainText
+            heading {
+                heading: Group Members
+                alignment: end
+            }
+            layout {
+                sequence: 18
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column GROUP_NAME (
+            type: link
+            heading {
+                heading: Group Name
+            }
+            layout {
+                sequence: 2
+            }
+            link {
+                target: {
+                    page: 151
+                    items: {
+                        P151_GROUP_ID: #ID#
+                    }
+                    action: resetPagination
+                }
+                linkText: #GROUP_NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column GROUP_TAG (
+            type: plainText
+            heading {
+                heading: Group Tag
+            }
+            layout {
+                sequence: 48
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: ID
+            }
+            layout {
+                sequence: 0
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 7
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        pageHeader {
+            pageHeaderText: Groups
+        }
+
+        savedReport 89875274 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 100
+            }
+
+            displayColumn FULL_TIME (
+                sequence: 4
+            )
+
+            displayColumn GROUP_LEADERS (
+                sequence: 5
+            )
+
+            displayColumn GROUP_MEMBERS (
+                sequence: 3
+            )
+
+            displayColumn GROUP_NAME (
+                sequence: 1
+            )
+
+            displayColumn GROUP_TAG (
+                sequence: 2
+            )
+
+            displayColumn UPDATED (
+                sequence: 6
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about-users (
+            label: About Groups
+            layout {
+                sequence: 50
+            }
+            behavior {
+                target: {
+                    page: 145
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu groups (
+            label: View &NOMENCLATURE_USERS.
+            layout {
+                sequence: 20
+            }
+            behavior {
+                target: {
+                    page: 74
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-users
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 70
+            }
+            behavior {
+                target: {
+                    page: 103
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 80
+            }
+            behavior {
+                target: {
+                    page: 103
+                    clearCache: 103
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+        menu sep1 (
+            type: separator
+            layout {
+                sequence: 30
+            }
+        )
+
+        menu sep2 (
+            type: separator
+            layout {
+                sequence: 60
+            }
+        )
+
+        menu user-details (
+            label: &NOMENCLATURE_USERS. Details
+            layout {
+                sequence: 40
+            }
+            behavior {
+                target: {
+                    page: 19
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-users
+            }
+        )
+
+    )
+
+    button add-group (
+        buttonName: add_group
+        label: Add Group
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 150
+                clearCache: 150
+                action: resetPagination
+            }
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 74
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction edit-report-dialog-closed (
+        name: Edit Report - Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @groups
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @groups
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction on-bc-dc-close (
+        name: on bc dc close
+        execution {
+            sequence: 20
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @breadcrumb
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @groups
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction on-groups-region-dc (
+        name: on groups region dc
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @groups
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @groups
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

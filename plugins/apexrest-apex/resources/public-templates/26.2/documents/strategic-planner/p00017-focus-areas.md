@@ -1,0 +1,1009 @@
+# Focus Areas — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00017-focus-areas.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 5c2e97b45db3ab28d253c824ae475ab86f8e149a0fc1d3e4864e69f8516d6e18.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 17 (
+    name: Focus Areas
+    alias: FOCUS-AREAS
+    title: &NOMENCLATURE_AREA.
+    pageGroup: @areas
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: [
+            #DEFAULT#
+            t-PageBody--noContentPadding
+        ]
+    }
+    css {
+        inline:
+            ```css
+            .a-CardView-actions {
+              --a-cv-actions-padding-x: .5rem;
+              --a-cv-actions-padding-y: .5rem;
+              --a-cv-actions-background-color: transparent;
+            }
+            
+            .no-item-ui {
+              --a-field-input-border-width: 0px;
+              --a-field-input-background-color: transparent;
+            }
+            
+            .a-CardView-iconWrap {
+              align-self: flex-start;
+            }
+            ```
+    }
+    help {
+        helpText: All &NOMENCLATURE_AREAS..
+    }
+    comments {
+        comments: Filterable by Owner, Tags, Updated Month, Created Month, and Last Created Project date.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+            cssClasses: has-header-actions
+        }
+    )
+
+    region faceted-search (
+        name: faceted search
+        type: facetedSearch
+        source {
+            filteredRegion: @nomenclature-areas
+        }
+        layout {
+            sequence: 20
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: selector
+            currentFacetsSelector: #active_facets
+            displayChartForTopNValues: 10
+        }
+
+        facet P17_CREATED_MONTH (
+            type: checkboxGroup
+            label {
+                label: Created Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 50
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: CREATED_MONTH
+            }
+        )
+
+        facet P17_HIDDEN_BY_DEFAULT (
+            type: checkboxGroup
+            label {
+                label: Default Display
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 70
+            }
+            listEntries {
+                maxDisplayedEntries: 7
+            }
+            source {
+                databaseColumn: HIDDEN_BY_DEFAULT
+            }
+        )
+
+        facet P17_LAST_CREATED_PROJECT (
+            type: checkboxGroup
+            label {
+                label: Last Created Project
+            }
+            lov {
+                type: distinctValues
+                sortDirection: desc
+            }
+            layout {
+                sequence: 60
+            }
+            listEntries {
+                sortByTopCounts: false
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: LAST_CREATED_PROJECT
+            }
+        )
+
+        facet P17_OWNER (
+            type: checkboxGroup
+            label {
+                label: Owner
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 20
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: OWNER
+            }
+        )
+
+        facet P17_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+        )
+
+        facet P17_TAGS (
+            type: checkboxGroup
+            label {
+                label: Tags
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: TAGS
+            }
+            multipleValues {
+                type: delimitedList
+                separator: ,
+                trimWhitespace: true
+            }
+        )
+
+        facet P17_UPDATED_MONTH (
+            type: checkboxGroup
+            label {
+                label: Updated Month
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 40
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+            }
+            source {
+                databaseColumn: UPDATED_MONTH
+            }
+        )
+
+    )
+
+    region nomenclature-areas (
+        name: &NOMENCLATURE_AREAS.
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select f.ID,
+                       f.area FOCUS_AREA,
+                       substr(f.DESCRIPTION,1,80)||decode(greatest(length(f.DESCRIPTION),80),80,null,'...') DESCRIPTION,
+                       case when tm.id is null then '(No Owner)' else tm.first_name||' '||tm.last_name end OWNER,
+                       --
+                       -- created
+                       --
+                       f.CREATED,
+                       f.CREATED_BY,
+                       --
+                       to_char(f.updated,'YYYY.MM') updated_month,
+                       to_char(f.created,'YYYY.MM') created_month,
+                       f.updated upd_date,
+                       f.UPDATED_BY,
+                       f.tags,
+                       --
+                       -- profile photo
+                       --
+                       tm.photo,
+                       tm.photo_mimetype, 
+                       tm.id team_member_id,
+                       tm.photo_filename,   
+                       tm.updated profile_updated,  
+                       --
+                       -- image
+                       --
+                       f.image,
+                       f.image_mimetype,
+                       f.image_name, 
+                       f.image_last_updated,  
+                       --
+                       -- initiatives
+                       --
+                       (select count(*) 
+                        from SP_INITIATIVES i 
+                        where i.AREA_ID = f.id) initiatives,
+                       --
+                       -- projects
+                       --
+                       (select count(*) 
+                        from SP_PROJECTS p 
+                        where ARCHIVED_YN = 'N' and 
+                              p.DUPLICATE_OF_PROJECT_ID is null and
+                              p.initiative_id in 
+                          (select distinct id 
+                           from SP_INITIATIVES i 
+                            where i.AREA_ID = f.id)) projects,
+                       --
+                       (select count(*) 
+                        from SP_PROJECTS p 
+                        where ARCHIVED_YN = 'N' and 
+                              p.DUPLICATE_OF_PROJECT_ID is null and
+                              p.pct_complete != 0 and 
+                              p.pct_complete != 100 and
+                              p.initiative_id in 
+                          (select distinct id 
+                           from SP_INITIATIVES i 
+                            where i.AREA_ID = f.id)) open_projects,
+                       --
+                       nvl((select max(p.updated) 
+                        from SP_PROJECTS p 
+                        where ARCHIVED_YN = 'N' and 
+                              p.DUPLICATE_OF_PROJECT_ID is null and
+                              p.initiative_id in 
+                          (select distinct id 
+                           from SP_INITIATIVES i 
+                            where i.AREA_ID = f.id)),f.updated) last_project_update,
+                       --
+                       -- most recently created project
+                       --
+                       (select max(to_char(created,'YYYY.MM')) 
+                        from SP_PROJECTS p 
+                        where p.ARCHIVED_YN = 'N' and 
+                              p.DUPLICATE_OF_PROJECT_ID is null and
+                              p.initiative_id in 
+                              (select distinct id from SP_INITIATIVES i where i.AREA_ID = f.id)) last_created_project,
+                       --
+                       decode(f.hidden_by_default_yn,'Y','Hidden','N','Visible','Visible') hidden_by_default
+                  from SP_AREAS f,
+                       sp_team_members tm
+                  where f.OWNER_ID = tm.id(+)
+                ```
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P17_ORDER_BY
+                orderBys: {
+                    FOCUS_AREA: FOCUS_AREA
+                    PROJECTS: projects desc
+                    OPEN_PROJECTS: open_projects desc
+                    UPDATED: upd_date desc
+                    UPD_DATE: upd_date asc
+                    INITIATIVES: initiatives desc
+                    LAST_PROJECT_UPDATE: LAST_PROJECT_UPDATE desc nulls last
+                }
+            }
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+            cssClasses: clear-avatar-icons
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            title: &FOCUS_AREA!HTML.
+            description:
+                ```html
+                &NOMENCLATURE_INITIATIVES.: <strong>&INITIATIVES.</strong><br>
+                &NOMENCLATURE_PROJECTS.: <strong>&PROJECTS.</strong>, with &OPEN_PROJECTS. open<br>
+                &DESCRIPTION!HTML.
+                ```
+            miscellaneous:
+                ```html
+                &OWNER.<br>
+                &LAST_PROJECT_UPDATE.
+                ```
+            displayAvatar: true
+        }
+        plugin-avatar {
+            type: image
+            image: {
+                type: blobColumn
+                blobColumn: IMAGE
+                filenameColumn: IMAGE_NAME
+                mimeTypeColumn: IMAGE_MIMETYPE
+                lastUpdatedColumn: IMAGE_LAST_UPDATED
+            }
+            description: &NOMENCLATURE_AREAS. Icon
+            size: medium
+        }
+
+        column CREATED (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: CREATED
+                dataType: date
+            }
+        )
+
+        column CREATED_BY (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: CREATED_BY
+                dataType: varchar2
+            }
+        )
+
+        column CREATED_MONTH (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: CREATED_MONTH
+                dataType: varchar2
+            }
+        )
+
+        column DESCRIPTION (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+        )
+
+        column FOCUS_AREA (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: FOCUS_AREA
+                dataType: varchar2
+            }
+        )
+
+        column HIDDEN_BY_DEFAULT (
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: HIDDEN_BY_DEFAULT
+                dataType: varchar2
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column IMAGE (
+            layout {
+                sequence: 240
+            }
+            source {
+                databaseColumn: IMAGE
+                dataType: blob
+            }
+        )
+
+        column IMAGE_LAST_UPDATED (
+            layout {
+                sequence: 270
+            }
+            source {
+                databaseColumn: IMAGE_LAST_UPDATED
+                dataType: date
+            }
+        )
+
+        column IMAGE_MIMETYPE (
+            layout {
+                sequence: 250
+            }
+            source {
+                databaseColumn: IMAGE_MIMETYPE
+                dataType: varchar2
+            }
+        )
+
+        column IMAGE_NAME (
+            layout {
+                sequence: 260
+            }
+            source {
+                databaseColumn: IMAGE_NAME
+                dataType: varchar2
+            }
+        )
+
+        column INITIATIVES (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: INITIATIVES
+                dataType: number
+            }
+        )
+
+        column LAST_CREATED_PROJECT (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: LAST_CREATED_PROJECT
+                dataType: varchar2
+            }
+        )
+
+        column LAST_PROJECT_UPDATE (
+            layout {
+                sequence: 280
+            }
+            source {
+                databaseColumn: LAST_PROJECT_UPDATE
+                dataType: date
+            }
+            appearance {
+                formatMask: SINCE
+            }
+        )
+
+        column OPEN_PROJECTS (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: OPEN_PROJECTS
+                dataType: number
+            }
+        )
+
+        column OWNER (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: OWNER
+                dataType: varchar2
+            }
+        )
+
+        column PHOTO (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: PHOTO
+                dataType: blob
+            }
+        )
+
+        column PHOTO_FILENAME (
+            layout {
+                sequence: 220
+            }
+            source {
+                databaseColumn: PHOTO_FILENAME
+                dataType: varchar2
+            }
+        )
+
+        column PHOTO_MIMETYPE (
+            layout {
+                sequence: 200
+            }
+            source {
+                databaseColumn: PHOTO_MIMETYPE
+                dataType: varchar2
+            }
+        )
+
+        column PROFILE_UPDATED (
+            layout {
+                sequence: 230
+            }
+            source {
+                databaseColumn: PROFILE_UPDATED
+                dataType: date
+            }
+        )
+
+        column PROJECTS (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: PROJECTS
+                dataType: number
+            }
+        )
+
+        column TAGS (
+            layout {
+                sequence: 170
+            }
+            source {
+                databaseColumn: TAGS
+                dataType: varchar2
+            }
+        )
+
+        column TEAM_MEMBER_ID (
+            layout {
+                sequence: 210
+            }
+            source {
+                databaseColumn: TEAM_MEMBER_ID
+                dataType: number
+            }
+        )
+
+        column UPDATED_BY (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: UPDATED_BY
+                dataType: varchar2
+            }
+        )
+
+        column UPDATED_MONTH (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: UPDATED_MONTH
+                dataType: varchar2
+            }
+        )
+
+        column UPD_DATE (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: UPD_DATE
+                dataType: date
+            }
+        )
+
+        action action (
+            position: titleLink
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 21
+                    items: {
+                        P21_FOCUS_AREA: I&FOCUS_AREA.
+                        P21_HIDDEN_BY_DEFAULT: Visible
+                    }
+                    clearCache: 21
+                    action: resetPagination
+                }
+            }
+        )
+
+        action actions (
+            position: primaryActions
+            template: menu
+            label: Actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+                cssClasses: t-Button--noUI
+            }
+
+            menu edit-nomenclature-area (
+                label: Edit &NOMENCLATURE_AREA.
+                layout {
+                    sequence: 10
+                }
+                behavior {
+                    target: {
+                        page: 18
+                        items: {
+                            P18_ID: &ID.
+                        }
+                        clearCache: 18
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-edit
+                }
+                security {
+                    authorizationScheme: @contribution-rights
+                }
+            )
+
+            menu view-nomenclature-initiatives (
+                label: View &NOMENCLATURE_INITIATIVES.
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    target: {
+                        page: 21
+                        items: {
+                            P21_FOCUS_AREA: &FOCUS_AREA.
+                            P21_HIDDEN_BY_DEFAULT: Visible
+                        }
+                        clearCache: 21
+                        action: resetPagination
+                    }
+                }
+                appearance {
+                    icon: fa-lightbulb-o
+                }
+            )
+
+        )
+
+    )
+
+    region sort-container (
+        name: Sort Container
+        type: staticContent
+        source {
+            htmlCode: <div id="active_facets"></div>
+        }
+        layout {
+            sequence: 2
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+                margin-bottom-none
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    pageItem P17_ORDER_BY (
+        type: selectList
+        label {
+            label: Order By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:&NOMENCLATURE_AREA.;FOCUS_AREA,&NOMENCLATURE_PROJECTS. count;PROJECTS,Open &NOMENCLATURE_PROJECTS.;OPEN_PROJECTS,Most recent change;UPDATED,Least recent change;UPD_DATE,&NOMENCLATURE_INITIATIVES. count;INITIATIVES,Last Project Update;LAST_PROJECT_UPDATE
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @sort-container
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            cssClasses: u-pullRight
+            icon: fa-sort-amount-desc
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: [
+                w240
+                no-item-ui
+            ]
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: LAST_PROJECT_UPDATE
+        }
+    )
+
+    button actions (
+        buttonName: actions
+        label: Actions
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu about_areas (
+            label: About &NOMENCLATURE_AREAS.
+            layout {
+                sequence: 10
+            }
+            behavior {
+                target: {
+                    page: 105
+                }
+            }
+            appearance {
+                icon: fa-info
+            }
+        )
+
+        menu new (
+            type: separator
+            layout {
+                sequence: 20
+            }
+        )
+
+        menu refresh (
+            label: Refresh
+            layout {
+                sequence: 40
+            }
+            behavior {
+                target: {
+                    page: 17
+                    action: resetPagination
+                }
+            }
+            appearance {
+                icon: fa-refresh
+            }
+        )
+
+        menu reset (
+            label: Reset
+            layout {
+                sequence: 30
+            }
+            behavior {
+                target: {
+                    page: 17
+                    items: {
+                        P17_HIDDEN_BY_DEFAULT: Visible
+                    }
+                    clearCache: 17
+                    action: clearRegions
+                }
+            }
+            appearance {
+                icon: fa-undo-alt
+            }
+        )
+
+    )
+
+    button add-area (
+        buttonName: add_area
+        label: Add &NOMENCLATURE_AREA.
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 18
+                clearCache: 18
+                action: resetPagination
+            }
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction on-dialog-close (
+        name: refresh after add
+        execution {
+            sequence: 30
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: button
+            button: @add-area
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh_1 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @nomenclature-areas
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction refresh-on-dc-cr (
+        name: refresh on DC CR
+        execution {
+            sequence: 40
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @nomenclature-areas
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @nomenclature-areas
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-2 (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @faceted-search
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation last-proj-jump-pg (
+        itemName: LAST_PROJ_JUMP_PG
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            type: staticValue
+            staticValue: 17
+        }
+    )
+
+)
+
+
+````

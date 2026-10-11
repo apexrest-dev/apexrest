@@ -1,6 +1,6 @@
 # Chart
 
-Aliases: Chart; діаграма графік серії осі; Chart bar; Chart line; Chart pie
+Aliases: Chart; діаграма графік серії осі; Chart bar; Chart line; Chart pie; Native Area Chart; chart area; Native Donut Chart; chart donut
 
 Map data to a chart with the required series and axes.
 
@@ -23,6 +23,8 @@ Source descriptions and exact example links: component:regions/chart/source-exam
 - component:regions/chart/recipes/basic: ready
 - component:regions/chart/recipes/line: ready
 - component:regions/chart/recipes/pie: ready
+- component:regions/chart/recipes/chart-area: ready
+- component:regions/chart/recipes/chart-donut: ready
 
 ## Parameters and adaptation
 

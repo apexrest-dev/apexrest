@@ -1,0 +1,444 @@
+# Request Employee Appraisal  — Sample Approvals
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/pages/p00016-request-employee-appraisal.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 4e9b910a0561890dcc8ddcb0f8208ac43f5990cacaf3678cff587cdf17b5c369.
+
+Application dependency inventory: oracle:26.2:public-template/sample-approvals/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 16 (
+    name: "Request Employee Appraisal "
+    alias: REQUEST-EMPLOYEE-APPRAISAL
+    title: Request Appraisal for
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        width: 400
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    javaScript {
+        executeWhenPageLoads:
+            ```javascript-browser
+            $('.ui-dialog-title', 
+               parent ? parent.document 
+                      : document).text(
+                         'Request Appraisal for ' + 
+                         apex.items.P16_ENAME.value );
+            
+            apex.items.P16_APPRAISAL_DATE.dayFormatter = function (pDateISOString) {
+              const day = apex.date.parse(pDateISOString, "YYYY-MM-DD").getDay();
+              return {
+                  // disable when day is Saturday or Sunday
+                  disabled: [0, 6].includes(day),
+                  // set a styling css class like u-danger-text
+                  class: null,
+                  // set a tooltip that is shown on hover
+                  tooltip: null
+              };
+            };
+            apex.items.P16_APPRAISAL_DATE.refresh();             
+            ```
+    }
+    css {
+        inline: ".a-DatePicker { flex-grow: 1; }"
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region request-appraisal-input (
+        name: Request Appraisal Input
+        type: form
+        source {
+            location: localDatabase
+            tableName: EBA_DEMO_APPR_APPRAISALS
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P16_APPRAISAL_DATE (
+        type: datePicker
+        label {
+            label: Appraisal Date
+            alignment: left
+        }
+        settings {
+            displayAs: inline
+        }
+        layout {
+            sequence: 80
+            region: @request-appraisal-input
+            slot: regionBody
+            alignment: left
+            rowCssClasses: u-align-items-center
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @request-appraisal-input
+            column: APPRAISAL_DATE
+            dataType: date
+        }
+        default {
+            type: expression
+            plsqlExpression: sysdate + 14
+        }
+    )
+
+    pageItem P16_APPRAISAL_PERIOD (
+        type: displayOnly
+        label {
+            label: Appraisal Period
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @request-appraisal-input
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P16_EMPNO (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @request-appraisal-input
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-appraisal-input
+            column: EMPNO
+            dataType: number
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P16_ENAME (
+        type: hidden
+        layout {
+            sequence: 50
+            region: @request-appraisal-input
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P16_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @request-appraisal-input
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-appraisal-input
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P16_PERIOD_END (
+        type: hidden
+        layout {
+            sequence: 40
+            region: @request-appraisal-input
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-appraisal-input
+            column: PERIOD_END
+            dataType: date
+        }
+        default {
+            type: expression
+            plsqlExpression: "add_months( last_day(sysdate) , -1) "
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P16_PERIOD_START (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @request-appraisal-input
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-appraisal-input
+            column: PERIOD_START
+            dataType: date
+        }
+        default {
+            type: expression
+            plsqlExpression: add_months( last_day(sysdate) , -13) +1
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button submit-appraisal (
+        buttonName: SUBMIT_APPRAISAL
+        label: Submit
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    computation p16-ename (
+        itemName: P16_ENAME
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select ename
+                from eba_demo_appr_emp
+                where empno = :P16_EMPNO
+                ```
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 578522973493331559
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SUBMIT_APPRAISAL,DELETE
+        }
+    )
+
+    process compute-appraisal-period (
+        name: Compute Appraisal Period
+        type: invokeApi
+        invoke {
+            package: EBA_DEMO_APPR
+            procedureOrFunction: APPRAISAL_PERIOD
+        }
+        execution {
+            sequence: 20
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 849661744613009425
+        }
+
+        parameter (
+            type: functionResult
+            value {
+                item: P16_APPRAISAL_PERIOD
+            }
+            advanced {
+                displaySequence: 10
+            }
+        )
+
+        parameter p_end_date (
+            parameter {
+                dataType: date
+            }
+            value {
+                type: item
+                item: P16_PERIOD_END
+            }
+            advanced {
+                displaySequence: 30
+            }
+        )
+
+        parameter p_start_date (
+            parameter {
+                dataType: date
+            }
+            value {
+                type: item
+                item: P16_PERIOD_START
+            }
+            advanced {
+                displaySequence: 20
+            }
+        )
+
+    )
+
+    process initialize-form-request-salary-change (
+        name: Initialize form Request Salary Change
+        type: formInitialization
+        formRegion: @request-appraisal-input
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 578519158842331551
+        }
+    )
+
+    process process-form-requestappraisal-input (
+        name: Process form RequestAppraisal Input
+        type: formAutoRowProcessing
+        formRegion: @request-appraisal-input
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: 578519570520331552
+        }
+    )
+
+    process start-employee-appraisal-workflow (
+        name: Start Employee Appraisal Workflow
+        type: workflow
+        workflow {
+            definition: @EMPLOYEE_APPRAISAL
+            detailsPkItem: P16_ID
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 578522095177331558
+        }
+        serverSideCondition {
+            whenButtonPressed: @submit-appraisal
+        }
+
+        parameter (
+            name: @SUBJECT
+            value {
+                type: expression
+                plsqlExpression: :P16_ENAME ||' ('|| :P16_APPRAISAL_PERIOD ||')'
+            }
+        )
+
+    )
+
+)
+
+
+````

@@ -1,0 +1,553 @@
+# Notification — Team Calendar
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/team-calendar/apexlang/team-calendar/pages/p00025-notification.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 00adfb8956f8bac6550ed20a06efedeed9189f4b2c7bb135ea3b50d5a1ddcc58.
+
+Application dependency inventory: oracle:26.2:public-template/team-calendar/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 25 (
+    name: Notification
+    alias: NOTIFICATION
+    title: Notification
+    pageGroup: @administration
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        chained: false
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    javaScript {
+        functionAndGlobalVariableDeclaration: var htmldb_delete_message='"DELETE_CONFIRM_MSG"';
+    }
+    security {
+        authorizationScheme: @administration-rights
+    }
+    help {
+        helpText:
+            ```html
+            Please enter a useful notification and optionally a description. The notification will be shown in bold on the top line of the notification box. If
+             a description is entered it will be in plain text in the line below the notification. The type selected will determine the icon and color of the notification. If you have multiple notifications they will be ordered based on the display sequence.  You can enter specific dates and times to limit when the notification is first displayed and/or when it is no longer visible.
+            ```
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        layout {
+            sequence: 1
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region notification (
+        name: Notification
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region notification-items (
+        name: Notification Items
+        type: staticContent
+        layout {
+            sequence: 40
+            parentRegion: @notification
+            slot: subRegions
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P25_DISPLAY_FROM (
+        type: datePicker
+        label {
+            label: Display From
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: DD-MON-YYYY HH24:MI:SS
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: DISPLAY_FROM
+            used: always
+        }
+    )
+
+    pageItem P25_DISPLAY_SEQUENCE (
+        type: textField
+        label {
+            label: Display Sequence
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 40
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 8
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: DISPLAY_SEQUENCE
+            used: always
+        }
+    )
+
+    pageItem P25_DISPLAY_UNTIL (
+        type: datePicker
+        label {
+            label: Display Until
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: DD-MON-YYYY HH24:MI:SS
+            width: 64
+        }
+        validation {
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: DISPLAY_UNTIL
+            used: always
+        }
+    )
+
+    pageItem P25_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @notification-items
+            slot: regionBody
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: ID
+            used: always
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P25_NOTIFICATION_DESCRIPTION (
+        type: textarea
+        label {
+            label: Notification Description
+            alignment: left
+        }
+        settings {
+            resizable: false
+            trimSpaces: none
+        }
+        layout {
+            sequence: 70
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 80
+            height: 4
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: NOTIFICATION_DESCRIPTION
+            used: always
+        }
+    )
+
+    pageItem P25_NOTIFICATION_NAME (
+        type: textField
+        label {
+            label: Notification Name
+            alignment: left
+        }
+        settings {
+            trimSpaces: none
+        }
+        layout {
+            sequence: 20
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 80
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: NOTIFICATION_NAME
+            used: always
+        }
+    )
+
+    pageItem P25_NOTIFICATION_TYPE (
+        type: selectList
+        label {
+            label: Notification Type
+            alignment: left
+        }
+        lov {
+            type: sharedComponent
+            lov: @notification-type
+            displayNullValue: false
+        }
+        layout {
+            sequence: 30
+            region: @notification-items
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            type: databaseColumn
+            databaseColumn: NOTIFICATION_TYPE
+            used: always
+        }
+        default {
+            type: static
+            staticValue: YELLOW
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 4
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create Notification
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P25_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: edit
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--simple
+                t-Button--danger
+            ]
+        }
+        behavior {
+            action: redirectUrl
+            targetUrl: javascript:apex.confirm(htmldb_delete_message,'DELETE');
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P25_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--gapLeft
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P25_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation end-after-beginning (
+        name: End after Beginning
+        execution {
+            sequence: 30
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody:
+                ```plsql
+                if :P25_DISPLAY_FROM is not null and :P25_DISPLAY_UNTIL is not null then
+                    return to_timestamp(:P25_DISPLAY_FROM,'DD-MON-YYYY HH24:MI:SS') < to_timestamp(:P25_DISPLAY_UNTIL,'DD-MON-YYYY HH24:MI:SS');
+                else
+                    return true;
+                end if;
+                ```
+        }
+        error {
+            errorMessage: Display From and To dates must be in proper chronological order.
+            displayLocation: inlineInNotification
+        }
+    )
+
+    validation p25-display-from-must-be-timestamp (
+        name: P25_DISPLAY_FROM must be timestamp
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsAValidTimestamp
+            item: P25_DISPLAY_FROM
+        }
+        error {
+            errorMessage: #LABEL# must be a valid timestamp.
+            associatedItem: @P25_DISPLAY_FROM
+        }
+    )
+
+    validation p25-display-until-must-be-timestamp (
+        name: P25_DISPLAY_UNTIL must be timestamp
+        execution {
+            sequence: 20
+        }
+        validation {
+            type: itemIsAValidTimestamp
+            item: P25_DISPLAY_UNTIL
+        }
+        error {
+            errorMessage: #LABEL# must be a valid timestamp.
+            associatedItem: @P25_DISPLAY_UNTIL
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 1697232441081463843
+        }
+    )
+
+    process fetch-row-from-eba-ca-notifications (
+        name: Fetch Row from EBA_CA_NOTIFICATIONS
+        type: autoRowFetch
+        source {
+            tableName: EBA_CA_NOTIFICATIONS
+            pkColumn: ID
+            pkItem: P25_ID
+        }
+        execution {
+            sequence: 10
+            point: afterHeader
+        }
+        advanced {
+            executionMappingIdentifier: 3236098805722305624
+        }
+    )
+
+    process process-row-of-eba-ca-notifications (
+        name: Process Row of EBA_CA_NOTIFICATIONS
+        type: autoRowProcessing
+        target {
+            tableName: EBA_CA_NOTIFICATIONS
+            pkColumn: ID
+            pkItem: P25_ID
+        }
+        execution {
+            sequence: 20
+        }
+        successMessage {
+            successMessage: Action Processed.
+        }
+        advanced {
+            executionMappingIdentifier: 3236098999200305624
+        }
+    )
+
+    process reset-page (
+        name: reset page
+        type: clearSessionState
+        clear {
+            type: pages
+            pages: 31
+        }
+        execution {
+            sequence: 30
+        }
+        advanced {
+            executionMappingIdentifier: 3236099199101305624
+        }
+        serverSideCondition {
+            whenButtonPressed: @delete
+        }
+    )
+
+)
+
+
+````

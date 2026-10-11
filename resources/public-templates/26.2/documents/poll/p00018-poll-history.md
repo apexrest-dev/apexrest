@@ -1,0 +1,458 @@
+# Poll History — Poll
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/poll/apexlang/poll/pages/p00018-poll-history.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: c46e8a133c36d79a1e48c6611dff8cf0d969167130f7b3f09786f724c1f5d48e.
+
+Application dependency inventory: oracle:26.2:public-template/poll/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 18 (
+    name: Poll History
+    alias: POLL-HISTORY
+    title: Poll History
+    pageGroup: @polls
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/wizard-modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        resizable: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: @contribution-rights
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region change-history (
+        name: Change History
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select    
+                    lower(created_by) || ' ('||apex_util.get_since(created)||')' CREATED,
+                    lower(updated_by) || ' ('||apex_util.get_since(UPDATED)||')' updated
+                from EBA_QPOLL_POLLS q
+                where id = :POLL_ID
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: wizardBody
+            startNewRow: false
+            newColumn: false
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--horizontal
+                t-Alert--customIcons
+                t-Alert--info
+                t-Alert--accessibleHeading
+            ]
+            icon: fa-clock-o
+        }
+        advanced {
+            htmlDomId: change_history
+        }
+        componentAppearance {
+            template: @/value-attribute-pairs-column
+            templateOptions: [
+                #DEFAULT#
+                t-AVPList--leftAligned
+            ]
+            showNullValuesAs: " - "
+        }
+        pagination {
+            type: showAll
+        }
+        performance {
+            maxRowsToProcess: 500
+        }
+        messages {
+            whenNoDataFound: no data found
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column CREATED (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column UPDATED (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region history (
+        name: History
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select '' comment_modifiers, 
+                    'Question Update' note_type,
+                    replace(initcap(replace(replace(f.column_name,'_ID',null),'_',' ')),chr(10),'<br>') comment_text,
+                    ' changed from "'||f.old_value||'"' attribute_1,
+                    ' to "'||f.new_value||'"' attribute_2,
+                    ' ' attribute_3,
+                    ' ' attribute_4,
+                    lower(f.changed_by) user_name,
+                    apex_util.get_since(f.change_date) comment_date,
+                    ' ' link,
+                    null update_id,
+                    f.change_date,
+                    '' actions,
+                    upper(
+                          decode(instr(replace(f.changed_by,'.',' '),' '),
+                                 0, 
+                                 substr(f.changed_by,1,2),
+                                 substr(f.changed_by,1,1)||substr(f.changed_by,instr(replace(f.changed_by,'.',' '),' ')+1,1)
+                           )) user_icon
+                from eba_qpoll_history f,
+                    eba_qpoll_questions q
+                where f.table_name = 'QUESTIONS'
+                    and f.component_id = q.id
+                    and q.poll_id = :POLL_ID
+                    and ( f.column_name != 'QUESTION'
+                        or ( f.old_value is not null and f.new_value is not null ) )
+                union all
+                select  '' comment_modifiers, 
+                    'Question Added' comment_type,
+                    replace(initcap(replace(replace(f.column_name,'_ID',null),'_',' ')),chr(10),'<br>') comment_text,
+                    ' ' attribute_1,
+                    ' added "'||f.new_value||'"' attribute_2,
+                    ' ' attribute_3,
+                    ' ' attribute_4,
+                    lower(f.changed_by) user_name,
+                    apex_util.get_since(f.change_date) comment_date,
+                    ' ' link,
+                    null update_id,
+                    f.change_date,
+                    '' actions,
+                    upper(
+                          decode(instr(replace(f.changed_by,'.',' '),' '),
+                                 0, 
+                                 substr(f.changed_by,1,2),
+                                 substr(f.changed_by,1,1)||substr(f.changed_by,instr(replace(f.changed_by,'.',' '),' ')+1,1)
+                           )) user_icon
+                from eba_qpoll_history f
+                where f.table_name = 'QUESTIONS'
+                    and f.poll_id = :POLL_ID
+                    and f.column_name = 'QUESTION'
+                    and f.old_value is null
+                union all
+                select '' comment_modifiers, 
+                    'Question Removed' comment_type,
+                    replace(initcap(replace(replace(f.column_name,'_ID',null),'_',' ')),chr(10),'<br>') comment_text,
+                    ' removed "'||f.old_value||'"' attribute_1,
+                    ' ' attribute_2,
+                    ' ' attribute_3,
+                    ' ' attribute_4,
+                    lower(f.changed_by) user_name,
+                    apex_util.get_since(f.change_date) comment_date,
+                    ' ' link,
+                    null update_id,
+                    f.change_date,
+                    '' actions,
+                    upper(
+                          decode(instr(replace(f.changed_by,'.',' '),' '),
+                                 0, 
+                                 substr(f.changed_by,1,2),
+                                 substr(f.changed_by,1,1)||substr(f.changed_by,instr(replace(f.changed_by,'.',' '),' ')+1,1)
+                           )) user_icon
+                from eba_qpoll_history f
+                where f.table_name = 'QUESTIONS'
+                    and f.poll_id = :POLL_ID
+                    and f.column_name = 'QUESTION'
+                    and f.new_value is null
+                order by 12 desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: wizardBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--removeHeader js-removeLandmark
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: HISTORY
+        }
+        serverSideCondition {
+            type: rowsReturned
+            sqlQuery:
+                ```sql
+                select 1
+                from eba_qpoll_history f
+                where f.table_name = 'QUESTIONS'
+                    and f.poll_id = :POLL_ID
+                    and f.column_name = 'QUESTION'
+                ```
+        }
+        componentAppearance {
+            template: @/comments
+            templateOptions: [
+                #DEFAULT#
+                t-Comments--chat
+            ]
+            showNullValuesAs: " - "
+        }
+        messages {
+            whenNoDataFound: No history found.
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column ACTIONS (
+            reportColumnQueryId: 13
+            derivedColumn: N
+            heading {
+                heading: Actions
+            }
+            layout {
+                sequence: 13
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_1 (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: ATTRIBUTE_1
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_2 (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: ATTRIBUTE_2
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_3 (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: ATTRIBUTE_3
+            }
+            layout {
+                sequence: 3
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ATTRIBUTE_4 (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: ATTRIBUTE_4
+            }
+            layout {
+                sequence: 5
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column CHANGE_DATE (
+            reportColumnQueryId: 12
+            derivedColumn: N
+            heading {
+                heading: CHANGE_DATE
+            }
+            layout {
+                sequence: 8
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_DATE (
+            reportColumnQueryId: 9
+            derivedColumn: N
+            heading {
+                heading: Comment Date
+            }
+            layout {
+                sequence: 12
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_MODIFIERS (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Comment Modifiers
+            }
+            layout {
+                sequence: 9
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMMENT_TEXT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Comment Text
+            }
+            layout {
+                sequence: 10
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column LINK (
+            reportColumnQueryId: 10
+            derivedColumn: N
+            heading {
+                heading: LINK
+            }
+            layout {
+                sequence: 6
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column NOTE_TYPE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: NOTE_TYPE
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column UPDATE_ID (
+            reportColumnQueryId: 11
+            derivedColumn: N
+            heading {
+                heading: UPDATE_ID
+            }
+            layout {
+                sequence: 7
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_ICON (
+            reportColumnQueryId: 14
+            derivedColumn: N
+            heading {
+                heading: User Icon
+            }
+            layout {
+                sequence: 14
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column USER_NAME (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: User Name
+            }
+            layout {
+                sequence: 11
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+)
+
+
+````

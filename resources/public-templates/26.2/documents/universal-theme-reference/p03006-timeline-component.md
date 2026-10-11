@@ -1,0 +1,382 @@
+# Components - Timeline — Universal Theme Reference
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p03006-timeline-component.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: eedf67e189ebfc4daeed2501e2f21dad2aef45169c94952cc3d17350bf5c863b.
+
+Application dependency inventory: oracle:26.2:public-template/universal-theme-reference/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 3006 (
+    name: Components - Timeline
+    alias: TIMELINE-COMPONENT
+    title: Timeline - &APP_TITLE.
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authentication: public
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @universal-theme-breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region components-timeline (
+        name: Components - Timeline
+        type: themeTemplateComponent/timeline
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select t.ID,
+                       t.PROJECT,
+                       t.TASK_NAME,
+                       t.START_DATE,
+                       t.END_DATE,
+                       t.STATUS,
+                       t.ASSIGNED_TO,
+                       p.project as PROJ_NAME,
+                       case t.STATUS
+                         when 'Closed'  then 'fa-check-circle-o'
+                         when 'Open'    then 'fa-exclamation-triangle-o'
+                         when 'Pending' then 'fa-info-circle-o'
+                         else 'fa-exclamation-circle-o'
+                       end BADGE_ICON,
+                       case t.STATUS
+                         when 'Closed'  then 'success'
+                         when 'Open'    then 'danger'
+                         when 'Pending' then 'info'
+                         else 'warning'
+                       end BADGE_COLOR
+                  from EBA_UT_CHART_TASKS t,
+                       EBA_UT_CHART_PROJECTS p
+                  where t.project = p.id
+                  order by p.created
+                ```
+        }
+        layout {
+            sequence: 10
+            parentRegion: @demo
+            slot: subRegions
+            columnSpan: 8
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            landmarkType: region
+        }
+        advanced {
+            htmlDomId: TimelineDemo
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            userName: ASSIGNED_TO
+            date: START_DATE
+            title: TASK_NAME
+            description: PROJ_NAME
+            displayAvatar: true
+            displayBadge: true
+            applyThemeColors: false
+        }
+        plugin-badge {
+            label: Status
+            value: STATUS
+            state: BADGE_COLOR
+            icon: &BADGE_ICON.
+        }
+        pagination {
+            entitiesPerPage: 5
+            showTotalCount: true
+        }
+
+        column ASSIGNED_TO (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: ASSIGNED_TO
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_COLOR (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: BADGE_COLOR
+                dataType: varchar2
+            }
+        )
+
+        column BADGE_ICON (
+            layout {
+                sequence: 190
+            }
+            source {
+                databaseColumn: BADGE_ICON
+                dataType: varchar2
+            }
+        )
+
+        column END_DATE (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: END_DATE
+                dataType: date
+            }
+        )
+
+        column ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+
+        column PROJECT (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: PROJECT
+                dataType: number
+            }
+        )
+
+        column PROJ_NAME (
+            layout {
+                sequence: 180
+            }
+            source {
+                databaseColumn: PROJ_NAME
+                dataType: varchar2
+            }
+        )
+
+        column START_DATE (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: START_DATE
+                dataType: date
+            }
+        )
+
+        column STATUS (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: STATUS
+                dataType: varchar2
+            }
+        )
+
+        column TASK_NAME (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: TASK_NAME
+                dataType: varchar2
+            }
+        )
+
+    )
+
+    region configuration (
+        name: Configuration
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <h4>Region</h4>
+                <strong>Type:</strong> Timeline<br/>
+                <strong>Template:</strong> Blank with Attributes (No Grid)<br/>
+                
+                <h4>Attributes</h4>
+                Each row has a <em>User Name, Date, Title,</em> and <em>Description</em>. Both <em>Avatar</em> and <em>Badge</em> are displayed, with Avatar representing the user and Badge representing the project status.<br/>
+                
+                <h4>Avatar</h4>
+                <strong>Type:</strong> Icon<br/>
+                <strong>Icon:</strong> fa-user<br/>
+                <strong>Shape:</strong> Circular<br/>
+                
+                <h4>Badge</h4>
+                Each badge has a <em>value, state,</em> and <em>icon</em> that each maps to a column from the region source. 
+                The <em>label</em> for each badge is set to not display, so that only the badge value is visible.
+                ```
+        }
+        layout {
+            sequence: 50
+            parentRegion: @demo
+            slot: subRegions
+            startNewRow: false
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                js-headingLevel-2
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: staticContent
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region instructions (
+        name: Instructions
+        type: plugin/componentInstructions
+        layout {
+            sequence: 30
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            staticId: TimelineDemo
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p><strong>Timeline</strong> is a theme component new in APEX 23.1 that is useful for displaying a series of events. It can be used to showcase the history of a given widget, recent updates, or new interactions within an application.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+            columnCssClasses: col-sm-12
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region region-display-selector (
+        name: Region Display Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 20
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            mode: scrollWindow
+            rememberSelection: false
+        }
+    )
+
+    region sample-sql-query (
+        name: Sample SQL Query
+        type: plugin/regionSourceCode
+        layout {
+            sequence: 60
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                t-ContentBlock--lightBG
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        settings {
+            regionStaticId: TimelineDemo
+        }
+    )
+
+)
+
+
+````

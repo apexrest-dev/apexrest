@@ -1,0 +1,298 @@
+# Request Bank Account Change — Sample Approvals
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-approvals/apexlang/sample-workflow-approvals/pages/p00028-request-bank-account-change.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: de2606078321cc74e4254e9e1b1a3fc3528eb08bf65a2449f819e12fc9fbd70e.
+
+Application dependency inventory: oracle:26.2:public-template/sample-approvals/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 28 (
+    name: Request Bank Account Change
+    alias: REQUEST-BANK-ACCOUNT-CHANGE
+    title: Request Bank Account Change
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        width: 350
+        resizable: false
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    region request-job-change (
+        name: Request Job Change
+        type: form
+        source {
+            location: localDatabase
+            tableName: EBA_DEMO_APPR_EMP
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    pageItem P28_BANK_ACCOUNT (
+        type: displayOnly
+        label {
+            label: Current Bank Account
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @request-job-change
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @request-job-change
+            column: BANK_ACCOUNT
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P28_EMPNO (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @request-job-change
+            slot: regionBody
+        }
+        source {
+            formRegion: @request-job-change
+            column: EMPNO
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P28_ENAME (
+        type: displayOnly
+        label {
+            label: Ename
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @request-job-change
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @request-job-change
+            column: ENAME
+            dataType: varchar2
+            queryOnly: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P28_NEW_BANK_ACCOUNT (
+        type: textField
+        label {
+            label: New Bank Account
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @request-job-change
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            valueRequired: true
+        }
+        sessionState {
+            storage: request
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button submit-for-approval (
+        buttonName: SUBMIT_FOR_APPROVAL
+        label: Submit
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P28_EMPNO
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        settings {
+            showSuccessMessages: false
+        }
+        execution {
+            sequence: 40
+        }
+        advanced {
+            executionMappingIdentifier: 1498452770074786
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SUBMIT_FOR_APPROVAL,DELETE
+        }
+    )
+
+    process initialize-form-request-salary-change (
+        name: Initialize form Request Salary Change
+        type: formInitialization
+        formRegion: @request-job-change
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 1495452878074771
+        }
+    )
+
+    process submit-task (
+        name: Submit Task
+        type: humanTaskCreate
+        humanTask {
+            definition: @BANK_ACCOUNT_CHANGE
+            detailsPkItem: P28_EMPNO
+        }
+        overrides {
+            initiatorCanComplete: true
+        }
+        execution {
+            sequence: 20
+        }
+        advanced {
+            executionMappingIdentifier: 1497500384074783
+        }
+        serverSideCondition {
+            whenButtonPressed: @submit-for-approval
+        }
+
+        parameter (
+            name: @P_NEW_BANK_ACCOUNT
+            value {
+                type: item
+                item: P28_NEW_BANK_ACCOUNT
+            }
+        )
+
+    )
+
+)
+
+
+````

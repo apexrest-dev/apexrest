@@ -1,0 +1,240 @@
+# Single Search Configuration — Sample Application Search
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-application-search/apexlang/sample-application-search/pages/p00101-single-search-configuration.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: da50c3b619c4b1863e22b9824e3f1b6b222689be85a274f0dd841715ed0194ec.
+
+Application dependency inventory: oracle:26.2:public-template/sample-application-search/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 101 (
+    name: Single Search Configuration
+    alias: SINGLE-SEARCH-CONFIGURATION
+    title: Single Search Configuration
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 1
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>This page demonstrates how to configure and use the <em>Application Search</em> functionality in your application using the <strong>Search Configuration</strong> component.</p>
+                <p>In this example, the Search Configuration is based on a <em>local data source</em> (<strong>EBA_DEMO_SEARCH_PRODUCTS</strong> table) with the following searchable columns: <strong>Product name</strong>, <strong>description</strong>, <strong>brand</strong>, <strong>colour</strong>, and <strong>gender</strong>.</p>
+                <p>To search, start typing your query (e.g., "<strong>red</strong>"), the result will update as you type and you will receive a list of all products that contain the word "<strong>red</strong>" within the searchable columns.</p>
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: body
+            startNewRow: false
+            columnSpan: 4
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region search (
+        name: Search
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+                js-headingLevel-2
+                t-Region--scrollBody
+            ]
+        }
+        accessibility {
+            landmarkType: search
+            landmarkLabel: Products
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+
+    region search-results (
+        name: Search Results
+        type: search
+        layout {
+            sequence: 40
+            slot: body
+            startNewRow: false
+            newColumn: false
+        }
+        appearance {
+            template: @/search-results-container
+            templateOptions: #DEFAULT#
+        }
+        accessibility {
+            useLandmark: false
+        }
+        settings {
+            searchPageItem: P101_SEARCH
+        }
+        messages {
+            noQueryEnteredMessage: Enter a query to search for products.
+            noResultsFoundMessage: No products found.
+        }
+
+        searchSource product-search-configuration (
+            name: Product Search Configuration
+            searchConfig: @product_image
+            layout {
+                sequence: 10
+            }
+        )
+
+    )
+
+    pageItem P101_SEARCH (
+        type: textField
+        label {
+            label: Search
+            alignment: left
+        }
+        settings {
+            subtype: search
+        }
+        layout {
+            sequence: 10
+            region: @search
+            slot: regionBody
+            alignment: left
+            labelColumnSpan: 0
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--stretchInputs
+                t-Form-fieldContainer--large
+            ]
+            icon: fa-search
+            valuePlaceholder: Enter your search term, e.g. 'red'
+        }
+        advanced {
+            warnOnUnsavedChanges: ignore
+        }
+    )
+
+    button next (
+        buttonName: NEXT
+        label: Next
+        layout {
+            sequence: 20
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 102
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button prev (
+        buttonName: PREV
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 100
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction enter-key (
+        name: Enter key
+        execution {
+            sequence: 10
+        }
+        when {
+            event: keypress
+            selectionType: items
+            items: P101_SEARCH
+        }
+        clientSideCondition {
+            type: jsExpression
+            javaScriptExpression:
+                ```javascript-browser
+                this.browserEvent.keyCode === 13
+                
+                ```
+        }
+
+        action native-cancel-event (
+            action: cancelEvent
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

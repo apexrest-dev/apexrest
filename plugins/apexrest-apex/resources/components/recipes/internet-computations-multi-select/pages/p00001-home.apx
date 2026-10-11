@@ -1,0 +1,63 @@
+page 1 (
+    name: Initialize a multi-value selection
+    alias: HOME
+    title: Initialize a multi-value selection
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>The multi-select is initialized from two rows; the query returns one selected value per row.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_OUTPUT (
+        type: selectMany
+        label {
+            label: Initial selections
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Alpha;A,Beta;B,Gamma;C
+        }
+    )
+    computation derive (
+        itemName: P1_OUTPUT
+        computation {
+            type: sqlQueryMultipleValues
+            sqlQuery:
+                ```sql
+                select CODE from (select 'A' CODE from dual union all select 'C' from dual) order by CODE
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+)

@@ -1,0 +1,328 @@
+# Report with Pagination — Sample Rest Services
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-rest-services/apexlang/sample-rest-services/pages/p00302-report-with-pagination1.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 9131366a595ec6643f1391994e27178c661550ea31cafcbeb84d32a50cd22d55.
+
+Application dependency inventory: oracle:26.2:public-template/sample-rest-services/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 302 (
+    name: Report with Pagination
+    alias: REPORT-WITH-PAGINATION1
+    title: Report with Pagination
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>
+                    This report demonstrates how to efficiently display a large dataset from a REST Data Source by using pagination. 
+                    Oracle APEX will use pagination parameters to fetch only needed rows from the REST endpoint.  
+                    Oracle APEX supports four pagination types.
+                </p>
+                <ul>
+                    <li>Page Size and Fetch Offset</li>
+                    <li>Page Size and Page Number</li>
+                    <li>Page Number</li>
+                    <li>Page Size and Page Token</li>
+                </ul>
+                <p>
+                    The example used on this page uses <strong>Page Size and Fetch Offset</strong> pagination, with <code>limit</code>
+                    being the <strong>Page Size</strong> and <code>offset</code> being the <strong>Fetch Offset</strong> URL parameters.
+                    To fetch rows for <em>the second page</em> of this Interactive Report, the following URL is invoked:
+                </p>
+                <pre>
+                    https://example.com/ords/schema/rest/?limit=50&offset=50
+                </pre>
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--scrollBody
+            ]
+        }
+    )
+
+    region pagination-results (
+        name: Pagination Results
+        type: interactiveReport
+        source {
+            location: restSource
+            restSource: @eba_rest_pagination
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        advanced {
+            savedReportMappingIdentifier: 7972808847989413
+        }
+
+        column BONUS (
+            type: plainText
+            heading {
+                heading: Bonus
+                alignment: end
+            }
+            layout {
+                sequence: 70
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column DEPT (
+            type: plainText
+            heading {
+                heading: Department
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column ID (
+            type: plainText
+            heading {
+                heading: ID
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            source {
+                primaryKey: true
+                dataType: number
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column NAME (
+            type: plainText
+            heading {
+                heading: Employee
+            }
+            layout {
+                sequence: 20
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column RNUM (
+            type: hidden
+            heading {
+                heading: Rnum
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column SAL (
+            type: plainText
+            heading {
+                heading: Salary
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G999G999G990D00
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 80
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 80011 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn BONUS (
+                sequence: 5
+            )
+
+            displayColumn DEPT (
+                sequence: 6
+            )
+
+            displayColumn ID (
+                sequence: 1
+            )
+
+            displayColumn NAME (
+                sequence: 2
+            )
+
+            displayColumn SAL (
+                sequence: 4
+            )
+
+            displayColumn STATUS (
+                sequence: 3
+            )
+
+        )
+
+    )
+
+    button next (
+        buttonName: Next
+        label: Next
+        layout {
+            sequence: 30
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-right
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 303
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button previous (
+        buttonName: Previous
+        label: Previous
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: previous
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-angle-left
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 301
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

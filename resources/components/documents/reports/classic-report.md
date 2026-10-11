@@ -1,6 +1,6 @@
 # Classic Report
 
-Aliases: Classic Report; класичний звіт табличний звіт
+Aliases: Classic Report; класичний звіт табличний звіт; Classic Report conditional template directives; case if loop report tags status badges
 
 Render query rows through a selected report template and explicit column metadata.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:reports/classic-report/so
 ## Recipes
 
 - component:reports/classic-report/recipes/basic: ready
+- component:reports/classic-report/recipes/template-directives: ready
 
 ## Parameters and adaptation
 

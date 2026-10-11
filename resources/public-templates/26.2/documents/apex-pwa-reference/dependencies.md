@@ -1,0 +1,122 @@
+# Apex Pwa Reference: application dependency inventory
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Pinned source: https://github.com/oracle/apex/tree/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/apex-pwa-reference/apexlang/apex-pwa-reference/
+
+The list below is an inventory of the source application, not a statement that every file is required by each page. Inspect the page's SQL, item bindings, shared references, handlers and links, then retrieve the needed dependencies from the pinned source. Database setup is a separate authorized task. Do not copy the source application's deployments, authentication or authorization over an existing application.
+
+15 included page templates of 16 source pages; 33 source APEXlang files.
+
+## Source files
+
+- .apex/apexlang.json
+- application.apx
+- deployments/default.json
+- page-groups.apx
+- pages/p00000-global-page.apx
+- pages/p00001-home.apx
+- pages/p00002-appearance.apx
+- pages/p00003-push-notifications.apx
+- pages/p00004-app-icon.apx
+- pages/p00005-service-worker.apx
+- pages/p00006-getting-started.apx
+- pages/p00007-installation.apx
+- pages/p00008-geolocation.apx
+- pages/p00009-web-share.apx
+- pages/p00010-always-signed-in.apx
+- pages/p00011-offline-fallback.apx
+- pages/p00020-advanced.apx
+- pages/p00100-faq.apx
+- pages/p00101-roadmap.apx
+- pages/p01000-empty.apx
+- shared-components/authentications.apx
+- shared-components/authorizations.apx
+- shared-components/breadcrumbs/breadcrumb.apx
+- shared-components/build-options.apx
+- shared-components/component-settings.apx
+- shared-components/lists/advanced.apx
+- shared-components/lists/navigation-bar.apx
+- shared-components/lists/navigation-menu.apx
+- shared-components/static-files.apx
+- shared-components/static-files/icons/app-icon-144-macOS.png
+- shared-components/static-files/icons/app-icon-144-rounded.png
+- shared-components/static-files/icons/app-icon-192.png
+- shared-components/static-files/icons/app-icon-256-macOS.png
+- shared-components/static-files/icons/app-icon-256-rounded.png
+- shared-components/static-files/icons/app-icon-32.png
+- shared-components/static-files/icons/app-icon-512.png
+- shared-components/static-files/img/create-app-push.jpeg
+- shared-components/static-files/img/create-pwa.jpeg
+- shared-components/static-files/img/da-get-current-position.jpeg
+- shared-components/static-files/img/da-share-ios.png
+- shared-components/static-files/img/da-share-macos.png
+- shared-components/static-files/img/da-share.jpeg
+- shared-components/static-files/img/display-mobile-browser.jpeg
+- shared-components/static-files/img/display-mobile-fullscreen.jpeg
+- shared-components/static-files/img/display-mobile-minimal.jpeg
+- shared-components/static-files/img/edit-app-icon.jpeg
+- shared-components/static-files/img/edit-app-push.jpeg
+- shared-components/static-files/img/edit-description.jpeg
+- shared-components/static-files/img/edit-meta-tag.jpeg
+- shared-components/static-files/img/edit-pwa.jpeg
+- shared-components/static-files/img/edit-screenshots.jpeg
+- shared-components/static-files/img/edit-shortcuts.jpeg
+- shared-components/static-files/img/geolocation-done-ios.png
+- shared-components/static-files/img/geolocation-request-ios.png
+- shared-components/static-files/img/install-macos1.jpeg
+- shared-components/static-files/img/install-macos2.jpeg
+- shared-components/static-files/img/installing-android1.jpeg
+- shared-components/static-files/img/installing-android2.jpeg
+- shared-components/static-files/img/installing-android3.jpeg
+- shared-components/static-files/img/installing-android4.jpeg
+- shared-components/static-files/img/installing-ios1.jpeg
+- shared-components/static-files/img/installing-ios2.jpeg
+- shared-components/static-files/img/installing-ios3.jpeg
+- shared-components/static-files/img/installing-ios4.jpeg
+- shared-components/static-files/img/login-normal.jpeg
+- shared-components/static-files/img/login-pwa.jpeg
+- shared-components/static-files/img/offline.png
+- shared-components/static-files/img/persistent-auth-admin.jpeg
+- shared-components/static-files/img/process-send-push-notification.jpeg
+- shared-components/static-files/img/push-received-ios.jpeg
+- shared-components/static-files/img/push-received-macos.jpeg
+- shared-components/static-files/img/push-received-watch.jpeg
+- shared-components/static-files/img/push-subscribe-ios1.jpeg
+- shared-components/static-files/img/push-subscribe-ios2.jpeg
+- shared-components/static-files/img/push-subscribe-ios3.jpeg
+- shared-components/static-files/img/push-subscribe-ios4.jpeg
+- shared-components/static-files/img/pwa-appearance-display-browser.png
+- shared-components/static-files/img/pwa-appearance-display-fullscreen.png
+- shared-components/static-files/img/pwa-appearance-display-minimalui.png
+- shared-components/static-files/img/pwa-appearance-ios-status-default.png
+- shared-components/static-files/img/pwa-appearance-ios-status-translucent.png
+- shared-components/static-files/img/pwa-appearance-theme-color1.png
+- shared-components/static-files/img/pwa-appearance-theme-color2.png
+- shared-components/static-files/img/shortcuts-android.jpeg
+- shared-components/static-files/img/shortcuts-macos.jpeg
+- shared-components/static-files/img/theme-color-mobile1.jpeg
+- shared-components/static-files/img/theme-color-mobile2.jpeg
+- shared-components/static-files/pwa/screenshot1.png
+- shared-components/static-files/pwa/screenshot2.png
+- shared-components/static-files/pwa/screenshot3.png
+- shared-components/static-files/pwa/screenshot4.png
+- shared-components/static-files/pwa/shortcut-icon-10.png
+- shared-components/static-files/pwa/shortcut-icon-100.png
+- shared-components/static-files/pwa/shortcut-icon-20.png
+- shared-components/static-files/pwa/shortcut-icon-30.png
+- shared-components/static-files/pwa/shortcut-icon-40.png
+- shared-components/static-files/pwa/shortcut-icon-50.png
+- shared-components/static-files/pwa/shortcut-icon-60.png
+- shared-components/static-files/pwa/shortcut-icon-70.png
+- shared-components/static-files/pwa/shortcut-icon-80.png
+- shared-components/themes/universal-theme/static-files.apx
+- shared-components/themes/universal-theme/static-files/1359378345456490874.css
+- shared-components/themes/universal-theme/static-files/1360959280316855639.css
+- shared-components/themes/universal-theme/static-files/752713280707913545.css
+- shared-components/themes/universal-theme/template-option-groups.apx
+- shared-components/themes/universal-theme/theme.apx
+- supporting-objects/deinstall-script.sql
+- supporting-objects/substitutions.apx
+- supporting-objects/supporting-objects.apx
+- workspace-components/app-groups/sample-apps.apx

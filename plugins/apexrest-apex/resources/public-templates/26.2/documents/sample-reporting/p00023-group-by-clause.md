@@ -1,0 +1,274 @@
+# Group By Clause — Sample Reporting
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-reporting/apexlang/sample-reporting/pages/p00023-group-by-clause.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: b46d8d7f8a55caa2602a9e7b828c7a863466e08f9ed00efaf725614e5cc96b94.
+
+Application dependency inventory: oracle:26.2:public-template/sample-reporting/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 23 (
+    name: Group By Clause
+    alias: GROUP-BY-CLAUSE
+    title: Group By Clause
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region about-this-page (
+        name: About this page
+        type: staticContent
+        source {
+            htmlCode: <p>A GROUP BY clause groups results into subsets that have matching values for one or more columns.  The GROUP BY clause allows a developer to use SQL aggregate functions (AVG, COUNT, MAX, MIN, STDDEV, SUM and VARIANCE).  With a GROUP BY, you can also include the HAVING clause.  This applies a where clause after the aggregation.  The classic report below is grouped by Project and several aggregate functions are used.  There is a HAVING clause to display only those projects that are over budget (only those whose cost is greater than their budget.  The format mask "999G999G999G999G990D00PR" is used for the Delta to highlight the negative values because it returns negative values in <angle brackets>.  View the SQL Source for the group by details.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region group-by-clause (
+        name: Group By Clause
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select PROJECT,
+                       count(*) tasks,
+                       min(START_DATE) first_task_starts,
+                       max(END_DATE) last_task_completes,
+                       count(distinct ASSIGNED_TO) assignees,
+                       sum(cost) total_cost,
+                       sum(budget) total_budget,
+                       sum(budget - cost) delta
+                from EBA_DEMO_IR_PROJECTS
+                group by project
+                having sum(budget - cost) < 0
+                order by 8 desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--scrollBody
+                t-Region--noBorder
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        advanced {
+            htmlDomId: QUERY
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+            ]
+            showNullValuesAs: " - "
+        }
+        messages {
+            whenNoDataFound: no data found
+        }
+        componentAdvanced {
+            stripHtml: true
+        }
+
+        column ASSIGNEES (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Assignees
+            }
+            layout {
+                sequence: 5
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column DELTA (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Delta
+            }
+            layout {
+                sequence: 8
+            }
+            appearance {
+                formatMask: 999G999G999G999G990D00PR
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column FIRST_TASK_STARTS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: First Task Starts
+            }
+            layout {
+                sequence: 3
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column LAST_TASK_COMPLETES (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Last Task Completes
+            }
+            layout {
+                sequence: 4
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PROJECT (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 1
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TASKS (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Tasks
+            }
+            layout {
+                sequence: 2
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TOTAL_BUDGET (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Total Budget
+            }
+            layout {
+                sequence: 7
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TOTAL_COST (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Total Cost
+            }
+            layout {
+                sequence: 6
+            }
+            appearance {
+                formatMask: 999G999G999G999G999G990
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+    )
+
+    region sql-source (
+        name: SQL Source
+        type: plugin/sourceDisplay
+        layout {
+            sequence: 10
+            parentRegion: @group-by-clause
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--noBorder
+                t-Region--scrollBody
+            ]
+        }
+        settings {
+            regionStaticId: QUERY
+        }
+    )
+
+)
+
+
+````

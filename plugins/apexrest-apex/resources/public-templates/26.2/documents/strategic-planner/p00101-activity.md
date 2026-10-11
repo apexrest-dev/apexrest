@@ -1,0 +1,1024 @@
+# Activity — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00101-activity.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: a15fb1c93128c3a5e1f543fbb9b326771ba80082f3e3a9ff9ceb33a8884afe1d.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 101 (
+    name: Activity
+    alias: ACTIVITY
+    title: Activity
+    pageGroup: @activities
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        resizable: false
+    }
+    security {
+        authorizationScheme: @contribution-rights
+    }
+    config {
+        buildOption: @activity-planning
+    }
+
+    region activity (
+        name: Activity
+        type: form
+        source {
+            location: localDatabase
+            tableName: SP_ACTIVITIES
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+                delete
+            ]
+        }
+    )
+
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            outputAs: text
+        }
+    )
+
+    pageItem P101_ACTIVITY (
+        type: textField
+        label {
+            label: Activity
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 60
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @activity
+            column: ACTIVITY
+            dataType: varchar2
+        }
+    )
+
+    pageItem P101_ACTIVITY_TYPE_ID (
+        type: radioGroup
+        label {
+            label: Activity Type
+            alignment: left
+        }
+        settings {
+            noOfCols: 5
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select t.ACTIVITY_TYPE,
+                       t.id
+                from SP_ACTIVITY_TYPES t
+                where t.IS_ACTIVE_YN = 'Y' or 
+                      t.id in (select a.ACTIVITY_TYPE_ID from sp_activities a where a.id = :P101_ID)
+                order by t.DISPLAY_SEQUENCE
+                ```
+            displayNullValue: false
+        }
+        layout {
+            sequence: 50
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @activity
+            column: ACTIVITY_TYPE_ID
+            dataType: number
+        }
+        default {
+            type: sqlQuerySingleValue
+            sqlQuerySingleValue:
+                ```sql
+                select max(id) from SP_ACTIVITY_TYPES 
+                where is_default_yn = 'Y'
+                ```
+        }
+        help {
+            helpText: Identifies the type of activity to be performed.  The list of activities is configurable by the application administrator.
+        }
+    )
+
+    pageItem P101_COMMENTS (
+        type: textarea
+        label {
+            label: Details
+            alignment: left
+        }
+        layout {
+            sequence: 70
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 60
+            height: 3
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @activity
+            column: COMMENTS
+            dataType: varchar2
+        }
+    )
+
+    pageItem P101_END_DATE (
+        type: datePicker
+        label {
+            label: End Date
+            alignment: left
+        }
+        layout {
+            sequence: 100
+            region: @activity
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            formatMask: FMDay DD-MON-YYYY
+            width: 32
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @activity
+            column: END_DATE
+            dataType: date
+        }
+        default {
+            type: sqlQuerySingleValue
+            sqlQuerySingleValue: select sysdate + 14 from dual
+        }
+        quickPicks {
+            type: static
+            label1: Same Day
+            value1: SAMEDAY
+            label2: One Week
+            value2: +1W
+            label3: Two Weeks
+            value3: +2W
+        }
+    )
+
+    pageItem P101_END_DATE_ONE_WEEK (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 30
+            region: @activity
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P101_END_DATE_SAME_DAY (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 20
+            region: @activity
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P101_END_DATE_TWO_WEEKS (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 40
+            region: @activity
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P101_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @activity
+            slot: regionBody
+        }
+        source {
+            formRegion: @activity
+            column: ID
+            dataType: number
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P101_INITIATIVE_ID (
+        type: selectOne
+        label {
+            label: Optional &NOMENCLATURE_INITIATIVE.
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sharedComponent
+            lov: @sp-initiatives-initiative
+        }
+        layout {
+            sequence: 150
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        source {
+            formRegion: @activity
+            column: INITIATIVE_ID
+            dataType: number
+        }
+        security {
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P101_PRIVATE_YN (
+        type: switch
+        label {
+            label: Private
+            alignment: left
+        }
+        layout {
+            sequence: 80
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @activity
+            column: PRIVATE_YN
+            dataType: varchar2
+        }
+    )
+
+    pageItem P101_PROJECT_ID (
+        type: selectOne
+        label {
+            label: Optional &NOMENCLATURE_PROJECT.
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sharedComponent
+            lov: @projects-detail
+        }
+        layout {
+            sequence: 140
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: [
+                #DEFAULT#
+                t-Form-fieldContainer--stretchInputs
+            ]
+            width: 30
+        }
+        source {
+            formRegion: @activity
+            column: PROJECT_ID
+            dataType: number
+        }
+        security {
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P101_START_DATE (
+        type: datePicker
+        label {
+            label: Start Date
+            alignment: left
+        }
+        layout {
+            sequence: 90
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            formatMask: FMDay DD-MON-YYYY
+            width: 32
+        }
+        validation {
+            valueRequired: true
+            maxLength: 255
+        }
+        source {
+            formRegion: @activity
+            column: START_DATE
+            dataType: date
+        }
+        default {
+            type: sqlQuerySingleValue
+            sqlQuerySingleValue: select sysdate + 0 from dual
+        }
+    )
+
+    pageItem P101_TAGS (
+        type: combobox
+        label {
+            label: Tags
+            alignment: left
+        }
+        settings {
+            multiSelection: true
+            infiniteScroll: false
+            maxValuesInList: 7
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery: select 1 from dual where 1=2
+        }
+        multipleValues {
+            type: delimitedList
+            separator: ,
+        }
+        layout {
+            sequence: 160
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 4000
+        }
+        source {
+            formRegion: @activity
+            column: TAGS
+            dataType: varchar2
+        }
+        help {
+            helpText: Enter comma separated tags.  Note any spaces will be replaced with a dash "-".
+        }
+        comments {
+            comments: Enter comma delimited tags
+        }
+    )
+
+    pageItem P101_TEAM_MEMBER_ID (
+        type: selectOne
+        label {
+            label: Owner
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select last_name||', '||first_name||' ('||lower(email)||')' d, id r
+                  from SP_TEAM_MEMBERS
+                 where is_current_yn = 'Y'
+                    or id = :P101_TEAM_MEMBER_ID
+                 order by 1
+                ```
+        }
+        layout {
+            sequence: 130
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @activity
+            column: TEAM_MEMBER_ID
+            dataType: number
+        }
+        default {
+            type: item
+            item: P101_USER_TEAM_MEMBER_ID
+        }
+        security {
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P101_URL (
+        type: textField
+        label {
+            label: URL
+            alignment: left
+        }
+        layout {
+            sequence: 170
+            region: @activity
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 30
+        }
+        validation {
+            maxLength: 500
+        }
+        source {
+            formRegion: @activity
+            column: URL
+            dataType: varchar2
+        }
+    )
+
+    pageItem P101_USER_TEAM_MEMBER_ID (
+        type: hidden
+        layout {
+            sequence: 110
+            region: @activity
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+            restrictedChars: alphanumWithSpace
+        }
+    )
+
+    pageItem P101_USER_TEAM_MEMBER_NAME (
+        type: hidden
+        layout {
+            sequence: 120
+            region: @activity
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Add Activity
+        layout {
+            sequence: 40
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P101_ID
+        }
+    )
+
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+                t-Button--simple
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: &APP_TEXT$DELETE_MSG!RAW.
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P101_ID
+        }
+    )
+
+    button save (
+        buttonName: SAVE
+        label: Apply Changes
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P101_ID
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction recalc-end-quick-picks (
+        name: recalc end quick picks
+        execution {
+            sequence: 20
+        }
+        when {
+            selectionType: items
+            items: P101_START_DATE
+        }
+
+        action update-end-date-one-week-quick-pick (
+            name: update end_date_one_week quick pick
+            action: setValue
+            settings {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(nvl(to_date(:P101_START_DATE,'FMDay DD-MON-YYYY'),sysdate) + 7,'FMDay DD-MON-YYYY')
+                      from dual
+                    ```
+                itemsToSubmit: P101_START_DATE
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE_ONE_WEEK
+            }
+            execution {
+                sequence: 30
+            }
+        )
+
+        action update-end-date-same-day-quick-pick (
+            name: update end_date_same_day quick pick
+            action: setValue
+            settings {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select nvl(:P101_START_DATE,to_char(sysdate,'FMDay DD-MON-YYYY'))
+                      from dual
+                    ```
+                itemsToSubmit: P101_START_DATE
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE_SAME_DAY
+            }
+            execution {
+                sequence: 20
+            }
+        )
+
+        action update-end-date-two-weeks-quick-pick (
+            name: update end_date_two_weeks quick pick
+            action: setValue
+            settings {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(nvl(to_date(:P101_START_DATE,'FMDay DD-MON-YYYY'),sysdate) + 14,'FMDay DD-MON-YYYY')
+                      from dual
+                    ```
+                itemsToSubmit: P101_START_DATE
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE_TWO_WEEKS
+            }
+            execution {
+                sequence: 40
+            }
+        )
+
+    )
+
+    dynamicAction update-after-quick-pick (
+        name: Update after quick pick
+        execution {
+            sequence: 30
+        }
+        when {
+            selectionType: items
+            items: P101_END_DATE
+        }
+
+        action set-end-for-one-week (
+            name: set end for one week
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: $v('P101_END_DATE_ONE_WEEK')
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+            clientSideCondition {
+                type: item=value
+                item: P101_END_DATE
+                value: +1W
+            }
+        )
+
+        action set-end-for-same-day (
+            name: set end for same day
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: $v('P101_END_DATE_SAME_DAY')
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+            clientSideCondition {
+                type: item=value
+                item: P101_END_DATE
+                value: SAMEDAY
+            }
+        )
+
+        action set-end-for-two-weeks (
+            name: set end for two weeks
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: $v('P101_END_DATE_TWO_WEEKS')
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_END_DATE
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+            clientSideCondition {
+                type: item=value
+                item: P101_END_DATE
+                value: +2W
+            }
+        )
+
+    )
+
+    dynamicAction when-private-assign-to-current-user (
+        name: when private, assign to current user
+        execution {
+            sequence: 40
+        }
+        when {
+            selectionType: items
+            items: P101_PRIVATE_YN
+        }
+        clientSideCondition {
+            type: item=value
+            item: P101_PRIVATE_YN
+            value: Y
+        }
+
+        action native-set-value (
+            action: setValue
+            settings {
+                value: &APP_USER_ID.
+            }
+            affectedElements {
+                selectionType: items
+                items: P101_TEAM_MEMBER_ID
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    validation if-private-must-be-owned-by-current-user (
+        name: if private, must be owned by current user
+        execution {
+            sequence: 10
+        }
+        validation {
+            plsqlExpression: :P101_TEAM_MEMBER_ID = :APP_USER_ID
+        }
+        error {
+            errorMessage: Private Activities must be owned by the current user.
+            associatedItem: @P101_TEAM_MEMBER_ID
+        }
+        serverSideCondition {
+            type: item=value
+            item: P101_PRIVATE_YN
+            value: Y
+        }
+    )
+
+    computation p101-end-date-one-week (
+        itemName: P101_END_DATE_ONE_WEEK
+        execution {
+            sequence: 40
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select to_char(sysdate + 7,'FMDay DD-MON-YYYY')
+                  from dual
+                 where :P101_ID is null
+                union all
+                select to_char(start_date + 7,'FMDay DD-MON-YYYY')
+                  from sp_activities
+                 where id = :P101_ID
+                   and :P101_ID is not null
+                ```
+        }
+    )
+
+    computation p101-end-date-two-weeks (
+        itemName: P101_END_DATE_TWO_WEEKS
+        execution {
+            sequence: 50
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select to_char(sysdate + 14,'FMDay DD-MON-YYYY')
+                  from dual
+                 where :P101_ID is null
+                union all
+                select to_char(start_date + 14,'FMDay DD-MON-YYYY')
+                  from sp_activities
+                 where id = :P101_ID
+                   and :P101_ID is not null
+                ```
+        }
+    )
+
+    computation p101-user-team-member-id (
+        itemName: P101_USER_TEAM_MEMBER_ID
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery: select id from sp_team_members where email = lower(:APP_USER)
+        }
+    )
+
+    computation p101-user-team-member-name (
+        itemName: P101_USER_TEAM_MEMBER_NAME
+        execution {
+            sequence: 20
+            point: beforeHeader
+        }
+        computation {
+            sqlQuery:
+                ```sql
+                select first_name||' '||last_name||' ('||email||')' x 
+                from sp_team_members where id = :P101_USER_TEAM_MEMBER_ID
+                ```
+        }
+    )
+
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 50
+        }
+        advanced {
+            executionMappingIdentifier: 14283495810806369110
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,SAVE,DELETE
+        }
+    )
+
+    process initialize-form-activity (
+        name: Initialize form Activity
+        type: formInitialization
+        formRegion: @activity
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 14283495078379369108
+        }
+    )
+
+    process log (
+        name: log
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                sp_log.log_interaction(
+                    p_project_id => :P101_PROJECT_ID);
+                ```
+        }
+        execution {
+            sequence: 60
+            point: beforeHeader
+        }
+        advanced {
+            executionMappingIdentifier: 1436391607972899910
+        }
+    )
+
+    process process-form-activity (
+        name: Process form Activity
+        type: formAutoRowProcessing
+        formRegion: @activity
+        execution {
+            sequence: 10
+        }
+        successMessage {
+            successMessage: Action Processed
+        }
+        error {
+            errorMessage: Error
+        }
+        advanced {
+            executionMappingIdentifier: 14283495441740369110
+        }
+    )
+
+)
+
+
+````

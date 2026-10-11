@@ -1,0 +1,609 @@
+# Attachments — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00092-attachments.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 634ebfd954f21f523a3df4b6b3776f28ee1e6cb764da8444ae672dd8a3b68937.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 92 (
+    name: Attachments
+    alias: ATTACHMENTS
+    title: Attachments
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-attachments-dialog
+        resizable: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region attachments (
+        name: Attachments
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                  filename,
+                  apex_util.get_blob_file_src('P99_FILE_BLOB', id) attachment_link,
+                  file_comments,
+                  tags,
+                  apex_util.filesize_mask(dbms_lob.getlength(file_blob)) file_size,
+                  created, 
+                  lower(created_by) created_by,
+                  updated, 
+                  lower(updated_by) updated_by,
+                  null delete_attachment
+                from eba_sales_files
+                where (
+                  (:P92_ENTITY_TYPE = 'OPPORTUNITY' and deal_id = :P92_ENTITY_ID)
+                    or (:P92_ENTITY_TYPE = 'TERRITORY' and territory_id = :P92_ENTITY_ID)
+                    or (:P92_ENTITY_TYPE = 'LEAD' and lead_id = :P92_ENTITY_ID)
+                    or (:P92_ENTITY_TYPE = 'ACCOUNT' and account_id = :P92_ENTITY_ID)
+                    or (:P92_ENTITY_TYPE = 'CONTACT' and contact_id = :P92_ENTITY_ID)
+                    or (:P92_ENTITY_TYPE = 'PRODUCT' and product_id = :P92_ENTITY_ID)
+                )
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 99
+                items: {
+                    P99_ID: #ID#
+                }
+                clearCache: 99
+            }
+            linkIcon: <span class="fa fa-edit" aria-hidden="true"></span>
+            linkAttributes: title="Edit #FILENAME#"
+            authorizationScheme: @contribution-rights
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 100000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: This query returns more than #MAX_ROW_COUNT# rows, please filter your data to ensure complete results.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2386483703379411512
+        }
+
+        column ATTACHMENT_LINK (
+            type: hidden
+            heading {
+                heading: Attachment link
+            }
+            layout {
+                sequence: 84
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Added
+            }
+            layout {
+                sequence: 34
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 44
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column DELETE_ATTACHMENT (
+            type: link
+            heading {
+                heading: Delete
+                alignment: center
+            }
+            layout {
+                sequence: 74
+                columnAlignment: center
+            }
+            link {
+                target: {
+                    type: url
+                    url: javascript:void(0);
+                }
+                linkText: <span aria-hidden="true" class="t-Icon fa fa-trash-o"></span>
+                linkAttributes: data-attachment-id="#ID#" title="Delete Attachment" class="t-Button t-Button--small t-Button--danger t-Button--simple delete-attachment"
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+        )
+
+        column FILENAME (
+            type: link
+            heading {
+                heading: Attachment
+            }
+            layout {
+                sequence: 3
+            }
+            link {
+                target: {
+                    type: url
+                    url: #ATTACHMENT_LINK#
+                }
+                linkText: #FILENAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            columnFilter {
+                type: definedLovWordContains
+                sqlQuery:
+                    ```sql
+                    select filename
+                    from eba_sales_files
+                    where deal_id = :P92_ENTITY_ID
+                    order by 1
+                    ```
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column FILE_COMMENTS (
+            type: plainText
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column FILE_SIZE (
+            type: plainText
+            heading {
+                heading: File size
+                alignment: end
+            }
+            layout {
+                sequence: 14
+                columnAlignment: end
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 24
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 54
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+                timezoneAware: Y
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 64
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        savedReport 23864925 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CREATED (
+                sequence: 4
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 5
+            )
+
+            displayColumn DELETE_ATTACHMENT (
+                sequence: 6
+            )
+
+            displayColumn FILENAME (
+                sequence: 1
+            )
+
+            displayColumn FILE_COMMENTS (
+                sequence: 2
+            )
+
+            displayColumn FILE_SIZE (
+                sequence: 3
+            )
+
+            sort (
+                column: CREATED
+                sort {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P92_DELETE_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @attachments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P92_ENTITY_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @attachments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P92_ENTITY_TYPE (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @attachments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button attach-file (
+        buttonName: ATTACH_FILE
+        label: Add Attachment
+        layout {
+            sequence: 20
+            region: @attachments
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 99
+                items: {
+                    P99_ENTITY_TYPE: &P92_ENTITY_TYPE.
+                    P99_ENTITY_ID: &P92_ENTITY_ID.
+                }
+                clearCache: 99
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+        security {
+            authorizationScheme: @contribution-rights
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @attachments
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 92
+                clearCache: RIR
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction delete-attachment-clicked (
+        name: Delete Attachment clicked
+        execution {
+            sequence: 20
+            eventScope: dynamic
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: .delete-attachment
+        }
+
+        action native-confirm (
+            action: confirm
+            settings {
+                message: Are you sure you want to delete this attachment?
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    delete from eba_sales_files
+                    where id = :P92_DELETE_ID;
+                    
+                    :P92_DELETE_ID := null;
+                    ```
+                itemsToSubmit: P92_DELETE_ID
+                itemsToReturn: P92_DELETE_ID
+                showProcessing: true
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    var attachmentId = $(this.triggeringElement).data('attachment-id');
+                    
+                    $s('P92_DELETE_ID', attachmentId);
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code-2 (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Attachment Deleted.');
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @attachments
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction dialog-closed (
+        name: Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    if (this.data.REQUEST === 'CREATE') {
+                      apex.message.showPageSuccess('Attachment Added.');
+                    } if (this.data.REQUEST === 'SAVE') {
+                      apex.message.showPageSuccess('Attachment Updated.');
+                    } if (this.data.REQUEST === 'DELETE') {
+                      apex.message.showPageSuccess('Attachment Deleted.');
+                    }
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @attachments
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

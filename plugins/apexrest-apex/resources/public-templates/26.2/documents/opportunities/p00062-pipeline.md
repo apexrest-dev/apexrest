@@ -1,0 +1,339 @@
+# Pipeline — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00062-pipeline.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 8e1ff9e77ba0d75655419020ece01252ea9d401e397f424c792cca6ed4b53cfe.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 62 (
+    name: Pipeline
+    alias: PIPELINE
+    title: Pipeline
+    pageGroup: @reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    htmlHeader {
+        htmlHeader:
+            ```html
+            <style>
+            .tbl-main .rounded-corner-region .rc-body-r { height: 170px !important; }
+            </style>
+            ```
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: View horizontal bar graphs depicting Weighted Pipeline data (by Opportunity and by Territory). Change the "Territory" filter or enter an account name into the search bar and click the <strong>Go</strong> button to vary the bar graph results.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 40
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    region weighted-pipeline-by-opportunity (
+        name: Weighted Pipeline by Opportunity
+        type: plugin/html5BarChart
+        source {
+            sqlQuery:
+                ```sql
+                select	 
+                     d.qtr||': '||cust."CUSTOMER_NAME" as label,
+                     case when apex_util.get_build_option_status(
+                                   p_application_id    => :APP_ID,
+                                   p_build_option_name => 'Opportunity Amount Set at Product Level'
+                               ) = 'EXCLUDE' then
+                         round(nvl(d.deal_amount,0) * nvl(d."DEAL_PROBABILITY",10) / 100)
+                     else
+                         round(nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = d.id),0) * nvl(d."DEAL_PROBABILITY",10) / 100) 
+                     end as value,
+                     case when apex_util.get_build_option_status(
+                                   p_application_id    => :APP_ID,
+                                   p_build_option_name => 'Opportunity Amount Set at Product Level'
+                               ) = 'EXCLUDE' then
+                         to_char(round(d.deal_amount * d.deal_probability / 100),'FML999G999G999G999G999')
+                     else
+                         to_char(round(nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = d.id),0) * d.deal_probability / 100),'FML999G999G999G999G999')
+                     end as display_value,
+                     d.id,
+                    apex_util.prepare_url( 'f?p='||:APP_ID||':80:'||:APP_SESSION
+                        ||'::'||:DEBUG||':RP,80:P80_ID:'||d.id ) the_link
+                from	 
+                    "EBA_SALES_SALESREPS" r,
+                    "EBA_SALES_DEAL_STATUS_CODES" c,
+                    "EBA_SALES_CUSTOMERS" cust,
+                    "EBA_SALES_DEALS" d,
+                    eba_sales_territories t
+                where   
+                 cust.customer_territory_id = t.id(+) 
+                 and     d."CUSTOMER_ID"=cust."ID"(+)
+                 and	 d."DEAL_STATUS_CODE_ID"=c."ID"(+)
+                 and	 d."SALESREP_ID_01"=r."ID"(+)
+                 and     (nvl(:P62_TERRITORY,0) = 0 or t.id= :P62_TERRITORY)
+                 and     (:P62_SEARCH is null or
+                          instr(upper(cust."CUSTOMER_NAME"),upper(:P62_SEARCH)) > 0
+                         )
+                order by 2 desc
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hiddenOverflow
+            ]
+        }
+        settings {
+            labelColumn: LABEL
+            valueColumn: VALUE
+            formatMask: FML999G999G999G999G999G999
+            labelLinkTarget: {
+                type: url
+                url: &THE_LINK.
+            }
+            maximumRows: 50
+            messageWhenNoDataFound: <p>No data found.</p>
+        }
+    )
+
+    region weighted-pipeline-by-territory (
+        name: Weighted Pipeline by Territory
+        type: plugin/html5BarChart
+        source {
+            sqlQuery:
+                ```sql
+                select	 
+                     t.territory_name label,
+                     case when apex_util.get_build_option_status(
+                                   p_application_id    => :APP_ID,
+                                   p_build_option_name => 'Opportunity Amount Set at Product Level'
+                               ) = 'EXCLUDE' then
+                         round(sum(nvl(d.deal_amount,0) * nvl(d."DEAL_PROBABILITY",0) / 100))
+                     else
+                         round(sum(nvl((select sum(nvl(dp.quote_price, 0.00)) from EBA_SALES_DEAL_PRODUCTS dp where dp.deal_id = d.id),0) * nvl(d."DEAL_PROBABILITY",0) / 100))
+                     end as value,
+                     t.id,
+                    apex_util.prepare_url('f?p='||:APP_ID||':93:'||:APP_SESSION||'::'||:DEBUG||':RP,93:P93_ID:'||t.id) the_link
+                from	 
+                    "EBA_SALES_SALESREPS" r,
+                    "EBA_SALES_DEAL_STATUS_CODES" c,
+                    "EBA_SALES_CUSTOMERS" cust,
+                    "EBA_SALES_DEALS" d,
+                    eba_sales_territories t
+                where cust.customer_territory_id = t.id
+                  and d."CUSTOMER_ID" = cust."ID"(+)
+                  and d."DEAL_STATUS_CODE_ID" = c."ID"(+)
+                  and d."SALESREP_ID_01" = r."ID"(+)
+                  and (nvl(:P62_TERRITORY,0) = 0 or t.id = :P62_TERRITORY)
+                group by t.territory_name, t.id
+                order by 2 desc
+                ```
+        }
+        layout {
+            sequence: 50
+            slot: body
+            startNewRow: false
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hiddenOverflow
+            ]
+        }
+        security {
+            escapeSpecialChars: false
+        }
+        config {
+            buildOption: @territories
+        }
+        settings {
+            labelColumn: LABEL
+            valueColumn: VALUE
+            formatMask: FML999G999G999G999G999G999
+            labelLinkTarget: {
+                type: url
+                url: &THE_LINK.
+            }
+            maximumRows: 50
+            messageWhenNoDataFound: <p>No data found.</p>
+        }
+    )
+
+    pageItem P62_SEARCH (
+        type: textFieldWithAutocomplete
+        label {
+            label: Search
+            alignment: left
+        }
+        settings {
+            infiniteScroll: false
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select customer_name
+                from EBA_SALES_CUSTOMERS
+                ```
+        }
+        layout {
+            sequence: 20
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+            startNewRow: false
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            width: 64
+        }
+        validation {
+            maxLength: 4000
+        }
+    )
+
+    pageItem P62_TERRITORY (
+        type: selectList
+        label {
+            label: Territory
+            alignment: left
+        }
+        settings {
+            pageActionOnSelection: redirectSetValue
+        }
+        lov {
+            type: sharedComponent
+            lov: @territory
+            displayExtraValues: false
+            nullDisplayValue: - All -
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        config {
+            buildOption: @territories
+        }
+    )
+
+    button p62-go (
+        buttonName: P62_GO
+        label: Go
+        layout {
+            sequence: 30
+            region: @button-bar
+            slot: regionBody
+            startNewRow: false
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--small
+            ]
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        advanced {
+            htmlDomId: P62_GO
+            customAttributes: style="margin-top:8px;"
+            requestSourceType: staticValue
+            requestSource: Go
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 62
+                clearCache: 62
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,87 @@
+page 1 (
+    name: Conditional field emphasis
+    alias: HOME
+    title: Conditional field emphasis
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Leave this field empty and move focus away to add an error outline; fill it to remove the outline.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_INPUT (
+        type: textField
+        label {
+            label: Reference code
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction respond (
+        name: Respond to input
+        execution {
+            sequence: 10
+
+        }
+        when {
+            event: focusout
+            selectionType: items
+            items: P1_INPUT
+        }
+        clientSideCondition {
+            type: itemIsNull
+            item: P1_INPUT
+        }
+        action step-10 (
+            action: addClass
+            settings {
+                class: apex-page-item-error
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_INPUT
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action step-20 (
+            action: removeClass
+            settings {
+                class: apex-page-item-error
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_INPUT
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+                fireWhenEventResultIs: false
+            }
+        )
+    )
+)

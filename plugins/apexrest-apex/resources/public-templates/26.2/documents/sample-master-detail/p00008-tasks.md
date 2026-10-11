@@ -1,0 +1,683 @@
+# Tasks — Sample Master Detail
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-master-detail/apexlang/sample-master-detail/pages/p00008-tasks.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: e041653b4a9121f23013e6d5e9842b897f7ff4cbb1b66cc2809bb2265883398a.
+
+Application dependency inventory: oracle:26.2:public-template/sample-master-detail/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 8 (
+    name: Tasks
+    alias: TASKS
+    title: Tasks
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+        formAutoComplete: true
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region eba-demo-md-tasks (
+        name: EBA_DEMO_MD_TASKS
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 
+                "ID",
+                "ASSIGNEE",
+                "NAME",
+                "DESCRIPTION",
+                "PROJECT_ID",
+                "MILESTONE_ID",
+                is_complete_yn completed,
+                "START_DATE",
+                "END_DATE",
+                "CREATED",
+                "CREATED_BY",
+                "UPDATED",
+                "UPDATED_BY",
+                (select count(*)
+                 from eba_demo_md_task_todos td
+                 where td.task_id = t.id
+                ) todos,
+                (select count(*)
+                 from eba_demo_md_task_links l
+                 where l.task_id = t.id
+                ) links
+                 from   EBA_DEMO_MD_TASKS t
+                
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                update
+                delete
+            ]
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        messages {
+            whenNoDataFound: No tasks found.
+        }
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+                saveButton
+            ]
+        }
+        download {
+            formats: [
+                csv
+                html
+                excel
+                pdf
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 2578311258856039767
+        }
+
+        savedReport 14360 (
+            visibility: primary
+            view {
+                default: grid
+                settingsAreaExpanded: false
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+
+            displayColumn (
+                column: @ID
+                layout {
+                    frozen: true
+                    sequence: 1
+                }
+            )
+
+            displayColumn (
+                column: @PROJECT_ID
+                layout {
+                    show: false
+                    frozen: true
+                    sequence: 2
+                }
+            )
+
+            displayColumn (
+                column: @MILESTONE_ID
+                layout {
+                    show: false
+                    width: 358
+                    sequence: 12
+                }
+            )
+
+            displayColumn (
+                column: @ASSIGNEE
+                layout {
+                    width: 131
+                    sequence: 6
+                }
+            )
+
+            displayColumn (
+                column: @NAME
+                layout {
+                    width: 737
+                    sequence: 3
+                }
+            )
+
+            displayColumn (
+                column: @DESCRIPTION
+                layout {
+                    show: false
+                    width: 670
+                    sequence: 15
+                }
+            )
+
+            displayColumn (
+                column: @START_DATE
+                layout {
+                    width: 90
+                    sequence: 4
+                }
+            )
+
+            displayColumn (
+                column: @END_DATE
+                layout {
+                    width: 79
+                    sequence: 5
+                }
+            )
+
+            displayColumn (
+                column: @CREATED
+                layout {
+                    show: false
+                    sequence: 8
+                }
+            )
+
+            displayColumn (
+                column: @CREATED_BY
+                layout {
+                    show: false
+                    sequence: 9
+                }
+            )
+
+            displayColumn (
+                column: @UPDATED
+                layout {
+                    show: false
+                    sequence: 10
+                }
+            )
+
+            displayColumn (
+                column: @UPDATED_BY
+                layout {
+                    show: false
+                    sequence: 11
+                }
+            )
+
+            displayColumn (
+                column: @TODOS
+                layout {
+                    width: 58
+                    sequence: 13
+                }
+            )
+
+            displayColumn (
+                column: @LINKS
+                layout {
+                    width: 65
+                    sequence: 14
+                }
+            )
+
+            displayColumn (
+                column: @ROWID
+                layout {
+                    sequence: 17
+                }
+            )
+
+            displayColumn (
+                column: @COMPLETED
+                layout {
+                    sequence: 16
+                }
+            )
+
+            sort (
+                column: @START_DATE
+                sort {
+                    nulls: last
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: @END_DATE
+                sort {
+                    nulls: last
+                    sequence: 2
+                }
+            )
+
+            controlBreak (
+                column: @PROJECT_ID
+                sort {
+                    nulls: last
+                }
+                layout {
+                    sequence: 1
+                }
+            )
+
+            controlBreak (
+                column: @MILESTONE_ID
+                sort {
+                    nulls: last
+                }
+                layout {
+                    sequence: 2
+                }
+            )
+
+        )
+
+        column ASSIGNEE (
+            type: selectList
+            heading {
+                heading: Assignee
+            }
+            lov {
+                type: sharedComponent
+                lov: @team-members
+                displayExtraValues: false
+                displayNullValue: false
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: ASSIGNEE
+                dataType: number
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column COMPLETED (
+            type: switch
+            heading {
+                heading: Completed?
+                alignment: center
+            }
+            layout {
+                sequence: 100
+                columnAlignment: center
+            }
+            source {
+                databaseColumn: COMPLETED
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column CREATED (
+            type: displayOnly
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: CREATED
+                dataType: timestampWithLocalTimeZone
+                queryOnly: true
+            }
+        )
+
+        column CREATED_BY (
+            type: displayOnly
+            heading {
+                heading: Created by
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: CREATED_BY
+                dataType: varchar2
+                queryOnly: true
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column DESCRIPTION (
+            type: textField
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 60
+            }
+            validation {
+                maxLength: 4000
+            }
+            source {
+                databaseColumn: DESCRIPTION
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column END_DATE (
+            type: datePickerJquery
+            heading {
+                heading: End Date
+            }
+            layout {
+                sequence: 90
+            }
+            validation {
+                valueRequired: true
+            }
+            source {
+                databaseColumn: END_DATE
+                dataType: date
+            }
+        )
+
+        column ID (
+            type: hidden
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: ID
+                dataType: number
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column LINKS (
+            type: link
+            heading {
+                heading: Links
+            }
+            layout {
+                sequence: 120
+            }
+            link {
+                target: {
+                    page: 14
+                    items: {
+                        IR_TASK_ID: &NAME.
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+            }
+            source {
+                databaseColumn: LINKS
+                dataType: number
+                queryOnly: true
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column MILESTONE_ID (
+            type: selectList
+            heading {
+                heading: Milestone
+            }
+            lov {
+                type: sharedComponent
+                lov: @milestones
+                displayExtraValues: false
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: MILESTONE_ID
+                dataType: number
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column NAME (
+            type: textField
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 50
+            }
+            validation {
+                valueRequired: true
+                maxLength: 255
+            }
+            link {
+                target: {
+                    page: 31
+                    items: {
+                        P31_TASK_ID: &ID.
+                        P31_LAST_PAGE: 8
+                        P31_PROJECT_ID: &PROJECT_ID.
+                    }
+                    clearCache: 9
+                    action: resetPagination
+                }
+                linkText: &NAME.
+            }
+            source {
+                databaseColumn: NAME
+                dataType: varchar2
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        column PROJECT_ID (
+            type: selectList
+            heading {
+                heading: Project
+            }
+            lov {
+                type: sharedComponent
+                lov: @projects
+                displayExtraValues: false
+                displayNullValue: false
+            }
+            layout {
+                sequence: 30
+            }
+            validation {
+                valueRequired: true
+            }
+            source {
+                databaseColumn: PROJECT_ID
+                dataType: number
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+                lovType: useLov
+            }
+        )
+
+        column ROWID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: ROWID
+                dataType: rowid
+                primaryKey: true
+            }
+            exportPrinting {
+                includeInExportPrint: false
+            }
+        )
+
+        column START_DATE (
+            type: datePickerJquery
+            heading {
+                heading: Start Date
+            }
+            layout {
+                sequence: 80
+            }
+            validation {
+                valueRequired: true
+            }
+            source {
+                databaseColumn: START_DATE
+                dataType: date
+            }
+        )
+
+        column TODOS (
+            type: link
+            heading {
+                heading: To Dos
+                alignment: end
+            }
+            layout {
+                sequence: 110
+                columnAlignment: end
+            }
+            link {
+                target: {
+                    page: 14
+                    items: {
+                        P14_TASK_ID: &ID.
+                    }
+                    clearCache: [
+                        RIR
+                        CIR
+                    ]
+                    action: resetPagination
+                }
+                linkText: &TODOS.
+            }
+            source {
+                databaseColumn: TODOS
+                dataType: number
+                queryOnly: true
+            }
+        )
+
+        column UPDATED (
+            type: displayOnly
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: UPDATED
+                dataType: timestampWithLocalTimeZone
+                queryOnly: true
+            }
+        )
+
+        column UPDATED_BY (
+            type: displayOnly
+            heading {
+                heading: Updated by
+            }
+            layout {
+                sequence: 160
+            }
+            source {
+                databaseColumn: UPDATED_BY
+                dataType: varchar2
+                queryOnly: true
+            }
+            columnFilter {
+                performanceImpactingOperators: [
+                    contains
+                    startsWith
+                    caseInsensitive
+                    regexp
+                ]
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+        columnHeadings {
+            fontWeight: normal
+            backgroundColor: #9bafde
+        }
+        columns {
+            backgroundColor: #efefef
+        }
+    )
+
+)
+
+
+````

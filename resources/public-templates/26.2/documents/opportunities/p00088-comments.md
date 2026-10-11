@@ -1,0 +1,495 @@
+# Comments — Opportunities
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/opportunities/apexlang/opportunities/pages/p00088-comments.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 097c5c983325c30862df250b94e85eef4261e99c863b8186bf7b662c1135dffe.
+
+Application dependency inventory: oracle:26.2:public-template/opportunities/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 88 (
+    name: Comments
+    alias: COMMENTS
+    title: Comments
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: [
+            #DEFAULT#
+            ui-dialog--stretch
+        ]
+    }
+    dialog {
+        cssClasses: view-comments-dialog
+        resizable: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    css {
+        inline: ".t-Dialog-body {padding: 0; overflow: hidden;}"
+    }
+    security {
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+
+    region comments (
+        name: Comments
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select id,
+                  '<a href="' || apex_page.get_url(p_page => 22, p_items => 'P22_ID', p_values => id) || 
+                      '" title="Edit Comment"><span class="fa fa-edit" aria-hidden="true"></span></a>' edit_comment,
+                  '<a href="javascript:void(0)" data-comment-id="' || id ||  
+                      '" title="Delete Comment" class="t-Button t-Button--small t-Button--danger t-Button--simple delete-comment">' || 
+                      '<span aria-hidden="true" class="t-Icon fa fa-trash-o"></span></a>' delete_comment,
+                  replace(apex_escape.html(dbms_lob.substr(note,32767,1)),chr(10),'<br />') note_text,
+                  lower(created_by) created_by,
+                  created
+                from eba_sales_comments
+                where (
+                  (:P88_ENTITY_TYPE = 'OPPORTUNITY' and deal_id = :P88_ENTITY_ID)
+                    or (:P88_ENTITY_TYPE = 'TERRITORY' and territory_id = :P88_ENTITY_ID)
+                    or (:P88_ENTITY_TYPE = 'LEAD' and lead_id = :P88_ENTITY_ID)
+                    or (:P88_ENTITY_TYPE = 'ACCOUNT' and account_id = :P88_ENTITY_ID)
+                    or (:P88_ENTITY_TYPE = 'CONTACT' and contact_id = :P88_ENTITY_ID)
+                    or (:P88_ENTITY_TYPE = 'PRODUCT' and product_id = :P88_ENTITY_ID)
+                )
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--noBorders
+            ]
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        actionsMenu {
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 847271608500583059
+        }
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 10
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column CREATED_BY (
+            type: plainText
+            heading {
+                heading: Created By
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column DELETE_COMMENT (
+            type: plainText
+            heading {
+                heading: Delete
+                alignment: center
+            }
+            layout {
+                sequence: 31
+                columnAlignment: center
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: eba_sales_acl_api.get_authorization_level(:APP_USER) = 3
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column EDIT_COMMENT (
+            type: plainText
+            heading {
+                heading: Edit
+                alignment: center
+            }
+            layout {
+                sequence: 21
+                columnAlignment: center
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: O
+            }
+            serverSideCondition {
+                type: expression
+                plsqlExpression: eba_sales_acl_api.get_authorization_level(:APP_USER) = 3
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column ID (
+            type: hidden
+            heading {
+                heading: Selected Note
+            }
+            layout {
+                sequence: 11
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: L
+            }
+            security {
+                escapeSpecialChars: false
+            }
+        )
+
+        column NOTE_TEXT (
+            type: plainText
+            heading {
+                heading: Comment
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        savedReport 8472732 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn CREATED (
+                sequence: 4
+            )
+
+            displayColumn CREATED_BY (
+                sequence: 3
+            )
+
+            displayColumn DELETE_COMMENT (
+                sequence: 5
+            )
+
+            displayColumn EDIT_COMMENT (
+                sequence: 1
+            )
+
+            displayColumn NOTE_TEXT (
+                sequence: 2
+            )
+
+            sort (
+                column: CREATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    pageItem P88_DELETE_ID (
+        type: hidden
+        layout {
+            sequence: 30
+            region: @comments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P88_ENTITY_ID (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @comments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P88_ENTITY_TYPE (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @comments
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    button add-comment (
+        buttonName: ADD_COMMENT
+        label: Add Comment
+        layout {
+            sequence: 20
+            region: @comments
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 22
+                items: {
+                    P22_ENTITY_TYPE: &P88_ENTITY_TYPE.
+                    P22_ENTITY_ID: &P88_ENTITY_ID.
+                }
+                clearCache: 22
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @comments
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: &APP_PAGE_ID.
+                clearCache: [
+                    &APP_PAGE_ID.
+                    RIR
+                ]
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction delete-comment-clicked (
+        name: Delete Comment clicked
+        execution {
+            sequence: 20
+            eventScope: dynamic
+        }
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jquerySelector: .delete-comment
+        }
+        security {
+            authorizationScheme: @administration-rights
+        }
+
+        action native-confirm (
+            action: confirm
+            settings {
+                message: Are you sure you want to delete this comment?
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-execute-plsql-code (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    delete from eba_sales_comments
+                    where id = :P88_DELETE_ID;
+                      
+                    :P88_DELETE_ID := null;
+                    ```
+                itemsToSubmit: P88_DELETE_ID
+                itemsToReturn: P88_DELETE_ID
+                showProcessing: true
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    var commentId = $(this.triggeringElement).data('comment-id');
+                    
+                    $s('P88_DELETE_ID', commentId);
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-javascript-code-2 (
+            action: executeJsCode
+            settings {
+                jsCode: apex.message.showPageSuccess('Comment Deleted.');
+            }
+            execution {
+                sequence: 50
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @comments
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+
+    )
+
+    dynamicAction dialog-closed (
+        name: Dialog Closed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-javascript-code (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    if (this.data.REQUEST === 'CREATE') {
+                      apex.message.showPageSuccess('Comment Added.');
+                    } if (this.data.REQUEST === 'SAVE') {
+                      apex.message.showPageSuccess('Comment Updated.');
+                    } if (this.data.REQUEST === 'DELETE') {
+                      apex.message.showPageSuccess('Comment Deleted.');
+                    }
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @comments
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+    )
+
+)
+
+
+````

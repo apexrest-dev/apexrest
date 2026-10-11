@@ -85,6 +85,14 @@
       "group": "Application work"
     },
     {
+      "slug": "plugin-qualification-harness",
+      "title": "Plugin qualification harness",
+      "source": "docs/plugin-qualification-harness.md",
+      "lang": "en",
+      "key": "plugin-qualification-harness",
+      "group": "Application work"
+    },
+    {
       "slug": "troubleshooting",
       "title": "Troubleshooting",
       "source": "docs/troubleshooting.md",
@@ -154,6 +162,14 @@
       "source": "docs/component-catalog.md",
       "lang": "en",
       "key": "component-catalog",
+      "group": "Reference"
+    },
+    {
+      "slug": "internet-template-sources",
+      "title": "Public APEXlang templates",
+      "source": "docs/internet-template-sources.md",
+      "lang": "en",
+      "key": "internet-template-sources",
       "group": "Reference"
     },
     {

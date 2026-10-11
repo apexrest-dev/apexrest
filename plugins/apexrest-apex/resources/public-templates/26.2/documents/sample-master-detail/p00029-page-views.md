@@ -1,0 +1,469 @@
+# Page Views — Sample Master Detail
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-master-detail/apexlang/sample-master-detail/pages/p00029-page-views.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 69ccd7a45a69f40aff67a9fe002440ae7a0e2aa7348b6ce54670e94b636d8fda.
+
+Application dependency inventory: oracle:26.2:public-template/sample-master-detail/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 29 (
+    name: Page Views
+    alias: PAGE-VIEWS
+    title: Page Views
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+        warnOnUnsavedChanges: false
+    }
+    security {
+        authorizationScheme: mustNotBePublicUser
+        formAutoComplete: true
+    }
+    advanced {
+        reloadOnSubmit: always
+    }
+    help {
+        helpText: No help is available for this page.
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+            cssClasses: t-Form--floatLeft
+        }
+    )
+
+    region page-views (
+        name: Page Views
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select
+                lower(USERID)      "User",
+                step_id     "Page",
+                step_id||'. '||(select page_name from apex_application_pages p where p.page_id = l.step_id and p.application_id = :app_id) page_name,
+                COMPONENT_NAME,
+                TIME_STAMP  "View",
+                ELAP        "Elapsed",
+                NUM_ROWS    "Rows",
+                IR_SEARCH   "Search",
+                SQLERRM     "Error",
+                PAGE_MODE   "Mode",
+                CONTENT_LENGTH "PgSize"
+                from apex_activity_log l
+                where flow_id = :app_id and 
+                      time_stamp > sysdate - to_number(nvl(:P29_TIMEFRAME,'00001.0000000000'),'9999999990.99999999999','NLS_NUMERIC_CHARACTERS=''.,''')
+                
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToYOfZ
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        messages {
+            whenNoDataFound: No data found.
+            whenMoreDataFound: The maximum row count for this report is #MAX_ROW_COUNT# rows.  Please apply a filter to reduce the number of records in your query.
+        }
+        searchBar {
+            rowsPerPageSelector: true
+        }
+        actionsMenu {
+            rowsPerPage: false
+            savePublicReport: true
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        advanced {
+            savedReportMappingIdentifier: 1652581413707504864
+        }
+
+        column COMPONENT_NAME (
+            type: plainText
+            heading {
+                heading: Component Name
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column Elapsed (
+            type: plainText
+            heading {
+                heading: Elapsed
+                alignment: end
+            }
+            layout {
+                sequence: 6
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column Error (
+            type: plainText
+            heading {
+                heading: Error
+            }
+            layout {
+                sequence: 9
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        column Mode (
+            type: plainText
+            heading {
+                heading: Mode
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column PAGE_NAME (
+            type: plainText
+            heading {
+                heading: Page Name
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column Page (
+            type: plainText
+            heading {
+                heading: Page
+                alignment: end
+            }
+            layout {
+                sequence: 2
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column PgSize (
+            type: plainText
+            heading {
+                heading: Pgsize
+                alignment: end
+            }
+            layout {
+                sequence: 11
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: K
+            }
+        )
+
+        column Rows (
+            type: plainText
+            heading {
+                heading: Rows
+                alignment: end
+            }
+            layout {
+                sequence: 7
+                columnAlignment: end
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column Search (
+            type: plainText
+            heading {
+                heading: Search
+            }
+            layout {
+                sequence: 8
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column User (
+            type: plainText
+            heading {
+                heading: User
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+        )
+
+        column View (
+            type: plainText
+            heading {
+                heading: View
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        savedReport 7177057 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 15
+            }
+
+            displayColumn COMM (
+                sequence: 7
+            )
+
+            displayColumn COMPONENT_NAME (
+                sequence: 12
+            )
+
+            displayColumn DEPTNO (
+                sequence: 8
+            )
+
+            displayColumn EMPNO (
+                sequence: 1
+            )
+
+            displayColumn ENAME (
+                sequence: 2
+            )
+
+            displayColumn "Elapsed" (
+                sequence: 14
+            )
+
+            displayColumn "Error" (
+                sequence: 17
+            )
+
+            displayColumn HIREDATE (
+                sequence: 5
+            )
+
+            displayColumn JOB (
+                sequence: 3
+            )
+
+            displayColumn MGR (
+                sequence: 4
+            )
+
+            displayColumn "Mode" (
+                sequence: 18
+            )
+
+            displayColumn PAGE_NAME (
+                sequence: 11
+            )
+
+            displayColumn "Page" (
+                sequence: 10
+            )
+
+            displayColumn "PgSize" (
+                sequence: 19
+            )
+
+            displayColumn "Rows" (
+                sequence: 15
+            )
+
+            displayColumn SAL (
+                sequence: 6
+            )
+
+            displayColumn "Search" (
+                sequence: 16
+            )
+
+            displayColumn "User" (
+                sequence: 9
+            )
+
+            displayColumn "View" (
+                sequence: 13
+            )
+
+        )
+
+    )
+
+    pageItem P29_TIMEFRAME (
+        type: selectList
+        label {
+            label: Timeframe
+            alignment: left
+        }
+        settings {
+            pageActionOnSelection: redirectSetValue
+        }
+        lov {
+            type: sharedComponent
+            lov: @timeframe
+            nullDisplayValue: - Select -
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        default {
+            type: static
+            staticValue: 00001.0000000000
+        }
+    )
+
+    button reset-report (
+        buttonName: RESET_REPORT
+        label: Reset
+        layout {
+            sequence: 10
+            region: @page-views
+            slot: rightOfInteractiveReportSearchBar
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 29
+                clearCache: [
+                    39
+                    RIR
+                ]
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````

@@ -1,0 +1,991 @@
+# Past Due Milestones, Reviews and Tasks — Strategic Planner
+
+Source reference only. A page is not a standalone recipe: preserve its application dependency closure, table/API contracts, shared components, plug-ins, static assets and destination pages. No local compiler, SQL execution, import or browser verification is implied. Preserve target authentication and authorization when adapting.
+
+Source: https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/starter-apps/strategic-planner/apexlang/strategic-planner/pages/p00099-past-due-ir.apx
+
+Copyright (c) Oracle and/or its affiliates. UPL-1.0; see ORACLE-LICENSE.txt.
+
+APEX 26.2; MMD 26.2.0+3479. Original source SHA-256: 8a96fcebadf9c558b2d8fa22e95389c796932afd469f97f8ff772e83cc9a1caf.
+
+Application dependency inventory: oracle:26.2:public-template/strategic-planner/dependencies.
+
+<!-- BEGIN ORIGINAL APEXLANG -->
+````apexlang
+page 99 (
+    name: Past Due Milestones, Reviews and Tasks
+    alias: PAST-DUE-IR
+    title: Past Due Milestones, Reviews and Tasks
+    pageGroup: @cross-project-reports
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    help {
+        helpText: "All &NOMENCLATURE_PROJECT. Milestones, Reviews and tasks that are overdue.  Including who each is assigned to, current status, and target completion. "
+    }
+
+    region breadcrumb (
+        name: Breadcrumb
+        type: breadcrumb
+        source {
+            breadcrumb: @breadcrumb
+        }
+        layout {
+            sequence: 30
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useBreadcrumbTitle
+            ]
+        }
+        componentAppearance {
+            breadcrumbTemplate: @/breadcrumb
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region search-results (
+        name: Search Results
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select i.initiative,
+                       apex_page.get_url (
+                           p_page   => 502,
+                           p_items  => 'P502_TASK_ID,P502_PROJECT_ID,P502_PREV_PAGE',
+                           p_values => t.ID||','||p.id||',65') link,
+                       case when rt.static_id like 'REVIEW%'
+                            then apex_page.get_url (
+                                     p_page   => 509,
+                                     p_clear_cache => 509,
+                                     p_items  => 'P509_ID',
+                                     p_values => t.ID) 
+                            when rt.static_id like 'MILESTONE%'
+                            then apex_page.get_url (
+                                     p_page   => 508,
+                                     p_clear_cache => 508,
+                                     p_items  => 'P508_ID',
+                                     p_values => t.ID) 
+                            else apex_page.get_url (
+                                     p_page   => 501,
+                                     p_clear_cache => 501,
+                                     p_items  => 'P501_ID',
+                                     p_values => t.ID)
+                            end edit_link,
+                       --
+                       -- project attributes
+                       --
+                       p.project project,
+                       p.id project_id,
+                       p.tags project_tags,
+                       p.PROJECT_URL_NAME,
+                       p.FRIENDLY_IDENTIFIER,
+                       --
+                       -- task info
+                       --
+                       t.id task_id,
+                       t.UPDATED,
+                       lower(t.updated_by) updated_by,
+                       t.created,
+                       lower(t.created_by) added_by,
+                       t.tags,
+                       t.start_date,
+                       t.target_complete,
+                       t.task task_name,
+                       substr(t.description,1,200)||case when length(t.description) > 200 then '...' end details,
+                       to_char(t.target_complete,'YYYY.MM') complete_month_ob,
+                       nvl(to_char(t.target_complete,'YYYY.MM'),'Not Targeted') complete_month_display,
+                       --
+                       -- status
+                       --
+                       s.status,
+                       --
+                       --
+                       --
+                       rt.task_type parent_task_type,
+                       --
+                       -- task name prefixed with task type
+                       --
+                       rt.task_type ||
+                           case when t.task_sub_type_id is not null then ': ' end ||
+                           (select task_type from sp_task_types rt where rt.id = t.task_sub_type_id) name,
+                       --
+                       --
+                       case when p.release_id is not null
+                            then (select release_train||' '||release from sp_release_trains where id = p.release_id)
+                            else 'Not Targeted'
+                            end release,
+                       --
+                       -- owner
+                       --
+                       (select first_name ||' '||last_name from sp_team_members tm
+                         where tm.id = t.owner_id) assigned_to,
+                       --
+                       --
+                       --
+                       (select tags from sp_team_members tm where tm.id = t.owner_id) assignee_tags,
+                       --
+                       --
+                       --
+                       case when s.INDICATES_COMPLETE_YN = 'Y'
+                            then 'Complete'
+                            when t.target_complete < sysdate
+                            then 'Overdue'
+                            when t.target_complete is null
+                            then 'No Target Complete'
+                            else 'On Target'
+                            end completion_status
+                  from sp_tasks t,
+                       sp_projects p,
+                       sp_task_types rt,
+                       sp_initiatives i,
+                       sp_task_statuses s
+                 where t.project_id = p.id
+                   and t.task_type_id = rt.id
+                   and p.initiative_id = i.id
+                   and t.status_id = s.id
+                   and p.ARCHIVED_YN = 'N'
+                   and p.DUPLICATE_OF_PROJECT_ID is null
+                   --
+                   and t.target_complete is not null 
+                   and s.status != 'Completed'
+                   and s.status != 'Not Needed'
+                   and t.target_complete < sysdate 
+                   and to_char(t.target_complete,'DD-MON-YYYY') != to_char(sysdate,'DD-MON-YYYY')
+                order by t.created desc
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: [
+                #DEFAULT#
+                t-IRR-region--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                type: url
+                url: #EDIT_LINK#
+            }
+            linkIcon: <span role="img" aria-label="Edit" class="fa fa-edit" title="Edit"></span>
+            authorizationScheme: @contribution-rights
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 1000000
+        }
+        genAI {
+            naturalLanguageSupport: true
+            reportContext: All Project Milestones, Reviews and tasks that are overdue.  Including who each is assigned to, current status, and target completion
+        }
+        advanced {
+            savedReportMappingIdentifier: 26347686983893493033
+        }
+
+        column ADDED_BY (
+            type: plainText
+            heading {
+                heading: Added By
+            }
+            layout {
+                sequence: 110
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: L
+            }
+        )
+
+        column ASSIGNED_TO (
+            type: plainText
+            heading {
+                heading: Assigned To
+            }
+            layout {
+                sequence: 140
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: P
+            }
+        )
+
+        column ASSIGNEE_TAGS (
+            type: plainText
+            heading {
+                heading: Assignee Tags
+            }
+            layout {
+                sequence: 240
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AA
+            }
+        )
+
+        column COMPLETE_MONTH_DISPLAY (
+            type: plainText
+            heading {
+                heading: Completion Month
+            }
+            layout {
+                sequence: 210
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: X
+            }
+        )
+
+        column COMPLETE_MONTH_OB (
+            type: plainText
+            heading {
+                heading: Completion Month Order By
+            }
+            layout {
+                sequence: 200
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: W
+            }
+        )
+
+        column COMPLETION_STATUS (
+            type: plainText
+            heading {
+                heading: Completion Status
+            }
+            layout {
+                sequence: 230
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Z
+            }
+        )
+
+        column CREATED (
+            type: plainText
+            heading {
+                heading: Created
+            }
+            layout {
+                sequence: 100
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: J
+            }
+        )
+
+        column DETAILS (
+            type: plainText
+            heading {
+                heading: Details
+            }
+            layout {
+                sequence: 70
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: G
+            }
+        )
+
+        column EDIT_LINK (
+            type: hidden
+            heading {
+                heading: Edit Link
+            }
+            layout {
+                sequence: 280
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AE
+            }
+        )
+
+        column FRIENDLY_IDENTIFIER (
+            type: hidden
+            heading {
+                heading: Friendly Identifier
+            }
+            layout {
+                sequence: 270
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AD
+            }
+        )
+
+        column INITIATIVE (
+            type: plainText
+            heading {
+                heading: Initiative
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+
+        column LINK (
+            type: hidden
+            heading {
+                heading: Link
+            }
+            layout {
+                sequence: 60
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+
+        column NAME (
+            type: link
+            heading {
+                heading: Milestone / Review / Task
+            }
+            layout {
+                sequence: 20
+            }
+            link {
+                target: {
+                    page: 98
+                    items: {
+                        P98_TASK_ID: #TASK_ID#
+                    }
+                    clearCache: 98
+                }
+                linkText: #NAME#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+
+        column PARENT_TASK_TYPE (
+            type: plainText
+            heading {
+                heading: Parent Task Type
+            }
+            layout {
+                sequence: 160
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: R
+            }
+        )
+
+        column PROJECT (
+            type: link
+            heading {
+                heading: &NOMENCLATURE_PROJECT.
+            }
+            layout {
+                sequence: 10
+            }
+            link {
+                target: {
+                    page: 3
+                    items: {
+                        FI: #FRIENDLY_IDENTIFIER#
+                        PN: #PROJECT_URL_NAME#
+                    }
+                    clearCache: 3
+                }
+                linkText: #PROJECT#
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+
+        column PROJECT_ID (
+            type: hidden
+            heading {
+                heading: Project Id
+            }
+            layout {
+                sequence: 250
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: AB
+            }
+        )
+
+        column PROJECT_TAGS (
+            type: plainText
+            heading {
+                heading: Project Tags
+            }
+            layout {
+                sequence: 190
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: U
+            }
+        )
+
+        column PROJECT_URL_NAME (
+            type: hidden
+            heading {
+                heading: Project Url Name
+            }
+            layout {
+                sequence: 260
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: AC
+            }
+        )
+
+        column RELEASE (
+            type: plainText
+            heading {
+                heading: Release
+            }
+            layout {
+                sequence: 130
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: N
+            }
+            config {
+                buildOption: @releases
+            }
+        )
+
+        column START_DATE (
+            type: plainText
+            heading {
+                heading: Start Date
+            }
+            layout {
+                sequence: 170
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: S
+            }
+        )
+
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 150
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: Q
+            }
+        )
+
+        column TAGS (
+            type: plainText
+            heading {
+                heading: Tags
+            }
+            layout {
+                sequence: 120
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: M
+            }
+        )
+
+        column TARGET_COMPLETE (
+            type: plainText
+            heading {
+                heading: Target Complete
+            }
+            layout {
+                sequence: 180
+            }
+            appearance {
+                formatMask: DD-Mon-YYYY
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: T
+            }
+        )
+
+        column TASK_ID (
+            type: hidden
+            heading {
+                heading: Task Id
+            }
+            layout {
+                sequence: 220
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: Y
+            }
+        )
+
+        column TASK_NAME (
+            type: plainText
+            heading {
+                heading: Task Name
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: F
+            }
+        )
+
+        column UPDATED (
+            type: plainText
+            heading {
+                heading: Updated
+            }
+            layout {
+                sequence: 80
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: H
+            }
+        )
+
+        column UPDATED_BY (
+            type: plainText
+            heading {
+                heading: Updated By
+            }
+            layout {
+                sequence: 90
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: I
+            }
+        )
+
+        page {
+            borderWidth: 0.5
+            borderColor: #666666
+        }
+
+        savedReport 119581795 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 4
+            )
+
+            displayColumn NAME (
+                sequence: 2
+            )
+
+            displayColumn PROJECT (
+                sequence: 1
+            )
+
+            displayColumn RELEASE (
+                sequence: 6
+            )
+
+            displayColumn STATUS (
+                sequence: 5
+            )
+
+            displayColumn TARGET_COMPLETE (
+                sequence: 7
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 3
+            )
+
+            displayColumn UPDATED (
+                sequence: 8
+            )
+
+            sort (
+                column: UPDATED
+                sort {
+                    direction: desc
+                    sequence: 1
+                }
+            )
+
+        )
+
+        savedReport 119605514 (
+            visibility: alternativeDefault
+            name: Bar Chart by Status
+            view {
+                chart: true
+                default: chart
+                rowsPerPage: 50
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 5
+            )
+
+            displayColumn NAME (
+                sequence: 3
+            )
+
+            displayColumn PROJECT (
+                sequence: 2
+            )
+
+            displayColumn RELEASE (
+                sequence: 1
+            )
+
+            displayColumn STATUS (
+                sequence: 6
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 4
+            )
+
+            displayColumn UPDATED (
+                sequence: 7
+            )
+
+            sort (
+                column: RELEASE
+                sort {
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: PROJECT
+                sort {
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: NAME
+                sort {
+                    sequence: 3
+                }
+            )
+
+            chart {
+                label: STATUS
+                valueAggregation: count
+            }
+            chartAppearance {
+                orientation: horizontal
+            }
+        )
+
+        savedReport 119605742 (
+            visibility: alternativeDefault
+            name: Bar Chart by Assignee
+            view {
+                chart: true
+                default: chart
+                rowsPerPage: 50
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 5
+            )
+
+            displayColumn NAME (
+                sequence: 3
+            )
+
+            displayColumn PROJECT (
+                sequence: 2
+            )
+
+            displayColumn RELEASE (
+                sequence: 1
+            )
+
+            displayColumn STATUS (
+                sequence: 6
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 4
+            )
+
+            displayColumn UPDATED (
+                sequence: 7
+            )
+
+            sort (
+                column: RELEASE
+                sort {
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: PROJECT
+                sort {
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: NAME
+                sort {
+                    sequence: 3
+                }
+            )
+
+            chart {
+                label: ASSIGNED_TO
+                valueAggregation: count
+            }
+            chartAppearance {
+                orientation: horizontal
+            }
+        )
+
+        savedReport 119624511 (
+            visibility: alternativeDefault
+            name: Grouped by Completion Month
+            view {
+                rowsPerPage: 50
+            }
+
+            displayColumn ASSIGNED_TO (
+                sequence: 6
+            )
+
+            displayColumn COMPLETE_MONTH_DISPLAY (
+                sequence: 10
+            )
+
+            displayColumn NAME (
+                sequence: 4
+            )
+
+            displayColumn PARENT_TASK_TYPE (
+                sequence: 3
+            )
+
+            displayColumn PROJECT (
+                sequence: 2
+            )
+
+            displayColumn RELEASE (
+                sequence: 1
+            )
+
+            displayColumn STATUS (
+                sequence: 7
+            )
+
+            displayColumn TARGET_COMPLETE (
+                sequence: 8
+            )
+
+            displayColumn TASK_NAME (
+                sequence: 5
+            )
+
+            displayColumn UPDATED (
+                sequence: 9
+            )
+
+            sort (
+                column: COMPLETE_MONTH_OB
+                sort {
+                    sequence: 1
+                }
+            )
+
+            sort (
+                column: PROJECT
+                sort {
+                    sequence: 2
+                }
+            )
+
+            sort (
+                column: NAME
+                sort {
+                    sequence: 3
+                }
+            )
+
+            controlBreak (
+                column: COMPLETE_MONTH_DISPLAY
+                layout {
+                    sequence: 1
+                }
+            )
+
+        )
+
+    )
+
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+                t-Button--iconLeft
+            ]
+            icon: fa-undo-alt
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 99
+                clearCache: [
+                    99
+                    RIR
+                    CIR
+                ]
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button up (
+        buttonName: UP
+        label: Navigate Up
+        layout {
+            sequence: 10
+            region: @breadcrumb
+            slot: up
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-arrow-up
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 41
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+
+````
