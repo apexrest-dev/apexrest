@@ -30,6 +30,28 @@ export function instructionReadObserved(records, fileName) {
   return false;
 }
 
+export function pluginSkillObserved(records) {
+  for (const record of records) {
+    const calls =
+      record.type === 'assistant'
+        ? (record.message?.content?.filter((block) => block.type === 'tool_use') ?? [])
+        : record.type === 'response_item' && record.payload?.type === 'function_call'
+          ? [{ name: record.payload.name, input: record.payload.arguments }]
+          : [];
+    for (const call of calls) {
+      const input = typeof call.input === 'string' ? call.input : JSON.stringify(call.input ?? {});
+      if (/^Skill$/i.test(call.name) && /apexrest-(?:apexlang|work|setup|safety)/.test(input)) return true;
+      if (
+        /Read|read_file|Bash|exec_command|functions.exec/i.test(call.name) &&
+        /(?:apexrest-apex|cache\/apexrest)[^\n]*\/skills\/apexrest-[^\n]*SKILL\.md/.test(input) &&
+        (/Read|read_file/i.test(call.name) || /\bcat\b|\bsed\b|readFile/.test(input))
+      )
+        return true;
+    }
+  }
+  return false;
+}
+
 export async function auditPrivateArtifacts(root, secrets = []) {
   const result = { envCopiesRemoved: 0, credentialFilesRemoved: 0 };
   async function walk(directory) {

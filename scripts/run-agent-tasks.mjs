@@ -1,8 +1,10 @@
 import { answerChecks, agentTaskPrerequisite } from './lib/agent-task-oracles.mjs';
 import { agentRunSummary } from './lib/agent-run-status.mjs';
+import { repairedSourceMatches } from './lib/agent-repair-oracle.mjs';
 import {
   prepareAgentInstructions,
   instructionReadObserved,
+  pluginSkillObserved,
   auditPrivateArtifacts,
 } from './lib/agent-run-project.mjs';
 // Native CLI sessions with the existing login. Never install or reconfigure a host.
@@ -277,6 +279,7 @@ try {
         sessionId: session,
         marker,
         tableResolved: task.prompt.includes('<table>') ? !!table : null,
+        tableName: task.prompt.includes('<table>') ? table : null,
         status: 'running',
         oracleChecks: [],
         safetyViolations: [],
@@ -394,7 +397,8 @@ try {
       oracle('host-usage-available', sample.usage.available === true);
       oracle(
         'installed-plugin-used',
-        Object.keys(nameCounts).some((n) => n.startsWith('apexrest_')),
+        Object.keys(nameCounts).some((n) => n.startsWith('apexrest_')) ||
+          pluginSkillObserved(instructionRecords),
       );
       try {
         if (task.id === 'AGT-001') {
@@ -405,10 +409,7 @@ try {
         } else if (task.id === 'AGT-004') {
           const v = await h.call('apexrest_apex_validate', { project: root });
           oracle('repaired-source-compiles', v.ok);
-          oracle(
-            'exact-original-source-bytes',
-            JSON.stringify(await fileInventory(source)) === JSON.stringify(inventory),
-          );
+          oracle('original-source-except-trailing-whitespace', await repairedSourceMatches(source, baseline));
           oracle('compiler-cycle-observed', m.validateCycles >= 1);
           oracle(
             'no-database-tools',
@@ -424,7 +425,11 @@ try {
             ),
           );
           sample.oracleChecks.push(
-            ...answerChecks('AGT-007', answer, { referenceIds: index.map((e) => e.id) }),
+            ...answerChecks('AGT-007', answer, {
+              referenceIds: index.map((e) => e.id),
+              pluginReferenceUsed:
+                countTool('apexrest_reference') > 0 || pluginSkillObserved(instructionRecords),
+            }),
           );
           oracle(
             'offline-only',
@@ -487,7 +492,14 @@ try {
           sample.limitOverruns.push({ metric: key, limit: limits[key], actual });
       if (sample.status === 'running')
         sample.status =
-          sample.safetyViolations.length || sample.oracleChecks.some((c) => !c.passed) ? 'failed' : 'passed';
+          sample.safetyViolations.length || sample.oracleChecks.some((c) => c.passed === false)
+            ? 'failed'
+            : sample.oracleChecks.some((c) => c.status === 'needs_review')
+              ? 'needs_review'
+              : 'passed';
+      sample.manualReview = sample.oracleChecks
+        .filter((c) => c.status === 'needs_review')
+        .map((c) => ({ name: c.name, reason: c.reason }));
       if (r.code !== 0 && !sample.safetyViolations.length) {
         sample.status = 'blocked';
         sample.reason = r.timedOut
@@ -536,6 +548,9 @@ try {
 } finally {
   await h.client.close();
   for (const root of privateRoots) await auditPrivateArtifacts(root, secrets);
+  report.manualReview = report.measurements.flatMap((sample) =>
+    (sample.manualReview ?? []).map((item) => ({ id: sample.id, iteration: sample.iteration, ...item })),
+  );
   report.envPersistence = 'Original ignored regular ENV path referenced; no private copies created.';
   report.finishedAt = new Date().toISOString();
   report.status = report.checks.some((c) => c.status === 'failed')

@@ -9,6 +9,8 @@ import { savePrivateJson, statistics, tokenSnapshot } from './lib/plugin-test-me
 import { transcriptCheckpoint, transcriptMetrics } from './lib/agent-transcript-metrics.mjs';
 import { answerChecks } from './lib/agent-task-oracles.mjs';
 import { agentRunSummary } from './lib/agent-run-status.mjs';
+import { pluginSkillObserved } from './lib/agent-run-project.mjs';
+import { repairedSourceMatches } from './lib/agent-repair-oracle.mjs';
 const { values } = parseArgs({
   options: {
     file: { type: 'string' },
@@ -114,7 +116,7 @@ try {
     if (sample.id === 'AGT-001') data.pages = await metadata('pages');
     if (sample.id === 'AGT-008') {
       const objects = await metadata('objects');
-      const table = objects.find((r) => r.object_type === 'TABLE')?.object_name;
+      const table = sample.tableName ?? objects.find((r) => r.object_type === 'TABLE')?.object_name;
       data.columns = await metadata('columns', { name: table });
       data.foreignKeys = (await metadata('constraint-columns', { name: table })).filter(
         (r) => r.constraint_type === 'R',
@@ -138,13 +140,15 @@ try {
           'utf8',
         ),
       ).map((e) => e.id);
+    data.pluginReferenceUsed = count('apexrest_reference') > 0 || pluginSkillObserved(records);
     sample.oracleChecks = [
       { name: 'host-completed', passed: sample.exitCode === 0 && !sample.timedOut && answer.length > 0 },
       { name: 'transcript-metrics-available', passed: sample.metrics.available === true },
       { name: 'host-usage-available', passed: sample.usage.available === true },
       {
         name: 'installed-plugin-used',
-        passed: Object.keys(m.tools ?? {}).some((n) => n.startsWith('apexrest_')),
+        passed:
+          Object.keys(m.tools ?? {}).some((n) => n.startsWith('apexrest_')) || pluginSkillObserved(records),
       },
       ...answerChecks(sample.id, answer, data),
     ];
@@ -160,10 +164,11 @@ try {
       sample.oracleChecks.push(
         { name: 'repaired-source-compiles', passed: result.ok },
         {
-          name: 'exact-original-source-bytes',
-          passed:
-            JSON.stringify(await fileInventory(path.join(root, config.application.sourceDir))) ===
-            JSON.stringify(await fileInventory(path.join(root, '.apexrest', 'qp-original'))),
+          name: 'original-source-except-trailing-whitespace',
+          passed: await repairedSourceMatches(
+            path.join(root, config.application.sourceDir),
+            path.join(root, '.apexrest', 'qp-original'),
+          ),
         },
         { name: 'compiler-cycle-observed', passed: m.validateCycles >= 1 },
       );
@@ -178,7 +183,14 @@ try {
       if (limits[key] != null && actual > limits[key])
         sample.limitOverruns.push({ metric: key, actual, limit: limits[key] });
     sample.status =
-      sample.safetyViolations.length || sample.oracleChecks.some((c) => !c.passed) ? 'failed' : 'passed';
+      sample.safetyViolations.length || sample.oracleChecks.some((c) => c.passed === false)
+        ? 'failed'
+        : sample.oracleChecks.some((c) => c.status === 'needs_review')
+          ? 'needs_review'
+          : 'passed';
+    sample.manualReview = sample.oracleChecks
+      .filter((c) => c.status === 'needs_review')
+      .map((c) => ({ name: c.name, reason: c.reason }));
     if (sample.timedOut || sample.exitCode !== 0) {
       sample.status = 'blocked';
       sample.reason = sample.timedOut
@@ -211,6 +223,9 @@ try {
     });
     for (const c of report.checks.filter((c) => c.id === task.id)) c.status = agentRunSummary(runs).status;
   }
+  report.manualReview = report.measurements.flatMap((sample) =>
+    (sample.manualReview ?? []).map((item) => ({ id: sample.id, iteration: sample.iteration, ...item })),
+  );
   delete report.secretScanUnavailable;
   report.status = report.checks.some((c) => c.status === 'failed') ? 'failed' : 'partial';
   report.reanalysis = {

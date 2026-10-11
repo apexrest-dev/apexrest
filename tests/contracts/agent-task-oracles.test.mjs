@@ -42,11 +42,31 @@ test('dictionary oracle checks all columns, types and foreign-key endpoints', ()
   );
   assert.equal(answerChecks('AGT-008', 'ID NUMBER', data)[1].passed, false);
 });
-test('reference keywords and a citation do not pass independent semantic review', () => {
+test('reference keywords and a citation need manual semantic review and plugin evidence', () => {
   const checks = answerChecks('AGT-007', 'Read-only column condition; oracle:synthetic', {
     referenceIds: ['oracle:synthetic'],
+    pluginReferenceUsed: true,
   });
   assert.equal(checks[0].passed, true);
   assert.equal(checks[1].passed, true);
-  assert.equal(checks[2].passed, false);
+  assert.equal(checks[2].passed, true);
+  assert.equal(checks[3].status, 'needs_review');
+  assert.equal(checks[3].passed, undefined);
+});
+test('dictionary checks associate each column with its type and normalize display precision', () => {
+  const data = {
+    columns: [
+      { column_name: 'CREATED', data_type: 'TIMESTAMP(6)' },
+      { column_name: 'ID', data_type: 'NUMBER' },
+    ],
+  };
+  assert.ok(
+    answerChecks('AGT-008', '| CREATED | TIMESTAMP |\n| ID | NUMBER(10) |\nNo foreign keys', data).every(
+      (c) => c.passed,
+    ),
+  );
+  assert.equal(
+    answerChecks('AGT-008', '| CREATED | NUMBER |\n| ID | TIMESTAMP |\nNo foreign keys', data)[0].passed,
+    false,
+  );
 });

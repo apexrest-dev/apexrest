@@ -17,7 +17,7 @@ export function agentTaskPrerequisite(task, options = {}) {
 export function answerChecks(
   id,
   answer,
-  { pages = [], columns = [], foreignKeys = [], schema, referenceIds = [] } = {},
+  { pages = [], columns = [], foreignKeys = [], schema, referenceIds = [], pluginReferenceUsed = false } = {},
 ) {
   if (id === 'AGT-001') {
     const observed = [...answer.matchAll(/^\s*\|\s*(\d+)\s*\|\s*([^|]+)\|/gm)].map((m) => ({
@@ -53,22 +53,35 @@ export function answerChecks(
         name: 'dictionary-columns-match',
         passed:
           columns.length > 0 &&
-          columns.every((c) => answer.includes(c.column_name) && answer.toUpperCase().includes(c.data_type)),
+          columns.every((c) => {
+            const name = c.column_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const type = c.data_type.replace(/\([^)]*\)/g, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return answer
+              .split('\n')
+              .some(
+                (line) =>
+                  new RegExp(`\\b${name}\\b`, 'i').test(line) &&
+                  new RegExp(`\\b${type}\\b`, 'i').test(line.replace(/\([^)]*\)/g, '')),
+              );
+          }),
       },
       {
         name: 'dictionary-fks-match',
-        passed: foreignKeys.every(
-          (f) =>
-            answer.includes(f.column_name) &&
-            answer.includes(f.referenced_table) &&
-            answer.includes(f.referenced_column),
-        ),
+        passed: foreignKeys.length
+          ? foreignKeys.every(
+              (f) =>
+                answer.includes(f.column_name) &&
+                answer.includes(f.referenced_table) &&
+                answer.includes(f.referenced_column),
+            )
+          : /no foreign keys|no.*\bFK\b|foreign keys[^\n]*(?:none|0)/i.test(answer),
       },
     ];
   if (id === 'AGT-011')
     return [{ name: 'connection-schema-match', passed: !!schema && answer.includes(schema) }];
   if (id === 'AGT-007')
     return [
+      { name: 'plugin-reference-used', passed: pluginReferenceUsed },
       { name: 'profile-reference-citation', passed: referenceIds.some((id) => answer.includes(id)) },
       {
         name: 'conditional-grid-readonly-explanation',
@@ -79,7 +92,7 @@ export function answerChecks(
       },
       {
         name: 'independent-semantic-review',
-        passed: false,
+        status: 'needs_review',
         reason:
           'Automatic keyword/citation checks cannot prove the technical answer; independent review required.',
       },

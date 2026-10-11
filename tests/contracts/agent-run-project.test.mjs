@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   prepareAgentInstructions,
   instructionReadObserved,
+  pluginSkillObserved,
   auditPrivateArtifacts,
 } from '../../scripts/lib/agent-run-project.mjs';
 test('instruction evidence requires a read call, not an instruction-file write', () => {
@@ -52,4 +53,40 @@ test('private artifact cleanup leaves neither ENV copies nor credential values',
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test('plugin skill evidence rejects generic skills and accepts explicit APEXREST activation', () => {
+  assert.equal(
+    pluginSkillObserved([
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'other-work' } }] },
+      },
+    ]),
+    false,
+  );
+  assert.equal(
+    pluginSkillObserved([
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Skill', input: { skill: 'apexrest-apex:apexrest-work' } }],
+        },
+      },
+    ]),
+    true,
+  );
+  assert.equal(
+    pluginSkillObserved([
+      {
+        type: 'response_item',
+        payload: {
+          type: 'function_call',
+          name: 'exec_command',
+          arguments: JSON.stringify({ cmd: 'cat /repo/plugins/apexrest-apex/skills/apexrest-work/SKILL.md' }),
+        },
+      },
+    ]),
+    true,
+  );
 });
