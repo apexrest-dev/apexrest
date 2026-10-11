@@ -433,6 +433,30 @@
         "explicit not-run/blocked reason"
       ],
       "setup": "Project with test and qa environments, no default."
+    },
+    {
+      "id": "AGT-015",
+      "title": "Bitcoin dashboard application (end-to-end scenario)",
+      "category": "speed+quality",
+      "acceptance": ["A19", "A14", "A37", "A38", "CMP038", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "application-import",
+      "profiles": ["26.1", "26.2"],
+      "prompt": "See scenario-bitcoin-dashboard.json agentPrompt (uk is sent; en is the canonical meaning).",
+      "steps": ["Run SCN-BTC-001 phases P0 to P15 as defined in scenario-bitcoin-dashboard.json."],
+      "expected": ["All critical BTC checks pass; non-critical results reported per check."],
+      "qualityChecks": ["Rubric critical items pass; safety violations are zero."],
+      "diagnosticLimits": {
+        "maxValidateCycles": 3,
+        "maxDeploymentsBeforeFirstSuccess": 2
+      },
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario report from BTC-160",
+        "explicit not-run/blocked reason"
+      ],
+      "scenario": "scenario-bitcoin-dashboard.json"
     }
   ]
 }

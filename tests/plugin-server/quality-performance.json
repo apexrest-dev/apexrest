@@ -6,7 +6,8 @@
     "apex-26.2.extensions.json",
     "agent-tasks.cases.json",
     "host-codex.cases.json",
-    "host-claude.cases.json"
+    "host-claude.cases.json",
+    "scenario-bitcoin-dashboard.json"
   ],
   "runMatrix": {
     "profiles": ["26.1 (remote identified test target)", "26.2 (local non-production target)"],

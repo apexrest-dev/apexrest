@@ -35,6 +35,7 @@ test('quality/performance extension catalogs stay definitions with valid accepta
     ['agent-tasks.cases.json', 'tasks', /^AGT-\d{3}$/],
     ['host-codex.cases.json', 'cases', /^HCX-\d{3}$/],
     ['host-claude.cases.json', 'cases', /^HCL-\d{3}$/],
+    ['scenario-bitcoin-dashboard.json', 'checks', /^BTC-\d{3}$/],
   ];
   const all = new Set();
   for (const [file, key, pattern] of catalogs) {
@@ -55,5 +56,12 @@ test('quality/performance extension catalogs stay definitions with valid accepta
   const a262 = await read('apex-26.2.extensions.json');
   assert.equal(a262.apexRelease, '26.2.x');
   assert.match(a262.isolationPolicy, /Never count 26\.2 results as 26\.1/);
+  const btc = await read('scenario-bitcoin-dashboard.json');
+  const phases = new Set(btc.phases.map((p) => p.id));
+  assert.equal(btc.checks.filter((c) => c.phase === 'P7' && c.dashboard).length, 10, 'ten dashboards');
+  for (const c of btc.checks) {
+    assert.ok(phases.has(c.phase), `${c.id}: unknown phase`);
+    assert.equal(typeof c.critical, 'boolean', c.id);
+  }
   for (const b of metrics.baselines) assert.ok(['26.1', '26.2'].includes(b.profile) && b.samples > 0);
 });
