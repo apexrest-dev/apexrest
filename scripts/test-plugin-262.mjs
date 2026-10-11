@@ -21,6 +21,7 @@ const { values } = parseArgs({
     output: { type: 'string', default: 'docs/evidence/qp-harness/extension-26.2.json' },
     'allow-app-writes': { type: 'boolean', default: false },
     'user-request': { type: 'string' },
+    'mismatch-source-project': { type: 'string' },
   },
 });
 assert.ok(values.project);
@@ -78,22 +79,59 @@ try {
       doctor: doctor.data,
     };
   });
-  await check('A262-001', 'profile-target-mismatch-refusal', async () => {
-    const copy = await privateCopy(project, path.join(directory, 'mismatch-261'));
-    const c = structuredClone(config);
-    c.toolchain.profile = '26.1';
-    await writeFile(path.join(copy, 'apexrest.json'), JSON.stringify(c));
-    const r = await call('apexrest_ship', {
-      project: copy,
-      env: values.env,
-      mode: 'plan',
-      importMode: 'full',
-      userRequest: 'Read-only release mismatch qualification; no apply.',
-    });
-    report.mismatchCode = r.diagnostics?.[0]?.code;
-    assert.equal(r.ok, false);
-    assert.match(report.mismatchCode, /RELEASE|PROFILE|MMD|VERSION/);
+  const connection = await call('apexrest_project', {
+    project,
+    action: 'connection_test',
+    name: config.environments[values.env].readConnectionRef,
   });
+  report.mismatchPrerequisite = {
+    connectionAvailable: connection.ok,
+    code: connection.diagnostics?.[0]?.code ?? null,
+    exitClass: connection.exitCode,
+    sourceProjectSupplied: !!values['mismatch-source-project'],
+  };
+  if (!connection.ok || !values['mismatch-source-project']) {
+    report.checks.push({
+      id: 'A262-001',
+      scenario: 'profile-target-mismatch-refusal',
+      status: 'not_run',
+      reason: !connection.ok
+        ? '26.2 connected target unavailable; mismatchPrerequisite records code/exit class.'
+        : 'Requires a valid 26.1 source/lock via --mismatch-source-project; changing the profile of 26.2 sources tests the compiler, not the target.',
+    });
+    await save();
+  } else
+    await check('A262-001', 'profile-target-mismatch-refusal', async () => {
+      const sourceProject = path.resolve(values['mismatch-source-project']);
+      const sourceConfig = JSON.parse(await readFile(path.join(sourceProject, 'apexrest.json'), 'utf8'));
+      assert.equal(sourceConfig.toolchain.profile, '26.1');
+      const copy = await privateCopy(sourceProject, path.join(directory, 'mismatch-261'));
+      const c = structuredClone(config);
+      c.toolchain.profile = '26.1';
+      c.application.sourceDir = sourceConfig.application.sourceDir;
+      await writeFile(path.join(copy, 'apexrest.json'), JSON.stringify(c));
+      const validation = await call('apexrest_apex_validate', { project: copy });
+      assert.equal(validation.ok, true);
+      const identity = await call('apexrest_metadata_read', {
+        project,
+        env: values.env,
+        kind: 'apex-capabilities',
+        schema: config.environments[values.env].parsingSchema,
+      });
+      assert.equal(identity.ok, true);
+      assert.match(JSON.stringify(identity.data.rows), /26\.2/);
+      const r = await call('apexrest_ship', {
+        project: copy,
+        env: values.env,
+        mode: 'plan',
+        importMode: 'full',
+        userRequest: 'Read-only release mismatch qualification; no apply.',
+      });
+      report.mismatchCode = r.diagnostics?.[0]?.code;
+      report.mismatchExitClass = r.exitCode;
+      assert.equal(r.ok, false);
+      assert.match(report.mismatchCode, /RELEASE|PROFILE|MMD|VERSION/);
+    });
   await check('A262-003', 'golden-search', async () => {
     const golden = JSON.parse(await readFile('tests/plugin-server/reference-golden-26.2.json', 'utf8'));
     assert.ok(golden.queries.length >= 20);

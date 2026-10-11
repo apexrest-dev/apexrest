@@ -20,6 +20,7 @@ import {
 } from './lib/plugin-harness.mjs';
 import { savePrivateJson, statistics } from './lib/plugin-test-metrics.mjs';
 import { sha256, sourceDigest } from './lib/release.mjs';
+import { qualityCliArgs } from './lib/quality-cli-args.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -204,13 +205,7 @@ function verifyMeta(requests, r) {
   assert.equal(t[0].statementMs.length, requests.length + 1);
 }
 async function cli(op, args) {
-  const argv = [path.resolve('dist/runtime/apexrest.mjs'), ...op.split(' '), '--project', project, '--json'];
-  for (const [k, v] of Object.entries(args)) {
-    argv.push(
-      '--' + k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()),
-      ...(Array.isArray(v) ? v.map(String) : [String(v)]),
-    );
-  }
+  const argv = qualityCliArgs(path.resolve('dist/runtime/apexrest.mjs'), op, project, args);
   const r = await runProcess(process.execPath, argv);
   let envelope;
   try {
@@ -578,6 +573,12 @@ try {
     const home = files.find((f) => /p00001.*\.apx$/.test(f));
     assert.ok(home);
     const original = await readFile(path.join(source, home), 'utf8');
+    // Use a complete compiler-checked report instead of changing a hero region's
+    // type while leaving incompatible properties and omitting report columns.
+    const sqlBaseline = await readFile(
+      'resources/components/recipes/reports-legacy-cards-basic/pages/p00001-home.apx',
+      'utf8',
+    );
     const patches = [
       ['unknown-property', (s) => s.replace('    name:', '    qpUnknownProperty: true\n    name:')],
       ['invalid-region-type', (s) => s.replace('type: staticContent', 'type: qpInvalidRegion')],
@@ -597,14 +598,7 @@ try {
             '        type: staticContent\n        advanced {\n            htmlDomId: qpDuplicate\n        }',
           ),
       ],
-      [
-        'invalid-sql',
-        (s) =>
-          s.replace(
-            'type: staticContent',
-            'type: classicReport\n        source {\n            location: localDatabase\n            type: sqlQuery\n            sqlQuery:\n                ```sql\n                select from dual\n                ```\n        }',
-          ),
-      ],
+      ['invalid-sql', () => sqlBaseline.replace(/select[^\n]+from dual/, 'select from dual')],
       ['broken-indent', (s) => s.replace('    name:', '   name:')],
     ];
     for (const [id, patch] of patches) {
@@ -632,6 +626,13 @@ try {
             .split('\n').length
         : injected.split('\n').findIndex((l, i) => l !== original.split('\n')[i]) + 1;
       await writeFile(path.join(copy, config.application.sourceDir, home), injected);
+      let baselineCompiles;
+      if (id === 'invalid-sql') {
+        await writeFile(path.join(copy, config.application.sourceDir, home), sqlBaseline);
+        baselineCompiles = (await call('apexrest_apex_validate', { project: copy })).ok;
+        assert.equal(baselineCompiles, true);
+        await writeFile(path.join(copy, config.application.sourceDir, home), injected);
+      }
       const badStarted = performance.now();
       const bad = await call('apexrest_apex_validate', { project: copy, debugTimings: true });
       const badElapsedMs = performance.now() - badStarted;
@@ -643,7 +644,10 @@ try {
             const b = await cli('apex validate', { project: copy });
             return { mcp: bad, cli: b.envelope, exitCode: b.exitCode };
           },
-          (r) => {
+          (r, s) => {
+            s.codes = [r.mcp.diagnostics?.[0]?.code, r.cli.diagnostics?.[0]?.code];
+            s.exitClasses = [r.mcp.exitCode, r.exitCode];
+            s.nextSteps = [r.mcp.nextActions?.length ?? 0, r.cli.nextActions?.length ?? 0];
             assert.equal(r.mcp.ok, false);
             assert.equal(r.cli.diagnostics?.[0]?.code, r.mcp.diagnostics?.[0]?.code);
             assert.equal(r.exitCode, r.mcp.exitCode);
@@ -659,6 +663,9 @@ try {
         (good, s) => {
           s.injectedLine = line;
           s.badElapsedMs = badElapsedMs;
+          s.badExitClass = bad.exitCode;
+          s.repairedExitClass = good.exitCode;
+          if (baselineCompiles !== undefined) s.baselineCompiles = baselineCompiles;
           s.reported = bad.diagnostics?.map((d) => ({
             code: d.code,
             file: d.file,
