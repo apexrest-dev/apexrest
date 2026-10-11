@@ -6,23 +6,23 @@ APEXREST develops and deploys Oracle APEX applications. Application verification
 
 These commands verify the repository implementation, not applications through the plugin:
 
-| Command                   | What it establishes                                         |
-| ------------------------- | ----------------------------------------------------------- |
-| `npm run lint`            | Formatting and source conventions                           |
-| `npm run typecheck`       | TypeScript consistency                                      |
-| `npm run test:unit`       | Core and failure/concurrency fixtures                       |
+| Command                   | What it establishes                                            |
+| ------------------------- | -------------------------------------------------------------- |
+| `npm run lint`            | Formatting and source conventions                              |
+| `npm run typecheck`       | TypeScript consistency                                         |
+| `npm run test:unit`       | Core and failure/concurrency fixtures                          |
 | `npm run test:contracts`  | CLI/MCP contracts, both host manifest launches and tool parity |
-| `npm run test:installers` | Download, archive, integrity and platform fixtures          |
-| `npm run test:packaging`  | Package schemas, containment, manifests and site checks     |
-| `npm run docs:check`      | Links, anchors and documented commands                      |
-| `npm run plugin:check`    | Checked-in bundle matches a fresh build                     |
-| `npm run site:build`      | Local documentation site generation                         |
+| `npm run test:installers` | Download, archive, integrity and platform fixtures             |
+| `npm run test:packaging`  | Package schemas, containment, manifests and site checks        |
+| `npm run docs:check`      | Links, anchors and documented commands                         |
+| `npm run plugin:check`    | Checked-in bundle matches a fresh build                        |
+| `npm run site:build`      | Local documentation site generation                            |
 
 Build with `npm run build` before checks that consume `dist/`. Packaging validates Claude Code manifests when its CLI is available. The host-parity contract resolves each manifest launcher from a relocated payload, compares the scoped ship/tool contracts and references, and checks shared managed connection state. Installer fixtures check both Node/home bindings and payload integrity. These do not start model sessions or import an application. GitHub local quality gates run only on pushes to `main`; release and Oracle integration workflows remain disabled.
 
 ## Host and Oracle checks
 
-The reusable [APEX 26.1 plugin server cases](../tests/plugin-server/README.md) cover functional quality, diagnostic latency budgets and actual host-token checkpoints. The machine-readable catalog maps the current acceptance criteria and explicitly distinguishes automated harness cases from agent-led scenarios. Use the ignored `test.env` target and store sanitized reports in ignored `docs/evidence/plugin-server/`. APEX 26.2 uses a separate future extension and separate evidence.
+The reusable [APEX 26.1 plugin server cases](../tests/plugin-server/README.md) cover functional quality, diagnostic latency budgets and actual host-token checkpoints. The machine-readable catalog maps the current acceptance criteria and explicitly distinguishes automated harness cases from agent-led scenarios. Use the ignored `test.env` target and store sanitized reports in ignored `docs/evidence/plugin-server/`. APEX 26.2 has the separate `apex-26.2.extensions.json` catalog and separate evidence. The 26.1 catalog contains 67 baseline and quality/performance cases; agent, host and Bitcoin catalogs extend qualification independently.
 
 `npm run test:repository-plugin` checks installation in an isolated Codex profile plus installed CLI/stdio MCP behavior. It does not invoke a model or establish that a host loaded this version in a conversation.
 

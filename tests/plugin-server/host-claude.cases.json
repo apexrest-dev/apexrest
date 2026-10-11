@@ -12,7 +12,7 @@
       "output": "output_tokens",
       "reasoningOutput": "not reported separately"
     },
-    "status": "not implemented; HCL-003 is a prerequisite for token metrics on this host",
+    "status": "implemented; verified on a historical transcript, scripted two-turn check pending",
     "accountingNote": "Claude reports input_tokens excluding cache reads/writes, unlike Codex. Normalize to the common counters before comparison; deduplicate streamed messages by message ID."
   },
   "cases": [

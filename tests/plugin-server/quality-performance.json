@@ -98,7 +98,8 @@
       "samples": 3,
       "evidence": "docs/evidence/plugin-server/imports-261.json",
       "connectedSessions": 8,
-      "note": "Pre-P1 smoke baseline; descriptive only."
+      "note": "Pre-P1 smoke baseline; descriptive only.",
+      "sessionsSource": "inferred-from-code"
     }
   ],
   "limits": "Budgets and baselines are diagnostic, not an SLA. Baselines bind to their recorded machine, SQLcl, target and network; private evidence paths are local and Git-ignored."

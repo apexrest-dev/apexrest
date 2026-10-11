@@ -134,7 +134,7 @@ A plan binds sources, configuration, toolchain and target and expires after 30 m
 
 ## Verification
 
-Unit tests, mocked failure scenarios, real Oracle operations and native-host checks are recorded separately. See the [acceptance matrix](https://apexrest-dev.github.io/apexrest/acceptance.json), [implementation status](https://apexrest-dev.github.io/apexrest/implementation-status/) and [next actions](https://apexrest-dev.github.io/apexrest/next-actions/). A missing or skipped integration suite is not a passing result.
+Unit tests, mocked failure scenarios, real Oracle operations and native-host checks are recorded separately. See the [acceptance matrix](https://apexrest-dev.github.io/apexrest/acceptance.json), [implementation status](https://apexrest-dev.github.io/apexrest/implementation-status/) and [next actions](https://apexrest-dev.github.io/apexrest/next-actions/). A missing or skipped integration suite is not a passing result. The Claude usage adapter is implemented and verified on a historical transcript; its scripted two-turn check remains pending. Reusable qualification includes 67 APEX 26.1 baseline/quality cases and separate 26.2, agent, host and Bitcoin catalogs.
 
 ## Develop locally
 

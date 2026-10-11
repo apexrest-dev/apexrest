@@ -360,7 +360,7 @@
     },
     {
       "id": "A37",
-      "criterion": "Offline Universal Theme component catalog covers the reviewed source application inventory, exposes contextual parameters and hash-bound compiler-checked recipes through existing reference MCP tools and CLI, and preserves distinct SQL/import/browser evidence.",
+      "criterion": "Offline Universal Theme component catalog covers the reviewed source application inventory, exposes contextual parameters and hash-bound compiler-checked recipes through existing reference MCP tools and CLI, and preserves distinct SQL/import/browser evidence. Public internet page templates retain pinned licensed source provenance and dependency inventories, and remain explicitly separate from dependency-closed ready recipes.",
       "implementation": "implemented",
       "verification": "passed",
       "evidence": [
@@ -370,7 +370,12 @@
         "tests/unit/component-references.test.ts",
         "tests/contracts/component-source.test.mjs",
         "tests/contracts/component-parameters.test.mjs",
-        "tests/packaging/components.test.mjs"
+        "tests/packaging/components.test.mjs",
+        "resources/public-templates/26.2/manifest.json",
+        "resources/public-templates/26.2/source-lock.json",
+        "tests/unit/public-templates.test.ts",
+        "tests/contracts/public-templates.test.mjs",
+        "tests/contracts/component-provenance.test.mjs"
       ],
       "blocker": null
     },
@@ -411,9 +416,15 @@
       "id": "A40",
       "criterion": "Connected working-copy baseline, three changed full imports across restart, authenticated browser, actual fault recovery and separate initial APEXlang restore on an authorized DEV target.",
       "implementation": "implemented",
-      "verification": "blocked",
-      "evidence": ["docs/next-actions.md"],
-      "blocker": "Fresh current-source qualification is required; local fixtures do not establish connected Oracle or native-host behavior."
+      "verification": "partial",
+      "evidence": [
+        "docs/evidence/plugin-server/read-only.json",
+        "docs/evidence/plugin-server/imports-261.json",
+        "docs/evidence/plugin-server/final-audit.json",
+        "docs/evidence/plugin-server/browser-261.json",
+        "docs/next-actions.md"
+      ],
+      "blocker": "Authorized APEX 26.1.5 baseline, three title-only imports across restart, final 21-file audit and browser shell checks passed. Actual fault recovery, separate backup restore, business behavior and current installed-host qualification remain unverified."
     },
     {
       "id": "CMP000",
@@ -730,7 +741,13 @@
       "criterion": "Benchmarks and agent workflow evaluation",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": ["tests/unit/composer.test.ts", "scripts/benchmark-composer.mjs"],
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "scripts/benchmark-composer.mjs",
+        "docs/evidence/perf-p0-p1/performance-after.json",
+        "docs/evidence/perf-p0-p1/comparison.json",
+        "docs/evidence/plugin-server/performance-20.json"
+      ],
       "blocker": "Matched recipe adaptation and broader workflow measurements are absent."
     },
     {
