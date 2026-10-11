@@ -1,3 +1,4 @@
+import { sqlclTimings, withSqlclTimings } from '../../packages/core/src/sqlcl-timings.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, stat } from 'node:fs/promises';
@@ -459,5 +460,24 @@ test(
     );
     assert.ok(timings[2]! < 1500, `warm validate took ${timings[2]} ms`);
     await rm(generated.directory, { recursive: true, force: true });
+  },
+);
+
+test(
+  'pooled SQLcl timings distinguish startup from offline reuse',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { oracle } = await pooledFixture(t);
+    const records = await withSqlclTimings(async () => {
+      await oracle.session('prompt first');
+      await oracle.session('prompt second');
+      return sqlclTimings();
+    });
+    assert.equal(records.length, 2);
+    assert.equal(records[0]!.reused, false);
+    assert.equal(records[1]!.reused, true);
+    assert.ok(records[0]!.spawnMs! > 0);
+    assert.equal(records[1]!.spawnMs, 0);
+    assert.ok(records.every((r) => r.connectMs === null && r.executeMs > 0 && r.transport === 'mcp-pool'));
   },
 );

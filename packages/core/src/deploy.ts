@@ -1,3 +1,4 @@
+import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import path from 'node:path';
 import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -1341,6 +1342,14 @@ export class DeploymentService {
     signal?: AbortSignal,
     progress?: (state: DeployState) => void,
   ) {
+    return withSqlclTimings(() => this.applyObserved(ctx, value, signal, progress));
+  }
+  private async applyObserved(
+    ctx: ProjectContext,
+    value: unknown,
+    signal?: AbortSignal,
+    progress?: (state: DeployState) => void,
+  ) {
     const { env, plan } = await this.checkLocal(ctx, value);
     const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
     await authorizePlan(ctx, plan, env, locality.local);
@@ -1473,8 +1482,10 @@ export class DeploymentService {
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
+    let timingCursor = 0;
     const record = async (nextState: DeployState, details: unknown = {}) => {
       assertTransition(state, nextState);
+      const timingPhase = state;
       state = nextState;
       // Progress is informational for job status; the journal stays the record.
       try {
@@ -1489,8 +1500,9 @@ export class DeploymentService {
         targetDigest: plan.targetDigest,
         state,
         at: new Date().toISOString(),
-        details,
+        details: { ...(details as object), sqlclTimings: sqlclTimings().slice(timingCursor), timingPhase },
       };
+      timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
     };
     await writeJson(path.join(runDir, 'plan.json'), plan);

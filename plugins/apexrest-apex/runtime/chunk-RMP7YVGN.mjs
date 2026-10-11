@@ -1,9 +1,10 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  recordSqlclTiming,
   runPooledSqlcl,
   runProcess,
   runSqlclMcp
-} from "./chunk-7STB6NLZ.mjs";
+} from "./chunk-GHFMQKNU.mjs";
 import {
   isProductionTarget,
   managedHome,
@@ -1402,6 +1403,7 @@ __export(oracle_exports, {
   sqlLiteral: () => sqlLiteral,
   sqlclToken: () => sqlclToken
 });
+import { performance } from "node:perf_hooks";
 import path11 from "node:path";
 import { randomUUID } from "node:crypto";
 import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile5, readdir as readdir2, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
@@ -3077,7 +3079,7 @@ var OracleAdapter = class {
     }
     return selected;
   }
-  async session(input, connection, mutation = false, signal, cwd, format = "text", restrictLevel, isolated = false) {
+  async session(input, connection, mutation = false, signal, cwd, format = "text", restrictLevel, isolated = false, label = "session") {
     if (restrictLevel && (await this.settings()).mode === "mcp")
       throw new Fault(
         "SQLCL_MCP_SCRIPT_RESTRICT_UNAVAILABLE",
@@ -3087,12 +3089,22 @@ var OracleAdapter = class {
       );
     const work = cwd ?? await this.stage();
     try {
-      return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated);
+      return await this.sessionIn(
+        work,
+        input,
+        connection,
+        mutation,
+        signal,
+        format,
+        restrictLevel,
+        isolated,
+        label
+      );
     } finally {
       if (!cwd) await this.discardStage(work);
     }
   }
-  async sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated) {
+  async sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated, label) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
     const selected = connection ? await this.selectedConnection(connection) : void 0;
@@ -3118,7 +3130,14 @@ var OracleAdapter = class {
 connect -orest -user "${selected.ords.username}" -password "${selected.ords.password}" -url "${selected.ords.url}"
 ` : "";
     const marker = `APEXREST_COMPLETE_${randomUUID().replaceAll("-", "")}`;
+    let timingRecorded = false;
     const request = {
+      mutation,
+      sqlclConnected: !!selected,
+      onSqlclTiming: (timing) => {
+        timingRecorded = true;
+        recordSqlclTiming(label, timing);
+      },
       executable: settings.executable,
       args,
       cwd: work,
@@ -3129,21 +3148,39 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     };
     const pooled = !isolated && (settings.mode === "mcp" ? this.mcpRunner === runSqlclMcp : this.runner === runProcess && !selected && settings.databaseTransport !== "ords");
     const viaServer = settings.mode === "mcp" || pooled;
-    const raw = viaServer ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
-      ...request,
-      cwd: pooled ? await this.sessionHome() : work,
-      // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
-      // also suppresses connmgr output, unlike the default MCP profile.
-      args: settings.mode === "mcp" ? settings.mcpRestrictLevel === "4" ? ["-mcp"] : ["-R", "1", "-mcp"] : [...restrictLevel ? ["-R", restrictLevel] : [], "-mcp"],
-      // CLI's final EXIT commits on success. Preserve that transaction
-      // boundary before acknowledging a write over a persistent session.
-      input: (settings.mode === "cli" ? preamble.replace(/exit failure rollback/g, "continue") : preamble) + // Persistent servers keep SET state between batches; start neutral.
-      (selected?.name ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n" : "") + "set serveroutput off\nset sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + `prompt ${marker}
+    const executionStarted = performance.now();
+    let raw;
+    try {
+      raw = viaServer ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
+        ...request,
+        cwd: pooled ? await this.sessionHome() : work,
+        // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
+        // also suppresses connmgr output, unlike the default MCP profile.
+        args: settings.mode === "mcp" ? settings.mcpRestrictLevel === "4" ? ["-mcp"] : ["-R", "1", "-mcp"] : [...restrictLevel ? ["-R", restrictLevel] : [], "-mcp"],
+        // CLI's final EXIT commits on success. Preserve that transaction
+        // boundary before acknowledging a write over a persistent session.
+        input: (settings.mode === "cli" ? preamble.replace(/exit failure rollback/g, "continue") : preamble) + // Persistent servers keep SET state between batches; start neutral.
+        (selected?.name ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n" : "") + "set serveroutput off\nset sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + `prompt ${marker}
 `,
-      mutation,
-      completionMarker: marker,
-      ...selected?.name ? { connectionName: selected.name } : {}
-    }) : await this.runner(request);
+        mutation,
+        completionMarker: marker,
+        ...selected?.name ? { connectionName: selected.name } : {}
+      }) : await this.runner(request);
+    } finally {
+      if (!timingRecorded) {
+        const elapsed = performance.now() - executionStarted;
+        recordSqlclTiming(label, {
+          spawnMs: null,
+          connectMs: null,
+          executeMs: elapsed,
+          totalMs: elapsed,
+          reused: false,
+          mutation,
+          connected: !!selected,
+          transport: viaServer ? pooled ? "mcp-pool" : "mcp" : "cli"
+        });
+      }
+    }
     const secret = selected?.ords?.password;
     const result = secret && format !== "json" ? {
       ...raw,
@@ -3259,7 +3296,17 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       await this.discardStage(versionStage);
     }
     oracleDiagnostics(version);
-    const help = (await this.session("help apex")).output;
+    const help = (await this.session(
+      "help apex",
+      void 0,
+      false,
+      void 0,
+      void 0,
+      "text",
+      void 0,
+      false,
+      "capability"
+    )).output;
     if (key && key !== await this.capabilityKey(settings)) capabilityCache.delete(key);
     const commands = Object.fromEntries(
       ["generate", "export", "validate", "import"].map((command) => [
@@ -3413,7 +3460,11 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         void 0,
         false,
         signal,
-        stage
+        stage,
+        "text",
+        void 0,
+        false,
+        "validate"
       );
     } catch (error) {
       if (error instanceof Fault && error.code === "ORACLE_COMMAND_FAILED" && !error.details) {
@@ -3460,7 +3511,11 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       connection,
       false,
       void 0,
-      stage
+      stage,
+      "text",
+      void 0,
+      false,
+      "export"
     );
     const directory = format === "APEXLANG" ? await this.findApplication(exportRoot) : exportRoot;
     const files = await inventory(directory);
@@ -3688,7 +3743,7 @@ exec :${key} := ${literal};`;
       throw new Fault("INVALID_ORACLE_JSON", "SQLcl result has no items collection.", 1);
     return resultSets[0].items;
   }
-  async jsonQuery(sql, connection, bindings = {}, signal) {
+  async jsonQuery(sql, connection, bindings = {}, signal, label = "metadata-batch") {
     const ords = (await this.settings()).databaseTransport === "ords";
     const result = await this.session(
       `${this.bindPreamble(bindings, ords)}
@@ -3698,7 +3753,10 @@ ${sql};`,
       false,
       signal,
       void 0,
-      "json"
+      "json",
+      void 0,
+      false,
+      label
     );
     return this.parseRows(result.output);
   }
@@ -3707,7 +3765,7 @@ ${sql};`,
    * delimited by a private marker; a missing marker fails the whole batch and
    * never yields a partial result.
    */
-  async jsonQueryBatch(queries, connection, signal) {
+  async jsonQueryBatch(queries, connection, signal, label = "metadata-batch") {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === "ords";
     const token = `APEXREST_ROWS_${randomUUID().replaceAll("-", "")}`;
@@ -3717,7 +3775,17 @@ set sqlformat json
 ${query.sql};
 prompt ${token}_${index}`
     ).join("\n");
-    const result = await this.session(input, connection, false, signal, void 0, "json");
+    const result = await this.session(
+      input,
+      connection,
+      false,
+      signal,
+      void 0,
+      "json",
+      void 0,
+      false,
+      label
+    );
     const lines = result.output.replace(new RegExp(`}(?=${token}_\\d+[ \\t]*(?:\\r?\\n|$))`, "g"), "}\n").split(/\r?\n/);
     const rows = [];
     let from = 0;
@@ -3757,10 +3825,16 @@ prompt ${token}_${index}`
     return { apexVersion: row.apex_version, databaseVersion: row.database_version };
   }
   async verifyTarget(env, connection, observed) {
-    const rows = observed ?? await this.jsonQuery(targetIdentitySql, connection, {
-      p_workspace: env.workspace,
-      p_app_id: env.applicationId
-    });
+    const rows = observed ?? await this.jsonQuery(
+      targetIdentitySql,
+      connection,
+      {
+        p_workspace: env.workspace,
+        p_app_id: env.applicationId
+      },
+      void 0,
+      "verifyTarget"
+    );
     const identities = rows.filter((row) => row.target_record === "identity");
     if (identities.length !== 1)
       throw new Fault("IDENTITY_UNCONFIRMED", "Database identity was not confirmed.", 3);
@@ -3821,7 +3895,9 @@ prompt ${token}_${index}`
         from apex_applications
         where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`,
       connection,
-      { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema }
+      { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema },
+      void 0,
+      "applicationMetadata"
     );
     const row = rows[0];
     if (row && !Object.hasOwn(row, "last_updated_on") && row.last_updated_on_is_null === "Y")
@@ -3937,7 +4013,9 @@ prompt ${token}_${index}`
         signal,
         selectedFiles ? source : void 0,
         "text",
-        SCRIPT_RESTRICT_LEVEL
+        SCRIPT_RESTRICT_LEVEL,
+        false,
+        "import"
       );
     } catch (error) {
       if (error instanceof Fault && error.code === "ORACLE_COMMAND_FAILED" && !error.details)

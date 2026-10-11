@@ -7195,6 +7195,69 @@ var require_dist = __commonJS({
   }
 });
 
+// packages/core/src/sqlcl-session.ts
+import { performance as performance4 } from "node:perf_hooks";
+
+// packages/core/src/sqlcl-timings.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+import { performance } from "node:perf_hooks";
+var storage = new AsyncLocalStorage();
+var labels = /* @__PURE__ */ new Set([
+  "session",
+  "verifyTarget",
+  "applicationMetadata",
+  "targetWithMetadata",
+  "versionedTarget",
+  "metadata-batch",
+  "export",
+  "import",
+  "restore",
+  "validate",
+  "capability",
+  "codescan"
+]);
+function withSqlclTimings(action) {
+  return storage.getStore() ? action() : storage.run([], action);
+}
+function sqlclTimings() {
+  return storage.getStore()?.map((r) => ({ ...r })) ?? [];
+}
+function recordSqlclTiming(label, r) {
+  storage.getStore()?.push({
+    label: labels.has(label) ? label : "session",
+    spawnMs: r.spawnMs,
+    connectMs: r.connectMs,
+    executeMs: r.executeMs,
+    totalMs: r.totalMs,
+    reused: r.reused,
+    mutation: r.mutation,
+    connected: r.connected,
+    transport: r.transport
+  });
+}
+function executionTiming(transport, mutation = false, connected = false) {
+  return {
+    spawnMs: 0,
+    connectMs: null,
+    executeMs: 0,
+    totalMs: 0,
+    reused: false,
+    mutation,
+    connected,
+    transport
+  };
+}
+function emitSqlclTiming(callback, timing, started) {
+  timing.totalMs = performance.now() - started;
+  try {
+    callback?.({ ...timing });
+  } catch {
+  }
+}
+
+// packages/core/src/sqlcl-mcp.ts
+import { performance as performance3 } from "node:perf_hooks";
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
@@ -10570,6 +10633,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 // packages/core/src/process.ts
 import { spawn } from "node:child_process";
+import { performance as performance2 } from "node:perf_hooks";
 import { StringDecoder } from "node:string_decoder";
 var DRAIN_AFTER_EXIT_MS = 3e3;
 var groupKills = process.platform !== "win32";
@@ -10603,6 +10667,8 @@ function stopTree(child) {
 async function runProcess(r) {
   if (r.signal?.aborted)
     return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
+  const started = performance2.now();
+  const timing = executionTiming("cli", r.mutation, r.sqlclConnected);
   return new Promise((resolve, reject) => {
     const child = spawnTree(r.executable, r.args, {
       cwd: r.cwd,
@@ -10611,6 +10677,9 @@ async function runProcess(r) {
       stdio: "pipe",
       windowsHide: true,
       ...r.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}
+    });
+    child.once("spawn", () => {
+      timing.spawnMs = performance2.now() - started;
     });
     let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false, settled = false;
     const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
@@ -10646,6 +10715,8 @@ async function runProcess(r) {
       settled = true;
       clearTimeout(timer);
       r.signal?.removeEventListener("abort", abort);
+      timing.executeMs = performance2.now() - started - (timing.spawnMs ?? 0);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
       resolve({
         code,
         stdout: stdout + (truncated ? "" : decoders[0].end()),
@@ -10660,6 +10731,7 @@ async function runProcess(r) {
       settled = true;
       clearTimeout(timer);
       r.signal?.removeEventListener("abort", abort);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
       reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
     });
     child.on("close", (code) => finish(code));
@@ -10897,22 +10969,36 @@ function mcpResult(result, text) {
   };
 }
 async function runSqlclMcp(request) {
+  const started = performance3.now();
+  const timing = executionTiming(
+    "mcp",
+    request.mutation,
+    !!request.connectionName || !!request.sqlclConnected
+  );
   const session = new SqlclMcpClient(request);
   const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? 18e4));
   let submitted = false;
+  let executeStarted;
   try {
     await session.open(options());
+    timing.spawnMs = performance3.now() - started;
     if (request.connectionName) {
+      const connectStarted = performance3.now();
       const connected = await session.connect(request.connectionName, options);
+      timing.connectMs = performance3.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.text(connected));
     }
     submitted = true;
+    executeStarted = performance3.now();
     const result = await session.execute(request.input ?? "", options, () => request.mutation);
+    timing.executeMs = performance3.now() - executeStarted;
     return mcpResult(result, session.text(result, request.mutation));
   } catch (error) {
     throw mcpFailure(error, request, submitted);
   } finally {
+    if (executeStarted !== void 0) timing.executeMs = performance3.now() - executeStarted;
     await session.close();
+    emitSqlclTiming(request.onSqlclTiming, timing, started);
   }
 }
 
@@ -11017,12 +11103,16 @@ function installExitHook() {
     for (const p of pools.values()) for (const session of p.sessions) session.kill();
   });
 }
-async function prepare(session, request, options) {
+async function prepare(session, request, options, timing) {
   const fresh = !session.client.alive;
   if (fresh) {
+    const spawnStarted = performance4.now();
     await session.client.open(options()());
+    timing.spawnMs = (timing.spawnMs ?? 0) + performance4.now() - spawnStarted;
     if (request.connectionName) {
+      const connectStarted = performance4.now();
       const connected = await session.client.connect(request.connectionName, options());
+      timing.connectMs = (timing.connectMs ?? 0) + performance4.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.client.text(connected));
     }
     return;
@@ -11041,6 +11131,12 @@ async function prepare(session, request, options) {
 async function runPooledSqlcl(request) {
   if (request.signal?.aborted)
     return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
+  const started = performance4.now();
+  const timing = executionTiming(
+    "mcp-pool",
+    request.mutation,
+    !!request.connectionName || !!request.sqlclConnected
+  );
   const key = sqlclSessionKey(request);
   let session = await acquire(request, key);
   if (request.mutation && session.client.alive) {
@@ -11048,26 +11144,30 @@ async function runPooledSqlcl(request) {
     release(session);
     session = await acquire(request, key);
   }
+  timing.reused = session.client.alive;
   const deadline = Date.now() + (request.timeoutMs ?? 18e4);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
+  let executeStarted;
   try {
     let failed;
     try {
-      failed = await prepare(session, request, options);
+      failed = await prepare(session, request, options, timing);
     } catch (error) {
       if (!session.client.alive || request.signal?.aborted || Date.now() >= deadline) throw error;
       session.kill();
       release(session);
       session = await acquire(request, key);
-      failed = await prepare(session, request, options);
+      failed = await prepare(session, request, options, timing);
     }
     if (failed) {
       session.kill();
       return failed;
     }
     submitted = true;
+    executeStarted = performance4.now();
     const result = await session.client.execute(request.input ?? "", options(), () => request.mutation);
+    timing.executeMs = performance4.now() - executeStarted;
     const output = session.client.text(result, request.mutation);
     if (request.connectionName || request.mutation || result.isError || /(?:ORA-|SP2-|PLS-)\d+/i.test(output) || request.completionMarker && !output.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
       session.kill();
@@ -11087,7 +11187,9 @@ async function runPooledSqlcl(request) {
       };
     throw mcpFailure(error, request, submitted);
   } finally {
+    if (executeStarted !== void 0) timing.executeMs = performance4.now() - executeStarted;
     release(session);
+    emitSqlclTiming(request.onSqlclTiming, timing, started);
   }
 }
 async function closeSqlclSessions() {
@@ -11108,6 +11210,9 @@ function sqlclSessionStats() {
 }
 
 export {
+  withSqlclTimings,
+  sqlclTimings,
+  recordSqlclTiming,
   runProcess,
   safeParse2 as safeParse,
   getObjectShape,

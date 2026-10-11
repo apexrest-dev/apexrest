@@ -1,3 +1,5 @@
+import { performance } from 'node:perf_hooks';
+import { executionTiming, emitSqlclTiming, type SqlclExecutionTiming } from './sqlcl-timings.ts';
 import { canonical, hash } from './fs.ts';
 import type { ProcessResult } from './process.ts';
 import { Fault } from './result.ts';
@@ -128,12 +130,17 @@ async function prepare(
   session: PooledSession,
   request: SqlclSessionRequest,
   options: () => ReturnType<typeof mcpCallOptions>,
+  timing: SqlclExecutionTiming,
 ) {
   const fresh = !session.client.alive;
   if (fresh) {
+    const spawnStarted = performance.now();
     await session.client.open(options()());
+    timing.spawnMs = (timing.spawnMs ?? 0) + performance.now() - spawnStarted;
     if (request.connectionName) {
+      const connectStarted = performance.now();
       const connected = await session.client.connect(request.connectionName, options());
+      timing.connectMs = (timing.connectMs ?? 0) + performance.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.client.text(connected));
     }
     return;
@@ -153,6 +160,12 @@ async function prepare(
 export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<ProcessResult> {
   if (request.signal?.aborted)
     return { code: null, stdout: '', stderr: '', timedOut: false, cancelled: true, truncated: false };
+  const started = performance.now();
+  const timing = executionTiming(
+    'mcp-pool',
+    request.mutation,
+    !!request.connectionName || !!request.sqlclConnected,
+  );
   const key = sqlclSessionKey(request);
   let session = await acquire(request, key);
   if (request.mutation && session.client.alive) {
@@ -160,27 +173,31 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
     release(session);
     session = await acquire(request, key);
   }
+  timing.reused = session.client.alive;
   const deadline = Date.now() + (request.timeoutMs ?? 180000);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
+  let executeStarted: number | undefined;
   try {
     let failed;
     try {
-      failed = await prepare(session, request, options);
+      failed = await prepare(session, request, options, timing);
     } catch (error) {
       // A failed idle probe has submitted no user batch; reconnect once.
       if (!session.client.alive || request.signal?.aborted || Date.now() >= deadline) throw error;
       session.kill();
       release(session);
       session = await acquire(request, key);
-      failed = await prepare(session, request, options);
+      failed = await prepare(session, request, options, timing);
     }
     if (failed) {
       session.kill();
       return failed;
     }
     submitted = true;
+    executeStarted = performance.now();
     const result = await session.client.execute(request.input ?? '', options(), () => request.mutation);
+    timing.executeMs = performance.now() - executeStarted;
     const output = session.client.text(result, request.mutation);
     // Connected servers are released after each batch: no session state (binds,
     // SET options, current schema) carries over between connected calls. Offline
@@ -218,7 +235,9 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
       };
     throw mcpFailure(error, request, submitted);
   } finally {
+    if (executeStarted !== undefined) timing.executeMs = performance.now() - executeStarted;
     release(session);
+    emitSqlclTiming(request.onSqlclTiming, timing, started);
   }
 }
 /** Kill every pooled SQLcl server (process exit, tests, explicit shutdown). */

@@ -1,7 +1,12 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
+import { executionTiming, emitSqlclTiming, type SqlclExecutionTiming } from './sqlcl-timings.ts';
 import { StringDecoder } from 'node:string_decoder';
 import { Fault, redact } from './result.ts';
 export interface ProcessRequest {
+  onSqlclTiming?: (timing: SqlclExecutionTiming) => void;
+  sqlclConnected?: boolean;
+  mutation?: boolean;
   executable: string;
   args: string[];
   cwd: string;
@@ -65,6 +70,8 @@ export function stopTree(child: ChildProcess) {
 export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
   if (r.signal?.aborted)
     return { code: null, stdout: '', stderr: '', timedOut: false, cancelled: true, truncated: false };
+  const started = performance.now();
+  const timing = executionTiming('cli', r.mutation, r.sqlclConnected);
   return new Promise((resolve, reject) => {
     const child = spawnTree(r.executable, r.args, {
       cwd: r.cwd,
@@ -73,6 +80,9 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       stdio: 'pipe',
       windowsHide: true,
       ...(r.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
+    });
+    child.once('spawn', () => {
+      timing.spawnMs = performance.now() - started;
     });
     let stdout = '',
       stderr = '',
@@ -116,6 +126,8 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       // stdout is returned verbatim: callers parse JSON rows from it and a textual
       // redaction would corrupt them. Secret scrubbing is the adapter's job
       // (oracle.ts) and the result envelope redacts messages again.
+      timing.executeMs = performance.now() - started - (timing.spawnMs ?? 0);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
       resolve({
         code,
         stdout: stdout + (truncated ? '' : decoders[0]!.end()),
@@ -130,6 +142,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       settled = true;
       clearTimeout(timer);
       r.signal?.removeEventListener('abort', abort);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
       reject(new Fault('DEPENDENCY_MISSING', e.message, 3, 'dependency_missing'));
     });
     child.on('close', (code) => finish(code));

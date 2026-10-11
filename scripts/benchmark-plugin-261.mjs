@@ -16,6 +16,7 @@ const { values } = parseArgs({
     samples: { type: 'string', default: '20' },
     output: { type: 'string', default: 'docs/evidence/plugin-server/performance-20.json' },
     rollout: { type: 'string' },
+    scenarios: { type: 'string' },
   },
 });
 assert.ok(values.project);
@@ -27,6 +28,16 @@ const config = JSON.parse(await readFile(path.join(project, 'apexrest.json'), 'u
 const target = config.environments[values.env];
 assert.equal(config.toolchain.profile, '26.1');
 assert.ok(['test', 'qa', 'dev', 'development'].includes(target?.kind));
+const allowedScenarios = [
+  'cold-mcp-startup-reference',
+  'warm-reference-search',
+  'warm-project-summary',
+  'live-metadata-batch-three-kinds',
+  'oracle-compiler-validation',
+  'read-only-full-import-plan',
+];
+const selectedScenarios = values.scenarios?.split(',') ?? allowedScenarios;
+assert.ok(selectedScenarios.length && selectedScenarios.every((id) => allowedScenarios.includes(id)));
 const runtime = path.resolve('dist/runtime/mcp.mjs');
 const report = {
   schemaVersion: 1,
@@ -48,6 +59,7 @@ const report = {
     parsingSchema: target.parsingSchema,
   },
   samplesPerScenario: samples,
+  selectedScenarios,
   warmupPolicy: 'One verified invocation excluded before each scenario.',
   executionSurface: 'Current-build stdio MCP; no model session per invocation.',
   network:
@@ -90,6 +102,7 @@ function verifyReference(r) {
   assert.ok(r.data.every((x) => x.version.startsWith('26.1')));
 }
 async function measure(id, invoke, verify) {
+  if (!selectedScenarios.includes(id)) return;
   const scenario = { id, warmup: null, samples: [], status: 'running' };
   report.scenarios.push(scenario);
   const run = async (iteration, excluded) => {
@@ -98,7 +111,13 @@ async function measure(id, invoke, verify) {
     try {
       const r = await invoke();
       verify(r);
+      const sqlclTimings = r.data?.sqlclTimings ?? r.data?.details?.sqlclTimings ?? [];
+      if (['live-metadata-batch-three-kinds', 'read-only-full-import-plan'].includes(id))
+        assert.ok(sqlclTimings.length, 'Missing SQLcl timing evidence');
       return {
+        sqlclTimings,
+        sessions: sqlclTimings.length,
+        connectedSessions: sqlclTimings.filter((t) => t.connected).length,
         iteration,
         excluded,
         elapsedMs: performance.now() - started,
@@ -142,6 +161,19 @@ async function measure(id, invoke, verify) {
   scenario.successLatency = statistics(
     scenario.samples.filter((s) => s.status === 'passed').map((s) => s.elapsedMs),
   );
+  const successes = scenario.samples.filter((s) => s.status === 'passed');
+  const median = (numbers) => (numbers.length ? statistics(numbers).medianMs : null);
+  scenario.sqlcl = {
+    medianSessions: median(successes.map((s) => s.sessions)),
+    medianConnectedSessions: median(successes.map((s) => s.connectedSessions)),
+    medianSpawnMs: median(successes.map((s) => s.sqlclTimings.reduce((sum, t) => sum + (t.spawnMs ?? 0), 0))),
+    medianConnectMs: successes.some((s) => s.sqlclTimings.some((t) => t.connectMs !== null))
+      ? median(successes.map((s) => s.sqlclTimings.reduce((sum, t) => sum + (t.connectMs ?? 0), 0)))
+      : null,
+    medianExecuteMs: median(successes.map((s) => s.sqlclTimings.reduce((sum, t) => sum + t.executeMs, 0))),
+    splitScope:
+      'Per-invocation summed session phases; CLI connect is inside executeMs, so connectMs is unavailable.',
+  };
   scenario.status = scenario.failedSamples ? 'failed' : 'passed';
   await savePrivateJson(values.output, report);
 }
@@ -196,7 +228,7 @@ try {
   }));
   await measure(
     'live-metadata-batch-three-kinds',
-    () => call(client, 'apexrest_metadata_read', { project, env: values.env, requests }),
+    () => call(client, 'apexrest_metadata_read', { project, env: values.env, requests, debugTimings: true }),
     (r) => {
       assert.equal(r.data.targetVerifiedOnce, true);
       assert.equal(r.data.results.length, 3);

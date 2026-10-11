@@ -34,6 +34,7 @@ export const metadataInputSchema = z.strictObject({
   offset: metadataOffset.optional(),
   limit: metadataLimit.optional(),
   requests: metadataRequests.optional(),
+  debugTimings: z.boolean().optional(),
 });
 const queries = {
   'apex-capabilities': apexCapabilitiesQuery,

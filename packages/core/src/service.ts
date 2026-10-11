@@ -1,3 +1,4 @@
+import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import { composePlan, composeMaterialize } from './composer/service.ts';
 import { VERSION } from './version.ts';
 import path from 'node:path';
@@ -107,6 +108,42 @@ function routeReference(parsed: Record<string, unknown>) {
   return { operation: 'docs.search', input: { ...rest, query, offset, ...(limit ? { limit } : {}) } };
 }
 export async function dispatch(
+  operation: string,
+  input: Record<string, unknown> = {},
+  signal?: AbortSignal,
+  progress?: (phase: JobPhase) => void,
+): Promise<Result> {
+  return withSqlclTimings(async () => {
+    const result = await dispatchObserved(operation, input, signal, progress);
+    const timings = sqlclTimings();
+    if (operation === 'metadata.read' && result.ok) {
+      return {
+        ...result,
+        data: {
+          ...(result.data as object),
+          sessions: timings.length,
+          sqlclMs: timings.reduce((sum, r) => sum + r.totalMs, 0),
+          ...(input.debugTimings === true ? { sqlclTimings: timings } : {}),
+        },
+      };
+    }
+    if ((operation === 'ship' || operation === 'ship.apply') && (result.ok || timings.length)) {
+      const data = (result.data ?? {}) as Record<string, unknown>;
+      return {
+        ...result,
+        data: {
+          ...data,
+          details: {
+            ...((data.details as object) ?? {}),
+            sqlclTimings: timings,
+          },
+        },
+      };
+    }
+    return result;
+  });
+}
+async function dispatchObserved(
   operation: string,
   input: Record<string, unknown> = {},
   signal?: AbortSignal,
@@ -283,7 +320,7 @@ export async function dispatch(
             break;
           case 'metadata.read': {
             const env = environment(ctx, text('env'));
-            const { project: _p, env: _e, ...request } = parsed;
+            const { project: _p, env: _e, debugTimings: _debug, ...request } = parsed;
             data = await metadataRead(oracle, env, await resolveConnection(env.readConnectionRef), request);
             break;
           }

@@ -5,5 +5,5 @@ if (Number(process.versions.node.split(".")[0]) < 24) {
   process.stderr.write("APEXREST requires Node.js 24 or newer.\n");
   process.exit(3);
 }
-var { startMcp } = await import("./chunk-UM6BHOFC.mjs");
+var { startMcp } = await import("./chunk-3WCZ77PU.mjs");
 await startMcp();

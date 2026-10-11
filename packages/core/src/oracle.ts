@@ -1,3 +1,5 @@
+import { performance } from 'node:perf_hooks';
+import { recordSqlclTiming, type SqlclLabel } from './sqlcl-timings.ts';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
@@ -220,6 +222,7 @@ export class OracleAdapter {
     format: 'text' | 'json' = 'text',
     restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
     isolated = false,
+    label: SqlclLabel = 'session',
   ) {
     if (restrictLevel && (await this.settings()).mode === 'mcp')
       throw new Fault(
@@ -230,7 +233,17 @@ export class OracleAdapter {
       );
     const work = cwd ?? (await this.stage());
     try {
-      return await this.sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated);
+      return await this.sessionIn(
+        work,
+        input,
+        connection,
+        mutation,
+        signal,
+        format,
+        restrictLevel,
+        isolated,
+        label,
+      );
     } finally {
       if (!cwd) await this.discardStage(work);
     }
@@ -244,6 +257,7 @@ export class OracleAdapter {
     format: 'text' | 'json',
     restrictLevel: typeof SCRIPT_RESTRICT_LEVEL | undefined,
     isolated: boolean,
+    label: SqlclLabel,
   ) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
@@ -277,7 +291,14 @@ export class OracleAdapter {
       ? `set history filter default connect\nconnect -orest -user "${selected.ords.username}" -password "${selected.ords.password}" -url "${selected.ords.url}"\n`
       : '';
     const marker = `APEXREST_COMPLETE_${randomUUID().replaceAll('-', '')}`;
+    let timingRecorded = false;
     const request: ProcessRequest = {
+      mutation,
+      sqlclConnected: !!selected,
+      onSqlclTiming: (timing) => {
+        timingRecorded = true;
+        recordSqlclTiming(label, timing);
+      },
       executable: settings.executable,
       args,
       cwd: work,
@@ -299,35 +320,53 @@ export class OracleAdapter {
         ? this.mcpRunner === runSqlclMcp
         : this.runner === runProcess && !selected && settings.databaseTransport !== 'ords');
     const viaServer = settings.mode === 'mcp' || pooled;
-    const raw = viaServer
-      ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
-          ...request,
-          cwd: pooled ? await this.sessionHome() : work,
-          // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
-          // also suppresses connmgr output, unlike the default MCP profile.
-          args:
-            settings.mode === 'mcp'
-              ? settings.mcpRestrictLevel === '4'
-                ? ['-mcp']
-                : ['-R', '1', '-mcp']
-              : [...(restrictLevel ? ['-R', restrictLevel] : []), '-mcp'],
-          // CLI's final EXIT commits on success. Preserve that transaction
-          // boundary before acknowledging a write over a persistent session.
-          input:
-            (settings.mode === 'cli' ? preamble.replace(/exit failure rollback/g, 'continue') : preamble) +
-            // Persistent servers keep SET state between batches; start neutral.
-            (selected?.name
-              ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n"
-              : '') +
-            'set serveroutput off\nset sqlformat default\n' +
-            input +
-            (mutation ? '\ncommit;\n' : '\n') +
-            `prompt ${marker}\n`,
+    const executionStarted = performance.now();
+    let raw: ProcessResult;
+    try {
+      raw = viaServer
+        ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
+            ...request,
+            cwd: pooled ? await this.sessionHome() : work,
+            // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
+            // also suppresses connmgr output, unlike the default MCP profile.
+            args:
+              settings.mode === 'mcp'
+                ? settings.mcpRestrictLevel === '4'
+                  ? ['-mcp']
+                  : ['-R', '1', '-mcp']
+                : [...(restrictLevel ? ['-R', restrictLevel] : []), '-mcp'],
+            // CLI's final EXIT commits on success. Preserve that transaction
+            // boundary before acknowledging a write over a persistent session.
+            input:
+              (settings.mode === 'cli' ? preamble.replace(/exit failure rollback/g, 'continue') : preamble) +
+              // Persistent servers keep SET state between batches; start neutral.
+              (selected?.name
+                ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n"
+                : '') +
+              'set serveroutput off\nset sqlformat default\n' +
+              input +
+              (mutation ? '\ncommit;\n' : '\n') +
+              `prompt ${marker}\n`,
+            mutation,
+            completionMarker: marker,
+            ...(selected?.name ? { connectionName: selected.name } : {}),
+          })
+        : await this.runner(request);
+    } finally {
+      if (!timingRecorded) {
+        const elapsed = performance.now() - executionStarted;
+        recordSqlclTiming(label, {
+          spawnMs: null,
+          connectMs: null,
+          executeMs: elapsed,
+          totalMs: elapsed,
+          reused: false,
           mutation,
-          completionMarker: marker,
-          ...(selected?.name ? { connectionName: selected.name } : {}),
-        })
-      : await this.runner(request);
+          connected: !!selected,
+          transport: viaServer ? (pooled ? 'mcp-pool' : 'mcp') : 'cli',
+        });
+      }
+    }
     const secret = selected?.ords?.password;
     // Internal JSON rows can legitimately equal a short password (for example
     // the schema name). Do not rewrite result data before parsing/identity
@@ -456,7 +495,19 @@ export class OracleAdapter {
       await this.discardStage(versionStage);
     }
     oracleDiagnostics(version);
-    const help = (await this.session('help apex')).output;
+    const help = (
+      await this.session(
+        'help apex',
+        undefined,
+        false,
+        undefined,
+        undefined,
+        'text',
+        undefined,
+        false,
+        'capability',
+      )
+    ).output;
     // An installation replaced during the probe must not keep this answer.
     if (key && key !== (await this.capabilityKey(settings))) capabilityCache.delete(key);
     const commands = Object.fromEntries(
@@ -622,6 +673,10 @@ export class OracleAdapter {
         false,
         signal,
         stage,
+        'text',
+        undefined,
+        false,
+        'validate',
       );
     } catch (error) {
       // Compile errors are text with exit code 0 that the session classifies
@@ -675,6 +730,10 @@ export class OracleAdapter {
           false,
           undefined,
           stage,
+          'text',
+          undefined,
+          false,
+          'export',
         );
     const directory = format === 'APEXLANG' ? await this.findApplication(exportRoot) : exportRoot;
     const files = await inventory(directory);
@@ -945,6 +1004,7 @@ export class OracleAdapter {
     connection: Connection,
     bindings: Record<string, string | number> = {},
     signal?: AbortSignal,
+    label: SqlclLabel = 'metadata-batch',
   ) {
     const ords = (await this.settings()).databaseTransport === 'ords';
     const result = await this.session(
@@ -954,6 +1014,9 @@ export class OracleAdapter {
       signal,
       undefined,
       'json',
+      undefined,
+      false,
+      label,
     );
     return this.parseRows(result.output);
   }
@@ -966,6 +1029,7 @@ export class OracleAdapter {
     queries: { sql: string; bindings?: Record<string, string | number> }[],
     connection: Connection,
     signal?: AbortSignal,
+    label: SqlclLabel = 'metadata-batch',
   ) {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === 'ords';
@@ -976,7 +1040,17 @@ export class OracleAdapter {
           `${this.bindPreamble(query.bindings ?? {}, ords)}\nset sqlformat json\n${query.sql};\nprompt ${token}_${index}`,
       )
       .join('\n');
-    const result = await this.session(input, connection, false, signal, undefined, 'json');
+    const result = await this.session(
+      input,
+      connection,
+      false,
+      signal,
+      undefined,
+      'json',
+      undefined,
+      false,
+      label,
+    );
     // SQLcl 26.3's JSON formatter can omit its final newline, so PROMPT
     // immediately follows the envelope's closing brace. Normalize only our
     // private end-of-line delimiter; never rewrite returned JSON row data.
@@ -1031,10 +1105,16 @@ export class OracleAdapter {
     // SQLcl session. Never reuse this result between plan/apply/write checks.
     const rows =
       observed ??
-      (await this.jsonQuery(targetIdentitySql, connection, {
-        p_workspace: env.workspace,
-        p_app_id: env.applicationId,
-      }));
+      (await this.jsonQuery(
+        targetIdentitySql,
+        connection,
+        {
+          p_workspace: env.workspace,
+          p_app_id: env.applicationId,
+        },
+        undefined,
+        'verifyTarget',
+      ));
     const identities = rows.filter((row) => row.target_record === 'identity');
     if (identities.length !== 1)
       throw new Fault('IDENTITY_UNCONFIRMED', 'Database identity was not confirmed.', 3);
@@ -1107,6 +1187,8 @@ export class OracleAdapter {
         where application_id = :p_app_id and workspace = :p_workspace and owner = :p_owner`,
       connection,
       { p_app_id: env.applicationId, p_workspace: env.workspace, p_owner: env.parsingSchema },
+      undefined,
+      'applicationMetadata',
     );
     const row = rows[0];
     // SQLcl 26.3 omits null-valued JSON properties. Explicit SQL flags
@@ -1253,6 +1335,8 @@ export class OracleAdapter {
         selectedFiles ? source : undefined,
         'text',
         SCRIPT_RESTRICT_LEVEL,
+        false,
+        'import',
       );
     } catch (error) {
       // Compiler output arrives as text with exit code 0; keep the fault, add structure.

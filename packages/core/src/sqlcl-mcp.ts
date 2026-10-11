@@ -1,3 +1,5 @@
+import { performance } from 'node:perf_hooks';
+import { executionTiming, emitSqlclTiming } from './sqlcl-timings.ts';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { ReadBuffer, serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -256,21 +258,35 @@ export function mcpResult(result: CallToolResult, text: string): ProcessResult {
 // submitted command, or silently switch to the CLI. Persistent reuse lives in
 // sqlcl-session.ts.
 export async function runSqlclMcp(request: SqlclMcpRequest): Promise<ProcessResult> {
+  const started = performance.now();
+  const timing = executionTiming(
+    'mcp',
+    request.mutation,
+    !!request.connectionName || !!request.sqlclConnected,
+  );
   const session = new SqlclMcpClient(request);
   const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? 180000));
   let submitted = false;
+  let executeStarted: number | undefined;
   try {
     await session.open(options());
+    timing.spawnMs = performance.now() - started;
     if (request.connectionName) {
+      const connectStarted = performance.now();
       const connected = await session.connect(request.connectionName, options);
+      timing.connectMs = performance.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.text(connected));
     }
     submitted = true;
+    executeStarted = performance.now();
     const result = await session.execute(request.input ?? '', options, () => request.mutation);
+    timing.executeMs = performance.now() - executeStarted;
     return mcpResult(result, session.text(result, request.mutation));
   } catch (error) {
     throw mcpFailure(error, request, submitted);
   } finally {
+    if (executeStarted !== undefined) timing.executeMs = performance.now() - executeStarted;
     await session.close();
+    emitSqlclTiming(request.onSqlclTiming, timing, started);
   }
 }

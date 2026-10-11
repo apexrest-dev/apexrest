@@ -2,6 +2,7 @@
 
 ## Connected and host qualification
 
+- Complete the read-only P0/P1 session-reduction benchmark using the per-operation SQLcl timings. Preserve fresh identity, drift and post-import observations, and the discard-after-connected-batch policy. Any apply-speed improvement remains unmeasured on Oracle until a separate import run is explicitly authorized.
 - Reuse the 49-case [APEX 26.1 server test catalog](../tests/plugin-server/README.md), nine host-browser shell/session cases, current-build MCP runner and host time/token checkpoints. The authorized 26.1.5 title-import/reset and exact 21-file final audit passed; retain their private evidence and baseline. Extend metadata object/signature fixtures, separately planned backup restore, real fault recovery, Composer runtime and fresh host/platform scenarios with their required targets and authorization. Use the separate 20-repetition read-only benchmark for cold/warm latency; model-driven workflow and historical regression comparisons require their own controlled baseline. Refresh the installed plugin and open a fresh native session to verify the hyphenated-workspace fix currently confirmed only in the current build.
 - Add APEX 26.2 as a separate `A262-*` extension catalog and separate results. Do not mix 26.2 selected-file/API/profile evidence into the 26.1 baseline. Keep the seven advisory security findings from the existing 26.1 application separate from the local 26.2 CRM findings below; remediation would require its own reviewed scope.
 
