@@ -34,6 +34,7 @@ function empty() {
     jobPolls: 0,
     secretLeaks: 0,
     permissionPrompts: null,
+    permissionTextHints: 0,
     permissionReason: 'No permission request/denial records were recorded by this host.',
     wallTimeMs: null,
   };
@@ -101,11 +102,15 @@ async function scan(file, start, end, secrets, forceSidechain = false, state = {
       const side = forceSidechain || r.isSidechain === true,
         m = side ? sidechain : main;
       for (const secret of secrets.filter((s) => s && s.length >= 4)) {
-        let from = 0;
-        while ((from = line.indexOf(secret, from)) !== -1) {
-          m.secretLeaks++;
-          from += secret.length;
+        const positions = new Set();
+        for (const form of new Set([secret, JSON.stringify(secret).slice(1, -1)])) {
+          let from = 0;
+          while ((from = line.indexOf(form, from)) !== -1) {
+            positions.add(from);
+            from += form.length;
+          }
         }
+        m.secretLeaks += positions.size;
       }
       const timestamp = Date.parse(r.timestamp);
       if (!side && Number.isFinite(timestamp)) {
@@ -131,8 +136,7 @@ async function scan(file, start, end, secrets, forceSidechain = false, state = {
         const key = (side ? 'side:' : 'main:') + 'permission:' + (denial.tool_use_id ?? position);
         if (!ids.has(key)) {
           ids.add(key);
-          m.permissionPrompts = (m.permissionPrompts ?? 0) + 1;
-          delete m.permissionReason;
+          m.permissionTextHints++;
         }
       }
       const p = r.payload ?? r;

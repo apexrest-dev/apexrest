@@ -297,8 +297,8 @@ try {
     sqlcl: report.toolchain?.probes?.find((p) => /SQLcl/i.test(p.version ?? ''))?.version ?? null,
     target: {
       ...report.target,
-      dbUniqueName: target.databaseIdentity.dbUniqueName,
-      serviceName: target.databaseIdentity.serviceName,
+      dbUniqueName: target?.databaseIdentity?.dbUniqueName ?? null,
+      serviceName: target?.databaseIdentity?.serviceName ?? null,
     },
   };
   report.regressions = [];

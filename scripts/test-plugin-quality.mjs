@@ -237,7 +237,7 @@ try {
   report.objectPrerequisites = {
     tableFound: !!table,
     packageFound: !!packageName,
-    signatureEmptyProbe: !packageName,
+    signatureEmptyProbe: false,
   };
   const kinds = [
     'objects',
@@ -318,7 +318,19 @@ try {
       );
   }
   if (enabled('A261-052')) {
-    for (const request of requests)
+    const missingObject = (request) =>
+      (['columns', 'constraints', 'constraint-columns'].includes(request.kind) && !table) ||
+      (request.kind === 'signatures' && !packageName);
+    for (const request of requests) {
+      if (missingObject(request)) {
+        report.checks.push({
+          id: 'A261-052',
+          scenario: request.kind,
+          status: 'not_run',
+          reason: 'objectPrerequisites: ' + JSON.stringify(report.objectPrerequisites),
+        });
+        continue;
+      }
       await measure(
         'A261-052',
         request.kind,
@@ -330,17 +342,26 @@ try {
         samples,
         true,
       );
-    await measure(
-      'A261-052',
-      'all-kinds',
-      () => metadata(requests),
-      (r, s) => {
-        verifyMeta(requests, r);
-        s.statementMs = timings(r)[0].statementMs.slice(1);
-        s.unattributedMs = timings(r)[0].executeMs - timings(r)[0].statementMs.reduce((a, b) => a + b, 0);
-      },
-      samples,
-    );
+    }
+    if (requests.some(missingObject))
+      report.checks.push({
+        id: 'A261-052',
+        scenario: 'all-kinds',
+        status: 'not_run',
+        reason: 'objectPrerequisites: ' + JSON.stringify(report.objectPrerequisites),
+      });
+    else
+      await measure(
+        'A261-052',
+        'all-kinds',
+        () => metadata(requests),
+        (r, s) => {
+          verifyMeta(requests, r);
+          s.statementMs = timings(r)[0].statementMs.slice(1);
+          s.unattributedMs = timings(r)[0].executeMs - timings(r)[0].statementMs.reduce((a, b) => a + b, 0);
+        },
+        samples,
+      );
     report.statementSummary = report.measurements
       .filter((m) => m.id === 'A261-052')
       .map((m) => ({
@@ -682,6 +703,8 @@ try {
       owned = new Set();
     async function processes() {
       const r = await runProcess('ps', ['-axo', 'pid=,ppid=,rss=,comm=']);
+      if (r.code !== 0)
+        throw Object.assign(new Error('Process observation failed.'), { code: 'PROCESS_OBSERVATION_FAILED' });
       return r.stdout
         .trim()
         .split('\n')
@@ -715,13 +738,19 @@ try {
     const before = await observe(),
       beforeFds = await fds(),
       beforeStages = await stages();
-    let observing = false;
+    let observing = false,
+      observationFailure = null,
+      observationPromise;
     const timer = setInterval(() => {
       if (!observing) {
         observing = true;
-        observe().finally(() => {
-          observing = false;
-        });
+        observationPromise = observe()
+          .catch((error) => {
+            observationFailure = error.code ?? 'PROCESS_OBSERVATION_FAILED';
+          })
+          .finally(() => {
+            observing = false;
+          });
       }
     }, 500);
     const m = await measure(
@@ -732,6 +761,7 @@ try {
       120,
     );
     clearInterval(timer);
+    await observationPromise;
     const after = await observe(),
       afterFds = await fds(),
       afterStages = await stages();
@@ -771,7 +801,8 @@ try {
     report.checks.push({
       id: 'A261-062',
       scenario: 'resource-postconditions',
-      status: resourcePass ? 'passed' : 'failed',
+      status: observationFailure ? 'blocked' : resourcePass ? 'passed' : 'failed',
+      ...(observationFailure ? { reason: observationFailure } : {}),
     });
   }
   if (enabled('A261-063')) {

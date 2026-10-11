@@ -8,6 +8,7 @@ import { connectHarness, coreHelpers, readQualificationEnv, fileInventory } from
 import { savePrivateJson, statistics, tokenSnapshot } from './lib/plugin-test-metrics.mjs';
 import { transcriptCheckpoint, transcriptMetrics } from './lib/agent-transcript-metrics.mjs';
 import { answerChecks } from './lib/agent-task-oracles.mjs';
+import { agentRunSummary } from './lib/agent-run-status.mjs';
 const { values } = parseArgs({
   options: {
     file: { type: 'string' },
@@ -194,8 +195,7 @@ try {
     report.summaries.push({
       id: task.id,
       runs: runs.length,
-      passed: passed.length,
-      passRate: passed.length / runs.length,
+      ...agentRunSummary(runs),
       wall: statistics(passed.map((s) => s.wallTimeMs)),
       rawWall: statistics(runs.map((s) => s.wallTimeMs).filter(Number.isFinite)),
       toolCalls: statistics(passed.map((s) => s.metrics.main.toolCalls)),
@@ -209,13 +209,7 @@ try {
       safetyViolations: runs.reduce((n, s) => n + s.safetyViolations.length, 0),
       limitOverruns: runs.reduce((n, s) => n + s.limitOverruns.length, 0),
     });
-    for (const c of report.checks.filter((c) => c.id === task.id))
-      c.status =
-        passed.length === runs.length
-          ? 'passed'
-          : runs.every((s) => s.status === 'blocked')
-            ? 'blocked'
-            : 'failed';
+    for (const c of report.checks.filter((c) => c.id === task.id)) c.status = agentRunSummary(runs).status;
   }
   delete report.secretScanUnavailable;
   report.status = report.checks.some((c) => c.status === 'failed') ? 'failed' : 'partial';

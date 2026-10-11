@@ -86,3 +86,17 @@ test('unmet P2 prerequisites are never skipped-success', () => {
     'prewarm required',
   );
 });
+test(
+  'harness subprocess timeout kills descendants that ignore TERM',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const { runProcess } = await import('../../scripts/lib/plugin-harness.mjs');
+    const result = await runProcess('sh', ['-c', 'sh -c \'trap "" TERM; sleep 30\' & echo $!; wait'], {
+      timeoutMs: 100,
+    });
+    assert.equal(result.timedOut, true);
+    const pid = Number(result.stdout.trim());
+    assert.ok(pid > 0);
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  },
+);

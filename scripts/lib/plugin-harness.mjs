@@ -83,13 +83,31 @@ export function prerequisite(definition, capabilities = {}) {
 }
 export function runProcess(command, args, { input = '', cwd, timeoutMs = 600000, env = process.env } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const grouped = process.platform !== 'win32';
+    const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: grouped });
     let stdout = '',
       stderr = '',
-      timedOut = false;
+      timedOut = false,
+      settled = false,
+      drain;
+    const kill = (signal) => {
+      if (grouped && child.pid) {
+        try {
+          process.kill(-child.pid, signal);
+        } catch {
+          /* Already gone. */
+        }
+      } else if (child.pid) {
+        spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+          .on('error', () => child.kill(signal))
+          .unref();
+      }
+    };
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
+      kill('SIGTERM');
+      const hard = setTimeout(() => kill('SIGKILL'), 1500);
+      hard.unref();
     }, timeoutMs);
     child.stdout.on('data', (b) => {
       stdout += b;
@@ -98,12 +116,27 @@ export function runProcess(command, args, { input = '', cwd, timeoutMs = 600000,
       stderr += b;
     });
     child.on('error', (e) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       reject(e);
     });
-    child.on('close', (code, signal) => {
+    const finish = (code, signal) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       resolve({ code, signal, timedOut, stdout, stderr, pid: child.pid });
+    };
+    child.on('close', finish);
+    child.on('exit', (code, signal) => {
+      drain = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish(code, signal);
+      }, 3000);
+      drain.unref();
     });
     child.stdin.on('error', () => {});
     child.stdin.end(input);

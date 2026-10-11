@@ -42,6 +42,51 @@ async function fixture(records, verify) {
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+test('Oracle permission error text is a hint, not a native permission prompt', async () => {
+  await fixture(
+    [
+      {
+        type: 'user',
+        sessionId: 'synthetic',
+        message: {
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: 'error',
+              is_error: true,
+              content: 'ORA-01031: permission denied',
+            },
+          ],
+        },
+      },
+    ],
+    (r) => {
+      assert.equal(r.main.permissionPrompts, null);
+      assert.equal(r.main.permissionTextHints, 1);
+    },
+  );
+});
+test('JSON-escaped secret values remain observable without persisting their content', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'escaped-secret-'));
+  try {
+    const file = path.join(dir, 'session.jsonl'),
+      secret = 'synthetic"quote\\value';
+    await writeFile(
+      file,
+      JSON.stringify({ type: 'user', sessionId: 'synthetic', message: { content: secret } }) + '\n',
+    );
+    const result = await transcriptMetrics(
+      { available: true, file, bytes: 0 },
+      await transcriptCheckpoint(file),
+      { secrets: [secret] },
+    );
+    assert.equal(result.main.secretLeaks, 1);
+    assert.ok(!JSON.stringify(result).includes(secret));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 test('Claude stream duplicates, metrics, privacy and sidechains', () =>
   fixture(
     [

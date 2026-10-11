@@ -1,4 +1,5 @@
 import { answerChecks, agentTaskPrerequisite } from './lib/agent-task-oracles.mjs';
+import { agentRunSummary } from './lib/agent-run-status.mjs';
 import {
   prepareAgentInstructions,
   instructionReadObserved,
@@ -513,8 +514,7 @@ try {
     report.summaries.push({
       id: task.id,
       runs: runs.length,
-      passed: passed.length,
-      passRate: passed.length / runs.length,
+      ...agentRunSummary(runs),
       wall: statistics(passed.map((r) => r.wallTimeMs)),
       toolCalls: statistics(passed.map((r) => r.metrics.main.toolCalls)),
       normalizedTokens: statistics(
@@ -529,12 +529,7 @@ try {
     });
     report.checks.push({
       id: task.id,
-      status:
-        passed.length === runs.length
-          ? 'passed'
-          : runs.every((r) => r.status === 'blocked')
-            ? 'blocked'
-            : 'failed',
+      status: agentRunSummary(runs).status,
     });
     await save();
   }
@@ -547,7 +542,7 @@ try {
     ? 'failed'
     : report.checks.some((c) => c.status === 'blocked')
       ? 'blocked'
-      : report.checks.some((c) => c.status === 'not_run')
+      : report.checks.some((c) => ['not_run', 'partial', 'needs_review'].includes(c.status))
         ? 'partial'
         : 'passed';
   await save();
