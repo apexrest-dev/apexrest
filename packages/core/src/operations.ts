@@ -269,6 +269,7 @@ export const schemas = {
   ship: z
     .strictObject({
       ...base,
+      debugTimings: z.boolean().optional(),
       env,
       mode: z.enum(['plan', 'apply', 'recover']).default('plan'),
       plan: relativePath.optional(),

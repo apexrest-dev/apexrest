@@ -10852,6 +10852,7 @@ var schemas = {
   }),
   ship: external_exports.strictObject({
     ...base,
+    debugTimings: external_exports.boolean().optional(),
     env,
     mode: external_exports.enum(["plan", "apply", "recover"]).default("plan"),
     plan: relativePath.optional(),
