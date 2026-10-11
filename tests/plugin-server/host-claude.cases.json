@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "suite": "apexrest-plugin-host-claude",
+  "host": "claude-code",
+  "metrics": "quality-performance.json",
+  "usageAdapter": {
+    "source": "Claude Code session transcript JSONL; sum message.usage per assistant message between checkpoints.",
+    "mapping": {
+      "input": "input_tokens + cache_creation_input_tokens + cache_read_input_tokens",
+      "cachedInput": "cache_read_input_tokens",
+      "cacheWriteInput": "cache_creation_input_tokens",
+      "output": "output_tokens",
+      "reasoningOutput": "not reported separately"
+    },
+    "status": "not implemented; HCL-003 is a prerequisite for token metrics on this host",
+    "accountingNote": "Claude reports input_tokens excluding cache reads/writes, unlike Codex. Normalize to the common counters before comparison; deduplicate streamed messages by message ID."
+  },
+  "cases": [
+    {
+      "id": "HCL-001",
+      "title": "Plugin install, validate, enable and disable",
+      "category": "quality",
+      "acceptance": ["A01", "A04", "A05"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "native-profile-change",
+      "steps": [
+        "Install the plugin through Claude Code plugin management on a disposable profile; run claude plugin validate; disable and re-enable; repeat install."
+      ],
+      "expected": [
+        ".claude-plugin manifest validates; skills and MCP server load; repeated install is idempotent."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ],
+      "timed": ["install wall time"]
+    },
+    {
+      "id": "HCL-002",
+      "title": "Fresh-session discovery and deferred tool loading",
+      "category": "speed+quality",
+      "acceptance": ["A01", "A27", "A34", "A36"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Open a fresh session; ask a trivial plugin question; record first-turn usage and whether tool schemas load on demand."
+      ],
+      "expected": [
+        "Six skills listed; ten tools reachable; first-turn plugin context cost is recorded against the budget."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-003",
+      "title": "Claude usage adapter",
+      "category": "quality",
+      "acceptance": ["CMP038"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Implement and verify a --transcript reader in plugin-test-metrics.mjs using the mapping above on a scripted two-turn scenario."
+      ],
+      "expected": [
+        "Deltas equal hand-summed usage; streamed duplicates are not double-counted; a missing transcript yields available:false."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-004",
+      "title": "Golden tasks on 26.1",
+      "category": "speed+quality",
+      "acceptance": ["A36", "HOST-PARITY-01", "CMP038"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "application-import",
+      "steps": ["Run agent-tasks.cases.json with profile 26.1, 3 repetitions each."],
+      "expected": [
+        "Per-task pass rate, median wall time, tool calls and token delta; zero safety violations."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ],
+      "prerequisite": "HCL-003 for token metrics; otherwise record tokens available:false."
+    },
+    {
+      "id": "HCL-005",
+      "title": "Golden tasks on 26.2",
+      "category": "speed+quality",
+      "acceptance": ["APEX262-04", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "local-non-production-task-scoped",
+      "steps": ["Run agent-tasks.cases.json with profile 26.2, 3 repetitions each."],
+      "expected": ["As HCL-004, with results kept separate from 26.1."],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-006",
+      "title": "Built-in or user-selected browser verification",
+      "category": "quality",
+      "acceptance": ["A19", "VERIFY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "After a requested deployment, verify through the built-in browser; repeat with Claude in Chrome when the user selects it."
+      ],
+      "expected": [
+        "Observations are recorded separately; credentials are read literally from ignored ENV and never echoed."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-007",
+      "title": "Permission-prompt friction",
+      "category": "speed+quality",
+      "acceptance": ["A36", "SAFETY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": ["Run AGT-001 and AGT-002 in the default permission mode and in auto mode."],
+      "expected": [
+        "Prompt count per task is recorded; plugin flows do not require prompts beyond host policy; safety outcomes are equal across modes."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-008",
+      "title": "MCP output limits",
+      "category": "quality",
+      "acceptance": ["A27", "A34"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Call the largest bounded responses (metadata page at max limit, reference read, plan) from Claude Code."
+      ],
+      "expected": [
+        "No response triggers the host MCP output truncation warning; bounded paging is offered instead."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-009",
+      "title": "Tool timeout versus long-poll wait",
+      "category": "speed+quality",
+      "acceptance": ["A35"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run a plan with the default waitSeconds and with a wait above the Claude Code MCP tool timeout."
+      ],
+      "expected": [
+        "The default wait stays below the host timeout; an over-long wait is clamped or rejected, never a host timeout."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-010",
+      "title": "Repository plugin freshness",
+      "category": "quality",
+      "acceptance": ["A24", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": ["Run the plugin integrity check before host tests."],
+      "expected": [
+        "The checked-in plugin digest matches the source tree; a stale bundle blocks host qualification (earlier pluginCheck failure)."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCL-011",
+      "title": "Update and uninstall preservation",
+      "category": "quality",
+      "acceptance": ["A23"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "disposable-host-profile",
+      "steps": [
+        "Update, then uninstall, on a profile with an existing project, backups and unrelated plugins."
+      ],
+      "expected": ["Projects, backups, settings and unrelated plugins are preserved."],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    }
+  ]
+}

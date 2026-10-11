@@ -23,3 +23,37 @@ test('APEX 26.1 reusable catalog maps every current acceptance criterion without
   }
   for (const id of acceptance) assert.ok(covered.has(id), `Missing scenario coverage: ${id}`);
 });
+
+test('quality/performance extension catalogs stay definitions with valid acceptance mappings', async () => {
+  const read = async (file) => JSON.parse(await readFile(`tests/plugin-server/${file}`, 'utf8'));
+  const matrix = await read('../../docs/acceptance.json');
+  const acceptance = new Set(matrix.criteria.map((c) => c.id));
+  const metrics = await read('quality-performance.json');
+  const catalogs = [
+    ['apex-26.1.cases.json', 'cases', /^A261-\d{3}$/],
+    ['apex-26.2.extensions.json', 'cases', /^A262-\d{3}$/],
+    ['agent-tasks.cases.json', 'tasks', /^AGT-\d{3}$/],
+    ['host-codex.cases.json', 'cases', /^HCX-\d{3}$/],
+    ['host-claude.cases.json', 'cases', /^HCL-\d{3}$/],
+  ];
+  const all = new Set();
+  for (const [file, key, pattern] of catalogs) {
+    assert.ok(metrics.appliesTo.includes(file), `${file} not covered by quality-performance.json`);
+    const catalog = await read(file);
+    assert.equal(catalog.metrics, 'quality-performance.json', file);
+    for (const c of catalog[key]) {
+      assert.match(c.id, pattern);
+      assert.ok(!all.has(c.id), `duplicate ${c.id}`);
+      all.add(c.id);
+      assert.ok(c.title && c.authorization && c.expected.length && c.evidence.length, c.id);
+      assert.ok(c.acceptance.length, `${c.id}: no acceptance mapping`);
+      assert.equal(c.status, undefined, `${c.id}: definitions must not pretend to be execution results`);
+      for (const id of c.acceptance) assert.ok(acceptance.has(id), `${c.id}: unknown acceptance ${id}`);
+      if (c.category) assert.ok(['speed', 'quality', 'speed+quality'].includes(c.category), c.id);
+    }
+  }
+  const a262 = await read('apex-26.2.extensions.json');
+  assert.equal(a262.apexRelease, '26.2.x');
+  assert.match(a262.isolationPolicy, /Never count 26\.2 results as 26\.1/);
+  for (const b of metrics.baselines) assert.ok(['26.1', '26.2'].includes(b.profile) && b.samples > 0);
+});

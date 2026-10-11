@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "suite": "apexrest-plugin-host-codex",
+  "host": "codex",
+  "metrics": "quality-performance.json",
+  "usageAdapter": {
+    "source": "Codex rollout JSONL token_count events (scripts/plugin-test-metrics.mjs --rollout).",
+    "mapping": {
+      "input": "input_tokens (includes cached)",
+      "cachedInput": "cached_input_tokens",
+      "cacheWriteInput": "cache_write_input_tokens",
+      "output": "output_tokens (includes reasoning)",
+      "reasoningOutput": "reasoning_output_tokens"
+    },
+    "status": "implemented"
+  },
+  "cases": [
+    {
+      "id": "HCX-001",
+      "title": "Native install, enable and disable",
+      "category": "quality",
+      "acceptance": ["A02", "A04", "A05"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "native-profile-change",
+      "steps": [
+        "Install through the primary bootstrap on a disposable profile; list, disable and re-enable the plugin; repeat setup."
+      ],
+      "expected": [
+        "The plugin is listed and toggles without manual JSON/TOML edits; repeated setup is idempotent."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ],
+      "timed": ["install wall time", "repeat-setup wall time"]
+    },
+    {
+      "id": "HCX-002",
+      "title": "Fresh-session discovery and startup context cost",
+      "category": "speed+quality",
+      "acceptance": ["A01", "A27", "A34", "A36"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": ["Open a fresh session; ask a trivial plugin question; record the first usage event."],
+      "expected": [
+        "Six skills and ten tools are discoverable; the first-turn input tokens attributable to the plugin are recorded against the budget in quality-performance.json."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-003",
+      "title": "Usage adapter accuracy",
+      "category": "quality",
+      "acceptance": ["CMP038"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Take start/finish checkpoints around a scripted two-turn scenario; compare with the raw rollout token_count events."
+      ],
+      "expected": [
+        "Deltas equal the raw counter differences; subsets are not double-counted; a missing record yields available:false."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-004",
+      "title": "Golden tasks on 26.1",
+      "category": "speed+quality",
+      "acceptance": ["A36", "HOST-PARITY-01", "CMP038"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "application-import",
+      "steps": ["Run agent-tasks.cases.json with profile 26.1, 3 repetitions each."],
+      "expected": [
+        "Per-task pass rate, median wall time, tool calls and token delta; zero safety violations."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-005",
+      "title": "Golden tasks on 26.2",
+      "category": "speed+quality",
+      "acceptance": ["APEX262-04", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "local-non-production-task-scoped",
+      "steps": ["Run agent-tasks.cases.json with profile 26.2, 3 repetitions each."],
+      "expected": ["As HCX-004, with results kept separate from 26.1."],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-006",
+      "title": "In-app browser handoff",
+      "category": "quality",
+      "acceptance": ["A19", "VERIFY-01"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Call apexrest_browser_open for the hyphenated workspace APEX-APP from the installed native plugin; open the URL in the Codex in-app browser."
+      ],
+      "expected": [
+        "The handoff succeeds in the installed plugin (regression for HYPHENATED_WORKSPACE_REJECTED); no credentials appear in the URL."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-007",
+      "title": "Sandbox and approval interplay",
+      "category": "quality",
+      "acceptance": ["A22", "A36"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": ["Run plan and apply under the default Codex sandbox and approval mode."],
+      "expected": [
+        "Sandbox denials surface as actionable plugin errors; no silent fallback; the number of approval prompts is recorded as friction."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-008",
+      "title": "Tool timeout versus long-poll wait",
+      "category": "speed+quality",
+      "acceptance": ["A35"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read the host MCP tool timeout; run a plan with the default waitSeconds and with a wait above the host timeout."
+      ],
+      "expected": [
+        "The default wait stays below the host timeout; an over-long wait is clamped or rejected, never a host timeout."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    },
+    {
+      "id": "HCX-009",
+      "title": "Update and uninstall preservation",
+      "category": "quality",
+      "acceptance": ["A23", "A07"],
+      "execution": "manual",
+      "surface": "native-host-session",
+      "authorization": "disposable-host-profile",
+      "steps": [
+        "Update to a newer local build, then uninstall, on a profile with an existing project, backups and unrelated plugins."
+      ],
+      "expected": ["Projects, backups, settings and unrelated plugins are preserved."],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ]
+    }
+  ]
+}

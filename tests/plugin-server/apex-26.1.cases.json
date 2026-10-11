@@ -955,6 +955,488 @@
         "explicit not-run/blocked reason"
       ],
       "budgetMs": null
+    },
+    {
+      "id": "A261-050",
+      "title": "Connected session budget per read operation",
+      "category": "speed",
+      "acceptance": ["A34", "A35", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "With debugTimings, call connection_test, a three-kind metadata batch, one single metadata read, a full-import plan and sync status.",
+        "Count sqlclTimings records per call by connected/offline, reused and mutation flags."
+      ],
+      "expected": [
+        "Metadata batch and single read: exactly 1 connected session each.",
+        "Plan: 1 connected session plus at most 1 reused offline compiler session.",
+        "connection_test: 1 connected session; sync status: 0 connected sessions.",
+        "Every record has mutation=false and contains no SQL, bindings or credentials."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "sessionBudget": {
+        "metadataBatch": 1,
+        "metadataSingle": 1,
+        "planConnected": 1,
+        "planOffline": 1,
+        "connectionTest": 1,
+        "syncStatus": 0
+      }
+    },
+    {
+      "id": "A261-051",
+      "title": "Measured working-copy apply latency and phase split",
+      "category": "speed+quality",
+      "acceptance": ["A19", "A39", "A40", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "application-import",
+      "steps": [
+        "Use the A261-028 title-marker change on the identified test application.",
+        "Run 1 excluded warm-up and 10 measured validate/plan/apply cycles; restart MCP after cycle 5.",
+        "Record journal phase timings, sqlclTimings and job observation count per cycle.",
+        "Restore the original title through a fresh ship and run the independent byte audit."
+      ],
+      "expected": [
+        "Every cycle: confirmed import, server readback matches the marker and the grant is removed.",
+        "Connected sessions per apply are 4 when the read and deploy connections match.",
+        "Median and p95 are reported against the 3-sample baseline (53.1 s median); the P1 estimate stays labeled as an estimate.",
+        "Final audit is byte-identical to the initial backup."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "journal phase durations",
+        "final audit report"
+      ],
+      "budgetMs": null,
+      "samples": 10
+    },
+    {
+      "id": "A261-052",
+      "title": "Per-kind metadata latency",
+      "category": "speed",
+      "acceptance": ["A35", "CMP012", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read each of the eight metadata kinds alone, 20 samples plus 1 excluded warm-up each.",
+        "Read one batch with all eight kinds, 20 samples.",
+        "Record statement-level execute time between batch markers."
+      ],
+      "expected": [
+        "Per-kind median/p95 and statement time are reported; the slowest kind is named.",
+        "Batch time is about one session cost plus the sum of statement times; any gap is reported.",
+        "A statement median above 3 s is flagged for SQL review (diagnostic, not a failure)."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "statement-level timings"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A261-053",
+      "title": "Warm connected read-session reuse",
+      "category": "speed",
+      "acceptance": ["A35", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run 20 sequential applications+pages metadata batches inside the pool TTL.",
+        "Pause longer than the idle-probe interval, then run one more batch.",
+        "Run one apply-plan call so the mutation path is observed (plan only)."
+      ],
+      "expected": [
+        "First call reused=false; following calls reused=true.",
+        "Warm median at most 1 s; the identity query still runs in every operation.",
+        "After the pause, an idle probe precedes the batch.",
+        "Any mutation-flagged batch uses a fresh session."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": 1000,
+      "prerequisite": "Connected read-only session pooling (P2) is implemented; otherwise record not_run with that reason.",
+      "samples": 20
+    },
+    {
+      "id": "A261-054",
+      "title": "Reused-session state isolation",
+      "category": "quality",
+      "acceptance": ["A12", "A21", "CMP037"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Through a development adapter script, run batch 1 that changes NLS_DATE_FORMAT, current_schema, sqlformat, serveroutput and dbms_application_info module.",
+        "Run batch 2 on the same pooled key and read back those settings.",
+        "Repeat with batch 1 ending in an ORA error."
+      ],
+      "expected": [
+        "Batch 2 observes neutral settings, or the session was replaced.",
+        "An ORA/SP2/PLS error kills the session; the next call starts fresh.",
+        "No DML, DDL or commit is issued."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "prerequisite": "Connected read-only session pooling (P2) is implemented; otherwise record not_run with that reason."
+    },
+    {
+      "id": "A261-055",
+      "title": "Concurrent read-only operations",
+      "category": "speed+quality",
+      "acceptance": ["A35", "CMP037", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "From one MCP process, start 4 metadata batches with different kinds, 1 plan and 1 validate in parallel; repeat 10 rounds."
+      ],
+      "expected": [
+        "Each result matches its own request (kinds, rows and application ID); results are never cross-wired.",
+        "No deadlock or timeout; queue wait is recorded per call.",
+        "Round wall time is reported against the sum of single-call medians."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "per-call queue wait"
+      ],
+      "budgetMs": null,
+      "samples": 10
+    },
+    {
+      "id": "A261-056",
+      "title": "Response size and context budget",
+      "category": "quality",
+      "acceptance": ["A27", "A34", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Record UTF-8 response bytes for every harness call and compare them to the byte budgets in quality-performance.json."
+      ],
+      "expected": [
+        "No response exceeds its budget at default limits.",
+        "No response contains a full manual, trace, stack or unbounded list."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "response bytes per tool and action"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-057",
+      "title": "Repeat-read determinism and false-drift rate",
+      "category": "quality",
+      "acceptance": ["A11", "A39"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Create 20 consecutive plans without source or server changes.",
+        "Take 3 independent read-only exports into private directories."
+      ],
+      "expected": [
+        "All plans have identical target fingerprints; no TARGET_DRIFT or SYNC_SERVER_CHANGED.",
+        "Export digests are identical."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A261-058",
+      "title": "Error quality catalog",
+      "category": "quality",
+      "acceptance": ["A21", "A22", "A34"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Induce: unknown saved connection, wrong-case workspace, foreign schema, missing object, expired plan, tampered plan digest, missing job, compiler syntax error and explicit file import on 26.1.",
+        "Run each through MCP and CLI."
+      ],
+      "expected": [
+        "Each returns a stable code and exit class, plus one actionable next step.",
+        "No stack trace or secret; the response is at most 2 KiB.",
+        "CLI and MCP classification match."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "error code table"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-059",
+      "title": "Compiler diagnostic precision",
+      "category": "quality",
+      "acceptance": ["A08", "A10", "CMP018"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "On private source copies, inject one fault each: unknown property, invalid region type, missing referenced item, duplicate static ID, invalid SQL source, broken APEXlang indentation.",
+        "Validate each, then validate the repaired copy."
+      ],
+      "expected": [
+        "Each fault is reported with its file and a line within 2 of the fault, classified as an error.",
+        "Warm validation takes at most 1 s per run; no database call.",
+        "Repaired copies pass."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "diagnostic file/line versus injected location"
+      ],
+      "budgetMs": 1000
+    },
+    {
+      "id": "A261-060",
+      "title": "Job long-poll and polling cost",
+      "category": "speed",
+      "acceptance": ["A34", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run a read-only plan job with waitSeconds 0, 5 and 30, 10 samples each.",
+        "With waitSeconds 0, poll job status until completion."
+      ],
+      "expected": [
+        "When waitSeconds is at least the operation time, one call returns the completed job.",
+        "Wait overhead after completion is at most 250 ms.",
+        "The number of polls needed with waitSeconds 0 is reported."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "samples": 10
+    },
+    {
+      "id": "A261-061",
+      "title": "Cancellation latency and write safety",
+      "category": "quality",
+      "acceptance": ["A16", "CMP037"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "application-import",
+      "steps": [
+        "Start an authorized apply and cancel it during backing_up; repeat with cancellation during the pre-import observation."
+      ],
+      "expected": [
+        "Job is cancelled within 2 s; no import is submitted; outcome is cancelled, not unknown.",
+        "The grant state and journal are consistent; the next fresh plan succeeds."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "cancel-to-terminal latency"
+      ],
+      "budgetMs": 2000
+    },
+    {
+      "id": "A261-062",
+      "title": "Process and resource hygiene over a long run",
+      "category": "quality",
+      "acceptance": ["A35", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Before and after a 120-sample benchmark, record plugin-started SQLcl JVMs, MCP RSS, private stage directories and open file count."
+      ],
+      "expected": [
+        "After MCP close, no orphaned SQLcl JVM remains.",
+        "RSS growth is at most 50 MiB; no stage directory or file-handle leak."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "process/RSS/stage counts before and after"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-063",
+      "title": "Performance regression gate",
+      "category": "speed",
+      "acceptance": ["A34", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run the benchmark scenarios and compare them to the baseline recorded in quality-performance.json."
+      ],
+      "expected": [
+        "Flag a median regression above 20% or a p95 regression above 30%, but only when quality passed in both runs.",
+        "Record machine, SQLcl, network and target differences; never compare runs with different quality outcomes."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "baseline reference and environment diff"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A261-064",
+      "title": "Connect-cost decomposition",
+      "category": "speed",
+      "acceptance": ["CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "20 samples each: bare SQLcl start with /nolog and exit; saved-connection connect and exit; connect plus one trivial query."
+      ],
+      "expected": ["JVM start, connect and query shares of the connected-session cost are reported per run."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A261-065",
+      "title": "Application size scaling",
+      "category": "speed",
+      "acceptance": ["A39", "CMP034", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "separate-test-application-import",
+      "steps": [
+        "Deploy a separately identified test application with at least 20 pages (CRM blueprint) after explicit authorization.",
+        "Measure export, plan and full import against application 102, 5 samples each."
+      ],
+      "expected": [
+        "Per-page cost and scaling curve are reported; the import outcome is confirmed by server readback."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "page and file counts per application"
+      ],
+      "budgetMs": null,
+      "samples": 5
+    },
+    {
+      "id": "A261-066",
+      "title": "Agent-led golden tasks on 26.1",
+      "category": "speed+quality",
+      "acceptance": ["A36", "CMP038", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run the agent-tasks.cases.json tasks with profile 26.1 on each host, following host-codex/host-claude run rules."
+      ],
+      "expected": [
+        "Task oracles pass; safety violations are zero.",
+        "Speed and token metrics are compared only between runs whose quality outcomes are equal."
+      ],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-067",
+      "title": "Connected session prewarm",
+      "category": "speed",
+      "acceptance": ["A35", "A17", "CMP038"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Start MCP with the configured test project; after 5 s, call metadata once; repeat with 20 fresh MCP processes.",
+        "Repeat with a production-marked environment and with no environment configured."
+      ],
+      "expected": [
+        "First connected call is at most warm median + 0.5 s.",
+        "No prewarm runs for production-marked or unconfigured environments, and no credential prompt is triggered."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "prerequisite": "Prewarm (P2.2) is implemented; otherwise record not_run.",
+      "samples": 20
     }
-  ]
+  ],
+  "metrics": "quality-performance.json"
 }

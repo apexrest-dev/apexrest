@@ -2,7 +2,7 @@
 
 This is the reusable **APEX 26.1.x baseline**. [The case catalog](apex-26.1.cases.json) defines stable `A261-*` IDs, steps, expected results, authorization boundaries, metrics and mappings to [the acceptance matrix](../../docs/acceptance.json). Every acceptance criterion has at least one case; a mapping is coverage intent, not evidence that the criterion passed. Generated results and private application sources belong in ignored `docs/evidence/plugin-server/`.
 
-APEX 26.2 will use a **separate extension catalog**, `apex-26.2.extensions.json`, with `A262-*` IDs, its own target/compiler/MMD identity and reports. That extension is not implemented or qualified here. Never count selected-file import, 26.2-specific APIs or a 26.2 scaffold as a passed 26.1 case. Criteria with 26.2 IDs map here only to release isolation, common prerequisites or refusal behavior.
+APEX 26.2 uses a **separate extension catalog**, [apex-26.2.extensions.json](apex-26.2.extensions.json), with `A262-*` IDs, its own target/compiler/MMD identity and reports. Its cases are definitions; no 26.2 case is qualified by this catalog. Never count selected-file import, 26.2-specific APIs or a 26.2 scaffold as a passed 26.1 case. Criteria with 26.2 IDs map here only to release isolation, common prerequisites or refusal behavior.
 
 ## Prepare the exact target
 
@@ -84,6 +84,20 @@ node scripts/plugin-test-metrics.mjs finish \
 The delta covers **all work in that host session between usage checkpoints**, including agent reasoning and tool context. It is not billing for one MCP call. A missing host record, unchanged record, counter reset or different session yields `available:false` with a reason, not an estimated zero. An optional `--rollout` on the harness records the session-wide delta during that run; a pure CLI/MCP run has no model tokens of its own. Claude or another host must supply its own measured usage adapter; no Codex values are copied across hosts.
 
 Quality evidence must include expected versus actual behavior, compiler diagnostics, exact source/target, error classification, preservation/containment and applicable server readback. Add retries, manual corrections and tool calls to agent-led evaluations. Record `passed`, `failed`, `blocked` or `not_run` per case; do not aggregate skipped cases as successes. Authenticated browser behavior is a separate explicitly requested scenario. Fixtures, offline Oracle compiler, connected metadata/import and actual native-host/UI results stay distinct.
+
+## Quality and performance extension
+
+[quality-performance.json](quality-performance.json) defines the shared metrics, statistics rules, response byte budgets, regression gate and recorded baselines for five catalogs:
+
+| Catalog | IDs | Scope |
+|---|---|---|
+| [apex-26.1.cases.json](apex-26.1.cases.json) | `A261-050`–`A261-067` | Session budgets, measured apply, per-kind metadata, warm sessions and isolation, concurrency, response size, false drift, error and compiler-diagnostic quality, long-poll, cancellation, resource hygiene, regression gate, connect-cost decomposition, scaling, prewarm |
+| [apex-26.2.extensions.json](apex-26.2.extensions.json) | `A262-*` | Profile isolation, read-only parity, 26.2 reference quality, selected-file import round trip/speed/conflict/recovery, recipes, Composer, local versus remote cost, qualified apply latency, ORDS versus direct, scaling |
+| [agent-tasks.cases.json](agent-tasks.cases.json) | `AGT-*` | Fixed golden prompts with automated oracles, quality checks and diagnostic tool-call limits, run per host and profile |
+| [host-codex.cases.json](host-codex.cases.json) | `HCX-*` | Codex install/discovery, startup context cost, usage adapter, golden-task runs, in-app browser, sandbox, tool timeout, update/uninstall |
+| [host-claude.cases.json](host-claude.cases.json) | `HCL-*` | Claude Code install/validate, deferred tool loading, usage adapter (not yet implemented), golden-task runs, browser choice, permission friction, MCP output limits, tool timeout, plugin freshness, update/uninstall |
+
+Cases marked with a `prerequisite` (for example connected session pooling or prewarm) are recorded as `not_run` with that reason until the feature exists. Agent golden tasks run in fresh native host sessions with at least three repetitions; a failed oracle or any safety violation fails the task, and its speed is excluded from comparison. Claude and Codex token counters use different input accounting; normalize them through the host catalog's `usageAdapter` mapping before comparing. Baselines are diagnostic and bound to their recorded machine, SQLcl, target and network.
 
 ## Repository checks and reporting
 

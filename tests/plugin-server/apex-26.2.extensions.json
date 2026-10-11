@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "suite": "apexrest-plugin-apex-26.2-extension",
+  "apexRelease": "26.2.x",
+  "extends": "apex-26.1.cases.json",
+  "metrics": "quality-performance.json",
+  "isolationPolicy": "Separate A262-* IDs, target, compiler/MMD identity and reports. Never count 26.2 results as 26.1 evidence or the reverse.",
+  "targetPolicy": "An identified local non-production 26.2 target recorded only in private evidence. Local targets allow task-scoped database changes when the user requested the task; production marks override locality.",
+  "performanceBudgetPolicy": "Initial diagnostic budgets, not a vendor SLA. Less than 20 samples cannot qualify p95.",
+  "cases": [
+    {
+      "id": "A262-001",
+      "title": "Profile, compiler and MMD isolation",
+      "category": "quality",
+      "acceptance": ["APEX262-01", "REF262-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run doctor and project summary on the 26.2 project; read the toolchain lock and compiler/MMD identity.",
+        "Point a 26.1-profile copy at the 26.2 target and plan."
+      ],
+      "expected": [
+        "26.2 compiler, MMD and references are selected; no 26.1 artifact is used.",
+        "A profile/target release mismatch is refused before any write."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-002",
+      "title": "Read-only parity with the 26.1 harness",
+      "category": "speed+quality",
+      "acceptance": ["APEX262-01", "A35", "HOST-PARITY-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run the equivalents of A261-001 to A261-022 against the 26.2 target with 3 samples; then A261-050, A261-056 and A261-057."
+      ],
+      "expected": [
+        "Same pass/fail outcomes as 26.1 for shared behavior; release-specific differences are listed.",
+        "Session budgets match A261-050."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "expected versus actual per check"
+      ],
+      "budgetMs": null,
+      "samples": 3
+    },
+    {
+      "id": "A262-003",
+      "title": "26.2 reference search quality",
+      "category": "quality",
+      "acceptance": ["REF262-01", "APEX262-03"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run the golden reference queries for 26.2-only features (AI assistant, workflow, report, security) with limit 3."
+      ],
+      "expected": [
+        "Expected entry is in the top 3 for at least 90% of the golden queries; no 26.1-only entry ranks above it.",
+        "Search median is at most 50 ms warm."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "golden query hit table"
+      ],
+      "budgetMs": 50
+    },
+    {
+      "id": "A262-004",
+      "title": "Selected-file page import round trip",
+      "category": "quality",
+      "acceptance": ["APEX262-02", "A13", "A19"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": ["Change one page; plan with importMode files; apply; read back."],
+      "expected": [
+        "Only the selected page changes on the server; unselected pages are byte-identical in the readback.",
+        "The scoped backup is verified before import; the readback-equivalence report passes."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "readback-verification.json"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-005",
+      "title": "Selected-file versus full import speed",
+      "category": "speed",
+      "acceptance": ["APEX262-02", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "Same one-page change: 10 measured files-mode and 10 full-mode cycles, each with 1 excluded warm-up."
+      ],
+      "expected": [
+        "Per-phase medians for both modes; files mode import phase is faster, or the difference is explained.",
+        "Every cycle passes readback."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "journal phase durations"
+      ],
+      "budgetMs": null,
+      "samples": 10
+    },
+    {
+      "id": "A262-006",
+      "title": "Automatic mode resolution and shared-component files",
+      "category": "quality",
+      "acceptance": ["APEX262-02"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "Request auto mode for: one page, a page plus shared LOV, an authentication/authorization change, and a newly created page."
+      ],
+      "expected": [
+        "Auto mode picks files only when it is safe and gives explicit reasons for a full-mode fallback.",
+        "A security change is flagged as a risk."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-007",
+      "title": "Selected-file conflict with a server-side change",
+      "category": "quality",
+      "acceptance": ["APEX262-02", "A11"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": ["Edit the same page in App Builder after planning, then apply the plan."],
+      "expected": ["Apply refuses with a drift/conflict code; no import is submitted."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-008",
+      "title": "26.2 authoring recipes compile first time",
+      "category": "quality",
+      "acceptance": ["APEX262-03", "A08"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Compile every 26.2 recipe and starter template offline; collect CodeScan advisories."],
+      "expected": [
+        "All recipes compile; advisory findings are recorded separately and not treated as failures."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "per-recipe compile result"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-009",
+      "title": "Composer CRM block on 26.2",
+      "category": "speed+quality",
+      "acceptance": ["CMP027", "CMP024", "CMP025"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "Plan, materialize and validate a CRUD block on the CRM fixture; import it; browser-verify only on request."
+      ],
+      "expected": [
+        "Validate and import succeed; Composer plan latency is recorded; runtime DML is claimed only from browser observation."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "Composer plan/materialize timing"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-010",
+      "title": "Local versus remote session cost",
+      "category": "speed",
+      "acceptance": ["CMP038", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Run A261-050 and A261-064 against the local 26.2 target, 20 samples each."],
+      "expected": [
+        "Connect and session cost are reported next to the remote 26.1 numbers as a network-sensitivity ratio."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A262-011",
+      "title": "Qualified apply latency on the local target",
+      "category": "speed",
+      "acceptance": ["A39", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "20 measured working-copy apply cycles (title marker) plus 1 excluded warm-up; restore the original title afterwards."
+      ],
+      "expected": [
+        "First qualified apply median/p95 with phase split and 4 connected sessions per apply; all readbacks pass."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "journal phase durations"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A262-012",
+      "title": "ORDS versus direct transport",
+      "category": "speed+quality",
+      "acceptance": ["A32"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "Run metadata, plan and one apply over local ORDS and over direct transport, 10 samples each."
+      ],
+      "expected": [
+        "Results are equivalent; the known SQLcl arraysize warning is classified, not reported as failure.",
+        "Latency for both transports is reported."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason",
+        "expected versus actual per check"
+      ],
+      "budgetMs": null,
+      "samples": 10
+    },
+    {
+      "id": "A262-013",
+      "title": "Interrupted selected-file import recovery",
+      "category": "quality",
+      "acceptance": ["A16", "APEX262-02"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "fault-injection-approval",
+      "steps": ["Kill the SQLcl process during a selected-file import; reconcile from the server."],
+      "expected": [
+        "Outcome is unknown until server-first reconciliation; there is no blind replay; ownership is retained until reconciled."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-014",
+      "title": "Large application scaling on 26.2",
+      "category": "speed",
+      "acceptance": ["CMP034", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "Measure export, plan, full and files import on the CRM application versus a blank application, 5 samples each."
+      ],
+      "expected": ["Scaling per page/file is reported for both modes."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "per-sample wall time and sqlclTimings",
+        "sample count with median/p95/min/max/mean",
+        "MCP call count and response bytes",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null,
+      "samples": 5
+    },
+    {
+      "id": "A262-015",
+      "title": "Agent-led golden tasks on 26.2",
+      "category": "speed+quality",
+      "acceptance": ["APEX262-04", "HOST-PARITY-01", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": ["Run agent-tasks.cases.json with profile 26.2 on each host."],
+      "expected": ["Task oracles pass with zero safety violations; results are kept separate from 26.1."],
+      "evidence": [
+        "host, model, effort and plugin digest",
+        "scenario wall time and host token delta from the host usage adapter",
+        "turns, tool calls by tool, retries and manual corrections",
+        "oracle check results and safety violations",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A262-016",
+      "title": "Requested browser check after selected-file import",
+      "category": "quality",
+      "acceptance": ["A19", "VERIFY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-non-production-task-scoped",
+      "steps": [
+        "After A262-004, on explicit request, open the changed and one unchanged page in the host browser."
+      ],
+      "expected": [
+        "The changed page shows the change; the unchanged page is unaffected; observations are recorded separately from import results."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "expected versus actual per check",
+        "sanitized result code and server postcondition where applicable",
+        "explicit not-run/blocked reason",
+        "private screenshots"
+      ],
+      "budgetMs": null
+    }
+  ]
+}

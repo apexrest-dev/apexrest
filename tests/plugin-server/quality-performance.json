@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "suite": "apexrest-plugin-quality-performance",
+  "appliesTo": [
+    "apex-26.1.cases.json",
+    "apex-26.2.extensions.json",
+    "agent-tasks.cases.json",
+    "host-codex.cases.json",
+    "host-claude.cases.json"
+  ],
+  "runMatrix": {
+    "profiles": ["26.1 (remote identified test target)", "26.2 (local non-production target)"],
+    "hosts": ["current-build stdio MCP (harness)", "codex", "claude-code"],
+    "rule": "Each cell reports separately. Cross-profile or cross-host speed comparison is allowed only between runs with equal quality outcomes and recorded network/machine context."
+  },
+  "statistics": {
+    "smoke": "3 samples, descriptive only",
+    "qualified": "at least 20 samples plus 1 excluded warm-up; nearest-rank p95",
+    "agent": "at least 3 repetitions per task, host and profile; report pass rate and median",
+    "failures": "failed samples stay in the sample set; success-only statistics are reported separately"
+  },
+  "qualityMetrics": [
+    "oracle pass rate per case/task",
+    "compile-first-time rate and validate cycles per change",
+    "server readback equivalence and final byte audit",
+    "false-drift rate on unchanged plans",
+    "error classification parity (CLI/MCP) and actionable next step present",
+    "safety violations (must be 0)",
+    "secret leaks in transcripts, arguments and outputs (must be 0)"
+  ],
+  "speedMetrics": [
+    "operation wall time through verification",
+    "sqlclTimings: sessions, connected sessions, reused flag, spawn/connect/execute ms",
+    "deployment phase durations from the journal",
+    "job observation count and wait overhead",
+    "agent scenario wall time, turns and tool calls",
+    "host token delta (normalized counters, see host usage adapters)"
+  ],
+  "responseByteBudgets": {
+    "projectSummary": 4096,
+    "metadataPageDefaultLimit": 16384,
+    "referenceSearchLimit3": 6144,
+    "referenceRead": 16384,
+    "plan": 8192,
+    "jobCompletion": 6144,
+    "error": 2048
+  },
+  "startupContextBudget": {
+    "pluginFirstTurnInputTokens": null,
+    "note": "Set after the first HCX-002/HCL-002 measurement; until then report the value without a pass/fail verdict."
+  },
+  "regressionGate": {
+    "medianRegressionPercent": 20,
+    "p95RegressionPercent": 30,
+    "requiresEqualQuality": true
+  },
+  "baselines": [
+    {
+      "profile": "26.1",
+      "scenario": "live-metadata-batch-three-kinds",
+      "medianMs": 5417,
+      "p95Ms": 6034,
+      "samples": 20,
+      "evidence": "docs/evidence/perf-p0-p1/performance-after.json",
+      "connectedSessions": 1
+    },
+    {
+      "profile": "26.1",
+      "scenario": "read-only-full-import-plan",
+      "medianMs": 3133,
+      "p95Ms": 4040,
+      "samples": 20,
+      "evidence": "docs/evidence/perf-p0-p1/performance-after.json",
+      "connectedSessions": 1
+    },
+    {
+      "profile": "26.1",
+      "scenario": "oracle-compiler-validation",
+      "medianMs": 228,
+      "p95Ms": 288,
+      "samples": 20,
+      "evidence": "docs/evidence/plugin-server/performance-20.json"
+    },
+    {
+      "profile": "26.1",
+      "scenario": "cold-mcp-startup-reference",
+      "medianMs": 208,
+      "p95Ms": 214,
+      "samples": 20,
+      "evidence": "docs/evidence/plugin-server/performance-20.json"
+    },
+    {
+      "profile": "26.1",
+      "scenario": "working-copy-apply",
+      "medianMs": 53079,
+      "p95Ms": null,
+      "samples": 3,
+      "evidence": "docs/evidence/plugin-server/imports-261.json",
+      "connectedSessions": 8,
+      "note": "Pre-P1 smoke baseline; descriptive only."
+    }
+  ],
+  "limits": "Budgets and baselines are diagnostic, not an SLA. Baselines bind to their recorded machine, SQLcl, target and network; private evidence paths are local and Git-ignored."
+}
