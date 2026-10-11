@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "profile": "26.2",
+  "scope": "Profile-specific AI/workflow/report/security queries. Inventory entries include existing features; exclusive introduction in 26.2 is not asserted without a release diff. Golden list requires independent review.",
+  "queries": [
+    {
+      "query": "AI agent tool parameters",
+      "expectedIds": ["oracle:26.2:inventory/app/ai-agent/tool/parameter/parameter"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/ai-agent/tool/parameter/parameter",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/ai-agent/tool/parameter/parameter.md",
+        "sha256": "cbe55411b5b295abb18caaf1b2a86dacbe37db6a508485c24edf8e37d9e5bb45"
+      }
+    },
+    {
+      "query": "AI agent tool configuration",
+      "expectedIds": ["oracle:26.2:inventory/app/ai-agent/tool/tool"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/ai-agent/tool/tool",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/ai-agent/tool/tool.md",
+        "sha256": "fb8c90ec194bec395b0f89e7e5d4ea5b1b6c97f816bd3dd6075c5b460f38196b"
+      }
+    },
+    {
+      "query": "AI agent reasoning effort",
+      "expectedIds": ["oracle:26.2:inventory/app/ai-agent/ai-agent"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/ai-agent/ai-agent",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/ai-agent/ai-agent.md",
+        "sha256": "2e797f3916b698cba97b5597a0c25a7d5fa640935c55976c515c68506f3fb34d"
+      }
+    },
+    {
+      "query": "Generative AI service provider effort",
+      "expectedIds": ["oracle:26.2:inventory/gen-aiservice/gen-aiservice"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/gen-aiservice/gen-aiservice",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/gen-aiservice/gen-aiservice.md",
+        "sha256": "1aafc18db649ba6ab036f34e7c5cbfa93ea235a2359acf0e160485f20f675da8"
+      }
+    },
+    {
+      "query": "Generate text with AI workflow activity",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/generate-text-with-ai/generate-text-with-ai"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/generate-text-with-ai/generate-text-with-ai",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/workflow/version/activity/plugin-variants/generate-text-with-ai/generate-text-with-ai.md",
+        "sha256": "ccd9268bded141c44bc87685b7e38af96cb6cfa86a04dd2f1bb0170348ccff04"
+      }
+    },
+    {
+      "query": "Draft workflow versions",
+      "expectedIds": ["oracle:26.2:inventory/app/workflow/version/version"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/workflow/version/version",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/workflow/version/version.md",
+        "sha256": "358e9f290b7138eacde5dd0233ae51ffc20f25363e1235b87e55b4c747a0ae11"
+      }
+    },
+    {
+      "query": "Workflow parallel flow activity",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/parallel-flow/parallel-flow"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/parallel-flow/parallel-flow",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/workflow/version/activity/plugin-variants/parallel-flow/parallel-flow.md",
+        "sha256": "0008166fdc1fee85b55100720aa470300f7da9a11d95f28d1cc235f8ff0261d2"
+      }
+    },
+    {
+      "query": "Workflow diagram region",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/page/region/plugin-variants/workflow-diagram/workflow-diagram"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/region/plugin-variants/workflow-diagram/workflow-diagram",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/region/plugin-variants/workflow-diagram/workflow-diagram.md",
+        "sha256": "c4b2c7608de6ee04778b90e435a03118be755b27238c850fac410da4653464f8"
+      }
+    },
+    {
+      "query": "Workflow human task create",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/human-task-create/human-task-create"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/workflow/version/activity/plugin-variants/human-task-create/human-task-create",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/workflow/version/activity/plugin-variants/human-task-create/human-task-create.md",
+        "sha256": "8e01a584aa3b896f9ae06f80ca94d863a9650100fe5f5a3246f63131c7fb1744"
+      }
+    },
+    {
+      "query": "Workflow invocation process",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/page/process/plugin-variants/invoke-workflow/invoke-workflow"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/process/plugin-variants/invoke-workflow/invoke-workflow",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/process/plugin-variants/invoke-workflow/invoke-workflow.md",
+        "sha256": "8c791c762db428c4f56c7599331e2a6eeb2e4e9cf355533971d010b0e6cb89af"
+      }
+    },
+    {
+      "query": "Interactive report AI features",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/page/region/plugin-variants/interactive-report/interactive-report"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/region/plugin-variants/interactive-report/interactive-report",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/region/plugin-variants/interactive-report/interactive-report.md",
+        "sha256": "2d393bf069fc78c01a165ea8b551cae785c4a9f5e6ddd9d4a9deace4afe9ddbb"
+      }
+    },
+    {
+      "query": "Classic report attributes",
+      "expectedIds": ["oracle:26.2:inventory/app/page/region/plugin-variants/classic-report/classic-report"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/region/plugin-variants/classic-report/classic-report",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/region/plugin-variants/classic-report/classic-report.md",
+        "sha256": "62d0d1feb90416dab16bd133e0ab83789f90b52e2eca4c3b3c0edef5ef59f58d"
+      }
+    },
+    {
+      "query": "Interactive grid column settings",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/page/region/plugin-variants/interactive-grid/interactive-grid"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/region/plugin-variants/interactive-grid/interactive-grid",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/region/plugin-variants/interactive-grid/interactive-grid.md",
+        "sha256": "411e5af923340e6b34520db62e37f41e3effc96e15ee16195bb943d8c0eec916"
+      }
+    },
+    {
+      "query": "Chart report series",
+      "expectedIds": ["oracle:26.2:inventory/app/page/region/plugin-variants/chart/chart"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/page/region/plugin-variants/chart/chart",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/page/region/plugin-variants/chart/chart.md",
+        "sha256": "922b30a43da6d429e43842bdfb0884c7c6cec5e0e0e80b9605337435a69242f0"
+      }
+    },
+    {
+      "query": "SQL query authorization scheme",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/authorization/plugin-variants/exists-sql-query/exists-sql-query"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/authorization/plugin-variants/exists-sql-query/exists-sql-query",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/authorization/plugin-variants/exists-sql-query/exists-sql-query.md",
+        "sha256": "f7b7362f81ebfec86bd7f6b8c775a085e604bc8ec01578ba4e1aaade4240bfa3"
+      }
+    },
+    {
+      "query": "Role group authorization",
+      "expectedIds": [
+        "oracle:26.2:inventory/app/authorization/plugin-variants/is-in-role-or-group/is-in-role-or-group"
+      ],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/app/authorization/plugin-variants/is-in-role-or-group/is-in-role-or-group",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/app/authorization/plugin-variants/is-in-role-or-group/is-in-role-or-group.md",
+        "sha256": "11ba7544e45cca78c173df199f3ab58b0792c060f87e863cccd80c538598a3a2"
+      }
+    },
+    {
+      "query": "Web credential security",
+      "expectedIds": ["oracle:26.2:inventory/web-credential/web-credential"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:inventory/web-credential/web-credential",
+        "source": "https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2/apexlang-inventory/assets/web-credential/web-credential.md",
+        "sha256": "81b8e8968e51cac701d26f974488dfe1b0bffec81a710d836bf063fc94c7ccc0"
+      }
+    },
+    {
+      "query": "Deep Data Security OCI credentials workspace ACLs",
+      "expectedIds": ["oracle:26.2:guide/security-credentials"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:guide/security-credentials",
+        "source": "https://blogs.oracle.com/apex/using-dbms_cloud-credentials-with-resource-principal-and-dbtools-identity",
+        "sha256": "4980905a24a186bcfb1a5a9deeebd2e17a3be24945582b7d46e6fff68cc10d33"
+      }
+    },
+    {
+      "query": "AI provider APIs reasoning effort secure navigation",
+      "expectedIds": ["oracle:26.2:guide/ai-provider-effort"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:guide/ai-provider-effort",
+        "source": "https://blogs.oracle.com/apex/working-with-generative-ai-provider-apis-and-reasoning-effort",
+        "sha256": "a4eb21cd528c81116dc292a48d0f58ec61e72bcf2aaf6b642252f311cdfcdbaf"
+      }
+    },
+    {
+      "query": "Interactive Reports charts Universal Theme",
+      "expectedIds": ["oracle:26.2:guide/reports-charts"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:guide/reports-charts",
+        "source": "https://blogs.oracle.com/apex/whats-new-in-interactive-reports-and-ai-interactive-reports",
+        "sha256": "259fba38c7f021dd10efb8cdfdbdc21d756fb3c9133ca6504ea56db6ebb17bdf"
+      }
+    },
+    {
+      "query": "Draft workflows task outcomes instance migration",
+      "expectedIds": ["oracle:26.2:guide/workflow-tasks"],
+      "trace": {
+        "corpus": "resources/references/26.2/index.json",
+        "entryId": "oracle:26.2:guide/workflow-tasks",
+        "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/new-features.html",
+        "sha256": "d5560909a4c6c7acd520c65d8bef6945ae6285eae4da032b682408be13b1792c"
+      }
+    }
+  ]
+}
