@@ -58,7 +58,7 @@ for (const [id, input] of [
       elapsedMs: performance.now() - start,
       status:
         r.code === 0 &&
-        !/ORA-\d|SP2-\d|Error:/i.test(r.stdout + r.stderr) &&
+        !/ORA-\d|SP2-\d|Error:|Unknown connection/i.test(r.stdout + r.stderr) &&
         (id !== 'select' || /"probe"\s*:\s*1/.test(r.stdout))
           ? 'passed'
           : 'failed',
@@ -81,8 +81,17 @@ for (const [id, input] of [
 }
 report.decomposition = {
   bareMs: report.probes[0].latency.medianMs,
-  connectIncrementMs: report.probes[1].latency.medianMs - report.probes[0].latency.medianMs,
-  selectIncrementMs: report.probes[2].latency.medianMs - report.probes[1].latency.medianMs,
+  connectIncrementMs:
+    report.probes[1].status === 'passed'
+      ? report.probes[1].latency.medianMs - report.probes[0].latency.medianMs
+      : null,
+  selectIncrementMs: report.probes.slice(1).every((p) => p.status === 'passed')
+    ? report.probes[2].latency.medianMs - report.probes[1].latency.medianMs
+    : null,
+  comparable: report.probes.every((p) => p.status === 'passed'),
+  reason: report.probes.every((p) => p.status === 'passed')
+    ? 'Scenario median differences include uncontrolled host/network variability.'
+    : 'Failed saved-connect/query probes measure refusal overhead, not a database connection.',
 };
 report.finishedAt = new Date().toISOString();
 await savePrivateJson(values.output, report);

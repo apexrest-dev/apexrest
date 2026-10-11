@@ -7,6 +7,7 @@ import {
   inspectResponse,
   regressionGate,
   prerequisite,
+  readQualificationEnv,
 } from '../../scripts/lib/plugin-harness.mjs';
 
 test('default harness selects the existing 26.1 catalog and refuses mismatches', async () => {
@@ -19,6 +20,38 @@ test('default harness selects the existing 26.1 catalog and refuses mismatches',
     '26.2',
   );
   await assert.rejects(loadHarness({ profile: '26.2' }), /mismatch/);
+});
+
+test('legacy qualification ENV is literal and still rejects malformed or duplicate keys', async () => {
+  const { mkdtemp, writeFile, rm } = await import('node:fs/promises'),
+    os = await import('node:os'),
+    path = await import('node:path');
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'qualification-env-')),
+    file = path.join(dir, 'test.env');
+  const helper = {
+    readLocalEnv: async () => {
+      throw Object.assign(new Error('synthetic notation'), { code: 'ENV_FILE_INVALID' });
+    },
+  };
+  try {
+    await writeFile(file, 'workspace:\n  name: TEST\n  password: $(not-executed)\n');
+    const result = await readQualificationEnv(file, helper);
+    assert.equal(result['workspace.password'], '$(not-executed)');
+    await writeFile(file, 'workspace:\n  name: TEST\n  name: OTHER\n');
+    await assert.rejects(readQualificationEnv(file, helper), /Duplicate/);
+    await writeFile(file, 'not valid\n');
+    await assert.rejects(readQualificationEnv(file, helper), /Unrecognized/);
+    await assert.rejects(
+      readQualificationEnv(file, {
+        readLocalEnv: async () => {
+          throw Object.assign(new Error('unsafe'), { code: 'ENV_FILE_UNSAFE' });
+        },
+      }),
+      /unsafe/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 test('fake MCP response budgets classify tool/action and separate size from failure', async () => {
   const { quality } = await loadHarness({});

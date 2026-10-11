@@ -174,3 +174,32 @@ export async function coreHelpers(directory) {
 export function machineFingerprint() {
   return { platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model, node: process.version };
 }
+
+// test.env also exists as literal indented section/key: value notes. The core
+// reader verifies ignored, untracked, regular-file access before parsing fails.
+// Accept that narrow legacy notation without evaluating or expanding values.
+export async function readQualificationEnv(file, helpers) {
+  try {
+    return await helpers.readLocalEnv(file);
+  } catch (error) {
+    if (error.code !== 'ENV_FILE_INVALID') throw error;
+    const result = Object.create(null);
+    let section = '';
+    for (const line of (await readFile(file, 'utf8')).split(/\r?\n/)) {
+      if (!line.trim() || line.trimStart().startsWith('#')) continue;
+      const match = /^\s*([A-Za-z_][A-Za-z0-9_ -]*)\s*:\s*(.*)$/.exec(line);
+      if (!match) throw new Error('Unrecognized literal test.env notation.');
+      if (!match[2]) {
+        section = match[1].trim();
+        continue;
+      }
+      const key = [section, match[1].trim()].filter(Boolean).join('.');
+      if (Object.hasOwn(result, key)) throw new Error('Duplicate literal test.env entry.');
+      let value = match[2];
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+        value = value.slice(1, -1);
+      result[key] = value;
+    }
+    return result;
+  }
+}

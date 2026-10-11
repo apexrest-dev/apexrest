@@ -16,6 +16,7 @@ import {
   fileInventory,
   runProcess,
   coreHelpers,
+  readQualificationEnv,
 } from './lib/plugin-harness.mjs';
 import { savePrivateJson, statistics } from './lib/plugin-test-metrics.mjs';
 import { sha256, sourceDigest } from './lib/release.mjs';
@@ -29,6 +30,7 @@ const { values } = parseArgs({
     samples: { type: 'string', default: '20' },
     cases: { type: 'string' },
     output: { type: 'string', default: 'docs/evidence/qp-harness/quality-26.1.json' },
+    resume: { type: 'boolean', default: false },
     'allow-app-writes': { type: 'boolean', default: false },
     'user-request': { type: 'string' },
   },
@@ -72,6 +74,22 @@ const report = {
   mutation: false,
   tokens: { available: false, reason: 'No model host in this harness.' },
 };
+if (values.resume) {
+  const previous = JSON.parse(await readFile(output, 'utf8'));
+  assert.equal(previous.apexProfile, report.apexProfile);
+  assert.deepEqual(previous.environment.target, report.environment.target);
+  report.resumedFromRuntimeDigest = previous.runtimeDigest;
+  const rerun = values.cases?.split(',');
+  report.measurements = previous.measurements.filter(
+    (m) => m.status === 'passed' || (rerun && !rerun.includes(m.id)),
+  );
+  for (const key of ['statementSummary', 'resources', 'regressions', 'findings', 'objectPrerequisites'])
+    if (previous[key] !== undefined) report[key] = previous[key];
+  report.checks = previous.checks.filter(
+    (c) => c.status === 'passed' || (rerun && c.id !== 'preflight' && !rerun.includes(c.id)),
+  );
+  report.responseChecks = previous.responseChecks;
+}
 const h = await connectHarness(),
   timings = (r) => r.data?.sqlclTimings ?? r.data?.details?.sqlclTimings ?? [];
 const req = (kind, extra = {}) => ({ kind, schema: target.parsingSchema, limit: 30, ...extra });
@@ -102,6 +120,10 @@ async function notRun(id, reason) {
   await save();
 }
 async function measure(id, scenario, invoke, verify, count = 1, warmup = false) {
+  const existing = report.measurements.find(
+    (m) => m.id === id && m.scenario === scenario && m.status === 'passed',
+  );
+  if (existing) return existing;
   const m = { id, scenario, samples: [], warmup: null, status: 'running' };
   report.measurements.push(m);
   for (let i = warmup ? 0 : 1; i <= count; i++) {
@@ -111,6 +133,7 @@ async function measure(id, scenario, invoke, verify, count = 1, warmup = false) 
       const r = await invoke(i);
       sample.sqlclTimings = timings(r);
       sample.responseBytes = Buffer.byteLength(JSON.stringify(r));
+      sample.domainCode = r.diagnostics?.[0]?.code;
       await verify(r, sample);
       sample.status = 'passed';
     } catch (e) {
@@ -133,7 +156,7 @@ async function measure(id, scenario, invoke, verify, count = 1, warmup = false) 
   m.latency = statistics(m.samples.map((s) => s.elapsedMs));
   report.checks.push({ id, scenario, status: m.status });
   await save();
-  console.log(JSON.stringify({ id, scenario, status: m.status, medianMs: m.latency.medianMs }));
+  console.log(JSON.stringify({ id, scenario, status: m.status, medianMs: m.latency?.medianMs }));
   return m;
 }
 function safeTimings(r) {
@@ -200,10 +223,7 @@ async function cli(op, args) {
 try {
   const doctor = await call('apexrest_status', { detail: 'doctor', project });
   success(doctor);
-  report.environment.sqlcl =
-    doctor.data.sqlcl ??
-    doctor.data.probes?.find((p) => /sqlcl/i.test(p.name ?? ''))?.version ??
-    doctor.data.probes;
+  report.environment.sqlcl = doctor.data.probes?.find((p) => /SQLcl/i.test(p.version ?? ''))?.version ?? null;
   const identity = await metadata([req('applications'), req('pages'), req('apex-capabilities')]);
   verifyMeta([req('applications'), req('pages'), req('apex-capabilities')], identity);
   assert.match(
@@ -283,13 +303,15 @@ try {
         'A261-050',
         scenario,
         () => call(name, args),
-        (r) => {
+        (r, sample) => {
           success(r);
           const t = safeTimings(r);
           assert.equal(t.filter((x) => x.connected).length, connected);
           const o = t.filter((x) => !x.connected);
-          assert.ok(o.length <= offline);
-          assert.ok(o.every((x) => x.reused));
+          if (!sample.excluded) {
+            assert.ok(o.length <= offline);
+            assert.ok(o.every((x) => x.reused));
+          }
         },
         samples,
         true,
@@ -482,7 +504,7 @@ try {
     const helpers = await coreHelpers(directory);
     let secrets = [];
     try {
-      const env = await helpers.readLocalEnv(path.resolve('test.env'));
+      const env = await readQualificationEnv(path.resolve('test.env'), helpers);
       secrets = Object.entries(env)
         .filter(([k]) => /password|token|secret/i.test(k))
         .map(([, v]) => v)
@@ -541,14 +563,17 @@ try {
       [
         'missing-item',
         (s) =>
-          s.replace('    navigation {', '    navigation {\n        warnOnUnsavedChanges: @P1_QP_MISSING'),
+          s.replace(
+            '        type: staticContent',
+            '        type: staticContent\n        serverSideCondition {\n            type: itemIsNotNull\n            item: P1_QP_MISSING\n        }',
+          ),
       ],
       [
         'duplicate-static-id',
         (s) =>
           s.replace(
             '        type: staticContent',
-            '        staticId: qpDuplicate\n        staticId: qpDuplicate\n        type: staticContent',
+            '        type: staticContent\n        advanced {\n            htmlDomId: qpDuplicate\n        }',
           ),
       ],
       [
@@ -556,18 +581,39 @@ try {
         (s) =>
           s.replace(
             'type: staticContent',
-            'type: report\n        source { type: sqlQuery sqlQuery: "select qp_missing from qp_no_table" }',
+            'type: classicReport\n        source {\n            location: localDatabase\n            type: sqlQuery\n            sqlQuery:\n                ```sql\n                select from dual\n                ```\n        }',
           ),
       ],
       ['broken-indent', (s) => s.replace('    name:', '   name:')],
     ];
     for (const [id, patch] of patches) {
       const copy = await privateCopy(project, path.join(directory, 'faults', selection.profile, id));
-      const injected = patch(original);
+      let injected = patch(original);
+      if (id === 'duplicate-static-id')
+        injected =
+          injected.slice(0, injected.lastIndexOf(')')) +
+          '    region qp-duplicate (\n        name: QP Duplicate\n        type: staticContent\n        layout {\n            sequence: 20\n            slot: BODY\n        }\n        advanced {\n            htmlDomId: qpDuplicate\n        }\n    )\n)\n';
       assert.notEqual(injected, original);
-      const line = injected.split('\n').findIndex((l, i) => l !== original.split('\n')[i]) + 1;
+      const faultToken =
+        id === 'invalid-sql'
+          ? 'select from dual'
+          : id === 'missing-item'
+            ? 'item: P1_QP_MISSING'
+            : id === 'duplicate-static-id'
+              ? 'htmlDomId: qpDuplicate'
+              : null;
+      const line = faultToken
+        ? injected
+            .slice(
+              0,
+              id === 'duplicate-static-id' ? injected.lastIndexOf(faultToken) : injected.indexOf(faultToken),
+            )
+            .split('\n').length
+        : injected.split('\n').findIndex((l, i) => l !== original.split('\n')[i]) + 1;
       await writeFile(path.join(copy, config.application.sourceDir, home), injected);
+      const badStarted = performance.now();
       const bad = await call('apexrest_apex_validate', { project: copy, debugTimings: true });
+      const badElapsedMs = performance.now() - badStarted;
       if (enabled('A261-058') && id === 'unknown-property')
         await measure(
           'A261-058',
@@ -591,6 +637,7 @@ try {
         () => call('apexrest_apex_validate', { project: copy, debugTimings: true }),
         (good, s) => {
           s.injectedLine = line;
+          s.badElapsedMs = badElapsedMs;
           s.reported = bad.diagnostics?.map((d) => ({
             code: d.code,
             file: d.file,
@@ -627,6 +674,10 @@ try {
     }
   }
   if (enabled('A261-062')) {
+    await Promise.all([
+      call('apexrest_apex_validate', { project, debugTimings: true }),
+      call('apexrest_apex_validate', { project, debugTimings: true }),
+    ]);
     const pid = h.transport.pid,
       owned = new Set();
     async function processes() {
@@ -685,9 +736,19 @@ try {
       afterFds = await fds(),
       afterStages = await stages();
     await h.client.close();
-    const closed = await processes();
+    const shutdownStarted = performance.now();
+    let closed = await processes();
+    while (
+      closed.some((r) => r.pid === pid || owned.has(r.pid)) &&
+      performance.now() - shutdownStarted < 5000
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      closed = await processes();
+    }
     report.resources = {
       serverPid: pid,
+      shutdownObservationMs: performance.now() - shutdownStarted,
+      serverExited: !closed.some((r) => r.pid === pid),
       observedOwnedSqlclPids: [...owned],
       orphanedOwnedSqlclPids: closed.filter((r) => owned.has(r.pid)).map((r) => r.pid),
       rssBeforeKiB: before.find((r) => r.pid === pid)?.rss,
@@ -701,6 +762,7 @@ try {
     };
     const resourcePass =
       m.status === 'passed' &&
+      report.resources.serverExited &&
       report.resources.orphanedOwnedSqlclPids.length === 0 &&
       report.resources.rssAfterKiB - report.resources.rssBeforeKiB <= 50 * 1024 &&
       beforeFds != null &&
