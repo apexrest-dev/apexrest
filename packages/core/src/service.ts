@@ -160,9 +160,7 @@ async function dispatchObserved(
     if (!(operation in schemas)) throw new Fault('INVALID_INPUT', `Unknown operation: ${operation}`, 2);
     const parsed = parse(
       schemas[operation as Operation] as import('zod').z.ZodType<Record<string, unknown>>,
-      Object.fromEntries(
-        Object.entries(input).filter(([key]) => key !== 'debugTimings' || operation === 'metadata.read'),
-      ),
+      input,
     );
     const text = (key: string) => parsed[key] as string;
     const root = text('project') ?? process.cwd();
@@ -402,7 +400,6 @@ async function dispatchObserved(
                       deployment,
                       signal,
                       progress,
-                      parsed.confirmation as PlanConfirmation | undefined,
                     );
               break;
             }

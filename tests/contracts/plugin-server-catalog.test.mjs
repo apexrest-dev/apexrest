@@ -23,6 +23,10 @@ test('APEX 26.1 reusable catalog maps every current acceptance criterion without
   }
   for (const id of acceptance) assert.ok(covered.has(id), `Missing scenario coverage: ${id}`);
 });
+test('host browser cases retain their explicit application/session authorization', async () => {
+  const catalog = JSON.parse(await readFile('tests/plugin-server/apex-26.1.browser.cases.json', 'utf8'));
+  for (const c of catalog.cases) assert.equal(c.authorization, catalog.authorization, c.id);
+});
 
 test('quality/performance extension catalogs stay definitions with valid acceptance mappings', async () => {
   const read = async (file) => JSON.parse(await readFile(`tests/plugin-server/${file}`, 'utf8'));

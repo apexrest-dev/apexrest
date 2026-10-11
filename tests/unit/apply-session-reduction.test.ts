@@ -4,7 +4,12 @@ import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { observedWorkingCopy } from '../fixtures/observed-working-copy.ts';
 import { writeJson } from '../../packages/core/src/fs.ts';
-import { sqlclTimings, withSqlclTimings } from '../../packages/core/src/sqlcl-timings.ts';
+import {
+  sqlclTimings,
+  withSqlclTimings,
+  recordSqlclTiming,
+  executionTiming,
+} from '../../packages/core/src/sqlcl-timings.ts';
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { Fault } from '../../packages/core/src/result.ts';
 
@@ -76,6 +81,20 @@ test('drift between start and the post-freeze pre-import observation blocks impo
   await assert.rejects(f.service.apply(f.ctx, f.plan), { code: 'SYNC_SERVER_CHANGED' });
   assert.ok(!f.calls.includes('import'));
   assert.equal((await f.store.read())!.status, 'ready');
+});
+
+test('apply journal excludes observations preceding apply in a shared recorder', async () => {
+  const f = await prepared();
+  await withSqlclTimings(async () => {
+    recordSqlclTiming('codescan', executionTiming('cli'));
+    const result = await f.service.apply(f.ctx, f.plan);
+    const events = (await readFile(path.join(result.directory, 'journal.jsonl'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    assert.ok(!events.flatMap((event) => event.details.sqlclTimings).some((r) => r.label === 'codescan'));
+    assert.equal(sqlclTimings()[0]!.label, 'codescan', 'Outer operation still retains its own observation.');
+  });
 });
 
 test('different read and deploy connections refresh deploy identity immediately before import', async () => {

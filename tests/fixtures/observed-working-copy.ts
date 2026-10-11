@@ -60,6 +60,8 @@ export async function observedWorkingCopy() {
   oracle.validate = f.oracle.validate as unknown as OracleAdapter['validate'];
   oracle.exportApplication = f.oracle.exportApplication as unknown as OracleAdapter['exportApplication'];
   oracle.importApplication = async (ctx, env, connection, source) => {
+    // This stub assumes one connected import session; the real importWith
+    // implementation currently uses one session too. This is fixture evidence.
     await oracle.session(
       'prompt APEXREST_APEX_IMPORT_COMPLETE',
       connection,

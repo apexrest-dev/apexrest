@@ -25,25 +25,29 @@
         "Open the verified application URL in the host browser.",
         "Fill Username and Password from test.env; disable Remember username; submit."
       ],
-      "expected": ["Authenticated Home shows the original application title."]
+      "expected": ["Authenticated Home shows the original application title."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B02",
       "title": "Authenticated reload",
       "steps": ["Reload Home and wait for its heading."],
-      "expected": ["Session persists and original title remains visible."]
+      "expected": ["Session persists and original title remains visible."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B03",
       "title": "Navigation disclosure",
       "steps": ["Open Main Navigation."],
-      "expected": ["Navigation opens and the Home entry is present."]
+      "expected": ["Navigation opens and the Home entry is present."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B04",
       "title": "Keyboard navigation control",
       "steps": ["Press Enter on the focused Main Navigation button."],
-      "expected": ["The disclosure closes; keyboard operation succeeds."]
+      "expected": ["The disclosure closes; keyboard operation succeeds."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B05",
@@ -56,31 +60,36 @@
       "expected": [
         "Original title and navigation/account controls render without document horizontal overflow.",
         "Report actual effective width; do not claim an exact breakpoint if the panel constrains it."
-      ]
+      ],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B06",
       "title": "Sign out",
       "steps": ["Open the account menu and select Sign Out."],
-      "expected": ["The login screen returns."]
+      "expected": ["The login screen returns."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B07",
       "title": "Protected Home after logout",
       "steps": ["Navigate directly to the verified Home URL without a session parameter."],
-      "expected": ["Login is required and authenticated content is not displayed."]
+      "expected": ["Login is required and authenticated content is not displayed."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B08",
       "title": "Empty login rejection",
       "steps": ["Submit empty Username and Password; wait for the resulting error."],
-      "expected": ["Invalid Login Credentials appears and Home remains inaccessible."]
+      "expected": ["Invalid Login Credentials appears and Home remains inaccessible."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     },
     {
       "id": "A261-B09",
       "title": "Login after rejection",
       "steps": ["Use valid ENV credentials again with Remember username disabled."],
-      "expected": ["Authenticated original Home returns."]
+      "expected": ["Authenticated original Home returns."],
+      "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes."
     }
   ]
 }

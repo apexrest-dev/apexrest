@@ -13448,6 +13448,7 @@ var DeploymentService = class {
     return withSqlclTimings(() => this.applyObserved(ctx, value, signal, progress));
   }
   async applyObserved(ctx, value, signal, progress) {
+    const applyTimingStart = sqlclTimings().length;
     const { env: env2, plan } = await this.checkLocal(ctx, value);
     const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
     await authorizePlan(ctx, plan, env2, locality.local);
@@ -13456,7 +13457,7 @@ var DeploymentService = class {
     return withLock(await contained(ctx.root, ".apexrest/composer/ownership.lock"), async () => {
       await this.lease(env2, runId, true);
       try {
-        return await this.applyLocked(ctx, value, runId, signal, progress);
+        return await this.applyLocked(ctx, value, runId, signal, progress, applyTimingStart);
       } finally {
         const control = new LocalDeploymentControl(env2);
         const owner = await control.owner();
@@ -13464,7 +13465,7 @@ var DeploymentService = class {
       }
     });
   }
-  async applyLocked(ctx, value, runId, signal, progress) {
+  async applyLocked(ctx, value, runId, signal, progress, applyTimingStart = 0) {
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before execution.", 6, "cancelled");
     const { plan, env: env2 } = await this.checkLocal(ctx, value);
@@ -13540,7 +13541,7 @@ var DeploymentService = class {
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    let timingCursor = 0;
+    let timingCursor = applyTimingStart;
     const record = async (nextState, details = {}) => {
       assertTransition(state, nextState);
       const timingPhase = state;
@@ -14886,9 +14887,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
     if (!(operation in schemas)) throw new Fault("INVALID_INPUT", `Unknown operation: ${operation}`, 2);
     const parsed = parse(
       schemas[operation],
-      Object.fromEntries(
-        Object.entries(input).filter(([key]) => key !== "debugTimings" || operation === "metadata.read")
-      )
+      input
     );
     const text2 = (key) => parsed[key];
     const root = text2("project") ?? process.cwd();
@@ -15116,8 +15115,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
                 text2("userRequest"),
                 deployment,
                 signal,
-                progress,
-                parsed.confirmation
+                progress
               );
               break;
             }

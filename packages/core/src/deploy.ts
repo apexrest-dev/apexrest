@@ -1355,6 +1355,7 @@ export class DeploymentService {
     signal?: AbortSignal,
     progress?: (state: DeployState) => void,
   ) {
+    const applyTimingStart = sqlclTimings().length;
     const { env, plan } = await this.checkLocal(ctx, value);
     const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
     await authorizePlan(ctx, plan, env, locality.local);
@@ -1364,7 +1365,7 @@ export class DeploymentService {
       // Ownership starts before the live comparison, closing the local check/write race.
       await this.lease(env, runId, true);
       try {
-        return await this.applyLocked(ctx, value, runId, signal, progress);
+        return await this.applyLocked(ctx, value, runId, signal, progress, applyTimingStart);
       } finally {
         const control = new LocalDeploymentControl(env);
         const owner = await control.owner();
@@ -1379,6 +1380,7 @@ export class DeploymentService {
     runId: string,
     signal?: AbortSignal,
     progress?: (state: DeployState) => void,
+    applyTimingStart = 0,
   ) {
     if (signal?.aborted)
       throw new Fault('CANCELLED', 'Deployment cancelled before execution.', 6, 'cancelled');
@@ -1487,7 +1489,7 @@ export class DeploymentService {
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
-    let timingCursor = 0;
+    let timingCursor = applyTimingStart;
     const record = async (nextState: DeployState, details: unknown = {}) => {
       assertTransition(state, nextState);
       const timingPhase = state;
