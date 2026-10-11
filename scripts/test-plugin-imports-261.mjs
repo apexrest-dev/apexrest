@@ -1,3 +1,4 @@
+import { loadHarness, inspectResponse } from './lib/plugin-harness.mjs';
 import { parseArgs } from 'node:util';
 import { readFile, writeFile, realpath, readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -47,6 +48,7 @@ const page = await realpath(path.resolve(sourceRoot, values.page));
 assert.ok(page.startsWith(sourceRoot + path.sep) && /^pages\/p\d+[^/]*\.apx$/.test(values.page));
 const preparedFile = path.join(project, '.apexrest/plugin-tests/import-prepared.json');
 const output = 'docs/evidence/plugin-server/imports-261.json';
+const { quality } = await loadHarness({});
 const report = {
   schemaVersion: 1,
   apexProfile: '26.1',
@@ -59,6 +61,7 @@ const report = {
   },
   mode: values.mode,
   changedFiles: [values.page],
+  responseChecks: [],
   checks: [],
   status: 'running',
 };
@@ -81,6 +84,7 @@ async function call(name, args) {
   let r = JSON.parse(
     (await client.callTool({ name, arguments: args }, undefined, { timeout: 600000 })).content[0].text,
   );
+  report.responseChecks.push(inspectResponse(quality, name, args, r));
   const jobId = r.data?.jobId ?? r.data?.id;
   for (
     let i = 0;
@@ -98,8 +102,10 @@ async function call(name, args) {
         )
       ).content[0].text,
     );
+    report.responseChecks.push(inspectResponse(quality, 'apexrest_job', { action: 'status' }, r));
   }
-  return r.data?.result ?? r;
+  const result = r.data?.result ?? r;
+  return result;
 }
 function passed(r) {
   if (!r.ok || r.status !== 'succeeded')

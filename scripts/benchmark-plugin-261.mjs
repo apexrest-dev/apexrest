@@ -1,4 +1,4 @@
-import { loadHarness, inspectResponse } from './lib/plugin-harness.mjs';
+import { loadHarness, inspectResponse, regressionGate, machineFingerprint } from './lib/plugin-harness.mjs';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -292,6 +292,36 @@ try {
   await client?.close().catch(() => {
     report.closeFailed = true;
   });
+  report.environment = {
+    machine: machineFingerprint(),
+    sqlcl: report.toolchain?.probes?.find((p) => /SQLcl/i.test(p.version ?? ''))?.version ?? null,
+    target: {
+      ...report.target,
+      dbUniqueName: target.databaseIdentity.dbUniqueName,
+      serviceName: target.databaseIdentity.serviceName,
+    },
+  };
+  report.regressions = [];
+  for (const baseline of selection.quality.baselines.filter((b) => b.profile === selection.profile)) {
+    let previous;
+    try {
+      previous = JSON.parse(await readFile(baseline.evidence, 'utf8'));
+    } catch {}
+    const current = report.scenarios.find((s) => s.id === baseline.scenario);
+    if (current)
+      report.regressions.push({
+        scenario: baseline.scenario,
+        ...regressionGate(
+          selection.quality,
+          baseline,
+          current.latency,
+          previous?.environment,
+          report.environment,
+          current.status === 'passed' &&
+            previous?.scenarios?.find((s) => s.id === baseline.scenario)?.status === 'passed',
+        ),
+      });
+  }
   report.finishedAt = new Date().toISOString();
   report.wallTimeMs = performance.now() - began;
   report.tokens = tokenDelta(before, await tokenSnapshot(usageSelection(values)));

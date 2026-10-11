@@ -115,6 +115,11 @@ export async function connectHarness() {
     command: process.execPath,
     args: [path.resolve('dist/runtime/mcp.mjs')],
     stderr: 'pipe',
+    env: Object.fromEntries(
+      ['APEXREST_HOME', 'APEXREST_SQLCL', 'APEXREST_JAVA_HOME']
+        .filter((key) => process.env[key])
+        .map((key) => [key, process.env[key]]),
+    ),
   });
   await client.connect(transport);
   return {
