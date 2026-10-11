@@ -63,8 +63,16 @@ function match(pattern: RegExp, value: string, at: number) {
   pattern.lastIndex = at;
   return pattern.exec(value);
 }
-/** Accepts only a reviewed, allowlisted SQL boolean expression; never statements or session reads. */
-export function expression(value: string) {
+/**
+ * Accepts only a reviewed, allowlisted SQL boolean expression; never statements or session reads.
+ * Dotted names are either allowlisted functions or columns of the given table qualifiers;
+ * Oracle calls parameterless functions without parentheses, so an unknown `owner.name` is
+ * treated as a routine call and rejected.
+ */
+export function expression(value: string, context: { qualifiers?: string[] } = {}) {
+  const qualifiers = new Set(
+    (context.qualifiers ?? []).flatMap((q) => [q, q.split('.').at(-1)!]).map((q) => q.toUpperCase()),
+  );
   if (!value.trim() || value.length > 4000) throw unsafeSql();
   if (/:\s*"/.test(value)) throw untrustedContext();
   if (/[\x00-\x08\x0a-\x1f\x7f;`&#$"@{}\[\]|]|--|\/\*|\*\//.test(value)) throw unsafeSql();
@@ -89,6 +97,13 @@ export function expression(value: string) {
       const next = value.slice(at).match(/^[ \t]*(.)/)?.[1];
       if (next === '(' && !safeFunctions.has(name) && !groupingWords.has(name)) throw unsafeSql();
       if (next !== '(' && safeFunctions.has(name) && name.includes('.')) throw unsafeSql();
+      if (
+        next !== '(' &&
+        parts.length > 1 &&
+        !(parts.length === 2 && qualifiers.has(parts[0]!)) &&
+        !(parts.length === 3 && qualifiers.has(parts[0] + '.' + parts[1]))
+      )
+        throw unsafeSql();
     } else if ((found = match(tokens.number, value, at))) at += found[0].length;
     else if ((found = match(tokens.operator, value, at))) {
       if (found[0] === '(') depth++;
@@ -140,7 +155,7 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
     throw new Fault('KEY_MAPPING_DUPLICATE', 'Each ordered key part must occur once.', 5);
   if (!auth || auth.kind !== 'authorization' || !auth.rowPredicate)
     throw new Fault('AUTH_CONTRACT_MISSING', 'A reviewed server row-read contract is required.', 5);
-  const predicate = expression(auth.rowPredicate);
+  const predicate = expression(auth.rowPredicate, { qualifiers: [entity.read.object] });
   if (entity.read.kind === 'oracle-view') {
     const key = blueprint.contracts[entity.read.keyContract ?? ''];
     if (!key || key.kind !== 'key' || JSON.stringify(key.fields) !== JSON.stringify(keys))

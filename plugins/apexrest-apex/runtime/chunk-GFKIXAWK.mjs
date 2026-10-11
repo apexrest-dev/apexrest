@@ -7,7 +7,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-JNMZLDHB.mjs";
+} from "./chunk-74L3CZEQ.mjs";
 import {
   Client,
   ReadBuffer,
@@ -28,10 +28,10 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-XXDZEVC4.mjs";
+} from "./chunk-7STB6NLZ.mjs";
 import {
   managedHome
-} from "./chunk-TFGUUAFT.mjs";
+} from "./chunk-YEGSGHTV.mjs";
 import "./chunk-U7MVLA3R.mjs";
 import {
   Fault,
@@ -2023,9 +2023,13 @@ exec ${quote(node)} ${quote(cli)} "$@"
     // Restore the caller's APEXREST_HOME: a dot-sourced or in-session call must not leak it.
     "apexrest.ps1": `$apexrestPreviousHome = $env:APEXREST_HOME
 $env:APEXREST_HOME = ${ps(home)}
+$apexrestExitCode = 1
 try {
   & ${ps(node)} ${ps(cli)} @args
-  $apexrestExitCode = $LASTEXITCODE
+  if ($null -ne $LASTEXITCODE) { $apexrestExitCode = $LASTEXITCODE }
+} catch {
+  Write-Error $_
+  $apexrestExitCode = 1
 } finally {
   $env:APEXREST_HOME = $apexrestPreviousHome
 }

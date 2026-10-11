@@ -18,6 +18,7 @@ import path from "node:path";
 import { homedir } from "node:os";
 import { mkdir, realpath } from "node:fs/promises";
 var identifier = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/);
+var workspaceName = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#-]{0,127}$/);
 var refName = external_exports.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/);
 var relativePath = external_exports.string().min(1).max(1024).refine(
   (s) => !path.isAbsolute(s) && !s.split(/[\\/]/).includes("..") && !/[\x00-\x1f]/.test(s),
@@ -27,7 +28,7 @@ var environmentSchema = external_exports.strictObject({
   kind: external_exports.enum(["development", "dev", "qa", "test", "production"]),
   readConnectionRef: refName,
   deployConnectionRef: refName,
-  workspace: identifier,
+  workspace: workspaceName,
   parsingSchema: identifier,
   applicationId: external_exports.number().int().positive(),
   baseUrl: external_exports.url(),

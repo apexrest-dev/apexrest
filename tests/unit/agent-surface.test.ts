@@ -321,7 +321,9 @@ test('workers record phases immediately and the composite job tool reads them', 
   const final = await dispatch('job', { project: ctx.root, jobId: started.jobId, waitSeconds: 5 });
   assert.equal((final.data as { status: string }).status, 'failed');
   assert.equal((final.data as { phase: string }).phase, 'importing');
-  assert.equal(final.ok, true, 'status reads succeed; the recorded result carries the failure');
+  assert.equal(final.ok, false, 'a terminal job reports its recorded outcome on the envelope');
+  assert.equal(final.status, 'failed');
+  assert.equal(final.diagnostics[0]?.code, 'IMPORT_FAILED');
   const cancel = await dispatch('job', { project: ctx.root, jobId: started.jobId, action: 'cancel' });
   assert.equal((cancel.data as { status: string }).status, 'failed');
 });

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "apexRelease": "26.1.x",
+  "extends": "apex-26.1.cases.json",
+  "execution": "agent-led host browser controls",
+  "authorization": "Requested browser verification of the identified test.env application; existing credentials only; no authentication configuration or business writes.",
+  "credentialPolicy": "Read ignored ENV as literal data; never export credentials, cookies or session URLs; disable Remember username.",
+  "evidence": [
+    "sanitized observed outcome",
+    "private screenshot",
+    "action wall time when measured",
+    "effective viewport dimensions",
+    "whole-host token interval with accounting limits"
+  ],
+  "limits": [
+    "Existing shell and session controls only; use separately authorized deployed fixtures for CRUD/Composer.",
+    "UI action wall time includes host-control overhead; no browser navigation performance claim.",
+    "APEX 26.2 requires a separate extension and results."
+  ],
+  "cases": [
+    {
+      "id": "A261-B01",
+      "title": "Authorized login",
+      "steps": [
+        "Open the verified application URL in the host browser.",
+        "Fill Username and Password from test.env; disable Remember username; submit."
+      ],
+      "expected": ["Authenticated Home shows the original application title."]
+    },
+    {
+      "id": "A261-B02",
+      "title": "Authenticated reload",
+      "steps": ["Reload Home and wait for its heading."],
+      "expected": ["Session persists and original title remains visible."]
+    },
+    {
+      "id": "A261-B03",
+      "title": "Navigation disclosure",
+      "steps": ["Open Main Navigation."],
+      "expected": ["Navigation opens and the Home entry is present."]
+    },
+    {
+      "id": "A261-B04",
+      "title": "Keyboard navigation control",
+      "steps": ["Press Enter on the focused Main Navigation button."],
+      "expected": ["The disclosure closes; keyboard operation succeeds."]
+    },
+    {
+      "id": "A261-B05",
+      "title": "Narrow shell",
+      "steps": [
+        "Request a 390x844 viewport.",
+        "Record effective DOM width, inspect controls and horizontal overflow; save screenshot.",
+        "Reset temporary viewport."
+      ],
+      "expected": [
+        "Original title and navigation/account controls render without document horizontal overflow.",
+        "Report actual effective width; do not claim an exact breakpoint if the panel constrains it."
+      ]
+    },
+    {
+      "id": "A261-B06",
+      "title": "Sign out",
+      "steps": ["Open the account menu and select Sign Out."],
+      "expected": ["The login screen returns."]
+    },
+    {
+      "id": "A261-B07",
+      "title": "Protected Home after logout",
+      "steps": ["Navigate directly to the verified Home URL without a session parameter."],
+      "expected": ["Login is required and authenticated content is not displayed."]
+    },
+    {
+      "id": "A261-B08",
+      "title": "Empty login rejection",
+      "steps": ["Submit empty Username and Password; wait for the resulting error."],
+      "expected": ["Invalid Login Credentials appears and Home remains inaccessible."]
+    },
+    {
+      "id": "A261-B09",
+      "title": "Login after rejection",
+      "steps": ["Use valid ENV credentials again with Remember username disabled."],
+      "expected": ["Authenticated original Home returns."]
+    }
+  ]
+}

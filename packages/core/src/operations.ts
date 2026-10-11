@@ -282,7 +282,24 @@ export const schemas = {
           "The user's literal instruction that authorizes this change (recorded with the deploy grant)",
         ),
     })
-    .superRefine(checkImportOptions),
+    .superRefine(checkImportOptions)
+    .superRefine((value, ctx) => {
+      // Fields are bound to their mode so a malformed call fails before a worker or plan exists.
+      if (value.mode === 'recover' && !value.run)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['run'],
+          message: 'mode recover requires the interrupted run UUID.',
+        });
+      if (value.mode !== 'recover' && value.run)
+        ctx.addIssue({ code: 'custom', path: ['run'], message: 'run applies to mode recover only.' });
+      if (value.mode !== 'apply' && (value.plan || value.confirmation))
+        ctx.addIssue({
+          code: 'custom',
+          path: [value.plan ? 'plan' : 'confirmation'],
+          message: 'plan and confirmation apply to mode apply only.',
+        });
+    }),
   // Internal: the detached worker's apply phase for apexrest_ship.
   'ship.apply': z.strictObject({
     ...base,

@@ -189,6 +189,8 @@ async function readPasswordFile(file: string) {
 }
 
 export interface ConfigureConnection {
+  /** Project directory; with the managed home and the working directory it bounds `passwordFile`. */
+  project?: string | undefined;
   sqlclName?: string | undefined;
   ordsUrl?: string | undefined;
   ordsUsername?: string | undefined;
@@ -236,7 +238,21 @@ export async function configureConnection(name: string, input: ConfigureConnecti
     let password = input.password;
     if (input.passwordFile) {
       if (password !== undefined) throw new Fault('INVALID_INPUT', 'Supply one local password source.', 2);
-      password = (await readPasswordFile(path.resolve(input.passwordFile))).replace(/\r?\n$/, '');
+      const file = path.resolve(input.passwordFile);
+      // Bound the readable locations: an agent-supplied path must not turn
+      // connection setup into a reader for arbitrary private files on the host.
+      const roots = [managedHome(), ...(input.project ? [path.resolve(input.project)] : []), process.cwd()];
+      const inside = (root: string) => {
+        const relative = path.relative(root, file);
+        return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+      };
+      if (!roots.some(inside))
+        throw new Fault(
+          'PASSWORD_FILE_UNSAFE',
+          'The password file must be inside the managed home, the project directory or the current working directory.',
+          2,
+        );
+      password = (await readPasswordFile(file)).replace(/\r?\n$/, '');
     }
     if (password !== undefined && !ords)
       throw new Fault(

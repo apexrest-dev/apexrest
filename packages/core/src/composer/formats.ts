@@ -5,7 +5,12 @@ import { z } from 'zod';
 import { contained, hash, exists } from '../fs.ts';
 import { Fault } from '../result.ts';
 
-/** Locale-independent keys, exact strings, ordered arrays, no volatile fields. */
+/**
+ * Locale-independent keys, exact strings, ordered arrays, no volatile fields.
+ * Composer digests (blueprint, state, lock, generation) use this code-point key
+ * order; deployment digests use fs.ts canonical() with locale collation. Never
+ * compare a digest from one domain with the other.
+ */
 export function canonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   if (value && typeof value === 'object')

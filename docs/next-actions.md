@@ -2,6 +2,9 @@
 
 ## Connected and host qualification
 
+- Reuse the 49-case [APEX 26.1 server test catalog](../tests/plugin-server/README.md), nine host-browser shell/session cases, current-build MCP runner and host time/token checkpoints. The authorized 26.1.5 title-import/reset and exact 21-file final audit passed; retain their private evidence and baseline. Extend metadata object/signature fixtures, separately planned backup restore, real fault recovery, Composer runtime and fresh host/platform scenarios with their required targets and authorization. Use the separate 20-repetition read-only benchmark for cold/warm latency; model-driven workflow and historical regression comparisons require their own controlled baseline. Refresh the installed plugin and open a fresh native session to verify the hyphenated-workspace fix currently confirmed only in the current build.
+- Add APEX 26.2 as a separate `A262-*` extension catalog and separate results. Do not mix 26.2 selected-file/API/profile evidence into the 26.1 baseline. Keep the seven advisory security findings from the existing 26.1 application separate from the local 26.2 CRM findings below; remediation would require its own reviewed scope.
+
 - Exercise the shared six-skill/ten-tool bundle in fresh Codex and Claude Code sessions: skill/tool discovery and the one-call scoped ship/job flow. Manifest-driven subprocess parity and managed binding checks are local evidence only; request browser verification separately when needed. Confirm a shared managed home or externally serialize independent homes.
 - On an explicitly authorized development/test target, verify full and selected-file imports, source preservation, authenticated browser CRUD, denied actions, stale versions and narrow screens. Record compiler, import and browser observations separately.
 - Qualify Linux/Windows/WSL2 native installations and connected SQLcl/ORDS behavior. Hosted build tests do not establish native host or Oracle behavior.
@@ -28,6 +31,7 @@
 - Complete Composer shared-resource ownership, typed route/consumer handling, property/fault coverage and authenticated Oracle/browser qualification. See [Composer](composer.md).
 - Verify the generated save dialog over HTTP/HTTPS and the create-as-edit retry path. Materialization and compiler success do not establish runtime DML or authorization.
 - Add recovery for `LOCK_CORRUPT`, clarify first-use integrity records and verify Windows launchers/rename retries.
+- Qualify process-group termination of SQLcl on native Windows (`taskkill /T`) and confirm the exit-drain fallback against a real stalled `apex import`; the POSIX behavior is covered by local shell fixtures only.
 - Broaden remote database dependency/operation qualification and local-transport identity coverage; production deployment remains forbidden.
 
 ## Release and repository policy

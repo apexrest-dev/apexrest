@@ -293,11 +293,20 @@ test('row predicates accept only the reviewed allowlisted dialect', () => {
     'OWNER_NAME = :APP_USER',
     "apex_authorization.is_authorized('CMP_CUSTOMER_WRITE')",
     "upper(owner_name) = upper(:app_user) and status in ('OPEN', 'O''NEIL')",
-    'created_on >= trunc(sysdate) - 30 or nvl(t.tenant_id, 0) = :APP_ID',
+    'created_on >= trunc(sysdate) - 30 or nvl(tenant_id, 0) = :APP_ID',
     'owner_name is not null and (region_code between 1 and 9)',
   ])
     assert.equal(expression(safe), safe);
+  for (const qualified of [
+    'nvl(cmp_customers.tenant_id, 0) = :APP_ID',
+    'app.cmp_customers.owner_name = :APP_USER',
+  ])
+    assert.equal(expression(qualified, { qualifiers: ['APP.CMP_CUSTOMERS'] }), qualified);
   for (const unsafe of [
+    '1 = app_api.is_admin',
+    'app_api.util.flag = 1',
+    'other_table.owner_name = :APP_USER',
+    'nvl(t.tenant_id, 0) = :APP_ID',
     'OWNER_NAME = :APP_USER -- or 1=1',
     'OWNER_NAME = :APP_USER /* hidden */',
     'OWNER_NAME = :APP_USER */',
@@ -324,6 +333,9 @@ test('row predicates accept only the reviewed allowlisted dialect', () => {
     '((OWNER_NAME = :APP_USER)',
   ])
     assert.throws(() => expression(unsafe), { code: 'CONTRACT_SQL_UNSAFE' }, unsafe);
+  assert.throws(() => expression('1 = app_api.is_admin', { qualifiers: ['CMP_CUSTOMERS'] }), {
+    code: 'CONTRACT_SQL_UNSAFE',
+  });
   for (const untrusted of ['OWNER_NAME = :P1_OWNER', 'OWNER_NAME = :"APP_USER"', 'OWNER_NAME = : APP_USER'])
     assert.throws(() => expression(untrusted), { code: 'AUTH_CONTEXT_UNTRUSTED' }, untrusted);
 });
@@ -332,9 +344,17 @@ test('extension code normalizes comments and literals before the transaction den
   for (const safe of [
     "if :P1_NAME is null then raise_application_error(-20002, 'Do not commit or rollback'); end if;",
     "-- notify after save\napex_debug.info('saved');",
+    "raise_application_error(-20002, 'Don''t');",
+    "l := ''''; m := 'a''b'; apex_debug.info(l || m);",
   ])
     assert.equal(extensionCode(safe), safe);
   for (const unsafe of [
+    "x := 'Don''t'; commit; y := '''';",
+    "l := 'a''b'; execute immediate 'drop table t'; m := '''';",
+    "apex_plugin_util.execute_plsql_code(p_plsql_code => 'commit');",
+    "apex_exec.execute_plsql(p_plsql_code => 'commit');",
+    "apex_exec . execute_plsql(p_plsql_code => 'commit');",
+    "l := dbms_xmlgen.getxml('select 1 from dual');",
     'execute/**/immediate l_sql;',
     'execute -- split\n immediate l_sql;',
     'l_cursor := dbms_sql.open_cursor;',

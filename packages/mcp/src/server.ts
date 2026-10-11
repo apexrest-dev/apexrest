@@ -13,7 +13,13 @@ import { failure, Fault } from '../../core/src/result.ts';
 import { parse, loadProject } from '../../core/src/config.ts';
 import { JobService, settleInlineJobs } from '../../core/src/jobs.ts';
 import { toolOutput } from './output.ts';
-import { jobToolResult, jobWaitSeconds, runJobTool, shipWaitSeconds } from './job-tools.ts';
+import {
+  jobToolResult,
+  jobWaitSeconds,
+  runJobTool,
+  shipWaitSeconds,
+  prepareShipApplyPlan,
+} from './job-tools.ts';
 
 const absoluteProject = z
   .string()
@@ -98,8 +104,10 @@ export async function startMcp() {
         if (tool.operation === 'ship' && input.mode === 'apply') {
           // Validate and plan in-process (no writes); the apply phase runs in a
           // detached worker so a database write survives MCP termination.
-          const { waitSeconds, ...domainInput } = input;
-          const planned = await dispatch('ship', { ...domainInput, mode: 'plan' }, extra.signal);
+          const { waitSeconds } = input;
+          const planned = await prepareShipApplyPlan(input, (domainInput) =>
+            dispatch('ship', domainInput, extra.signal),
+          );
           if (!planned.ok) result = planned;
           else {
             const planPath = (planned.data as { planPath: string }).planPath;

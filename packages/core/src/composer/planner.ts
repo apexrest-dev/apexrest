@@ -50,9 +50,15 @@ export function extensionCode(source: string) {
       at = end + 2;
       code += ' ';
     } else if (source[at] === "'") {
-      const end = source.slice(at + 1).search(/'(?!')/);
-      if (end < 0) throw extensionUnsafe();
-      at += end + 2;
+      // A doubled quote is an escaped quote inside the literal, not its end.
+      let end = at + 1;
+      for (;;) {
+        end = source.indexOf("'", end);
+        if (end < 0) throw extensionUnsafe();
+        if (source[end + 1] === "'") end += 2;
+        else break;
+      }
+      at = end + 1;
       code += "''";
     } else if (source[at] === '"') {
       const end = source.indexOf('"', at + 1);
@@ -63,7 +69,7 @@ export function extensionCode(source: string) {
   }
   const normalized = code.replace(/\s+/g, ' ');
   if (
-    /\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|utl_\w+)\b|\bsys\s*\./i.test(
+    /\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|dbms_xml(?:gen|query|store|save)|utl_\w+)\b|\bsys\s*\.|\bapex_exec\s*\.\s*execute_plsql\b|\bapex_plugin_util\s*\.\s*execute_plsql_code\b|\bapex_plugin_util\s*\.\s*get_(?:data|data2)\b/i.test(
       normalized,
     )
   )

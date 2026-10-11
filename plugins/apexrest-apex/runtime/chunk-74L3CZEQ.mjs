@@ -1,8 +1,9 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   runPooledSqlcl,
+  runProcess,
   runSqlclMcp
-} from "./chunk-XXDZEVC4.mjs";
+} from "./chunk-7STB6NLZ.mjs";
 import {
   isProductionTarget,
   managedHome,
@@ -10,7 +11,7 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-TFGUUAFT.mjs";
+} from "./chunk-YEGSGHTV.mjs";
 import {
   external_exports
 } from "./chunk-U7MVLA3R.mjs";
@@ -28,7 +29,6 @@ import {
   hashFile,
   inventory,
   readJson,
-  redact,
   withLock,
   writeJson
 } from "./chunk-I5KYBPSK.mjs";
@@ -1413,76 +1413,6 @@ import { chmod, constants as constants2, lstat, mkdir, open as open2, rm, stat }
 // packages/core/src/local-env.ts
 import path from "node:path";
 import { constants, open, realpath } from "node:fs/promises";
-
-// packages/core/src/process.ts
-import { spawn } from "node:child_process";
-import { StringDecoder } from "node:string_decoder";
-async function runProcess(r) {
-  if (r.signal?.aborted)
-    return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
-  return new Promise((resolve, reject) => {
-    const child = spawn(r.executable, r.args, {
-      cwd: r.cwd,
-      env: r.env ?? process.env,
-      shell: false,
-      stdio: "pipe",
-      windowsHide: true
-    });
-    let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false;
-    const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
-    const max = r.maxBytes ?? 1024 * 1024;
-    const stop = () => {
-      child.kill("SIGTERM");
-      const hard = setTimeout(() => child.kill("SIGKILL"), 1500);
-      hard.unref();
-    };
-    const collect = (isError) => (data) => {
-      const room = Math.max(0, max - bytes);
-      bytes += data.length;
-      const s3 = decoders[isError ? 1 : 0].write(data.subarray(0, room));
-      if (isError) stderr += s3;
-      else stdout += s3;
-      if (bytes > max) {
-        truncated = true;
-        stop();
-      }
-    };
-    child.stdout.on("data", collect(false));
-    child.stderr.on("data", collect(true));
-    child.stdin.on("error", () => {
-    });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, r.timeoutMs ?? 3e4);
-    const abort = () => {
-      cancelled = true;
-      stop();
-    };
-    r.signal?.addEventListener("abort", abort, { once: true });
-    if (r.signal?.aborted) abort();
-    child.on("error", (e) => {
-      clearTimeout(timer);
-      r.signal?.removeEventListener("abort", abort);
-      reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      r.signal?.removeEventListener("abort", abort);
-      resolve({
-        code,
-        stdout: stdout + (truncated ? "" : decoders[0].end()),
-        stderr: redact(stderr + (truncated ? "" : decoders[1].end())),
-        timedOut,
-        cancelled,
-        truncated
-      });
-    });
-    child.stdin.end(r.input ?? "");
-  });
-}
-
-// packages/core/src/local-env.ts
 function parseLocalEnv(contents) {
   const result = /* @__PURE__ */ Object.create(null);
   for (const line of contents.split(/\r?\n/)) {
@@ -1720,7 +1650,19 @@ async function configureConnection(name, input) {
     let password = input.password;
     if (input.passwordFile) {
       if (password !== void 0) throw new Fault("INVALID_INPUT", "Supply one local password source.", 2);
-      password = (await readPasswordFile(path2.resolve(input.passwordFile))).replace(/\r?\n$/, "");
+      const file = path2.resolve(input.passwordFile);
+      const roots = [managedHome(), ...input.project ? [path2.resolve(input.project)] : [], process.cwd()];
+      const inside = (root) => {
+        const relative = path2.relative(root, file);
+        return relative !== "" && !relative.startsWith("..") && !path2.isAbsolute(relative);
+      };
+      if (!roots.some(inside))
+        throw new Fault(
+          "PASSWORD_FILE_UNSAFE",
+          "The password file must be inside the managed home, the project directory or the current working directory.",
+          2
+        );
+      password = (await readPasswordFile(file)).replace(/\r?\n$/, "");
     }
     if (password !== void 0 && !ords)
       throw new Fault(
@@ -2456,8 +2398,7 @@ var SyncStore = class {
           "This target is bound to another environment. Explicitly invalidate the previous mapping first.",
           5
         );
-      if (state2.environment === this.name && state2.status !== "invalidated") matches.push(state2);
-      else if (state2.targetDigest === targetDigest(this.env) && state2.environment === this.name)
+      if (state2.environment === this.name && (state2.status !== "invalidated" || state2.targetDigest === targetDigest(this.env)))
         matches.push(state2);
     }
     const active = matches.filter((s3) => s3.status !== "invalidated");
@@ -7674,7 +7615,6 @@ async function extractVerifiedArchive(file, sha256, target, type, allowLinks = f
 
 // packages/installer/src/command.ts
 import path15 from "node:path";
-import { spawn as spawn2 } from "node:child_process";
 import { stat as stat5 } from "node:fs/promises";
 var windowsExtensions = [".exe", ".cmd", ".bat"];
 var cmdUnsafe = /[&|<>^%"!\x00-\x1f]/;
@@ -7741,57 +7681,10 @@ async function runCommand(request, host = {}) {
     ...host,
     ...request.env ? { env: { ...host.env ?? {}, ...request.env } } : {}
   });
-  if (!command.verbatim) return runProcess({ ...request, ...command });
-  return new Promise((resolve, reject) => {
-    const child = spawn2(command.executable, command.args, {
-      cwd: request.cwd,
-      env: request.env ?? process.env,
-      shell: false,
-      stdio: "pipe",
-      windowsHide: true,
-      windowsVerbatimArguments: true
-    });
-    let stdout = "", stderr = "", bytes = 0, timedOut = false, truncated = false;
-    const max = request.maxBytes ?? 1024 * 1024;
-    const stop = () => {
-      child.kill("SIGTERM");
-      setTimeout(() => child.kill("SIGKILL"), 1500).unref();
-    };
-    const collect = (isError) => (data) => {
-      const room = Math.max(0, max - bytes);
-      bytes += data.length;
-      const text = data.subarray(0, room).toString();
-      if (isError) stderr += text;
-      else stdout += text;
-      if (bytes > max) {
-        truncated = true;
-        stop();
-      }
-    };
-    child.stdout.on("data", collect(false));
-    child.stderr.on("data", collect(true));
-    child.stdin.on("error", () => {
-    });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, request.timeoutMs ?? 3e4);
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(new Fault("DEPENDENCY_MISSING", error.message, 3, "dependency_missing"));
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({
-        code,
-        stdout: redact(stdout),
-        stderr: redact(stderr),
-        timedOut,
-        cancelled: false,
-        truncated
-      });
-    });
-    child.stdin.end(request.input ?? "");
+  return runProcess({
+    ...request,
+    ...command,
+    ...command.verbatim ? { windowsVerbatimArguments: true } : {}
   });
 }
 
@@ -8039,7 +7932,6 @@ var ToolchainService = class {
 };
 
 export {
-  runProcess,
   savedConnectionName,
   ordsUrl,
   ordsUsername,

@@ -2,9 +2,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { ReadBuffer, serializeMessage } from '@modelcontextprotocol/sdk/shared/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolResult, JSONRPCMessage, Tool } from '@modelcontextprotocol/sdk/types.js';
-import { spawn, type ChildProcess } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { ProcessRequest, ProcessResult } from './process.ts';
+import { spawnTree, stopTree, type ProcessRequest, type ProcessResult } from './process.ts';
 import { Fault, redact } from './result.ts';
 
 export interface SqlclMcpRequest extends ProcessRequest {
@@ -35,7 +35,7 @@ export class SqlclStdioTransport implements Transport {
   }
   async start() {
     if (this.child) throw new Error('SQLcl transport already started.');
-    const child = spawn(this.request.executable, this.request.args, {
+    const child = spawnTree(this.request.executable, this.request.args, {
       cwd: this.request.cwd,
       env: this.request.env ?? process.env,
       shell: false,
@@ -86,11 +86,8 @@ export class SqlclStdioTransport implements Transport {
     const child = this.child;
     if (!child || this.exited) return;
     child.stdin?.end();
-    child.kill('SIGTERM');
-    const hard = setTimeout(() => {
-      if (!this.exited) child.kill('SIGKILL');
-    }, 1500);
-    hard.unref();
+    // The launcher's JVM child must stop with it; see spawnTree.
+    stopTree(child);
   }
   setActive(active: boolean) {
     const child = this.child;

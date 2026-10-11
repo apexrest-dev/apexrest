@@ -182,6 +182,10 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
     submitted = true;
     const result = await session.client.execute(request.input ?? '', options(), () => request.mutation);
     const output = session.client.text(result, request.mutation);
+    // Connected servers are released after each batch: no session state (binds,
+    // SET options, current schema) carries over between connected calls. Offline
+    // servers stay in the pool. The idle probe in prepare() therefore applies only
+    // when a connected server is handed to a waiter before this release.
     if (
       request.connectionName ||
       request.mutation ||

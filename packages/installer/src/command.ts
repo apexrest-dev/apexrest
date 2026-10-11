@@ -1,9 +1,8 @@
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { stat } from 'node:fs/promises';
 import { runProcess } from '../../core/src/process.ts';
 import type { ProcessRequest, ProcessResult } from '../../core/src/process.ts';
-import { Fault, redact } from '../../core/src/result.ts';
+import { Fault } from '../../core/src/result.ts';
 
 export interface CommandHost {
   platform?: NodeJS.Platform;
@@ -112,59 +111,9 @@ export async function runCommand(request: ProcessRequest, host: CommandHost = {}
     ...host,
     ...(request.env ? { env: { ...(host.env ?? {}), ...request.env } } : {}),
   });
-  if (!command.verbatim) return runProcess({ ...request, ...command });
-  return new Promise((resolve, reject) => {
-    const child = spawn(command.executable, command.args, {
-      cwd: request.cwd,
-      env: request.env ?? process.env,
-      shell: false,
-      stdio: 'pipe',
-      windowsHide: true,
-      windowsVerbatimArguments: true,
-    });
-    let stdout = '',
-      stderr = '',
-      bytes = 0,
-      timedOut = false,
-      truncated = false;
-    const max = request.maxBytes ?? 1024 * 1024;
-    const stop = () => {
-      child.kill('SIGTERM');
-      setTimeout(() => child.kill('SIGKILL'), 1500).unref();
-    };
-    const collect = (isError: boolean) => (data: Buffer) => {
-      const room = Math.max(0, max - bytes);
-      bytes += data.length;
-      const text = data.subarray(0, room).toString();
-      if (isError) stderr += text;
-      else stdout += text;
-      if (bytes > max) {
-        truncated = true;
-        stop();
-      }
-    };
-    child.stdout.on('data', collect(false));
-    child.stderr.on('data', collect(true));
-    child.stdin.on('error', () => {});
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, request.timeoutMs ?? 30000);
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(new Fault('DEPENDENCY_MISSING', error.message, 3, 'dependency_missing'));
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      resolve({
-        code,
-        stdout: redact(stdout),
-        stderr: redact(stderr),
-        timedOut,
-        cancelled: false,
-        truncated,
-      });
-    });
-    child.stdin.end(request.input ?? '');
+  return runProcess({
+    ...request,
+    ...command,
+    ...(command.verbatim ? { windowsVerbatimArguments: true } : {}),
   });
 }

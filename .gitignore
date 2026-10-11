@@ -19,3 +19,6 @@ tmp/
 
 # Generated verification output is not repository history.
 docs/evidence/
+
+# Private test-server connection and browser credentials.
+test.env

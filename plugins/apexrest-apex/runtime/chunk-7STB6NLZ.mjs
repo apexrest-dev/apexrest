@@ -10566,8 +10566,116 @@ function serializeMessage(message) {
 }
 
 // packages/core/src/sqlcl-mcp.ts
-import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+
+// packages/core/src/process.ts
+import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
+var DRAIN_AFTER_EXIT_MS = 3e3;
+var groupKills = process.platform !== "win32";
+function spawnTree(executable, args, options) {
+  return spawn(executable, args, { ...options, ...groupKills ? { detached: true } : {} });
+}
+function killTree(child, signal) {
+  if (child.pid === void 0 || child.exitCode !== null || child.signalCode !== null) return;
+  if (!groupKills) {
+    try {
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill()).unref();
+    } catch {
+      child.kill();
+    }
+    return;
+  }
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    try {
+      child.kill(signal);
+    } catch {
+    }
+  }
+}
+function stopTree(child) {
+  killTree(child, "SIGTERM");
+  const hard = setTimeout(() => killTree(child, "SIGKILL"), 1500);
+  hard.unref();
+}
+async function runProcess(r) {
+  if (r.signal?.aborted)
+    return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
+  return new Promise((resolve, reject) => {
+    const child = spawnTree(r.executable, r.args, {
+      cwd: r.cwd,
+      env: r.env ?? process.env,
+      shell: false,
+      stdio: "pipe",
+      windowsHide: true,
+      ...r.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}
+    });
+    let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false, settled = false;
+    const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
+    const max = r.maxBytes ?? 1024 * 1024;
+    const stop = () => stopTree(child);
+    const collect = (isError) => (data) => {
+      const room = Math.max(0, max - bytes);
+      bytes += data.length;
+      const s = decoders[isError ? 1 : 0].write(data.subarray(0, room));
+      if (isError) stderr += s;
+      else stdout += s;
+      if (bytes > max) {
+        truncated = true;
+        stop();
+      }
+    };
+    child.stdout.on("data", collect(false));
+    child.stderr.on("data", collect(true));
+    child.stdin.on("error", () => {
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stop();
+    }, r.timeoutMs ?? 3e4);
+    const abort = () => {
+      cancelled = true;
+      stop();
+    };
+    r.signal?.addEventListener("abort", abort, { once: true });
+    if (r.signal?.aborted) abort();
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      r.signal?.removeEventListener("abort", abort);
+      resolve({
+        code,
+        stdout: stdout + (truncated ? "" : decoders[0].end()),
+        stderr: redact(stderr + (truncated ? "" : decoders[1].end())),
+        timedOut,
+        cancelled,
+        truncated
+      });
+    };
+    child.on("error", (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      r.signal?.removeEventListener("abort", abort);
+      reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
+    });
+    child.on("close", (code) => finish(code));
+    child.on("exit", (code) => {
+      const drain = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        finish(code);
+      }, DRAIN_AFTER_EXIT_MS);
+      drain.unref();
+    });
+    child.stdin.end(r.input ?? "");
+  });
+}
+
+// packages/core/src/sqlcl-mcp.ts
 var SqlclStdioTransport = class {
   constructor(request) {
     this.request = request;
@@ -10587,7 +10695,7 @@ var SqlclStdioTransport = class {
   }
   async start() {
     if (this.child) throw new Error("SQLcl transport already started.");
-    const child = spawn(this.request.executable, this.request.args, {
+    const child = spawnTree(this.request.executable, this.request.args, {
       cwd: this.request.cwd,
       env: this.request.env ?? process.env,
       shell: false,
@@ -10640,11 +10748,7 @@ var SqlclStdioTransport = class {
     const child = this.child;
     if (!child || this.exited) return;
     child.stdin?.end();
-    child.kill("SIGTERM");
-    const hard = setTimeout(() => {
-      if (!this.exited) child.kill("SIGKILL");
-    }, 1500);
-    hard.unref();
+    stopTree(child);
   }
   setActive(active) {
     const child = this.child;
@@ -11004,6 +11108,7 @@ function sqlclSessionStats() {
 }
 
 export {
+  runProcess,
   safeParse2 as safeParse,
   getObjectShape,
   getLiteralValue,

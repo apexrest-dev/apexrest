@@ -35,7 +35,6 @@ import {
   rebaseAfterImport,
   resolveConnection,
   resourceRoot,
-  runProcess,
   runtimeState,
   savedConnectionName,
   scopedExportFile,
@@ -48,11 +47,14 @@ import {
   stageSelection,
   supportedFile,
   syncPath
-} from "./chunk-JNMZLDHB.mjs";
+} from "./chunk-74L3CZEQ.mjs";
+import {
+  runProcess
+} from "./chunk-7STB6NLZ.mjs";
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-WPD35JL5.mjs";
+} from "./chunk-JZ5FIGSS.mjs";
 import {
   environment,
   identifier,
@@ -65,7 +67,7 @@ import {
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-TFGUUAFT.mjs";
+} from "./chunk-YEGSGHTV.mjs";
 import {
   external_exports
 } from "./chunk-U7MVLA3R.mjs";
@@ -7495,6 +7497,17 @@ var JobService = class {
         worker.once("spawn", resolve);
         worker.once("error", reject);
       });
+      worker.once("exit", (code2, signal) => {
+        void failQueuedJob(
+          this.ctx.root,
+          id,
+          new Fault(
+            "WORKER_EXITED",
+            `The detached worker exited before starting the operation (code ${code2 ?? "null"}${signal ? ", signal " + signal : ""}).`,
+            3
+          )
+        ).catch(() => void 0);
+      });
       worker.unref();
     } catch (error) {
       await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
@@ -7511,6 +7524,8 @@ var JobService = class {
     parse(external_exports.uuid(), id);
     parse(external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS), waitSeconds);
     const root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
+    if (!await exists(path.join(root, "state.json")))
+      throw new Fault("JOB_NOT_FOUND", `No job ${id} exists in this project.`, 2, "not_found");
     const deadline = Date.now() + waitSeconds * 1e3;
     for (; ; ) {
       const state = await readJson(path.join(root, "state.json"));
@@ -7531,10 +7546,14 @@ var JobService = class {
   async cancel(id) {
     parse(external_exports.uuid(), id);
     const state = await this.status(id);
-    if (!["queued", "running"].includes(state.status)) return state;
+    const file = await contained(this.ctx.root, ".apexrest/jobs/" + id + "/state.json");
+    const recorded = await readJson(file);
+    if (!["queued", "running"].includes(recorded.status ?? "")) return state;
     await writeJson(await contained(this.ctx.root, ".apexrest/jobs/" + id + "/cancel.json"), {
       requestedAt: (/* @__PURE__ */ new Date()).toISOString()
     });
+    if (state.status !== "queued" && state.status !== "running")
+      return { ...state, jobId: id, cancellationRequested: true, rollbackConfirmed: false };
     return { jobId: id, status: "cancellation_requested", rollbackConfirmed: false };
   }
 };
@@ -7564,6 +7583,7 @@ function jobOutcome(result) {
   if (!value || typeof value !== "object" || value.ok !== false) return "completed";
   return typeof value.status === "string" && !["queued", "running", "completed", "succeeded"].includes(value.status) ? value.status : "failed";
 }
+var HEARTBEAT_FAILURE_LIMIT = 10;
 async function executeJob(ctx, id, execute) {
   parse(external_exports.uuid(), id);
   const root = await contained(ctx.root, ".apexrest/jobs/" + id);
@@ -7585,9 +7605,12 @@ async function executeJob(ctx, id, execute) {
   };
   await pulse();
   let pending = Promise.resolve();
+  let heartbeatFailures = 0;
   const schedule = () => {
-    pending = pending.then(pulse).catch(() => {
-      controller.abort();
+    pending = pending.then(pulse).then(() => {
+      heartbeatFailures = 0;
+    }).catch(() => {
+      if (++heartbeatFailures >= HEARTBEAT_FAILURE_LIMIT) controller.abort();
     });
   };
   const timer = setInterval(schedule, 2e3), timeout = setTimeout(() => controller.abort(), 9e5);
@@ -7619,6 +7642,86 @@ async function executeJob(ctx, id, execute) {
     clearInterval(timer);
     clearTimeout(timeout);
   }
+}
+var completedResultSchema = external_exports.object({
+  schemaVersion: external_exports.literal(1),
+  ok: external_exports.boolean(),
+  operation: external_exports.string(),
+  status: external_exports.string(),
+  runId: external_exports.string(),
+  summary: external_exports.string(),
+  diagnostics: external_exports.array(
+    external_exports.object({
+      severity: external_exports.enum(["error", "warning", "info"]),
+      code: external_exports.string(),
+      message: external_exports.string(),
+      file: external_exports.string().optional(),
+      line: external_exports.number().int().optional(),
+      column: external_exports.number().int().optional(),
+      type: external_exports.string().optional(),
+      hint: external_exports.string().optional(),
+      validValues: external_exports.array(external_exports.string()).optional()
+    }).transform(({ severity, code: code2, message, file, line, column, type, hint, validValues }) => ({
+      severity,
+      code: code2,
+      message,
+      ...file !== void 0 ? { file } : {},
+      ...line !== void 0 ? { line } : {},
+      ...column !== void 0 ? { column } : {},
+      ...type !== void 0 ? { type } : {},
+      ...hint !== void 0 ? { hint } : {},
+      ...validValues !== void 0 ? { validValues } : {}
+    }))
+  ),
+  artifacts: external_exports.array(external_exports.string()),
+  nextActions: external_exports.array(external_exports.string()),
+  data: external_exports.unknown().optional(),
+  exitCode: external_exports.union([
+    external_exports.literal(0),
+    external_exports.literal(1),
+    external_exports.literal(2),
+    external_exports.literal(3),
+    external_exports.literal(4),
+    external_exports.literal(5),
+    external_exports.literal(6)
+  ])
+});
+function jobToolResult(operation, job) {
+  const active = job.status === "queued" || job.status === "running" ? job.status : void 0;
+  if (!active && job.result !== void 0) {
+    const nested = completedResultSchema.safeParse(job.result);
+    if (nested.success && nested.data.operation === operation) return { ...nested.data, data: job };
+  }
+  const nextActions = typeof job.nextAction === "string" ? [job.nextAction] : ["Read apexrest_job action:status with this jobId; inspect the existing operation before any retry."];
+  if (job.status === "completed") {
+    const result2 = failure(
+      operation,
+      new Fault(
+        "JOB_RESULT_UNREADABLE",
+        "The job completed but its recorded result cannot be read for this operation. Inspect its existing record; do not repeat the operation.",
+        1,
+        "completed_unreadable"
+      )
+    );
+    return { ...result2, nextActions, data: job };
+  }
+  if (active)
+    return {
+      ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
+      status: active,
+      nextActions
+    };
+  const status = job.status === "failed" || job.status === "cancelled" ? job.status : "outcome_unknown";
+  const result = failure(
+    operation,
+    new Fault(
+      status === "failed" ? "JOB_FAILED" : status === "cancelled" ? "CANCELLED" : "JOB_OUTCOME_UNKNOWN",
+      status === "outcome_unknown" ? "The job outcome is unknown. Inspect its existing record; do not repeat the operation." : `Job ${status}. Inspect the existing operation record.`,
+      status === "failed" ? 1 : 6,
+      status
+    )
+  );
+  return { ...result, nextActions, data: job };
 }
 
 // packages/core/src/composer/service.ts
@@ -7819,7 +7922,15 @@ var ArtifactService = class {
     parse(external_exports.number().int().min(1).max(16384), limit);
     const results = await this.resultDirectory();
     const directory = results && await exists(path2.join(results, id + ".json")) ? results : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
-    const metadata = await readJson(await contained(directory, id + ".json"));
+    const metadataFile = await contained(directory, id + ".json");
+    if (!await exists(metadataFile))
+      throw new Fault(
+        "ARTIFACT_NOT_FOUND",
+        `No registered artifact ${id} exists in this project.`,
+        2,
+        "not_found"
+      );
+    const metadata = await readJson(metadataFile);
     if (Date.parse(metadata.expiresAt) < Date.now())
       throw new Fault("ARTIFACT_EXPIRED", "Artifact retention has expired.", 3);
     if (/auth|wallet|credential/i.test(metadata.kind))
@@ -8630,7 +8741,10 @@ function match(pattern, value, at) {
   pattern.lastIndex = at;
   return pattern.exec(value);
 }
-function expression(value) {
+function expression(value, context2 = {}) {
+  const qualifiers = new Set(
+    (context2.qualifiers ?? []).flatMap((q) => [q, q.split(".").at(-1)]).map((q) => q.toUpperCase())
+  );
   if (!value.trim() || value.length > 4e3) throw unsafeSql();
   if (/:\s*"/.test(value)) throw untrustedContext();
   if (/[\x00-\x08\x0a-\x1f\x7f;`&#$"@{}\[\]|]|--|\/\*|\*\//.test(value)) throw unsafeSql();
@@ -8652,6 +8766,8 @@ function expression(value) {
       const next2 = value.slice(at).match(/^[ \t]*(.)/)?.[1];
       if (next2 === "(" && !safeFunctions.has(name2) && !groupingWords.has(name2)) throw unsafeSql();
       if (next2 !== "(" && safeFunctions.has(name2) && name2.includes(".")) throw unsafeSql();
+      if (next2 !== "(" && parts.length > 1 && !(parts.length === 2 && qualifiers.has(parts[0])) && !(parts.length === 3 && qualifiers.has(parts[0] + "." + parts[1])))
+        throw unsafeSql();
     } else if (found = match(tokens.number, value, at)) at += found[0].length;
     else if (found = match(tokens.operator, value, at)) {
       if (found[0] === "(") depth++;
@@ -8692,7 +8808,7 @@ function bind(blueprint, instance, metadata) {
     throw new Fault("KEY_MAPPING_DUPLICATE", "Each ordered key part must occur once.", 5);
   if (!auth || auth.kind !== "authorization" || !auth.rowPredicate)
     throw new Fault("AUTH_CONTRACT_MISSING", "A reviewed server row-read contract is required.", 5);
-  const predicate = expression(auth.rowPredicate);
+  const predicate = expression(auth.rowPredicate, { qualifiers: [entity.read.object] });
   if (entity.read.kind === "oracle-view") {
     const key = blueprint.contracts[entity.read.keyContract ?? ""];
     if (!key || key.kind !== "key" || JSON.stringify(key.fields) !== JSON.stringify(keys))
@@ -9410,9 +9526,14 @@ function extensionCode(source2) {
       at = end + 2;
       code2 += " ";
     } else if (source2[at] === "'") {
-      const end = source2.slice(at + 1).search(/'(?!')/);
-      if (end < 0) throw extensionUnsafe();
-      at += end + 2;
+      let end = at + 1;
+      for (; ; ) {
+        end = source2.indexOf("'", end);
+        if (end < 0) throw extensionUnsafe();
+        if (source2[end + 1] === "'") end += 2;
+        else break;
+      }
+      at = end + 1;
       code2 += "''";
     } else if (source2[at] === '"') {
       const end = source2.indexOf('"', at + 1);
@@ -9422,7 +9543,7 @@ function extensionCode(source2) {
     } else code2 += source2[at++];
   }
   const normalized = code2.replace(/\s+/g, " ");
-  if (/\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|utl_\w+)\b|\bsys\s*\./i.test(
+  if (/\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|dbms_xml(?:gen|query|store|save)|utl_\w+)\b|\bsys\s*\.|\bapex_exec\s*\.\s*execute_plsql\b|\bapex_plugin_util\s*\.\s*execute_plsql_code\b|\bapex_plugin_util\s*\.\s*get_(?:data|data2)\b/i.test(
     normalized
   ))
     throw extensionUnsafe();
@@ -10727,7 +10848,22 @@ var schemas = {
     userRequest: external_exports.string().min(10).max(2e3).describe(
       "The user's literal instruction that authorizes this change (recorded with the deploy grant)"
     )
-  }).superRefine(checkImportOptions),
+  }).superRefine(checkImportOptions).superRefine((value, ctx) => {
+    if (value.mode === "recover" && !value.run)
+      ctx.addIssue({
+        code: "custom",
+        path: ["run"],
+        message: "mode recover requires the interrupted run UUID."
+      });
+    if (value.mode !== "recover" && value.run)
+      ctx.addIssue({ code: "custom", path: ["run"], message: "run applies to mode recover only." });
+    if (value.mode !== "apply" && (value.plan || value.confirmation))
+      ctx.addIssue({
+        code: "custom",
+        path: [value.plan ? "plan" : "confirmation"],
+        message: "plan and confirmation apply to mode apply only."
+      });
+  }),
   // Internal: the detached worker's apply phase for apexrest_ship.
   "ship.apply": external_exports.strictObject({
     ...base,
@@ -11914,7 +12050,7 @@ function sqlTokens(sql) {
       i = end < 0 ? sql.length : end + 2;
       continue;
     }
-    if (!sql.slice(sql.lastIndexOf("\n", i - 1) + 1, i).trim() && /^REM(?:ARK)?(?:[ \t]|$)/i.test(sql.slice(i))) {
+    if (!sql.slice(sql.lastIndexOf("\n", i - 1) + 1, i).trim() && /^REM(?:ARK)?(?:[ \t]|$)(?![ \t]*:=)/i.test(sql.slice(i))) {
       const end = sql.indexOf("\n", i);
       if (end < 0) break;
       i = end + 1;
@@ -11981,6 +12117,47 @@ function executableSql(sql) {
     if (!token.literal) for (let i = token.start; i < token.end; i++) code2[i] = sql[i];
   return code2.join("");
 }
+var plainCreateKinds = /* @__PURE__ */ new Set(["TABLE", "VIEW", "INDEX", "SEQUENCE", "SYNONYM", "MATERIALIZED-VIEW"]);
+var programKinds = /* @__PURE__ */ new Set(["PACKAGE", "PROCEDURE", "FUNCTION", "TRIGGER", "TYPE", "JAVA", "LIBRARY"]);
+var kindModifiers = /* @__PURE__ */ new Set([
+  "OR",
+  "REPLACE",
+  "FORCE",
+  "NOFORCE",
+  "EDITIONABLE",
+  "NONEDITIONABLE",
+  "UNIQUE",
+  "BITMAP",
+  "MULTIVALUE",
+  "PUBLIC",
+  "PRIVATE",
+  "GLOBAL",
+  "TEMPORARY",
+  "SHARDED",
+  "DUPLICATED",
+  "IMMUTABLE",
+  "BLOCKCHAIN",
+  "BIGFILE",
+  "SMALLFILE",
+  "AND",
+  "RESOLVE",
+  "COMPILE"
+]);
+var compoundKinds = {
+  MATERIALIZED: ["VIEW", "ZONEMAP"],
+  DATABASE: ["LINK"],
+  PACKAGE: ["BODY"],
+  TYPE: ["BODY"],
+  ROLLBACK: ["SEGMENT"],
+  RESTORE: ["POINT"],
+  FLASHBACK: ["ARCHIVE"],
+  ANALYTIC: ["VIEW"],
+  ATTRIBUTE: ["DIMENSION"],
+  LOCKDOWN: ["PROFILE"]
+};
+var queryBuiltins = new Set(
+  "ABS ACOS ADD_MONTHS ALL AND ANY ASCII ASCIISTR ASIN ATAN ATAN2 AVG BETWEEN BIN_TO_NUM BINARY_DOUBLE BINARY_FLOAT BITAND BY CARDINALITY CASE CAST CEIL CHAR CHARTOROWID CHR COALESCE COLLECT COMPOSE CONCAT CONNECT CONVERT CORR COS COSH COUNT COVAR_POP COVAR_SAMP CUBE CUME_DIST CURRENT_DATE CURRENT_TIMESTAMP CV DATE DBTIMEZONE DECODE DECOMPOSE DENSE_RANK DEREF DISTINCT DUMP ELSE EMPTY_BLOB EMPTY_CLOB EXISTS EXP EXTRACT FILTER FIRST FIRST_VALUE FLOAT FLOOR FOR FROM FROM_TZ GREATEST GROUP GROUPING GROUPING_ID HAVING HEXTORAW IN INITCAP INSTR INSTRB INSTRC INTERVAL IS JOIN JSON_ARRAY JSON_ARRAYAGG JSON_EXISTS JSON_MERGEPATCH JSON_OBJECT JSON_OBJECTAGG JSON_QUERY JSON_SCALAR JSON_SERIALIZE JSON_TABLE JSON_TRANSFORM JSON_VALUE KEEP LAG LAST LAST_DAY LAST_VALUE LATERAL LEAD LEAST LENGTH LENGTHB LENGTHC LIKE LISTAGG LN LNNVL LOCALTIMESTAMP LOG LOWER LPAD LTRIM MAX MEDIAN MIN MOD MONTHS_BETWEEN NANVL NCHAR NCHR NEW_TIME NEXT_DAY NLS_INITCAP NLS_LOWER NLS_UPPER NLSSORT NOT NTH_VALUE NTILE NULLIF NUMBER NUMTODSINTERVAL NUMTOYMINTERVAL NVARCHAR2 NVL NVL2 ON ONLY OR ORA_HASH ORDER OVER PARTITION PERCENT_RANK PERCENTILE_CONT PERCENTILE_DISC PIVOT POWER RANGE RANK RATIO_TO_REPORT RAW RAWTOHEX REGEXP_COUNT REGEXP_INSTR REGEXP_LIKE REGEXP_REPLACE REGEXP_SUBSTR REMAINDER REPLACE REVERSE ROLLUP ROUND ROW_NUMBER ROWIDTOCHAR ROWS RPAD RTRIM SELECT SESSIONTIMEZONE SETS SIGN SIN SINH SOME SOUNDEX SQRT STANDARD_HASH STATS_MODE STDDEV STDDEV_POP STDDEV_SAMP SUBSTR SUBSTRB SUBSTRC SUM SYS_CONNECT_BY_PATH SYS_CONTEXT SYS_EXTRACT_UTC SYS_GUID SYSDATE SYSTIMESTAMP TAN TANH THEN TIMESTAMP TO_BINARY_DOUBLE TO_BINARY_FLOAT TO_BLOB TO_CHAR TO_CLOB TO_DATE TO_DSINTERVAL TO_LOB TO_MULTI_BYTE TO_NCHAR TO_NCLOB TO_NUMBER TO_SINGLE_BYTE TO_TIMESTAMP TO_TIMESTAMP_TZ TO_YMINTERVAL TRANSLATE TREAT TRIM TRUNC TZ_OFFSET UNION UNISTR UNPIVOT UPPER USING VALIDATE_CONVERSION VALUE VALUES VAR_POP VAR_SAMP VARCHAR VARCHAR2 VARIANCE VSIZE WHEN WHERE WIDTH_BUCKET WITH WITHIN XMLAGG XMLELEMENT XMLFOREST XMLTABLE XMLTYPE".split(" ")
+);
 function inspectSql(sql, depth = 0) {
   const tokens2 = sqlTokens(sql), operations = [];
   const at = (i) => tokens2[i]?.literal ? "" : tokens2[i]?.value ?? "";
@@ -11988,22 +12165,31 @@ function inspectSql(sql, depth = 0) {
   const add = (action, object, dangerous, consequence, extra = {}) => operations.push({ action, object, dangerous, consequence, ...extra });
   const units = sql.split(/^\s*\/\s*$/m);
   if (units.length > 1) return units.flatMap((unit) => inspectSql(unit, depth));
+  const kindAt = (i) => {
+    let cursor = i;
+    while (kindModifiers.has(at(cursor))) cursor++;
+    let kind = at(cursor);
+    if (!/^[A-Z]/.test(kind)) return null;
+    cursor++;
+    const second = compoundKinds[kind];
+    if (second?.includes(at(cursor))) kind += "-" + at(cursor++);
+    return { kind, cursor };
+  };
   const header = tokens2.filter((token) => !token.literal).slice(0, 6).map((token) => token.value);
   if (header[0] === "CREATE") {
-    let offset = header[1] === "OR" && header[2] === "REPLACE" ? 3 : 1;
-    while (["FORCE", "EDITIONABLE", "NONEDITIONABLE"].includes(at(offset))) offset++;
-    if (["PACKAGE", "PROCEDURE", "FUNCTION", "TRIGGER", "TYPE"].includes(header[offset] ?? "")) {
-      const position = at(offset + 1) === "BODY" ? offset + 2 : offset + 1;
+    const found = kindAt(1);
+    if (found && programKinds.has(found.kind.split("-")[0]))
       return [
         {
           action: "create-program",
-          object: objectAt(position),
+          object: objectAt(found.cursor),
           dangerous: true,
           consequence: "Creates or replaces executable database code; callers and triggers can change behavior."
         }
       ];
-    }
   }
+  const statementStart = (i) => i === 0 || at(i - 1) === ";" || at(i - 1) === "/";
+  let anonymousBlock = false;
   for (let i = 0; i < tokens2.length; i++) {
     const word = at(i);
     if (word === "EXECUTE" && at(i + 1) === "IMMEDIATE") {
@@ -12017,27 +12203,26 @@ function inspectSql(sql, depth = 0) {
           true,
           "Dynamic SQL cannot be resolved statically; review the complete script."
         );
-    } else if (word === "DROP" && [
-      "TABLE",
-      "VIEW",
-      "INDEX",
-      "PACKAGE",
-      "PROCEDURE",
-      "FUNCTION",
-      "TRIGGER",
-      "TYPE",
-      "SEQUENCE",
-      "USER"
-    ].includes(at(i + 1))) {
+    } else if ((word === "EXEC" || word === "EXECUTE") && statementStart(i)) {
       add(
-        "drop-" + at(i + 1).toLowerCase(),
-        objectAt(i + 2),
+        "plsql-block",
+        null,
+        true,
+        "Executes a database block or routine; review its data and schema effects."
+      );
+    } else if ((word === "DECLARE" || word === "BEGIN") && statementStart(i)) {
+      anonymousBlock = true;
+    } else if (word === "DROP") {
+      const found = kindAt(i + 1);
+      add(
+        "drop-" + (found?.kind.toLowerCase() ?? "object"),
+        found ? objectAt(found.cursor) : null,
         true,
         "Removes the database object; dependent code can become invalid. Dropping a table removes its data and constraints."
       );
-    } else if (word === "TRUNCATE" && at(i + 1) === "TABLE") {
+    } else if (word === "TRUNCATE" && ["TABLE", "CLUSTER"].includes(at(i + 1))) {
       add(
-        "truncate-table",
+        "truncate-" + at(i + 1).toLowerCase(),
         objectAt(i + 2),
         true,
         "Removes all table rows with DDL commit semantics; application metadata backup does not restore data."
@@ -12075,19 +12260,69 @@ function inspectSql(sql, depth = 0) {
         true,
         "Mutates business data; an APEX application backup does not restore affected rows."
       );
-    } else if (["GRANT", "REVOKE"].includes(word) || word === "ALTER" && ["USER", "SYSTEM", "DATABASE"].includes(at(i + 1))) {
-      add("privileged-sql", null, true, "Changes database privileges or administration settings.");
-    } else if (word === "CREATE") {
+    } else if (["GRANT", "REVOKE", "AUDIT", "NOAUDIT", "ADMINISTER"].includes(word) || word === "ALTER" && ["USER", "SYSTEM", "DATABASE", "SESSION", "PROFILE", "ROLE"].includes(at(i + 1))) {
+      add(
+        "privileged-sql",
+        null,
+        true,
+        "Changes database privileges, session context or administration settings."
+      );
+    } else if (word === "ALTER" && statementStart(i)) {
+      const found = kindAt(i + 1);
+      add(
+        "alter-" + (found?.kind.toLowerCase() ?? "object"),
+        found ? objectAt(found.cursor) : null,
+        true,
+        "Changes an existing database object; dependent code, triggers or constraints can change behavior."
+      );
+    } else if (["PURGE", "FLASHBACK"].includes(word) && statementStart(i)) {
+      add(
+        word.toLowerCase(),
+        null,
+        true,
+        "Permanently removes or rewinds database objects; review the affected data."
+      );
+    } else if (word === "CREATE" && statementStart(i)) {
+      const found = kindAt(i + 1);
       const replaces = at(i + 1) === "OR" && at(i + 2) === "REPLACE";
-      let cursor = replaces ? i + 3 : i + 1;
-      while (["FORCE", "EDITIONABLE", "NONEDITIONABLE", "UNIQUE", "BITMAP"].includes(at(cursor))) cursor++;
-      if (["TABLE", "VIEW", "INDEX", "SEQUENCE", "SYNONYM", "MATERIALIZED"].includes(at(cursor)))
+      if (!found) continue;
+      const kind = found.kind.toLowerCase();
+      if (programKinds.has(found.kind.split("-")[0]))
         add(
-          "create-" + at(cursor).toLowerCase(),
-          objectAt(cursor + 1),
+          "create-program",
+          objectAt(found.cursor),
+          true,
+          "Creates or replaces executable database code; callers and triggers can change behavior."
+        );
+      else if (plainCreateKinds.has(found.kind))
+        add(
+          "create-" + kind,
+          objectAt(found.cursor),
           replaces,
           replaces ? "Replaces an existing database object; dependent queries and code can change behavior." : "Creates a database object in the reviewed application schema."
         );
+      else
+        add(
+          "create-" + kind,
+          objectAt(found.cursor),
+          true,
+          "Creates a privileged or executable database object (users, roles, links, jobs, directories, contexts); review its scope."
+        );
+    } else if ((word === "SELECT" || word === "WITH") && statementStart(i)) {
+      let j = i;
+      for (; j < tokens2.length && at(j) !== ";"; j++) {
+        if (tokens2[j].literal || at(j + 1) !== "(" || !/^[A-Z][\w$#]*$/.test(at(j))) continue;
+        const qualified = at(j - 1) === ".";
+        if (qualified || !queryBuiltins.has(at(j))) {
+          add(
+            "query-routine-call",
+            qualified ? at(j - 2) + "." + at(j) : at(j),
+            true,
+            "Queries a user-defined routine; functions can perform autonomous data or schema changes."
+          );
+          break;
+        }
+      }
     }
   }
   const controlWords = /* @__PURE__ */ new Set([
@@ -12105,7 +12340,27 @@ function inspectSql(sql, depth = 0) {
   const routineCall = tokens2.some(
     (token, i) => !token.literal && (token.value === "CALL" || !controlWords.has(token.value) && /^[A-Z][\w$#]*$/.test(token.value) && ["BEGIN", ";", "THEN", "ELSE", "LOOP"].includes(at(i - 1)) && [".", "(", ";"].includes(at(i + 1)))
   );
-  if (routineCall)
+  const harmlessBlockWords = /* @__PURE__ */ new Set([
+    ...controlWords,
+    "DECLARE",
+    "BEGIN",
+    "EXCEPTION",
+    "WHEN",
+    "OTHERS",
+    "THEN",
+    "ELSE",
+    "ELSIF",
+    "IS",
+    "NOT",
+    "AND",
+    "OR",
+    "TRUE",
+    "FALSE"
+  ]);
+  const executableBlock = anonymousBlock && tokens2.some(
+    (token) => !token.literal && /^[A-Z][\w$#]*$/.test(token.value) && !harmlessBlockWords.has(token.value)
+  );
+  if (routineCall || executableBlock)
     add(
       "plsql-block",
       null,
@@ -14395,7 +14650,20 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
     if (recoveryAttempt === 0 && typeof runId === "string" && ["OUTCOME_UNKNOWN", "POST_DEPLOY_CONTENT_FAILED", "POST_DEPLOY_VERIFICATION_FAILED"].includes(
       error.code
     )) {
-      const recovered = await deployment.recover(ctx, runId);
+      let recovered;
+      try {
+        recovered = await deployment.recover(ctx, runId);
+      } catch (recoveryError) {
+        if (recoveryError instanceof Fault) {
+          recoveryError.details = {
+            ...recoveryError.details,
+            deploymentRunId: runId,
+            originalCode: error.code
+          };
+          recoveryError.message = `${recoveryError.message} Interrupted deployment run: ${runId}.`;
+        }
+        throw recoveryError;
+      }
       if (recovered.status === "succeeded") applied = recovered;
       else
         return await shipApply(
@@ -14444,7 +14712,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-LRXP5OD7.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-LRQI7SMF.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -14523,6 +14791,9 @@ async function dispatch(operation, input = {}, signal, progress) {
         },
         signal
       );
+      const job = result.data;
+      if (parsed.action !== "cancel" && result.ok && job && typeof job.operation === "string")
+        return { ...jobToolResult(job.operation, job), operation };
       return { ...result, operation };
     }
     if (operation === "status") {
@@ -14557,29 +14828,29 @@ async function dispatch(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-HL64JCRD.mjs");
+        const { ToolchainService } = await import("./chunk-T4G6KMDQ.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-OHCA6FPM.mjs");
+        const { uninstallTools } = await import("./chunk-CJU7RKGJ.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-B3VUB2RH.mjs");
+        const { setup: setup2 } = await import("./chunk-GFKIXAWK.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-B3VUB2RH.mjs");
+        const { validateNative } = await import("./chunk-GFKIXAWK.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-B3VUB2RH.mjs");
+        const { uninstallNative } = await import("./chunk-GFKIXAWK.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -14594,6 +14865,7 @@ async function dispatch(operation, input = {}, signal, progress) {
         break;
       case "connection.add":
         data = await configureConnection(text2("name"), {
+          project: text2("project"),
           sqlclName: text2("sqlclName"),
           ordsUrl: text2("ordsUrl"),
           ordsUsername: text2("ordsUsername"),
@@ -14839,7 +15111,7 @@ async function dispatch(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-INQ2YD2A.mjs");
+            const { openVerificationBrowser } = await import("./chunk-BZZ3RV7L.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),
@@ -14877,6 +15149,7 @@ export {
   settleInlineJobs,
   failQueuedJob,
   executeJob,
+  jobToolResult,
   schemas,
   internalOperations,
   toolCatalog,

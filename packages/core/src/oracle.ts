@@ -289,8 +289,10 @@ export class OracleAdapter {
     // Persistent engine: SQLcl executes a piped script only after stdin EOF, so
     // reuse runs through SQLcl's server mode (sqlcl-session.ts). CLI mode pools
     // offline (/nolog) work such as generate/validate/help; connected CLI
-    // sessions (saved name, ORDS) keep one process per call. MCP mode pools its
-    // server per saved connection. Injected test runners keep the per-call path.
+    // sessions (saved name, ORDS) keep one process per call. MCP mode routes
+    // every batch through the session pool, but a connected batch releases its
+    // server afterwards (sqlcl-session.ts), so connected work is also one server
+    // per call. Injected test runners keep the per-call path.
     const pooled =
       !isolated &&
       (settings.mode === 'mcp'
@@ -915,7 +917,8 @@ export class OracleAdapter {
               'ORDS metadata bind values cannot contain control characters.',
               2,
             );
-          // VARIABLE removes its outer quotes without SQL string unescaping.
+          // VARIABLE removes its outer quotes without SQL string unescaping, so
+          // embedded quotes are passed through literally (covered by ords-transport tests).
           return `${declaration} = ${typeof value === 'number' ? value : `'${value}'`}`;
         }
         return `${declaration}\nexec :${key} := ${literal};`;

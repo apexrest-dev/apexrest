@@ -372,7 +372,9 @@ export function launcherScripts(
     'apexrest.ps1':
       `$apexrestPreviousHome = $env:APEXREST_HOME\n` +
       `$env:APEXREST_HOME = ${ps(home)}\n` +
-      `try {\n  & ${ps(node)} ${ps(cli)} @args\n  $apexrestExitCode = $LASTEXITCODE\n} finally {\n  $env:APEXREST_HOME = $apexrestPreviousHome\n}\n` +
+      // A missing Node binary throws before $LASTEXITCODE is set; never exit 0 on that path.
+      `$apexrestExitCode = 1\n` +
+      `try {\n  & ${ps(node)} ${ps(cli)} @args\n  if ($null -ne $LASTEXITCODE) { $apexrestExitCode = $LASTEXITCODE }\n} catch {\n  Write-Error $_\n  $apexrestExitCode = 1\n} finally {\n  $env:APEXREST_HOME = $apexrestPreviousHome\n}\n` +
       `exit $apexrestExitCode\n`,
     'apexrest.cmd': `@echo off\r\nsetlocal\r\nset "APEXREST_HOME=${home}"\r\n"${node}" "${cli}" %*\r\nexit /b %ERRORLEVEL%\r\n`,
   };

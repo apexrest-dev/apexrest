@@ -243,7 +243,21 @@ export async function toolOutput(original: Result, project?: string) {
         );
       }
       if (JSON.stringify(result).length > inlineLimit)
-        result.diagnostics = result.diagnostics.map((d) => ({ ...d, message: d.message.slice(0, 400) }));
+        result.diagnostics = result.diagnostics.map((d) => ({
+          ...d,
+          message: d.message.slice(0, 400),
+          ...(d.hint !== undefined ? { hint: d.hint.slice(0, 200) } : {}),
+          ...(d.validValues !== undefined ? { validValues: d.validValues.slice(0, 12) } : {}),
+        }));
+      // Selected-import previews can carry long file lists; keep the counts and reasons.
+      const selection = (result.data as Record<string, unknown>).importSelection;
+      if (JSON.stringify(result).length > inlineLimit && selection && typeof selection === 'object')
+        (result.data as Record<string, unknown>).importSelection = Object.fromEntries(
+          Object.entries(selection as Record<string, unknown>).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value.slice(0, 5) : value,
+          ]),
+        );
     }
   }
   return {

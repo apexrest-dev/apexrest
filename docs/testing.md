@@ -22,6 +22,8 @@ Build with `npm run build` before checks that consume `dist/`. Packaging validat
 
 ## Host and Oracle checks
 
+The reusable [APEX 26.1 plugin server cases](../tests/plugin-server/README.md) cover functional quality, diagnostic latency budgets and actual host-token checkpoints. The machine-readable catalog maps the current acceptance criteria and explicitly distinguishes automated harness cases from agent-led scenarios. Use the ignored `test.env` target and store sanitized reports in ignored `docs/evidence/plugin-server/`. APEX 26.2 uses a separate future extension and separate evidence.
+
 `npm run test:repository-plugin` checks installation in an isolated Codex profile plus installed CLI/stdio MCP behavior. It does not invoke a model or establish that a host loaded this version in a conversation.
 
 `node scripts/oracle-smoke.mjs` runs Oracle source generation and validation with SQLcl without a database connection. `npm run test:integration` is a repository harness for compiler, authorized deployment, grant removal and no-op export preservation. It requires `APEXREST_INTEGRATION_PROJECT`, `APEXREST_INTEGRATION_ENV`, named SQLcl connections, a supported non-production APEX target and `APEXREST_INTEGRATION_ALLOW_WRITES=true` before apply. It does not execute application test suites or browser automation. Runtime interaction remains a separate host-browser check.

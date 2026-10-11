@@ -295,6 +295,42 @@ test('SQLcl REM comments and program bodies are not executed migration operation
   assert.equal(inspectSql('create table t(id number);\ndrop table customers;')[1]?.action, 'drop-table');
 });
 
+test('SQL inspection flags EXEC shorthand, anonymous blocks, query routine calls and uncommon DDL', () => {
+  const actions = (sql: string) => inspectSql(sql).map((operation) => operation.action);
+  assert.deepEqual(actions('exec app_api.purge_everything'), ['plsql-block']);
+  assert.deepEqual(actions('execute app_api.purge_everything;'), ['plsql-block']);
+  assert.deepEqual(actions('declare n number; begin n := app_api.purge_everything(); end;\n/'), [
+    'plsql-block',
+  ]);
+  assert.deepEqual(actions('begin\n  remark := dangerous_fn;\nend;'), ['plsql-block']);
+  assert.deepEqual(actions('select app_api.purge_everything() from dual;'), ['query-routine-call']);
+  assert.deepEqual(actions('select own_fn(x) from t;'), ['query-routine-call']);
+  assert.deepEqual(actions('select count(*), to_char(sysdate) from t where x in (1, 2);'), []);
+  assert.deepEqual(actions('create user hacker identified by x;'), ['create-user']);
+  assert.deepEqual(actions('create role r;'), ['create-role']);
+  assert.deepEqual(actions('alter trigger t_audit disable;'), ['alter-trigger']);
+  assert.deepEqual(actions('alter session set current_schema = other;'), ['privileged-sql']);
+  assert.equal(inspectSql('drop materialized view mv_sales;')[0]?.object, 'MV_SALES');
+  assert.deepEqual(actions('drop public synonym s;'), ['drop-synonym']);
+  assert.deepEqual(actions('purge recyclebin;'), ['purge']);
+  assert.deepEqual(
+    actions(
+      'alter session set current_schema=x;\ncreate or replace package body p as procedure q is begin null; end; end;\n/',
+    ),
+    ['privileged-sql', 'create-program'],
+  );
+  assert.deepEqual(actions('create table t(id number default sys_guid());'), ['create-table']);
+  assert.equal(inspectSql('create table t(id number default sys_guid());')[0]?.dangerous, false);
+  for (const sql of [
+    'exec app_api.purge_everything',
+    'select app_api.purge_everything() from dual;',
+    'create user hacker identified by x;',
+    'alter trigger t_audit disable;',
+    'drop materialized view mv_sales;',
+  ])
+    assert.deepEqual(migrationRisk(sql), ['database-mutation'], sql);
+});
+
 test('recovery preserves live and foreign workers even after a compatible server readback', async (t) => {
   const f = await unlisted(t);
   await f.service.sync(f.ctx, 'dev', 'init');

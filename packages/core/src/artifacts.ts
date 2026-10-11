@@ -49,7 +49,15 @@ export class ArtifactService {
       results && (await exists(path.join(results, id + '.json')))
         ? results
         : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
-    const metadata = (await readJson(await contained(directory, id + '.json'))) as {
+    const metadataFile = await contained(directory, id + '.json');
+    if (!(await exists(metadataFile)))
+      throw new Fault(
+        'ARTIFACT_NOT_FOUND',
+        `No registered artifact ${id} exists in this project.`,
+        2,
+        'not_found',
+      );
+    const metadata = (await readJson(metadataFile)) as {
       expiresAt: string;
       sha256: string;
       kind: string;

@@ -90,7 +90,12 @@ test('ORDS credentials remain private, preserve direct references and never reus
   assert.deepEqual((await connections()).read, publicRecord);
   const passwordFile = path.join(root, 'supplied-password.txt');
   await writeFile(passwordFile, 'private-write-pass\n', { mode: 0o600 });
-  await configureConnection('deploy', { ordsUrl: endpoint, ordsUsername: 'writer', passwordFile });
+  await configureConnection('deploy', {
+    ordsUrl: endpoint,
+    ordsUsername: 'writer',
+    passwordFile,
+    project: root,
+  });
   assert.equal((await ordsCredentials(await resolveConnection('deploy'))).password, 'private-write-pass');
   assert.equal((await connections()).deploy!.name, undefined);
   assert.equal((await editConnection('deploy')).credentialsDeleted, true);

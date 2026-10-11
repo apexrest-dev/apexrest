@@ -3,14 +3,15 @@ import {
   ArtifactService,
   JobService,
   dispatch,
+  jobToolResult,
   schemas,
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-VQ6REW37.mjs";
+} from "./chunk-XFVGMTZB.mjs";
 import {
   VERSION
-} from "./chunk-JNMZLDHB.mjs";
+} from "./chunk-74L3CZEQ.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -39,12 +40,12 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-XXDZEVC4.mjs";
-import "./chunk-WPD35JL5.mjs";
+} from "./chunk-7STB6NLZ.mjs";
+import "./chunk-JZ5FIGSS.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-TFGUUAFT.mjs";
+} from "./chunk-YEGSGHTV.mjs";
 import {
   external_exports
 } from "./chunk-U7MVLA3R.mjs";
@@ -920,7 +921,20 @@ async function toolOutput(original, project) {
         );
       }
       if (JSON.stringify(result).length > inlineLimit)
-        result.diagnostics = result.diagnostics.map((d) => ({ ...d, message: d.message.slice(0, 400) }));
+        result.diagnostics = result.diagnostics.map((d) => ({
+          ...d,
+          message: d.message.slice(0, 400),
+          ...d.hint !== void 0 ? { hint: d.hint.slice(0, 200) } : {},
+          ...d.validValues !== void 0 ? { validValues: d.validValues.slice(0, 12) } : {}
+        }));
+      const selection = result.data.importSelection;
+      if (JSON.stringify(result).length > inlineLimit && selection && typeof selection === "object")
+        result.data.importSelection = Object.fromEntries(
+          Object.entries(selection).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value.slice(0, 5) : value
+          ])
+        );
     }
   }
   return {
@@ -930,88 +944,18 @@ async function toolOutput(original, project) {
 }
 
 // packages/mcp/src/job-tools.ts
+async function prepareShipApplyPlan(input, plan) {
+  if (typeof input.plan === "string")
+    return success("ship", {
+      planPath: input.plan,
+      source: "reviewed-saved-plan",
+      validation: "apply-worker-before-grant-and-write"
+    });
+  const { waitSeconds: _wait, ...domainInput } = input;
+  return plan({ ...domainInput, mode: "plan" });
+}
 var jobWaitSeconds = external_exports.number().int().min(0).max(30).default(25).describe("Wait for the result or return the existing jobId; default 25 seconds, 0 queues immediately.");
 var shipWaitSeconds = external_exports.number().int().min(0).max(120).default(25).describe("Wait for the result or return the existing jobId; default 25 seconds, 0 queues immediately.");
-var completedResultSchema = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  ok: external_exports.boolean(),
-  operation: external_exports.string(),
-  status: external_exports.string(),
-  runId: external_exports.string(),
-  summary: external_exports.string(),
-  diagnostics: external_exports.array(
-    external_exports.object({
-      severity: external_exports.enum(["error", "warning", "info"]),
-      code: external_exports.string(),
-      message: external_exports.string(),
-      file: external_exports.string().optional(),
-      line: external_exports.number().int().optional(),
-      column: external_exports.number().int().optional(),
-      type: external_exports.string().optional(),
-      hint: external_exports.string().optional(),
-      validValues: external_exports.array(external_exports.string()).optional()
-    }).transform(({ severity, code, message, file, line, column, type, hint, validValues }) => ({
-      severity,
-      code,
-      message,
-      ...file !== void 0 ? { file } : {},
-      ...line !== void 0 ? { line } : {},
-      ...column !== void 0 ? { column } : {},
-      ...type !== void 0 ? { type } : {},
-      ...hint !== void 0 ? { hint } : {},
-      ...validValues !== void 0 ? { validValues } : {}
-    }))
-  ),
-  artifacts: external_exports.array(external_exports.string()),
-  nextActions: external_exports.array(external_exports.string()),
-  data: external_exports.unknown().optional(),
-  exitCode: external_exports.union([
-    external_exports.literal(0),
-    external_exports.literal(1),
-    external_exports.literal(2),
-    external_exports.literal(3),
-    external_exports.literal(4),
-    external_exports.literal(5),
-    external_exports.literal(6)
-  ])
-});
-function jobToolResult(operation, job) {
-  const active = job.status === "queued" || job.status === "running" ? job.status : void 0;
-  if (!active && job.result !== void 0) {
-    const nested = completedResultSchema.safeParse(job.result);
-    if (nested.success && nested.data.operation === operation) return { ...nested.data, data: job };
-  }
-  const nextActions = typeof job.nextAction === "string" ? [job.nextAction] : ["Read apexrest_job action:status with this jobId; inspect the existing operation before any retry."];
-  if (job.status === "completed") {
-    const result2 = failure(
-      operation,
-      new Fault(
-        "JOB_RESULT_UNREADABLE",
-        "The job completed but its recorded result cannot be read for this operation. Inspect its existing record; do not repeat the operation.",
-        1,
-        "completed_unreadable"
-      )
-    );
-    return { ...result2, nextActions, data: job };
-  }
-  if (active)
-    return {
-      ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
-      status: active,
-      nextActions
-    };
-  const status = job.status === "failed" || job.status === "cancelled" ? job.status : "outcome_unknown";
-  const result = failure(
-    operation,
-    new Fault(
-      status === "failed" ? "JOB_FAILED" : status === "cancelled" ? "CANCELLED" : "JOB_OUTCOME_UNKNOWN",
-      status === "outcome_unknown" ? "The job outcome is unknown. Inspect its existing record; do not repeat the operation." : `Job ${status}. Inspect the existing operation record.`,
-      status === "failed" ? 1 : 6,
-      status
-    )
-  );
-  return { ...result, nextActions, data: job };
-}
 async function runJobTool(jobs, operation, input, runtime, signal, options = {}) {
   const { waitSeconds: requestedWait, ...domainInput } = input;
   const waitSeconds = parse(options.waitSchema ?? jobWaitSeconds, requestedWait);
@@ -1095,8 +1039,11 @@ async function startMcp() {
       if (tool.long && !localSync && !planOnly) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === "ship" && input.mode === "apply") {
-          const { waitSeconds, ...domainInput } = input;
-          const planned = await dispatch("ship", { ...domainInput, mode: "plan" }, extra.signal);
+          const { waitSeconds } = input;
+          const planned = await prepareShipApplyPlan(
+            input,
+            (domainInput) => dispatch("ship", domainInput, extra.signal)
+          );
           if (!planned.ok) result = planned;
           else {
             const planPath = planned.data.planPath;

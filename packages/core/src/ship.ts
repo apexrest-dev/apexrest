@@ -365,7 +365,22 @@ export async function shipApply(
         (error as Fault).code,
       )
     ) {
-      const recovered = await deployment.recover(ctx, runId);
+      let recovered: Awaited<ReturnType<DeploymentService['recover']>>;
+      try {
+        recovered = await deployment.recover(ctx, runId);
+      } catch (recoveryError) {
+        // The interrupted run keeps its identity: the agent needs it for
+        // apexrest_ship mode:recover and deploy status --run.
+        if (recoveryError instanceof Fault) {
+          recoveryError.details = {
+            ...recoveryError.details,
+            deploymentRunId: runId,
+            originalCode: (error as Fault).code,
+          };
+          recoveryError.message = `${recoveryError.message} Interrupted deployment run: ${runId}.`;
+        }
+        throw recoveryError;
+      }
       if (recovered.status === 'succeeded') applied = recovered;
       else
         return await shipApply(

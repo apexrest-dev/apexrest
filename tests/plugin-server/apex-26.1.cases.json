@@ -1,0 +1,960 @@
+{
+  "schemaVersion": 1,
+  "suite": "apexrest-plugin-apex-26.1",
+  "apexRelease": "26.1.x",
+  "extensionPolicy": "APEX 26.2 uses a separate extension catalog and separate evidence; never mix its results into this baseline.",
+  "performanceBudgetPolicy": "Initial diagnostic budgets, not a vendor SLA or qualified benchmark. Less than 20 samples cannot qualify p95.",
+  "cases": [
+    {
+      "id": "A261-001",
+      "title": "MCP startup and ten-tool discovery",
+      "acceptance": ["A01", "A03", "A27", "A36", "HOST-PARITY-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["List tools through real stdio MCP."],
+      "expected": ["Exactly ten unique supported tools; removed controllers absent."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 10000
+    },
+    {
+      "id": "A261-002",
+      "title": "Doctor and compiler prerequisites",
+      "acceptance": ["A04", "A08", "APEX262-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Run status doctor."],
+      "expected": ["Node, Java and SQLcl are detected; no database call or automatic download."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 20000
+    },
+    {
+      "id": "A261-003",
+      "title": "Concise project inspection",
+      "acceptance": ["A34", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Inspect summary three times."],
+      "expected": ["Correct app/environment; bounded summary; no DB call."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-004",
+      "title": "Saved SQLcl connection identity",
+      "acceptance": ["A12"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Test the connection selected from test.env."],
+      "expected": ["Exact database, service and parsing schema match configuration."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 30000
+    },
+    {
+      "id": "A261-005",
+      "title": "Batched live application, pages and release",
+      "acceptance": ["A12", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read three metadata requests in one batch."],
+      "expected": ["App identity matches; pages exist; real APEX release is 26.1.x; target verified once."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 60000
+    },
+    {
+      "id": "A261-006",
+      "title": "Scoped metadata pagination",
+      "acceptance": ["A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read pages with limit 1; repeat with returned offset."],
+      "expected": ["No duplicate/missing IDs on a stable target; untrusted classification retained."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 30000
+    },
+    {
+      "id": "A261-007",
+      "title": "Foreign schema rejection",
+      "acceptance": ["A12", "A22"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Request OTHER_SCHEMA."],
+      "expected": ["SCHEMA_DENIED before Oracle query."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-008",
+      "title": "Missing object rejection",
+      "acceptance": ["A22"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read columns without a name."],
+      "expected": ["OBJECT_REQUIRED before Oracle query."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-009",
+      "title": "APEXlang reference search",
+      "acceptance": ["A27", "A34"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Search page with version 26.1, limit 3."],
+      "expected": ["Nonempty bounded release-specific results."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-010",
+      "title": "Component reference search",
+      "acceptance": ["A37"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Search interactive report in components 26.1."],
+      "expected": ["Nonempty source-backed component results."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-011",
+      "title": "Pattern reference search",
+      "acceptance": ["A38"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Search dashboard in patterns 26.1."],
+      "expected": ["Nonempty source-backed pattern results."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-012",
+      "title": "Composer block discovery",
+      "acceptance": ["CMP007", "CMP008", "CMP009", "CMP010"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Search list in blocks 26.1."],
+      "expected": ["Compatible block results; evidence scope explicit."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-013",
+      "title": "Composer blueprint discovery",
+      "acceptance": ["CMP034"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Search crm in blueprints 26.1."],
+      "expected": ["CRM blueprint discoverable without DB write."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-014",
+      "title": "Bounded reference read",
+      "acceptance": ["A34", "REF262-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read the selected grammar page ID with limit 512."],
+      "expected": ["Nonempty paginated content; read continuation is deterministic."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-015",
+      "title": "Local sync status",
+      "acceptance": ["A39"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read existing working-copy status."],
+      "expected": ["Local checkpoint state reported without DB query."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-016",
+      "title": "Live baseline adoption and durable backup",
+      "acceptance": ["A09", "A10", "A13", "A39"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Initialize working copy through a queued job; wait on that job."],
+      "expected": ["Read-only full APEXlang baseline, .apex/MMD and checksummed backup retained."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 180000
+    },
+    {
+      "id": "A261-017",
+      "title": "Real Oracle source validation",
+      "acceptance": ["A08", "A10", "APEX262-03"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Validate adopted 26.1 application with Oracle compiler."],
+      "expected": ["No compiler errors; advisory CodeScan is separate."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 180000
+    },
+    {
+      "id": "A261-018",
+      "title": "Read-only full-import plan",
+      "acceptance": ["A11", "A12", "A13"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Plan full import; inspect sources, identity, risks and expiration."],
+      "expected": ["Source/target/lock-bound plan; no DB writes."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 180000
+    },
+    {
+      "id": "A261-019",
+      "title": "Authorized no-op application ship",
+      "acceptance": ["A09", "A19", "A22"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "application-import",
+      "steps": ["Apply unchanged adopted baseline using literal user request."],
+      "expected": ["No-op verified; grant removed; no unrelated business/auth changes."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 180000
+    },
+    {
+      "id": "A261-020",
+      "title": "Browser URL handoff",
+      "acceptance": ["A19", "VERIFY-01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Call browser_open without browser controls."],
+      "expected": ["Correct configured URL; explicitly not UI verification."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-021",
+      "title": "Missing job rejection",
+      "acceptance": ["A22", "A35"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Query nonexistent job UUID."],
+      "expected": ["JOB_NOT_FOUND; no new worker spawned."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-022",
+      "title": "Missing artifact rejection",
+      "acceptance": ["A21", "A22"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Read unknown artifact ID."],
+      "expected": ["Registered-artifact-only access; no file/path disclosure."],
+      "evidence": [
+        "sanitized result code",
+        "monotonic wall time",
+        "response bytes",
+        "MCP call count",
+        "host token checkpoints if available"
+      ],
+      "budgetMs": 5000
+    },
+    {
+      "id": "A261-023",
+      "title": "Native host lifecycle and relocated installation",
+      "acceptance": ["A01", "A02", "A03", "APEX262-04", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "native-profile-change",
+      "steps": [
+        "Start fresh Codex and Claude sessions with exact bundle, enable/disable and call references."
+      ],
+      "expected": [
+        "Record native discovery/version and actual tool result separately from subprocess checks."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-024",
+      "title": "Installer platform and preservation matrix",
+      "acceptance": ["A04", "A05", "A06", "A07", "A23"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "disposable-host-profile",
+      "steps": [
+        "Run test:installers in fixtures; use disposable platform profiles for actual install/update/uninstall/offline/concurrent/corrupt archive cases."
+      ],
+      "expected": ["Existing settings/plugins/runtime/projects preserved; no hidden download or bypass."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-025",
+      "title": "New blank and CRM compiler templates",
+      "acceptance": ["A08"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "Generate blank and CRM in empty private directories with the pinned 26.1 SQLcl/MMD; validate both."
+      ],
+      "expected": ["Source profile is 26.1; no silent 26.2 generation; real Oracle compiler pass."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-026",
+      "title": "Adoption local edit preservation",
+      "acceptance": ["A09", "A10"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": ["Edit a private source marker; attempt adoption/refresh into nonempty source."],
+      "expected": ["Conflict blocks overwrite; exact local bytes and metadata preserved."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-027",
+      "title": "Compiler syntax error and recovery",
+      "acceptance": ["A08", "A22"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": ["Introduce a temporary malformed page token; validate; restore bytes and validate again."],
+      "expected": ["Located diagnostics; no Oracle import; repaired source passes."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-028",
+      "title": "Three changed full imports across restart",
+      "acceptance": ["A39", "A40", "A19"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "application-import",
+      "steps": [
+        "Back up app; edit only page title marker; validate/plan/apply full on 26.1; restart MCP and repeat three cycles; restore original title through fresh ship."
+      ],
+      "expected": [
+        "Server readback matches each marker; all other files/auth/DB inventory unchanged; grants revoked."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-029",
+      "title": "Local source mutation after plan",
+      "acceptance": ["A11"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "application-import",
+      "steps": ["Save exact plan then change page title; apply old plan; restore source."],
+      "expected": ["Source drift rejects apply before writes; baseline server unchanged."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-030",
+      "title": "Real target drift and conflict",
+      "acceptance": ["A11", "A12"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "fault-injection-approval",
+      "steps": [
+        "In externally serialized disposable app alter same page via an approved second runner after first plan."
+      ],
+      "expected": ["First runner detects target drift and refuses stale apply; no silent replacement."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-031",
+      "title": "Configuration, target and plan expiry negatives",
+      "acceptance": ["A11", "A12"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "In local project copies test wrong DB/service/schema/workspace/app and expired/forged plan."
+      ],
+      "expected": ["Exact classified refusal before import; original config restored."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-032",
+      "title": "APEXlang backup and separately planned restore",
+      "acceptance": ["A13", "A40"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "application-restore",
+      "steps": [
+        "Inspect backup checksums/target; make authorized marker import; plan and apply restoring exact baseline."
+      ],
+      "expected": [
+        "Fresh restore plan and backup; actual server files and MMD restored; business data not assumed restored."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-033",
+      "title": "Migration/package review and checksum safety",
+      "acceptance": ["A14", "SAFETY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "separate-database-plan",
+      "steps": [
+        "Run SQL review/deployment unit fixtures; on a dedicated schema inspect concrete remote plan operations."
+      ],
+      "expected": [
+        "Immutable order/checksums; remote dangerous operations cannot proceed without exact-plan consent."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-034",
+      "title": "Concurrent runners and foreign ownership",
+      "acceptance": ["A15"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "fault-injection-approval",
+      "steps": [
+        "Run local fixture contention first; use two serialized disposable runners sharing managed home for connected contention."
+      ],
+      "expected": ["One owner; competing runner refuses; independent homes require external serialization."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-035",
+      "title": "Unknown outcome and server-first recovery",
+      "acceptance": ["A16", "A40"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "fault-injection-approval",
+      "steps": [
+        "In a separately approved disposable app interrupt worker after import; preserve original run and read actual server before recover."
+      ],
+      "expected": [
+        "Already-applied result requires zero reimport; no blind SQL replay; foreign/live owner preserved."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-036",
+      "title": "Production refusal in local copies",
+      "acceptance": ["A17"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "Mark copied config production; attempt plan/apply/restore without querying a production database."
+      ],
+      "expected": ["PRODUCTION_DEPLOY_DENIED; no grant/import; never relabel a real production target."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-037",
+      "title": "Sanitized artifact positive read and paging",
+      "acceptance": ["A21"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read a returned registered text artifact ID with bounded offset/limit and continuation; try traversal/foreign IDs."
+      ],
+      "expected": ["Only registered sanitized text; secrets absent; containment and byte limits enforced."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-038",
+      "title": "Job status, waits and cancellation",
+      "acceptance": ["A16", "A34", "A35"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Queue read-only baseline refresh; poll same ID, cancel a separate read-only job and inspect its terminal state."
+      ],
+      "expected": [
+        "Bounded waits reuse worker; no duplicate work; cancellation never claims Oracle rollback."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-039",
+      "title": "Working-copy invalidation/refresh and restart",
+      "acceptance": ["A39", "A40"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Persist baseline, restart, inspect status; invalidate locally; refresh only when local edits are absent."
+      ],
+      "expected": ["Durable state consistent; local edits and unknown outcomes block destructive refresh."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-040",
+      "title": "Complete eight-kind metadata and pagination",
+      "acceptance": ["A12", "A35", "CMP012"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Choose an observed object/package; query objects, columns, constraints, constraint-columns, signatures, applications, pages and capabilities; compare separate versus batched calls."
+      ],
+      "expected": [
+        "Correct rows/order/nullability/key/signature evidence; batch equals separate stable results; at most eight requests."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-041",
+      "title": "CLI/MCP classification and result parity",
+      "acceptance": ["A22", "HOST-PARITY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Repeat reference/project/metadata and policy negatives through current CLI and both manifest stdio launchers."
+      ],
+      "expected": ["Equivalent domain codes/data; transport bytes/time reported separately."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-042",
+      "title": "ORDS HTTPS transport and direct preservation",
+      "acceptance": ["A32"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "separate-transport-target",
+      "steps": [
+        "Use an explicitly supplied ORDS endpoint in a separate connection; test identity/export/plan/import on a dedicated disposable app."
+      ],
+      "expected": ["No silent transport fallback; direct config preserved; unsupported capabilities reject."],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-043",
+      "title": "Composer schema, binding and planning",
+      "acceptance": [
+        "CMP000",
+        "CMP001",
+        "CMP002",
+        "CMP003",
+        "CMP004",
+        "CMP005",
+        "CMP006",
+        "CMP011",
+        "CMP013",
+        "CMP014",
+        "CMP015",
+        "CMP016",
+        "CMP017",
+        "CMP018",
+        "CMP019",
+        "CMP022",
+        "CMP028",
+        "CMP036",
+        "CMP037"
+      ],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run composer fixtures; plan bound CRM/Service Desk with real observed key/signature metadata for 26.1."
+      ],
+      "expected": [
+        "Strict schemas/digests/paths, typed commands/routes, deterministic allocation and secure predicates."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-044",
+      "title": "Composer materialize, no-op, upgrade and detach",
+      "acceptance": ["CMP020", "CMP021", "CMP032", "CMP033", "CMP034", "CMP035"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "In private 26.1 source copy materialize, repeat, upgrade with three-way conflict, detach/remove and author a local block."
+      ],
+      "expected": [
+        "Journaled changes, ownership, identical repeat no-op, conflicts retain local bytes; real compiler validates complete scaffolds."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-045",
+      "title": "Composer real runtime CRM qualification",
+      "acceptance": ["CMP023", "CMP024", "CMP025", "CMP026", "CMP027"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "separate-database-plan-and-browser-request",
+      "steps": [
+        "After a separately approved exact DB fixture plan, deploy CRM and use host browser for CRUD, stale version, denied access, validation, cancel and inter-block refresh."
+      ],
+      "expected": [
+        "Real committed atomic API results and UI behavior; positive/negative evidence; fixture data cleanup reviewed."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-046",
+      "title": "Performance cold/warm and model agent evaluation",
+      "acceptance": ["A27", "A34", "A35", "CMP038"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Repeat fixed dataset/query/page-edit scenarios >=20 times after one warm-up; run one fresh MCP process per cold sample; compare same-machine baseline and exact model/config."
+      ],
+      "expected": [
+        "Median/p95/max, call counts, bytes, errors, retries and actual host token deltas; quality pass required before speed comparison."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-047",
+      "title": "Packaging, provenance, docs and release gates",
+      "acceptance": ["A24", "A25", "A26", "CMP039", "CMP040", "CMP041", "VERIFY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "Run build/typecheck/lint/contracts/packaging/docs/plugin/site checks; inspect readiness without publish."
+      ],
+      "expected": [
+        "Current hashes and honest blockers; missing external evidence stays missing; no automatic application test runner."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-048",
+      "title": "Secret exposure and private ENV parsing",
+      "acceptance": ["A21", "SAFETY-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "local-only",
+      "steps": [
+        "Use secret sentinels in repository fixtures; parse test.env literally; inspect sanitized evidence, CLI arguments and tracked files."
+      ],
+      "expected": [
+        "No secret echo/source/substitution, no credentials in args/reports/Git; test.env ignored."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    },
+    {
+      "id": "A261-049",
+      "title": "26.1 release isolation and unsupported selected import",
+      "acceptance": ["APEX262-01", "APEX262-02", "APEX262-03", "REF262-01"],
+      "execution": "manual",
+      "surface": "specified-in-steps",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Check source/compiler profile; on copied sources request explicit file mode on 26.1; use 26.1 references only."
+      ],
+      "expected": [
+        "Unsupported partial import refused with no full fallback; 26.2 functionality is not claimed."
+      ],
+      "evidence": [
+        "exact runtime/source/catalog digest",
+        "sanitized result and server postcondition where applicable",
+        "latency and host token checkpoints",
+        "explicit not-run/blocked reason"
+      ],
+      "budgetMs": null
+    }
+  ]
+}

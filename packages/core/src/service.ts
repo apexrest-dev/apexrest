@@ -16,7 +16,7 @@ import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService } from './deploy.ts';
 import { ArtifactService } from './artifacts.ts';
-import { JobService, type JobPhase } from './jobs.ts';
+import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
 import { sandboxAction } from './sandbox.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
@@ -138,6 +138,11 @@ export async function dispatch(
         },
         signal,
       );
+      // A terminal job reports its recorded outcome on the envelope, exactly as
+      // the long-running tools do, so a failed import is never read as ok:true.
+      const job = result.data as Record<string, unknown> | undefined;
+      if (parsed.action !== 'cancel' && result.ok && job && typeof job.operation === 'string')
+        return { ...jobToolResult(job.operation, job), operation };
       return { ...result, operation };
     }
     if (operation === 'status') {
@@ -213,6 +218,7 @@ export async function dispatch(
         break;
       case 'connection.add':
         data = await configureConnection(text('name'), {
+          project: text('project'),
           sqlclName: text('sqlclName'),
           ordsUrl: text('ordsUrl'),
           ordsUsername: text('ordsUsername'),

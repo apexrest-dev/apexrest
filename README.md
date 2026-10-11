@@ -86,18 +86,18 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 
 ## Tools
 
-| Tool                     | Purpose                                                                                                                                                              |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through `passwordFile`                                            |
-| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search` (any-term EN/UK ranking, top hit with its code block) and `mode:read`           |
-| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                      |
-| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                 |
-| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker (phases `backing_up` → `verifying`)    |
-| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                          |
-| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                      |
-| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                   |
-| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                     |
-| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants) |
+| Tool                     | Purpose                                                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile`        |
+| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search` (any-term EN/UK ranking, top hit with its code block) and `mode:read`            |
+| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                       |
+| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                  |
+| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run` |
+| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                           |
+| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                       |
+| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                    |
+| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                      |
+| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)  |
 
 Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine; `ship` apply runs in a detached worker so a database write survives host termination. The tool catalog is about 12 KB. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
 

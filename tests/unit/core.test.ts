@@ -386,7 +386,11 @@ test('password files must be private regular files and not symlinks', async () =
   const old = process.env.APEXREST_HOME;
   process.env.APEXREST_HOME = path.join(ctx.root, 'home');
   try {
-    const input = { ordsUrl: 'https://ords.example.com/ords/app/', ordsUsername: 'writer' };
+    const input = {
+      ordsUrl: 'https://ords.example.com/ords/app/',
+      ordsUsername: 'writer',
+      project: ctx.root,
+    };
     const shared = path.join(ctx.root, 'shared.txt'),
       owned = path.join(ctx.root, 'owned.txt'),
       link = path.join(ctx.root, 'link.txt');
@@ -408,6 +412,10 @@ test('password files must be private regular files and not symlinks', async () =
         rejectCode('PASSWORD_FILE_UNSAFE'),
       );
     }
+    await assert.rejects(
+      configureConnection('deploy', { ...input, project: undefined, passwordFile: owned }),
+      rejectCode('PASSWORD_FILE_UNSAFE'),
+    );
     assert.equal(
       (await configureConnection('deploy', { ...input, passwordFile: owned })).status,
       'configured',

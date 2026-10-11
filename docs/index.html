@@ -82,7 +82,7 @@ apexrest --help
 </thead>
 <tbody><tr>
 <td><code>apexrest_project</code></td>
-<td><code>init</code>, <code>adopt</code>, <code>inspect</code>, <code>connection_add</code>, <code>connection_list</code>, <code>connection_test</code>; passwords only through <code>passwordFile</code></td>
+<td><code>init</code>, <code>adopt</code>, <code>inspect</code>, <code>connection_add</code>, <code>connection_list</code>, <code>connection_test</code>; passwords only through a private <code>passwordFile</code> or ignored local <code>envFile</code></td>
 </tr>
 <tr>
 <td><code>apexrest_reference</code></td>
@@ -98,7 +98,7 @@ apexrest --help
 </tr>
 <tr>
 <td><code>apexrest_ship</code></td>
-<td><code>mode:plan</code> validates and plans; <code>mode:apply</code> records a plan-bound grant, backs up, imports and verifies in a detached worker (phases <code>backing_up</code> → <code>verifying</code>)</td>
+<td><code>mode:plan</code> validates and plans; <code>mode:apply</code> records a plan-bound grant, backs up, imports and verifies in a detached worker; <code>mode:recover</code> resumes a stopped <code>run</code></td>
 </tr>
 <tr>
 <td><code>apexrest_apex_sync</code></td>

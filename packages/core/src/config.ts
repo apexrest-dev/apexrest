@@ -5,6 +5,8 @@ import { mkdir, realpath } from 'node:fs/promises';
 import { canonical, contained, exists, hash, readJson, withLock, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 export const identifier = z.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/);
+// APEX workspace names are not SQL identifiers (for example APEX-APP).
+export const workspaceName = z.string().regex(/^[A-Za-z][A-Za-z0-9_$#-]{0,127}$/);
 export const refName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$/);
 export const relativePath = z
   .string()
@@ -18,7 +20,7 @@ export const environmentSchema = z.strictObject({
   kind: z.enum(['development', 'dev', 'qa', 'test', 'production']),
   readConnectionRef: refName,
   deployConnectionRef: refName,
-  workspace: identifier,
+  workspace: workspaceName,
   parsingSchema: identifier,
   applicationId: z.number().int().positive(),
   baseUrl: z.url(),

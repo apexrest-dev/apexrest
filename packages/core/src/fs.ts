@@ -10,6 +10,13 @@ export async function hashFile(file: string) {
   for await (const chunk of createReadStream(file)) digest.update(chunk);
   return digest.digest('hex');
 }
+/**
+ * Canonical JSON for persisted deployment digests (target, plan, backup, sync
+ * and production-trust identities) with locale-collated key order. Composer uses
+ * its own code-point-ordered canonical() in composer/formats.ts; the two digest
+ * domains are never cross-compared, and changing either would invalidate
+ * persisted digests, including administrator-maintained production marks.
+ */
 export function canonical(value: unknown): string {
   if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
   if (value !== null && typeof value === 'object')

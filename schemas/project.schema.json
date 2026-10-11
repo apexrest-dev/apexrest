@@ -99,7 +99,7 @@
           },
           "workspace": {
             "type": "string",
-            "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            "pattern": "^[A-Za-z][A-Za-z0-9_$#-]{0,127}$"
           },
           "parsingSchema": {
             "type": "string",

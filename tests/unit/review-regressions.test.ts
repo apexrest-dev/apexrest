@@ -17,6 +17,7 @@ import { loadProject, policy, updatePolicy, projectSchema } from '../../packages
 import { checkShipTarget, reconcileShipGrants } from '../../packages/core/src/ship.ts';
 import { workingCopyFixture } from '../fixtures/working-copy.ts';
 import { writeJson } from '../../packages/core/src/fs.ts';
+import { success } from '../../packages/core/src/result.ts';
 
 // These fixtures exercise local contracts only, never Oracle or a native host.
 test('60-second job observation passes both composite and internal dispatch schemas', async (t) => {
@@ -28,6 +29,7 @@ test('60-second job observation passes both composite and internal dispatch sche
     status: 'completed',
     updatedAt: new Date().toISOString(),
     operation: 'apex.validate',
+    result: success('apex.validate', { fixture: true }),
   });
   assert.equal(schemas['jobs.status'].parse({ id: jobId, waitSeconds: 60 }).waitSeconds, 60);
   const result = await dispatch('job', { project: f.ctx.root, jobId, waitSeconds: 60 });

@@ -179,8 +179,11 @@ export class SyncStore {
           'This target is bound to another environment. Explicitly invalidate the previous mapping first.',
           5,
         );
-      if (state.environment === this.name && state.status !== 'invalidated') matches.push(state);
-      else if (state.targetDigest === targetDigest(this.env) && state.environment === this.name)
+      // Active records of this environment, plus invalidated ones that still describe this target.
+      if (
+        state.environment === this.name &&
+        (state.status !== 'invalidated' || state.targetDigest === targetDigest(this.env))
+      )
         matches.push(state);
     }
     const active = matches.filter((s) => s.status !== 'invalidated');
