@@ -63,12 +63,12 @@ const report = {
   warmupPolicy: 'One verified invocation excluded before each scenario.',
   executionSurface: 'Current-build stdio MCP; no model session per invocation.',
   network:
-    'Remote Oracle over existing direct saved SQLcl connection; no artificial latency/network isolation. Concurrent read-only browser work may affect samples.',
+    'Remote Oracle over existing direct saved SQLcl connection; no artificial latency/network isolation. Concurrent host, network or server activity may affect samples.',
   scenarios: [],
   calls: 0,
   limits: [
     'No import, business DML, authentication changes or fault injection.',
-    'No historical same-machine 20-sample baseline; no regression or performance-guarantee claim.',
+    'Separate-run comparisons do not control network latency, server load or cache state; no performance guarantee.',
     'Warm means one live MCP process; each connected SQLcl request still creates its own vendor session.',
     'Cold reference scenario includes fresh MCP process startup, initialize, discovery and call; OS/disk caches are not purged.',
   ],
@@ -258,7 +258,7 @@ try {
         importMode: 'full',
         waitSeconds: 0,
         userRequest:
-          'Продовжуй тестування APEX 26.1: виконай браузерні перевірки з test.env і заміри швидкості на 20 повторах. Зафіксуй час, токени та результати в звіті.',
+          'Read-only APEX 26.1 performance measurement requested in docs/evidence/perf-p0-p1/codex-tasks.md. Plan only; imports, writes and DDL are not authorized.',
       }),
     (r) => {
       assert.equal(r.data.status, 'planned');
