@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { answerChecks } from '../../scripts/lib/agent-task-oracles.mjs';
+import { answerChecks, agentTaskPrerequisite } from '../../scripts/lib/agent-task-oracles.mjs';
 test('page oracle rejects missing and extra page rows', () => {
   const pages = [
     { page_id: 1, page_name: 'Home' },
@@ -12,6 +12,25 @@ test('page oracle rejects missing and extra page rows', () => {
     answerChecks('AGT-001', '| 1 | Home |\n| 9999 | Login |\n| 2 | Extra |', { pages })[0].passed,
     false,
   );
+  assert.equal(answerChecks('AGT-001', '| 1 | Home |\n| 1 | Home |\nLogin 9999', { pages })[0].passed, false);
+});
+test('unsupported agent tasks remain blocked even with write flags', () => {
+  assert.equal(
+    agentTaskPrerequisite({ id: 'AGT-002', authorization: 'application-import' }).status,
+    'not_run',
+  );
+  assert.equal(
+    agentTaskPrerequisite(
+      { id: 'AGT-002', authorization: 'application-import' },
+      { 'allow-app-writes': true },
+    ).status,
+    'blocked',
+  );
+  assert.equal(
+    agentTaskPrerequisite({ id: 'AGT-012', authorization: 'read-only-or-local' }).status,
+    'blocked',
+  );
+  assert.equal(agentTaskPrerequisite({ id: 'AGT-001', authorization: 'read-only-or-local' }), null);
 });
 test('dictionary oracle checks all columns, types and foreign-key endpoints', () => {
   const data = {

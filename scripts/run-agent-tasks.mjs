@@ -1,4 +1,4 @@
-import { answerChecks } from './lib/agent-task-oracles.mjs';
+import { answerChecks, agentTaskPrerequisite } from './lib/agent-task-oracles.mjs';
 // Native CLI sessions with the existing login. Never install or reconfigure a host.
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
@@ -63,6 +63,7 @@ try {
 const report = {
   schemaVersion: 1,
   suite: catalog.suite,
+  catalogDigest: sha256(await readFile('tests/plugin-server/agent-tasks.cases.json')),
   host: values.host,
   profile: values.profile,
   hostVersion: version.stdout.trim(),
@@ -216,29 +217,9 @@ try {
       report.checks.push({ id: task.id, status: 'not_run', reason: 'Not selected for this run.' });
       continue;
     }
-    if (task.authorization === 'application-import' && values['allow-app-writes']) {
-      report.checks.push({
-        id: task.id,
-        status: 'blocked',
-        reason:
-          'Definition-specific operator/readback/reset fixture is not supplied. The runner refuses to substitute generic import or blind reset for the exact expected oracle.',
-      });
-      continue;
-    }
-    if (task.authorization === 'application-import' && !values['allow-app-writes']) {
-      report.checks.push({
-        id: task.id,
-        status: 'not_run',
-        reason: 'Requires --allow-app-writes and literal --user-request.',
-      });
-      continue;
-    }
-    if (['AGT-006', 'AGT-013'].includes(task.id) && !values.interactive) {
-      report.checks.push({
-        id: task.id,
-        status: 'not_run',
-        reason: 'Human App Builder edit/host restart setup requires --interactive; runner never performs it.',
-      });
+    const missing = agentTaskPrerequisite(task, values);
+    if (missing) {
+      report.checks.push({ id: task.id, ...missing });
       continue;
     }
     if (!task.profiles.includes(values.profile)) {
@@ -389,6 +370,8 @@ try {
       const countTool = (name) => nameCounts[name] ?? 0;
       const oracle = (name, passed) => sample.oracleChecks.push({ name, passed });
       oracle('host-completed', r.code === 0 && !r.timedOut && answer.length > 0);
+      oracle('transcript-metrics-available', sample.metrics.available === true);
+      oracle('host-usage-available', sample.usage.available === true);
       oracle(
         'installed-plugin-used',
         Object.keys(nameCounts).some((n) => n.startsWith('apexrest_')),
@@ -396,14 +379,7 @@ try {
       try {
         if (task.id === 'AGT-001') {
           const actual = await metadata([request('pages')]);
-          oracle(
-            'live-page-ids-and-names',
-            actual[0].rows.every(
-              (row) =>
-                new RegExp(`\\b${row.page_id}\\b`).test(answer) &&
-                answer.toLowerCase().includes(row.page_name.toLowerCase()),
-            ),
-          );
+          sample.oracleChecks.push(...answerChecks(task.id, answer, { pages: actual[0].rows }));
           oracle('one-metadata-batch', countTool('apexrest_metadata_read') === 1);
           oracle('no-plan-export-browser', countTool('apexrest_ship') === 0 && (m.browserCalls ?? 0) === 0);
         } else if (task.id === 'AGT-004') {
@@ -429,14 +405,6 @@ try {
           );
           sample.oracleChecks.push(
             ...answerChecks('AGT-007', answer, { referenceIds: index.map((e) => e.id) }),
-          );
-          const ids = index.filter((e) => answer.includes(e.id));
-          oracle('profile-reference-citation', ids.length > 0);
-          oracle(
-            'conditional-grid-readonly-explanation',
-            /read.only/i.test(answer) &&
-              /column|field/i.test(answer) &&
-              /condition|expression|item/i.test(answer),
           );
           oracle(
             'offline-only',
@@ -518,6 +486,7 @@ try {
             ? 'Native host permission policy denied non-interactive execution.'
             : 'Native CLI failed; no settings/login changes attempted.';
       }
+      sample.verifiedWallTimeMs = performance.now() - start;
       await save();
       console.log(
         JSON.stringify({
@@ -542,6 +511,10 @@ try {
       normalizedTokens: statistics(
         passed.flatMap((r) => (r.usage?.available ? [r.usage.counters.total_tokens] : [])),
       ),
+      observedModels: [...new Set(runs.map((r) => r.usage?.model).filter(Boolean))],
+      comparisonEligible: false,
+      comparisonReason:
+        'Default effort is not pinned; native CLI wall time excludes postchecks. Descriptive only.',
       safetyViolations: runs.reduce((n, r) => n + r.safetyViolations.length, 0),
       limitOverruns: runs.reduce((n, r) => n + r.limitOverruns.length, 0),
     });
@@ -559,6 +532,12 @@ try {
 } finally {
   await h.client.close();
   report.finishedAt = new Date().toISOString();
-  report.status = report.checks.some((c) => ['failed', 'blocked'].includes(c.status)) ? 'partial' : 'passed';
+  report.status = report.checks.some((c) => c.status === 'failed')
+    ? 'failed'
+    : report.checks.some((c) => c.status === 'blocked')
+      ? 'blocked'
+      : report.checks.some((c) => c.status === 'not_run')
+        ? 'partial'
+        : 'passed';
   await save();
 }

@@ -1,4 +1,19 @@
 // Text stays in memory; only boolean oracle outcomes leave this module.
+export function agentTaskPrerequisite(task, options = {}) {
+  if (task.authorization !== 'read-only-or-local')
+    return {
+      status: options['allow-app-writes'] ? 'blocked' : 'not_run',
+      reason: options['allow-app-writes']
+        ? 'Definition-specific operator/readback/reset fixture is not implemented. No generic import or blind reset is substituted.'
+        : 'Requires --allow-app-writes and literal --user-request; exact case fixtures remain unimplemented.',
+    };
+  if (['AGT-006', 'AGT-013'].includes(task.id) && !options.interactive)
+    return { status: 'not_run', reason: 'Human App Builder edit/host restart requires --interactive.' };
+  if (!['AGT-001', 'AGT-004', 'AGT-005', 'AGT-007', 'AGT-008', 'AGT-011', 'AGT-014'].includes(task.id))
+    return { status: 'blocked', reason: 'Definition-specific automated oracle is not implemented.' };
+  return null;
+}
+
 export function answerChecks(
   id,
   answer,
@@ -23,6 +38,7 @@ export function answerChecks(
           matches &&
           (!observed.length ||
             (observed.length === pages.length &&
+              new Set(observed.map((p) => p.id)).size === pages.length &&
               observed.every((p) =>
                 pages.some(
                   (row) => row.page_id === p.id && row.page_name.toLowerCase() === p.name.toLowerCase(),

@@ -139,6 +139,8 @@ try {
       ).map((e) => e.id);
     sample.oracleChecks = [
       { name: 'host-completed', passed: sample.exitCode === 0 && !sample.timedOut && answer.length > 0 },
+      { name: 'transcript-metrics-available', passed: sample.metrics.available === true },
+      { name: 'host-usage-available', passed: sample.usage.available === true },
       {
         name: 'installed-plugin-used',
         passed: Object.keys(m.tools ?? {}).some((n) => n.startsWith('apexrest_')),
@@ -200,6 +202,10 @@ try {
       normalizedTokens: statistics(
         passed.flatMap((s) => (s.usage.available ? [s.usage.counters.total_tokens] : [])),
       ),
+      observedModels: [...new Set(runs.map((s) => s.usage?.model).filter(Boolean))],
+      comparisonEligible: false,
+      comparisonReason:
+        'Original runs used existing model/effort defaults; postcheck time was not recorded. Descriptive only.',
       safetyViolations: runs.reduce((n, s) => n + s.safetyViolations.length, 0),
       limitOverruns: runs.reduce((n, s) => n + s.limitOverruns.length, 0),
     });
@@ -212,6 +218,7 @@ try {
             : 'failed';
   }
   delete report.secretScanUnavailable;
+  report.status = report.checks.some((c) => c.status === 'failed') ? 'failed' : 'partial';
   report.reanalysis = {
     original: values.file,
     reason: 'Literal legacy ENV and native plugin-prefix scanner fixes; original native sessions preserved.',
