@@ -161,12 +161,21 @@ try {
         exitCode: r.code,
         mmdVersion: mmd.mmdVersion,
         diagnosticCodes: [...new Set((r.stdout + r.stderr).match(/ORA-\d+|\bERROR\b/gi) ?? [])],
-        codescanAdvisories: {
-          available: false,
-          reason:
-            'Offline SQLcl validate does not emit CodeScan advisories; no connected CodeScan operation was run.',
-        },
+        codescanAdvisories: { available: false },
       });
+      const scan = await runProcess(sqlcl, ['-s', '/nolog'], {
+        input: `codescan -path "${generated}" -extensions apx -format json\nexit\n`,
+      });
+      const codes = [
+        ...new Set((scan.stdout + scan.stderr).match(/\b[A-Z][A-Z0-9_-]*[0-9][A-Z0-9_-]*\b/g) ?? []),
+      ];
+      runs.at(-1).codescanAdvisories = {
+        available: scan.code === 0,
+        exitCode: scan.code,
+        codes,
+        outputBytes: Buffer.byteLength(scan.stdout + scan.stderr),
+        scope: 'Offline advisory scan; source/output text not persisted.',
+      };
       report.compilerRuns = runs;
       await save();
       assert.ok(passed);
