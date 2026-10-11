@@ -1,3 +1,4 @@
+import { loadHarness, inspectResponse } from './lib/plugin-harness.mjs';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -12,12 +13,13 @@ import {
   statistics,
   usageSelection,
   tokenSnapshot,
-  usageSelection,
   tokenDelta,
 } from './lib/plugin-test-metrics.mjs';
 
 const { values } = parseArgs({
   options: {
+    catalog: { type: 'string' },
+    profile: { type: 'string' },
     project: { type: 'string' },
     env: { type: 'string', default: 'test' },
     samples: { type: 'string', default: '20' },
@@ -35,7 +37,8 @@ assert.ok(path.resolve(values.output).startsWith(path.resolve('docs/evidence') +
 const project = await (await import('node:fs/promises')).realpath(values.project);
 const config = JSON.parse(await readFile(path.join(project, 'apexrest.json'), 'utf8'));
 const target = config.environments[values.env];
-assert.equal(config.toolchain.profile, '26.1');
+const selection = await loadHarness(values);
+assert.equal(config.toolchain.profile, selection.profile);
 assert.ok(['test', 'qa', 'dev', 'development'].includes(target?.kind));
 const allowedScenarios = [
   'cold-mcp-startup-reference',
@@ -51,7 +54,10 @@ const runtime = path.resolve('dist/runtime/mcp.mjs');
 const report = {
   schemaVersion: 1,
   caseId: 'A261-046',
-  apexProfile: '26.1',
+  apexProfile: selection.profile,
+  catalogDigest: selection.catalogDigest,
+  suite: selection.catalog.suite,
+  responseChecks: [],
   startedAt: new Date().toISOString(),
   sourceDigest: await sourceDigest(),
   runtimeDigest: sha256(await readFile(runtime)),
@@ -100,6 +106,7 @@ async function call(c, name, args) {
   report.calls++;
   const response = await c.callTool({ name, arguments: args }, undefined, { timeout: 600000 });
   const result = JSON.parse(response.content.find((x) => x.type === 'text').text);
+  report.responseChecks.push(inspectResponse(selection.quality, name, args, result));
   if (!result.ok || result.status !== 'succeeded')
     throw Object.assign(new Error('Domain failure.'), {
       code: result.diagnostics?.[0]?.code ?? 'DOMAIN_FAILED',
@@ -108,7 +115,7 @@ async function call(c, name, args) {
 }
 function verifyReference(r) {
   assert.ok(Array.isArray(r.data) && r.data.length > 0 && r.data.length <= 3);
-  assert.ok(r.data.every((x) => x.version.startsWith('26.1')));
+  assert.ok(r.data.every((x) => x.version.startsWith(selection.profile)));
 }
 async function measure(id, invoke, verify) {
   if (!selectedScenarios.includes(id)) return;
@@ -188,7 +195,7 @@ async function measure(id, invoke, verify) {
 }
 try {
   client = await connect();
-  const refArgs = { mode: 'search', query: 'page', version: '26.1', limit: 3, project };
+  const refArgs = { mode: 'search', query: 'page', version: selection.profile, limit: 3, project };
   const identity = await call(client, 'apexrest_project', {
     action: 'connection_test',
     project,

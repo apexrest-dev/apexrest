@@ -1,3 +1,4 @@
+import { loadHarness, inspectResponse } from './lib/plugin-harness.mjs';
 import { parseArgs } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +17,8 @@ import {
 
 const { values } = parseArgs({
   options: {
+    catalog: { type: 'string' },
+    profile: { type: 'string' },
     project: { type: 'string' },
     env: { type: 'string', default: 'test' },
     samples: { type: 'string', default: '3' },
@@ -42,9 +45,10 @@ assert.ok(
   target && ['test', 'qa', 'dev', 'development'].includes(target.kind),
   'Explicit non-production target required.',
 );
-assert.equal(config.toolchain.profile, '26.1', 'This suite qualifies only APEX 26.1.');
+const selection = await loadHarness(values);
+assert.equal(config.toolchain.profile, selection.profile, 'Project/profile mismatch.');
 assert.ok(!values['allow-app-writes'] || values['user-request'], 'Writes require the literal human request.');
-const catalog = JSON.parse(await readFile('tests/plugin-server/apex-26.1.cases.json', 'utf8'));
+const { catalog, quality } = selection;
 const output = values.output ?? 'docs/evidence/plugin-server/latest.json';
 assert.ok(
   path.resolve(output).startsWith(path.resolve('docs/evidence') + path.sep),
@@ -55,10 +59,10 @@ const runtime = path.resolve('dist/runtime/mcp.mjs');
 const evidence = {
   schemaVersion: 1,
   suite: catalog.suite,
-  apexProfile: '26.1',
+  apexProfile: selection.profile,
   startedAt: new Date().toISOString(),
   sourceDigest: await sourceDigest(),
-  catalogDigest: sha256(await readFile('tests/plugin-server/apex-26.1.cases.json')),
+  catalogDigest: selection.catalogDigest,
   runtimeDigest: sha256(await readFile(runtime)),
   executionSurface: 'current-build-stdio-MCP; not native model-host discovery',
   target: {
@@ -67,6 +71,7 @@ const evidence = {
     parsingSchema: target.parsingSchema,
     environment: env,
   },
+  responseChecks: [],
   checks: [],
   measurements: [],
   tokens: null,
@@ -125,7 +130,9 @@ async function call(name, args) {
   const response = await client.callTool({ name, arguments: args }, undefined, { timeout: 600000 });
   const text = response.content?.find((c) => c.type === 'text')?.text;
   if (!text) throw Object.assign(new Error('No domain envelope.'), { testCode: 'ENVELOPE_MISSING' });
-  return JSON.parse(text);
+  const result = JSON.parse(text);
+  evidence.responseChecks.push(inspectResponse(quality, name, args, result));
+  return result;
 }
 function success(r) {
   if (!r.ok)
@@ -205,7 +212,11 @@ try {
       assert.equal(r.data.results[0].rows[0].application_id, target.applicationId);
       assert.ok(r.data.results[1].rows.length > 0);
       const serialized = JSON.stringify(r.data.results[2].rows);
-      assert.match(serialized, /26\.1(?:\.|\")/, 'Connected release must be 26.1.');
+      assert.match(
+        serialized,
+        new RegExp(selection.profile.replace('.', '\\.') + '(?:\\.|" )'.replace(' ', '')),
+        'Connected release must match profile.',
+      );
     },
     samples,
   );
@@ -260,8 +271,13 @@ try {
           limit: 3,
           project,
           ...(['blocks', 'blueprints'].includes(corpus)
-            ? { profile: 'profile:apex261-ut261-mmd3102' }
-            : { version: '26.1' }),
+            ? {
+                profile:
+                  selection.profile === '26.1'
+                    ? 'profile:apex261-ut261-mmd3102'
+                    : 'profile:apex262-ut262-mmd3479',
+              }
+            : { version: selection.profile }),
         }),
       (r) => {
         success(r);
@@ -273,7 +289,13 @@ try {
   await measure(
     'A261-014',
     () =>
-      call('apexrest_reference', { mode: 'read', id: 'grammar:page', version: '26.1', limit: 512, project }),
+      call('apexrest_reference', {
+        mode: 'read',
+        id: 'grammar:page',
+        version: selection.profile,
+        limit: 512,
+        project,
+      }),
     success,
     samples,
   );
