@@ -7224,6 +7224,8 @@ function sqlclTimings() {
 }
 function recordSqlclTiming(label, r) {
   storage.getStore()?.push({
+    queueMs: r.queueMs,
+    ...r.statementMs ? { statementMs: [...r.statementMs] } : {},
     label: labels.has(label) ? label : "session",
     spawnMs: r.spawnMs,
     connectMs: r.connectMs,
@@ -7237,6 +7239,7 @@ function recordSqlclTiming(label, r) {
 }
 function executionTiming(transport, mutation = false, connected = false) {
   return {
+    queueMs: 0,
     spawnMs: 0,
     connectMs: null,
     executeMs: 0,
@@ -7253,6 +7256,11 @@ function emitSqlclTiming(callback, timing, started) {
     callback?.({ ...timing });
   } catch {
   }
+}
+function recordStatementTimings(label, durations) {
+  const records = storage.getStore();
+  const record2 = records?.findLast((r) => r.label === label);
+  if (record2) record2.statementMs = [...durations];
 }
 
 // packages/core/src/sqlcl-mcp.ts
@@ -11144,6 +11152,7 @@ async function runPooledSqlcl(request) {
     release(session);
     session = await acquire(request, key);
   }
+  timing.queueMs = performance4.now() - started;
   timing.reused = session.client.alive;
   const deadline = Date.now() + (request.timeoutMs ?? 18e4);
   const options = () => mcpCallOptions(request, deadline);
@@ -11213,6 +11222,7 @@ export {
   withSqlclTimings,
   sqlclTimings,
   recordSqlclTiming,
+  recordStatementTimings,
   runProcess,
   safeParse2 as safeParse,
   getObjectShape,

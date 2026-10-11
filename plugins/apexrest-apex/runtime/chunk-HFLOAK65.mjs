@@ -48,12 +48,12 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-SJDNJXUF.mjs";
+} from "./chunk-AMDWLXKC.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-GHFMQKNU.mjs";
+} from "./chunk-TE5VTEAH.mjs";
 import {
   browserModeSchema,
   browserPreferences
@@ -7841,7 +7841,7 @@ var queries = {
   applications: "select application_id,application_name,alias from apex_applications where owner=:p_owner and application_id=:p_app_id order by application_id",
   pages: "select application_id,page_id,page_name,page_alias from apex_application_pages where application_id=:p_app_id and workspace=:p_workspace order by page_id"
 };
-async function metadataRead(adapter, env2, connection, value) {
+async function metadataRead(adapter, env2, connection, value, debugTimings = false) {
   const input = parse(external_exports.union([metadataRequest, metadataBatchRequest]), value);
   const batch = "requests" in input;
   const requests = batch ? input.requests : [input];
@@ -7873,7 +7873,10 @@ async function metadataRead(adapter, env2, connection, value) {
       { sql: targetIdentitySql, bindings: { p_workspace: env2.workspace, p_app_id: env2.applicationId } },
       ...requests.map(query)
     ],
-    connection
+    connection,
+    void 0,
+    "metadata-batch",
+    debugTimings
   );
   if (rows.length !== requests.length + 1)
     throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not answer every metadata request.", 1);
@@ -10771,9 +10774,14 @@ var schemas = {
     output: relativePath,
     alias: refName.optional()
   }),
-  "apex.sync": external_exports.strictObject({ ...base, env, action: external_exports.enum(["init", "status", "refresh", "invalidate"]) }),
+  "apex.sync": external_exports.strictObject({
+    ...base,
+    debugTimings: external_exports.boolean().optional(),
+    env,
+    action: external_exports.enum(["init", "status", "refresh", "invalidate"])
+  }),
   "apex.export": external_exports.strictObject({ ...base, env, output: relativePath }),
-  "apex.validate": external_exports.strictObject({ ...base, env: env.optional() }),
+  "apex.validate": external_exports.strictObject({ ...base, debugTimings: external_exports.boolean().optional(), env: env.optional() }),
   "apex.diff": external_exports.strictObject({ ...base, env, comparison: external_exports.enum(["auto", "live"]).default("auto") }),
   "db.plan": external_exports.strictObject({ ...base, env }),
   "deploy.plan": external_exports.strictObject({ ...base, env, out: relativePath, ...importOptions2 }).superRefine(checkImportOptions),
@@ -10803,6 +10811,7 @@ var schemas = {
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.
   project: external_exports.strictObject({
+    debugTimings: external_exports.boolean().optional(),
     ...base,
     action: external_exports.enum(["init", "adopt", "inspect", "connection_add", "connection_list", "connection_test"]),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
@@ -10895,7 +10904,7 @@ var toolCatalog = [
   {
     name: "apexrest_project",
     operation: "project",
-    description: "Oracle app init, dev/test adopt, inspect (default summary), connection_add/list/test. Credentials via private passwordFile or ignored local envFile; never in tool text.",
+    description: "App init/adopt/inspect and connection add/list/test. Credentials via private passwordFile/envFile; never in tool text.",
     readOnly: false,
     destructive: false,
     openWorld: true
@@ -10903,7 +10912,7 @@ var toolCatalog = [
   {
     name: "apexrest_reference",
     operation: "reference",
-    description: "Offline references. Search apexlang syntax, components or patterns; the top hit includes code. Read a result ID, grammar:, component:, pattern: or oracle: ID. version overrides project profile.",
+    description: "Offline syntax/components/patterns. Search top hit includes code; read result, grammar:, component:, pattern: or oracle: IDs. version overrides profile.",
     readOnly: true
   },
   {
@@ -10932,7 +10941,7 @@ var toolCatalog = [
   {
     name: "apexrest_apex_sync",
     operation: "apex.sync",
-    description: "Single-editor working copy of an existing dev/test app: init, local status, explicit refresh or invalidate. Blocked outcomes require reconciliation.",
+    description: "Single-editor dev/test working copy: init, local status, explicit refresh/invalidate. Reconcile blocked outcomes.",
     readOnly: false,
     destructive: false,
     long: true,
@@ -14779,7 +14788,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-37N57BBJ.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-AESZGFM2.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -14836,7 +14845,10 @@ function routeReference(parsed) {
 async function dispatch(operation, input = {}, signal, progress) {
   return withSqlclTimings(async () => {
     const result = await dispatchObserved(operation, input, signal, progress);
-    const timings = sqlclTimings();
+    const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
+      ...r,
+      ...input.debugTimings === true && statementMs ? { statementMs } : {}
+    }));
     if (operation === "metadata.read" && result.ok) {
       return {
         ...result,
@@ -14861,6 +14873,8 @@ async function dispatch(operation, input = {}, signal, progress) {
         }
       };
     }
+    if (input.debugTimings === true && result.ok)
+      return { ...result, data: { ...result.data, sqlclTimings: timings } };
     return result;
   });
 }
@@ -14871,7 +14885,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
     if (!(operation in schemas)) throw new Fault("INVALID_INPUT", `Unknown operation: ${operation}`, 2);
     const parsed = parse(
       schemas[operation],
-      input
+      Object.fromEntries(
+        Object.entries(input).filter(([key]) => key !== "debugTimings" || operation === "metadata.read")
+      )
     );
     const text2 = (key) => parsed[key];
     const root = text2("project") ?? process.cwd();
@@ -14926,29 +14942,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-PCZHTWES.mjs");
+        const { ToolchainService } = await import("./chunk-24REWENI.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-Q7SQ5KSV.mjs");
+        const { uninstallTools } = await import("./chunk-LNMNPE4S.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-67IFC7Z3.mjs");
+        const { setup: setup2 } = await import("./chunk-7EYSVNXT.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-67IFC7Z3.mjs");
+        const { validateNative } = await import("./chunk-7EYSVNXT.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-67IFC7Z3.mjs");
+        const { uninstallNative } = await import("./chunk-7EYSVNXT.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -15029,7 +15045,13 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "metadata.read": {
             const env2 = environment(ctx, text2("env"));
             const { project: _p, env: _e, debugTimings: _debug, ...request } = parsed;
-            data = await metadataRead(oracle, env2, await resolveConnection(env2.readConnectionRef), request);
+            data = await metadataRead(
+              oracle,
+              env2,
+              await resolveConnection(env2.readConnectionRef),
+              request,
+              _debug === true
+            );
             break;
           }
           case "apex.generate": {

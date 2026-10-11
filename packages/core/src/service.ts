@@ -115,7 +115,10 @@ export async function dispatch(
 ): Promise<Result> {
   return withSqlclTimings(async () => {
     const result = await dispatchObserved(operation, input, signal, progress);
-    const timings = sqlclTimings();
+    const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
+      ...r,
+      ...(input.debugTimings === true && statementMs ? { statementMs } : {}),
+    }));
     if (operation === 'metadata.read' && result.ok) {
       return {
         ...result,
@@ -140,6 +143,8 @@ export async function dispatch(
         },
       };
     }
+    if (input.debugTimings === true && result.ok)
+      return { ...result, data: { ...(result.data as object), sqlclTimings: timings } };
     return result;
   });
 }
@@ -155,7 +160,9 @@ async function dispatchObserved(
     if (!(operation in schemas)) throw new Fault('INVALID_INPUT', `Unknown operation: ${operation}`, 2);
     const parsed = parse(
       schemas[operation as Operation] as import('zod').z.ZodType<Record<string, unknown>>,
-      input,
+      Object.fromEntries(
+        Object.entries(input).filter(([key]) => key !== 'debugTimings' || operation === 'metadata.read'),
+      ),
     );
     const text = (key: string) => parsed[key] as string;
     const root = text('project') ?? process.cwd();
@@ -321,7 +328,13 @@ async function dispatchObserved(
           case 'metadata.read': {
             const env = environment(ctx, text('env'));
             const { project: _p, env: _e, debugTimings: _debug, ...request } = parsed;
-            data = await metadataRead(oracle, env, await resolveConnection(env.readConnectionRef), request);
+            data = await metadataRead(
+              oracle,
+              env,
+              await resolveConnection(env.readConnectionRef),
+              request,
+              _debug === true,
+            );
             break;
           }
           case 'apex.generate': {

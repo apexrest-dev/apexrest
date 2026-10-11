@@ -1,10 +1,11 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   recordSqlclTiming,
+  recordStatementTimings,
   runPooledSqlcl,
   runProcess,
   runSqlclMcp
-} from "./chunk-GHFMQKNU.mjs";
+} from "./chunk-TE5VTEAH.mjs";
 import {
   isProductionTarget,
   managedHome,
@@ -1399,6 +1400,7 @@ __export(oracle_exports, {
   jsonDocuments: () => jsonDocuments,
   oracleDiagnostics: () => oracleDiagnostics,
   parseCompilerDiagnostics: () => parseCompilerDiagnostics,
+  parseStatementMs: () => parseStatementMs,
   resetCapabilityCache: () => resetCapabilityCache,
   sqlLiteral: () => sqlLiteral,
   sqlclToken: () => sqlclToken,
@@ -2965,6 +2967,17 @@ function parseApplicationMetadata(rows) {
   };
 }
 var targetVersionSql = "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'";
+function parseStatementMs(output) {
+  const tail = output.slice(output.lastIndexOf("}") + 1);
+  const matches = [...tail.matchAll(/^Elapsed: (\d+):(\d{2}):(\d{2}(?:\.\d+)?)\s*$/gm)];
+  if (matches.length !== 1)
+    throw new Fault("SQLCL_TIMING_UNCONFIRMED", "SQLcl did not return one statement elapsed interval.", 1);
+  const m2 = matches[0];
+  const value = (Number(m2[1]) * 3600 + Number(m2[2]) * 60 + Number(m2[3])) * 1e3;
+  if (!Number.isFinite(value) || Number(m2[2]) >= 60 || Number(m2[3]) >= 60)
+    throw new Fault("SQLCL_TIMING_UNCONFIRMED", "Invalid SQLcl statement elapsed interval.", 1);
+  return value;
+}
 var capabilityCache = /* @__PURE__ */ new Map();
 var importHelpCache = /* @__PURE__ */ new Map();
 function resetCapabilityCache() {
@@ -3192,6 +3205,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       if (!timingRecorded) {
         const elapsed = performance.now() - executionStarted;
         recordSqlclTiming(label, {
+          queueMs: 0,
           spawnMs: null,
           connectMs: null,
           executeMs: elapsed,
@@ -3787,15 +3801,15 @@ ${sql};`,
    * delimited by a private marker; a missing marker fails the whole batch and
    * never yields a partial result.
    */
-  async jsonQueryBatch(queries, connection, signal, label = "metadata-batch") {
+  async jsonQueryBatch(queries, connection, signal, label = "metadata-batch", debugTimings = false) {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === "ords";
     const token = `APEXREST_ROWS_${randomUUID().replaceAll("-", "")}`;
     const input = queries.map(
       (query, index) => `${this.bindPreamble(query.bindings ?? {}, ords)}
 set sqlformat json
-${query.sql};
-prompt ${token}_${index}`
+${debugTimings ? "set timing on\n" : ""}${query.sql};
+${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     ).join("\n");
     const result = await this.session(
       input,
@@ -3810,14 +3824,18 @@ prompt ${token}_${index}`
     );
     const lines = result.output.replace(new RegExp(`}(?=${token}_\\d+[ \\t]*(?:\\r?\\n|$))`, "g"), "}\n").split(/\r?\n/);
     const rows = [];
+    const statementMs = [];
     let from = 0;
     for (let index = 0; index < queries.length; index++) {
       const at2 = lines.findIndex((line, i) => i >= from && line.trim() === `${token}_${index}`);
       if (at2 < 0)
         throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not return every JSON result envelope.", 1);
-      rows.push(this.parseRows(lines.slice(from, at2).join("\n")));
+      const block = lines.slice(from, at2).join("\n");
+      rows.push(this.parseRows(block));
+      if (debugTimings) statementMs.push(parseStatementMs(block));
       from = at2 + 1;
     }
+    if (debugTimings) recordStatementTimings(label, statementMs);
     return rows;
   }
   async identity(connection, signal) {

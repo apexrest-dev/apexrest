@@ -170,9 +170,14 @@ export const schemas = {
     output: relativePath,
     alias: refName.optional(),
   }),
-  'apex.sync': z.strictObject({ ...base, env, action: z.enum(['init', 'status', 'refresh', 'invalidate']) }),
+  'apex.sync': z.strictObject({
+    ...base,
+    debugTimings: z.boolean().optional(),
+    env,
+    action: z.enum(['init', 'status', 'refresh', 'invalidate']),
+  }),
   'apex.export': z.strictObject({ ...base, env, output: relativePath }),
-  'apex.validate': z.strictObject({ ...base, env: env.optional() }),
+  'apex.validate': z.strictObject({ ...base, debugTimings: z.boolean().optional(), env: env.optional() }),
   'apex.diff': z.strictObject({ ...base, env, comparison: z.enum(['auto', 'live']).default('auto') }),
   'db.plan': z.strictObject({ ...base, env }),
   'deploy.plan': z
@@ -204,6 +209,7 @@ export const schemas = {
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.
   project: z.strictObject({
+    debugTimings: z.boolean().optional(),
     ...base,
     action: z.enum(['init', 'adopt', 'inspect', 'connection_add', 'connection_list', 'connection_test']),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
@@ -340,7 +346,7 @@ export const toolCatalog: {
     name: 'apexrest_project',
     operation: 'project',
     description:
-      'Oracle app init, dev/test adopt, inspect (default summary), connection_add/list/test. Credentials via private passwordFile or ignored local envFile; never in tool text.',
+      'App init/adopt/inspect and connection add/list/test. Credentials via private passwordFile/envFile; never in tool text.',
     readOnly: false,
     destructive: false,
     openWorld: true,
@@ -349,7 +355,7 @@ export const toolCatalog: {
     name: 'apexrest_reference',
     operation: 'reference',
     description:
-      'Offline references. Search apexlang syntax, components or patterns; the top hit includes code. Read a result ID, grammar:, component:, pattern: or oracle: ID. version overrides project profile.',
+      'Offline syntax/components/patterns. Search top hit includes code; read result, grammar:, component:, pattern: or oracle: IDs. version overrides profile.',
     readOnly: true,
   },
   {
@@ -382,7 +388,7 @@ export const toolCatalog: {
     name: 'apexrest_apex_sync',
     operation: 'apex.sync',
     description:
-      'Single-editor working copy of an existing dev/test app: init, local status, explicit refresh or invalidate. Blocked outcomes require reconciliation.',
+      'Single-editor dev/test working copy: init, local status, explicit refresh/invalidate. Reconcile blocked outcomes.',
     readOnly: false,
     destructive: false,
     long: true,

@@ -173,6 +173,7 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
     release(session);
     session = await acquire(request, key);
   }
+  timing.queueMs = performance.now() - started;
   timing.reused = session.client.alive;
   const deadline = Date.now() + (request.timeoutMs ?? 180000);
   const options = () => mcpCallOptions(request, deadline);

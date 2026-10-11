@@ -7,7 +7,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-SJDNJXUF.mjs";
+} from "./chunk-AMDWLXKC.mjs";
 import {
   Client,
   ReadBuffer,
@@ -28,7 +28,7 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-GHFMQKNU.mjs";
+} from "./chunk-TE5VTEAH.mjs";
 import {
   managedHome
 } from "./chunk-YEGSGHTV.mjs";

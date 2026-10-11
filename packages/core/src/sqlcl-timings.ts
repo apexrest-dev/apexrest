@@ -15,6 +15,8 @@ export type SqlclLabel =
   | 'capability'
   | 'codescan';
 export interface SqlclExecutionTiming {
+  queueMs: number;
+  statementMs?: number[];
   spawnMs: number | null;
   connectMs: number | null;
   executeMs: number;
@@ -52,6 +54,8 @@ export function sqlclTimings() {
 /** Explicit field selection and bounded labels prevent SQL, bindings and identity leakage. */
 export function recordSqlclTiming(label: SqlclLabel, r: SqlclExecutionTiming) {
   storage.getStore()?.push({
+    queueMs: r.queueMs,
+    ...(r.statementMs ? { statementMs: [...r.statementMs] } : {}),
     label: labels.has(label) ? label : 'session',
     spawnMs: r.spawnMs,
     connectMs: r.connectMs,
@@ -69,6 +73,7 @@ export function executionTiming(
   connected = false,
 ): SqlclExecutionTiming {
   return {
+    queueMs: 0,
     spawnMs: 0,
     connectMs: null,
     executeMs: 0,
@@ -90,4 +95,11 @@ export function emitSqlclTiming(
   } catch {
     /* Observation must never alter execution. */
   }
+}
+
+/** Attach only validated local statement durations to the current batch record. */
+export function recordStatementTimings(label: SqlclLabel, durations: number[]) {
+  const records = storage.getStore();
+  const record = records?.findLast((r) => r.label === label);
+  if (record) record.statementMs = [...durations];
 }

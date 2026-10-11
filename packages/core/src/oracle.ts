@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { recordSqlclTiming, type SqlclLabel } from './sqlcl-timings.ts';
+import { recordSqlclTiming, recordStatementTimings, type SqlclLabel } from './sqlcl-timings.ts';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
@@ -70,6 +70,18 @@ function parseApplicationMetadata(rows: Record<string, unknown>[]) {
 }
 const targetVersionSql =
   "select (select version_no from apex_release) apex_version, version_full database_version from product_component_version where product like 'Oracle%Database%'";
+/** SQLcl local elapsed output avoids extra timestamp queries and NLS/server-clock assumptions. */
+export function parseStatementMs(output: string) {
+  const tail = output.slice(output.lastIndexOf('}') + 1);
+  const matches = [...tail.matchAll(/^Elapsed: (\d+):(\d{2}):(\d{2}(?:\.\d+)?)\s*$/gm)];
+  if (matches.length !== 1)
+    throw new Fault('SQLCL_TIMING_UNCONFIRMED', 'SQLcl did not return one statement elapsed interval.', 1);
+  const m = matches[0]!;
+  const value = (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) * 1000;
+  if (!Number.isFinite(value) || Number(m[2]) >= 60 || Number(m[3]) >= 60)
+    throw new Fault('SQLCL_TIMING_UNCONFIRMED', 'Invalid SQLcl statement elapsed interval.', 1);
+  return value;
+}
 export type Runner = (request: ProcessRequest) => Promise<ProcessResult>;
 export interface SqlclCapabilities {
   version: string;
@@ -384,6 +396,7 @@ export class OracleAdapter {
       if (!timingRecorded) {
         const elapsed = performance.now() - executionStarted;
         recordSqlclTiming(label, {
+          queueMs: 0,
           spawnMs: null,
           connectMs: null,
           executeMs: elapsed,
@@ -1058,6 +1071,7 @@ export class OracleAdapter {
     connection: Connection,
     signal?: AbortSignal,
     label: SqlclLabel = 'metadata-batch',
+    debugTimings = false,
   ) {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === 'ords';
@@ -1065,7 +1079,7 @@ export class OracleAdapter {
     const input = queries
       .map(
         (query, index) =>
-          `${this.bindPreamble(query.bindings ?? {}, ords)}\nset sqlformat json\n${query.sql};\nprompt ${token}_${index}`,
+          `${this.bindPreamble(query.bindings ?? {}, ords)}\nset sqlformat json\n${debugTimings ? 'set timing on\n' : ''}${query.sql};\n${debugTimings ? 'set timing off\n' : ''}prompt ${token}_${index}`,
       )
       .join('\n');
     const result = await this.session(
@@ -1086,14 +1100,18 @@ export class OracleAdapter {
       .replace(new RegExp(`}(?=${token}_\\d+[ \\t]*(?:\\r?\\n|$))`, 'g'), '}\n')
       .split(/\r?\n/);
     const rows: Record<string, unknown>[][] = [];
+    const statementMs: number[] = [];
     let from = 0;
     for (let index = 0; index < queries.length; index++) {
       const at = lines.findIndex((line, i) => i >= from && line.trim() === `${token}_${index}`);
       if (at < 0)
         throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not return every JSON result envelope.', 1);
-      rows.push(this.parseRows(lines.slice(from, at).join('\n')));
+      const block = lines.slice(from, at).join('\n');
+      rows.push(this.parseRows(block));
+      if (debugTimings) statementMs.push(parseStatementMs(block));
       from = at + 1;
     }
+    if (debugTimings) recordStatementTimings(label, statementMs);
     return rows;
   }
   async identity(connection: Connection, signal?: AbortSignal) {

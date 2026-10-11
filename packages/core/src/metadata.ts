@@ -58,6 +58,7 @@ export async function metadataRead(
   env: Environment,
   connection: Connection,
   value: unknown,
+  debugTimings = false,
 ) {
   const input = parse(z.union([metadataRequest, metadataBatchRequest]), value);
   const batch = 'requests' in input;
@@ -93,6 +94,9 @@ export async function metadataRead(
       ...requests.map(query),
     ],
     connection,
+    undefined,
+    'metadata-batch',
+    debugTimings,
   );
   if (rows.length !== requests.length + 1)
     throw new Fault('EMPTY_QUERY_RESULT', 'SQLcl did not answer every metadata request.', 1);
