@@ -70,3 +70,21 @@ test('dictionary checks associate each column with its type and normalize displa
     false,
   );
 });
+
+test('empty foreign-key dictionary accepts explicit Ukrainian absence, not retrieval failure', () => {
+  for (const answer of [
+    '**Зовнішніх ключів у таблиці немає.**',
+    '- **Власних зовнішніх ключів немає.**',
+    'No foreign key constraints are defined.',
+  ])
+    assert.equal(answerChecks('AGT-008', answer, { foreignKeys: [] })[1].passed, true);
+  assert.equal(
+    answerChecks('AGT-008', 'Не вдалося отримати зовнішні ключі: INVALID_INPUT.', { foreignKeys: [] })[1]
+      .passed,
+    false,
+  );
+  assert.equal(
+    answerChecks('AGT-008', 'Немає доступу до зовнішніх ключів.', { foreignKeys: [] })[1].passed,
+    false,
+  );
+});

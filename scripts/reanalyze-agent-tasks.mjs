@@ -17,6 +17,7 @@ const { values } = parseArgs({
     output: { type: 'string' },
     project: { type: 'string' },
     env: { type: 'string', default: 'test' },
+    'env-file': { type: 'string', default: 'test.env' },
   },
 });
 assert.ok(values.file && values.output && values.project);
@@ -27,7 +28,7 @@ const report = JSON.parse(await readFile(values.file, 'utf8')),
   catalog = JSON.parse(await readFile('tests/plugin-server/agent-tasks.cases.json', 'utf8'));
 const h = await connectHarness(),
   helper = await coreHelpers(path.dirname(values.output)),
-  env = await readQualificationEnv(path.resolve('test.env'), helper),
+  env = await readQualificationEnv(path.resolve(values['env-file']), helper),
   secrets = Object.entries(env)
     .filter(([k]) => /password|token|secret/i.test(k))
     .map(([, v]) => v)
@@ -71,7 +72,7 @@ try {
     const file = await locate(directory, sample.sessionId, report.host === 'codex' ? 3 : 0);
     sample.originalAssessment = {
       status: sample.status,
-      failedOracles: sample.oracleChecks.filter((c) => !c.passed).map((c) => c.name),
+      failedOracles: sample.oracleChecks.filter((c) => c.passed === false).map((c) => c.name),
       safetyViolations: sample.safetyViolations,
     };
     sample.metrics = await transcriptMetrics(
@@ -168,6 +169,9 @@ try {
           passed: await repairedSourceMatches(
             path.join(root, config.application.sourceDir),
             path.join(root, '.apexrest', 'qp-original'),
+            Object.keys(await fileInventory(path.join(root, '.apexrest', 'qp-original'))).find((file) =>
+              /p00001.*\.apx$/.test(file),
+            ),
           ),
         },
         { name: 'compiler-cycle-observed', passed: m.validateCycles >= 1 },
@@ -230,7 +234,7 @@ try {
   report.status = report.checks.some((c) => c.status === 'failed') ? 'failed' : 'partial';
   report.reanalysis = {
     original: values.file,
-    reason: 'Literal legacy ENV and native plugin-prefix scanner fixes; original native sessions preserved.',
+    reason: 'Shared answer/repair oracles and transcript classifier; original native sessions preserved.',
     timestamp: new Date().toISOString(),
   };
   await savePrivateJson(values.output, report);

@@ -74,7 +74,9 @@ export function answerChecks(
                 answer.includes(f.referenced_table) &&
                 answer.includes(f.referenced_column),
             )
-          : /no foreign keys|no.*\bFK\b|foreign keys[^\n]*(?:none|0)/i.test(answer),
+          : /no foreign keys?\b|\bno\s+FKs?\b|foreign keys?[^\n]*(?:none|0)|зовнішн\p{L}*\s+ключ\p{L}*(?:\s+у\s+таблиці)?\s*[:—-]?\s*(?:немає|відсутн\p{L}*)|(?:немає|відсутн\p{L}*)\s+(?:жодних\s+)?зовнішн\p{L}*\s+ключ\p{L}*/iu.test(
+              answer,
+            ),
       },
     ];
   if (id === 'AGT-011')

@@ -409,7 +409,10 @@ try {
         } else if (task.id === 'AGT-004') {
           const v = await h.call('apexrest_apex_validate', { project: root });
           oracle('repaired-source-compiles', v.ok);
-          oracle('original-source-except-trailing-whitespace', await repairedSourceMatches(source, baseline));
+          oracle(
+            'original-source-except-trailing-whitespace',
+            await repairedSourceMatches(source, baseline, home),
+          );
           oracle('compiler-cycle-observed', m.validateCycles >= 1);
           oracle(
             'no-database-tools',
