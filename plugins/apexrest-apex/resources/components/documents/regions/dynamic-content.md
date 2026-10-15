@@ -1,6 +1,6 @@
 # dynamic content
 
-Aliases: dynamic content; динамічний вміст plsql; Dynamic Content
+Aliases: dynamic content; динамічний вміст plsql; Dynamic Content; PL/SQL Dynamic Content operations home; custom home landing dashboard queue cards filters htp clob
 
 Generate region content through the supported server-side source contract.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:regions/dynamic-content/s
 ## Recipes
 
 - component:regions/dynamic-content/recipes/basic: ready
+- component:regions/dynamic-content/recipes/operations-home: ready
 
 ## Parameters and adaptation
 

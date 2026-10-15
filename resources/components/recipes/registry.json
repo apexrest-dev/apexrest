@@ -8775,6 +8775,125 @@
         "license": "MIT",
         "derivation": "original-adaptation"
       }
+    },
+    {
+      "id": "component:regions/dynamic-content/recipes/operations-home",
+      "componentId": "component:regions/dynamic-content",
+      "title": "PL/SQL Dynamic Content operations home",
+      "aliases": [
+        "PL/SQL Dynamic Content operations home",
+        "custom home landing dashboard queue cards filters htp clob"
+      ],
+      "family": "regions",
+      "sourcePageIds": [],
+      "description": "Custom landing page rendered by one PL/SQL Dynamic Content region: escaped queue cards from synthetic DUAL rows, APEX-built checksummed links into a hidden item, scoped CSS and page-level filter JavaScript; no packages, tables or writes.",
+      "directory": "recipes/internet-dynamic-content-home",
+      "files": [
+        "pages/p00001-home.apx",
+        "LICENSE.txt"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "PL/SQL Dynamic Content CLOB from synthetic DUAL rows",
+        "tables": [
+          "DUAL"
+        ],
+        "bindings": [
+          "P1_QUEUE"
+        ],
+        "submittedItems": [],
+        "writes": false
+      },
+      "adaptation": [
+        "Choose a free page number and rename all P1_ items consistently.",
+        "Rename region, button and DOM identifiers before merging into an existing page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace synthetic rows only with authorized project SQL; escape every value with apex_escape.html or apex_escape.html_attribute and build links with apex_page.get_url.",
+        "Move the rendering into a project package when the HTML grows; keep the page CSS and JavaScript scoped to the region class."
+      ],
+      "dependenciesClosed": true,
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "585d8b5f45c2fb629f9df9e0d3fbbfa583284e8be243ffa150155226d166fe93",
+          "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+          "mmdVersion": "26.1.0+3102"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      },
+      "provenance": {
+        "sourceUrl": "https://github.com/denioflavio/apex-plsql-dynamic-content-home/blob/280972ef0a5442aee774dfcb25a6a8cd39ca42c7/database/21_package_body.sql",
+        "repository": "https://github.com/denioflavio/apex-plsql-dynamic-content-home",
+        "commit": "280972ef0a5442aee774dfcb25a6a8cd39ca42c7",
+        "path": "database/21_package_body.sql",
+        "sourceSha256": "97689a2757a5127d71244f8f66bc643c82489ea27a3c9f641cb831f62f79a1e2",
+        "license": "MIT",
+        "derivation": "original-adaptation"
+      }
+    },
+    {
+      "id": "component:reports/classic-report/recipes/scheduler-jobs-dashboard",
+      "componentId": "component:reports/classic-report",
+      "title": "Scheduler jobs health dashboard",
+      "aliases": [
+        "Scheduler jobs health dashboard",
+        "dbms_scheduler jobs failures next runs monitoring badge list"
+      ],
+      "family": "reports",
+      "sourcePageIds": [],
+      "description": "Read-only monitoring page over the parsing schema's USER_SCHEDULER_* views: badge-list status counts, the last 20 failed runs in 72 hours and jobs due within 60 minutes; no application tables, packages or writes.",
+      "directory": "recipes/internet-scheduler-jobs-dashboard",
+      "files": [
+        "pages/p00001-home.apx",
+        "LICENSE.txt"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "localDatabase/sqlQuery; read-only Oracle Scheduler dictionary views of the parsing schema",
+        "tables": [
+          "USER_SCHEDULER_JOBS",
+          "USER_SCHEDULER_RUNNING_JOBS",
+          "USER_SCHEDULER_JOB_RUN_DETAILS",
+          "DUAL"
+        ],
+        "bindings": [],
+        "submittedItems": [],
+        "writes": false
+      },
+      "adaptation": [
+        "Choose a free page number and rename all P1_ items consistently.",
+        "Rename region, button and DOM identifiers before merging into an existing page.",
+        "Preserve the target application authentication and authorization.",
+        "Keep USER_SCHEDULER_* unless an authorized administrator page needs ALL_ or DBA_ views; those expose other schemas' job names and error details.",
+        "Restrict the page with an administrator authorization scheme in the target application."
+      ],
+      "dependenciesClosed": true,
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "d9e30ea547eabc8fff36053bd30241125c82c2b48b86d20845adc4bed0d18805",
+          "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+          "mmdVersion": "26.1.0+3102"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      },
+      "provenance": {
+        "sourceUrl": "https://github.com/Aftorres02/OracleAPEX-ErrorShield/blob/71232a717ce6679d6fb843ed2647e194c8f3a54c/apex/apex_lang/app_10400/pages/p01000-jobs-dashboard.apx",
+        "repository": "https://github.com/Aftorres02/OracleAPEX-ErrorShield",
+        "commit": "71232a717ce6679d6fb843ed2647e194c8f3a54c",
+        "path": "apex/apex_lang/app_10400/pages/p01000-jobs-dashboard.apx",
+        "sourceSha256": "850eba9a9bcf923dd756ef795177a56536d15da5fe89ab7fa5994c9f69aeb4db",
+        "license": "MIT",
+        "derivation": "original-adaptation"
+      }
     }
   ]
 }

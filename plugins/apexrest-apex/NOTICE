@@ -19,6 +19,12 @@ not independently compiler-checked or runtime-qualified applications.
 The template-directives report recipe is an original adaptation of
 denioflavio/apex-template-directives, Copyright (c) 2026 Denio Flavio, MIT.
 The full notice is retained at resources/components/recipes/internet-report-template-directives/LICENSE.txt.
+The operations-home Dynamic Content recipe is an original adaptation of
+denioflavio/apex-plsql-dynamic-content-home, Copyright (c) 2026 Denio Flavio, MIT.
+The full notice is retained at resources/components/recipes/internet-dynamic-content-home/LICENSE.txt.
+The scheduler-jobs-dashboard report recipe is an original adaptation of
+Aftorres02/OracleAPEX-ErrorShield, Copyright (c) 2026 Angel Flores, MIT.
+The full notice is retained at resources/components/recipes/internet-scheduler-jobs-dashboard/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.

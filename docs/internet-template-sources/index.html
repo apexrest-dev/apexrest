@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Public APEXlang templates · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/internet-template-sources/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/internet-template-sources/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.0.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/" aria-current="page">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Reference / Public APEXlang templates</div><h1 id="internet-apexlang-template-sources">Internet APEXlang template sources</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#scope-and-verification">Scope and verification</a></li><li><a href="#official-oracle-apex-applications">Official Oracle APEX applications</a></li><li><a href="#official-oracle-skills-examples">Official Oracle skills examples</a></li><li><a href="#community-sources-reviewed">Community sources reviewed</a></li><li><a href="#exclusions-and-search-limits">Exclusions and search limits</a></li></ul></details>
-<p>The source inventory was checked on 2026-10-11 using web discovery, live GitHub recursive trees, immutable source archives and license text. It covers Oracle APEXlang <code>.apx</code> sources. Source counts describe files and applications, not independently verified ready components.</p>
+<p>The source inventory was checked on 2026-10-11 and refreshed on 2026-10-14 using web discovery, GitHub repository and code search, live GitHub recursive trees, immutable source archives and license text. It covers Oracle APEXlang <code>.apx</code> sources. Source counts describe files and applications, not independently verified ready components.</p>
 <h2 id="scope-and-verification">Scope and verification</h2>
 <ul>
 <li>Oracle APEX 26.2 contributes <strong>33 complete source applications</strong>, <strong>2,961 <code>.apx</code> files</strong> and <strong>1,506 page files</strong> at one pinned commit. The page reference intake selects <strong>1,350 page files</strong> with page numbers greater than 0 and less than 9999. This numerical filter excludes global pages and high-numbered pages; it does not by itself identify every login, administration or scaffolding page.</li>
 <li>The Oracle skills repository contains <strong>456 <code>.apx</code> files</strong> across its 26.1 and 26.2 example applications and scaffold. Its three 26.2 example applications contain <strong>242 <code>.apx</code> files</strong>, including <strong>94 page files</strong>. Versioned copies and scaffold duplicates are not additional unique templates.</li>
-<li>Seven licensed community candidates were inspected separately. They are discovery candidates, not automatically accepted ready recipes. Parser fixtures, intentional fault laboratories, duplicated vendor scaffolds and unlicensed sources are not treated as ready components.</li>
+<li>Seventeen licensed community candidates were inspected separately: seven on 2026-10-11 and ten more on 2026-10-14. They are discovery candidates, not automatically accepted ready recipes. Parser fixtures, intentional fault laboratories, duplicated vendor scaffolds and unlicensed sources are not treated as ready components.</li>
 <li>Public source inspection confirms file identity, declared metadata and license. It does <strong>not</strong> confirm Oracle compilation, schema availability, an error-free server import or browser behavior. A copied page often depends on the rest of its original application.</li>
 </ul>
 <p>The Oracle page intake is a reference corpus. A recipe becomes ready only after its dependency closure, adaptation contract and required compiler checks are recorded in the recipe registry. Catalog inclusion must retain this distinction.</p>
@@ -307,7 +307,7 @@
 </div>
 <p>The 26.1 generation package also contains Markdown template contracts for page layouts, regions, items, buttons, business logic and shared components. They are useful reference examples, but Markdown contract files are not counted as executable <code>.apx</code> files.</p>
 <h2 id="community-sources-reviewed">Community sources reviewed</h2>
-<p>The seven repositories below expose actual <code>.apx</code> source files and a verified MIT license at the listed revisions. Each link is pinned. Counts may include multiple snapshots, blueprints or experiments; they are not counts of unique production-ready components.</p>
+<p>The repositories below expose actual <code>.apx</code> source files and verified license text at the listed revisions. The first seven were reviewed on 2026-10-11 and were unchanged on 2026-10-14; the remaining ten were added on 2026-10-14. All ten new candidates declare 26.1 metadata and contain some files byte-identical to Oracle sources (generated shared components and scaffold files). Each link is pinned. Counts may include multiple snapshots, blueprints or experiments; they are not counts of unique production-ready components.</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
@@ -359,11 +359,71 @@
 <td><code>26.1.0+3102</code></td>
 <td><strong>Intentional fault laboratory. Excluded from ready recipe intake.</strong> Contains deliberately defective order flows and a separate idempotency correction.</td>
 </tr>
+<tr>
+<td><a href="https://github.com/OliverLemm/apex-visualizer/tree/13e51bf9329524f54b03c9abab935977de408fd5">OliverLemm/apex-visualizer</a> (<a href="https://github.com/OliverLemm/apex-visualizer/blob/13e51bf9329524f54b03c9abab935977de408fd5/License.md">MIT</a>)</td>
+<td align="right">51</td>
+<td><code>26.1.0+3102</code></td>
+<td>Application metadata visualizer over APEX dictionary views: plug-ins, links, QA and migration notes. Several pages have no alias. Reads workspace metadata; not a business-page template.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Aftorres02/OracleAPEX-ErrorShield/tree/71232a717ce6679d6fb843ed2647e194c8f3a54c">Aftorres02/OracleAPEX-ErrorShield</a> (<a href="https://github.com/Aftorres02/OracleAPEX-ErrorShield/blob/71232a717ce6679d6fb843ed2647e194c8f3a54c/LICENSE">MIT</a>)</td>
+<td align="right">71</td>
+<td><code>26.1.0+3102</code></td>
+<td>Four apps: error-incident review, preferences, Logger log browser and scheduler-job dashboard/timeline. Requires its PL/SQL packages and OraOpenSource Logger (separate license). Adapted as the compiler-checked <code>scheduler-jobs-dashboard</code> recipe.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/600ner70/PTW_LV/tree/904f0c7b95c8a4d8d4bc47c04fa53ee88a24e712">600ner70/PTW_LV</a> (<a href="https://github.com/600ner70/PTW_LV/blob/904f0c7b95c8a4d8d4bc47c04fa53ee88a24e712/LICENSE">MIT</a>)</td>
+<td align="right">63</td>
+<td><code>26.1.0+3102</code></td>
+<td>Permit-to-work lifecycle: start, authorise, monitor, clear and cancel permits, hazards and linked permits. Requires its own schema; domain-specific workflow.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/akashkataria766/Public-Grievance-Redressal-System/tree/6da600da9134b9495414aa1bf96d3a2f6dcf3c88">akashkataria766/Public-Grievance-Redressal-System</a> (<a href="https://github.com/akashkataria766/Public-Grievance-Redressal-System/blob/6da600da9134b9495414aa1bf96d3a2f6dcf3c88/LICENSE">MIT</a>)</td>
+<td align="right">20</td>
+<td><code>26.1.0+3102</code></td>
+<td>Complaint submission, tracking, officer action, reassignment and governance dashboards. Requires its database packages and SLA jobs.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/denioflavio/ai-procurement-agents/tree/8e461345993b0ce02195ea4cb26257bf4b4c9f3e">denioflavio/ai-procurement-agents</a> (<a href="https://github.com/denioflavio/ai-procurement-agents/blob/8e461345993b0ce02195ea4cb26257bf4b4c9f3e/LICENSE">MIT</a>)</td>
+<td align="right">24</td>
+<td><code>26.1.0+3102</code></td>
+<td>Purchase requests, approval inbox and native APEX AI Agents with an audit page. Requires an AI service configuration and supporting objects.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/denioflavio/apex-plsql-dynamic-content-home/tree/280972ef0a5442aee774dfcb25a6a8cd39ca42c7">denioflavio/apex-plsql-dynamic-content-home</a> (<a href="https://github.com/denioflavio/apex-plsql-dynamic-content-home/blob/280972ef0a5442aee774dfcb25a6a8cd39ca42c7/LICENSE">MIT</a>)</td>
+<td align="right">16</td>
+<td><code>26.1.0+3102</code></td>
+<td>Custom home page rendered with PL/SQL Dynamic Content, plus queue and calendar pages. Generated HTML must keep explicit escaping when adapted. Adapted as the compiler-checked <code>operations-home</code> recipe.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/cofin/oracledb-vertexai-demo/tree/2633e2e2c7a41d086763c49416655f0e6bc2c641">cofin/oracledb-vertexai-demo</a> (<a href="https://github.com/cofin/oracledb-vertexai-demo/blob/2633e2e2c7a41d086763c49416655f0e6bc2c641/LICENSE">Apache-2.0</a>)</td>
+<td align="right">21</td>
+<td><code>26.1.0+3102</code></td>
+<td>Operations app for products, stores, inventory and vector recommendations. Part of a larger Google ADK reference system; requires its backend and data.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/ash2osh/APEX_THEME_FACTORY/tree/c8f3df106c1abd69899040ef867acac8ce8de669">ash2osh/APEX_THEME_FACTORY</a> (<a href="https://github.com/ash2osh/APEX_THEME_FACTORY/blob/c8f3df106c1abd69899040ef867acac8ce8de669/LICENSE">MIT</a>)</td>
+<td align="right">185</td>
+<td><code>26.1.0+3102</code></td>
+<td>CSS-only theme packages and a Universal Theme style showcase app (<code>applications/ut</code>). Showcase pages may derive from Oracle UT reference content; test fixture apps are excluded.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Pp-py/apexlang-skills/tree/1950b914cfc778623e655390455d78efed834751">Pp-py/apexlang-skills</a> (<a href="https://github.com/Pp-py/apexlang-skills/blob/1950b914cfc778623e655390455d78efed834751/LICENSE">MIT</a>)</td>
+<td align="right">28</td>
+<td>—</td>
+<td>Five page fragments in skill examples (absences workflow, employee form and drawer, sectors catalog) without <code>application.apx</code>; the remaining files are pass/fail scanner fixtures.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/United-Codes/uc_ai/tree/d5be8850f9a2bab4f39acb7d12f1a3a6e63a0396">United-Codes/uc_ai</a> (<a href="https://github.com/United-Codes/uc_ai/blob/d5be8850f9a2bab4f39acb7d12f1a3a6e63a0396/LICENSE">LGPL-3.0</a>)</td>
+<td align="right">27</td>
+<td><code>26.1.0+3102</code></td>
+<td>AI agent tutorial pages (agent, memory, security, analysis). Requires the UC AI package and an external AI credential. <strong>LGPL-3.0 requires separate license review before any redistribution.</strong></td>
+</tr>
 </tbody></table>
 </div>
-<p>No community source is claimed to have passed this repository’s compiler, import or browser checks solely because its author reports successful operation. Preserve each author’s MIT notice if a later recipe includes their source.</p>
+<p>No community source is claimed to have passed this repository’s compiler, import or browser checks solely because its author reports successful operation. Preserve each author’s license notice if a later recipe includes their source.</p>
 <h2 id="exclusions-and-search-limits">Exclusions and search limits</h2>
-<p>The GitHub repository search for <code>apexlang</code> returned 47 repositories at the inspection time. Search results were screened for actual Oracle <code>.apx</code> files and redistribution terms. The search is not a claim of an exhaustive internet inventory.</p>
+<p>The GitHub repository search for <code>apexlang</code> returned 47 repositories on 2026-10-11 and 48 on 2026-10-14. On 2026-10-14 a code search for <code>.apex/apexlang.json</code> files declaring <code>mmdVersion</code> added repositories whose names do not mention APEXlang. On 2026-10-14 the Oracle <code>26.2</code> branch and oracle/skills <code>main</code> still matched the pinned commits above. Search results were screened for actual Oracle <code>.apx</code> files and redistribution terms. The search is not a claim of an exhaustive internet inventory.</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
@@ -414,6 +474,30 @@
 <tr>
 <td><a href="https://github.com/ShayneJaya/customer-portal/tree/d708cac62b74897e213f9ecdd3e61dfc1de6a211">ShayneJaya/customer-portal</a></td>
 <td>No license file found; public visibility alone is not a redistribution grant.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/andre-simplifica/oracle-apex-ai-skills-apexlang/tree/7ba9d6533856079b5f55da56f9544101020ae0d8">andre-simplifica/oracle-apex-ai-skills-apexlang</a></td>
+<td>All 242 .apx files are byte-identical to the vendored Oracle skills 26.2 examples.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/mazharr-hussain/OracleskillsMirror/tree/903ed543fc38320db478c0bea6b37c27fd521de0">mazharr-hussain/OracleskillsMirror</a></td>
+<td>All 456 .apx files are byte-identical to oracle/skills; a mirror, not an independent source.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/B2DEV-TECH/FormsLang/tree/12ed0afe5ad361720b48cf1f8fa7fd9fc9b47a28">B2DEV-TECH/FormsLang</a></td>
+<td>14 of 15 .apx files are byte-identical Oracle scaffold files; Forms-migration tooling, not page templates.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Grisselbav/APEXlang-Parser/tree/f4ed11a788c8a7bd3ff98973963b047d04abc6ba">Grisselbav/APEXlang-Parser</a></td>
+<td>Parser source; no .apx files.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Mohamedhrby/apex-cicd-github-actions/tree/6efb34ff5293c30b2109e90d2cf8da36b19751bf">Mohamedhrby/apex-cicd-github-actions</a></td>
+<td>CI pipeline example; no .apx files.</td>
+</tr>
+<tr>
+<td>pkunzel/apex-pwa-reference, pkunzel/apex-sample-workflow-approvals, juanjmerono/sample-cards, mtyagi84/ApexAutomation, MdNasirUddinVictory/dealership-management-system, brianmakarewicz/DataMigrationTool, jdoppelreiter/apex_ai_agent, ash2osh/apex_ai_course, ash2osh/APEX_PROJECT_TEMPLATE_TEAM, akluev/realSQLclProject, juairyGonzalezf/APEX-LAB, caotrinhthinh/Oracle_apex, karthi504/APEXLang, theDaya/apexlangExports, theDaya/ApexLangSKill, rajashekarg12/ApexLang, RoopeshThokala/APEXlang, lohithshyam/APEXLang, zzedgat2012/aureo, aguiarDavi/APEX-STUDY, maniltns/ojas-apex-varient and other 2026-10-14 search results</td>
+<td>Contain .apx files but no license file at the inspected revision; public visibility alone is not a redistribution grant.</td>
 </tr>
 <tr>
 <td>Salesforce Apex and the unrelated <code>apexlang/apex</code> project</td>

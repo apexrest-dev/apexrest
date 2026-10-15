@@ -653,7 +653,7 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 
 ## Coverage
 
-112 component families; 168 ready recipes; 1 unresolved recipes.
+112 component families; 170 ready recipes; 1 unresolved recipes.
 
 - component:business-logic/computations: computations
 - component:business-logic/dynamic-actions: dynamic actions

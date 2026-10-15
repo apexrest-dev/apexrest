@@ -35,7 +35,9 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Application verification
 
-- Qualify adapted public page templates and the 30 new 26.1 recipes on explicit DEV/QA/TEST applications. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.
+- Make readback verification tolerate canonical property-group order (for example `messages` after `componentAppearance`) so semantically identical selected-file imports are not reported as `TARGET_DRIFT`, and let `ship --mode recover` accept equivalent server content.
+- Select further recipes from the remaining eight community candidates added on 2026-10-14 only after per-source dependency closure, adaptation to the 26.1 recipe scaffold and compiler checks; resolve the LGPL-3.0 review for United-Codes/uc_ai before redistributing any of its files.
+- Qualify adapted public page templates the 30 internet 26.1 recipes on explicit DEV/QA/TEST applications. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.
 - Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.
 - Reconcile the nine advisory CodeScan findings in the local 26.2 CRM fixture before claiming security qualification.
 - Existing projects can drop retired `tests` and `database.testsDir` settings; the loader ignores them. Regenerate old plans and reconcile unresolved deployment state rather than rewriting journals.
