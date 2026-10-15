@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "26.1@c2f9cb003529",
+  "catalogVersion": "26.1@7bb12e62b985",
   "source": {
     "applicationId": 100,
     "name": "Universal Theme 26.1 Reference",
@@ -14,8 +14,8 @@
   },
   "capturedAt": "2026-09-24T08:28:05.753Z",
   "generatorSha256": "651b76f115c8055d1a783093daf6dd8352a1575f1a597aec6cd9027b0a05a9aa",
-  "sourceSha256": "c2f9cb003529f6e6b7791a3aa6dd251e44a02936490373c65efab41bb5bebe5c",
-  "indexSha256": "96862693f82118e783a6990d382ff7409faffe6eccf7a2cce5a50a9a00dce850",
+  "sourceSha256": "7bb12e62b985b4dbc20f51fe2dade56bcd07fb626e22b567e3170e12a9ed3b41",
+  "indexSha256": "7b8dff83c4a1f09768ccb2c7f27cfa82f413f7483413808bfda5c36559a1d8ca",
   "files": {
     "source/component-list.json": "c852c5a7ac881ff55e6d08df806857fbdab7aa10c69dce9a43eed78726f04bdc",
     "source/inventory.json": "282d095434792e917101a0e4c6c21d12d4d2c3fb98c8539e22cd2a04c6ae5456",
@@ -31,7 +31,7 @@
     "recipes/buttons-icon-basic/pages/p00001-home.apx": "d512e8caecb4d5c76672eba2b9fdeef9dd6489b87a0cc4fa475a9bea6a390603",
     "recipes/buttons-text-basic/pages/p00001-home.apx": "08a5d8e6e09632d5e0f0b8c1ed6ff539883b1b07034c01e755b4b8cc41b2ea87",
     "recipes/buttons-text-with-icon-basic/pages/p00001-home.apx": "83c181444c02ba3aec7b96234382f48777a9e870bc7c3d25d9c7aed4802c9139",
-    "recipes/compiler-evidence.json": "09f67206a4c7f3052d2d88d1b9471c6b127c8de1f5eecd82adec956cc41e0f89",
+    "recipes/compiler-evidence.json": "6d7cd615984ff90bfc9488ad862b5ad95a6d1a55a1a53f67f4dcc3ba5a057212",
     "recipes/internet-chart-area/pages/p00001-home.apx": "b293574a40d6230b7cbffd64141fdb81bf758746dd0bd060968a093565b6c719",
     "recipes/internet-chart-donut/pages/p00001-home.apx": "add67e4cc498bda401a514028260ddcdbab81c056c110ea5e10e69e14795c8d6",
     "recipes/internet-computations-date/pages/p00001-home.apx": "6cd9ac4cdf34da1992c93443443d467c4427e9cd5a151c4afc3f1c3a51cd3270",
@@ -66,6 +66,8 @@
     "recipes/internet-guarded-status-transition/pages/p00002-close-row.apx": "e318f63b6d17e286c0fa344eac234c34f06dd174fb7cf1f53f38a90c25cca736",
     "recipes/internet-guarded-status-transition/prerequisites/example-row-status-api.sql": "da7def3c9269d2e9992c2bb9e45bcf050d6fd04f06a91419a62e203f83796c92",
     "recipes/internet-guarded-status-transition/prerequisites/example-rows.sql": "89c5283a8653782b7c81e9f623f60a6ee6da7523d8b09dc16dbef10f7b9e0e3a",
+    "recipes/internet-page-complexity-overview/LICENSE.txt": "42a365f6157bffea1488c4b6a8fdcf6b66393b66ee0bbf78b8323334f3868626",
+    "recipes/internet-page-complexity-overview/pages/p00001-home.apx": "11c2a86a8fe90ce43ecf33228cda9542dcb30014f4d23f2bcdfd11ad3440c9b2",
     "recipes/internet-report-template-directives/LICENSE.txt": "34b8ecc29152a433bee0d47a849db095a9fca5f14e2b2cba8412312a370468b2",
     "recipes/internet-report-template-directives/pages/p00001-home.apx": "bd9c10a61e30c5f03d6ff77735061df684e20ebdb58f7f6001d2ae70d3b507a2",
     "recipes/internet-scheduler-jobs-dashboard/LICENSE.txt": "ee1df5bb165e25c57634209baf082738ef21b55139d4e1d5d23730938fb07c59",
@@ -179,7 +181,7 @@
     "recipes/regions-title-bar-basic/pages/p00001-home.apx": "9cac602ac332063e07a743a6a268ba75db6fc14c3b29917b2230be2c1640205d",
     "recipes/regions-tree-basic/pages/p00001-home.apx": "ede2a1851da3e3afeb7a388beaf3d45254f7f4dc2d7df95392e549597f4771ee",
     "recipes/regions-wizard-container-basic/pages/p00001-home.apx": "a9d9a286c4e5738592e0f0283cb0b870a3d1f4df83da5782bcb89cc201b4801b",
-    "recipes/registry.json": "7b052fb8317bb940b5d5c2a5c17f1697ae19a0ab8407984d3461ff7ecb83c92f",
+    "recipes/registry.json": "712571bf373cc9d2297d871744ea56b339575675826652bf3193e88fdc1a515b",
     "recipes/reports-classic-report-basic/pages/p00001-home.apx": "60fb79ba989c1655d5cfc3d43457a6a60b0be4e8c585944573f254318494a387",
     "recipes/reports-column-toggle-report-basic/pages/p00001-home.apx": "5134c9a4594fd43afb550df189f7a34b832e4648beb20c6a2b9925de8c60c943",
     "recipes/reports-comments-basic/pages/p00001-home.apx": "085e9114741395e8f206f6c3eb849f61bd6daa55af3074e1092e74b006636adc",
@@ -277,7 +279,7 @@
     "documents/buttons/text/parameters.md": "7e6453b9493d0100d5cf8fd13074267bef5f4e8452b923844732be67e3d19c1a",
     "documents/buttons/text/recipes/basic.md": "3a82fa9f66975f6d22692233634197995fdc10615f91b901940119f88294be99",
     "documents/buttons/text/source-examples.md": "5b00512c0720075617996a7773eba91f60ffb2880f314866675c94affce78b23",
-    "documents/catalog.md": "5d569c2b1c7c968ae7271b8f410c7284ed980d8a718a64d75c4ec3541dd4757d",
+    "documents/catalog.md": "d0fc76948e9eb34160154186e028e00e4438b9ef36b838ad735930497972b7e0",
     "documents/items/checkbox-group.md": "3af527c24a5fabe39a689b5a9a575e1f78fb032ac3b7b979193cbc1fc2074a25",
     "documents/items/checkbox-group/parameters.md": "42d48bcc10452bae2bb8ae21c5fe89e3df33dd746781b6e5b1930b65f459a8ef",
     "documents/items/checkbox-group/recipes/basic.md": "25a0458c3496728543374127a9f2d47099ce63ad20d68e773838e754cf9da279",
@@ -495,12 +497,13 @@
     "documents/regions/carousel/parameters.md": "25a5b99faf80596f4e08dcdb58f836e8a857bcda7f7fa2db793dc5474d4d1247",
     "documents/regions/carousel/recipes/basic.md": "65d181e0ef7db79cf831e04b7aa51fb84cc86311ca3de64bde87f4a95b48294b",
     "documents/regions/carousel/source-examples.md": "0372dad5aa65b5f54ce889e8fe5100756972de6c9035310966e56c5961c8ee1d",
-    "documents/regions/chart.md": "33732ae6d946af3dcd85b90dc641728abde91f8fe49adbc7470fa229ed1f29c0",
+    "documents/regions/chart.md": "c4ba64b5aa16e2b629e6717853eb85ee7440f9cd0c53ecacef822960b67ebef2",
     "documents/regions/chart/parameters.md": "212ede48c011989bf11c6ceb4ddbe5c78ba5b8a65d821c247d1519f7d1085042",
     "documents/regions/chart/recipes/basic.md": "1aab7313caff1c3f19195aa4afdce1378ffee296c2b02ca63385170eba4df91d",
     "documents/regions/chart/recipes/chart-area.md": "30b0caa8f280a394f6494cbe30e92d06de3299116f481bf0060c0f44422dad09",
     "documents/regions/chart/recipes/chart-donut.md": "f602e1994283f972cd564abb9480f48ceca56ea0d50f96c9a88140dfe39d9aae",
     "documents/regions/chart/recipes/line.md": "a76ae3ec9aa9e5e3b8d6fe24e5976a32ec806d036c11d6490dfa6c7249501355",
+    "documents/regions/chart/recipes/page-complexity-overview.md": "a8b35ba0c1e9ba0bf30c82976fb81cebc53174067b610bfa8567271561d934e4",
     "documents/regions/chart/recipes/pie.md": "8f9ed944d42c61d1cd3e0d457a3dfcdd404800260960e48bd0217ce30d6fa582",
     "documents/regions/chart/source-examples.md": "dca4a61b74df5161a8c0234d95afdf74240297ecb78f63ba78b7d2e584bd7ddf",
     "documents/regions/collapsible.md": "277ecd09d9c4d4b2c51ab028c25a7d1657ce1a66457c1c6fd30667141e6d566e",
@@ -735,7 +738,7 @@
     "documents/template-components/timeline/recipes/partial-column.md": "1593fcba4cab4751ef5bf746de97937469ea8ff30331db6d62fdc5ea670262ab",
     "documents/template-components/timeline/recipes/partial.md": "9418541d0b554779551881d7eeb6a96d53e9cbeeb14d1de7015d93ec2a12a607",
     "documents/template-components/timeline/source-examples.md": "2a17d9098f557d75dcb1cd64ca77ab5760941df50cd20dc0151389b7a8d4afb2",
-    "index.json": "96862693f82118e783a6990d382ff7409faffe6eccf7a2cce5a50a9a00dce850"
+    "index.json": "7b8dff83c4a1f09768ccb2c7f27cfa82f413f7483413808bfda5c36559a1d8ca"
   },
   "counts": {
     "pages": 122,
@@ -757,9 +760,9 @@
     "nativeParameters": 3761,
     "nativePluginAttributes": 400,
     "families": 112,
-    "records": 506,
-    "recipes": 173,
-    "readyRecipes": 172,
+    "records": 507,
+    "recipes": 174,
+    "readyRecipes": 173,
     "unresolvedRecipes": 1
   }
 }

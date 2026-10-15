@@ -1,0 +1,388 @@
+page 1 (
+    name: Page complexity
+    alias: HOME
+    title: Page complexity
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region filters (
+        name: Filters
+        type: staticContent
+        source {
+            htmlCode: <p>Counts items, regions, buttons, processes, dynamic action steps, computations and branches per page from the read-only APEX dictionary views of this workspace.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region complexity-chart (
+        name: Pages by complexity
+        type: chart
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with page_objects as (
+                    select application_id, page_id, count(*) counts from apex_application_page_items group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_regions group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_buttons group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_proc group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_da_acts group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_comp group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_branches group by application_id, page_id
+                ), page_complexity as (
+                    select p.page_id,
+                           p.page_name,
+                           sum(nvl(o.counts, 0)) object_count
+                      from apex_application_pages p
+                      left join page_objects o
+                        on o.application_id = p.application_id
+                       and o.page_id = p.page_id
+                     where p.application_id = nvl(:P1_APP_ID, :APP_ID)
+                     group by p.page_id, p.page_name
+                ), classified as (
+                    select page_id,
+                           page_name,
+                           object_count,
+                           case
+                               when object_count < 15 then 'Simple'
+                               when object_count < 50 then 'Normal'
+                               when object_count < 100 then 'Complex'
+                               else 'Very complex'
+                           end complexity,
+                           case
+                               when object_count < 15 then 1
+                               when object_count < 50 then 2
+                               when object_count < 100 then 3
+                               else 4
+                           end complexity_rank
+                      from page_complexity
+                )
+                select complexity, complexity_rank, count(*) page_count
+                  from classified
+                 group by complexity, complexity_rank
+                 order by complexity_rank
+                ```
+            pageItemsToSubmit: P1_APP_ID
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 5
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        chart {
+            type: pie
+        }
+        value {
+            format: decimal
+            decimalPlaces: 0
+        }
+        messages {
+            whenNoDataFound: No pages in the selected application.
+        }
+
+        series pages (
+            name: Pages
+            execution {
+                sequence: 10
+            }
+            source {
+                location: regionSource
+            }
+            columnMapping {
+                label: COMPLEXITY
+                value: PAGE_COUNT
+            }
+            label {
+                show: true
+                position: outsideSlice
+                displayAs: value
+            }
+        )
+    )
+
+    region pages (
+        name: Pages
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with page_objects as (
+                    select application_id, page_id, count(*) counts from apex_application_page_items group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_regions group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_buttons group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_proc group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_da_acts group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_comp group by application_id, page_id
+                    union all
+                    select application_id, page_id, count(*) from apex_application_page_branches group by application_id, page_id
+                ), page_complexity as (
+                    select p.page_id,
+                           p.page_name,
+                           sum(nvl(o.counts, 0)) object_count
+                      from apex_application_pages p
+                      left join page_objects o
+                        on o.application_id = p.application_id
+                       and o.page_id = p.page_id
+                     where p.application_id = nvl(:P1_APP_ID, :APP_ID)
+                     group by p.page_id, p.page_name
+                ), classified as (
+                    select page_id,
+                           page_name,
+                           object_count,
+                           case
+                               when object_count < 15 then 'Simple'
+                               when object_count < 50 then 'Normal'
+                               when object_count < 100 then 'Complex'
+                               else 'Very complex'
+                           end complexity,
+                           case
+                               when object_count < 15 then 1
+                               when object_count < 50 then 2
+                               when object_count < 100 then 3
+                               else 4
+                           end complexity_rank
+                      from page_complexity
+                )
+                select page_id, page_name, object_count, complexity
+                  from classified
+                 where :P1_COMPLEXITY is null or complexity = :P1_COMPLEXITY
+                 order by object_count desc, page_id
+                ```
+            pageItemsToSubmit: [
+                P1_APP_ID
+                P1_COMPLEXITY
+            ]
+        }
+        layout {
+            sequence: 30
+            slot: body
+            startNewRow: false
+            columnSpan: 7
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No pages match the selected filters.
+        }
+
+        column PAGE_ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Page
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PAGE_NAME (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column OBJECT_COUNT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Objects
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMPLEXITY (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Complexity
+            }
+            layout {
+                sequence: 40
+            }
+            sorting {
+                sortable: false
+            }
+        )
+    )
+
+    pageItem P1_APP_ID (
+        type: selectList
+        label {
+            label: Application
+            alignment: left
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select application_name || ' (' || application_id || ')' d,
+                       application_id r
+                  from apex_applications
+                 order by application_name, application_id
+                ```
+            displayExtraValues: false
+            nullDisplayValue: Current application
+        }
+        layout {
+            sequence: 10
+            region: @filters
+            slot: regionBody
+            alignment: left
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P1_COMPLEXITY (
+        type: selectList
+        label {
+            label: Complexity
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Simple;Simple,Normal;Normal,Complex;Complex,Very complex;Very complex
+            displayExtraValues: false
+            nullDisplayValue: All
+        }
+        layout {
+            sequence: 20
+            region: @filters
+            slot: regionBody
+            startNewRow: false
+            alignment: left
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    dynamicAction refresh-on-application (
+        name: Refresh after the application changes
+        execution {
+            sequence: 10
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P1_APP_ID
+        }
+
+        action native-refresh-chart (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @complexity-chart
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+
+        action native-refresh-pages (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @pages
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+    )
+
+    dynamicAction refresh-on-complexity (
+        name: Refresh after the complexity filter changes
+        execution {
+            sequence: 20
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P1_COMPLEXITY
+        }
+
+        action native-refresh-pages (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @pages
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

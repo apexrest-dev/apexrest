@@ -31,6 +31,9 @@ The full notice is retained at resources/components/recipes/internet-drawer-form
 The guarded status transition recipe is an original adaptation of
 600ner70/PTW_LV, Copyright (c) 2026 600ner70, MIT.
 The full notice is retained at resources/components/recipes/internet-guarded-status-transition/LICENSE.txt.
+The page complexity overview recipe is an original adaptation of
+OliverLemm/apex-visualizer, Copyright (c) 2022 Oliver Lemm, MIT.
+The full notice is retained at resources/components/recipes/internet-page-complexity-overview/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.
