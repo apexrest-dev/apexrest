@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-10-15T08:30:55.384Z",
+  "timestamp": "2026-10-15T10:16:06.422Z",
   "mock": false,
   "scope": "Real offline Oracle APEXlang validation only. Synthetic SQL is not executed. No database connection, application import or browser/runtime verification.",
   "compiler": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
@@ -1251,6 +1251,28 @@
         "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
         "pages/p00001-home.apx": "23db20315af8d1ef803fee411859ad6b512bf5de308205582698980434c45356",
         "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:pages/drawer/recipes/write-path-form",
+      "passed": true,
+      "sourceSha256": "50aef7f629ef72cabd6467401f78f9b8cd18bad663ef185e396647dec020a9b0",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "LICENSE.txt": "3c5def7c6162e618df23f69657623052adc784e0c278f968586e7da8701545a7",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "785d4c3a4c783f1b7ffdd8261a784b80aacbaac324d8bf26cf822b049a0421bd",
+        "pages/p00002-row-drawer.apx": "9c2efd8b1eaf9038bf909096d392b5a971d049b923b03097f7420218b7a94b47",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "prerequisites/example-rows-api.sql": "d1e7072dcb5f0d566689b23663f9e3d52f0e7a34384764ebd729798302558839",
+        "prerequisites/example-rows.sql": "89c5283a8653782b7c81e9f623f60a6ee6da7523d8b09dc16dbef10f7b9e0e3a",
         "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
         "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
         "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"

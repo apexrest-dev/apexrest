@@ -1,0 +1,148 @@
+page 1 (
+    name: Rows
+    alias: HOME
+    title: Rows
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region rows (
+        name: Rows
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID, NAME, STATUS, ROW_VERSION
+                  from APEXREST_EXAMPLE_ROWS
+                 order by NAME
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No rows yet. Use Create to add one.
+        }
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column NAME (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            type: link
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+            link {
+                target: {
+                    page: 2
+                    items: {
+                        P2_ID: #ID#
+                    }
+                    clearCache: 2
+                }
+                linkText: #NAME#
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column ROW_VERSION (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Version
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+        )
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 10
+            region: @rows
+            slot: rightOfTitle
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 2
+                clearCache: 2
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    dynamicAction refresh-rows (
+        name: Refresh rows after the drawer closes
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @rows
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

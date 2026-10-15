@@ -1,6 +1,6 @@
 # Drawer
 
-Aliases: Drawer; сторінка висувна панель; Drawer Page
+Aliases: Drawer; сторінка висувна панель; Drawer Page; Drawer form with a package write path; drawer modal dialog create edit row version optimistic lock invoke api close dialog
 
 Present a separate application page in a drawer layout.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:pages/drawer/source-examp
 ## Recipes
 
 - component:pages/drawer/recipes/basic: ready
+- component:pages/drawer/recipes/write-path-form: ready
 
 ## Parameters and adaptation
 

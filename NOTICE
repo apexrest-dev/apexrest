@@ -25,6 +25,9 @@ The full notice is retained at resources/components/recipes/internet-dynamic-con
 The scheduler-jobs-dashboard report recipe is an original adaptation of
 Aftorres02/OracleAPEX-ErrorShield, Copyright (c) 2026 Angel Flores, MIT.
 The full notice is retained at resources/components/recipes/internet-scheduler-jobs-dashboard/LICENSE.txt.
+The write-path drawer form recipe is an original adaptation of
+Pp-py/apexlang-skills, Copyright (c) 2026 Pablo Portillo, MIT.
+The full notice is retained at resources/components/recipes/internet-drawer-form-write-path/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.

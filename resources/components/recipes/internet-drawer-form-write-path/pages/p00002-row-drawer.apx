@@ -1,0 +1,369 @@
+page 2 (
+    name: Row (drawer)
+    alias: ROW-DRAWER
+    title: Row
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/drawer
+        templateOptions: [
+            #DEFAULT#
+            js-dialog-class-t-Drawer--pullOutEnd
+        ]
+    }
+    dialog {
+        chained: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region form-row (
+        name: Row
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region form-buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    pageItem P2_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @form-row
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    // Lost-update token: loaded with the row and sent back on save; the package
+    // refuses the update when the stored version no longer matches.
+    pageItem P2_ROW_VERSION (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @form-row
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P2_NAME (
+        type: textField
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @form-row
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+            maxLength: 200
+        }
+    )
+
+    pageItem P2_STATUS (
+        type: selectList
+        label {
+            label: Status
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Open;Open,Closed;Closed
+            displayNullValue: false
+        }
+        layout {
+            sequence: 40
+            region: @form-row
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        default {
+            type: static
+            staticValue: Open
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @form-buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button apply-changes (
+        buttonName: APPLY-CHANGES
+        label: Apply Changes
+        layout {
+            sequence: 20
+            region: @form-buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P2_ID
+        }
+    )
+
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 30
+            region: @form-buttons
+            slot: create
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P2_ID
+        }
+    )
+
+    dynamicAction cancel-drawer (
+        name: Cancel drawer
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+
+    process load-row (
+        name: Load row
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    if :P2_ID is not null then
+                        select NAME, STATUS, ROW_VERSION
+                          into :P2_NAME, :P2_STATUS, :P2_ROW_VERSION
+                          from APEXREST_EXAMPLE_ROWS
+                         where ID = :P2_ID;
+                    end if;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+
+    process create-row (
+        name: Create row
+        type: invokeApi
+        invoke {
+            package: APEXREST_EXAMPLE_ROWS_API
+            procedureOrFunction: create_row
+        }
+        parameter p_name (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: item
+                item: P2_NAME
+            }
+            advanced {
+                displaySequence: 1
+            }
+        )
+        parameter p_status (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: item
+                item: P2_STATUS
+            }
+            advanced {
+                displaySequence: 2
+            }
+        )
+        parameter p_id (
+            parameter {
+                direction: out
+                dataType: number
+                ignoreOutput: false
+            }
+            value {
+                item: P2_ID
+            }
+            advanced {
+                displaySequence: 3
+            }
+        )
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE
+        }
+    )
+
+    process update-row (
+        name: Update row
+        type: invokeApi
+        invoke {
+            package: APEXREST_EXAMPLE_ROWS_API
+            procedureOrFunction: update_row
+        }
+        parameter p_id (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ID
+            }
+            advanced {
+                displaySequence: 1
+            }
+        )
+        parameter p_name (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: item
+                item: P2_NAME
+            }
+            advanced {
+                displaySequence: 2
+            }
+        )
+        parameter p_status (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: item
+                item: P2_STATUS
+            }
+            advanced {
+                displaySequence: 3
+            }
+        )
+        parameter p_row_version (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ROW_VERSION
+            }
+            advanced {
+                displaySequence: 4
+            }
+        )
+        execution {
+            sequence: 30
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: APPLY-CHANGES
+        }
+    )
+
+    // Runs only after a successful save. A package error stops processing first,
+    // so the drawer stays open with the message and the entered values.
+    process close-drawer (
+        name: Close drawer
+        type: closeDialog
+        execution {
+            sequence: 90
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,APPLY-CHANGES
+        }
+    )
+)
