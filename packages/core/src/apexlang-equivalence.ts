@@ -8,12 +8,21 @@ const defaultRule = 'pageItem.selectList.layout.startNewRow:true-default';
 const pageDefaultRule = 'page.security.pageAccessProtection:argumentsMustHaveChecksum-default';
 const regionDefaultRule = 'region.layout.startNewRow:true-default';
 const chartDefaultRule = 'region.chart.type:bar-default';
+const cursorDefaultRule = 'page.navigation.cursorFocus:doNotFocusCursor-default';
+const autocompleteDefaultRule = 'page.security.formAutoComplete:false-default';
+const paginationDefaultRule = 'region.classicReport.pagination.type:nextAndPreviousLinks-default';
 const orderRule = 'explicit-unique-region-and-chart-component-order';
 const columnOrderRule = 'explicit-unique-report-column-order';
+const memberOrderRule = 'unique-property-and-group-order';
+const quotedLiteralRule = 'single-line-literal-quoting';
+const invokeDefaultRule = 'invokeApi.parameter.direction:in,dataType:varchar2,ignoreOutput:false-default';
+const invokeCaseRule = 'invokeApi.invoke.identifier-case';
+const eventDefaultRule = 'dynamicAction.when.items.event:change-default';
+const componentOrderRule = 'key-ordered-page-components';
 const limit = 8 * 1024 * 1024;
 
 type Node =
-  | { kind: 'property'; name: string; value: string }
+  | { kind: 'property'; name: string; value: string; literal?: string; indent?: string }
   | { kind: 'literal'; value: string }
   | { kind: 'component' | 'group' | 'map'; name: string; key: string; children: Node[] };
 
@@ -56,7 +65,13 @@ function readStructure(source: string): Node[] {
         literal += next;
       }
       if (!closed) throw new Error('Unclosed fenced literal.');
-      append({ kind: 'literal', value: literal });
+      // A fenced payload belongs to the empty-valued property directly before it.
+      const siblings = stack.at(-1)?.children ?? roots;
+      const owner = siblings.at(-1);
+      if (owner?.kind === 'property' && owner.value === '' && owner.literal === undefined) {
+        owner.literal = literal;
+        owner.indent = /^[ \t]*/.exec(line)![0];
+      } else append({ kind: 'literal', value: literal });
       continue;
     }
     const property = /^[ \t]*([A-Za-z][\w]*):[ \t]*(.*)$/.exec(line);
@@ -68,6 +83,21 @@ function readStructure(source: string): Node[] {
         const node = { kind: 'map' as const, name: property[1]!, key: '', children: [] };
         append(node);
         stack.push(node);
+      } else if (value === '[') {
+        // Scalar lists (templateOptions, items, pageItemsToSubmit) keep their item order.
+        const items: string[] = [];
+        let closed = false;
+        while (++index < lines.length) {
+          const entry = lines[index]!.trim();
+          if (entry === ']') {
+            closed = true;
+            break;
+          }
+          if (!entry || /[[\]{}()]$|^```/.test(entry)) throw new Error('Unsupported list entry.');
+          items.push(entry);
+        }
+        if (!closed) throw new Error('Unclosed list.');
+        append({ kind: 'property', name: property[1]!, value: '[' + items.join('\n') + ']' });
       } else append({ kind: 'property', name: property[1]!, value });
       continue;
     }
@@ -164,8 +194,25 @@ function normalizeExport(
         rules.add(rule);
       }
     };
-    if (node.kind === 'group' && node.name === 'security' && parent?.name === 'page')
+    // Defaults pinned by the Oracle 26.2 reference (page.md: cursorFocus NO_FIRST_ITEM,
+    // formAutoComplete OFF; region.md classic report pagination NEXT_PREVIOUS_LINKS)
+    // and confirmed by native page exports that omit them.
+    if (node.kind === 'group' && node.name === 'security' && parent?.name === 'page') {
       omit('pageAccessProtection', 'argumentsMustHaveChecksum', pageDefaultRule);
+      omit('formAutoComplete', 'false', autocompleteDefaultRule);
+    }
+    if (node.kind === 'group' && node.name === 'navigation' && parent?.name === 'page')
+      omit('cursorFocus', 'doNotFocusCursor', cursorDefaultRule);
+    if (
+      node.kind === 'group' &&
+      node.name === 'pagination' &&
+      parent?.kind === 'component' &&
+      parent.name === 'region' &&
+      parent.children.some(
+        (entry) => entry.kind === 'property' && entry.name === 'type' && entry.value === 'classicReport',
+      )
+    )
+      omit('type', 'nextAndPreviousLinks', paginationDefaultRule);
     if (
       node.kind === 'group' &&
       node.name === 'layout' &&
@@ -251,10 +298,198 @@ function normalizeExport(
         'children' in node &&
         !node.children.length &&
         node.kind === 'group' &&
-        ((parent?.name === 'page' && node.name === 'security') ||
-          (parent?.name === 'region' && ['chart', 'layout'].includes(node.name)))
+        ((parent?.name === 'page' && ['security', 'navigation'].includes(node.name)) ||
+          (parent?.name === 'region' && ['chart', 'layout', 'pagination'].includes(node.name)))
       ),
   );
+}
+
+const identifier = /^[A-Za-z][A-Za-z0-9_$#]*$/;
+
+/**
+ * Forms observed in real Oracle APEX 26.2.0 APEXlang exports of authored pages
+ * (local DEV readbacks, 2026-10-15): single-line fenced code is exported as a
+ * JSON-quoted scalar, invokeApi parameter defaults and empty parameter groups are
+ * elided, invoke identifiers are upper-cased, and an items-selection dynamic
+ * action omits its default change event. Nothing else is rewritten.
+ */
+function normalizeForms(
+  nodes: Node[],
+  rules: Set<string>,
+  parent?: Extract<Node, { children: Node[] }>,
+): Node[] {
+  const result: Node[] = [];
+  for (const node of nodes) {
+    if (node.kind === 'property') {
+      if (node.literal !== undefined) {
+        const lines = node.literal.split(/\r\n|\r|\n/);
+        // [fence, content, fence, ''] — exactly one content line without a trailing fence on it.
+        const content = lines.length === 4 && lines[3] === '' ? lines[1]! : undefined;
+        if (content !== undefined && content.startsWith(node.indent ?? '') && lines[2] === '```') {
+          result.push({
+            kind: 'property',
+            name: node.name,
+            value: JSON.stringify(content.slice((node.indent ?? '').length)),
+          });
+          rules.add(quotedLiteralRule);
+          continue;
+        }
+        result.push(node);
+        continue;
+      }
+      if (/^".*"$/.test(node.value)) {
+        try {
+          const decoded = JSON.parse(node.value);
+          if (typeof decoded === 'string' && JSON.stringify(decoded) !== node.value) {
+            result.push({ ...node, value: JSON.stringify(decoded) });
+            continue;
+          }
+        } catch {
+          // Not JSON: keep the exact scalar.
+        }
+      }
+      if (
+        parent?.kind === 'group' &&
+        parent.name === 'invoke' &&
+        ['package', 'procedureOrFunction'].includes(node.name) &&
+        identifier.test(node.value)
+      ) {
+        if (node.value !== node.value.toUpperCase()) rules.add(invokeCaseRule);
+        result.push({ ...node, value: node.value.toUpperCase() });
+        continue;
+      }
+      result.push(node);
+      continue;
+    }
+    if (!('children' in node)) {
+      result.push(node);
+      continue;
+    }
+    let children = normalizeForms(node.children, rules, node);
+    const scalar = (name: string) => {
+      const matches = children.filter((entry) => entry.kind === 'property' && entry.name === name);
+      return matches.length === 1 && matches[0]!.kind === 'property' ? matches[0]! : undefined;
+    };
+    if (
+      node.kind === 'group' &&
+      node.name === 'parameter' &&
+      parent?.kind === 'component' &&
+      parent.name === 'parameter'
+    ) {
+      for (const [name, value] of [
+        ['direction', 'in'],
+        ['dataType', 'varchar2'],
+        ['ignoreOutput', 'false'],
+      ] as const) {
+        const entry = scalar(name);
+        if (entry?.kind === 'property' && entry.value === value) {
+          children = children.filter((child) => child !== entry);
+          rules.add(invokeDefaultRule);
+        }
+      }
+      if (!children.length) {
+        rules.add(invokeDefaultRule);
+        continue;
+      }
+    }
+    if (
+      node.kind === 'group' &&
+      node.name === 'when' &&
+      parent?.kind === 'component' &&
+      parent.name === 'dynamicAction'
+    ) {
+      const event = scalar('event'),
+        selection = scalar('selectionType');
+      if (
+        event?.kind === 'property' &&
+        event.value === 'change' &&
+        selection?.kind === 'property' &&
+        selection.value === 'items'
+      ) {
+        children = children.filter((child) => child !== event);
+        rules.add(eventDefaultRule);
+      }
+    }
+    result.push({ ...node, children });
+  }
+  return result;
+}
+
+/**
+ * Oracle 26.2 exports page items, buttons, dynamic actions, validations,
+ * processes, process parameters and dynamic-action steps ordered by key. Their
+ * runtime order comes from explicit sequence properties, so file order is
+ * ignored only when every sibling has a unique key and an explicit sequence.
+ */
+const sequencedComponents: Record<string, Record<string, [string, string]>> = {
+  page: {
+    region: ['layout', 'sequence'],
+    pageItem: ['layout', 'sequence'],
+    button: ['layout', 'sequence'],
+    dynamicAction: ['execution', 'sequence'],
+    validation: ['execution', 'sequence'],
+    process: ['execution', 'sequence'],
+    computation: ['execution', 'sequence'],
+    branch: ['execution', 'sequence'],
+  },
+  process: { parameter: ['advanced', 'displaySequence'] },
+  dynamicAction: { action: ['execution', 'sequence'] },
+};
+const componentKey = (node: Node) =>
+  ('name' in node ? node.name : '') + ':' + ('key' in node ? node.key : '');
+function orderComponents(nodes: Node[], rules: Set<string>): Node[] {
+  return nodes.map((node) => {
+    if (!('children' in node)) return node;
+    let children = orderComponents(node.children, rules);
+    const allowed = node.kind === 'component' ? sequencedComponents[node.name] : undefined;
+    const components = children.filter((child) => child.kind === 'component');
+    if (allowed && components.length > 1) {
+      const qualified = components.every((child) => {
+        if (child.kind !== 'component' || !allowed[child.name]) return false;
+        const [groupName, propertyName] = allowed[child.name]!;
+        const group = child.children.find((entry) => entry.kind === 'group' && entry.name === groupName);
+        return (
+          !!group &&
+          'children' in group &&
+          group.children.some(
+            (entry) => entry.kind === 'property' && entry.name === propertyName && /^\d+$/.test(entry.value),
+          )
+        );
+      });
+      const keys = components.map(componentKey);
+      if (qualified && new Set(keys).size === keys.length) {
+        const sorted = [...components].sort((left, right) =>
+          componentKey(left).localeCompare(componentKey(right)),
+        );
+        if (sorted.some((child, index) => child !== components[index])) rules.add(componentOrderRule);
+        let index = 0;
+        children = children.map((child) => (child.kind === 'component' ? sorted[index++]! : child));
+      }
+    }
+    return { ...node, children };
+  });
+}
+
+/** Properties, groups and maps are keyed by unique name; only components keep sequence rules. */
+function orderMembers(nodes: Node[], rules: Set<string>): Node[] {
+  return nodes.map((node) => {
+    if (!('children' in node)) return node;
+    let children = orderMembers(node.children, rules);
+    if (!children.some((child) => child.kind === 'literal')) {
+      const members = children.filter((child) => child.kind !== 'component');
+      const names = members.map((child) => child.kind + ':' + ('name' in child ? child.name : ''));
+      if (new Set(names).size === names.length) {
+        const sorted = [...members].sort((left, right) =>
+          (left.kind + ':' + ('name' in left ? left.name : '')).localeCompare(
+            right.kind + ':' + ('name' in right ? right.name : ''),
+          ),
+        );
+        if (sorted.some((child, index) => child !== members[index])) rules.add(memberOrderRule);
+        children = [...sorted, ...children.filter((child) => child.kind === 'component')];
+      }
+    }
+    return { ...node, children };
+  });
 }
 
 export interface SourceEquivalence {
@@ -282,6 +517,17 @@ export function compareApexlangSource(expected: string, actual: string): SourceE
       canonical(normalizeExport(removeQualifiedDefault(right), rules))
     )
       return { equivalent: true, rules: [formattingRule, ...rules] };
+    const formRules = new Set(rules);
+    const normalized = (nodes: Node[]) =>
+      orderComponents(
+        orderMembers(
+          normalizeExport(normalizeForms(removeQualifiedDefault(nodes), formRules), formRules),
+          formRules,
+        ),
+        formRules,
+      );
+    if (canonical(normalized(left)) === canonical(normalized(right)))
+      return { equivalent: true, rules: [formattingRule, ...formRules] };
     return {
       equivalent: false,
       rules: [],

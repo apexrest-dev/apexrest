@@ -453,3 +453,38 @@ test('new page needs no previous source and its absence backup cannot pretend to
     code: 'RESTORE_LAYOUT_UNSUPPORTED',
   });
 });
+
+const authoredPage = (message: string, canonical = false) => {
+  const appearance =
+    '        appearance {\n            templateOptions: [\n                #DEFAULT#\n            ]\n        }\n';
+  const messages = `        messages {\n            whenNoDataFound: ${message}\n        }\n`;
+  return (
+    'page 10 (\n    region rows (\n        type: staticContent\n        layout {\n            sequence: 10\n        }\n' +
+    (canonical ? appearance + messages : messages + appearance) +
+    '    )\n)\n'
+  );
+};
+
+test('canonical-only server rewrites after an import are not remote changes; real ones still are', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, authoredPage('None'));
+  await f.apply(await f.service.plan(f.ctx, 'dev'));
+  assert.equal(await f.content(page, true), authoredPage('None'));
+  // Oracle re-exports the imported page in its canonical member order.
+  await f.edit(page, authoredPage('None', true), true);
+  await f.edit(page, authoredPage('No rows'));
+  const next = await f.service.plan(f.ctx, 'dev');
+  assert.deepEqual(selected(next).files, [page]);
+  const full = await f.service.plan(f.ctx, 'dev', { importMode: 'full' });
+  assert.equal(full.schemaVersion, 4);
+  // Apply revalidates the reviewed three-way comparison against the same remote side.
+  await f.apply(next);
+  assert.equal(await f.content(page, true), authoredPage('No rows'));
+  // A semantic server change keeps blocking both paths.
+  await f.edit(page, authoredPage('Changed on server', true), true);
+  await f.edit(page, authoredPage('Local again'));
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), (error: Fault) =>
+    ['IMPORT_CONFLICT', 'SYNC_SERVER_CHANGED'].includes(error.code),
+  );
+  await assert.rejects(f.service.plan(f.ctx, 'dev', { importMode: 'full' }), { code: 'SYNC_SERVER_CHANGED' });
+});

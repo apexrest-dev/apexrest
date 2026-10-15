@@ -2528,8 +2528,17 @@ var defaultRule = "pageItem.selectList.layout.startNewRow:true-default";
 var pageDefaultRule = "page.security.pageAccessProtection:argumentsMustHaveChecksum-default";
 var regionDefaultRule = "region.layout.startNewRow:true-default";
 var chartDefaultRule = "region.chart.type:bar-default";
+var cursorDefaultRule = "page.navigation.cursorFocus:doNotFocusCursor-default";
+var autocompleteDefaultRule = "page.security.formAutoComplete:false-default";
+var paginationDefaultRule = "region.classicReport.pagination.type:nextAndPreviousLinks-default";
 var orderRule = "explicit-unique-region-and-chart-component-order";
 var columnOrderRule = "explicit-unique-report-column-order";
+var memberOrderRule = "unique-property-and-group-order";
+var quotedLiteralRule = "single-line-literal-quoting";
+var invokeDefaultRule = "invokeApi.parameter.direction:in,dataType:varchar2,ignoreOutput:false-default";
+var invokeCaseRule = "invokeApi.invoke.identifier-case";
+var eventDefaultRule = "dynamicAction.when.items.event:change-default";
+var componentOrderRule = "key-ordered-page-components";
 var limit = 8 * 1024 * 1024;
 function readStructure(source) {
   if (Buffer.byteLength(source) > limit) throw new Error("Source exceeds the comparison limit.");
@@ -2563,7 +2572,12 @@ function readStructure(source) {
         literal += next;
       }
       if (!closed) throw new Error("Unclosed fenced literal.");
-      append({ kind: "literal", value: literal });
+      const siblings = stack.at(-1)?.children ?? roots;
+      const owner = siblings.at(-1);
+      if (owner?.kind === "property" && owner.value === "" && owner.literal === void 0) {
+        owner.literal = literal;
+        owner.indent = /^[ \t]*/.exec(line)[0];
+      } else append({ kind: "literal", value: literal });
       continue;
     }
     const property = /^[ \t]*([A-Za-z][\w]*):[ \t]*(.*)$/.exec(line);
@@ -2575,6 +2589,20 @@ function readStructure(source) {
         const node = { kind: "map", name: property[1], key: "", children: [] };
         append(node);
         stack.push(node);
+      } else if (value === "[") {
+        const items = [];
+        let closed = false;
+        while (++index < lines.length) {
+          const entry = lines[index].trim();
+          if (entry === "]") {
+            closed = true;
+            break;
+          }
+          if (!entry || /[[\]{}()]$|^```/.test(entry)) throw new Error("Unsupported list entry.");
+          items.push(entry);
+        }
+        if (!closed) throw new Error("Unclosed list.");
+        append({ kind: "property", name: property[1], value: "[" + items.join("\n") + "]" });
       } else append({ kind: "property", name: property[1], value });
       continue;
     }
@@ -2640,8 +2668,16 @@ function normalizeExport(nodes, rules, parent) {
         rules.add(rule);
       }
     };
-    if (node.kind === "group" && node.name === "security" && parent?.name === "page")
+    if (node.kind === "group" && node.name === "security" && parent?.name === "page") {
       omit("pageAccessProtection", "argumentsMustHaveChecksum", pageDefaultRule);
+      omit("formAutoComplete", "false", autocompleteDefaultRule);
+    }
+    if (node.kind === "group" && node.name === "navigation" && parent?.name === "page")
+      omit("cursorFocus", "doNotFocusCursor", cursorDefaultRule);
+    if (node.kind === "group" && node.name === "pagination" && parent?.kind === "component" && parent.name === "region" && parent.children.some(
+      (entry) => entry.kind === "property" && entry.name === "type" && entry.value === "classicReport"
+    ))
+      omit("type", "nextAndPreviousLinks", paginationDefaultRule);
     if (node.kind === "group" && node.name === "layout" && parent?.kind === "component" && parent.name === "region") {
       const starts = property("startNewLayout");
       if (!starts.length || starts.length === 1 && starts[0].kind === "property" && starts[0].value === "false")
@@ -2687,8 +2723,146 @@ function normalizeExport(nodes, rules, parent) {
     return { ...node, children };
   });
   return result.filter(
-    (node) => !("children" in node && !node.children.length && node.kind === "group" && (parent?.name === "page" && node.name === "security" || parent?.name === "region" && ["chart", "layout"].includes(node.name)))
+    (node) => !("children" in node && !node.children.length && node.kind === "group" && (parent?.name === "page" && ["security", "navigation"].includes(node.name) || parent?.name === "region" && ["chart", "layout", "pagination"].includes(node.name)))
   );
+}
+var identifier = /^[A-Za-z][A-Za-z0-9_$#]*$/;
+function normalizeForms(nodes, rules, parent) {
+  const result = [];
+  for (const node of nodes) {
+    if (node.kind === "property") {
+      if (node.literal !== void 0) {
+        const lines = node.literal.split(/\r\n|\r|\n/);
+        const content = lines.length === 4 && lines[3] === "" ? lines[1] : void 0;
+        if (content !== void 0 && content.startsWith(node.indent ?? "") && lines[2] === "```") {
+          result.push({
+            kind: "property",
+            name: node.name,
+            value: JSON.stringify(content.slice((node.indent ?? "").length))
+          });
+          rules.add(quotedLiteralRule);
+          continue;
+        }
+        result.push(node);
+        continue;
+      }
+      if (/^".*"$/.test(node.value)) {
+        try {
+          const decoded = JSON.parse(node.value);
+          if (typeof decoded === "string" && JSON.stringify(decoded) !== node.value) {
+            result.push({ ...node, value: JSON.stringify(decoded) });
+            continue;
+          }
+        } catch {
+        }
+      }
+      if (parent?.kind === "group" && parent.name === "invoke" && ["package", "procedureOrFunction"].includes(node.name) && identifier.test(node.value)) {
+        if (node.value !== node.value.toUpperCase()) rules.add(invokeCaseRule);
+        result.push({ ...node, value: node.value.toUpperCase() });
+        continue;
+      }
+      result.push(node);
+      continue;
+    }
+    if (!("children" in node)) {
+      result.push(node);
+      continue;
+    }
+    let children = normalizeForms(node.children, rules, node);
+    const scalar = (name) => {
+      const matches = children.filter((entry) => entry.kind === "property" && entry.name === name);
+      return matches.length === 1 && matches[0].kind === "property" ? matches[0] : void 0;
+    };
+    if (node.kind === "group" && node.name === "parameter" && parent?.kind === "component" && parent.name === "parameter") {
+      for (const [name, value] of [
+        ["direction", "in"],
+        ["dataType", "varchar2"],
+        ["ignoreOutput", "false"]
+      ]) {
+        const entry = scalar(name);
+        if (entry?.kind === "property" && entry.value === value) {
+          children = children.filter((child) => child !== entry);
+          rules.add(invokeDefaultRule);
+        }
+      }
+      if (!children.length) {
+        rules.add(invokeDefaultRule);
+        continue;
+      }
+    }
+    if (node.kind === "group" && node.name === "when" && parent?.kind === "component" && parent.name === "dynamicAction") {
+      const event = scalar("event"), selection = scalar("selectionType");
+      if (event?.kind === "property" && event.value === "change" && selection?.kind === "property" && selection.value === "items") {
+        children = children.filter((child) => child !== event);
+        rules.add(eventDefaultRule);
+      }
+    }
+    result.push({ ...node, children });
+  }
+  return result;
+}
+var sequencedComponents = {
+  page: {
+    region: ["layout", "sequence"],
+    pageItem: ["layout", "sequence"],
+    button: ["layout", "sequence"],
+    dynamicAction: ["execution", "sequence"],
+    validation: ["execution", "sequence"],
+    process: ["execution", "sequence"],
+    computation: ["execution", "sequence"],
+    branch: ["execution", "sequence"]
+  },
+  process: { parameter: ["advanced", "displaySequence"] },
+  dynamicAction: { action: ["execution", "sequence"] }
+};
+var componentKey = (node) => ("name" in node ? node.name : "") + ":" + ("key" in node ? node.key : "");
+function orderComponents(nodes, rules) {
+  return nodes.map((node) => {
+    if (!("children" in node)) return node;
+    let children = orderComponents(node.children, rules);
+    const allowed = node.kind === "component" ? sequencedComponents[node.name] : void 0;
+    const components = children.filter((child) => child.kind === "component");
+    if (allowed && components.length > 1) {
+      const qualified = components.every((child) => {
+        if (child.kind !== "component" || !allowed[child.name]) return false;
+        const [groupName, propertyName] = allowed[child.name];
+        const group = child.children.find((entry) => entry.kind === "group" && entry.name === groupName);
+        return !!group && "children" in group && group.children.some(
+          (entry) => entry.kind === "property" && entry.name === propertyName && /^\d+$/.test(entry.value)
+        );
+      });
+      const keys = components.map(componentKey);
+      if (qualified && new Set(keys).size === keys.length) {
+        const sorted = [...components].sort(
+          (left, right) => componentKey(left).localeCompare(componentKey(right))
+        );
+        if (sorted.some((child, index2) => child !== components[index2])) rules.add(componentOrderRule);
+        let index = 0;
+        children = children.map((child) => child.kind === "component" ? sorted[index++] : child);
+      }
+    }
+    return { ...node, children };
+  });
+}
+function orderMembers(nodes, rules) {
+  return nodes.map((node) => {
+    if (!("children" in node)) return node;
+    let children = orderMembers(node.children, rules);
+    if (!children.some((child) => child.kind === "literal")) {
+      const members = children.filter((child) => child.kind !== "component");
+      const names = members.map((child) => child.kind + ":" + ("name" in child ? child.name : ""));
+      if (new Set(names).size === names.length) {
+        const sorted = [...members].sort(
+          (left, right) => (left.kind + ":" + ("name" in left ? left.name : "")).localeCompare(
+            right.kind + ":" + ("name" in right ? right.name : "")
+          )
+        );
+        if (sorted.some((child, index) => child !== members[index])) rules.add(memberOrderRule);
+        children = [...sorted, ...children.filter((child) => child.kind === "component")];
+      }
+    }
+    return { ...node, children };
+  });
 }
 function compareApexlangSource(expected, actual) {
   if (expected === actual) return { equivalent: true, rules: [] };
@@ -2702,6 +2876,16 @@ function compareApexlangSource(expected, actual) {
       rules.add(defaultRule);
     if (canonical(normalizeExport(removeQualifiedDefault(left), rules)) === canonical(normalizeExport(removeQualifiedDefault(right), rules)))
       return { equivalent: true, rules: [formattingRule, ...rules] };
+    const formRules = new Set(rules);
+    const normalized = (nodes) => orderComponents(
+      orderMembers(
+        normalizeExport(normalizeForms(removeQualifiedDefault(nodes), formRules), formRules),
+        formRules
+      ),
+      formRules
+    );
+    if (canonical(normalized(left)) === canonical(normalized(right)))
+      return { equivalent: true, rules: [formattingRule, ...formRules] };
     return {
       equivalent: false,
       rules: [],
@@ -3637,17 +3821,20 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
           5
         );
       let output = "Selected components are absent; no previous source export required.";
-      if (mappings.length) {
+      const outputs = [];
+      const observed = /* @__PURE__ */ new Set();
+      for (const [index, mapping] of mappings.entries()) {
+        const exportDirectory = path11.join(stage, "component-" + (index + 1));
+        await mkdir4(exportDirectory, { mode: 448 });
         const result = await this.session(
-          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(stage)} -expComponents ${sqlclToken(mappings.map((entry) => entry.type + ":" + entry.id).join(" "))}`,
+          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(exportDirectory)} -expComponents ${sqlclToken(mapping.type + ":" + mapping.id)}`,
           connection,
           false,
           void 0,
-          stage
+          exportDirectory
         );
-        output = result.output;
-        const emitted = await inventory(stage);
-        const observed = /* @__PURE__ */ new Set();
+        outputs.push(result.output);
+        const emitted = await inventory(exportDirectory);
         for (const [file] of Object.entries(emitted)) {
           if (!file.endsWith(".apx"))
             throw new Fault(
@@ -3656,21 +3843,19 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
               5
             );
           const exportedPage = /(?:^|\/)pages\/p(\d{5})[-\w]*\.apx$/.exec(file);
-          const matches = mappings.filter(
-            (entry) => entry.type === "PAGE" && exportedPage && entry.id === String(Number(exportedPage[1]))
-          );
-          if (matches.length !== 1 || observed.has(matches[0].file))
+          if (mapping.type !== "PAGE" || !exportedPage || mapping.id !== String(Number(exportedPage[1])) || observed.has(mapping.file))
             throw new Fault(
               "PARTIAL_EXPORT_SCOPE_FAILED",
               "Native export emitted an unselected or ambiguous page identity.",
               5
             );
-          observed.add(matches[0].file);
-          const target = await contained(directory, matches[0].file);
+          observed.add(mapping.file);
+          const target = await contained(directory, mapping.file);
           await mkdir4(path11.dirname(target), { recursive: true, mode: 448 });
-          await cp3(await contained(stage, file), target);
+          await cp3(await contained(exportDirectory, file), target);
         }
       }
+      if (outputs.length) output = outputs.join("\n");
       const files = await inventory(directory);
       return {
         directory,
@@ -3706,9 +3891,9 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     };
   }
   async databaseDependencies(schema, object, connection) {
-    const identifier = /^(?:"(?:[^"]|"")+"|[A-Za-z][A-Za-z0-9_$#]*)$/;
+    const identifier2 = /^(?:"(?:[^"]|"")+"|[A-Za-z][A-Za-z0-9_$#]*)$/;
     const parts = object.match(/"(?:[^"]|"")+"|[A-Za-z][A-Za-z0-9_$#]*/g) ?? [];
-    if (!parts.length || parts.length > 2 || parts.join(".") !== object || !parts.every((part) => identifier.test(part)))
+    if (!parts.length || parts.length > 2 || parts.join(".") !== object || !parts.every((part) => identifier2.test(part)))
       throw new Fault(
         "DATABASE_DEPENDENCY_UNRESOLVED",
         "Cannot resolve the reviewed object name for dependency inspection.",

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Working-copy sync: native selected export runs one component per call (APEX 26.2 rejects component lists with ORA-20987); readback equivalence reads template-option lists, ignores member and key order where explicit sequences decide execution, and accepts the canonical forms and defaults of native 26.2 exports; planning ignores canonical-only server rewrites, so a full import no longer blocks the next selected or full plan.
 - APEX 26.1: accept hyphenated workspace names without relaxing SQL schema identifiers; MCP apply now dispatches an explicitly reviewed saved plan to the guarded apply worker.
 - Testing: add 67 APEX 26.1 baseline and quality/performance cases, nine host-browser cases, separate APEX 26.2 extension, agent-task, Codex/Claude host, quality-performance and Bitcoin demo catalogs. Qualification includes title-import preservation, read-only 20-repetition benchmarks and actual host time/token checkpoints; installed-host and release-specific evidence remain separate.
 - SQL review closes classification gaps: `EXEC`/`EXECUTE` shorthand, anonymous blocks with assignments or expression calls, queries calling user routines, privileged `CREATE` statements, `ALTER`/`DROP` across object kinds (users, roles, triggers, materialized views, links), `ALTER SESSION`, `PURGE`/`FLASHBACK` and program units after a preceding statement are reviewed as dangerous; control-only blocks and ordinary schema creation stay ordinary.

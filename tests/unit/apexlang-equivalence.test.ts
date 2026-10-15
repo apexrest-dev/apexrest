@@ -249,3 +249,121 @@ test('report column order remains strict outside qualified classic reports and e
       false,
     );
 });
+
+// Forms observed in Oracle APEX 26.2.0 page exports after authored imports (local DEV, 2026-10-15).
+const drawer = (variant: {
+  order?: 'authored' | 'exported';
+  options?: string;
+  html?: 'fenced' | 'quoted';
+  defaults?: boolean;
+  identifier?: string;
+}) => {
+  const html =
+    variant.html === 'quoted'
+      ? '        htmlExpression: "<span class=\\"t-Badge\\">#STATUS!HTML#</span>"\n'
+      : '        htmlExpression:\n            ```html\n            <span class="t-Badge">#STATUS!HTML#</span>\n            ```\n';
+  const parameter = (key: string, direction: string, type: string, seq: number, out = false) =>
+    `        parameter ${key} (\n` +
+    (variant.defaults === false && direction === 'in' && type === 'varchar2'
+      ? ''
+      : `            parameter {\n` +
+        (variant.defaults === false && direction === 'in'
+          ? ''
+          : `                direction: ${direction}\n`) +
+        (variant.defaults === false && type === 'varchar2' ? '' : `                dataType: ${type}\n`) +
+        (out && variant.defaults !== false ? '                ignoreOutput: false\n' : '') +
+        `            }\n`) +
+    `            value {\n                type: item\n                item: P2_${key.toUpperCase()}\n            }\n` +
+    `            advanced {\n                displaySequence: ${seq}\n            }\n        )\n`;
+  const items = [
+    `    pageItem P2_ID (\n        type: hidden\n        layout {\n            sequence: 10\n        }\n    )\n`,
+    `    pageItem P2_NAME (\n        type: textField\n        layout {\n            sequence: 20\n        }\n    )\n`,
+  ];
+  const processes = [
+    `    process save (\n        type: invokeApi\n        invoke {\n            package: ${variant.identifier ?? 'example_api'}\n            procedureOrFunction: save_row\n        }\n` +
+      parameter('p_name', 'in', 'varchar2', 1) +
+      parameter('p_id', 'out', 'number', 2, true) +
+      `        execution {\n            sequence: 20\n        }\n    )\n`,
+    `    process load (\n        type: executeCode\n        execution {\n            sequence: 10\n            point: beforeHeader\n        }\n    )\n`,
+  ];
+  const region =
+    `    region rows (\n        type: staticContent\n        layout {\n            sequence: 10\n        }\n` +
+    `        appearance {\n            templateOptions: [\n${variant.options ?? '                #DEFAULT#\n                t-Region--scrollBody\n'}            ]\n        }\n` +
+    `        messages {\n            whenNoDataFound: None\n        }\n${html}    )\n`;
+  const authored = variant.order !== 'exported';
+  const regionText = authored
+    ? region
+    : region.replace(
+        /        appearance \{[\s\S]*?\n        \}\n        messages \{[\s\S]*?\n        \}\n/,
+        (block) => {
+          const [appearance, messages] = block.split(/(?=        messages \{)/);
+          return messages! + appearance!;
+        },
+      );
+  const da =
+    `    dynamicAction refresh (\n        execution {\n            sequence: 10\n        }\n        when {\n` +
+    (authored || variant.defaults !== false ? '            event: change\n' : '') +
+    `            selectionType: items\n            items: P2_NAME\n        }\n    )\n`;
+  return (
+    'page 2 (\n' +
+    regionText +
+    (authored ? items.join('') : [...items].reverse().join('')) +
+    da +
+    (authored ? processes.join('') : [...processes].reverse().join('')) +
+    ')\n'
+  );
+};
+
+test('Oracle 26.2 export forms: lists, member order, quoted literals, invokeApi defaults and key order', () => {
+  const authored = drawer({});
+  const exported = drawer({ order: 'exported', html: 'quoted', defaults: false, identifier: 'EXAMPLE_API' });
+  const result = compareApexlangSource(authored, exported);
+  assert.equal(result.equivalent, true, result.reason);
+  for (const rule of [
+    'unique-property-and-group-order',
+    'single-line-literal-quoting',
+    'invokeApi.parameter.direction:in,dataType:varchar2,ignoreOutput:false-default',
+    'invokeApi.invoke.identifier-case',
+    'dynamicAction.when.items.event:change-default',
+    'key-ordered-page-components',
+  ])
+    assert.ok(result.rules.includes(rule), rule);
+});
+
+test('new Oracle 26.2 rules never hide value, order or default changes', () => {
+  const exported = drawer({ order: 'exported', html: 'quoted', defaults: false, identifier: 'EXAMPLE_API' });
+  for (const changed of [
+    drawer({ options: '                t-Region--scrollBody\n                #DEFAULT#\n' }),
+    drawer({ options: '                #DEFAULT#\n' }),
+    drawer({}).replace(
+      '#STATUS!HTML#</span>\n            ```',
+      '#STATUS!HTML#</span>\n            <br>\n            ```',
+    ),
+    drawer({}).replace('t-Badge">#STATUS', 't-Badge u-danger">#STATUS'),
+    drawer({}).replace('direction: in', 'direction: out'),
+    drawer({}).replace('dataType: varchar2', 'dataType: clob'),
+    drawer({}).replace('ignoreOutput: false', 'ignoreOutput: true'),
+    drawer({}).replace('procedureOrFunction: save_row', 'procedureOrFunction: save_rows'),
+    drawer({}).replace('package: example_api', 'package: "example_api"'),
+    drawer({}).replace('event: change', 'event: click'),
+    drawer({}).replace('displaySequence: 2', 'displaySequence: 3'),
+    drawer({}).replace(
+      'sequence: 20\n        }\n    )\n    process load',
+      'sequence: 21\n        }\n    )\n    process load',
+    ),
+  ])
+    assert.equal(compareApexlangSource(changed, exported).equivalent, false, changed);
+  const unsequenced = (text: string) =>
+    text.replace(
+      '            sequence: 10\n            point: beforeHeader\n',
+      '            point: beforeHeader\n',
+    );
+  assert.equal(compareApexlangSource(unsequenced(drawer({})), unsequenced(exported)).equivalent, false);
+  assert.equal(
+    compareApexlangSource(
+      'page 1 (\n    title: A\n    pageItems: [\n        P1_A\n    ]\n)\n',
+      'page 1 (\n    title: A\n    pageItems: [\n        P1_A\n)\n',
+    ).equivalent,
+    false,
+  );
+});

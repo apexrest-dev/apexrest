@@ -35,9 +35,6 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Application verification
 
-- Refresh the working-copy baseline from the server's canonical export after a successful full import; otherwise the next full import is blocked as SYNC_SERVER_CHANGED and selected-file imports report IMPORT_CONFLICT (observed 2026-10-15).
-- Investigate post-import readback for newly created pages: on 2026-10-15 a selected-file import of new pages 103/104 succeeded but readback export failed with ORA-20987 (pages reported as unsupported), while a manual export one minute later succeeded; check for a pooled SQLcl session reused across the import.
-- Make readback verification tolerate canonical property-group order (for example `messages` after `componentAppearance`) so semantically identical selected-file imports are not reported as `TARGET_DRIFT`, and let `ship --mode recover` accept equivalent server content.
 - Select further recipes from the remaining two community candidates (both need external AI services) added on 2026-10-14 only after per-source dependency closure, adaptation to the 26.1 recipe scaffold and compiler checks; resolve the LGPL-3.0 review for United-Codes/uc_ai before redistributing any of its files.
 - Qualify adapted public page templates the 30 internet 26.1 recipes on explicit DEV/QA/TEST applications. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.
 - Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.
@@ -50,7 +47,7 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 - Keep the managed installer default at 26.1 until broader qualification is complete. A 26.2 project needs its explicit profile, compiler and lock.
 - ORDS and SQLcl MCP-mode selected-file imports require a separate transport implementation; explicit file mode must continue refusing unsupported transports.
-- Keep report-column order normalization restricted to classic reports with unique explicit sequences. Broader region types and child families need their own Oracle results and negative tests; the latest classic-report readback is session-reported, not independently repeated in the follow-up review. Selected-scope checks do not establish unselected server freshness; full audits remain separate.
+- Keep component-order normalization restricted to classic-report columns and page, process and dynamic-action children with unique keys and explicit sequences; other region types and child families need their own Oracle results and negative tests. Add further export defaults only with a reference default and an observed native export; the latest classic-report readback is session-reported, not independently repeated in the follow-up review. Selected-scope checks do not establish unselected server freshness; full audits remain separate.
 - Qualify provider calls, DDS, OCI IAM/network prerequisites and workflow migration independently of offline recipes and metadata visibility.
 
 ## Runtime and Composer

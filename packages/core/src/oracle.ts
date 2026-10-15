@@ -882,17 +882,23 @@ export class OracleAdapter {
           5,
         );
       let output = 'Selected components are absent; no previous source export required.';
-      if (mappings.length) {
+      const outputs: string[] = [];
+      const observed = new Set<string>();
+      // APEX 26.2 APEXlang export accepts one component per call: a space-separated
+      // list fails with ORA-20987 (even for existing pages) and a comma list with
+      // ORA-20001. Each component therefore gets its own call and directory.
+      for (const [index, mapping] of mappings.entries()) {
+        const exportDirectory = path.join(stage, 'component-' + (index + 1));
+        await mkdir(exportDirectory, { mode: 0o700 });
         const result = await this.session(
-          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(stage)} -expComponents ${sqlclToken(mappings.map((entry) => entry.type + ':' + entry.id).join(' '))}`,
+          `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(exportDirectory)} -expComponents ${sqlclToken(mapping.type + ':' + mapping.id)}`,
           connection,
           false,
           undefined,
-          stage,
+          exportDirectory,
         );
-        output = result.output;
-        const emitted = await inventory(stage);
-        const observed = new Set<string>();
+        outputs.push(result.output);
+        const emitted = await inventory(exportDirectory);
         for (const [file] of Object.entries(emitted)) {
           if (!file.endsWith('.apx'))
             throw new Fault(
@@ -902,21 +908,24 @@ export class OracleAdapter {
             );
           // Oracle names the file from its current page alias, not the caller's filename.
           const exportedPage = /(?:^|\/)pages\/p(\d{5})[-\w]*\.apx$/.exec(file);
-          const matches = mappings.filter(
-            (entry) => entry.type === 'PAGE' && exportedPage && entry.id === String(Number(exportedPage[1])),
-          );
-          if (matches.length !== 1 || observed.has(matches[0]!.file))
+          if (
+            mapping.type !== 'PAGE' ||
+            !exportedPage ||
+            mapping.id !== String(Number(exportedPage[1])) ||
+            observed.has(mapping.file)
+          )
             throw new Fault(
               'PARTIAL_EXPORT_SCOPE_FAILED',
               'Native export emitted an unselected or ambiguous page identity.',
               5,
             );
-          observed.add(matches[0]!.file);
-          const target = await contained(directory, matches[0]!.file);
+          observed.add(mapping.file);
+          const target = await contained(directory, mapping.file);
           await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-          await cp(await contained(stage, file), target);
+          await cp(await contained(exportDirectory, file), target);
         }
       }
+      if (outputs.length) output = outputs.join('\n');
       const files = await inventory(directory);
       return {
         directory,

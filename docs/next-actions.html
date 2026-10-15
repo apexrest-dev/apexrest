@@ -87,9 +87,6 @@
 <p>A261-058 unknown-connection now records <code>CONNECTION_REQUIRED</code> / 3 with a next action, and compiler-syntax records <code>INVALID_PROPERTY</code> / 1 with a next action on both interfaces. They pass. A261-059 unknown-property and invalid-region-type retain precise rejection. No runtime semantics or golden expectations were changed for these open findings.</p>
 <h2 id="application-verification">Application verification</h2>
 <ul>
-<li>Refresh the working-copy baseline from the server&#39;s canonical export after a successful full import; otherwise the next full import is blocked as SYNC_SERVER_CHANGED and selected-file imports report IMPORT_CONFLICT (observed 2026-10-15).</li>
-<li>Investigate post-import readback for newly created pages: on 2026-10-15 a selected-file import of new pages 103/104 succeeded but readback export failed with ORA-20987 (pages reported as unsupported), while a manual export one minute later succeeded; check for a pooled SQLcl session reused across the import.</li>
-<li>Make readback verification tolerate canonical property-group order (for example <code>messages</code> after <code>componentAppearance</code>) so semantically identical selected-file imports are not reported as <code>TARGET_DRIFT</code>, and let <code>ship --mode recover</code> accept equivalent server content.</li>
 <li>Select further recipes from the remaining two community candidates (both need external AI services) added on 2026-10-14 only after per-source dependency closure, adaptation to the 26.1 recipe scaffold and compiler checks; resolve the LGPL-3.0 review for United-Codes/uc_ai before redistributing any of its files.</li>
 <li>Qualify adapted public page templates the 30 internet 26.1 recipes on explicit DEV/QA/TEST applications. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.</li>
 <li>Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.</li>
@@ -104,7 +101,7 @@
 </li>
 <li><p>ORDS and SQLcl MCP-mode selected-file imports require a separate transport implementation; explicit file mode must continue refusing unsupported transports.</p>
 </li>
-<li><p>Keep report-column order normalization restricted to classic reports with unique explicit sequences. Broader region types and child families need their own Oracle results and negative tests; the latest classic-report readback is session-reported, not independently repeated in the follow-up review. Selected-scope checks do not establish unselected server freshness; full audits remain separate.</p>
+<li><p>Keep component-order normalization restricted to classic-report columns and page, process and dynamic-action children with unique keys and explicit sequences; other region types and child families need their own Oracle results and negative tests. Add further export defaults only with a reference default and an observed native export; the latest classic-report readback is session-reported, not independently repeated in the follow-up review. Selected-scope checks do not establish unselected server freshness; full audits remain separate.</p>
 </li>
 <li><p>Qualify provider calls, DDS, OCI IAM/network prerequisites and workflow migration independently of offline recipes and metadata visibility.</p>
 </li>

@@ -446,6 +446,31 @@ function checkMigrations(
       );
   }
 }
+/**
+ * Files whose server bytes differ from the trusted checkpoint only by Oracle's
+ * canonical export form (proven by the selected-source equivalence policy). They
+ * are not remote changes: the server holds what the checkpoint recorded.
+ */
+async function canonicalOnlyChanges(
+  ctx: ProjectContext,
+  baseline: { directory: string; files: Record<string, string> },
+  exported: { directory: string; files: Record<string, string> },
+  files: string[],
+) {
+  const candidates = files.filter(
+    (file) => file.endsWith('.apx') && baseline.files[file] && exported.files[file],
+  );
+  if (!candidates.length) return new Set<string>();
+  const comparison = await compareApplicationExports(
+    await syncPath(ctx, baseline.directory),
+    exported.directory,
+    pickFiles(baseline.files, candidates),
+    pickFiles(exported.files, candidates),
+    candidates,
+  );
+  return new Set(candidates.filter((file) => !comparison.mismatchedFiles.includes(file)));
+}
+
 /** Application source files keyed relative to the application source directory. */
 function applicationFiles(ctx: ProjectContext, sources: Record<string, string>) {
   const prefix = ctx.config.application.sourceDir + '/';
@@ -907,7 +932,14 @@ export class DeploymentService {
       if (canonical(current.target) !== canonical(working.target))
         throw new Fault('SYNC_SERVER_CHANGED', 'Application identity changed since the sync baseline.', 5);
       const remote = { ...checkpoint(working).files };
+      const canonicalOnly = await canonicalOnlyChanges(
+        ctx,
+        checkpoint(working),
+        current.exported,
+        candidates.filter((file) => current.exported!.files[file] !== checkpoint(working).files[file]),
+      );
       for (const file of candidates) {
+        if (canonicalOnly.has(file)) continue;
         if (current.exported.files[file]) remote[file] = current.exported.files[file]!;
         else delete remote[file];
       }
@@ -945,10 +977,12 @@ export class DeploymentService {
       }
       const id = randomUUID(),
         root = '.apexrest/plans/' + id;
+      // Canonical-only server forms keep the checkpoint bytes, so the reviewed
+      // three-way comparison sees the same unchanged remote side.
       await overlaySelection(
         await syncPath(ctx, checkpoint(working).directory),
         current.exported.directory,
-        candidates,
+        candidates.filter((file) => !canonicalOnly.has(file)),
         await syncPath(ctx, root + '/before'),
       );
       const beforeFiles = await inventory(await syncPath(ctx, root + '/before'));
@@ -1059,7 +1093,9 @@ export class DeploymentService {
       { sources, validation, lock } = sourceCheck.value,
       risks: string[] = [];
     if (fresh && working && current.exported) {
-      const remoteChanges = changedFiles(checkpoint(working).files, current.exported.files);
+      const changed = changedFiles(checkpoint(working).files, current.exported.files);
+      const canonicalOnly = await canonicalOnlyChanges(ctx, checkpoint(working), current.exported, changed);
+      const remoteChanges = changed.filter((file) => !canonicalOnly.has(file));
       if (
         remoteChanges.some((file) => applicationFiles(ctx, sources)[file] !== current.exported!.files[file])
       )

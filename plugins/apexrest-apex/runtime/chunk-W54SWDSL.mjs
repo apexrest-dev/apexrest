@@ -7,7 +7,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-AMDWLXKC.mjs";
+} from "./chunk-CXSVMJGF.mjs";
 import {
   Client,
   ReadBuffer,

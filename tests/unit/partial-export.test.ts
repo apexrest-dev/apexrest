@@ -180,3 +180,55 @@ test('explicit full APEXlang observation retains only selected shared components
     code: 'PARTIAL_EXPORT_UNSUPPORTED',
   });
 });
+
+test('multi-page selection exports one component per call (APEX 26.2 rejects component lists)', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-multi-export-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const oracle = new OracleAdapter();
+  let stages = 0;
+  oracle.stage = async () => {
+    const stage = path.join(root, 'stage-' + ++stages);
+    await mkdir(stage);
+    return stage;
+  };
+  oracle.settings = async () => ({
+    schemaVersion: 1,
+    executable: 'sql',
+    javaHome: undefined,
+    mode: 'cli',
+    mcpRestrictLevel: '4',
+    databaseTransport: 'direct',
+  });
+  oracle.requireCapability = async () => ({ version: 'fixture', helpHash: 'fixture' });
+  const calls: string[] = [];
+  oracle.session = async (input, _connection, mutation, _signal, stage) => {
+    assert.equal(mutation, false);
+    const component = /-expComponents "([^"]+)"/.exec(input)?.[1];
+    assert.ok(component && !component.includes(' ') && !component.includes(','), component);
+    calls.push(component);
+    const id = Number(component.split(':')[1]);
+    await mkdir(path.join(stage!, 'fixture/pages'), { recursive: true });
+    await writeFile(
+      path.join(stage!, 'fixture/pages', `p${String(id).padStart(5, '0')}-alias.apx`),
+      `page ${id} (\n)\n`,
+    );
+    return {
+      output: 'exported ' + component,
+      stdout: '',
+      stderr: '',
+      code: 0,
+      work: stage!,
+      timedOut: false,
+      cancelled: false,
+      truncated: false,
+    };
+  };
+  const selected = ['pages/p00103-rows.apx', 'pages/p00104-row-drawer.apx'];
+  const result = await oracle.exportSelection(env, connection, selected, root, {
+    'pages/p00103-rows.apx': 'known',
+    'pages/p00104-row-drawer.apx': 'known',
+  });
+  assert.deepEqual(calls, ['PAGE:103', 'PAGE:104']);
+  assert.deepEqual(Object.keys(result.files).sort(), selected);
+  assert.match(result.output, /PAGE:103[\s\S]*PAGE:104/);
+});

@@ -48,7 +48,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-AMDWLXKC.mjs";
+} from "./chunk-CXSVMJGF.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -12724,6 +12724,20 @@ function checkMigrations(ctx, sources, history) {
       );
   }
 }
+async function canonicalOnlyChanges(ctx, baseline, exported, files) {
+  const candidates = files.filter(
+    (file) => file.endsWith(".apx") && baseline.files[file] && exported.files[file]
+  );
+  if (!candidates.length) return /* @__PURE__ */ new Set();
+  const comparison = await compareApplicationExports(
+    await syncPath(ctx, baseline.directory),
+    exported.directory,
+    pickFiles(baseline.files, candidates),
+    pickFiles(exported.files, candidates),
+    candidates
+  );
+  return new Set(candidates.filter((file) => !comparison.mismatchedFiles.includes(file)));
+}
 function applicationFiles(ctx, sources) {
   const prefix = ctx.config.application.sourceDir + "/";
   return Object.fromEntries(
@@ -13095,7 +13109,14 @@ var DeploymentService = class {
       if (canonical(current.target) !== canonical(working.target))
         throw new Fault("SYNC_SERVER_CHANGED", "Application identity changed since the sync baseline.", 5);
       const remote = { ...checkpoint(working).files };
+      const canonicalOnly = await canonicalOnlyChanges(
+        ctx,
+        checkpoint(working),
+        current.exported,
+        candidates.filter((file) => current.exported.files[file] !== checkpoint(working).files[file])
+      );
       for (const file of candidates) {
+        if (canonicalOnly.has(file)) continue;
         if (current.exported.files[file]) remote[file] = current.exported.files[file];
         else delete remote[file];
       }
@@ -13134,7 +13155,7 @@ var DeploymentService = class {
       await overlaySelection(
         await syncPath(ctx, checkpoint(working).directory),
         current.exported.directory,
-        candidates,
+        candidates.filter((file) => !canonicalOnly.has(file)),
         await syncPath(ctx, root + "/before")
       );
       const beforeFiles = await inventory(await syncPath(ctx, root + "/before"));
@@ -13232,7 +13253,9 @@ var DeploymentService = class {
     if (sourceCheck.status === "rejected") throw sourceCheck.reason;
     const current = targetCheck.value, { sources, validation, lock } = sourceCheck.value, risks = [];
     if (fresh && working && current.exported) {
-      const remoteChanges = changedFiles(checkpoint(working).files, current.exported.files);
+      const changed = changedFiles(checkpoint(working).files, current.exported.files);
+      const canonicalOnly = await canonicalOnlyChanges(ctx, checkpoint(working), current.exported, changed);
+      const remoteChanges = changed.filter((file) => !canonicalOnly.has(file));
       if (remoteChanges.some((file) => applicationFiles(ctx, sources)[file] !== current.exported.files[file]))
         throw new Fault(
           "SYNC_SERVER_CHANGED",
@@ -14962,29 +14985,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-24REWENI.mjs");
+        const { ToolchainService } = await import("./chunk-MQVASQSC.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-LNMNPE4S.mjs");
+        const { uninstallTools } = await import("./chunk-Z4FJ6I6E.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-7EYSVNXT.mjs");
+        const { setup: setup2 } = await import("./chunk-W54SWDSL.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-7EYSVNXT.mjs");
+        const { validateNative } = await import("./chunk-W54SWDSL.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-7EYSVNXT.mjs");
+        const { uninstallNative } = await import("./chunk-W54SWDSL.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
