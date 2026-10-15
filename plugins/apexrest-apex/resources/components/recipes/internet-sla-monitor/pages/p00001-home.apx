@@ -1,0 +1,318 @@
+page 1 (
+    name: SLA monitor
+    alias: HOME
+    title: SLA monitor
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region kpis (
+        name: Service levels
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with classified as (
+                    select ID,
+                           TITLE,
+                           DEPARTMENT,
+                           PRIORITY,
+                           DUE_AT,
+                           RESOLVED_AT,
+                           case
+                               when RESOLVED_AT is not null and RESOLVED_AT <= DUE_AT then 'Resolved on time'
+                               when RESOLVED_AT is not null then 'Resolved late'
+                               when DUE_AT < systimestamp then 'Breached'
+                               when DUE_AT < systimestamp + interval '24' hour then 'At risk'
+                               else 'On track'
+                           end SLA_STATE
+                      from APEXREST_EXAMPLE_TICKETS
+                )
+                select 1 SEQ, 'Open' METRIC_NAME, to_char(count(case when RESOLVED_AT is null then 1 end)) METRIC_VALUE, 'fa fa-inbox' METRIC_ICON from classified
+                union all
+                select 2, 'Breached', to_char(count(case when SLA_STATE = 'Breached' then 1 end)), 'fa fa-exclamation-circle' from classified
+                union all
+                select 3, 'At risk (24 h)', to_char(count(case when SLA_STATE = 'At risk' then 1 end)), 'fa fa-clock-o' from classified
+                union all
+                select 4, 'Resolved on time',
+                       nvl(to_char(round(100 * count(case when SLA_STATE = 'Resolved on time' then 1 end)
+                                     / nullif(count(RESOLVED_AT), 0))) || '%', 'n/a'),
+                       'fa fa-check-circle' from classified
+                order by 1
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: [
+                #DEFAULT#
+                t-CardsRegion--hideHeader js-addHiddenHeadingRoleDesc
+            ]
+        }
+        componentAppearance {
+            gridColumns: 4
+        }
+        title {
+            column: METRIC_NAME
+        }
+        subtitle {
+            column: METRIC_VALUE
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: METRIC_ICON
+        }
+    )
+
+    region sla-by-department (
+        name: SLA state by department
+        type: chart
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with classified as (
+                    select ID,
+                           TITLE,
+                           DEPARTMENT,
+                           PRIORITY,
+                           DUE_AT,
+                           RESOLVED_AT,
+                           case
+                               when RESOLVED_AT is not null and RESOLVED_AT <= DUE_AT then 'Resolved on time'
+                               when RESOLVED_AT is not null then 'Resolved late'
+                               when DUE_AT < systimestamp then 'Breached'
+                               when DUE_AT < systimestamp + interval '24' hour then 'At risk'
+                               else 'On track'
+                           end SLA_STATE
+                      from APEXREST_EXAMPLE_TICKETS
+                )
+                select DEPARTMENT, SLA_STATE, count(*) TICKET_COUNT
+                  from classified
+                 group by DEPARTMENT, SLA_STATE
+                 order by DEPARTMENT, SLA_STATE
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        chart {
+            type: bar
+        }
+        legend {
+            position: bottom
+        }
+        messages {
+            whenNoDataFound: No tickets.
+        }
+
+        series sla-state (
+            name: SLA state
+            execution {
+                sequence: 10
+            }
+            source {
+                location: regionSource
+            }
+            columnMapping {
+                seriesName: SLA_STATE
+                label: DEPARTMENT
+                value: TICKET_COUNT
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: decimal
+                decimalPlaces: 0
+                step: 1
+            }
+            minorTicks {
+                show: false
+            }
+        )
+    )
+
+    region needs-attention (
+        name: Needs attention
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with classified as (
+                    select ID,
+                           TITLE,
+                           DEPARTMENT,
+                           PRIORITY,
+                           DUE_AT,
+                           RESOLVED_AT,
+                           case
+                               when RESOLVED_AT is not null and RESOLVED_AT <= DUE_AT then 'Resolved on time'
+                               when RESOLVED_AT is not null then 'Resolved late'
+                               when DUE_AT < systimestamp then 'Breached'
+                               when DUE_AT < systimestamp + interval '24' hour then 'At risk'
+                               else 'On track'
+                           end SLA_STATE
+                      from APEXREST_EXAMPLE_TICKETS
+                )
+                select ID,
+                       TITLE,
+                       DEPARTMENT,
+                       PRIORITY,
+                       to_char(DUE_AT, 'YYYY-MM-DD HH24:MI') DUE,
+                       case
+                           when DUE_AT < systimestamp
+                           then round((cast(systimestamp as date) - cast(DUE_AT as date)) * 24) || ' h overdue'
+                           else round((cast(DUE_AT as date) - cast(systimestamp as date)) * 24) || ' h left'
+                       end TIME_TO_DUE,
+                       SLA_STATE
+                  from classified
+                 where SLA_STATE in ('Breached', 'At risk')
+                 order by DUE_AT
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No open tickets are breached or due within 24 hours.
+        }
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column TITLE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Ticket
+            }
+            layout {
+                sequence: 20
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column DEPARTMENT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Department
+            }
+            layout {
+                sequence: 30
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PRIORITY (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Priority
+            }
+            layout {
+                sequence: 40
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column DUE (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Due
+            }
+            layout {
+                sequence: 50
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column TIME_TO_DUE (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Time to due
+            }
+            layout {
+                sequence: 60
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column SLA_STATE (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: SLA
+            }
+            layout {
+                sequence: 70
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case SLA_STATE/}{when Breached/}<span class="t-Badge u-danger">Breached</span>{otherwise/}<span class="t-Badge u-warning">At risk</span>{endcase/}
+                    ```
+            }
+            sorting {
+                sortable: false
+            }
+        )
+    )
+)
