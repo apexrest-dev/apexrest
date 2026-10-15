@@ -1,0 +1,140 @@
+page 1 (
+    name: Rows
+    alias: HOME
+    title: Rows
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region rows (
+        name: Rows
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       NAME,
+                       STATUS,
+                       ROW_VERSION,
+                       case when STATUS = 'Open'
+                            then apex_page.get_url(p_page => 2, p_items => 'P2_ID', p_values => ID, p_clear_cache => '2')
+                       end CLOSE_URL
+                  from APEXREST_EXAMPLE_ROWS
+                 order by NAME
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No rows.
+        }
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column NAME (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Name
+            }
+            layout {
+                sequence: 20
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+        )
+
+        column ROW_VERSION (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Version
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+        )
+
+        // Only Open rows get the action, and closed rows render no empty link.
+        // The dialog and the package still re-check the status because the
+        // list can be stale.
+        column CLOSE_URL (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Action
+            }
+            layout {
+                sequence: 50
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {if ?CLOSE_URL/}<a href="#CLOSE_URL!ATTR#" aria-label="Close #NAME!ATTR#">Close</a>{endif/}
+                    ```
+            }
+        )
+    )
+
+    dynamicAction refresh-rows (
+        name: Refresh rows after the dialog closes
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @rows
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

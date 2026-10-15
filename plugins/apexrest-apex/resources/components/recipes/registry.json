@@ -8996,6 +8996,106 @@
         "license": "MIT",
         "derivation": "original-adaptation"
       }
+    },
+    {
+      "id": "component:pages/modal-dialog/recipes/guarded-status-transition",
+      "componentId": "component:pages/modal-dialog",
+      "title": "Guarded status transition dialog",
+      "aliases": [
+        "Guarded status transition dialog",
+        "workflow status change cancel close approve confirm modal dialog row version guard"
+      ],
+      "family": "pages",
+      "sourcePageIds": [],
+      "description": "List page opening a modal dialog that moves one APEXREST_EXAMPLE_ROWS row from Open to Closed only after an explicit confirmation, through a package that matches the allowed source status and the loaded ROW_VERSION; a refused transition keeps the dialog open and closed rows show no action.",
+      "directory": "recipes/internet-guarded-status-transition",
+      "files": [
+        "pages/p00001-home.apx",
+        "pages/p00002-close-row.apx",
+        "prerequisites/example-rows.sql",
+        "prerequisites/example-row-status-api.sql",
+        "LICENSE.txt"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "localDatabase/table read; transition through APEXREST_EXAMPLE_ROW_STATUS_API; optional declared fixture",
+        "tables": [
+          "APEXREST_EXAMPLE_ROWS"
+        ],
+        "packages": [
+          "APEXREST_EXAMPLE_ROW_STATUS_API"
+        ],
+        "columns": [
+          {
+            "name": "ID",
+            "type": "number"
+          },
+          {
+            "name": "NAME",
+            "type": "varchar2"
+          },
+          {
+            "name": "STATUS",
+            "type": "varchar2"
+          },
+          {
+            "name": "ROW_VERSION",
+            "type": "number"
+          }
+        ],
+        "transition": "Open -> Closed; the update matches STATUS = 'Open' and the loaded ROW_VERSION, otherwise ORA-20003",
+        "bindings": [
+          "P2_ID",
+          "P2_ROW_VERSION"
+        ],
+        "submittedItems": [
+          "P2_CONFIRM"
+        ],
+        "writes": true,
+        "prerequisites": [
+          {
+            "path": "prerequisites/example-rows.sql",
+            "execution": "Not executed. Apply only to an explicitly authorized isolated development schema, or adapt to the existing project table/API."
+          },
+          {
+            "path": "prerequisites/example-row-status-api.sql",
+            "execution": "Not executed. Apply after example-rows.sql to the same authorized development schema, or map the process to the project's existing transition API."
+          }
+        ],
+        "authorization": "Preserve application authentication and assign a project-specific authorization scheme to the dialog page and its action before deployment."
+      },
+      "adaptation": [
+        "Choose free page numbers and rename all P1_ and P2_ items, links and button references consistently.",
+        "Rename region, button and dynamic-action identifiers before merging into an existing application.",
+        "Preserve the target application authentication and authorization; restrict who may perform the transition.",
+        "Map the invokeApi process to the project's transition API; keep the allowed-source-status and ROW_VERSION guard in the database, not only in the page.",
+        "Do not commit inside page processes or expose SQLERRM to users; let APEX commit the submit and show the API message.",
+        "When adapting into an APEX 26.2 application, give each process a unique advanced.executionMappingIdentifier (for example page * 100 + n).",
+        "Package errors are shown with their ORA-2000x prefix; register an application error-handling function if users should see only the message text."
+      ],
+      "dependenciesClosed": true,
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "84bb235e6b5c1dafa739aff215414b855dfade5430d58c10c2d537b74d9be8c9",
+          "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+          "mmdVersion": "26.1.0+3102"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      },
+      "provenance": {
+        "sourceUrl": "https://github.com/600ner70/PTW_LV/blob/904f0c7b95c8a4d8d4bc47c04fa53ee88a24e712/pages/p00017-cancel-permit.apx",
+        "repository": "https://github.com/600ner70/PTW_LV",
+        "commit": "904f0c7b95c8a4d8d4bc47c04fa53ee88a24e712",
+        "path": "pages/p00017-cancel-permit.apx",
+        "sourceSha256": "cd836108270e30a701756f937d924cd607a41f2d27225c13c03d4d7dedd66949",
+        "license": "MIT",
+        "derivation": "original-adaptation"
+      }
     }
   ]
 }

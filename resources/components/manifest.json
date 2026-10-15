@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "26.1@24003ecc9232",
+  "catalogVersion": "26.1@c2f9cb003529",
   "source": {
     "applicationId": 100,
     "name": "Universal Theme 26.1 Reference",
@@ -14,8 +14,8 @@
   },
   "capturedAt": "2026-09-24T08:28:05.753Z",
   "generatorSha256": "651b76f115c8055d1a783093daf6dd8352a1575f1a597aec6cd9027b0a05a9aa",
-  "sourceSha256": "24003ecc9232024bacb3ab09e7f27781eac51504e67970e647039debd790cc3b",
-  "indexSha256": "3303d3b9fb899706519c174fe6ec8d3b221ccfa29dde1293520bb2411c690716",
+  "sourceSha256": "c2f9cb003529f6e6b7791a3aa6dd251e44a02936490373c65efab41bb5bebe5c",
+  "indexSha256": "96862693f82118e783a6990d382ff7409faffe6eccf7a2cce5a50a9a00dce850",
   "files": {
     "source/component-list.json": "c852c5a7ac881ff55e6d08df806857fbdab7aa10c69dce9a43eed78726f04bdc",
     "source/inventory.json": "282d095434792e917101a0e4c6c21d12d4d2c3fb98c8539e22cd2a04c6ae5456",
@@ -31,7 +31,7 @@
     "recipes/buttons-icon-basic/pages/p00001-home.apx": "d512e8caecb4d5c76672eba2b9fdeef9dd6489b87a0cc4fa475a9bea6a390603",
     "recipes/buttons-text-basic/pages/p00001-home.apx": "08a5d8e6e09632d5e0f0b8c1ed6ff539883b1b07034c01e755b4b8cc41b2ea87",
     "recipes/buttons-text-with-icon-basic/pages/p00001-home.apx": "83c181444c02ba3aec7b96234382f48777a9e870bc7c3d25d9c7aed4802c9139",
-    "recipes/compiler-evidence.json": "bb0a91ea784781914796c2bc57bf6f0ad40d524bd8804506e3b5f6c2af3ad187",
+    "recipes/compiler-evidence.json": "09f67206a4c7f3052d2d88d1b9471c6b127c8de1f5eecd82adec956cc41e0f89",
     "recipes/internet-chart-area/pages/p00001-home.apx": "b293574a40d6230b7cbffd64141fdb81bf758746dd0bd060968a093565b6c719",
     "recipes/internet-chart-donut/pages/p00001-home.apx": "add67e4cc498bda401a514028260ddcdbab81c056c110ea5e10e69e14795c8d6",
     "recipes/internet-computations-date/pages/p00001-home.apx": "6cd9ac4cdf34da1992c93443443d467c4427e9cd5a151c4afc3f1c3a51cd3270",
@@ -61,6 +61,11 @@
     "recipes/internet-dynamic-actions-visibility/pages/p00001-home.apx": "f35a732ea3e022f66e592d6795bf21ab1f54bd2536ccaa76a3631adcb06ce3ca",
     "recipes/internet-dynamic-content-home/LICENSE.txt": "34b8ecc29152a433bee0d47a849db095a9fca5f14e2b2cba8412312a370468b2",
     "recipes/internet-dynamic-content-home/pages/p00001-home.apx": "9d75786e6a92c9941d9e655da762e8b67616f57c58eb0351585950278fa70eab",
+    "recipes/internet-guarded-status-transition/LICENSE.txt": "72b8838e7325460d647d13a565548fbacec7bf4320adc3da9efc44c5f0bcc63e",
+    "recipes/internet-guarded-status-transition/pages/p00001-home.apx": "fac707e3442fb007a514d3df8d43f8b47d820f7a25c68f1327abf69dd5d5a002",
+    "recipes/internet-guarded-status-transition/pages/p00002-close-row.apx": "e318f63b6d17e286c0fa344eac234c34f06dd174fb7cf1f53f38a90c25cca736",
+    "recipes/internet-guarded-status-transition/prerequisites/example-row-status-api.sql": "da7def3c9269d2e9992c2bb9e45bcf050d6fd04f06a91419a62e203f83796c92",
+    "recipes/internet-guarded-status-transition/prerequisites/example-rows.sql": "89c5283a8653782b7c81e9f623f60a6ee6da7523d8b09dc16dbef10f7b9e0e3a",
     "recipes/internet-report-template-directives/LICENSE.txt": "34b8ecc29152a433bee0d47a849db095a9fca5f14e2b2cba8412312a370468b2",
     "recipes/internet-report-template-directives/pages/p00001-home.apx": "bd9c10a61e30c5f03d6ff77735061df684e20ebdb58f7f6001d2ae70d3b507a2",
     "recipes/internet-scheduler-jobs-dashboard/LICENSE.txt": "ee1df5bb165e25c57634209baf082738ef21b55139d4e1d5d23730938fb07c59",
@@ -174,7 +179,7 @@
     "recipes/regions-title-bar-basic/pages/p00001-home.apx": "9cac602ac332063e07a743a6a268ba75db6fc14c3b29917b2230be2c1640205d",
     "recipes/regions-tree-basic/pages/p00001-home.apx": "ede2a1851da3e3afeb7a388beaf3d45254f7f4dc2d7df95392e549597f4771ee",
     "recipes/regions-wizard-container-basic/pages/p00001-home.apx": "a9d9a286c4e5738592e0f0283cb0b870a3d1f4df83da5782bcb89cc201b4801b",
-    "recipes/registry.json": "b412d6f8b46e517083bb07cb17cdaa6514ade7d7a57142ecc719a2a02ce17fd1",
+    "recipes/registry.json": "7b052fb8317bb940b5d5c2a5c17f1697ae19a0ab8407984d3461ff7ecb83c92f",
     "recipes/reports-classic-report-basic/pages/p00001-home.apx": "60fb79ba989c1655d5cfc3d43457a6a60b0be4e8c585944573f254318494a387",
     "recipes/reports-column-toggle-report-basic/pages/p00001-home.apx": "5134c9a4594fd43afb550df189f7a34b832e4648beb20c6a2b9925de8c60c943",
     "recipes/reports-comments-basic/pages/p00001-home.apx": "085e9114741395e8f206f6c3eb849f61bd6daa55af3074e1092e74b006636adc",
@@ -272,7 +277,7 @@
     "documents/buttons/text/parameters.md": "7e6453b9493d0100d5cf8fd13074267bef5f4e8452b923844732be67e3d19c1a",
     "documents/buttons/text/recipes/basic.md": "3a82fa9f66975f6d22692233634197995fdc10615f91b901940119f88294be99",
     "documents/buttons/text/source-examples.md": "5b00512c0720075617996a7773eba91f60ffb2880f314866675c94affce78b23",
-    "documents/catalog.md": "ba2e3218d3c52d07417ea3a1bfb5228803469c98bb443f90acda1baaf9d5f588",
+    "documents/catalog.md": "5d569c2b1c7c968ae7271b8f410c7284ed980d8a718a64d75c4ec3541dd4757d",
     "documents/items/checkbox-group.md": "3af527c24a5fabe39a689b5a9a575e1f78fb032ac3b7b979193cbc1fc2074a25",
     "documents/items/checkbox-group/parameters.md": "42d48bcc10452bae2bb8ae21c5fe89e3df33dd746781b6e5b1930b65f459a8ef",
     "documents/items/checkbox-group/recipes/basic.md": "25a0458c3496728543374127a9f2d47099ce63ad20d68e773838e754cf9da279",
@@ -442,9 +447,10 @@
     "documents/pages/minimal-no-navigation.md": "0709a29ad451355dc2396346881a3cd1fec17ddde86be55263b6887919ae57d1",
     "documents/pages/minimal-no-navigation/parameters.md": "64a8deb2e31278fdccd280cf152afb7c2c4ad660e0eaa281d5a7707dc506493b",
     "documents/pages/minimal-no-navigation/recipes/basic.md": "be28e6de3802bc3d3da8b1959344aa866e23431ef1ed683e20cb490421bccac8",
-    "documents/pages/modal-dialog.md": "42f43fa74e52c06c92d97b55aaac91175fba0debea502488a97cde06ee020568",
+    "documents/pages/modal-dialog.md": "cba6727e5a3b3990d137b95c180b0f5e7eea8eedd80d463456b59154eff6b11a",
     "documents/pages/modal-dialog/parameters.md": "8a8b22e601f29bc5ee6566066a63277f1d62340c02f41d70e97bbcef3d977c83",
     "documents/pages/modal-dialog/recipes/basic.md": "def472f1f65d8b84a991c1f4e02150b5e3f87141d8b23a71d7d26d8e32881ceb",
+    "documents/pages/modal-dialog/recipes/guarded-status-transition.md": "2fabdc7054f3233f6cc728c6512da8090eba40d59ad9d89ab5c29ee375d206c0",
     "documents/pages/modal-dialog/source-examples.md": "a17e5e8e50973cef8bd3e5ffcd1cd383096bda1b09998c5ad4c479b55332b3b5",
     "documents/pages/right-side-column.md": "d851f6a2676d72f346437fcf8a19777cf921f1196323ec180ddef74231d56447",
     "documents/pages/right-side-column/parameters.md": "374e2f1fc6c2cdb8638dbb037c6b3f1f91ed39dd48f01a2718a1d9338192ee8c",
@@ -729,7 +735,7 @@
     "documents/template-components/timeline/recipes/partial-column.md": "1593fcba4cab4751ef5bf746de97937469ea8ff30331db6d62fdc5ea670262ab",
     "documents/template-components/timeline/recipes/partial.md": "9418541d0b554779551881d7eeb6a96d53e9cbeeb14d1de7015d93ec2a12a607",
     "documents/template-components/timeline/source-examples.md": "2a17d9098f557d75dcb1cd64ca77ab5760941df50cd20dc0151389b7a8d4afb2",
-    "index.json": "3303d3b9fb899706519c174fe6ec8d3b221ccfa29dde1293520bb2411c690716"
+    "index.json": "96862693f82118e783a6990d382ff7409faffe6eccf7a2cce5a50a9a00dce850"
   },
   "counts": {
     "pages": 122,
@@ -751,9 +757,9 @@
     "nativeParameters": 3761,
     "nativePluginAttributes": 400,
     "families": 112,
-    "records": 505,
-    "recipes": 172,
-    "readyRecipes": 171,
+    "records": 506,
+    "recipes": 173,
+    "readyRecipes": 172,
     "unresolvedRecipes": 1
   }
 }

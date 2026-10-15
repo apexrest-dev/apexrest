@@ -1,0 +1,320 @@
+page 2 (
+    name: Close row
+    alias: CLOSE-ROW
+    title: Close row
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        chained: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region row-summary (
+        name: Row
+        type: staticContent
+        source {
+            htmlCode: <p>Closing is final in this example. Only an Open row at the version loaded here can be closed.</p>
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region already-closed (
+        name: Already closed
+        type: staticContent
+        source {
+            htmlCode: <p>This row is no longer Open, so it cannot be closed again.</p>
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--warning
+            ]
+        }
+        serverSideCondition {
+            type: item!=value
+            item: P2_STATUS
+            value: Open
+        }
+    )
+
+    region dialog-buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    pageItem P2_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @row-summary
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P2_ROW_VERSION (
+        type: hidden
+        layout {
+            sequence: 20
+            region: @row-summary
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P2_NAME (
+        type: displayOnly
+        label {
+            label: Name
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @row-summary
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_STATUS (
+        type: displayOnly
+        label {
+            label: Current status
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @row-summary
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_CONFIRM (
+        type: checkbox
+        label {
+            label: I confirm this row can be closed
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @row-summary
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+        }
+        serverSideCondition {
+            type: item=value
+            item: P2_STATUS
+            value: Open
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @dialog-buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button close-row (
+        buttonName: CLOSE-ROW
+        label: Close row
+        layout {
+            sequence: 20
+            region: @dialog-buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: item=value
+            item: P2_STATUS
+            value: Open
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+
+    validation confirmation-required (
+        name: Confirmation required
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: functionBodyReturningBoolean
+            plsqlFunctionBody:
+                ```plsql
+                return :P2_CONFIRM = 'Y';
+                ```
+        }
+        error {
+            errorMessage: Confirm that this row can be closed.
+            associatedItem: @P2_CONFIRM
+        }
+        serverSideCondition {
+            whenButtonPressed: @close-row
+        }
+    )
+
+    process load-row (
+        name: Load row
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    select NAME, STATUS, ROW_VERSION
+                      into :P2_NAME, :P2_STATUS, :P2_ROW_VERSION
+                      from APEXREST_EXAMPLE_ROWS
+                     where ID = :P2_ID;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P2_ID
+        }
+    )
+
+    process close-row (
+        name: Close row
+        type: invokeApi
+        invoke {
+            package: APEXREST_EXAMPLE_ROW_STATUS_API
+            procedureOrFunction: close_row
+        }
+        parameter p_id (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ID
+            }
+            advanced {
+                displaySequence: 1
+            }
+        )
+        parameter p_row_version (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ROW_VERSION
+            }
+            advanced {
+                displaySequence: 2
+            }
+        )
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            whenButtonPressed: @close-row
+        }
+        successMessage {
+            successMessage: Row closed.
+        }
+    )
+
+    // Runs only after the transition succeeded; a validation or package error
+    // stops processing first and keeps the dialog open with the message.
+    process close-dialog (
+        name: Close dialog
+        type: closeDialog
+        execution {
+            sequence: 90
+        }
+        serverSideCondition {
+            whenButtonPressed: @close-row
+        }
+    )
+)
