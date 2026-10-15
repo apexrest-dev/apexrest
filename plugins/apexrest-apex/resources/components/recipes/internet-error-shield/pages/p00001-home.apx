@@ -1,0 +1,148 @@
+page 1 (
+    name: Error handling
+    alias: HOME
+    title: Error handling
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    // Page-level error handling function; set it on the application instead
+    // to cover every page once the behavior is accepted.
+    errorHandling {
+        errorHandlingFunctionName: APEXREST_EXAMPLE_ERROR_API.HANDLE_ERROR
+    }
+
+    region scenarios (
+        name: Error scenarios
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <p>Each button raises one kind of error. A business rule shows its own text, a known constraint shows a friendly text, and an unexpected technical error is replaced by a generic message with a reference code that support can look up on the incidents page.</p>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    button business-error (
+        buttonName: BUSINESS_ERROR
+        label: Business rule
+        layout {
+            sequence: 10
+            region: @scenarios
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button duplicate-code (
+        buttonName: DUPLICATE_CODE
+        label: Duplicate code
+        layout {
+            sequence: 20
+            region: @scenarios
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    button unexpected-error (
+        buttonName: UNEXPECTED_ERROR
+        label: Unexpected error
+        layout {
+            sequence: 30
+            region: @scenarios
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+            hot: true
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+    process raise-business-error (
+        name: Raise business error
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    raise_application_error(-20010, 'Orders cannot be submitted after the monthly close.');
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @business-error
+        }
+    )
+
+    process insert-duplicate-code (
+        name: Insert duplicate code
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    insert into APEXREST_EXAMPLE_UNIQUE_CODES (CODE) values ('A-100');
+                end;
+                ```
+        }
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            whenButtonPressed: @duplicate-code
+        }
+    )
+
+    process raise-unexpected-error (
+        name: Raise unexpected error
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                declare
+                    l_divisor number := 0;
+                    l_result  number;
+                begin
+                    l_result := 1 / l_divisor;
+                end;
+                ```
+        }
+        execution {
+            sequence: 30
+        }
+        serverSideCondition {
+            whenButtonPressed: @unexpected-error
+        }
+    )
+)

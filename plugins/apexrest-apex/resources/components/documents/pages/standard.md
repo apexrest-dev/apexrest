@@ -1,6 +1,6 @@
 # Standard
 
-Aliases: Standard; стандартна сторінка шаблон сторінки навігація області сторінки; Standard Page
+Aliases: Standard; стандартна сторінка шаблон сторінки навігація області сторінки; Standard Page; Error handling function with incident references; apex error handling function mask ora errors reference code incident log constraint friendly message
 
 Lay out a complete application page with navigation, header and declarative content slots.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:pages/standard/source-exa
 ## Recipes
 
 - component:pages/standard/recipes/basic: ready
+- component:pages/standard/recipes/error-shield: ready
 
 ## Parameters and adaptation
 

@@ -37,6 +37,9 @@ The full notice is retained at resources/components/recipes/internet-page-comple
 The approval workflow recipe is an original adaptation of
 Pp-py/apexlang-skills, Copyright (c) 2026 Pablo Portillo, MIT.
 The full notice is retained at resources/components/recipes/internet-approval-workflow/LICENSE.txt.
+The error handling recipe is an original adaptation of
+Aftorres02/OracleAPEX-ErrorShield, Copyright (c) 2026 Angel Flores, MIT.
+The full notice is retained at resources/components/recipes/internet-error-shield/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.

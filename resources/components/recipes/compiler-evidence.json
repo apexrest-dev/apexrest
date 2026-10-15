@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-10-15T11:22:23.295Z",
+  "timestamp": "2026-10-15T14:03:20.091Z",
   "mock": false,
   "scope": "Real offline Oracle APEXlang validation only. Synthetic SQL is not executed. No database connection, application import or browser/runtime verification.",
   "compiler": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
@@ -1461,6 +1461,28 @@
         "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
         "pages/p00001-home.apx": "b8517b24e9234af4af0cea0938f82f26d21964162b9150fc01bbc3b16d5eaa20",
         "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:pages/standard/recipes/error-shield",
+      "passed": true,
+      "sourceSha256": "b68b81295653f60bf0d0d365fa24ba935a8a269a28ecf4d02758e685094d1743",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "LICENSE.txt": "ee1df5bb165e25c57634209baf082738ef21b55139d4e1d5d23730938fb07c59",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "f9b5aeb4ab2ffd6f7c2b018b57a9b162fdc187c65556ebd795b7d63ff71683e5",
+        "pages/p00002-incidents.apx": "ab08156a96a5d2e75b2f4cc85a1b146669b0814c432df6e3114eb269e849488b",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "prerequisites/example-error-api.sql": "ab3b162e3f5b05d34480d895f7c53b41a744cfe0c3db7f98f0b426f884e71395",
+        "prerequisites/example-error-shield.sql": "232d92b585f9d1fd83817ee58144d25372e8caafa9888450009fcace8920967e",
         "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
         "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
         "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"

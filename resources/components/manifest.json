@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "26.1@8500262cf83f",
+  "catalogVersion": "26.1@747600094b9d",
   "source": {
     "applicationId": 100,
     "name": "Universal Theme 26.1 Reference",
@@ -14,8 +14,8 @@
   },
   "capturedAt": "2026-09-24T08:28:05.753Z",
   "generatorSha256": "651b76f115c8055d1a783093daf6dd8352a1575f1a597aec6cd9027b0a05a9aa",
-  "sourceSha256": "8500262cf83f659bb46267c724c485462b4f951878fe808ac1af1701d0a016ac",
-  "indexSha256": "aa8cca26bd7da0baaf6656f591813e1367fcdf6f58604c395654fc51210c441b",
+  "sourceSha256": "747600094b9da1750489db7ca5a7c250ceb54ee969c09211ca9fa72dc15f7b95",
+  "indexSha256": "e0a8c0956f801f9474155798c58055b373adc1eb4f61a3f53132d0a92e913ff5",
   "files": {
     "source/component-list.json": "c852c5a7ac881ff55e6d08df806857fbdab7aa10c69dce9a43eed78726f04bdc",
     "source/inventory.json": "282d095434792e917101a0e4c6c21d12d4d2c3fb98c8539e22cd2a04c6ae5456",
@@ -31,7 +31,7 @@
     "recipes/buttons-icon-basic/pages/p00001-home.apx": "d512e8caecb4d5c76672eba2b9fdeef9dd6489b87a0cc4fa475a9bea6a390603",
     "recipes/buttons-text-basic/pages/p00001-home.apx": "08a5d8e6e09632d5e0f0b8c1ed6ff539883b1b07034c01e755b4b8cc41b2ea87",
     "recipes/buttons-text-with-icon-basic/pages/p00001-home.apx": "83c181444c02ba3aec7b96234382f48777a9e870bc7c3d25d9c7aed4802c9139",
-    "recipes/compiler-evidence.json": "33c362fa3cd06c1ac8fa4e5a280b1dbc86cbdbc8dc182b3538d9791c6ca5a3cf",
+    "recipes/compiler-evidence.json": "85ccdb6e9d6a2c312e9ca6e43c7cab7bea4564da5e4117626da4f661ca292e49",
     "recipes/internet-approval-workflow/LICENSE.txt": "3c5def7c6162e618df23f69657623052adc784e0c278f968586e7da8701545a7",
     "recipes/internet-approval-workflow/pages/p00001-home.apx": "6c06569ca1dd1cb79c07eedb9d56df35ea6716d1cb05a7dcb98b38e867e3a083",
     "recipes/internet-approval-workflow/pages/p00002-resolve-request.apx": "8000465dfb4fc963c643a978aaf12cce24952319793be2ce60446a882d1400f1",
@@ -66,6 +66,11 @@
     "recipes/internet-dynamic-actions-visibility/pages/p00001-home.apx": "f35a732ea3e022f66e592d6795bf21ab1f54bd2536ccaa76a3631adcb06ce3ca",
     "recipes/internet-dynamic-content-home/LICENSE.txt": "34b8ecc29152a433bee0d47a849db095a9fca5f14e2b2cba8412312a370468b2",
     "recipes/internet-dynamic-content-home/pages/p00001-home.apx": "9d75786e6a92c9941d9e655da762e8b67616f57c58eb0351585950278fa70eab",
+    "recipes/internet-error-shield/LICENSE.txt": "ee1df5bb165e25c57634209baf082738ef21b55139d4e1d5d23730938fb07c59",
+    "recipes/internet-error-shield/pages/p00001-home.apx": "f9b5aeb4ab2ffd6f7c2b018b57a9b162fdc187c65556ebd795b7d63ff71683e5",
+    "recipes/internet-error-shield/pages/p00002-incidents.apx": "ab08156a96a5d2e75b2f4cc85a1b146669b0814c432df6e3114eb269e849488b",
+    "recipes/internet-error-shield/prerequisites/example-error-api.sql": "ab3b162e3f5b05d34480d895f7c53b41a744cfe0c3db7f98f0b426f884e71395",
+    "recipes/internet-error-shield/prerequisites/example-error-shield.sql": "232d92b585f9d1fd83817ee58144d25372e8caafa9888450009fcace8920967e",
     "recipes/internet-guarded-status-transition/LICENSE.txt": "72b8838e7325460d647d13a565548fbacec7bf4320adc3da9efc44c5f0bcc63e",
     "recipes/internet-guarded-status-transition/pages/p00001-home.apx": "fac707e3442fb007a514d3df8d43f8b47d820f7a25c68f1327abf69dd5d5a002",
     "recipes/internet-guarded-status-transition/pages/p00002-close-row.apx": "e318f63b6d17e286c0fa344eac234c34f06dd174fb7cf1f53f38a90c25cca736",
@@ -186,7 +191,7 @@
     "recipes/regions-title-bar-basic/pages/p00001-home.apx": "9cac602ac332063e07a743a6a268ba75db6fc14c3b29917b2230be2c1640205d",
     "recipes/regions-tree-basic/pages/p00001-home.apx": "ede2a1851da3e3afeb7a388beaf3d45254f7f4dc2d7df95392e549597f4771ee",
     "recipes/regions-wizard-container-basic/pages/p00001-home.apx": "a9d9a286c4e5738592e0f0283cb0b870a3d1f4df83da5782bcb89cc201b4801b",
-    "recipes/registry.json": "f1ecf0e4f1dfb11b35d179105411f33d5087d6e6e4e912d5604a8c334e493d20",
+    "recipes/registry.json": "d72efe55784baa8a042b5f8ba79b536ad55a17076d2e7cd563b6d73e5ac7a076",
     "recipes/reports-classic-report-basic/pages/p00001-home.apx": "60fb79ba989c1655d5cfc3d43457a6a60b0be4e8c585944573f254318494a387",
     "recipes/reports-column-toggle-report-basic/pages/p00001-home.apx": "5134c9a4594fd43afb550df189f7a34b832e4648beb20c6a2b9925de8c60c943",
     "recipes/reports-comments-basic/pages/p00001-home.apx": "085e9114741395e8f206f6c3eb849f61bd6daa55af3074e1092e74b006636adc",
@@ -284,7 +289,7 @@
     "documents/buttons/text/parameters.md": "7e6453b9493d0100d5cf8fd13074267bef5f4e8452b923844732be67e3d19c1a",
     "documents/buttons/text/recipes/basic.md": "3a82fa9f66975f6d22692233634197995fdc10615f91b901940119f88294be99",
     "documents/buttons/text/source-examples.md": "5b00512c0720075617996a7773eba91f60ffb2880f314866675c94affce78b23",
-    "documents/catalog.md": "50f1a67ed97b3649b6ad578f53ead96db281b01bf1f6bde89713fb3521e4a793",
+    "documents/catalog.md": "e9aabce44add22e24d4cc5e80ddd9a84a9f6f31c8cbb0f0542bb478fb9d63706",
     "documents/items/checkbox-group.md": "3af527c24a5fabe39a689b5a9a575e1f78fb032ac3b7b979193cbc1fc2074a25",
     "documents/items/checkbox-group/parameters.md": "42d48bcc10452bae2bb8ae21c5fe89e3df33dd746781b6e5b1930b65f459a8ef",
     "documents/items/checkbox-group/recipes/basic.md": "25a0458c3496728543374127a9f2d47099ce63ad20d68e773838e754cf9da279",
@@ -463,9 +468,10 @@
     "documents/pages/right-side-column.md": "d851f6a2676d72f346437fcf8a19777cf921f1196323ec180ddef74231d56447",
     "documents/pages/right-side-column/parameters.md": "374e2f1fc6c2cdb8638dbb037c6b3f1f91ed39dd48f01a2718a1d9338192ee8c",
     "documents/pages/right-side-column/recipes/basic.md": "23cd3ba9eb6504bac0d8725eb64cec60b9cfbb02b904154c5ef5b5d032c10910",
-    "documents/pages/standard.md": "30b3e5c9535e356fa9c4a74b47f9faee68f1c67f49def9efbf3f1f719c40ee80",
+    "documents/pages/standard.md": "b9f6a48bc160984fbeceaf62b5392afdf637fe78721eaf1090fb511aa9cf061f",
     "documents/pages/standard/parameters.md": "750f68f69c72eac7c1b29d96a83568da1888c323c62e1098e02660bd77a4eebe",
     "documents/pages/standard/recipes/basic.md": "cc004a784d33556dce8e1f6e362236e33d45e13150f4b6564bd5302027ce32ff",
+    "documents/pages/standard/recipes/error-shield.md": "c6581f7b089fb624cb0cdefbb4677b612c1527f3872dd36bc3c841b99d90d9f8",
     "documents/pages/standard/source-examples.md": "d19dfcc4cc37e08f008fcd9d2b1dc4d5ada2a43eb38b175d553e703ea22fec5f",
     "documents/pages/wizard-modal-dialog.md": "451e92fd7de93e2c02d525ec38849350963bca24a12ace0866f8f611bf90ae83",
     "documents/pages/wizard-modal-dialog/parameters.md": "ae828ded3ed0c328ba242ebc525ba9f7ce9613ddd246f9ddae160b771091c310",
@@ -744,7 +750,7 @@
     "documents/template-components/timeline/recipes/partial-column.md": "1593fcba4cab4751ef5bf746de97937469ea8ff30331db6d62fdc5ea670262ab",
     "documents/template-components/timeline/recipes/partial.md": "9418541d0b554779551881d7eeb6a96d53e9cbeeb14d1de7015d93ec2a12a607",
     "documents/template-components/timeline/source-examples.md": "2a17d9098f557d75dcb1cd64ca77ab5760941df50cd20dc0151389b7a8d4afb2",
-    "index.json": "aa8cca26bd7da0baaf6656f591813e1367fcdf6f58604c395654fc51210c441b"
+    "index.json": "e0a8c0956f801f9474155798c58055b373adc1eb4f61a3f53132d0a92e913ff5"
   },
   "counts": {
     "pages": 122,
@@ -766,9 +772,9 @@
     "nativeParameters": 3761,
     "nativePluginAttributes": 400,
     "families": 112,
-    "records": 508,
-    "recipes": 175,
-    "readyRecipes": 174,
+    "records": 509,
+    "recipes": 176,
+    "readyRecipes": 175,
     "unresolvedRecipes": 1
   }
 }

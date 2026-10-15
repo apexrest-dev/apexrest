@@ -1,0 +1,238 @@
+page 2 (
+    name: Incidents
+    alias: INCIDENTS
+    title: Incidents
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region search (
+        name: Find an incident
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region incidents (
+        name: Incidents
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select REFERENCE_CODE,
+                       to_char(LAST_SEEN_AT, 'YYYY-MM-DD HH24:MI:SS') LAST_SEEN,
+                       OCCURRENCE_COUNT,
+                       PAGE_ID,
+                       APP_USER,
+                       ORA_SQLCODE,
+                       COMPONENT_TYPE || ' ' || COMPONENT_NAME COMPONENT,
+                       ERROR_MESSAGE
+                  from APEXREST_EXAMPLE_INCIDENTS
+                 where :P2_REFERENCE is null
+                    or REFERENCE_CODE = upper(trim(:P2_REFERENCE))
+                 order by LAST_SEEN_AT desc
+                ```
+            pageItemsToSubmit: P2_REFERENCE
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No incidents match this reference.
+        }
+
+        column REFERENCE_CODE (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Reference
+            }
+            layout {
+                sequence: 10
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column LAST_SEEN (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Last seen
+            }
+            layout {
+                sequence: 20
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column OCCURRENCE_COUNT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Occurrences
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PAGE_ID (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Page
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column APP_USER (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: User
+            }
+            layout {
+                sequence: 50
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ORA_SQLCODE (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: ORA code
+                alignment: end
+            }
+            layout {
+                sequence: 60
+                columnAlignment: end
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column COMPONENT (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Component
+            }
+            layout {
+                sequence: 70
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column ERROR_MESSAGE (
+            reportColumnQueryId: 8
+            derivedColumn: N
+            heading {
+                heading: Internal detail
+            }
+            layout {
+                sequence: 80
+            }
+            sorting {
+                sortable: false
+            }
+        )
+    )
+
+    pageItem P2_REFERENCE (
+        type: textField
+        label {
+            label: Reference code
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @search
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 12
+        }
+        help {
+            inlineHelpText: Paste the code a user reported, for example ERR-1A2B3C4D.
+        }
+    )
+
+    dynamicAction refresh-incidents (
+        name: Refresh incidents after the reference changes
+        execution {
+            sequence: 10
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P2_REFERENCE
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @incidents
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

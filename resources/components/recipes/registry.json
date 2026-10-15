@@ -9287,6 +9287,93 @@
         "license": "MIT",
         "derivation": "original-adaptation"
       }
+    },
+    {
+      "id": "component:pages/standard/recipes/error-shield",
+      "componentId": "component:pages/standard",
+      "title": "Error handling function with incident references",
+      "aliases": [
+        "Error handling function with incident references",
+        "apex error handling function mask ora errors reference code incident log constraint friendly message"
+      ],
+      "family": "pages",
+      "sourcePageIds": [],
+      "description": "Page-level APEX error handling function that shows raise_application_error texts without the ORA prefix, maps named constraints to friendly messages and replaces unexpected technical errors with a generic message and a reference code; incidents are grouped by fingerprint and searchable by that code on a second page.",
+      "directory": "recipes/internet-error-shield",
+      "files": [
+        "pages/p00001-home.apx",
+        "pages/p00002-incidents.apx",
+        "prerequisites/example-error-shield.sql",
+        "prerequisites/example-error-api.sql",
+        "LICENSE.txt"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "APEX error handling function APEXREST_EXAMPLE_ERROR_API.HANDLE_ERROR; incidents read from APEXREST_EXAMPLE_INCIDENTS; optional declared fixture",
+        "tables": [
+          "APEXREST_EXAMPLE_INCIDENTS",
+          "APEXREST_EXAMPLE_CONSTRAINT_MESSAGES",
+          "APEXREST_EXAMPLE_UNIQUE_CODES"
+        ],
+        "packages": [
+          "APEXREST_EXAMPLE_ERROR_API"
+        ],
+        "errorHandling": "Page attribute errorHandling.errorHandlingFunctionName on page 1; incidents are written in an autonomous transaction and the function never raises",
+        "bindings": [
+          "P2_REFERENCE",
+          "APP_ID",
+          "APP_PAGE_ID",
+          "APP_USER",
+          "REQUEST"
+        ],
+        "submittedItems": [
+          "P2_REFERENCE"
+        ],
+        "writes": true,
+        "prerequisites": [
+          {
+            "path": "prerequisites/example-error-shield.sql",
+            "execution": "Not executed. Creates the incident, constraint-message and demo tables; apply only to an explicitly authorized isolated development schema, or adapt to the project's logging model."
+          },
+          {
+            "path": "prerequisites/example-error-api.sql",
+            "execution": "Not executed. Apply after example-error-shield.sql to the same authorized development schema."
+          }
+        ],
+        "authorization": "Incident details can contain internal error text; restrict the incidents page to support or administrator users. Preserve application authentication."
+      },
+      "adaptation": [
+        "Choose free page numbers and rename all P2_ items consistently.",
+        "Rename region, button and dynamic-action identifiers before merging into an existing application.",
+        "Preserve the target application authentication and restrict the incidents page to support or administrator users.",
+        "Once accepted, set the function on the application (Shared Components > Security > Error Handling) instead of individual pages, and remove the demo buttons and processes.",
+        "Add rows to APEXREST_EXAMPLE_CONSTRAINT_MESSAGES (or the project's equivalent) for each named constraint users can hit; unknown constraints are masked with a reference code.",
+        "Scrub or shorten stored error text if it can contain personal data, and purge old incidents on a schedule.",
+        "When adapting into an APEX 26.2 application, give each process a unique advanced.executionMappingIdentifier (for example page * 100 + n)."
+      ],
+      "dependenciesClosed": true,
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "b68b81295653f60bf0d0d365fa24ba935a8a269a28ecf4d02758e685094d1743",
+          "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+          "mmdVersion": "26.1.0+3102"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      },
+      "provenance": {
+        "sourceUrl": "https://github.com/Aftorres02/OracleAPEX-ErrorShield/blob/71232a717ce6679d6fb843ed2647e194c8f3a54c/packages/ersh_error_handler_api.pkb",
+        "repository": "https://github.com/Aftorres02/OracleAPEX-ErrorShield",
+        "commit": "71232a717ce6679d6fb843ed2647e194c8f3a54c",
+        "path": "packages/ersh_error_handler_api.pkb",
+        "sourceSha256": "7dcc7ccdbce2a7d789dc7fea13f543ce38bfd725758787749073e1c695461b97",
+        "license": "MIT",
+        "derivation": "original-adaptation"
+      }
     }
   ]
 }
