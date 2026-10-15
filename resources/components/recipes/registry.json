@@ -9168,6 +9168,125 @@
         "license": "MIT",
         "derivation": "original-adaptation"
       }
+    },
+    {
+      "id": "component:pages/modal-dialog/recipes/approval-workflow",
+      "componentId": "component:pages/modal-dialog",
+      "title": "Approval workflow with named transitions",
+      "aliases": [
+        "Approval workflow with named transitions",
+        "approve reject request state machine status badge confirmation reason for update"
+      ],
+      "family": "pages",
+      "sourcePageIds": [],
+      "description": "Request list with status badges opening a modal dialog that approves or rejects one REQUESTED request through named package verbs that lock the row and check the legal source status; reject requires a reason and a danger confirmation, decided requests show no action and a refused decision keeps the dialog open.",
+      "directory": "recipes/internet-approval-workflow",
+      "files": [
+        "pages/p00001-home.apx",
+        "pages/p00002-resolve-request.apx",
+        "prerequisites/example-requests.sql",
+        "prerequisites/example-request-flow-api.sql",
+        "LICENSE.txt"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "localDatabase/table read; transitions through APEXREST_EXAMPLE_REQUEST_FLOW_API; optional declared fixture",
+        "tables": [
+          "APEXREST_EXAMPLE_REQUESTS"
+        ],
+        "packages": [
+          "APEXREST_EXAMPLE_REQUEST_FLOW_API"
+        ],
+        "columns": [
+          {
+            "name": "ID",
+            "type": "number"
+          },
+          {
+            "name": "REQUESTER",
+            "type": "varchar2"
+          },
+          {
+            "name": "REQUEST_TYPE",
+            "type": "varchar2"
+          },
+          {
+            "name": "DATE_FROM",
+            "type": "date"
+          },
+          {
+            "name": "DATE_TO",
+            "type": "date"
+          },
+          {
+            "name": "STATUS",
+            "type": "varchar2"
+          },
+          {
+            "name": "REJECTION_REASON",
+            "type": "varchar2"
+          },
+          {
+            "name": "DECIDED_BY",
+            "type": "varchar2"
+          },
+          {
+            "name": "DECIDED_AT",
+            "type": "timestamp"
+          }
+        ],
+        "transitions": "REQUESTED -> APPROVED (approve), REQUESTED -> REJECTED (reject, reason required); each verb locks the row with FOR UPDATE and raises ORA-20004..20006 otherwise",
+        "bindings": [
+          "P2_ID",
+          "APP_USER"
+        ],
+        "submittedItems": [
+          "P2_REASON"
+        ],
+        "writes": true,
+        "prerequisites": [
+          {
+            "path": "prerequisites/example-requests.sql",
+            "execution": "Not executed. Creates and seeds APEXREST_EXAMPLE_REQUESTS; apply only to an explicitly authorized isolated development schema, or adapt to the existing project table."
+          },
+          {
+            "path": "prerequisites/example-request-flow-api.sql",
+            "execution": "Not executed. Apply after example-requests.sql to the same authorized development schema, or map the processes to the project's existing transition API."
+          }
+        ],
+        "authorization": "Preserve application authentication; restrict the dialog page and the Approve/Reject buttons and processes to an approver authorization scheme before deployment."
+      },
+      "adaptation": [
+        "Choose free page numbers and rename all P1_ and P2_ items, URLs and button references consistently.",
+        "Rename region, button and dynamic-action identifiers before merging into an existing application.",
+        "Preserve the target application authentication and add an approver authorization scheme to the dialog, both decision buttons and both processes.",
+        "Map the invokeApi processes to the project's transition verbs; keep the legal-source-status check and row lock in the database, never set STATUS directly from the page.",
+        "When adapting into an APEX 26.2 application, give each process a unique advanced.executionMappingIdentifier (for example page * 100 + n).",
+        "Package errors are shown with their ORA-2000x prefix; register an application error-handling function if users should see only the message text."
+      ],
+      "dependenciesClosed": true,
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "b6fefe69af3a00d9a6b77c0ed0da6759009736ac7a54bd34bf01ac975d3be430",
+          "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+          "mmdVersion": "26.1.0+3102"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      },
+      "provenance": {
+        "sourceUrl": "https://github.com/Pp-py/apexlang-skills/blob/1950b914cfc778623e655390455d78efed834751/skills/apexlang-architecture/examples/absences-workflow/04-page-absence-resolve.apx",
+        "repository": "https://github.com/Pp-py/apexlang-skills",
+        "commit": "1950b914cfc778623e655390455d78efed834751",
+        "path": "skills/apexlang-architecture/examples/absences-workflow/04-page-absence-resolve.apx",
+        "sourceSha256": "a6f119fe4d86865eda7940603e7bdf180367a76f7177733dba5c88de43b09f71",
+        "license": "MIT",
+        "derivation": "original-adaptation"
+      }
     }
   ]
 }

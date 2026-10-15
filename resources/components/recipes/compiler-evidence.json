@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "timestamp": "2026-10-15T11:13:04.031Z",
+  "timestamp": "2026-10-15T11:22:23.295Z",
   "mock": false,
   "scope": "Real offline Oracle APEXlang validation only. Synthetic SQL is not executed. No database connection, application import or browser/runtime verification.",
   "compiler": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
@@ -1363,6 +1363,28 @@
         "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
         "pages/p00001-home.apx": "3c0214b3b7940704b458b421ac3f43c2a9d83db98d09d29a9fc2a72e836da2d2",
         "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
+        "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
+        "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"
+      },
+      "inputUnchanged": true,
+      "exitCode": 0,
+      "output": "Validation successful."
+    },
+    {
+      "recipeId": "component:pages/modal-dialog/recipes/approval-workflow",
+      "passed": true,
+      "sourceSha256": "b6fefe69af3a00d9a6b77c0ed0da6759009736ac7a54bd34bf01ac975d3be430",
+      "inputFiles": {
+        ".apex/apexlang.json": "f30f4fc62ad14eb26bfc32468f295886307d583c219581fa8abf6c5235b2030c",
+        "application.apx": "e3bb5f0436282b0777d454b289c4ff41150b4b69f23d1ec526ec1ad9bed2933d",
+        "LICENSE.txt": "3c5def7c6162e618df23f69657623052adc784e0c278f968586e7da8701545a7",
+        "pages/p00000-global-page.apx": "00df156b213512f9c44abe57d9358324a2b043c891b94905065e8157d006f7ee",
+        "pages/p00001-home.apx": "6c06569ca1dd1cb79c07eedb9d56df35ea6716d1cb05a7dcb98b38e867e3a083",
+        "pages/p00002-resolve-request.apx": "8000465dfb4fc963c643a978aaf12cce24952319793be2ce60446a882d1400f1",
+        "pages/p09999-login.apx": "92abe925178ab96239af528ff9c405a8280bc57f87c5ea6334a83ab294ff6e53",
+        "prerequisites/example-request-flow-api.sql": "6fa7c3024990a6b9f8e810de53bcccf184da304941c4d064a589ca4f58cab125",
+        "prerequisites/example-requests.sql": "6ed1e36326edbfe7bc4cbf0149ea5555d6badf8475bb6db7f35e6faeb38d814f",
         "shared-components/authentications.apx": "4b525f3023225c4f91b53c58fabec81ef146d5dfabd1c677cb7c71866d179382",
         "shared-components/lists.apx": "ff94822439d791520932af5b6618ef27aa18c15e709652326d7d9b739fbb6470",
         "shared-components/themes/universal-theme/theme.apx": "d78b66cd4330e69c24ff87e0d68d722e497347a593ce719e3f52883b9c7af3d1"

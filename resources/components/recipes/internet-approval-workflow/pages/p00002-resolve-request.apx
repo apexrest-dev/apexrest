@@ -1,0 +1,432 @@
+page 2 (
+    name: Resolve request
+    alias: RESOLVE-REQUEST
+    title: Resolve request
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    dialog {
+        chained: false
+    }
+    navigation {
+        warnOnUnsavedChanges: false
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region request (
+        name: Request
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    region already-decided (
+        name: Already decided
+        type: staticContent
+        source {
+            htmlCode: <p>This request is no longer waiting for a decision.</p>
+        }
+        layout {
+            sequence: 20
+            slot: contentBody
+        }
+        appearance {
+            template: @/alert
+            templateOptions: [
+                #DEFAULT#
+                t-Alert--warning
+            ]
+        }
+        serverSideCondition {
+            type: item!=value
+            item: P2_STATUS
+            value: REQUESTED
+        }
+    )
+
+    region dialog-buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 30
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+
+    pageItem P2_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @request
+            slot: regionBody
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+
+    pageItem P2_REQUESTER (
+        type: displayOnly
+        label {
+            label: Requester
+            alignment: left
+        }
+        layout {
+            sequence: 20
+            region: @request
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_REQUEST_TYPE (
+        type: displayOnly
+        label {
+            label: Type
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @request
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_PERIOD (
+        type: displayOnly
+        label {
+            label: Period
+            alignment: left
+        }
+        layout {
+            sequence: 40
+            region: @request
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_STATUS (
+        type: displayOnly
+        label {
+            label: Status
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @request
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P2_REASON (
+        type: textarea
+        label {
+            label: Rejection reason
+            alignment: left
+        }
+        layout {
+            sequence: 60
+            region: @request
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 400
+        }
+        help {
+            inlineHelpText: Required when rejecting; stored with the request.
+        }
+        serverSideCondition {
+            type: item=value
+            item: P2_STATUS
+            value: REQUESTED
+        }
+    )
+
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @dialog-buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+
+    button reject (
+        buttonName: REJECT
+        label: Reject
+        layout {
+            sequence: 20
+            region: @dialog-buttons
+            slot: delete
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: Reject this request? The decision cannot be undone.
+            style: danger
+        }
+        serverSideCondition {
+            type: item=value
+            item: P2_STATUS
+            value: REQUESTED
+        }
+    )
+
+    button approve (
+        buttonName: APPROVE
+        label: Approve
+        layout {
+            sequence: 30
+            region: @dialog-buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: item=value
+            item: P2_STATUS
+            value: REQUESTED
+        }
+    )
+
+    dynamicAction cancel-dialog (
+        name: Cancel dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+
+        action native-dialog-cancel (
+            action: cancelDialog
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+
+    validation reject-reason-required (
+        name: Reason required when rejecting
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: itemIsNotNull
+            item: P2_REASON
+        }
+        error {
+            errorMessage: Enter the rejection reason.
+            associatedItem: @P2_REASON
+        }
+        serverSideCondition {
+            whenButtonPressed: @reject
+        }
+    )
+
+    process load-request (
+        name: Load request
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    select REQUESTER,
+                           REQUEST_TYPE,
+                           to_char(DATE_FROM, 'YYYY-MM-DD') || ' - ' || to_char(DATE_TO, 'YYYY-MM-DD'),
+                           STATUS
+                      into :P2_REQUESTER, :P2_REQUEST_TYPE, :P2_PERIOD, :P2_STATUS
+                      from APEXREST_EXAMPLE_REQUESTS
+                     where ID = :P2_ID;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P2_ID
+        }
+    )
+
+    process approve-request (
+        name: Approve request
+        type: invokeApi
+        invoke {
+            package: APEXREST_EXAMPLE_REQUEST_FLOW_API
+            procedureOrFunction: approve
+        }
+        parameter p_id (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ID
+            }
+            advanced {
+                displaySequence: 1
+            }
+        )
+        parameter p_decided_by (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: expression
+                plsqlExpression: :APP_USER
+            }
+            advanced {
+                displaySequence: 2
+            }
+        )
+        execution {
+            sequence: 20
+        }
+        serverSideCondition {
+            whenButtonPressed: @approve
+        }
+        successMessage {
+            successMessage: Request approved.
+        }
+    )
+
+    process reject-request (
+        name: Reject request
+        type: invokeApi
+        invoke {
+            package: APEXREST_EXAMPLE_REQUEST_FLOW_API
+            procedureOrFunction: reject
+        }
+        parameter p_id (
+            parameter {
+                direction: in
+                dataType: number
+            }
+            value {
+                type: item
+                item: P2_ID
+            }
+            advanced {
+                displaySequence: 1
+            }
+        )
+        parameter p_reason (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: item
+                item: P2_REASON
+            }
+            advanced {
+                displaySequence: 2
+            }
+        )
+        parameter p_decided_by (
+            parameter {
+                direction: in
+                dataType: varchar2
+            }
+            value {
+                type: expression
+                plsqlExpression: :APP_USER
+            }
+            advanced {
+                displaySequence: 3
+            }
+        )
+        execution {
+            sequence: 30
+        }
+        serverSideCondition {
+            whenButtonPressed: @reject
+        }
+        successMessage {
+            successMessage: Request rejected.
+        }
+    )
+
+    // Runs only after a successful decision; a validation or guard error stops
+    // processing first and keeps the dialog open with the message.
+    process close-dialog (
+        name: Close dialog
+        type: closeDialog
+        execution {
+            sequence: 90
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: APPROVE,REJECT
+        }
+    )
+)

@@ -1,0 +1,183 @@
+page 1 (
+    name: Requests
+    alias: HOME
+    title: Requests
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region requests (
+        name: Requests
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       REQUESTER,
+                       REQUEST_TYPE,
+                       to_char(DATE_FROM, 'YYYY-MM-DD') || ' - ' || to_char(DATE_TO, 'YYYY-MM-DD') PERIOD,
+                       STATUS,
+                       DECIDED_BY,
+                       case when STATUS = 'REQUESTED'
+                            then apex_page.get_url(p_page => 2, p_items => 'P2_ID', p_values => ID, p_clear_cache => '2')
+                       end RESOLVE_URL
+                  from APEXREST_EXAMPLE_REQUESTS
+                 order by case STATUS when 'REQUESTED' then 0 else 1 end, DATE_FROM
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+        }
+        messages {
+            whenNoDataFound: No requests.
+        }
+
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: hidden
+            layout {
+                sequence: 10
+            }
+        )
+
+        column REQUESTER (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Requester
+            }
+            layout {
+                sequence: 20
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column REQUEST_TYPE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Type
+            }
+            layout {
+                sequence: 30
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column PERIOD (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Period
+            }
+            layout {
+                sequence: 40
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 5
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 50
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {case STATUS/}{when APPROVED/}<span class="t-Badge u-success">Approved</span>{when REJECTED/}<span class="t-Badge u-danger">Rejected</span>{otherwise/}<span class="t-Badge u-warning">Requested</span>{endcase/}
+                    ```
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column DECIDED_BY (
+            reportColumnQueryId: 6
+            derivedColumn: N
+            heading {
+                heading: Decided by
+            }
+            layout {
+                sequence: 60
+            }
+            sorting {
+                sortable: false
+            }
+        )
+
+        column RESOLVE_URL (
+            reportColumnQueryId: 7
+            derivedColumn: N
+            heading {
+                heading: Action
+            }
+            layout {
+                sequence: 70
+            }
+            columnFormatting {
+                htmlExpression:
+                    ```html
+                    {if ?RESOLVE_URL/}<a href="#RESOLVE_URL!ATTR#" aria-label="Resolve request from #REQUESTER!ATTR#">Resolve</a>{endif/}
+                    ```
+            }
+            sorting {
+                sortable: false
+            }
+        )
+    )
+
+    dynamicAction refresh-requests (
+        name: Refresh requests after the dialog closes
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: jsExpression
+            javaScriptExpression: window
+        }
+
+        action native-refresh (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @requests
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

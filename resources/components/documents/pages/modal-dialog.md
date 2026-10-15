@@ -1,6 +1,6 @@
 # Modal Dialog
 
-Aliases: Modal Dialog; модальна сторінка діалог; Modal Dialog Page; Guarded status transition dialog; workflow status change cancel close approve confirm modal dialog row version guard
+Aliases: Modal Dialog; модальна сторінка діалог; Modal Dialog Page; Guarded status transition dialog; workflow status change cancel close approve confirm modal dialog row version guard; Approval workflow with named transitions; approve reject request state machine status badge confirmation reason for update
 
 Present a separate application page as a modal dialog.
 
@@ -22,6 +22,7 @@ Source descriptions and exact example links: component:pages/modal-dialog/source
 
 - component:pages/modal-dialog/recipes/basic: ready
 - component:pages/modal-dialog/recipes/guarded-status-transition: ready
+- component:pages/modal-dialog/recipes/approval-workflow: ready
 
 ## Parameters and adaptation
 
