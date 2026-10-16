@@ -311,8 +311,11 @@ test('workers record phases immediately and the composite job tool reads them', 
     return failure('ship.apply', new Fault('IMPORT_FAILED', 'fixture', 1));
   });
   let first = await dispatch('job', { project: ctx.root, jobId: started.jobId });
-  for (let i = 0; i < 100 && !(first.data as { phase?: string }).phase; i++) {
-    await delay(10);
+  // Windows may retry a transient state-file rename at the next heartbeat.
+  // Keep the phase held and allow that bounded retry instead of racing it.
+  const phaseDeadline = Date.now() + 10000;
+  while (!(first.data as { phase?: string }).phase && Date.now() < phaseDeadline) {
+    await delay(20);
     first = await dispatch('job', { project: ctx.root, jobId: started.jobId });
   }
   assert.equal(first.operation, 'job');

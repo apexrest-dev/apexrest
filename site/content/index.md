@@ -10,7 +10,7 @@ APEXREST brings application source, Oracle compilation, controlled imports and r
 
 Change a page and its shared list of values, then import just those `.apx` files. **Automatic selection** finds eligible local changes; **explicit file selection** keeps the import limited to your list. A three-way comparison preserves remote-only changes and blocks conflicts, with a scoped APEXlang backup and readback around each partial import. Pages use native partial exports; shared files disclose full APEXlang observation through the same Codex and Claude Code runtime.
 
-> **Available in the 2.0.0 source bundle.** Requires an existing development/test app, a trusted sync baseline, 26.2 sources/target and reviewed SQLcl 26.3 using a direct connection. The APEXREST CLI and MCP tool both support it; 26.1 keeps full imports.
+> **Available in the 2.1.0 source bundle.** Requires an existing development/test app, a trusted sync baseline, 26.2 sources/target and reviewed SQLcl 26.3 using a direct connection. The APEXREST CLI and MCP tool both support it; 26.1 keeps full imports.
 
 [Get started with partial imports](../../docs/apex-26.2.md#quick-start-from-an-updated-checkout) · [Compare import modes](../../docs/apex-26.2.md#choose-an-import-mode)
 

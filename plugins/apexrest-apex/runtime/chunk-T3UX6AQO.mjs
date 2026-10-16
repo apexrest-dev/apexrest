@@ -2239,7 +2239,7 @@ var LocalDeploymentControl = class {
 // plugins/metadata.json
 var metadata_default = {
   name: "apexrest-apex",
-  version: "2.0.0",
+  version: "2.1.0",
   description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
   author: {
     name: "APEXREST",

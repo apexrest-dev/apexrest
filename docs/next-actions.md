@@ -60,9 +60,9 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Release and repository policy
 
-Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The authorized 2.0.0 npm exception retains three mandatory current local reports and treats the six external reports as advisory for npm only. Full qualification still requires all nine reports. Do not treat absent reports as passed gates.
+Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The authorized 2.1.0 npm exception retains three mandatory current local reports and treats the six external reports as advisory for npm only. Full qualification still requires all nine reports. Do not treat absent reports as passed gates.
 
-- Preserve the verified 2.0.0 npm publication evidence: latest=2.0.0, matching public archive integrity and a fresh registry install with CLI/MCP/current-reference checks. Future versions need their own applicable readiness decision; the local-evidence exception is bound only to 2.0.0.
+- Complete the authorized 2.1.0 npm publication: refresh all three mandatory source-bound local reports, pass final-source CI, inspect the tarball, verify ownership, publish under latest, then check public integrity and a fresh registry install with CLI/MCP/current-reference probes. The local-evidence exception is bound only to 2.1.0.
 - Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The current npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
 - Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
 - Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
