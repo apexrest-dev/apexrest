@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import {
   defaultCatalog,
   loadHarness,
@@ -13,7 +14,7 @@ import {
 test('default harness selects the existing 26.1 catalog and refuses mismatches', async () => {
   const h = await loadHarness({});
   assert.equal(h.profile, '26.1');
-  assert.ok(h.catalogFile.endsWith(defaultCatalog));
+  assert.equal(h.catalogFile, resolve(defaultCatalog));
   assert.equal(
     (await loadHarness({ profile: '26.2', catalog: 'tests/plugin-server/apex-26.2.extensions.json' }))
       .profile,
