@@ -20,6 +20,22 @@ The plugin provides six skills and ten MCP tools backed by one runtime that runs
 
 The video is an illustrated walkthrough of one page change: selective export, local edit, compiler validation, scope planning, APEXlang snapshot, selected-file import and readback, plus the shared-component boundary. Data, page names and the narrator voice are synthetic; it is not a recording of a live deployment or a benchmark.
 
+## Watch: how the component library grounds APEXlang
+
+[![Poster frame of the component library explainer: four offline catalogs with 389 Oracle definitions, 176 component recipes, 69 pattern recipes and 1,350 public pages](docs/assets/apexrest-component-library-poster.png)](docs/assets/apexrest-component-library.mp4)
+
+[Watch the explainer (MP4, 1:41, 1080×1350, English narration, burned-in captions)](docs/assets/apexrest-component-library.mp4) · [Captions (SRT)](docs/assets/apexrest-component-library.srt)
+
+A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. The video shows how the agent reads before it writes:
+
+- **Offline library:** pinned Oracle 26.2 definitions, the [component catalog](docs/component-catalog.md) and the [pattern catalog](docs/pattern-catalog.md) of compiler-checked recipes, and public Oracle pages kept as references.
+- **Retrieval:** `apexrest_reference` searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit's code, with at most three lookups per change.
+- **Recipe as a contract:** the data shape, adaptation rules, working APEXlang and compiler evidence bound to file checksums.
+- **Validation:** the adapted page goes through the real Oracle compiler, which returns file, line, column and valid values for a mistyped property.
+- **Shipping:** `apexrest_ship` handles the import. `ready` proves offline compilation only; SQL execution, import and browser checks are recorded separately.
+
+The search results, the `LOV_NOT_FOUND` diagnostic and the passing validation are captured APEXREST 2.1.0 outputs. The user request, the compile-loop sketch and the narrator voice are illustrative or synthetic. No import or browser check was run for this video.
+
 ## APEX 26.2: import the pages and components you changed
 
 **Update a page and its shared list of values without re-importing the rest of the application.** APEXREST can automatically select eligible changes or import an explicit list of `.apx` files. It compares the saved baseline, local edits and a fresh server export, preserves remote-only changes and blocks conflicts before writing.
@@ -112,7 +128,7 @@ Validation, planning, references, metadata and sync run inside the MCP server pr
 | `apexrest-setup`           | Doctor, dependency installation, SQLcl mode and ORDS transport, connection references and the project status snapshot       |
 | `apexrest-pattern-catalog` | Maintainers only: add reviewed UX patterns to the bundled catalog from an identified application                            |
 
-Invoke a skill as `$apexrest-work` in Codex or `/apexrest:apexrest-work` in Claude Code, or describe the change and let the host select it. The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Complete [26.2 Oracle inventory](https://apexrest-dev.github.io/apexrest/oracle-apexlang-coverage/): 389 definitions and 32,187 contextual property occurrences. Independent 26.1 offline UX catalogs: 109 component families with 138 compiler-checked recipes ([component catalog](https://apexrest-dev.github.io/apexrest/component-catalog/)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](https://apexrest-dev.github.io/apexrest/pattern-catalog/)). Compiler readiness does not imply SQL, import or browser verification.
+Invoke a skill as `$apexrest-work` in Codex or `/apexrest:apexrest-work` in Claude Code, or describe the change and let the host select it. The skills are host-neutral; the linked local evidence reports their exact `SKILL.md` byte count; reference files load on demand. Complete [26.2 Oracle inventory](https://apexrest-dev.github.io/apexrest/oracle-apexlang-coverage/): 389 definitions and 32,187 contextual property occurrences. Independent 26.1 offline UX catalogs: 109 component families with 176 compiler-checked recipes ([component catalog](https://apexrest-dev.github.io/apexrest/component-catalog/)) and 58 UX patterns with 84 recipes, 69 compiler-checked ([pattern catalog](https://apexrest-dev.github.io/apexrest/pattern-catalog/)). Compiler readiness does not imply SQL, import or browser verification.
 
 ## Oracle access
 

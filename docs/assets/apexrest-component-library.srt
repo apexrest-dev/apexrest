@@ -1,0 +1,96 @@
+1
+00:00:00,450 --> 00:00:04,178
+AI agents can now build Oracle APEX apps in APEXlang.
+
+2
+00:00:04,438 --> 00:00:06,889
+The hard part is getting every property right.
+
+3
+00:00:08,039 --> 00:00:12,122
+A single KPI card is about seventy lines of nested source.
+
+4
+00:00:12,382 --> 00:00:16,206
+Every guessed name or wrong nesting costs another compile round.
+
+5
+00:00:17,356 --> 00:00:20,969
+So APEXREST ships a library the agent reads offline.
+
+6
+00:00:21,229 --> 00:00:23,745
+Pinned Oracle references define the grammar.
+
+7
+00:00:24,005 --> 00:00:30,951
+A component catalog covers 109 families with 176 compiler-checked recipes.
+
+8
+00:00:31,211 --> 00:00:34,132
+Pattern recipes show how components work together,
+
+9
+00:00:34,392 --> 00:00:38,957
+and 1,350 public Oracle pages serve as references.
+
+10
+00:00:40,107 --> 00:00:43,647
+The agent searches in plain words, in English or Ukrainian.
+
+11
+00:00:43,907 --> 00:00:47,510
+Ready recipes rank first, and the top hit carries its code.
+
+12
+00:00:47,770 --> 00:00:52,117
+Responses stay under 7 KB, with at most three lookups per change.
+
+13
+00:00:53,267 --> 00:00:55,980
+A recipe is a contract, not just a snippet:
+
+14
+00:00:56,240 --> 00:00:59,967
+the data it expects, the names to adapt, working APEXlang,
+
+15
+00:01:00,227 --> 00:01:02,779
+and compiler evidence bound to a checksum.
+
+16
+00:01:03,929 --> 00:01:08,216
+The agent adapts it to your page: item names, SQL and columns.
+
+17
+00:01:08,476 --> 00:01:11,921
+Then the real Oracle compiler checks the whole application.
+
+18
+00:01:12,181 --> 00:01:16,194
+A typo returns its file, line, column and the valid values.
+
+19
+00:01:16,454 --> 00:01:19,103
+One targeted fix, and validation passes.
+
+20
+00:01:20,253 --> 00:01:24,196
+One ship call plans, backs up, imports and verifies the change.
+
+21
+00:01:24,456 --> 00:01:27,905
+And the labels stay honest: ready means it compiles offline.
+
+22
+00:01:28,165 --> 00:01:31,709
+SQL, import and browser checks are recorded separately.
+
+23
+00:01:32,859 --> 00:01:36,540
+Less guessing. Grounded APEXlang. Verified changes.
+
+24
+00:01:36,800 --> 00:01:39,156
+APEXREST, for Codex and Claude Code.
+
