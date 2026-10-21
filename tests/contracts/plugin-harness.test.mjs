@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   defaultCatalog,
   loadHarness,
@@ -98,6 +100,26 @@ test(
     assert.equal(result.timedOut, true);
     const pid = Number(result.stdout.trim());
     assert.ok(pid > 0);
-    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    const stopped = async () => {
+      try {
+        process.kill(pid, 0);
+        if (process.platform === 'linux') {
+          // A killed orphan may retain its PID until init reaps the zombie.
+          const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
+          return stat.slice(stat.lastIndexOf(')') + 2).startsWith('Z ');
+        }
+        return false;
+      } catch (error) {
+        if (error.code === 'ESRCH' || error.code === 'ENOENT') return true;
+        throw error;
+      }
+    };
+    const deadline = Date.now() + 5000;
+    let terminated = await stopped();
+    while (!terminated && Date.now() < deadline) {
+      await delay(25);
+      terminated = await stopped();
+    }
+    assert.equal(terminated, true, 'The descendant must terminate after the timeout.');
   },
 );
