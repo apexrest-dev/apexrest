@@ -1,16 +1,16 @@
 # Current release notes
 
-## Source bundle 2.1.0
+## Source bundle 2.2.0
 
 The repository bundle supports Codex and Claude Code with six skills and ten MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
 
-## Changes in 2.1.0
+## Changes in 2.2.0
 
-- Working-copy sync exports selected components separately and recognizes native APEX 26.2 canonical readback, including template-option lists and explicitly sequenced children. Canonical-only server rewrites no longer block a later full or selected plan.
-- Expand the compiler-checked public recipe catalog with pinned internet sources, licensing and dependency boundaries.
-- Harden SQL review, detached jobs, cancellation and interrupted-import recovery; accept hyphenated APEX workspace names while retaining strict SQL schema identifiers.
+- Recheck the complete bundled Oracle APEXlang source library against the current official repository: all 389 26.2 definitions and 659 bundled 26.1 source files match; imported examples/catalog and license are unchanged, with no newer release directory. Reviewed source pins remain unchanged.
+- Refresh coverage, local installation evidence and maintenance documentation. This minor release retains the existing six skills, ten MCP tools and runtime behavior.
+- Align package and plugin versions with a new source-bound release check. npm distribution and full native/Oracle qualification remain separate outcomes.
 
 ## Upgrade a working copy
 
@@ -18,6 +18,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows remain disabled. Publisher configuration opts into the explicitly authorized 2.1.0 npm target; publication still requires every current source-bound release gate. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website. GitHub release/tag and integration execution are not part of this npm authorization.
+Repository release and Oracle integration workflows remain disabled. Publisher configuration opts into the explicitly authorized 2.2.0 npm target; publication still requires every current source-bound npm gate. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website. GitHub release/tag and integration execution are not part of this npm authorization.
 
 See [implementation status](implementation-status.md), [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Fixtures and offline compilation do not establish connected Oracle, authenticated application browsing or native model-host execution.

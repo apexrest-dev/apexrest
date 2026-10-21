@@ -1,5 +1,5 @@
 # APEXREST for Codex and Claude Code
-Source version 2.1.0. See implementation status for verification limits.
+Source version 2.2.0. See implementation status for verification limits.
 
 - [Overview](https://apexrest-dev.github.io/apexrest/)
 - [Install](https://apexrest-dev.github.io/apexrest/install/)

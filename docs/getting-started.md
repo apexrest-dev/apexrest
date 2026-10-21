@@ -2,7 +2,7 @@
 
 Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or `npm ci` is needed for installation.
 
-This guide describes the current 2.1.0 source bundle, including APEX 26.2 partial imports. Install from the source repository for these features; check the version and capabilities of a separately published npm package. See [release notes](release-notes.md) and [implementation status](implementation-status.md) for the current scope and qualification requirements.
+This guide describes the current 2.2.0 source bundle, including APEX 26.2 partial imports. Install from the source repository for these features; check the version and capabilities of a separately published npm package. See [release notes](release-notes.md) and [implementation status](implementation-status.md) for the current scope and qualification requirements.
 
 Already using APEX 26.2? Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.
 
