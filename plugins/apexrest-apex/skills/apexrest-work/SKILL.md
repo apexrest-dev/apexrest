@@ -8,7 +8,7 @@ description: Create or change Oracle APEX applications: references, APEXlang, co
 Use the current host session (Codex or Claude Code). `project` is the absolute directory containing `apexrest.json`.
 
 1. New app: `apexrest_project action:init` with `directory` and `template` (`blank-app` or `customer-crm`). Existing app: `action:inspect`; `apexrest_apex_sync action:status` reads local working-copy status.
-2. At most 3 reference lookups per change: `apexrest_reference mode:search`, short English terms, `kind`, `limit:3`; `mode:read` the chosen ID. Contracts: [apexlang](../apexrest-apexlang/SKILL.md).
+2. At most 3 lookups per change. Pages: `apexrest_reference mode:select` once with `project` and a concise UI-only `request`. Uses optional Decisions or local retrieval. Read contracts/dependencies; compose in this host. Fill gaps with `mode:search`/`mode:read`. See [apexlang](../apexrest-apexlang/SKILL.md).
 3. Edit application `.apx` files, preserving Oracle metadata/IDs and security. Include required changed dependencies; no placeholders.
 4. Ordinary authorized edits use one `apexrest_ship mode:apply` call. It compiles, plans, records the grant, imports and verifies. Standalone `apexrest_apex_validate` is for editing diagnostics; omit duplicate validate/plan calls. Fix compiler errors before import.
 5. When review is needed, use `mode:plan`, `env` and `userRequest` (literal human instruction). Review target, selection, risks and database operations. Production is forbidden. Remote dangerous changes require exact-plan confirmation through [safety](../apexrest-safety/SKILL.md); actual local targets need no separate risk prompt.

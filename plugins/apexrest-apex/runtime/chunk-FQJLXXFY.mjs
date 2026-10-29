@@ -5,7 +5,7 @@ import {
   runPooledSqlcl,
   runProcess,
   runSqlclMcp
-} from "./chunk-TE5VTEAH.mjs";
+} from "./chunk-QG6GE7LO.mjs";
 import {
   isProductionTarget,
   managedHome,
@@ -13,10 +13,10 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-YEGSGHTV.mjs";
+} from "./chunk-EMYWWRNE.mjs";
 import {
   external_exports
-} from "./chunk-U7MVLA3R.mjs";
+} from "./chunk-HRX24FAR.mjs";
 import {
   Fault,
   __commonJS,
@@ -33,7 +33,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-I5KYBPSK.mjs";
+} from "./chunk-SSL73I4K.mjs";
 
 // node_modules/pend/index.js
 var require_pend = __commonJS({
@@ -2239,7 +2239,7 @@ var LocalDeploymentControl = class {
 // plugins/metadata.json
 var metadata_default = {
   name: "apexrest-apex",
-  version: "2.2.0",
+  version: "2.3.0",
   description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
   author: {
     name: "APEXREST",
@@ -4266,7 +4266,7 @@ end;
       const stage = await this.stage();
       try {
         const input = path11.join(stage, "restore.sql");
-        await (await import("./chunk-A7ESH6F5.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
+        await (await import("./chunk-R7O4ZEEA.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);
@@ -8232,6 +8232,7 @@ var ToolchainService = class {
 };
 
 export {
+  readLocalEnv,
   savedConnectionName,
   ordsUrl,
   ordsUsername,

@@ -12,3 +12,4 @@ const catalog = createReferenceCatalog({
 
 export const publicTemplateSearch = catalog.search;
 export const publicTemplateRead = catalog.read;
+export const publicTemplateCandidates = catalog.candidates;

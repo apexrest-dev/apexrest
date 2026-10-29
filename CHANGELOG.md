@@ -1,10 +1,10 @@
 # Current changes
 
-## 2.2.0
+## 2.3.0
 
-- Refresh the official Oracle APEXlang source audit against Oracle skills HEAD `014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1`. All 389 bundled 26.2 inventory definitions, imported examples/catalog and license, and all 659 bundled 26.1 source files remain unchanged. Keep their reviewed pins; no newer release directory was found.
-- Update current coverage, installation verification and maintenance documentation. The six skills and ten MCP tools retain their existing runtime behavior.
-- Stabilize the harness timeout contract on Linux: wait for descendant termination and recognize killed processes awaiting OS reaping while still refusing a running descendant.
-- Align the npm package, workspace packages and Codex/Claude Code bundle to 2.2.0, with fresh source-bound local checks and version-bound npm eligibility. Registry distribution remains separate from full native/Oracle qualification.
+- Add optional project-scoped OpenAI Decisions component selection through `apexrest_reference mode:select` and `apexrest docs select`, retaining six skills and ten MCP tools.
+- Rank compatible English/Ukrainian catalog candidates in one bounded predicate batch. Keep final APEXlang generation in the current host model, with contracts and recipes loaded from the verified local catalog.
+- Read credentials from the configured environment or a private literal ENV file; retain explicit local fallback, cancellation, version isolation and bounded responses.
+- Record live selection measurements and a same-page generation pilot, including failures, repairs, actual usage and unqualified scopes. Align package and Codex/Claude Code source versions to 2.3.0; registry publication remains a separate outcome.
 
 See [release notes](docs/release-notes.md), [implementation status](docs/implementation-status.md) and [open verification](docs/next-actions.md).

@@ -23,6 +23,7 @@ import {
   type CodeBlock,
 } from './reference-index.ts';
 import type { ReferenceLink, SearchOptions } from './references.ts';
+import { rankSelection } from './selection-index.ts';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const ascii = (max: number) =>
@@ -387,5 +388,13 @@ export function createReferenceCatalog<
     return result;
   }
 
-  return { search, read };
+  async function candidates(request: string, version: string) {
+    const index = await catalogIndex();
+    return rankSelection(
+      index.searchable.map(({ entry }) => ({ ...entry, text: entry.searchText })),
+      request,
+      version,
+    );
+  }
+  return { search, read, candidates };
 }

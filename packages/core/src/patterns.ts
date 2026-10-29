@@ -13,3 +13,4 @@ const catalog = createReferenceCatalog({
 
 export const patternSearch = catalog.search;
 export const patternRead = catalog.read;
+export const patternCandidates = catalog.candidates;

@@ -368,6 +368,7 @@ test('MCP catalog is ten tools with correct annotations and a bounded footprint'
     tools.filter((t) => t.annotations!.openWorldHint).map((t) => t.name),
     [
       'apexrest_project',
+      'apexrest_reference',
       'apexrest_metadata_read',
       'apexrest_ship',
       'apexrest_apex_sync',

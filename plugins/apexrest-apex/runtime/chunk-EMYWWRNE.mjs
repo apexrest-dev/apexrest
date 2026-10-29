@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   external_exports
-} from "./chunk-U7MVLA3R.mjs";
+} from "./chunk-HRX24FAR.mjs";
 import {
   Fault,
   canonical,
@@ -11,7 +11,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-I5KYBPSK.mjs";
+} from "./chunk-SSL73I4K.mjs";
 
 // packages/core/src/config.ts
 import path from "node:path";
@@ -49,6 +49,12 @@ var projectSchema = external_exports.strictObject({
   // Legacy local coordination is now the default; retained for old project files.
   deploymentControl: external_exports.literal("local").optional(),
   composer: external_exports.strictObject({ allowSourceOnly: external_exports.boolean().default(false) }).optional(),
+  decisionApi: external_exports.strictObject({
+    enabled: external_exports.boolean().default(false),
+    apiKeyEnv: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).default("OPENAI_API_KEY"),
+    envFile: relativePath.optional(),
+    timeoutMs: external_exports.number().int().min(250).max(1e4).default(3e3)
+  }).optional(),
   artifacts: external_exports.strictObject({ directory: relativePath, retentionDays: external_exports.number().int().min(1).max(365) })
 });
 var managedHome = () => path.resolve(process.env.APEXREST_HOME ?? path.join(homedir(), ".apexrest"));

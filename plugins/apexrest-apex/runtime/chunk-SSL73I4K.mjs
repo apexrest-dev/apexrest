@@ -130,7 +130,7 @@ function artifactPage(content, format, id, offset, limit, metadata = {}) {
   return page;
 }
 function redact(value) {
-  return value.replace(
+  return value.replace(/\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{16,}\b/g, "[REDACTED]").replace(
     /("(?:password|passwd|pwd|token|secret|authorization|cookie|set-cookie|wallet_location)"\s*:\s*)"(?:[^"\\]|\\.)*"/gi,
     '$1"[REDACTED]"'
   ).replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[REDACTED]@").replace(

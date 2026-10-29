@@ -160,14 +160,14 @@ const aliases: Record<string, string[][]> = {
 };
 export type QueryTerm = { stem: string; alternatives: string[][] };
 /** Ordered, de-duplicated query terms with their alias alternatives (at most 16). */
-export function referenceQueryTerms(query: string): QueryTerm[] {
+export function referenceQueryTerms(query: string, limit = 16): QueryTerm[] {
   const seen = new Set<string>();
   const terms: QueryTerm[] = [];
   for (const stem of referenceStems(query)) {
     if (seen.has(stem)) continue;
     seen.add(stem);
     terms.push({ stem, alternatives: [[stem], ...(aliases[stem] ?? [])] });
-    if (terms.length === 16) break;
+    if (terms.length === limit) break;
   }
   return terms;
 }

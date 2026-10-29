@@ -27,9 +27,10 @@ import { loadProject, managedHome } from './config.ts';
 import { readJson, exists, writeJson, canonical, hash } from './fs.ts';
 import { Fault, verifiedVendorReferencePage } from './result.ts';
 import { catalogSearch, catalogRead } from './composer/catalog.ts';
-import { componentSearch, componentRead } from './components.ts';
-import { patternSearch, patternRead } from './patterns.ts';
-import { publicTemplateSearch, publicTemplateRead } from './public-templates.ts';
+import { componentSearch, componentRead, componentCandidates } from './components.ts';
+import { patternSearch, patternRead, patternCandidates } from './patterns.ts';
+import { publicTemplateSearch, publicTemplateRead, publicTemplateCandidates } from './public-templates.ts';
+import { rankSelection } from './selection-index.ts';
 
 type Kind = 'grammar' | 'template' | 'contract' | 'guide';
 export type Reference = {
@@ -516,6 +517,38 @@ export async function referenceSearch(query: string, version?: string, options: 
   );
   return fitResults(results, Math.min(16000, 2500 * limit), (page) => JSON.stringify(page).length);
 }
+/** Only verified bundled metadata participates in the optional Decisions shortlist. */
+export async function referenceCandidates(request: string, version: string) {
+  if (version.split('@')[0] === '26.2') {
+    const index = await referenceIndex(version);
+    const contracts = rankSelection(
+      index.searchable
+        .filter(({ reference: r }) => r.kind === 'contract' && r.family?.startsWith('inventory/'))
+        .map(({ reference: r, title }) => ({
+          id: r.id,
+          title,
+          version: r.version,
+          kind: 'contract',
+          family: r.family!,
+          readiness: 'reference',
+          text: r.text,
+        })),
+      request,
+      version,
+    );
+    return [...contracts, ...(await publicTemplateCandidates(request, version))]
+      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id, 'en'))
+      .slice(0, 64);
+  }
+  const [components, patterns] = await Promise.all([
+    componentCandidates(request, version),
+    patternCandidates(request, version),
+  ]);
+  return [...components, ...patterns]
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id, 'en'))
+    .slice(0, 64);
+}
+
 export async function referenceRead(
   id: string,
   offset: number,

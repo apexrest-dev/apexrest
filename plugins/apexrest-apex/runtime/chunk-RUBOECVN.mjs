@@ -1,15 +1,15 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   parse
-} from "./chunk-YEGSGHTV.mjs";
+} from "./chunk-EMYWWRNE.mjs";
 import {
   external_exports
-} from "./chunk-U7MVLA3R.mjs";
+} from "./chunk-HRX24FAR.mjs";
 import {
   contained,
   exists,
   readJson
-} from "./chunk-I5KYBPSK.mjs";
+} from "./chunk-SSL73I4K.mjs";
 
 // packages/core/src/browser-preferences.ts
 var browserModeSchema = external_exports.string().trim().min(1).max(80).regex(/^[\p{L}\p{N} ._-]+$/u);

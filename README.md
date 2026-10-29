@@ -46,11 +46,11 @@ The search results, the `LOV_NOT_FOUND` diagnostic and the passing validation ar
 | `files`          | Import an explicit list, including required changed dependencies; never expand it to a full import.         |
 | `full`           | Request the existing complete application import.                                                           |
 
-> **Available in the 2.2.0 source bundle.** Partial imports require an existing dev/test app, a trusted sync baseline, APEX 26.2 sources and target, and the reviewed SQLcl 26.3 compiler using a direct connection. Both the CLI and `apexrest_ship` MCP tool support the feature. APEX 26.1 retains full imports.
+> **Available in the 2.3.0 source bundle.** Partial imports require an existing dev/test app, a trusted sync baseline, APEX 26.2 sources and target, and the reviewed SQLcl 26.3 compiler using a direct connection. Both the CLI and `apexrest_ship` MCP tool support the feature. APEX 26.1 retains full imports.
 
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
-> **Source version:** 2.2.0. Registry packages are a separate distribution path; use the repository bundle for its current features. See [current release notes](https://apexrest-dev.github.io/apexrest/release-notes/). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
+> **Source version:** 2.3.0. Registry packages are a separate distribution path; use the repository bundle for its current features. See [current release notes](https://apexrest-dev.github.io/apexrest/release-notes/). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
 
 ## Install
 

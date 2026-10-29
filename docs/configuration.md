@@ -6,6 +6,8 @@ A project has one `apexrest.json` and one pinned toolchain lock. `project init` 
 
 Optional `toolchain.profile` selects `26.1` or `26.2` authoring references. Existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See [APEX 26.2 support](apex-26.2.md) for the matching compiler lock and partial-import requirements.
 
+Optional `decisionApi` configures component selection only: `enabled` (default false), `apiKeyEnv` (default `OPENAI_API_KEY`), optional project-relative `envFile`, and `timeoutMs` (default 3000, range 250–10000). The key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See [Decisions selection](component-catalog.md#optional-openai-decisions-selection) for configuration and CLI/MCP examples.
+
 ## Configure an environment
 
 Add an entry such as `environments.dev` to the generated `apexrest.json`:

@@ -9,6 +9,7 @@ Pass the absolute project directory as `project`. Reuse source already read; ret
 
 ## Retrieval
 
+- Page composition: call `apexrest_reference mode:select` once with `project` and concise UI-only `request` (no private source/data/credentials). Optional project Decisions settings or local retrieval select candidates. Read contracts/dependencies, adapt recipes and compose final APEXlang in this host. Supplement gaps with search; selection proves neither compilation nor runtime behavior.
 - Known entry: `apexrest_reference` `mode:read` with the ID. `oracle:` is a complete document, `grammar:production-name` one production, `component:`/`pattern:` a bundled recipe. Follow only the `requires` and `related` links you need; page with `offset`/`nextOffset`.
 - Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` from the table below and `limit:3`. `version` selects `26.1` or `26.2`; otherwise the project profile selects it, defaulting to 26.1. Pass the same version on reads. Empty results do not prove a feature absent.
 - Reusable component: `mode:search`, `corpus:components`, `kind:template`, English or Ukrainian name, `limit:3`; read the `component:` recipe and its parameter contract. `ready` proves offline compilation only.

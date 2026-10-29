@@ -7,7 +7,7 @@ APEXREST targets Codex (desktop and CLI) and Claude Code with one bundle: six ho
 - The host owns the conversation, model, permissions, browser controls and any native collaboration.
 - APEXREST owns project configuration, pinned references and catalogs, Oracle adapters and the pooled SQLcl engine, deployment policy, browser handoff, recoverable jobs and the read-only status snapshot.
 
-APEXREST does not start model sessions, choose models or maintain a parallel conversation context. There is no plugin work-start API, panel application, HTTP server or MCP UI resource. Request implementation through the [work skill](chat-workflow.md) and use the domain tools when an actual operation is needed.
+APEXREST does not start host model sessions or maintain a parallel conversation context. Optional project-scoped [Decisions selection](component-catalog.md#optional-openai-decisions-selection) calls OpenAI to rank catalog candidates; the current host model still builds the final APEXlang. There is no plugin work-start API, panel application, HTTP server or MCP UI resource. Request implementation through the [work skill](chat-workflow.md) and use the domain tools when an actual operation is needed.
 
 ## Manifests
 

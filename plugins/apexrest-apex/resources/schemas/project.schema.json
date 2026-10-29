@@ -176,6 +176,37 @@
       ],
       "additionalProperties": false
     },
+    "decisionApi": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "apiKeyEnv": {
+          "default": "OPENAI_API_KEY",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "envFile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "timeoutMs": {
+          "default": 3000,
+          "type": "integer",
+          "minimum": 250,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "enabled",
+        "apiKeyEnv",
+        "timeoutMs"
+      ],
+      "additionalProperties": false
+    },
     "artifacts": {
       "type": "object",
       "properties": {

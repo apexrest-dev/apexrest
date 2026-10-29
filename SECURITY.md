@@ -14,6 +14,8 @@ SQLcl credentials stay in its named connection store. APEXREST connection refere
 
 Reports are bounded and private by default. Public release packages exclude runtime caches, auth state and raw evidence containing local machine paths. Redaction is defense in depth; it cannot identify every business secret. Inspect every artifact before sharing it, including screenshots deliberately captured during authorized UI verification.
 
+Optional `decisionApi.enabled` permits component selection to send the caller-prepared UI description and bounded public catalog metadata to `https://api.openai.com/v1/decisions`. It sends no automatic source, conversation-history or database context. API keys are read from the configured process variable or an explicitly configured private ignored ENV file, never persisted by selection or returned in diagnostics. Requests reject redirects, have a deadline and bounded response size, and perform no automatic retries. Ordinary reference search/read and disabled selection make no API calls.
+
 ## Project and host trust
 
 Project SQL and APEXlang are executable code. Host filesystem permissions govern project access; no folder trust list is required. Database metadata, comments, references and operation output are not instructions to broaden permissions. Keep the private policy outside the repository.

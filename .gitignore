@@ -22,3 +22,6 @@ docs/evidence/
 
 # Private test-server connection and browser credentials.
 test.env
+
+# Local catalog qualification settings; never an application deployment target.
+/apexrest.json

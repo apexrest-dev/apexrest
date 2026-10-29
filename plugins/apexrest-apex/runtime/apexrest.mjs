@@ -6,18 +6,18 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-32KTVE5M.mjs";
-import "./chunk-JXPMHMGL.mjs";
-import "./chunk-TE5VTEAH.mjs";
-import "./chunk-JZ5FIGSS.mjs";
+} from "./chunk-3CXZHLAJ.mjs";
+import "./chunk-FQJLXXFY.mjs";
+import "./chunk-QG6GE7LO.mjs";
+import "./chunk-RUBOECVN.mjs";
 import {
   loadProject
-} from "./chunk-YEGSGHTV.mjs";
-import "./chunk-U7MVLA3R.mjs";
+} from "./chunk-EMYWWRNE.mjs";
+import "./chunk-HRX24FAR.mjs";
 import {
   Fault,
   failure
-} from "./chunk-I5KYBPSK.mjs";
+} from "./chunk-SSL73I4K.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -27,13 +27,14 @@ var positional = {
   "connection.test": ["name"],
   "connection.remove": ["name"],
   "docs.search": ["query"],
+  "docs.select": ["request"],
   "docs.read": ["id"],
   "jobs.status": ["id"],
   "jobs.cancel": ["id"],
   "artifacts.read": ["id"]
 };
 var groupAliases = { job: "jobs", reference: "docs" };
-var variadic = { "docs.search": "query" };
+var variadic = { "docs.search": "query", "docs.select": "request" };
 function operationFrom(args) {
   const first = groupAliases[args[0] ?? ""] ?? args[0];
   if (["doctor", "version", "setup", "ship", "status"].includes(first ?? "")) return { op: first, start: 1 };
@@ -90,6 +91,12 @@ function help() {
       "",
       "Read a result ID, grammar:production-name, component: ID or pattern: ID.",
       "Follow nextOffset using --offset; catalog navigationOffset recovers all dependency links."
+    );
+  if (key === "docs.select")
+    lines.push(
+      "",
+      "Select components from concise page needs. Uses project decisionApi settings, otherwise local retrieval.",
+      "Only the supplied request and public catalog descriptions are sent to OpenAI. Final APEXlang is built by the host."
     );
   if (key === "panel.status")
     lines.push(
@@ -187,7 +194,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-XEUD4SVG.mjs");
+    const { startMcp } = await import("./chunk-7FSZMO2V.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

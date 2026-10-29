@@ -7,7 +7,7 @@ import {
   resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-JXPMHMGL.mjs";
+} from "./chunk-FQJLXXFY.mjs";
 import {
   Client,
   ReadBuffer,
@@ -28,11 +28,11 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-TE5VTEAH.mjs";
+} from "./chunk-QG6GE7LO.mjs";
 import {
   managedHome
-} from "./chunk-YEGSGHTV.mjs";
-import "./chunk-U7MVLA3R.mjs";
+} from "./chunk-EMYWWRNE.mjs";
+import "./chunk-HRX24FAR.mjs";
 import {
   Fault,
   __commonJS,
@@ -48,7 +48,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-I5KYBPSK.mjs";
+} from "./chunk-SSL73I4K.mjs";
 
 // node_modules/isexe/windows.js
 var require_windows = __commonJS({

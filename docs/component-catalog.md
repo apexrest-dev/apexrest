@@ -50,7 +50,42 @@ Read the returned ID with `apexrest_reference` `mode: "read"` (`id`), following 
 
 Search matches any of the query terms (at least half must match), ranks ready recipes whose title starts with the query above their overview contracts, and returns property-name lookups such as `pageItemsToSubmit` at the parameter contract. Records with `readiness: "unresolved"` are hidden unless `includeUnresolved: true` is set; an exact ID always resolves. The first hit of a page carries `code`, the recipe's primary `apexlang` block read from its checksum-verified document (bounded to 2,500 characters, `truncated: true` with the full `length` when a read must continue); `include: "code"` attaches it to every hit and `include: "metadata"` to none. `requiresReferences` and `relatedReferences` resolve up to three linked IDs to `{ id, title, kind }` (titles of `oracle:` or `pattern:` targets are `null`), and `docs.read` resolves up to sixteen. The page budget of 7,000 bytes is unchanged: later snippets shrink first, then inline code, and code is dropped before any hit is omitted.
 
-## Use a recipe
+## Optional OpenAI Decisions selection
+
+Before composing a page, the host can select several useful references in one operation:
+
+```sh
+apexrest docs select --project /absolute/project --request "Interactive grid with editable rows, filters and summary cards" --json
+```
+
+The equivalent MCP call is `apexrest_reference` with `mode:"select"`, an absolute `project`, and `request`. `request` is a nonempty concise description of UI needs, at most 4,000 characters. Optional `version` overrides the project profile; `limit` defaults to six and accepts 1–8. CLI selection defaults to the current project directory. The final APEXlang is composed by the current Codex or Claude Code model.
+
+Selection is local unless `decisionApi.enabled` is true in `apexrest.json`:
+
+```json
+{
+  "decisionApi": {
+    "enabled": true,
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "envFile": ".env",
+    "timeoutMs": 3000
+  }
+}
+```
+
+This is an optional configuration fragment. `enabled` defaults to false, `apiKeyEnv` to `OPENAI_API_KEY`, and `timeoutMs` to 3,000 (allowed: 250–10,000). `envFile` is optional and project-relative. The environment variable takes precedence; otherwise the named variable is read from that regular, user-owned, Git-ignored and untracked ENV file, parsed literally. Never put the key itself in project configuration or tool arguments. Configure the variable in the plugin process environment, or use the private file when the desktop host does not inherit shell variables.
+
+Local retrieval builds up to 64 candidates using English/Ukrainian aliases and individual term/phrase matches, without ordinary search's half-term requirement. For 26.1 it uses compatible components and patterns; for 26.2 it uses official inventory contracts and public page examples. Unresolved and incompatible records are excluded. One `POST https://api.openai.com/v1/decisions` request with `gpt-6-luna` asks an independent `predicate` question for each candidate. Only the supplied description and bounded public catalog metadata leave the host. Sources, history and database contents are not read for the request. See [OpenAI Decisions documentation](https://developers.openai.com/api/docs/guides/decisions).
+
+`data.results` contains local reference records with dependency links and the top-hit code block when available; full documents use `mode:read`. Valid probabilities of at least 0.5 are ranked descending, with local order retained on ties. The threshold is an initial heuristic, not a calibrated confidence guarantee. The candidate shortlist can miss a relevant component; the host can supplement it with local search. `ready` and `reference` retain their original verification meanings.
+
+`data.selection` reports `method` (`local` or `openai-decisions`), version, candidate count, duration, and, after an API attempt, model/API duration and validated usage when returned. Missing measurements are omitted. `fallbackReason` distinguishes disabled selection, no candidates, missing/unreadable credentials, timeout, HTTP/network failures, refusal, malformed answers and no confident match. These conditions return local candidates without automatic network retries. Cancellation stops the operation; catalog or selected-document integrity failures remain errors. The timeout includes response-body reading. Disabling the option prevents credential reads and network requests; ordinary `search`/`read` always remain local.
+
+Local fixtures verify contracts and recovery only. On 2026-10-29 a live run exercised four fixed English/Ukrainian scenarios across 26.1/26.2, with 20 successful warm-process measurements per scenario. Full MCP selection median/p95 ranged from 1.01–1.15 / 1.59–1.90 seconds; all 80 successful measured responses included the declared component/contract groups and stayed release-isolated. Of 92 total attempts including initial calls and warm-ups, 89 used Decisions and three fell back on HTTP errors. Those failures remain in the denominator and are excluded from successful API latency statistics. Backend prompt-cache hits were observed; these are not cold-backend measurements or a general accuracy/SLA claim. Private samples and actual usage are in `docs/evidence/decisions/live-benchmark.json`.
+
+A separate 26.1 page-generation pilot used the same `gpt-6.1-sol` / `xhigh` model, task and scaffold, with three runs per flag. Mean active time including all repairs was 344.31 s disabled versus 178.05 s enabled; all six final sources passed the offline Oracle compiler and the same 46 checks. The enabled cohort includes one timeout/local fallback. Mean generator tokens were 59,453 versus 35,277, with another 42,242 Decisions tokens across two successful calls; timeout usage is unknown. Mean known combined usage was therefore 59,453 versus at least 49,358 tokens per page. The fixed first-two-ready-template policy and common completion reference pack are documented in private `docs/evidence/decisions/page-ab/comparison.md`. An adaptive native host can supplement local search, so this one-page pilot does not establish general authoring speed or token savings. SQL checks used a declared synthetic SQLite subset; connected Oracle and browser behavior were not exercised.
+
+## Adapt a recipe
 
 First inspect the current project's source, theme and MMD. Select the correct host: a Media List list template and a Media List template component have different contracts, as do classic Comments reports and Comments template components. Read the selected recipe, its parameter document and its required Oracle contracts.
 

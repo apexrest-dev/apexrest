@@ -12,6 +12,7 @@ const positional: Record<string, string[]> = {
   'connection.test': ['name'],
   'connection.remove': ['name'],
   'docs.search': ['query'],
+  'docs.select': ['request'],
   'docs.read': ['id'],
   'jobs.status': ['id'],
   'jobs.cancel': ['id'],
@@ -20,7 +21,7 @@ const positional: Record<string, string[]> = {
 // Singular/plural and MCP-style aliases map onto the granular operations.
 const groupAliases: Record<string, string> = { job: 'jobs', reference: 'docs' };
 // Free-text positionals collect the remaining words: docs search interactive grid.
-const variadic: Record<string, string> = { 'docs.search': 'query' };
+const variadic: Record<string, string> = { 'docs.search': 'query', 'docs.select': 'request' };
 function operationFrom(args: string[]) {
   const first = groupAliases[args[0] ?? ''] ?? args[0];
   if (['doctor', 'version', 'setup', 'ship', 'status'].includes(first ?? '')) return { op: first!, start: 1 };
@@ -85,6 +86,12 @@ function help() {
       '',
       'Read a result ID, grammar:production-name, component: ID or pattern: ID.',
       'Follow nextOffset using --offset; catalog navigationOffset recovers all dependency links.',
+    );
+  if (key === 'docs.select')
+    lines.push(
+      '',
+      'Select components from concise page needs. Uses project decisionApi settings, otherwise local retrieval.',
+      'Only the supplied request and public catalog descriptions are sent to OpenAI. Final APEXlang is built by the host.',
     );
   if (key === 'panel.status')
     lines.push(

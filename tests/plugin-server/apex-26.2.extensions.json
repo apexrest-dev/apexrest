@@ -371,6 +371,29 @@
         "private screenshots"
       ],
       "budgetMs": null
+    },
+    {
+      "id": "A262-017",
+      "title": "Release-isolated Decisions selection",
+      "category": "speed+quality",
+      "acceptance": ["DECISIONS-01"],
+      "execution": "manual",
+      "surface": "CLI-and-stdio-MCP",
+      "authorization": "Local fixtures; live API requires an explicitly configured OpenAI key and UI-only requests.",
+      "steps": [
+        "Repeat A261-068 with a 26.2 profile and retain separate evidence. Check an explicit 26.1 override and an unknown snapshot selector."
+      ],
+      "expected": [
+        "26.2 selection uses only official inventory contracts and public Oracle page references, never 26.1 components/patterns.",
+        "Public templates retain reference readiness and dependency context. Live quality/latency require independent samples; no database import is needed."
+      ],
+      "evidence": [
+        "runtime/catalog digest, profile and expected versus selected IDs",
+        "per-sample wall/API time, p50/p95, actual API usage and fallback reasons",
+        "sample count and explicit not-run reason"
+      ],
+      "budgetMs": null,
+      "samples": 20
     }
   ]
 }

@@ -1436,6 +1436,57 @@
       "budgetMs": null,
       "prerequisite": "Prewarm (P2.2) is implemented; otherwise record not_run.",
       "samples": 20
+    },
+    {
+      "id": "A261-068",
+      "title": "Optional Decisions component selection and local fallback",
+      "category": "speed+quality",
+      "acceptance": ["DECISIONS-01"],
+      "execution": "manual",
+      "surface": "CLI-and-stdio-MCP",
+      "authorization": "Local fixtures; live API requires an explicitly configured OpenAI key and UI-only requests.",
+      "steps": [
+        "Run the repository selection unit/contract tests for disabled/missing-key, success, timeout, refusal, malformed answers, cancellation, credential precedence and catalog integrity.",
+        "On a 26.1 project, compare CLI/MCP selection for labeled English/Ukrainian requests. If live API access is authorized, collect at least 20 samples per request and cold/warm cohort; otherwise record not_run for live measurements."
+      ],
+      "expected": [
+        "At most 64 compatible component/pattern candidates and one Decisions request per selection; only public catalog metadata and the supplied UI request leave the host.",
+        "The host composes final APEXlang. Local fallback is explicit; no live speed, quality or billing claim is inferred from fixtures."
+      ],
+      "evidence": [
+        "runtime/catalog digest, profile, host and labeled expected versus selected IDs",
+        "per-sample wall/API time, p50/p95, sample count and fallback reason",
+        "actual API usage, request count, response bytes and explicit not-run reason"
+      ],
+      "budgetMs": null,
+      "samples": 20
+    },
+    {
+      "id": "A261-069",
+      "title": "Same-page generation with Decisions enabled and disabled",
+      "category": "speed+quality",
+      "acceptance": ["DECISIONS-01", "A36"],
+      "execution": "manual",
+      "surface": "controlled-model-API-or-native-host",
+      "authorization": "Explicit live model API authorization and synthetic public inputs; database import and browser work require their own identified target.",
+      "steps": [
+        "Freeze the task, versioned scaffold, model, reasoning effort, retrieval policy and quality threshold. Run at least three repetitions per arm in alternating order, changing only decisionApi.enabled.",
+        "Record selected references, all initial generations, fallbacks and repair attempts. If failed runs need a completion phase, apply one common documented repair policy and retain every earlier cost and failure.",
+        "Validate every final source with the pinned Oracle offline compiler, independent requirement checks and declared synthetic query oracles. Compare completion times only at the same quality threshold."
+      ],
+      "expected": [
+        "Report active pipeline time, actual generation and Decisions token usage, repair count and compiler/functional outcomes separately for both arms. Preserve unavailable usage after API failures.",
+        "Cached input and reasoning are subsets. Model-API, fixed-retrieval, native-host, connected Oracle and browser evidence remain distinct; three repetitions do not qualify p95 or general speedup."
+      ],
+      "evidence": [
+        "frozen task/instruction/scaffold hashes, model/effort and runtime/catalog digest",
+        "per-run selection, reference, generation and compiler timing including unsuccessful attempts",
+        "actual API usage by input/cache/output/reasoning and API request count",
+        "generated sources, compiler diagnostics, independent checks, preservation hashes and retrieval/completion policies",
+        "explicit unqualified scopes and unavailable counters"
+      ],
+      "budgetMs": null,
+      "samples": 3
     }
   ],
   "metrics": "quality-performance.json"

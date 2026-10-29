@@ -4,6 +4,7 @@ import { VERSION } from './version.ts';
 import path from 'node:path';
 import { doctor } from './doctor.ts';
 import { referenceSearch, referenceRead, referenceSync } from './references.ts';
+import { referenceSelect } from './reference-selection.ts';
 import { failure, Fault, success, type Result } from './result.ts';
 import { schemas } from './operations.ts';
 import type { Operation } from './operations.ts';
@@ -92,7 +93,20 @@ function routeProject(parsed: Record<string, unknown>) {
   }
 }
 function routeReference(parsed: Record<string, unknown>) {
-  const { mode, query, id, limit, offset, ...rest } = parsed;
+  const { mode, query, id, request, limit, offset, ...rest } = parsed;
+  if (mode === 'select') {
+    if (!rest.project) throw new Fault('INVALID_INPUT', 'project: required for mode select', 2);
+    return {
+      operation: 'docs.select',
+      input: {
+        project: rest.project,
+        request,
+        version: rest.version,
+        ...(limit !== undefined ? { limit } : {}),
+      },
+    };
+  }
+  if (request !== undefined) throw new Fault('INVALID_INPUT', 'request: supported only for mode select', 2);
   if (mode === 'read') {
     if (typeof id !== 'string') throw new Fault('INVALID_INPUT', 'id: required for mode read', 2);
     return {
@@ -293,6 +307,9 @@ async function dispatchObserved(
         break;
       case 'docs.search':
         data = await referenceSearch(text('query'), text('version'), schemas['docs.search'].parse(parsed));
+        break;
+      case 'docs.select':
+        data = await referenceSelect(schemas['docs.select'].parse(parsed), signal);
         break;
       case 'docs.read':
         data = await referenceRead(

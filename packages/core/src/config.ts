@@ -41,6 +41,17 @@ export const projectSchema = z.strictObject({
   // Legacy local coordination is now the default; retained for old project files.
   deploymentControl: z.literal('local').optional(),
   composer: z.strictObject({ allowSourceOnly: z.boolean().default(false) }).optional(),
+  decisionApi: z
+    .strictObject({
+      enabled: z.boolean().default(false),
+      apiKeyEnv: z
+        .string()
+        .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+        .default('OPENAI_API_KEY'),
+      envFile: relativePath.optional(),
+      timeoutMs: z.number().int().min(250).max(10000).default(3000),
+    })
+    .optional(),
   artifacts: z.strictObject({ directory: relativePath, retentionDays: z.number().int().min(1).max(365) }),
 });
 export type ProjectConfig = z.infer<typeof projectSchema>;

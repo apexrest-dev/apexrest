@@ -13,3 +13,4 @@ const catalog = createReferenceCatalog({
 
 export const componentSearch = catalog.search;
 export const componentRead = catalog.read;
+export const componentCandidates = catalog.candidates;

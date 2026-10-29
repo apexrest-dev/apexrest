@@ -728,6 +728,36 @@
     ],
     "additionalProperties": false
   },
+  "docs.select": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "request": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^26\\.[12](?:@[A-Za-z0-9_.-]+)?$"
+      },
+      "limit": {
+        "default": 6,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "additionalProperties": false
+  },
   "docs.read": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -863,6 +893,9 @@
           "additionalProperties": false
         }
       },
+      "debugTimings": {
+        "type": "boolean"
+      },
       "project": {
         "type": "string",
         "minLength": 1,
@@ -917,6 +950,9 @@
         "minLength": 1,
         "maxLength": 4096
       },
+      "debugTimings": {
+        "type": "boolean"
+      },
       "env": {
         "type": "string",
         "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
@@ -970,6 +1006,9 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 4096
+      },
+      "debugTimings": {
+        "type": "boolean"
       },
       "env": {
         "type": "string",
@@ -1278,6 +1317,9 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "debugTimings": {
+        "type": "boolean"
+      },
       "project": {
         "type": "string",
         "minLength": 1,
@@ -1398,17 +1440,23 @@
         "type": "string",
         "enum": [
           "search",
-          "read"
+          "read",
+          "select"
         ]
       },
+      "request": {
+        "description": "select: public UI needs",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      },
       "query": {
-        "description": "search: short English/Ukrainian terms",
         "type": "string",
         "minLength": 1,
         "maxLength": 256
       },
       "id": {
-        "description": "read: result ID, grammar:, component:, pattern:, oracle:",
+        "description": "read: reference ID",
         "type": "string",
         "maxLength": 200
       },
@@ -1484,7 +1532,7 @@
         "maximum": 10000000
       },
       "limit": {
-        "description": "search: 1-8 (default 3); read: characters (default 4096)",
+        "description": "search/select: 1-8; read: chars",
         "type": "integer",
         "minimum": 1,
         "maximum": 8192
@@ -1503,6 +1551,9 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 4096
+      },
+      "debugTimings": {
+        "type": "boolean"
       },
       "env": {
         "type": "string",

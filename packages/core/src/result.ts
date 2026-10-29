@@ -153,6 +153,7 @@ export function artifactPage<T extends Record<string, unknown> = Record<string, 
 }
 export function redact(value: string): string {
   return value
+    .replace(/\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{16,}\b/g, '[REDACTED]')
     .replace(
       /("(?:password|passwd|pwd|token|secret|authorization|cookie|set-cookie|wallet_location)"\s*:\s*)"(?:[^"\\]|\\.)*"/gi,
       '$1"[REDACTED]"',

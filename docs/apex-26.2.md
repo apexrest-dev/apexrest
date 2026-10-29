@@ -2,7 +2,7 @@
 
 **Import a changed page and its shared list of values without re-importing the rest of the application.** APEXREST selects eligible `.apx` files automatically or accepts an explicit list, validates dependencies using retained application context and fresh selected server sources, and preserves unrelated remote changes.
 
-> **Source version:** this guide describes the `2.2.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
+> **Source version:** this guide describes the `2.3.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
 
 ## Choose an import mode
 

@@ -4,6 +4,8 @@ APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for 
 
 Implementation runs in the user's open conversation. See [host integration](codex-integration.md) for ownership and host boundaries.
 
+`apexrest_reference mode:select` and `docs select` add advisory component selection before composition. A compatible local shortlist feeds one optional OpenAI Decisions request when explicitly enabled in the project. API failures return the local shortlist; search/read remain offline. The host model owns final APEXlang authoring. See [selection configuration and data flow](component-catalog.md#optional-openai-decisions-selection).
+
 Oracle operations use SQLcl in `cli` mode (subprocess) or `mcp` mode (the official SQLcl stdio server, distinct from the APEXREST MCP server) over the `direct` listener or `ords` transport. See [configuration](configuration.md) and [SQL through ORDS](ords.md).
 
 ![APEXREST architecture from the agent through source, deployment planning, Oracle and verification.](assets/overview.svg)

@@ -155,6 +155,15 @@ export const schemas = {
     offset: z.number().int().min(0).max(10000).default(0),
     limit: z.number().int().min(1).max(8).default(3),
   }),
+  'docs.select': z.strictObject({
+    ...base,
+    request: z.string().trim().min(1).max(4000),
+    version: z
+      .string()
+      .regex(/^26\.[12](?:@[A-Za-z0-9_.-]+)?$/)
+      .optional(),
+    limit: z.number().int().min(1).max(8).default(6),
+  }),
   'docs.read': z.strictObject({
     ...base,
     id: z.string().max(200),
@@ -241,9 +250,10 @@ export const schemas = {
   }),
   reference: z.strictObject({
     ...base,
-    mode: z.enum(['search', 'read']),
-    query: z.string().min(1).max(256).optional().describe('search: short English/Ukrainian terms'),
-    id: z.string().max(200).optional().describe('read: result ID, grammar:, component:, pattern:, oracle:'),
+    mode: z.enum(['search', 'read', 'select']),
+    request: z.string().trim().min(1).max(4000).optional().describe('select: public UI needs'),
+    query: z.string().min(1).max(256).optional(),
+    id: z.string().max(200).optional().describe('read: reference ID'),
     corpus: z.enum(['apexlang', 'components', 'patterns', 'blocks', 'blueprints']).default('apexlang'),
     version: z.string().optional(),
     kind: z.enum(['grammar', 'template', 'contract', 'guide']).optional(),
@@ -258,13 +268,7 @@ export const schemas = {
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     offset: z.number().int().min(0).max(10000000).default(0),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(8192)
-      .optional()
-      .describe('search: 1-8 (default 3); read: characters (default 4096)'),
+    limit: z.number().int().min(1).max(8192).optional().describe('search/select: 1-8; read: chars'),
   }),
   ship: z
     .strictObject({
@@ -356,8 +360,9 @@ export const toolCatalog: {
     name: 'apexrest_reference',
     operation: 'reference',
     description:
-      'Offline syntax/components/patterns. Top hit includes code; read result, grammar:, component:, pattern: or oracle: IDs. version overrides profile.',
+      'Local references; select components with optional OpenAI Decisions. project required for select. Host writes APEXlang.',
     readOnly: true,
+    openWorld: true,
   },
   {
     name: 'apexrest_metadata_read',
