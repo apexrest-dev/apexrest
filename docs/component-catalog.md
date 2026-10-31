@@ -52,7 +52,7 @@ Search matches any of the query terms (at least half must match), ranks ready re
 
 ## Optional OpenAI Decisions selection
 
-Before composing a page, the host can select several useful references in one operation:
+Before composing a page, the host can select several useful references in one operation. A [one-page pilot video](assets/apexrest-decisions-pilot.mp4) ([captions](assets/apexrest-decisions-pilot.srt)) shows the measured effect and its limits.
 
 ```sh
 apexrest docs select --project /absolute/project --request "Interactive grid with editable rows, filters and summary cards" --json

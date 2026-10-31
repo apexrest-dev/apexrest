@@ -2,6 +2,8 @@
 
 `apexrest preview` runs an APEXlang application on Node.js without an Oracle database. It exists for fast design iteration: page layout, Universal Theme styling, navigation, reports, forms and simple dynamic actions. It is a simulation. It never replaces `apexrest_apex_validate`, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.
 
+[Watch the explainer video (MP4, 1:37)](assets/apexrest-local-preview.mp4) · [Captions](assets/apexrest-local-preview.srt): live screens of Oracle's HR demo app running in the preview, from report and modal form to validation, save and hot reload.
+
 ## How it works
 
 - **Assets.** `preview setup` downloads the official APEX 26.2 distribution (`apex_26.2_en.zip`, about 255 MB) once, or uses a local copy passed with `--zip`. It extracts only the browser runtime (about 70 MB: `libraries/apex`, jQuery, Font APEX, Oracle fonts, `themes/theme_42/26.2`, `app_ui`) and evaluates the Universal Theme export `core/themes/f8842.262.sql` into page, region, label, button, list, report and breadcrumb templates. Nothing from the distribution is stored in this repository. The cache lives in `~/.apexrest/preview/26.2`, or in `APEXREST_PREVIEW_ASSETS` when set.

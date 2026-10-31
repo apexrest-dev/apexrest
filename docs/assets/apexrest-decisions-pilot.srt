@@ -1,0 +1,56 @@
+1
+00:00:00,450 --> 00:00:03,081
+One APEXlang page. The same model.
+
+2
+00:00:03,341 --> 00:00:06,344
+Does selecting the right components first make a difference?
+
+3
+00:00:07,494 --> 00:00:12,624
+OpenAI’s Decisions API evaluates inputs and returns structured answers.
+
+4
+00:00:12,884 --> 00:00:16,477
+In APEXREST, it selects relevant catalog components.
+
+5
+00:00:16,737 --> 00:00:22,635
+The main LLM then uses those references to build the final APEXlang page.
+
+6
+00:00:23,785 --> 00:00:28,098
+Across three runs per mode, including all revisions and validation,
+
+7
+00:00:28,358 --> 00:00:33,522
+average active time fell from 5 min 44 sec to 2 min 58 sec.
+
+8
+00:00:33,782 --> 00:00:35,139
+48% less.
+
+9
+00:00:36,289 --> 00:00:42,431
+Main-model token usage also fell: from about 59,000 to 35,000.
+
+10
+00:00:42,691 --> 00:00:45,057
+Decisions API usage is additional.
+
+11
+00:00:46,207 --> 00:00:50,047
+With Decisions, two of three pages passed on the first generation.
+
+12
+00:00:50,307 --> 00:00:56,361
+After revisions, all six passed the offline Oracle compiler and the same 46 checks.
+
+13
+00:00:57,511 --> 00:01:02,040
+This is a one-page API pilot with a fixed reference-reading policy.
+
+14
+00:01:02,300 --> 00:01:07,103
+Native Codex workflows and browser behavior still need separate validation.
+

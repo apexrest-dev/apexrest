@@ -1,0 +1,88 @@
+1
+00:00:00,450 --> 00:00:03,434
+Your AI agent just wrote an Oracle APEX page.
+
+2
+00:00:03,694 --> 00:00:05,366
+But it has never actually seen it.
+
+3
+00:00:06,516 --> 00:00:12,323
+Usually, every design tweak means compile, import into a dev database, and reload.
+
+4
+00:00:12,583 --> 00:00:16,231
+That loop needs Oracle access, a shared workspace, and time.
+
+5
+00:00:17,381 --> 00:00:20,469
+APEXREST 2.4 adds a local preview.
+
+6
+00:00:20,729 --> 00:00:26,062
+It runs APEXlang sources on Node.js, with SQLite instead of Oracle.
+
+7
+00:00:26,323 --> 00:00:33,305
+Pages use the genuine Universal Theme 26.2 templates, CSS and JavaScript.
+
+8
+00:00:34,455 --> 00:00:38,385
+This is Oracle's public HR demo app, running on a laptop.
+
+9
+00:00:38,645 --> 00:00:44,361
+Reports and modal forms behave like APEX, because it is APEX's own client code.
+
+10
+00:00:45,511 --> 00:00:50,330
+Submit an empty form, and the server answers with real validation errors.
+
+11
+00:00:51,480 --> 00:00:54,500
+Fix it and save: the row lands in SQLite,
+
+12
+00:00:54,760 --> 00:00:58,166
+the dialog closes, and the report refreshes in place.
+
+13
+00:00:59,316 --> 00:01:01,583
+The agent edits the APEXlang file.
+
+14
+00:01:01,843 --> 00:01:04,122
+One reload, and the change is on screen.
+
+15
+00:01:05,272 --> 00:01:09,866
+preview check renders all 43 pages in about 0.2 seconds,
+
+16
+00:01:10,126 --> 00:01:13,612
+and lists everything it could not simulate, instead of hiding it.
+
+17
+00:01:14,762 --> 00:01:16,146
+What development gains:
+
+18
+00:01:16,406 --> 00:01:19,898
+seconds per design iteration, not an import per tweak;
+
+19
+00:01:20,158 --> 00:01:23,061
+no database and no shared workspace at risk;
+
+20
+00:01:23,321 --> 00:01:26,706
+and an agent that checks its own UI before you review it.
+
+21
+00:01:27,856 --> 00:01:30,674
+It is a design aid, not Oracle evidence.
+
+22
+00:01:30,934 --> 00:01:34,247
+Shipping still compiles and imports on a dev target.
+

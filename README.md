@@ -36,6 +36,28 @@ A single Metric Card page is 69 lines of nested APEXlang, and every guessed prop
 
 The search results, the `LOV_NOT_FOUND` diagnostic and the passing validation are captured APEXREST 2.1.0 outputs. The user request, the compile-loop sketch and the narrator voice are illustrative or synthetic. No import or browser check was run for this video.
 
+## Watch: see the UI before it reaches a database
+
+[![Frame of the local preview explainer: Oracle's HR demo Customers page served locally after an agent renamed the region and button](docs/assets/apexrest-local-preview-poster.png)](docs/assets/apexrest-local-preview.mp4)
+
+[Watch the explainer (MP4, 1:37, 1080×1350, English narration, burned-in captions)](docs/assets/apexrest-local-preview.mp4) · [Captions (SRT)](docs/assets/apexrest-local-preview.srt)
+
+An agent can write an APEXlang page without ever seeing it; every design tweak normally means compile, import into a development database and reload. The [local preview](docs/local-preview.md) runs the sources on Node.js with SQLite instead of Oracle, using the Universal Theme 26.2 templates, CSS and JavaScript from the official distribution:
+
+- **Live screens:** Oracle's public HR demo app with a report, a modal form, real validation messages, a save that refreshes the report, and an `.apx` edit visible on the next reload.
+- **Whole-app check:** `apexrest preview check` rendered all 43 pages in about 0.2 seconds and listed what it could not simulate.
+- **Scope:** a design aid, not Oracle evidence. General PL/SQL, APEX dictionary views and JET charts are not simulated; shipping still compiles and imports on DEV/QA/TEST.
+
+All application screens are captured from the APEXREST 2.4.0 runtime with locally generated sample data. The agent message, code card and loop diagram are illustrations, and the narrator voice is synthetic.
+
+## Watch: selecting components before generating a page
+
+[![Frame of the Decisions pilot explainer: average active time 5:44 without and 2:58 with Decisions selection, 48% less](docs/assets/apexrest-decisions-pilot-poster.png)](docs/assets/apexrest-decisions-pilot.mp4)
+
+[Watch the explainer (MP4, 1:09, 1080×1350, English narration, burned-in captions)](docs/assets/apexrest-decisions-pilot.mp4) · [Captions (SRT)](docs/assets/apexrest-decisions-pilot.srt)
+
+A one-page pilot of the optional [OpenAI Decisions selection](docs/component-catalog.md#optional-openai-decisions-selection): the same model built the same APEXlang page three times with and three times without selecting catalog components first. Average active time fell from 5:44 to 2:58 (−48%) and main-model tokens from about 59,000 to 35,000 (Decisions usage is additional); two of three selected runs passed on the first generation, and all six final pages passed the offline Oracle compiler and the same 46 checks. It is a single-page pilot with a fixed reference-reading policy, not a general benchmark; the page is a wireframe with synthetic data, no import or browser check was run, and the narrator voice is synthetic.
+
 ## APEX 26.2: import the pages and components you changed
 
 **Update a page and its shared list of values without re-importing the rest of the application.** APEXREST can automatically select eligible changes or import an explicit list of `.apx` files. It compares the saved baseline, local edits and a fresh server export, preserves remote-only changes and blocks conflicts before writing.
