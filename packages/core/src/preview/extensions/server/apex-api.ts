@@ -2,6 +2,7 @@ import { str } from '../../apexlang.ts';
 import { registerOracleFunction } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml, escapeJs } from '../../theme.ts';
+import { aclCheck } from '../devtools/view-as.ts';
 
 /** What package stubs can touch while PL/SQL runs. */
 export interface Runtime {
@@ -218,8 +219,15 @@ export const STUBS: Record<string, Stub> = {
     params: p('p_authorization_name'),
     fn: (args, rt) => authorize(rt, text(args.p_authorization_name)),
   },
-  'apex_acl.has_user_role': { params: p('p_application_id', 'p_user_name', 'p_role_static_id'), fn: () => 1 },
-  'apex_acl.has_user_any_roles': { params: p('p_application_id', 'p_user_name'), fn: () => 1 },
+  // Permissive unless the developer toolbar's "view as" chose roles (devtools/view-as.ts).
+  'apex_acl.has_user_role': {
+    params: p('p_application_id', 'p_user_name', 'p_role_static_id'),
+    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session, text(args.p_role_static_id) ?? ''),
+  },
+  'apex_acl.has_user_any_roles': {
+    params: p('p_application_id', 'p_user_name'),
+    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session),
+  },
   'owa_util.redirect_url': {
     params: p('curl'),
     fn: (args, rt) => {

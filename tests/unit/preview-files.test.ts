@@ -528,7 +528,7 @@ async function start(t: import('node:test').TestContext) {
     form.append('p_flow_id', '100');
     form.append('p_flow_step_id', page);
     form.append('p_request', request);
-    for (const file of files) form.append('p_files', new Blob([file.data], { type: file.type }), file.name);
+    for (const file of files) form.append('p_files', new Blob([new Uint8Array(file.data)], { type: file.type }), file.name);
     const response = await fetch(`${server.url}/r/demo/wwv_flow.accept`, {
       method: 'POST',
       headers: { cookie },

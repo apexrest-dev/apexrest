@@ -2,6 +2,7 @@
 import './app.ts';
 import './charts.ts';
 import './components.ts';
+import './devtools.ts';
 import './facets.ts';
 import './files.ts';
 import './items.ts';
