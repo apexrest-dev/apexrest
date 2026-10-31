@@ -107,6 +107,36 @@ export const MESSAGES: Record<string, string> = {
   'APEX.TEMPLATE.MAIN_NAV_LABEL': 'Main Navigation',
   'APEX.TEMPLATE.APPLICATION': 'Application',
   'APEX.SUCCESS': 'Success',
+  'APEX.SUCCESS_MESSAGE_HEADING': 'Success Message',
+  'APEX.ERROR_MESSAGE_HEADING': 'Error Message',
+  'APEX.ERROR': 'Error',
+  'APEX.INFORMATION': 'Information',
+  'APEX.GV.SELECTION_COUNT': '%0 rows selected',
+  'APEX.GV.ROW_ADDED': 'Added',
+  'APEX.GV.ROW_CHANGED': 'Changed',
+  'APEX.GV.ROW_DELETED': 'Deleted',
+  'APEX.IG.SAVE': 'Save',
+  'APEX.IG.EDIT': 'Edit',
+  'APEX.IG.ADD_ROW': 'Add Row',
+  'APEX.IG.ACTIONS': 'Actions',
+  'APEX.IG.CHANGES_SAVED': 'Changes saved',
+  'APEX.DIALOG.SAVE': 'Save',
+  'APEX.DIALOG.HELP': 'Help',
+  'APEX.NO_DATA_FOUND': 'No data found',
+  'APEX.ITEM.TEXT.CHARACTER_COUNT': '%0 of %1',
+  'APEX.ITEM_TYPE.YES_NO.YES_LABEL': 'Yes',
+  'APEX.ITEM_TYPE.YES_NO.NO_LABEL': 'No',
+  'APEX.ITEM_TYPE.CHECKBOX.CHECKED': 'Checked',
+  'APEX.ITEM_TYPE.CHECKBOX.UNCHECKED': 'Unchecked',
+  'APEX.REGION.COLLAPSE': 'Collapse',
+  'APEX.REGION.EXPAND': 'Expand',
+  'APEX.RDS.SHOW_ALL': 'Show All',
+  'APEX.TABS.NEXT': 'Next',
+  'APEX.TABS.PREVIOUS': 'Previous',
+  'APEX.MENU.OVERFLOW_LABEL': 'More',
+  'APEX.ACTIVE_STATE': 'Active',
+  'APEX.LOADING': 'Loading',
+  'APEX.GV.LOADING_INDICATOR': 'Loading',
   WARNING: 'Warning',
   'APEX.UI.BACK_TO_TOP': 'Start of page',
   DELETE_MSG: 'Would you like to perform this delete action?',
@@ -659,9 +689,21 @@ export class ApexRenderer {
     if (this.db.tableExists(name)) return false;
     const unique = new Map<string, Column>();
     // Form items anywhere in the app know the column types, keys and lengths best.
-    for (const column of [...this.tableHints(name), ...columns])
-      if (column.name && !unique.has(column.name.toUpperCase()))
-        unique.set(column.name.toUpperCase(), column);
+    for (const column of [...this.tableHints(name), ...columns]) {
+      if (!column.name) continue;
+      const key = column.name.toUpperCase();
+      const known = unique.get(key);
+      // The first hint wins; later ones only fill what it left open (the tightest length wins).
+      if (!known) unique.set(key, column);
+      else
+        unique.set(key, {
+          ...known,
+          pk: known.pk || column.pk,
+          label: known.label ?? column.label,
+          max: known.max && column.max ? Math.min(known.max, column.max) : (known.max ?? column.max),
+          type: /varchar|char|^$/iu.test(known.type) && column.type ? column.type : known.type,
+        });
+    }
     if (!unique.size) unique.set('ID', { name: 'ID', type: 'number', pk: true });
     const definitions = [...unique.values()].map((column) => {
       const type =
@@ -733,6 +775,29 @@ export class ApexRenderer {
             max: num(item.props, 'validation.maxLength', 0) || undefined,
           });
         }
+    }
+    // Report and grid columns of regions reading the table add types and lengths for the rest.
+    const mentions = new RegExp(`\\b"?${table.replace(/[^\w$#]/gu, '')}"?\\b`, 'iu');
+    for (const page of this.app.pages.values()) {
+      for (const region of page.children.filter((child) => child.type === 'region')) {
+        const source = str(region.props, 'source.tableName') || str(region.props, 'source.sqlQuery');
+        if (!source || !mentions.test(source)) continue;
+        for (const column of region.children.filter((child) => child.type === 'column')) {
+          const columnType = str(column.props, 'type');
+          hints.push({
+            name: str(column.props, 'source.column', column.id),
+            type:
+              columnType === 'numberField'
+                ? 'number'
+                : columnType === 'datePicker'
+                  ? 'date'
+                  : str(column.props, 'source.dataType', 'varchar2'),
+            pk: bool(column.props, 'source.primaryKey', false),
+            label: str(column.props, 'heading.heading') || undefined,
+            max: num(column.props, 'validation.maxLength', 0) || undefined,
+          });
+        }
+      }
     }
     return hints;
   }
