@@ -24,6 +24,17 @@ export type ItemRenderer = (
   value: string,
 ) => string;
 
+/**
+ * Adjusts the label/field template placeholders of a rendered item (ITEM_CSS_CLASSES,
+ * CURRENT_ITEM_PRE_TEXT, ...) after its element HTML was produced. Runs for every visible item.
+ */
+export type ItemTemplateHook = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  item: ApxComponent,
+  values: Record<string, string>,
+) => void;
+
 export interface ProcessResult {
   ran: boolean;
   closeDialog?: boolean;
@@ -92,6 +103,8 @@ export interface PreviewExtension {
   name: string;
   regions?: Record<string, RegionRenderer>;
   items?: Record<string, ItemRenderer>;
+  /** Template placeholder adjustments for items; see ItemTemplateHook. */
+  itemTemplate?: ItemTemplateHook;
   processes?: Record<string, ProcessHandler>;
   conditions?: Record<string, ConditionHandler>;
   validations?: Record<string, ValidationHandler>;

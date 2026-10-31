@@ -1139,7 +1139,8 @@ export class ApexRenderer {
       if (
         str(item.props, 'type') === 'numberField' &&
         value !== '' &&
-        !Number.isFinite(Number(value.replaceAll(',', '')))
+        // Number items submit their formatted text (format mask), as APEX does.
+        !Number.isFinite(Number(value.replace(/[,\s$€£¥%]/gu, '')))
       )
         add(`${label} must be Numeric.`, name);
     }
@@ -2333,8 +2334,12 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     const name = item.id.toUpperCase();
     const type = str(item.props, 'type', 'textField');
     const value = ctx.session.items[name] ?? '';
-    if (type === 'hidden')
-      return `<input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value)}">`;
+    if (type === 'hidden') {
+      const hidden = itemRenderer('hidden');
+      return hidden
+        ? hidden(this, ctx, item, name, value)
+        : `<input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value)}">`;
+    }
     const required = bool(item.props, 'validation.valueRequired', false);
     const theme = this.themeComponent();
     const templateId = (
@@ -2371,6 +2376,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       ERROR_MESSAGE: error ? escapeHtml(error) : '',
       IS_REQUIRED: required ? 'Y' : '',
     };
+    for (const extension of extensions) extension.itemTemplate?.(this, ctx, item, values);
     values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text(template, 'item_pre_text'), values) : '';
     values.ITEM_POST_TEXT = values.CURRENT_ITEM_POST_TEXT
       ? fill(text(template, 'item_post_text'), values)
