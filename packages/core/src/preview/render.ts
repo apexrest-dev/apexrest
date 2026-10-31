@@ -25,6 +25,7 @@ import {
   itemRenderer,
   processHandler,
   regionRenderer,
+  regionSourceSql,
   runCodeExtensions,
   runPointExtensions,
   traceExtensions,
@@ -886,7 +887,8 @@ export class ApexRenderer {
     const table = str(source, 'tableName');
     const where = str(source, 'whereClause') || str(source, 'where');
     const orderBy = str(source, 'orderByClause') || str(source, 'orderBy');
-    let sql = str(source, 'sqlQuery');
+    // hook: sources that are not local SQL, e.g. REST Data Sources (extensions/platform.ts)
+    let sql = regionSourceSql(this, ctx, region) ?? str(source, 'sqlQuery');
     if (!sql && table) {
       this.ensureTable(ctx, table, this.regionColumns(ctx, region));
       sql = `select * from ${table}`;
@@ -1061,6 +1063,7 @@ export class ApexRenderer {
         this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: condition is false' });
         continue;
       }
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       const type = str(process.props, 'type');
       const started = performance.now();
       const extension = processHandler(type);
@@ -1310,6 +1313,7 @@ export class ApexRenderer {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
         continue;
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) {
         this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: button or condition' });
         continue;
