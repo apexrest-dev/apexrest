@@ -331,7 +331,7 @@ test('workers record phases immediately and the composite job tool reads them', 
   assert.equal((cancel.data as { status: string }).status, 'failed');
 });
 
-test('MCP catalog is ten tools with correct annotations and a bounded footprint', () => {
+test('MCP catalog is eleven tools with correct annotations and a bounded footprint', () => {
   const tools = listTools();
   assert.deepEqual(
     tools.map((t) => t.name),
@@ -343,6 +343,7 @@ test('MCP catalog is ten tools with correct annotations and a bounded footprint'
       'apexrest_ship',
       'apexrest_apex_sync',
       'apexrest_browser_open',
+      'apexrest_preview',
       'apexrest_job',
       'apexrest_artifact_read',
       'apexrest_status',
@@ -373,6 +374,7 @@ test('MCP catalog is ten tools with correct annotations and a bounded footprint'
       'apexrest_ship',
       'apexrest_apex_sync',
       'apexrest_browser_open',
+      'apexrest_preview',
     ],
   );
   const ship = tools.find((t) => t.name === 'apexrest_ship')!.inputSchema as {
@@ -392,7 +394,7 @@ test('MCP catalog is ten tools with correct annotations and a bounded footprint'
   };
   assert.equal(job.properties.waitSeconds!.maximum, 120);
   const bytes = Buffer.byteLength(JSON.stringify({ tools }), 'utf8');
-  assert.ok(bytes < 12500, `catalog is ${bytes} bytes`);
+  assert.ok(bytes < 13600, `catalog is ${bytes} bytes`);
   assert.equal(detachedJob('ship', {}), true);
   assert.equal(detachedJob('apex.sync', { action: 'init' }), false);
 });

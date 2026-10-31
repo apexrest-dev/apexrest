@@ -51,7 +51,7 @@
         "Open a fresh session; ask a trivial plugin question; record first-turn usage and whether tool schemas load on demand."
       ],
       "expected": [
-        "Six skills listed; ten tools reachable; first-turn plugin context cost is recorded against the budget."
+        "Six skills listed; eleven tools reachable; first-turn plugin context cost is recorded against the budget."
       ],
       "evidence": [
         "host, model, effort and plugin digest",

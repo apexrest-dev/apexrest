@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Local preview · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.3.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/" aria-current="page">Local preview</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Local preview</div><h1 id="local-apexlang-preview">Local APEXlang preview</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#how-it-works">How it works</a></li><li><a href="#commands">Commands</a></li><li><a href="#supported-locally">Supported locally</a></li><li><a href="#not-simulated">Not simulated</a></li><li><a href="#verification-boundary">Verification boundary</a></li></ul></details>
+<p><code>apexrest preview</code> runs an APEXlang application on Node.js without an Oracle database. It exists for fast design iteration: page layout, Universal Theme styling, navigation, reports, forms and simple dynamic actions. It is a simulation. It never replaces <code>apexrest_apex_validate</code>, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.</p>
+<h2 id="how-it-works">How it works</h2>
+<ul>
+<li><strong>Assets.</strong> <code>preview setup</code> downloads the official APEX 26.2 distribution (<code>apex_26.2_en.zip</code>, about 255 MB) once, or uses a local copy passed with <code>--zip</code>. It extracts only the browser runtime (about 70 MB: <code>libraries/apex</code>, jQuery, Font APEX, Oracle fonts, <code>themes/theme_42/26.2</code>, <code>app_ui</code>) and evaluates the Universal Theme export <code>core/themes/f8842.262.sql</code> into page, region, label, button, list, report and breadcrumb templates. Nothing from the distribution is stored in this repository. The cache lives in <code>~/.apexrest/preview/26.2</code>, or in <code>APEXREST_PREVIEW_ASSETS</code> when set.</li>
+<li><strong>Rendering.</strong> Pages are rendered with the genuine 26.2 templates, display points (<code>slot</code> → <code>#PLACEHOLDER#</code>), template options, the 12-column grid and theme style. The genuine <code>desktop_all.min.js</code> and <code>theme42.min.js</code> run in the browser, so modal dialogs, side navigation and messages use Oracle&#39;s own client code.</li>
+<li><strong>Submit protocol.</strong> The server implements <code>wwv_flow.accept</code> for <code>apex.page.submit</code> (<code>p_json</code>, <code>{ redirectURL }</code> or <code>{ errors }</code>), so validation errors appear inline and in the page notification exactly as <code>apex.message</code> shows them.</li>
+<li><strong>Data.</strong> SQLite (<code>node:sqlite</code>) stands in for Oracle. On first start the database <code>&lt;sourceDir&gt;/.apex-local/preview.sqlite</code> is seeded from <code>.apex-local/*.sql</code> in name order, or best effort from <code>supporting-objects/*.sql</code>. Common Oracle syntax is translated or provided as functions: <code>nvl</code>, <code>nvl2</code>, <code>decode</code>, <code>to_char</code>, <code>to_date</code>, <code>to_number</code>, <code>trunc</code>, <code>initcap</code>, <code>lpad</code>/<code>rpad</code>, <code>add_months</code>, <code>months_between</code>, <code>regexp_like</code>, <code>listagg</code>, <code>sysdate</code>, <code>from dual</code>, <code>fetch first … rows only</code>, identity columns and <code>v(&#39;ITEM&#39;)</code>. Bind variables use session state.</li>
+<li><strong>Sample tables.</strong> A table that a page uses but the database lacks is created automatically with sample rows. Column types, keys and lengths come from form items anywhere in the application; columns referenced later are added on demand. Each such action is reported. Put real DDL and data in <code>.apex-local/*.sql</code> (add <code>.apex-local/</code> to <code>.gitignore</code> if the data is private).</li>
+<li><strong>Hot reload.</strong> <code>.apx</code> changes are picked up on the next request; no restart is needed. Use <code>--reset</code> to rebuild the database.</li>
+</ul>
+<h2 id="commands">Commands</h2>
+<pre><code class="language-sh">apexrest preview setup                      # once; or: --zip /path/apex_26.2_en.zip [--sha256 HEX]
+apexrest preview check --project /abs/app   # render every page; list unsupported features
+apexrest preview start --project /abs/app   # serve on 127.0.0.1 and print page URLs (Ctrl+C stops)
+apexrest preview start --source-dir src --port 8765 --reset
+</code></pre>
+<p><code>--source-dir</code> overrides <code>application.sourceDir</code> from <code>apexrest.json</code>; a folder that directly contains <code>application.apx</code> also works without a project file. In MCP hosts the same actions are available as <code>apexrest_preview action:setup|start|check|stop|status</code>; the started server lives as long as the MCP process and only listens on the loopback interface.</p>
+<p>The page shows a small toolbar with the diagnostics for the current page; <code>GET /__apex/diagnostics</code> returns all of them as JSON.</p>
+<h2 id="supported-locally">Supported locally</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Page templates</td>
+<td>All Universal Theme 26.2 page templates, including modal dialog, drawer and login</td>
+</tr>
+<tr>
+<td>Regions</td>
+<td>Static content, classic report (generic and named-column templates), interactive report (search, link column, saved-report column order, pagination), form, cards, list, breadcrumb, sub-regions</td>
+</tr>
+<tr>
+<td>Items</td>
+<td>Text, number, password, textarea, date, select list, radio/checkbox group, checkbox, switch, display only, hidden, file; shared, SQL and static LOVs; defaults</td>
+</tr>
+<tr>
+<td>Buttons</td>
+<td>Submit with request and confirmation, redirect, hot/template options, region and page slots</td>
+</tr>
+<tr>
+<td>Processing</td>
+<td>Form initialization, automatic row processing (insert/update/delete), close dialog, clear session state, branches, success messages, required/length/numeric item validation and simple validation types</td>
+</tr>
+<tr>
+<td>Dynamic actions</td>
+<td>Client events and conditions; execute JavaScript, refresh, show/hide, enable/disable, set value, clear, focus, CSS classes, alert/confirm, submit, dialog close/cancel</td>
+</tr>
+<tr>
+<td>PL/SQL</td>
+<td>Only bodies consisting of plain <code>insert</code>/<code>update</code>/<code>delete</code>/<code>merge</code> statements run, in processes and in Execute Server-side Code</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="not-simulated">Not simulated</h2>
+<p>General PL/SQL and packages, APEX dictionary views (<code>APEX_*</code>), collections, authentication and authorization schemes (every page is accessible; any login succeeds and sets <code>APP_USER</code>), session state protection, interactive grid editing (rendered read-only), Oracle JET charts (drawn as simple bars), faceted search, calendar, maps and plug-in regions (dashed placeholders), REST sources, translations and plug-in Ajax calls. These appear as diagnostics instead of silent omissions.</p>
+<h2 id="verification-boundary">Verification boundary</h2>
+<p>Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications; that is local evidence only. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/local-preview.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.3.0 · Not an official Oracle or OpenAI product</footer></body></html>

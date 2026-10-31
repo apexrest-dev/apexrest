@@ -52,6 +52,25 @@ const dependencies = {
   dryRun: z.boolean().default(false),
   acceptOracleLicense: z.boolean().default(false),
 };
+const previewSource = {
+  ...base,
+  sourceDir: z
+    .string()
+    .min(1)
+    .max(4096)
+    .optional()
+    .describe('APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir'),
+};
+const previewRun = {
+  assetsDir: z.string().min(1).max(4096).optional(),
+  sampleRows: z
+    .number()
+    .int()
+    .min(0)
+    .max(200)
+    .optional()
+    .describe('Sample rows for auto-created missing tables'),
+};
 const setup = {
   ...base,
   ...dependencies,
@@ -212,6 +231,34 @@ export const schemas = {
     offset: z.number().int().min(0).default(0),
     limit: z.number().int().min(1).max(16384).default(4096),
   }),
+  'preview.setup': z.strictObject({
+    zip: z
+      .string()
+      .min(1)
+      .max(4096)
+      .optional()
+      .describe('Local apex_26.2 zip; otherwise it is downloaded once'),
+    assetsDir: z.string().min(1).max(4096).optional(),
+    sha256: z
+      .string()
+      .regex(/^[a-fA-F0-9]{64}$/)
+      .optional(),
+  }),
+  'preview.start': z.strictObject({
+    ...previewSource,
+    ...previewRun,
+    port: z.number().int().min(0).max(65535).optional(),
+    reset: z.boolean().default(false),
+    user: z.string().min(1).max(128).optional(),
+    toolbar: z.boolean().optional(),
+  }),
+  'preview.check': z.strictObject({
+    ...previewSource,
+    ...previewRun,
+    pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
+  }),
+  'preview.stop': z.strictObject({ ...previewSource, all: z.boolean().default(false) }),
+  'preview.status': z.strictObject({}),
   'sandbox.up': z.strictObject(base),
   'sandbox.status': z.strictObject(base),
   'sandbox.down': z.strictObject(base),
@@ -331,10 +378,19 @@ export const schemas = {
     waitSeconds: z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0),
   }),
   status: z.strictObject({ ...base, detail: z.enum(['doctor', 'project']).default('project') }),
+  preview: z.strictObject({
+    project,
+    action: z.enum(['setup', 'start', 'check', 'stop', 'status']),
+    sourceDir: z.string().min(1).max(4096).optional(),
+    zip: z.string().min(1).max(4096).optional(),
+    port: z.number().int().min(0).max(65535).optional(),
+    reset: z.boolean().optional(),
+    pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
+  }),
 };
 export type Operation = keyof typeof schemas;
 /** Operations reachable only through the MCP catalog or the job worker; the CLI keeps granular commands. */
-export const internalOperations: Operation[] = ['project', 'reference', 'ship.apply', 'job'];
+export const internalOperations: Operation[] = ['project', 'reference', 'ship.apply', 'job', 'preview'];
 export const toolCatalog: {
   name: string;
   operation: Operation;
@@ -405,6 +461,15 @@ export const toolCatalog: {
     operation: 'browser.open',
     description:
       'Return the configured APEX URL for the host in-app browser (codex/host). Inspect affected pages with host browser controls; opening is not verification.',
+    readOnly: false,
+    destructive: false,
+    openWorld: true,
+  },
+  {
+    name: 'apexrest_preview',
+    operation: 'preview',
+    description:
+      'Local APEXlang preview without Oracle: Universal Theme 26.2 assets plus SQLite (.apex-local/*.sql or sample tables). setup once; start returns page URLs; check lists unsupported features. Design only, not Oracle evidence.',
     readOnly: false,
     destructive: false,
     openWorld: true,

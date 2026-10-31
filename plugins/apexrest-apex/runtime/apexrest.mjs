@@ -6,10 +6,10 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-CK6GTE3P.mjs";
+} from "./chunk-JAKKLNE4.mjs";
+import "./chunk-RUBOECVN.mjs";
 import "./chunk-M72VRTW5.mjs";
 import "./chunk-UGZLKEGQ.mjs";
-import "./chunk-RUBOECVN.mjs";
 import {
   loadProject
 } from "./chunk-EMYWWRNE.mjs";
@@ -194,7 +194,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-TN4GZAYD.mjs");
+    const { startMcp } = await import("./chunk-TPIKZB26.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -212,9 +212,11 @@ try {
       "keepRuntime",
       "saved",
       "workingCopy",
-      "includeUnresolved"
+      "includeUnresolved",
+      "reset",
+      "all"
     ]);
-    const numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds"]);
+    const numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds", "port", "sampleRows"]);
     let index = 0, rest;
     for (let i = selectedOp.start; i < argv.length; i++) {
       const token = argv[i];
@@ -228,7 +230,7 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith("--"))
             throw new Fault("INVALID_INPUT", `Missing value for ${token}`, 2);
-          if (name === "files") {
+          if (name === "files" || name === "pages") {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
             input[name] = files;
@@ -257,6 +259,8 @@ try {
     const result = await dispatch(selectedOp.op, input);
     console.log(JSON.stringify(result, null, argv.includes("--json") ? 0 : 2));
     process.exitCode = result.exitCode;
+    if (selectedOp.op === "preview.start" && result.ok)
+      process.stderr.write("Preview running. Press Ctrl+C to stop.\n");
   }
 } catch (e) {
   const result = failure(selected.op, e);

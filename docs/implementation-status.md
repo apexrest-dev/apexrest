@@ -6,7 +6,7 @@ The current source and bundled plugin version is **2.3.0**. The current contract
 
 - Optional project-scoped OpenAI Decisions component selection through `apexrest_reference mode:select` / `docs select`: one bounded batch, compatible local shortlist, private ENV credentials and explicit local fallback. The current host model composes final APEXlang. Repository tests cover transport fixtures and CLI/MCP contracts; live fixed-case API selection, latency and usage are recorded below. Native-host application authoring remains separate.
 
-- Six skills and ten composite MCP tools for Codex and Claude Code, backed by one canonical work skill and CLI/runtime. Managed payloads include both marketplaces and bind both MCP adapters to the same Node executable and managed home; Claude retains cache-root expansion.
+- Six skills and eleven composite MCP tools for Codex and Claude Code, backed by one canonical work skill and CLI/runtime. Managed payloads include both marketplaces and bind both MCP adapters to the same Node executable and managed home; Claude retains cache-root expansion.
 - Oracle SQLcl generation/validation, pinned release-specific references, blank/CRM templates and an experimental local Composer CLI.
 - APEX 26.1 full imports and eligible APEX 26.2 selected-file imports through direct SQLcl CLI, with automatic scope selection, native selected-page export, scoped APEXlang backups/restore, exact plan binding, same-component conflict checks, scoped readback and durable checkpoints.
 - Local durable migration history and schema coordination. Independent machines or managed homes require external serialization.
@@ -19,6 +19,7 @@ The current source and bundled plugin version is **2.3.0**. The current contract
 
 - Current safety policy: DEV/QA/TEST deployment, production refusal, effective endpoint/server locality, operation-aware remote exact-plan risk confirmation and server-first APEX recovery without blind SQL replay.
 - SQL review classifies database scripts and emits operation-specific risks; Composer predicate and extension scanners reject parenthesis-free routine calls, doubled-quote literal tricks and APEX dynamic-execution wrappers. SQLcl runs in its own process group with bounded output draining, and job records distinguish a worker that never started from an unknown outcome. POSIX escalation targets surviving descendants even after the launcher exits, a descendant that outlives a normal launcher exit is stopped at the drain deadline, and repeated stops are ignored with the pending SIGKILL cancelled once the group has closed; the script risk detection gap below remains open.
+- Database-free [local preview](local-preview.md) (`apexrest preview`, `apexrest_preview`): APEXlang pages rendered with Universal Theme 26.2 templates and JavaScript extracted from the official distribution, the `wwv_flow.accept` submit protocol and SQLite data with Oracle SQL shims and on-demand sample tables. Unit tests use a synthetic theme export; the real distribution was checked manually against the public Oracle example applications. It is a design aid, not compiler, import or Oracle evidence.
 - Local ignored/untracked ENV credential input and browser checks only on user request; canonical rules are bundled from [deployment safety](deployment-safety.md).
 
 ## Verification

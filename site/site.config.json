@@ -85,6 +85,14 @@
       "group": "Application work"
     },
     {
+      "slug": "local-preview",
+      "title": "Local preview",
+      "source": "docs/local-preview.md",
+      "lang": "en",
+      "key": "local-preview",
+      "group": "Application work"
+    },
+    {
       "slug": "plugin-qualification-harness",
       "title": "Plugin qualification harness",
       "source": "docs/plugin-qualification-harness.md",

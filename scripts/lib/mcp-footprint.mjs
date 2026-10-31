@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 // UTF-8 JSON payload budgets, not tokenizer estimates or native-host billing.
-export const catalogByteBudget = 13000;
+export const catalogByteBudget = 13600;
 export const responseCases = [
   {
     id: 'defaultReferenceSearch',

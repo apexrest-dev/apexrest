@@ -7,7 +7,7 @@
   "cases": [
     {
       "id": "A261-001",
-      "title": "MCP startup and ten-tool discovery",
+      "title": "MCP startup and eleven-tool discovery",
       "acceptance": ["A01", "A03", "A27", "A36", "HOST-PARITY-01"],
       "execution": "harness",
       "surface": "stdio-MCP",

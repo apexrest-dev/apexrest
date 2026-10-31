@@ -48,7 +48,7 @@
       "authorization": "read-only-or-local",
       "steps": ["Open a fresh session; ask a trivial plugin question; record the first usage event."],
       "expected": [
-        "Six skills and ten tools are discoverable; the first-turn input tokens attributable to the plugin are recorded against the budget in quality-performance.json."
+        "Six skills and eleven tools are discoverable; the first-turn input tokens attributable to the plugin are recorded against the budget in quality-performance.json."
       ],
       "evidence": [
         "host, model, effort and plugin digest",

@@ -55,6 +55,7 @@ const expectedTools = [
   'apexrest_ship',
   'apexrest_apex_sync',
   'apexrest_browser_open',
+  'apexrest_preview',
   'apexrest_job',
   'apexrest_artifact_read',
   'apexrest_status',

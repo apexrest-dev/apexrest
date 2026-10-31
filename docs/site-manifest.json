@@ -44,6 +44,10 @@
       "route": "/apexrest/testing/"
     },
     {
+      "source": "docs/local-preview.md",
+      "route": "/apexrest/local-preview/"
+    },
+    {
       "source": "docs/plugin-qualification-harness.md",
       "route": "/apexrest/plugin-qualification-harness/"
     },
@@ -176,6 +180,8 @@
     "internet-template-sources/index.html",
     "internet-template-sources.html",
     "llms.txt",
+    "local-preview/index.html",
+    "local-preview.html",
     "next-actions/index.html",
     "next-actions.html",
     "oracle-apexlang-coverage/index.html",

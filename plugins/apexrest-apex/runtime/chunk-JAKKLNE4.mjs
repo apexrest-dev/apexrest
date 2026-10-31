@@ -1,5 +1,9 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  browserModeSchema,
+  browserPreferences
+} from "./chunk-RUBOECVN.mjs";
+import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
   LocalDeploymentControl,
@@ -55,10 +59,6 @@ import {
   sqlclTimings,
   withSqlclTimings
 } from "./chunk-UGZLKEGQ.mjs";
-import {
-  browserModeSchema,
-  browserPreferences
-} from "./chunk-RUBOECVN.mjs";
 import {
   environment,
   identifier,
@@ -10671,6 +10671,14 @@ var dependencies = {
   dryRun: external_exports.boolean().default(false),
   acceptOracleLicense: external_exports.boolean().default(false)
 };
+var previewSource = {
+  ...base,
+  sourceDir: external_exports.string().min(1).max(4096).optional().describe("APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir")
+};
+var previewRun = {
+  assetsDir: external_exports.string().min(1).max(4096).optional(),
+  sampleRows: external_exports.number().int().min(0).max(200).optional().describe("Sample rows for auto-created missing tables")
+};
 var setup = {
   ...base,
   ...dependencies,
@@ -10812,6 +10820,26 @@ var schemas = {
     offset: external_exports.number().int().min(0).default(0),
     limit: external_exports.number().int().min(1).max(16384).default(4096)
   }),
+  "preview.setup": external_exports.strictObject({
+    zip: external_exports.string().min(1).max(4096).optional().describe("Local apex_26.2 zip; otherwise it is downloaded once"),
+    assetsDir: external_exports.string().min(1).max(4096).optional(),
+    sha256: external_exports.string().regex(/^[a-fA-F0-9]{64}$/).optional()
+  }),
+  "preview.start": external_exports.strictObject({
+    ...previewSource,
+    ...previewRun,
+    port: external_exports.number().int().min(0).max(65535).optional(),
+    reset: external_exports.boolean().default(false),
+    user: external_exports.string().min(1).max(128).optional(),
+    toolbar: external_exports.boolean().optional()
+  }),
+  "preview.check": external_exports.strictObject({
+    ...previewSource,
+    ...previewRun,
+    pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
+  }),
+  "preview.stop": external_exports.strictObject({ ...previewSource, all: external_exports.boolean().default(false) }),
+  "preview.status": external_exports.strictObject({}),
   "sandbox.up": external_exports.strictObject(base),
   "sandbox.status": external_exports.strictObject(base),
   "sandbox.down": external_exports.strictObject(base),
@@ -10906,9 +10934,18 @@ var schemas = {
     jobId: external_exports.uuid(),
     waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0)
   }),
-  status: external_exports.strictObject({ ...base, detail: external_exports.enum(["doctor", "project"]).default("project") })
+  status: external_exports.strictObject({ ...base, detail: external_exports.enum(["doctor", "project"]).default("project") }),
+  preview: external_exports.strictObject({
+    project,
+    action: external_exports.enum(["setup", "start", "check", "stop", "status"]),
+    sourceDir: external_exports.string().min(1).max(4096).optional(),
+    zip: external_exports.string().min(1).max(4096).optional(),
+    port: external_exports.number().int().min(0).max(65535).optional(),
+    reset: external_exports.boolean().optional(),
+    pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
+  })
 };
-var internalOperations = ["project", "reference", "ship.apply", "job"];
+var internalOperations = ["project", "reference", "ship.apply", "job", "preview"];
 var toolCatalog = [
   {
     name: "apexrest_project",
@@ -10961,6 +10998,14 @@ var toolCatalog = [
     name: "apexrest_browser_open",
     operation: "browser.open",
     description: "Return the configured APEX URL for the host in-app browser (codex/host). Inspect affected pages with host browser controls; opening is not verification.",
+    readOnly: false,
+    destructive: false,
+    openWorld: true
+  },
+  {
+    name: "apexrest_preview",
+    operation: "preview",
+    description: "Local APEXlang preview without Oracle: Universal Theme 26.2 assets plus SQLite (.apex-local/*.sql or sample tables). setup once; start returns page URLs; check lists unsupported features. Design only, not Oracle evidence.",
     readOnly: false,
     destructive: false,
     openWorld: true
@@ -15232,6 +15277,10 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         signal
       );
       return { ...result, operation };
+    }
+    if (operation === "preview" || operation.startsWith("preview.")) {
+      const { previewDispatch } = await import("./chunk-62EINL7Q.mjs");
+      return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
     const deployment = new DeploymentService(oracle);

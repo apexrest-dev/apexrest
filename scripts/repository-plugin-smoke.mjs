@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-// The 2026-10-04 redesign: ten MCP tools and six skills; Composer and panel
+// The 2026-10-04 redesign: ten MCP tools and six skills (eleven with apexrest_preview); Composer and panel
 // tools are gone from MCP (Composer keeps its CLI), see packages/core/src/operations.ts.
 const expectedTools = [
   'apexrest_project',
@@ -17,6 +17,7 @@ const expectedTools = [
   'apexrest_ship',
   'apexrest_apex_sync',
   'apexrest_browser_open',
+  'apexrest_preview',
   'apexrest_job',
   'apexrest_artifact_read',
   'apexrest_status',

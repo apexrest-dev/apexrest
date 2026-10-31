@@ -209,6 +209,10 @@ async function dispatchObserved(
       );
       return { ...result, operation };
     }
+    if (operation === 'preview' || operation.startsWith('preview.')) {
+      const { previewDispatch } = await import('./preview/service.ts');
+      return success(operation, await previewDispatch(operation, parsed, root));
+    }
     const oracle = await sharedOracle();
     const deployment = new DeploymentService(oracle);
     let data: unknown;

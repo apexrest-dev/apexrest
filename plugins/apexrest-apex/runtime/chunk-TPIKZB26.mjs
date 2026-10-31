@@ -8,7 +8,8 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-CK6GTE3P.mjs";
+} from "./chunk-JAKKLNE4.mjs";
+import "./chunk-RUBOECVN.mjs";
 import {
   VERSION
 } from "./chunk-M72VRTW5.mjs";
@@ -41,7 +42,6 @@ import {
   safeParse,
   serializeMessage
 } from "./chunk-UGZLKEGQ.mjs";
-import "./chunk-RUBOECVN.mjs";
 import {
   loadProject,
   parse

@@ -210,8 +210,10 @@ try {
       'saved',
       'workingCopy',
       'includeUnresolved',
+      'reset',
+      'all',
     ]);
-    const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds']);
+    const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds', 'port', 'sampleRows']);
     let index = 0,
       rest: string | undefined;
     for (let i = selectedOp.start; i < argv.length; i++) {
@@ -226,7 +228,7 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith('--'))
             throw new Fault('INVALID_INPUT', `Missing value for ${token}`, 2);
-          if (name === 'files') {
+          if (name === 'files' || name === 'pages') {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1]!.startsWith('--')) files.push(argv[++i]!);
             input[name] = files;
@@ -255,6 +257,9 @@ try {
     const result = await dispatch(selectedOp.op, input);
     console.log(JSON.stringify(result, null, argv.includes('--json') ? 0 : 2));
     process.exitCode = result.exitCode;
+    // The preview server keeps this process alive until it is interrupted.
+    if (selectedOp.op === 'preview.start' && result.ok)
+      process.stderr.write('Preview running. Press Ctrl+C to stop.\n');
   }
 } catch (e) {
   const result = failure(selected.op, e);
