@@ -3,5 +3,6 @@ import './app.ts';
 import './charts.ts';
 import './components.ts';
 import './facets.ts';
+import './items.ts';
 import './reports.ts';
 import './server.ts';
