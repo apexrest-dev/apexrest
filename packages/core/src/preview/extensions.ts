@@ -88,6 +88,20 @@ export interface RouteResponse {
 /** Served at `/r/<alias>/__apex/x/<name>` with the caller's session. */
 export type RouteHandler = (renderer: ApexRenderer, session: Session, request: RouteRequest) => RouteResponse;
 
+/**
+ * Application lifecycle points: `beforeHeader` (before page computations), `afterHeader`
+ * (after before-header processing, before regions render), `afterSubmit` (after item values
+ * are stored, before validations) and `processing` (before page processes).
+ * Returned errors stop a submit and are shown like validation errors.
+ */
+export type PreviewPoint = 'beforeHeader' | 'afterHeader' | 'afterSubmit' | 'processing';
+
+export type PointHandler = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  point: PreviewPoint,
+) => ApexError[] | undefined;
+
 export interface PreviewExtension {
   name: string;
   regions?: Record<string, RegionRenderer>;
@@ -104,6 +118,7 @@ export interface PreviewExtension {
   css?: string;
   /** Called once per page render before the template is filled (add ctx.jsFiles, ctx.cssFiles, ctx.onload). */
   page?: (renderer: ApexRenderer, ctx: RenderContext) => void;
+  point?: PointHandler;
 }
 
 export const extensions: PreviewExtension[] = [];
@@ -155,6 +170,16 @@ export function evaluateExpression(
     if (result !== undefined) return result;
   }
   return undefined;
+}
+
+export function runPointExtensions(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  point: PreviewPoint,
+): ApexError[] {
+  const errors: ApexError[] = [];
+  for (const extension of extensions) errors.push(...(extension.point?.(renderer, ctx, point) ?? []));
+  return errors;
 }
 
 export const extensionClient = () =>

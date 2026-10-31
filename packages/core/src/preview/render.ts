@@ -17,11 +17,13 @@ import {
 import { APEX_FULL_VERSION, type ApexAssets } from './assets.ts';
 import {
   conditionHandler,
+  evaluateExpression,
   extensions,
   itemRenderer,
   processHandler,
   regionRenderer,
   runCodeExtensions,
+  runPointExtensions,
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
@@ -878,7 +880,33 @@ export class ApexRenderer {
       const value = str(item.props, 'default.staticValue') || str(item.props, 'default.value');
       if (value && (type === '' || type === 'static' || type === 'staticValue'))
         session.items[name] = this.substitute(session, value, page, 'RAW');
-      else if (type === 'sqlQuery' || type === 'expression') {
+      // hook: PL/SQL defaults and item references are evaluated by extensions (extensions/server.ts)
+      else if (type === 'item')
+        session.items[name] = session.items[str(item.props, 'default.item').toUpperCase()] ?? '';
+      else if (
+        type === 'functionBody' ||
+        type === 'sqlQuerySingleValue' ||
+        (type === 'expression' && str(item.props, 'default.plsqlExpression'))
+      ) {
+        const code =
+          str(item.props, 'default.plsqlFunctionBody') ||
+          str(item.props, 'default.plsqlExpression') ||
+          str(item.props, 'default.sqlQuerySingleValue');
+        const language =
+          type === 'functionBody'
+            ? 'plsqlFunctionBody'
+            : type === 'expression'
+              ? 'plsqlExpression'
+              : 'sqlExpression';
+        const result = evaluateExpression(
+          this,
+          ctx,
+          type === 'sqlQuerySingleValue' ? `(${code})` : code,
+          language,
+        );
+        if (result === undefined) this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
+        else session.items[name] = result === null || result === false ? '' : String(result);
+      } else if (type === 'sqlQuery' || type === 'expression') {
         const sql = str(item.props, 'default.sqlQuery') || str(item.props, 'default.sqlExpression');
         if (sql) {
           try {
@@ -892,6 +920,9 @@ export class ApexRenderer {
         }
       }
     }
+    // hook: application computations/processes and authorization (extensions/server.ts)
+    const pointErrors = runPointExtensions(this, ctx, 'beforeHeader');
+    if (pointErrors.length) session.errors = [...(session.errors ?? []), ...pointErrors];
     for (const computation of bySequence(this.pageComponents(ctx, 'computation'))) {
       const point = str(computation.props, 'execution.point', 'beforeHeader');
       if (point === 'beforeHeader' && this.condition(ctx, computation.props)) this.compute(ctx, computation);
@@ -906,12 +937,58 @@ export class ApexRenderer {
       else if (type === 'clearSessionState') this.clearPage(ctx);
       else if (type === 'executeCode') this.runCode(ctx, process);
     }
+    // hook: after-header/before-regions processing and item sources (extensions/server.ts)
+    const headerErrors = runPointExtensions(this, ctx, 'afterHeader');
+    if (headerErrors.length) session.errors = [...(session.errors ?? []), ...headerErrors];
     return ctx;
   }
 
   compute(ctx: RenderContext, computation: ApxComponent): void {
-    const item = (str(computation.props, 'item') || computation.id).toUpperCase();
+    const item = (
+      str(computation.props, 'itemName') ||
+      str(computation.props, 'item') ||
+      computation.id
+    ).toUpperCase();
     const type = str(computation.props, 'computation.type', str(computation.props, 'type'));
+    // hook: item, PL/SQL and SQL expression computations are evaluated by extensions (extensions/server.ts)
+    if (type === 'item') {
+      ctx.session.items[item] =
+        ctx.session.items[str(computation.props, 'computation.itemName').toUpperCase()] ?? '';
+      return;
+    }
+    if (type === 'expression' || type === 'functionBody' || type === 'sqlQueryMultipleValues') {
+      const code =
+        str(computation.props, 'computation.plsqlFunctionBody') ||
+        str(computation.props, 'computation.plsqlExpression') ||
+        str(computation.props, 'computation.sqlExpression');
+      const language =
+        type === 'functionBody'
+          ? 'plsqlFunctionBody'
+          : str(computation.props, 'computation.sqlExpression')
+            ? 'sqlExpression'
+            : 'plsqlExpression';
+      if (type === 'sqlQueryMultipleValues') {
+        try {
+          const result = this.db.query(
+            str(computation.props, 'computation.sqlQuery'),
+            this.binds(ctx.session, ctx.page),
+          );
+          ctx.session.items[item] = result.rows.map((row) => String(row[result.columns[0]!] ?? '')).join(':');
+        } catch (error) {
+          this.diagnose(
+            'warning',
+            `Computation ${computation.id} failed: ${(error as Error).message}`,
+            ctx.pageId,
+          );
+        }
+        return;
+      }
+      const result = code ? evaluateExpression(this, ctx, code, language) : undefined;
+      if (result !== undefined) {
+        ctx.session.items[item] = result === null || result === false ? '' : String(result);
+        return;
+      }
+    }
     const value =
       str(computation.props, 'computation.staticValue') || str(computation.props, 'computation.value');
     const sql = str(computation.props, 'computation.sqlQuery');
@@ -1038,9 +1115,14 @@ export class ApexRenderer {
     const pressed = this.pageComponents(ctx, 'button').find(
       (button) => str(button.props, 'buttonName', button.id.toUpperCase()) === request,
     );
+    // hook: after-submit computations and application processes (extensions/server.ts)
+    const submitErrors = runPointExtensions(this, ctx, 'afterSubmit');
+    if (submitErrors.length) return { errors: submitErrors };
     const validate = pressed ? bool(pressed.props, 'behavior.executeValidations', true) : true;
     const errors = validate ? this.validate(ctx) : [];
     if (errors.length) return { errors };
+    const processingErrors = runPointExtensions(this, ctx, 'processing');
+    if (processingErrors.length) return { errors: processingErrors };
 
     let closeDialog = false;
     let success = '';
@@ -1089,6 +1171,34 @@ export class ApexRenderer {
 
     for (const branch of bySequence(this.pageComponents(ctx, 'branch'))) {
       if (!this.whenButton(ctx, branch.props) || !this.condition(ctx, branch.props)) continue;
+      // hook: computed branch targets (extensions/server.ts evaluates the PL/SQL)
+      const branchType = str(branch.props, 'behavior.type');
+      if (branchType === 'plsqlProcedure') {
+        runCodeExtensions(this, ctx, str(branch.props, 'behavior.plsqlCode'), branch);
+        continue;
+      }
+      if (branchType === 'functionReturningPage' || branchType === 'functionReturningUrl') {
+        const result = evaluateExpression(
+          this,
+          ctx,
+          str(branch.props, 'behavior.plsqlFunctionBody'),
+          'plsqlFunctionBody',
+        );
+        if (result === undefined || result === null || result === '') continue;
+        const page = branchType === 'functionReturningPage' ? this.findPage(String(result)) : undefined;
+        return {
+          redirectURL: page ? this.pagePath(page) : this.substitute(session, String(result), ctx.page, 'RAW'),
+        };
+      }
+      if (branchType === 'page' || branchType === 'pageIdentifiedByItem') {
+        const key =
+          branchType === 'page'
+            ? str(branch.props, 'behavior.pageNumber')
+            : (session.items[str(branch.props, 'behavior.item').toUpperCase()] ?? '');
+        const page = this.findPage(key);
+        if (page) return { redirectURL: this.pagePath(page) };
+        continue;
+      }
       const target = get(branch.props, 'behavior.target');
       if (target !== undefined) return { redirectURL: this.targetUrl(ctx, target).href };
     }
