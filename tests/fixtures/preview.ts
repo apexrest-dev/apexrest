@@ -202,7 +202,12 @@ insert into tasks (title) values ('Ship it');
  * A temporary APEXlang app plus preview assets built from a generated zip.
  * `files` adds or replaces application files (paths relative to the app root).
  */
-export async function workspace(t: import('node:test').TestContext, files: Record<string, string> = {}) {
+export async function workspace(
+  t: import('node:test').TestContext,
+  files: Record<string, string> = {},
+  /** Extra `wwv_flow_imp_shared.create_*` calls appended to the synthetic theme export. */
+  extraThemeSql = '',
+) {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-preview-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const app = path.join(root, 'app');
@@ -214,7 +219,7 @@ export async function workspace(t: import('node:test').TestContext, files: Recor
   await writeFile(
     zip,
     zipSync({
-      'apex/core/themes/f8842.262.sql': strToU8(THEME_SQL),
+      'apex/core/themes/f8842.262.sql': strToU8(THEME_SQL + extraThemeSql),
       'apex/images/libraries/apex/minified/desktop_all.min.js': strToU8('window.apex=window.apex||{};'),
       'apex/images/themes/theme_42/26.2/css/Core.min.css': strToU8('.t-Region{}'),
       'apex/images/libraries/monaco-editor/skip.js': strToU8('not extracted'),
@@ -222,5 +227,5 @@ export async function workspace(t: import('node:test').TestContext, files: Recor
   );
   const assets = path.join(root, 'assets');
   await setupAssets({ assetsDir: assets, zipPath: zip });
-  return { root, app, assets };
+  return { root, app, assets, zip };
 }
