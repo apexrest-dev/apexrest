@@ -2956,7 +2956,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     });
     const condition = action.props.clientSideCondition;
     const whenProps = isObject(when) ? when : {};
-    const event = str(whenProps, 'event', 'ready');
+    const event = str(whenProps, 'event', 'change');
     return {
       id: action.id,
       event: event === 'custom' ? str(whenProps, 'customEvent', 'custom') : event,

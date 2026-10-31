@@ -3,7 +3,7 @@ import { formatOracle } from '../../database.ts';
 import type { RouteHandler } from '../../extensions.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml } from '../../theme.ts';
-import { dynamicActionChild, route } from './blob.ts';
+import { dynamicActionChild, fileContext, route } from './blob.ts';
 
 /**
  * Report printing: Print Report processes and dynamic actions (report queries) and region
@@ -127,7 +127,7 @@ const NOTE =
 export const printRoute: RouteHandler = (renderer, session, request) => {
   const pageId = request.params.get('page') ?? '';
   if (!renderer.findPage(pageId)) return { status: 404, type: 'text', body: 'Page not found' };
-  const ctx = renderer.prepareSubmit(session, pageId, '');
+  const ctx = fileContext(renderer, session, pageId)!;
   const regionId = request.params.get('region');
   if (regionId) {
     const region = renderer.pageComponents(ctx, 'region').find((child) => child.id === regionId);

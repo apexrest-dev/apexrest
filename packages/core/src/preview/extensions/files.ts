@@ -13,6 +13,7 @@ import {
   downloadProcess,
   downloadRoute,
   dynamicActionChild,
+  fileContext,
   fileAttributes,
   isFileItem,
   itemRoute,
@@ -141,7 +142,7 @@ const printReportProcess: ProcessHandler = (renderer, ctx, process, point) => {
 const actionRoute: RouteHandler = (renderer, session, request) => {
   const page = request.params.get('page') ?? '';
   if (!renderer.findPage(page)) return { status: 404, type: 'json', body: '{"error":"page not found"}' };
-  const ctx = renderer.prepareSubmit(session, page, '');
+  const ctx = fileContext(renderer, session, page)!;
   let items: Record<string, string> = {};
   try {
     items = (JSON.parse(request.body || '{}') as { items?: Record<string, string> }).items ?? {};
@@ -256,7 +257,7 @@ registerExtension({
     rememberArrays(session, submit.form);
     const page = renderer.findPage(submit.pageId);
     if (!page) return undefined;
-    const ctx = renderer.prepareSubmit(session, submit.pageId, submit.request);
+    const ctx = fileContext(renderer, session, submit.pageId, submit.request)!;
     const items = new Map(
       renderer.pageComponents(ctx, 'pageItem').map((item) => [item.id.toUpperCase(), item]),
     );
@@ -264,7 +265,8 @@ registerExtension({
     for (const entry of submit.items) {
       if (entry.fileIndex === undefined || !entry.fileCount) continue;
       const item = items.get(entry.n.toUpperCase());
-      const files = submit.files.slice(entry.fileIndex, entry.fileIndex + entry.fileCount);
+      // fileIndex is 1-based (apex.server counts p_files from 1)
+      const files = submit.files.slice(entry.fileIndex - 1, entry.fileIndex - 1 + entry.fileCount);
       if (!files.length) continue;
       const type = item ? storageType(item) : 'appTempFiles';
       const purge = item

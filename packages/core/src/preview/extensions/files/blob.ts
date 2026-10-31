@@ -321,10 +321,31 @@ export const downloadBlobColumn: ColumnRenderer = (renderer, ctx, region, column
 
 // ---------------------------------------------------------------- routes
 
-function pageContext(renderer: ApexRenderer, session: Session, page: string): RenderContext | undefined {
-  if (!page || !renderer.findPage(page)) return undefined;
-  return renderer.prepareSubmit(session, page, '');
+/** A page context for file routes, without opening a debug-log entry per image request. */
+export function fileContext(
+  renderer: ApexRenderer,
+  session: Session,
+  pageKey: string,
+  request = '',
+): RenderContext | undefined {
+  const page = pageKey ? renderer.findPage(pageKey) : undefined;
+  if (!page) return undefined;
+  return {
+    session,
+    page,
+    pageId: page.id,
+    request,
+    onload: [],
+    jsFiles: new Set(),
+    cssFiles: new Set(),
+    clientConfig: { regions: [], dynamicActions: [] },
+    itemErrors: new Map(),
+    messageTemplates: {},
+  };
 }
+
+const pageContext = (renderer: ApexRenderer, session: Session, page: string) =>
+  fileContext(renderer, session, page);
 
 /** BLOB of a display image or file item: `?page=&item=[&v1=&v2=][&inline=Y]`. */
 export const itemRoute: RouteHandler = (renderer, session, request) => {

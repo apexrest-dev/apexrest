@@ -176,7 +176,7 @@ export interface SubmitRequest {
   /** All submitted fields (p_json, f01-f50, x01-x20, ...). */
   form: URLSearchParams;
   files: UploadedFile[];
-  /** pageItems.itemsToSubmit of p_json; `fileIndex`/`fileCount` point into `files`. */
+  /** pageItems.itemsToSubmit of p_json; the 1-based `fileIndex` and `fileCount` point into `files`. */
   items: { n: string; v: string | string[]; fileIndex?: number; fileCount?: number }[];
   /** Item values passed on to the submit; hooks may change them. */
   values: Record<string, string>;

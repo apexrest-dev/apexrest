@@ -522,13 +522,14 @@ async function start(t: import('node:test').TestContext) {
     const form = new FormData();
     const itemsToSubmit = items.map((item) => {
       const index = files.findIndex((file) => file.item === item.n);
-      return index >= 0 ? { ...item, fileIndex: index, fileCount: 1 } : item;
+      return index >= 0 ? { ...item, fileIndex: index + 1, fileCount: 1 } : item;
     });
     form.append('p_json', JSON.stringify({ pageItems: { itemsToSubmit } }));
     form.append('p_flow_id', '100');
     form.append('p_flow_step_id', page);
     form.append('p_request', request);
-    for (const file of files) form.append('p_files', new Blob([new Uint8Array(file.data)], { type: file.type }), file.name);
+    for (const file of files)
+      form.append('p_files', new Blob([new Uint8Array(file.data)], { type: file.type }), file.name);
     const response = await fetch(`${server.url}/r/demo/wwv_flow.accept`, {
       method: 'POST',
       headers: { cookie },
@@ -547,7 +548,7 @@ test('multipart page submit stores an image in the form BLOB column and serves i
     [
       { n: 'P2_ID', v: '' },
       { n: 'P2_NAME', v: 'Logo' },
-      { n: 'P2_FILE', v: 'logo.png' },
+      { n: 'P2_FILE', v: '' },
     ],
     [{ item: 'P2_FILE', name: 'logo.png', type: 'image/png', data: PNG }],
   );
@@ -601,7 +602,7 @@ test('data loading parses CSV uploads with a data load definition and reports er
   const uploaded = await submit(
     '4',
     '',
-    [{ n: 'P4_FILE', v: 'people.csv' }],
+    [{ n: 'P4_FILE', v: '' }],
     [{ item: 'P4_FILE', name: 'people.csv', type: 'text/csv', data: Buffer.from(csv) }],
   );
   assert.equal(uploaded.errors, undefined);
@@ -639,7 +640,7 @@ test('XLSX workbooks load through apex_data_loading.load_data and list their wor
   await submit(
     '4',
     '',
-    [{ n: 'P4_FILE', v: 'book.xlsx' }],
+    [{ n: 'P4_FILE', v: '' }],
     [{ item: 'P4_FILE', name: 'book.xlsx', type: 'application/octet-stream', data: book }],
   );
   const sheets = server.db.query(
