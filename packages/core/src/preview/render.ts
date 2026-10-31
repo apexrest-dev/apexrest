@@ -143,6 +143,27 @@ function iconClasses(value: string): string {
   return /(^|\s)fa-/u.test(value) && !/(^|\s)fa(\s|$)/u.test(value) ? `fa ${value}` : value;
 }
 
+/** Universal Theme styles item containers by these wrapper modifiers. */
+const WRAPPER_CLASSES: Record<string, string> = {
+  radioGroup: 'radiogroup',
+  checkboxGroup: 'checkbox',
+  checkbox: 'single-checkbox',
+  switch: 'yes-no',
+  selectList: 'select-list',
+  textarea: 'textarea',
+  displayOnly: 'display-only',
+  datePicker: 'date-picker-apex',
+  popupLov: 'popup-lov',
+  fileBrowse: 'file',
+  imageUpload: 'image-upload',
+  richTextEditor: 'rich-text-editor',
+  markdownEditor: 'markdown-editor',
+  shuttle: 'shuttle',
+  starRating: 'star-rating',
+  colorPicker: 'color-picker',
+  combobox: 'combobox',
+};
+
 function strings(values: ApxValue[]): string[] {
   return values.map((value) =>
     typeof value === 'string' ? value : isRef(value) ? value.ref : String(value),
@@ -644,8 +665,10 @@ export class ApexRenderer {
         else if (/date|timestamp/iu.test(column.type))
           values[key] = new Date(Date.now() - index * 86_400_000).toISOString().slice(0, 10);
         else {
-          const sample = `${(column.label ?? '').replace(/<[^>]*>/gu, '').trim() || heading(key)} ${index}`;
-          values[key] = column.max && sample.length > column.max ? sample.slice(-column.max) : sample;
+          const label = (column.label ?? '').replace(/<[^>]*>/gu, '').trim() || heading(key);
+          const room = column.max ? column.max - String(index).length - 1 : label.length;
+          values[key] =
+            room > 0 ? `${label.slice(0, room).trim()} ${index}` : String(index).slice(0, column.max);
         }
       }
       const keys = Object.keys(values);
@@ -2303,7 +2326,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       LABEL_OPEN: `label for="${name}"`,
       LABEL_CLOSE: '/label',
       ITEM_CSS_CLASSES: [
-        `apex-item-wrapper apex-item-wrapper--${slug(type).replace(/[A-Z]/gu, (char) => `-${char.toLowerCase()}`)}`,
+        `apex-item-wrapper apex-item-wrapper--${WRAPPER_CLASSES[type] ?? slug(type).replace(/[A-Z]/gu, (char) => `-${char.toLowerCase()}`)}`,
         str(item.props, 'appearance.cssClasses'),
         error ? 'is-error' : '',
       ]
