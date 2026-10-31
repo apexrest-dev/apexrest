@@ -614,6 +614,12 @@ export function translateOracleSql(sql: string): string {
       /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
       (_whole, sign: string, days: string) => `datetime('now','localtime','${sign}${days} days')`,
     )
+    // sysdate - n/24, sysdate + (expr), sysdate - :BIND: day arithmetic with any simple operand.
+    .replace(
+      /\b(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\s*([+-])\s*(\(\s*[^()]*\)|:\w+|\d+(?:\.\d+)?(?:\s*[/*]\s*(?:\d+(?:\.\d+)?|:\w+))+)/giu,
+      (_whole, sign: string, operand: string) =>
+        `datetime('now','localtime', printf('%+.6f days', ${sign === '-' ? '-' : ''}(${operand.replace(/\//gu, '*1.0/')})))`,
+    )
     .replace(
       /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
       "datetime('now','localtime')",
