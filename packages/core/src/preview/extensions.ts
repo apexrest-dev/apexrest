@@ -1,5 +1,5 @@
 import type { ApxComponent, ApxObject } from './apexlang.ts';
-import type { ApexError, ApexRenderer, RenderContext, Session } from './render.ts';
+import type { ApexError, ApexRenderer, RenderContext, Session, TraceEvent } from './render.ts';
 import type { TemplateParams } from './theme.ts';
 
 /**
@@ -149,6 +149,27 @@ export type PointHandler = (
   point: PreviewPoint,
 ) => ApexError[] | undefined;
 
+/**
+ * Receives the renderer's debug trace: request begin/end, computations, processes, validations,
+ * branches, authorization and diagnostics (see TraceEvent). `ctx` is undefined for events raised
+ * outside a page context (diagnostics), which belong to the request currently being handled.
+ */
+export type TraceHandler = (
+  renderer: ApexRenderer,
+  ctx: RenderContext | undefined,
+  event: TraceEvent,
+) => void;
+
+/**
+ * Decides an authorization scheme by name for the current session: true allows, false denies,
+ * undefined falls through (the preview allows by default).
+ */
+export type AuthorizationHandler = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  scheme: string,
+) => boolean | undefined;
+
 export interface PreviewExtension {
   name: string;
   regions?: Record<string, RegionRenderer>;
@@ -171,9 +192,14 @@ export interface PreviewExtension {
   wrapRegion?: RegionWrapper;
   /** Called once per page render before the template is filled (add ctx.jsFiles, ctx.cssFiles, ctx.onload). */
   page?: (renderer: ApexRenderer, ctx: RenderContext) => void;
-  /** HTML appended inside the developer toolbar (links, panels); keep it small. */
+  /**
+   * HTML appended inside the developer toolbar bar. Buttons with `data-apex-local-panel="name"`
+   * toggle `<div class="apex-local-panel" data-panel="name">` panels, which open above the bar.
+   */
   toolbar?: (renderer: ApexRenderer, ctx: RenderContext) => string;
   point?: PointHandler;
+  trace?: TraceHandler;
+  authorize?: AuthorizationHandler;
 }
 
 export const extensions: PreviewExtension[] = [];
@@ -239,6 +265,26 @@ export function runPointExtensions(
   const errors: ApexError[] = [];
   for (const extension of extensions) errors.push(...(extension.point?.(renderer, ctx, point) ?? []));
   return errors;
+}
+
+export function traceExtensions(
+  renderer: ApexRenderer,
+  ctx: RenderContext | undefined,
+  event: TraceEvent,
+): void {
+  for (const extension of extensions) extension.trace?.(renderer, ctx, event);
+}
+
+export function authorizeExtensions(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  scheme: string,
+): boolean | undefined {
+  for (let index = extensions.length - 1; index >= 0; index -= 1) {
+    const result = extensions[index]!.authorize?.(renderer, ctx, scheme);
+    if (result !== undefined) return result;
+  }
+  return undefined;
 }
 
 export function filterRegionSql(

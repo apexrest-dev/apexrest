@@ -1,7 +1,8 @@
-import { get, isRef, ref, str, type ApxComponent, type ApxObject } from '../apexlang.ts';
+import { get, isRef, ref, str, type ApxComponent, type ApxObject, type ApxValue } from '../apexlang.ts';
 import { registerExtension, type ProcessResult } from '../extensions.ts';
 import type { ApexError, ApexRenderer, RenderContext, Session } from '../render.ts';
 import { escapeHtml } from '../theme.ts';
+import { enforcing, hasRole } from './devtools/view-as.ts';
 import { rememberRenderer, setAuthorizer, type Runtime } from './server/apex-api.ts';
 import { itemText, runPlsql, truthy, type ExecResult, type PlsqlOwner } from './server/plsql.ts';
 
@@ -303,6 +304,11 @@ function appProcesses(
     if (!points.includes(str(process.props, 'execution.point', 'beforeHeader'))) continue;
     if (!renderer.condition(ctx, process.props)) continue;
     const type = str(process.props, 'type', 'executeCode');
+    renderer.trace(ctx, {
+      type: 'process',
+      name: process.id,
+      detail: `application process (${type}, ${point})`,
+    });
     if (type !== 'executeCode') {
       renderer.diagnose(
         'info',
@@ -327,24 +333,43 @@ function pageComponentsAt(renderer: ApexRenderer, ctx: RenderContext, type: stri
 
 // ------------------------------------------------------------------ authorization
 
-const authorizationCache = new WeakMap<Session, Map<string, number>>();
+const authorizationCache = new WeakMap<Session, Map<string, number | undefined>>();
 
-function evaluateAuthorization(renderer: ApexRenderer, ctx: RenderContext, name: string): number | undefined {
+const findScheme = (renderer: ApexRenderer, name: string) => {
   const lower = name.toLowerCase();
-  if (lower === 'mustnotbepublicuser' || lower === 'must_not_be_public_user') return 1;
-  const scheme = sharedOf(renderer, 'authorization').find(
+  return sharedOf(renderer, 'authorization').find(
     (component) =>
       component.id.toLowerCase() === lower || str(component.props, 'name').toLowerCase() === lower,
   );
+};
+
+/**
+ * Evaluates an authorization scheme (1 allows, 0 denies, undefined when not evaluable). Denials
+ * are only reported unless the toolbar's "view as" is active (see devtools/view-as.ts).
+ */
+function evaluateAuthorization(renderer: ApexRenderer, ctx: RenderContext, name: string): number | undefined {
+  const lower = name.toLowerCase();
+  if (lower === 'mustnotbepublicuser' || lower === 'must_not_be_public_user') return 1;
+  const scheme = findScheme(renderer, name);
   if (!scheme) return undefined;
-  const cache = authorizationCache.get(ctx.session) ?? new Map<string, number>();
+  const cache = authorizationCache.get(ctx.session) ?? new Map<string, number | undefined>();
   authorizationCache.set(ctx.session, cache);
-  const key = `${scheme.id}|${ctx.session.user}|${ctx.pageId}`;
+  const viewAs = ctx.session.viewAs;
+  const key = `${scheme.id}|${ctx.session.user}|${ctx.pageId}|${viewAs ? JSON.stringify(viewAs) : ''}`;
   if (cache.has(key)) return cache.get(key);
   const type = str(scheme.props, 'type');
   let allowed: number | undefined;
   const who = owner(scheme);
-  if (/functionbody/iu.test(type)) {
+  const started = performance.now();
+  if (viewAs?.deny.some((denied) => denied.toLowerCase() === scheme.id.toLowerCase())) allowed = 0;
+  else if (/isinroleorgroup/iu.test(type)) {
+    const names = get(scheme.props, 'settings.names');
+    const wanted = (Array.isArray(names) ? names.map(String) : String(names ?? '').split(/[,:]/u)).filter(
+      Boolean,
+    );
+    // Without "view as" the preview has no ACL to consult; every role is granted.
+    allowed = !viewAs || wanted.some((role) => hasRole(renderer, viewAs, role)) ? 1 : 0;
+  } else if (/functionbody/iu.test(type)) {
     const result = run(renderer, ctx, str(scheme.props, 'settings.plsqlFunctionBody'), 'functionBody', who);
     if (result.ok) allowed = truthy(result.value) ? 1 : 0;
     else report(renderer, ctx, who, result, 'access is allowed');
@@ -362,26 +387,56 @@ function evaluateAuthorization(renderer: ApexRenderer, ctx: RenderContext, name:
     const value = ctx.session.items[str(scheme.props, 'settings.item').toUpperCase()] ?? '';
     allowed = (value !== '') === /notnull/iu.test(type) ? 1 : 0;
   }
-  if (allowed !== undefined) cache.set(key, allowed);
-  if (allowed === 0)
+  cache.set(key, allowed);
+  renderer.trace(ctx, {
+    type: 'authorization',
+    name: scheme.id,
+    detail: `${type}: ${allowed === undefined ? 'not evaluated, allowed' : allowed ? 'allowed' : viewAs ? 'denied' : 'denied (allowed anyway: view as is off)'}`,
+    level: allowed === 0 ? 'warning' : undefined,
+    ms: performance.now() - started,
+  });
+  if (allowed === 0 && !viewAs)
     renderer.diagnose(
       'info',
       `Authorization scheme ${scheme.id} denies ${ctx.session.user} locally; the preview allows access anyway`,
       ctx.pageId,
       scheme.id,
     );
+  if (allowed === undefined && viewAs)
+    renderer.diagnose(
+      'info',
+      `Authorization scheme ${scheme.id} (${type}) is not evaluated locally; view as allows it`,
+      ctx.pageId,
+      scheme.id,
+    );
   return allowed;
 }
 
-setAuthorizer((rt: Runtime | undefined, name: string | null) => {
-  if (rt && name) evaluateAuthorization(rt.renderer, rt.ctx, name);
-  return 1;
-});
+/** 0 only when "view as" enforces a denial; otherwise 1 (the default stays permissive). */
+function enforcedAuthorization(renderer: ApexRenderer, ctx: RenderContext, name: string): number {
+  const allowed = evaluateAuthorization(renderer, ctx, name);
+  return allowed === 0 && enforcing(ctx.session) ? 0 : 1;
+}
 
+setAuthorizer((rt: Runtime | undefined, name: string | null) =>
+  rt && name ? enforcedAuthorization(rt.renderer, rt.ctx, name) : 1,
+);
+
+const schemeName = (value: ApxValue | undefined) =>
+  isRef(value) ? value.ref : typeof value === 'string' ? value : '';
+
+/** Application-level, then page-level authorization; "view as" turns a denial into an error page. */
 function checkPageAuthorization(renderer: ApexRenderer, ctx: RenderContext): void {
-  const scheme = get(ctx.page.props, 'security.authorizationScheme');
-  const name = isRef(scheme) ? scheme.ref : typeof scheme === 'string' ? scheme : '';
-  if (name) evaluateAuthorization(renderer, ctx, name);
+  for (const name of [
+    schemeName(get(renderer.app.app.props, 'authorization.scheme')),
+    schemeName(get(ctx.page.props, 'security.authorizationScheme')),
+  ]) {
+    if (!name || enforcedAuthorization(renderer, ctx, name)) continue;
+    ctx.denied =
+      str(findScheme(renderer, name)?.props ?? {}, 'error.errorMessage') ||
+      `Authorization scheme ${name} denies access.`;
+    return;
+  }
 }
 
 // ------------------------------------------------------------------ item sources
@@ -640,4 +695,5 @@ registerExtension({
     return errors;
   },
   page: (renderer) => rememberRenderer(renderer),
+  authorize: (renderer, ctx, scheme) => enforcedAuthorization(renderer, ctx, scheme) === 1,
 });
