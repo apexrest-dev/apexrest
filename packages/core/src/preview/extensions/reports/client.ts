@@ -615,7 +615,7 @@ window.apexLocalReports = (function ($) {
       if (target) grid$.grid("setSelectedRecords", [target], false, true);
     }
     grid$.on("click", ".a-Button--actions", function () {
-      currentRecord = grid$.grid("getRecords", $(this).closest("tr"))[0] || null;
+      currentRecord = grid$.grid("getRecords", [$(this).closest("tr")])[0] || null;
     });
 
     buildToolbar(ig);

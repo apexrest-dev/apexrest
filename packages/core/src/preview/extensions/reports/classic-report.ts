@@ -253,7 +253,8 @@ export function classicReport(renderer: ApexRenderer, ctx: RenderContext, region
     );
   }
 
-  const sorted = new Map(state.sort.map((entry) => [entry.column, entry.direction]));
+  // Like APEX, only the primary sort column shows the sort indicator.
+  const sorted = new Map(state.sort.slice(0, 1).map((entry) => [entry.column, entry.direction]));
   const showHeadings = str(region.props, 'heading.type') !== 'none';
   const headings = showHeadings
     ? columns
