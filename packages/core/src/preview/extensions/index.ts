@@ -8,3 +8,4 @@ import './items.ts';
 import './platform.ts';
 import './reports.ts';
 import './server.ts';
+import './structure.ts';
