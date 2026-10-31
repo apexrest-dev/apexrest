@@ -25,7 +25,7 @@ apexrest preview start --source-dir src --port 8765 --reset
 
 `--source-dir` overrides `application.sourceDir` from `apexrest.json`; a folder that directly contains `application.apx` also works without a project file. In MCP hosts the same actions are available as `apexrest_preview action:setup|start|check|stop|status`; the started server lives as long as the MCP process and only listens on the loopback interface.
 
-The page shows a small toolbar with the diagnostics for the current page and a theme-style picker (for example Vita, Vita - Dark or Redwood Light) to compare designs; `GET /__apex/diagnostics` returns all diagnostics as JSON. Legacy `f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES` links redirect to the friendly page URLs.
+The developer toolbar at the bottom of every page follows APEX's runtime developer toolbar. It shows the page diagnostics, and it lets you view and edit session state and read a debug log of recent requests (computations, processes, validations, branches, authorization checks and timings). You can also open any page, preview the page at tablet or phone size, reset the local database from its seed scripts, open the local e-mail outbox, and pick a theme style (for example Vita, Vita - Dark or Redwood Light). "View as" is off by default, so every authorization scheme allows access; when you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden. `GET /__apex/diagnostics` returns all diagnostics as JSON. Legacy `f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES` links redirect to the friendly page URLs.
 
 ## Supported locally
 
@@ -37,9 +37,17 @@ All Universal Theme 26.2 page templates (standard, side columns, marquee, modal 
 
 Interactive reports use the real Universal Theme markup for search, column-heading menus, the Actions menu (columns, filter, rows per page, sort, reset, CSV/HTML download) and filter chips, starting from the primary saved report. Interactive grids run APEX's own grid, toolbar and model JavaScript over local data, with inline editing, add/duplicate/delete rows, master-detail and filters; Save, or a page submit with "Interactive Grid - Automatic Row Processing (DML)", writes the changes to SQLite. Classic reports support sortable headings, the pagination types, rows per page, break formatting and CSV links. Report settings are kept per preview session, and anything not simulated (charts, group by, pivot, highlights, single-row view, PDF/Excel) appears as a diagnostic.
 
+Interactive reports also simulate the Actions menu views: control breaks, highlights, computed columns (SQL over column identifiers, evaluated in SQLite), aggregates, Group By, Pivot and Chart views (drawn by the local SVG renderer), and the single row view, both from APEXlang saved reports and from the menu dialogs. Primary, alternative and public saved reports appear in the reports select list, and named private reports are kept per preview session. Downloads produce CSV, HTML, a real .xlsx workbook, and a labelled print page in place of PDF. Interactive grids add popup LOV, radio and checkbox groups, switch, star rating, color and date editors, edit authorization under the "view as" policy, and saved-report control breaks, highlights and aggregates.
+
 ### Search, cards and lists
 
 Faceted Search and Smart Filters run Oracle's own `apex.facets` widget. The preview answers its count requests locally and filters the bound region (classic report, interactive report, cards or list view) on the server, so counts, chips, "show all", clear and live refresh behave as in APEX. Supported facets are checkbox and radio groups, ranges, select lists, input fields, search, star ratings and facet groups, with distinct, static, SQL or shared LOVs. Cards render the native `a-CardView` markup with icons, badges, media, card actions, ordering items and pagination. List View is supported too.
+
+Search regions use the genuine `apex.search` widget over search configurations with local SQL, table or list sources.
+
+### Trees, wizards and legacy regions
+
+Tree regions run on Oracle's own treeView widget, built from pre-computed level/status columns or from node and parent key columns. Oracle `start with … connect by prior` queries (with `level`, `connect_by_isleaf`, `sys_connect_by_path`, `connect_by_root` and `order siblings by`) are translated to SQLite recursive CTEs in any region. Wizards work through Next/Previous/Reset Page and Trigger Action buttons, Form Pagination, Reset Pagination and legacy Automatic Row Fetch/Processing, with Stop and Start Grid Layout items. Tabular forms, reflow and column toggle reports, the legacy calendar, legacy charts and the jQuery date picker are mapped onto modern renderers, each with a diagnostic.
 
 ### Universal Theme components and region behavior
 
@@ -57,14 +65,24 @@ Page items render with the genuine APEX 26.2 item widgets: the `a-date-picker` w
 
 The preview interprets a subset of PL/SQL: anonymous blocks, variables, IF/CASE, loops including cursor FOR loops, SELECT INTO, DML with RETURNING, exceptions and `raise_application_error`. Control flow runs in Node.js and every expression and SQL statement runs in SQLite through the Oracle shims (also sequences, MERGE, ROWNUM, `connect by level`, ordered LISTAGG and date masks). Processes, validations, server-side conditions, computations, item defaults and sources, branches, PL/SQL dynamic content regions, dynamic actions, and application processes and computations use it. Common APEX APIs (`apex_util`, `apex_error`, `apex_page`, `apex_string`, `apex_escape`, `apex_lang`, `htp`, `v()`) are stubbed; other package calls are reported and skipped. Authorization schemes are evaluated and reported, but every page stays accessible.
 
+### Files and data
+
+Page submits with files arrive as multipart requests and are stored in SQLite: in `APEX_APPLICATION_TEMP_FILES` or `APEX_APPLICATION_FILES`, or in the form's BLOB column; item values hold the generated file name, as in APEX. Display Image items, Display Image and Download BLOB report columns, the Download process and action, and `wpg_docload`/`apex_http.download` serve stored BLOBs with their MIME type. Data load definitions and `apex_data_parser`/`apex_data_loading` parse CSV, TSV, JSON, XML and XLSX and insert into local tables, reporting processed and error rows. Report printing opens a print-friendly HTML page, not a PDF.
+
+### Platform services
+
+`apex_collection` and the `APEX_COLLECTIONS` view live in SQLite per preview session. APEX dictionary views (`APEX_APPLICATION_*`, `APEX_APPL_ACL_*`, `APEX_ACTIVITY_LOG`, `APEX_TEAM_FEEDBACK`, `APEX_APPL_AUTOMATIONS`, `APEX_TASKS`, `APEX_WORKFLOWS`, …) are generated from the APEXlang source on every reload and filled by the preview's own page views, feedback and ACL changes, so generated administration pages show real data. E-mail from `apex_mail`, Send E-Mail processes and e-mail templates goes to a local outbox; nothing is sent. Execution chains, user preferences, application settings and workflow/task processes are recorded locally.
+
+REST Data Sources, Invoke API processes and `apex_web_service.make_rest_request` are answered from `.apex-local/rest/*.json`. A fixture is either the response body or `{ "status": 200, "headers": {...}, "body": ... }`, looked up as `<staticId>.<operation>.json`, `<staticId>.<httpMethod>.json`, then `<staticId>.json` (for URLs, the path segments joined with `_`, then the last segment). Rows come from the data profile's row selector (or `items`), with columns mapped by the data profile column selectors; a missing fixture gives a diagnostic and an empty result.
+
 ### Dynamic actions
 
 Client events (including custom events, event scope and debounce/throttle) and client-side conditions (comparisons, lists, JavaScript expressions) drive Execute JavaScript, Refresh, Show/Hide, Enable/Disable, Set Value (static, JavaScript, SQL, PL/SQL, dialog return), Clear, Set Focus, Add/Remove Class, Set Style, Open/Close Region, Alert/Confirm, success and error messages, Cancel Event, Submit Page, dialog close/cancel, Execute Server-side Code, geolocation and share.
 
 ## Not simulated
 
-Authentication (any login succeeds and sets `APP_USER`), session state protection, APEX dictionary views (`APEX_*`) and `apex_collection`, `EXECUTE IMMEDIATE`, packages and explicit cursors, file upload storage, TinyMCE (the rich text editor is a simple stand-in), Oracle JET itself, interactive report chart/group by/pivot views, facet charts, REST data sources, translations and other plug-ins. These appear as diagnostics instead of silent omissions. Interpreted and simulated results are a design aid, not evidence of how the application behaves in Oracle.
+Authentication (any login succeeds and sets `APP_USER`), session state protection, `EXECUTE IMMEDIATE`, package bodies and explicit cursors, TinyMCE (the rich text editor is a simple stand-in), Oracle JET itself (charts are SVG), facet charts, Flashback and report subscriptions, interactive grid pivot/group by, real PDF output (print pages are HTML), Oracle Text/vector/REST search sources, workflow execution (diagrams are static outlines), generative AI (labelled placeholder text), geocoding and push notifications, translations and other plug-ins. These appear as diagnostics instead of silent omissions. Interpreted and simulated results are a design aid, not evidence of how the application behaves in Oracle.
 
 ## Verification boundary
 
-Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications: every page of all three renders without errors, and report, grid, facet, form and dialog interactions were checked in Chrome. That is local evidence only. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.
+Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications: every page of all three renders with no errors or warnings, 43 pages of the HR demo load in Chrome without console errors, and report, grid, facet, form, dialog, upload, data-load and administration flows were checked in Chrome. That is local evidence only. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.

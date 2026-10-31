@@ -84,17 +84,20 @@ apexrest preview check --project /abs/app     # render every page, list what is 
 apexrest preview start --project /abs/app     # serve pages and print their URLs
 ```
 
-| Area       | What runs locally                                                                                                                                                            |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Theme      | Genuine Universal Theme 26.2 templates, CSS and JavaScript; all page templates, navigation, theme styles (toolbar picker), messages and modal dialogs                        |
-| Reports    | Interactive reports (search, column menus, Actions, filters, download), editable interactive grids saved to SQLite, classic reports with sorting and pagination              |
-| Search     | Faceted Search and Smart Filters on Oracle's own widget with live counts; cards, list views                                                                                  |
-| Components | Template components (Content Row, Media List, Metric Card, Timeline, …) with full template directives; tabs, carousel, region display selector, inline dialogs               |
-| Visuals    | SVG charts (bar, line, area, combination, pie, donut, scatter, bubble, funnel, gauge, radar), FullCalendar calendars, offline maps                                           |
-| Items      | Genuine widgets: date picker, popup LOV, combobox, shuttle, switch, star rating, color picker, markdown, QR; cascading LOVs                                                  |
-| Logic      | PL/SQL subset interpreter for processes, validations, conditions, computations, branches and dynamic content; the dynamic action runtime; Oracle SQL shims and sample tables |
+| Area       | What runs locally                                                                                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Theme      | Genuine Universal Theme 26.2 templates, CSS and JavaScript; all page templates, navigation, theme styles (toolbar picker), messages and modal dialogs                                                                                      |
+| Reports    | Interactive reports with Actions-menu views (control break, highlight, compute, aggregate, group by, pivot, chart, saved reports, .xlsx download), editable interactive grids saved to SQLite, classic reports with sorting and pagination |
+| Search     | Faceted Search and Smart Filters on Oracle's own widget with live counts; cards, list views                                                                                                                                                |
+| Components | Template components (Content Row, Media List, Metric Card, Timeline, …) with full template directives; tabs, carousel, region display selector, inline dialogs                                                                             |
+| Visuals    | SVG charts (bar, line, area, combination, pie, donut, scatter, bubble, funnel, gauge, radar), FullCalendar calendars, offline maps                                                                                                         |
+| Items      | Genuine widgets: date picker, popup LOV, combobox, shuttle, switch, star rating, color picker, markdown, QR; cascading LOVs                                                                                                                |
+| Structure  | Tree regions with `connect by` queries, search regions, wizards (next/previous page, form pagination), tabular forms and legacy regions                                                                                                    |
+| Logic      | PL/SQL subset interpreter for processes, validations, conditions, computations, branches and dynamic content; the dynamic action runtime; Oracle SQL shims and sample tables                                                               |
+| Data       | File uploads and BLOBs, downloads, data loading from CSV/JSON/XML/XLSX, `apex_collection`, APEX dictionary views generated from the source, local e-mail outbox, REST sources from JSON fixtures                                           |
+| Tools      | Developer toolbar: diagnostics, session state, debug log, "view as" roles, tablet/phone viewport, page list, data reset, theme-style picker                                                                                                |
 
-All 91 pages of Oracle's three public APEXlang example applications render without errors. Anything not simulated is reported in a page toolbar and by `check`, never hidden. The preview is a design aid, not compiler, import or Oracle evidence. Read the [local preview guide](docs/local-preview.md).
+All 91 pages of Oracle's three public APEXlang example applications render with no errors or warnings, including their administration pages. Anything not simulated is reported in a page toolbar and by `check`, never hidden. The preview is a design aid, not compiler, import or Oracle evidence. Read the [local preview guide](docs/local-preview.md).
 
 ## Install
 

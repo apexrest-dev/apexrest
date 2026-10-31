@@ -84,7 +84,7 @@ apexrest preview start --project /abs/app     # serve pages and print their URLs
 </tr>
 <tr>
 <td>Reports</td>
-<td>Interactive reports (search, column menus, Actions, filters, download), editable interactive grids saved to SQLite, classic reports with sorting and pagination</td>
+<td>Interactive reports with Actions-menu views (control break, highlight, compute, aggregate, group by, pivot, chart, saved reports, .xlsx download), editable interactive grids saved to SQLite, classic reports with sorting and pagination</td>
 </tr>
 <tr>
 <td>Search</td>
@@ -103,12 +103,24 @@ apexrest preview start --project /abs/app     # serve pages and print their URLs
 <td>Genuine widgets: date picker, popup LOV, combobox, shuttle, switch, star rating, color picker, markdown, QR; cascading LOVs</td>
 </tr>
 <tr>
+<td>Structure</td>
+<td>Tree regions with <code>connect by</code> queries, search regions, wizards (next/previous page, form pagination), tabular forms and legacy regions</td>
+</tr>
+<tr>
 <td>Logic</td>
 <td>PL/SQL subset interpreter for processes, validations, conditions, computations, branches and dynamic content; the dynamic action runtime; Oracle SQL shims and sample tables</td>
 </tr>
+<tr>
+<td>Data</td>
+<td>File uploads and BLOBs, downloads, data loading from CSV/JSON/XML/XLSX, <code>apex_collection</code>, APEX dictionary views generated from the source, local e-mail outbox, REST sources from JSON fixtures</td>
+</tr>
+<tr>
+<td>Tools</td>
+<td>Developer toolbar: diagnostics, session state, debug log, &quot;view as&quot; roles, tablet/phone viewport, page list, data reset, theme-style picker</td>
+</tr>
 </tbody></table>
 </div>
-<p>All 91 pages of Oracle&#39;s three public APEXlang example applications render without errors. Anything not simulated is reported in a page toolbar and by <code>check</code>, never hidden. The preview is a design aid, not compiler, import or Oracle evidence. Read the <a href="/apexrest/local-preview/">local preview guide</a>.</p>
+<p>All 91 pages of Oracle&#39;s three public APEXlang example applications render with no errors or warnings, including their administration pages. Anything not simulated is reported in a page toolbar and by <code>check</code>, never hidden. The preview is a design aid, not compiler, import or Oracle evidence. Read the <a href="/apexrest/local-preview/">local preview guide</a>.</p>
 <h2 id="install">Install</h2>
 <p>The repository ships the built plugin under <code>plugins/apexrest-apex</code>, so no <code>npm ci</code> or TypeScript build is needed. Keep Node 24 LTS on <code>PATH</code> (supported range: Node 24–26). Oracle work needs Java 21 and a matching SQLcl: the managed default for APEX 26.1 is SQLcl 26.1.2; <a href="/apexrest/apex-26.2/">APEX 26.2 support</a> uses SQLcl 26.3 and adds automatic or explicit partial imports for eligible pages and shared components.</p>
 <p><strong>Codex</strong> (desktop or CLI with native plugin support):</p>

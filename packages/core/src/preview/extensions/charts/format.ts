@@ -101,7 +101,8 @@ export function formatTick(value: number, spec: ValueFormat, step: number): stri
       : SCALES.find(([name]) => name === scaling);
   const factor = entry?.[1] ?? 1;
   const stepDigits = Math.max(0, Math.ceil(-Math.log10(Math.abs(step / factor) || 1) + 0.0001));
-  const digits = spec.decimalPlaces ?? Math.min(4, stepDigits);
+  // Never print fewer decimals than the step needs, or fractional ticks repeat (0, 0, 1, 1, 1).
+  const digits = Math.min(4, Math.max(spec.decimalPlaces ?? 0, stepDigits));
   return formatValue(value, {
     ...spec,
     scaling: entry ? entry[0] : 'none',
