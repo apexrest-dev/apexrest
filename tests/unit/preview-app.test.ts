@@ -149,3 +149,18 @@ end;
   for (const action of ['showErrorMessage', 'openRegion', 'cancelEvent', 'setStyle', 'getCurrentPosition'])
     assert.match(runtime, new RegExp(`case "${action}"`));
 });
+
+test('date arithmetic on sysdate uses real fractions of a day', async () => {
+  const { LocalDatabase } = await import('../../packages/core/src/preview/database.ts');
+  const db = new LocalDatabase(':memory:');
+  try {
+    const hours = Number(db.scalar('select (julianday(sysdate) - julianday(sysdate - 6/24)) * 24 from dual'));
+    assert.ok(Math.abs(hours - 6) < 0.001, `hours ${hours}`);
+    const days = Number(
+      db.scalar('select julianday(sysdate + :D) - julianday(sysdate) from dual', { D: '2' }),
+    );
+    assert.ok(Math.abs(days - 2) < 0.001, `days ${days}`);
+  } finally {
+    db.close();
+  }
+});

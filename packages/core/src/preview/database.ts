@@ -614,6 +614,12 @@ export function translateOracleSql(sql: string): string {
       /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
       (_whole, sign: string, days: string) => `datetime('now','localtime','${sign}${days} days')`,
     )
+    // sysdate - n/24, sysdate + (expr), sysdate - :BIND: day arithmetic with any simple operand.
+    .replace(
+      /\b(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\s*([+-])\s*(\(\s*[^()]*\)|:\w+|\d+(?:\.\d+)?(?:\s*[/*]\s*(?:\d+(?:\.\d+)?|:\w+))+)/giu,
+      (_whole, sign: string, operand: string) =>
+        `datetime('now','localtime', printf('%+.6f days', ${sign === '-' ? '-' : ''}(${operand.replace(/\//gu, '*1.0/')})))`,
+    )
     .replace(
       /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
       "datetime('now','localtime')",
@@ -631,6 +637,12 @@ export function translateOracleSql(sql: string): string {
           : `group_concat(${value}, ${separator ?? "''"} ${order})`,
     )
     .replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ")
+    // trim(both|leading|trailing 'x' from expr) -> trim/ltrim/rtrim(expr, 'x')
+    .replace(
+      /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
+      (_whole, side: string, chars: string, value: string) =>
+        `${{ both: 'trim', leading: 'ltrim', trailing: 'rtrim' }[side.toLowerCase() as 'both']}(${value.trim()}, ${chars})`,
+    )
     .replace(
       /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
       '($1)',
@@ -861,6 +873,16 @@ export class LocalDatabase {
         })
       );
     });
+    // Oracle: a NULL (or missing) replacement removes the search string; SQLite would return NULL.
+    fn('replace', (value, search, replacement) =>
+      value === null || value === undefined
+        ? null
+        : search === null || search === undefined || search === ''
+          ? String(value)
+          : String(value)
+              .split(String(search))
+              .join(replacement === null || replacement === undefined ? '' : String(replacement)),
+    );
     fn('v', (name) => this.#binds[String(name).toUpperCase()] ?? null);
     fn('nv', (name) => {
       const value = this.#binds[String(name).toUpperCase()];

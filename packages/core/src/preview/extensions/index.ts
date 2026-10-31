@@ -5,6 +5,7 @@ import './components.ts';
 import './devtools.ts';
 import './facets.ts';
 import './items.ts';
+import './platform.ts';
 import './reports.ts';
 import './server.ts';
 import './structure.ts';
