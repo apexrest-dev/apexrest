@@ -25,6 +25,8 @@ window.apexLocal = (function ($) {
   "use strict";
   var base = location.pathname.replace(/\/[^/]*$/, "");
   var config = { regions: [], dynamicActions: [] };
+  // Extension modules add dynamic action types: apexLocal.registerAction(name, function (action, event, trigger, helpers) {...}).
+  var actionHandlers = {};
 
   function compile(body) {
     return Function("event", body);
@@ -180,6 +182,7 @@ window.apexLocal = (function ($) {
         if (navigator.share) return navigator.share({ title: settings.title, text: settings.text, url: settings.url || location.href }).catch(function () {});
         return undefined;
       default:
+        if (actionHandlers[action.action]) return actionHandlers[action.action](action, event, trigger, { elements: elements, each: each });
         console.warn("[apex-local] dynamic action \"" + action.action + "\" is not simulated");
     }
   }
@@ -304,6 +307,7 @@ window.apexLocal = (function ($) {
       config.dynamicActions.forEach(bindDynamicAction);
     },
     refreshRegion: replaceRegion,
+    registerAction: function (name, handler) { actionHandlers[name] = handler; },
     config: function () { return config; }
   };
 })(apex.jQuery);

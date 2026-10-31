@@ -171,6 +171,8 @@ export interface PreviewExtension {
   wrapRegion?: RegionWrapper;
   /** Called once per page render before the template is filled (add ctx.jsFiles, ctx.cssFiles, ctx.onload). */
   page?: (renderer: ApexRenderer, ctx: RenderContext) => void;
+  /** HTML appended inside the developer toolbar (links, panels); keep it small. */
+  toolbar?: (renderer: ApexRenderer, ctx: RenderContext) => string;
   point?: PointHandler;
 }
 

@@ -1736,7 +1736,8 @@ export class ApexRenderer {
       )
       .join('');
     const picker = `<label class="apex-local-style">Theme style <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
-    return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary>${picker}<ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
+    const tools = extensions.map((extension) => extension.toolbar?.(this, ctx) ?? '').join('');
+    return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary>${picker}${tools}<ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
   }
 
   navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
