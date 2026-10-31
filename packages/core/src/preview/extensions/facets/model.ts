@@ -210,7 +210,7 @@ export function facetsOf(renderer: ApexRenderer, ctx: RenderContext, filters: Ap
       };
       result.push(group);
       for (const member of [...child.children]
-        .filter((entry) => entry.type === 'facet' || entry.type === 'filter')
+        .filter((entry) => ['checkbox', 'facet', 'filter'].includes(entry.type))
         .sort((a, b) => sequence(a) - sequence(b))) {
         if (!renderer.condition(ctx, member.props)) continue;
         const facet = facetOf(renderer, ctx, member, filters);

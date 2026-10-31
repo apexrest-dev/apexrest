@@ -92,7 +92,9 @@ export function renderCards(renderer: ApexRenderer, ctx: RenderContext, region: 
   if (order.clause) sql = `select * from (${sql}) order by ${order.clause}`;
   const result = renderer.query(ctx, region, sql);
   // Refreshes replace only the cards view so the order-by item and region chrome stay in place.
-  ctx.onload.push(`apexLocalFacets.cardsRegion(${JSON.stringify(domId).replaceAll('<', '\\u003c')});`);
+  ctx.onload.push(
+    `apexLocalFacets.partRegion(${JSON.stringify(domId).replaceAll('<', '\\u003c')}, "_cards", "Cards");`,
+  );
   if (result.error)
     return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(result.error)}</div></div>`;
 

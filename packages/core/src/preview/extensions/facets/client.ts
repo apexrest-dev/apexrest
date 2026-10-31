@@ -120,28 +120,47 @@ export const FACETS_CLIENT = String.raw`
     var region = apex.region.isRegion && apex.region.isRegion(id) ? apex.region(id) : null;
     return region && region.refresh ? region.refresh() : window.apexLocal.refreshRegion(id);
   }
-  function refreshCards(id, pageNumber) {
+  // Region refresh that replaces only the rendered view (#<id><suffix>), keeping the region chrome,
+  // its slot items (e.g. the cards order-by item) and its visibility (Region Display Selector).
+  function refreshPart(id, suffix, pageNumber) {
     var region$ = $("#" + apex.util.escapeCSS(id));
     var url = base + "/__apex/region?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(id) + (pageNumber ? "&pg=" + pageNumber : "");
     region$.trigger("apexbeforerefresh");
     return fetch(url, { credentials: "same-origin" }).then(function (response) { return response.text(); }).then(function (html) {
-      var selector = "#" + apex.util.escapeCSS(id + "_cards");
+      var selector = "#" + apex.util.escapeCSS(id + suffix);
       var next$ = $("<div></div>").html(html).find(selector);
       if (!next$.length || !$(selector).length) return window.apexLocal.refreshRegion(id);
       $(selector).replaceWith(next$);
       region$.trigger("apexafterrefresh");
     });
   }
+  // widget.facets 26.2 calls isFiltered() for star rating lists after counts update, which that
+  // control type does not implement; skip that show-more recalculation instead of failing.
+  function patchWidget() {
+    var proto = $.apex && $.apex.facets && $.apex.facets.prototype;
+    if (!proto || proto._apexLocalPatched) return;
+    var update = proto._updateDisplayedItems;
+    proto._updateDisplayedItems = function () {
+      try {
+        return update.apply(this, arguments);
+      } catch (error) {
+        if (!(error instanceof TypeError) || String(error.message).indexOf("isFiltered") < 0) throw error;
+      }
+    };
+    proto._apexLocalPatched = true;
+  }
+
   window.apexLocalFacets = {
-    cardsRegion: function (id) {
+    patchWidget: patchWidget,
+    partRegion: function (id, suffix, type) {
       if (apex.region.isRegion(id)) apex.region.destroy(id);
-      apex.region.create(id, { type: "Cards", refresh: function () { return refreshCards(id); } });
+      apex.region.create(id, { type: type, refresh: function () { return refreshPart(id, suffix); } });
     },
-    refreshCards: refreshCards
+    refreshPart: refreshPart
   };
   $(document).on("click", "[data-apex-local-cards-page]", function (event) {
     event.preventDefault();
-    refreshCards(this.getAttribute("data-region"), this.getAttribute("data-apex-local-cards-page"));
+    refreshPart(this.getAttribute("data-region"), "_cards", this.getAttribute("data-apex-local-cards-page"));
   });
 
   // The filtered region refreshes when the facets change (the genuine report regions listen the same way).

@@ -32,7 +32,9 @@ export function renderListView(renderer: ApexRenderer, ctx: RenderContext, regio
     sql,
     num(region.props, 'reportLayout.numberOfRows', num(region.props, 'settings.numberOfRows', 1_000)),
   );
-  ctx.clientConfig.regions.push({ id: domId, kind: 'listView' });
+  ctx.onload.push(
+    `apexLocalFacets.partRegion(${JSON.stringify(domId).replaceAll('<', '\\u003c')}, "_lv", "ListView");`,
+  );
   if (result.error)
     return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(result.error)}</div></div>`;
   const options = new Set(features(region));
@@ -67,7 +69,7 @@ export function renderListView(renderer: ApexRenderer, ctx: RenderContext, regio
   const empty = result.rows.length
     ? ''
     : `<span class="nodatafound">${renderer.substitute(ctx.session, str(region.props, 'messages.whenNoDataFound', 'No data found.'), ctx.page, 'HTML')}</span>`;
-  return `${search}<ul class="a-ListView${options.has('inset') ? ' a-ListView--inset' : ''}" id="${escapeHtml(domId)}_listview" data-role="listview">${items}</ul>${empty}`;
+  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options.has('inset') ? ' a-ListView--inset' : ''}" id="${escapeHtml(domId)}_listview" data-role="listview">${items}</ul>${empty}</div>`;
 }
 
 /** Region Display Selector: the genuine apexTabs widget over the regions flagged for it. */
@@ -101,7 +103,7 @@ export function renderDisplaySelector(
   const jump = /scroll|jump/iu.test(mode);
   const showAll = bool(region.props, 'settings.includeShowAll', !jump);
   const tab = (id: string, label: string, first: boolean) =>
-    `<li class="apex-rds-item${first ? ' apex-rds-first' : ''}" role="presentation" id="${escapeHtml(id)}_tab"><a href="#${escapeHtml(id)}" role="tab" aria-controls="${escapeHtml(id)}"><span>${label}</span></a></li>`;
+    `<li class="apex-rds-item${first ? ' apex-rds-first' : ''}" role="presentation" id="${escapeHtml(id)}_tab"><a class="a-RDS-link" href="#${escapeHtml(id)}" role="tab" aria-controls="${escapeHtml(id)}"><span class="a-RDS-icon a-Icon " aria-hidden="true"></span><span class="a-RDS-label">${label}</span></a></li>`;
   const tabs = [
     showAll ? tab('SHOW_ALL', 'Show All', true) : '',
     ...regions.map((entry, index) =>

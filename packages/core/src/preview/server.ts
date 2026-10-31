@@ -362,7 +362,7 @@ export class PreviewServer {
       // Faceted search facets and smart filters are page items too (also inside facet groups).
       const facets = (children: ApxComponent[]): ApxComponent[] =>
         children.flatMap((child) =>
-          child.type === 'facet' || child.type === 'filter' ? [child] : facets(child.children),
+          ['facet', 'filter', 'checkbox'].includes(child.type) ? [child] : facets(child.children),
         );
       for (const facet of facets(cleared?.children ?? [])) delete session.items[facet.id.toUpperCase()];
     }

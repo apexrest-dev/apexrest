@@ -297,26 +297,178 @@ const MORE_PAGE = `page 5 (
 )
 `;
 
+const MIXED_PAGE = `page 6 (
+    name: Mixed
+    alias: MIXED
+
+    region facets (
+        name: Facets
+        type: facetedSearch
+        source {
+            filteredRegion: @report
+        }
+        layout {
+            sequence: 10
+        }
+        settings {
+            batchFacetChanges: true
+            showCharts: false
+        }
+
+        facetGroup flags (
+            label: Flags
+            advanced {
+                staticId: P6_FLAGS
+                combineFilters: or
+            }
+            layout {
+                sequence: 10
+            }
+
+            checkbox P6_FOOD (
+                type: checkbox
+                label {
+                    label: Food
+                }
+                settings {
+                    checkedValue: Food
+                }
+                source {
+                    databaseColumn: CATEGORY
+                }
+            )
+
+            checkbox P6_TOOLS (
+                type: checkbox
+                label {
+                    label: Tools
+                }
+                settings {
+                    checkedValue: Tools
+                }
+                source {
+                    databaseColumn: CATEGORY
+                }
+            )
+        )
+
+        facet P6_STARS (
+            type: starRating
+            label {
+                label: Stars
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: STARS
+                dataType: number
+            }
+        )
+
+        facet P6_CATEGORY (
+            type: selectList
+            label {
+                label: Category
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: CATEGORY
+            }
+        )
+
+        facet P6_PRICE (
+            type: inputField
+            label {
+                label: Price below
+            }
+            settings {
+                comparisonOperator: lessThan
+            }
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: PRICE
+                dataType: number
+            }
+        )
+
+        facet P6_NOT (
+            type: checkboxGroup
+            label {
+                label: Not in
+            }
+            lov {
+                type: distinctValues
+            }
+            listEntries {
+                allowToExclude: true
+            }
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: CATEGORY
+            }
+        )
+
+        facet P6_UNKNOWN (
+            type: shuttle
+            label {
+                label: Unknown
+            }
+            source {
+                databaseColumn: CATEGORY
+            }
+        )
+    )
+
+    region report (
+        name: Report
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                \`\`\`sql
+                select product_id, name, category, price, stars from products
+                \`\`\`
+        }
+        layout {
+            sequence: 20
+        }
+    )
+)
+`;
+
 const DATA = `create table products (
   product_id integer primary key,
   name varchar2(100),
   category varchar2(30),
   price number,
   rating varchar2(1),
-  image_url varchar2(200)
+  image_url varchar2(200),
+  stars number
 );
-insert into products values (1, 'Hammer', 'Tools', 25, 'G', '/img/1.png');
-insert into products values (2, 'Saw', 'Tools', 40, 'B', '/img/2.png');
-insert into products values (3, 'Apple', 'Food', 2, 'G', '/img/3.png');
-insert into products values (4, 'Bread', 'Food', 4, null, '/img/4.png');
-insert into products values (5, 'Laptop', 'Electronics', 1500, 'G', '/img/5.png');
-insert into products values (6, 'Phone', 'Electronics', 900, 'B', '/img/6.png');
+insert into products values (1, 'Hammer', 'Tools', 25, 'G', '/img/1.png', 5);
+insert into products values (2, 'Saw', 'Tools', 40, 'B', '/img/2.png', 2);
+insert into products values (3, 'Apple', 'Food', 2, 'G', '/img/3.png', 4);
+insert into products values (4, 'Bread', 'Food', 4, null, '/img/4.png', 3);
+insert into products values (5, 'Laptop', 'Electronics', 1500, 'G', '/img/5.png', 5);
+insert into products values (6, 'Phone', 'Electronics', 900, 'B', '/img/6.png', 1);
 `;
 
 const FILES = {
   'pages/p00003-products.apx': SEARCH_PAGE,
   'pages/p00004-gallery.apx': CARDS_PAGE,
   'pages/p00005-more.apx': MORE_PAGE,
+  'pages/p00006-mixed.apx': MIXED_PAGE,
   '.apex-local/02-products.sql': DATA,
 };
 
@@ -482,7 +634,7 @@ test('cards render a-CardView markup with media, icon, badge, actions, ordering 
   );
   assert.match(html, /has-actions--full/u);
   assert.match(html, /<span class="a-TMV-pageRange">1 - 4 of 6<\/span>/u);
-  assert.match(html, /apexLocalFacets\.cardsRegion\("gallery"\);/u);
+  assert.match(html, /apexLocalFacets\.partRegion\("gallery", "_cards", "Cards"\);/u);
   const titles = (fragment: string) =>
     [...fragment.matchAll(/<h3 class="a-CardView-title">([^<]*)<\/h3>/gu)].map((match) => match[1]);
   assert.deepEqual(titles(html), ['Apple', 'Bread', 'Hammer', 'Laptop']);
@@ -516,8 +668,14 @@ test('smart filters use the facets widget in smart mode; list view and region di
   assert.match(html, /<li class="a-ListView-item"><strong>Apple<\/strong> Food<\/li>/u);
   assert.match(html, /data-apex-local-listview="list"/u);
   assert.match(html, /<ul class="apex-rds is-disabled" id="selector_RDS" role="tablist">/u);
-  assert.match(html, /<li class="apex-rds-item" role="presentation" id="list_tab"><a href="#list"/u);
-  assert.match(html, /<a href="#notes" role="tab" aria-controls="notes"><span>Notes<\/span><\/a>/u);
+  assert.match(
+    html,
+    /<li class="apex-rds-item" role="presentation" id="list_tab"><a class="a-RDS-link" href="#list"/u,
+  );
+  assert.match(
+    html,
+    /<a class="a-RDS-link" href="#notes" role="tab" aria-controls="notes"><span class="a-RDS-icon a-Icon " aria-hidden="true"><\/span><span class="a-RDS-label">Notes<\/span><\/a>/u,
+  );
   assert.match(html, /apex\.widget\.regionDisplaySelector\('selector'/u);
 
   await facets('5', 'filters', { items: { FILTERS_SEARCH: 'top\nlap', P5_CATEGORY: '' }, x01: 'STATE' });
@@ -528,6 +686,78 @@ test('smart filters use the facets widget in smart mode; list view and region di
   );
   const counts = await facets('5', 'filters', { items: {}, x01: 'FETCH_COUNTS' });
   assert.deepEqual(counts.json, { counts: { P5_CATEGORY: { Electronics: 1 } }, totalCount: 1 });
+});
+
+test('facet groups, star ratings, select lists, input fields and exclude mode filter and count', async (t) => {
+  const { get, facets, server } = await start(t);
+  const html = await get('mixed');
+  const init = /apex\.jQuery\('#facets_FS'\)\.facets\((\{.*?\})\);/u.exec(html);
+  assert.ok(init);
+  const options = JSON.parse(init[1]!) as {
+    batch: boolean;
+    searchField: boolean;
+    controls: {
+      name: string;
+      type: string;
+      value?: string;
+      values?: { r: string }[];
+      allowExclude?: boolean;
+    }[];
+  };
+  assert.equal(options.batch, true);
+  assert.equal(options.searchField, false);
+  assert.deepEqual(
+    options.controls.map((control) => [control.name, control.type]),
+    [
+      ['P6_FLAGS', 'group'],
+      ['P6_FOOD', 'checkbox'],
+      ['P6_TOOLS', 'checkbox'],
+      ['P6_STARS', 'starRating'],
+      ['P6_CATEGORY', 'selectList'],
+      ['P6_PRICE', 'input'],
+      ['P6_NOT', 'list'],
+    ],
+  );
+  assert.equal(options.controls[1]!.value, 'Food');
+  assert.deepEqual(
+    options.controls[3]!.values!.map((value) => value.r),
+    ['1', '2', '3', '4', '5'],
+  );
+  assert.equal(options.controls[6]!.allowExclude, true);
+  assert.ok(
+    server
+      .diagnostics()
+      .some(
+        (entry) =>
+          entry.page === '6' && /Facet P6_UNKNOWN of type shuttle is not simulated/u.test(entry.message),
+      ),
+  );
+
+  const names = async () => reportNames(await get('__apex/region?page=6&region=report'));
+  await facets('6', 'facets', { items: { P6_FOOD: 'Food', P6_TOOLS: 'Tools' }, x01: 'STATE' });
+  assert.deepEqual(await names(), ['Hammer', 'Saw', 'Apple', 'Bread']);
+  await facets('6', 'facets', { items: { P6_STARS: '4' }, x01: 'STATE' });
+  assert.deepEqual(await names(), ['Hammer', 'Apple']);
+  const counts = await facets('6', 'facets', { items: {}, x01: 'FETCH_COUNTS' });
+  assert.deepEqual(counts.json, {
+    counts: {
+      P6_FOOD: { Food: 1 },
+      P6_TOOLS: { Tools: 1 },
+      P6_STARS: { '1': 4, '2': 4, '3': 3, '4': 2, '5': 1 },
+      P6_CATEGORY: { Food: 1, Tools: 1 },
+      P6_NOT: { Food: 1, Tools: 1 },
+    },
+    totalCount: 2,
+  });
+  await facets('6', 'facets', {
+    items: { P6_FOOD: '', P6_TOOLS: '', P6_STARS: '', P6_PRICE: '30', P6_NOT: 'EFood' },
+    x01: 'STATE',
+  });
+  assert.deepEqual(await names(), ['Hammer']);
+  await facets('6', 'facets', { items: { P6_PRICE: 'GTE:900', P6_NOT: 'IElectronics' }, x01: 'STATE' });
+  assert.deepEqual(await names(), ['Laptop', 'Phone']);
+  await facets('6', 'facets', { items: { P6_PRICE: '', P6_NOT: '', P6_CATEGORY: 'Tools' }, x01: 'STATE' });
+  assert.deepEqual(await names(), ['Hammer', 'Saw']);
 });
 
 test('runtime script routes apexlocal plug-in calls and ships the facet messages', async (t) => {

@@ -132,8 +132,9 @@ function control(
     case 'starRating':
       return {
         ...common,
-        ...listOptions,
-        orderByCount: false,
+        // The genuine star rating control has no "show all" or value filtering.
+        values: lov,
+        hideEmpty: listOptions.hideEmpty,
         type: 'starRating',
         activeIcon: 'fa fa-star',
         activeColor: str(props, 'settings.activeColor') || undefined,
@@ -264,7 +265,7 @@ export function renderFilters(renderer: ApexRenderer, ctx: RenderContext, region
   const searchName = search?.name ?? '';
   if (search) inputs.push(hidden(search.name, facetValue(renderer, ctx, search)));
   const currentFacets = str(region.props, 'settings.showCurrentFacets', 'true');
-  const totalCountSetting = str(region.props, 'settings.showTotalRowCount', 'true');
+  const totalCountSetting = str(region.props, 'settings.showTotalRowCount', smart ? 'false' : 'true');
   const options: Record<string, unknown> = {
     regionDomId: domId,
     ajaxIdentifier: `apexlocal:facets:${domId}`,
@@ -307,7 +308,7 @@ export function renderFilters(renderer: ApexRenderer, ctx: RenderContext, region
     ctx.jsFiles.add('#APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.filterable#MIN#.js?v=#APEX_VERSION#');
   const widgetId = `${domId}_FS`;
   ctx.onload.push(
-    `apex.jQuery('#${widgetId}').facets(${JSON.stringify(options).replaceAll('<', '\\u003c')});`,
+    `apexLocalFacets.patchWidget();apex.jQuery('#${widgetId}').facets(${JSON.stringify(options).replaceAll('<', '\\u003c')});`,
   );
   return `<div id="${escapeHtml(widgetId)}" data-apex-local-region="${escapeHtml(domId)}" data-apex-local-filtered="${escapeHtml(renderer.regionDomId(target))}" data-apex-local-items="${escapeHtml(items.join(','))}"></div><div class="apex-local-facet-items" hidden>${inputs.join('')}</div>`;
 }
