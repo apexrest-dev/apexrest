@@ -16,6 +16,7 @@ import {
 } from './apexlang.ts';
 import { APEX_FULL_VERSION, type ApexAssets } from './assets.ts';
 import {
+  authorizeExtensions,
   columnRenderer,
   conditionHandler,
   evaluateExpression,
@@ -26,6 +27,7 @@ import {
   regionRenderer,
   runCodeExtensions,
   runPointExtensions,
+  traceExtensions,
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
@@ -78,6 +80,30 @@ export interface Session {
   pagination: Record<string, number>;
   /** Theme style chosen from the preview toolbar; overrides the application's current style. */
   themeStyle?: string | undefined;
+  /**
+   * Developer toolbar "view as": when set, authorization schemes and ACL role checks are
+   * enforced for these role static IDs, and the listed schemes always deny. Unset is permissive.
+   */
+  viewAs?: { roles: string[]; deny: string[] } | undefined;
+}
+
+/** One entry of the per-request debug trace (see ApexRenderer.trace). */
+export interface TraceEvent {
+  type:
+    | 'begin'
+    | 'end'
+    | 'computation'
+    | 'process'
+    | 'validation'
+    | 'branch'
+    | 'authorization'
+    | 'diagnostic'
+    | 'info';
+  name: string;
+  detail?: string | undefined;
+  level?: 'error' | 'warning' | 'info' | undefined;
+  /** Duration of the traced step in milliseconds. */
+  ms?: number | undefined;
 }
 
 interface RenderContext {
@@ -91,6 +117,8 @@ interface RenderContext {
   clientConfig: { regions: { id: string; kind: string }[]; dynamicActions: unknown[] };
   itemErrors: Map<string, string>;
   messageTemplates: Record<string, string>;
+  /** Set when the page authorization denies access ("view as"); the page body shows this message. */
+  denied?: string | undefined;
 }
 
 export interface RenderOptions {
@@ -100,6 +128,20 @@ export interface RenderOptions {
 }
 
 type Lov = { d: string; r: string }[];
+
+/** Dynamic action attribute groups passed to the browser next to `settings`. */
+const DYNAMIC_ACTION_GROUPS = [
+  'genAI',
+  'inputValue',
+  'useResponse',
+  'appearance',
+  'initialPrompt',
+  'quickActions',
+  'fileHandling',
+  'source',
+  'geocodingInput',
+  'geocodingResult',
+];
 
 export const MESSAGES: Record<string, string> = {
   APEX_PAGE_NOSCRIPT: 'You must run this web page with JavaScript enabled.',
@@ -247,10 +289,16 @@ export class ApexRenderer {
   }
 
   diagnose(level: Diagnostic['level'], message: string, page?: string, component?: string): void {
+    this.trace(undefined, { type: 'diagnostic', name: component ?? '', detail: message, level });
     const key = `${level}|${page}|${component}|${message}`;
     if (this.#diagnosticKeys.has(key)) return;
     this.#diagnosticKeys.add(key);
     this.diagnostics.push({ level, message, ...(page ? { page } : {}), ...(component ? { component } : {}) });
+  }
+
+  /** Debug trace for the developer toolbar; extensions receive it through `trace`. */
+  trace(ctx: RenderContext | undefined, event: TraceEvent): void {
+    traceExtensions(this, ctx, event);
   }
 
   // ---------------------------------------------------------------- lookups
@@ -499,7 +547,14 @@ export class ApexRenderer {
   }
 
   visible(ctx: RenderContext, component: ApxComponent): boolean {
-    return this.condition(ctx, component.props);
+    return this.condition(ctx, component.props) && this.authorized(ctx, component.props);
+  }
+
+  /** `security.authorizationScheme`; permissive unless an extension denies ("view as"). */
+  authorized(ctx: RenderContext, props: ApxObject): boolean {
+    const scheme = get(props, 'security.authorizationScheme');
+    const name = isRef(scheme) ? scheme.ref : typeof scheme === 'string' ? scheme : '';
+    return !name || authorizeExtensions(this, ctx, name) !== false;
   }
 
   // ---------------------------------------------------------------- links
@@ -941,6 +996,11 @@ export class ApexRenderer {
       itemErrors: new Map(),
       messageTemplates: {},
     };
+    this.trace(ctx, {
+      type: 'begin',
+      name: `Show page ${page.id}`,
+      detail: [str(page.props, 'name'), request && `request ${request}`].filter(Boolean).join(' · '),
+    });
     for (const item of this.pageComponents(ctx, 'pageItem')) {
       const name = item.id.toUpperCase();
       if ((session.items[name] ?? '') !== '') continue;
@@ -996,14 +1056,25 @@ export class ApexRenderer {
       if (point === 'beforeHeader' && this.condition(ctx, computation.props)) this.compute(ctx, computation);
     }
     for (const process of bySequence(this.pageComponents(ctx, 'process'))) {
-      if (str(process.props, 'execution.point') !== 'beforeHeader' || !this.condition(ctx, process.props))
+      if (str(process.props, 'execution.point') !== 'beforeHeader') continue;
+      if (!this.condition(ctx, process.props)) {
+        this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: condition is false' });
         continue;
+      }
       const type = str(process.props, 'type');
+      const started = performance.now();
       const extension = processHandler(type);
-      if (extension) extension(this, ctx, process, 'beforeHeader', undefined);
+      let ran: boolean | undefined;
+      if (extension) ran = extension(this, ctx, process, 'beforeHeader', undefined).ran;
       else if (type === 'formInitialization') this.initializeForm(ctx, ref(process.props, 'formRegion'));
       else if (type === 'clearSessionState') this.clearPage(ctx);
-      else if (type === 'executeCode') this.runCode(ctx, process);
+      else if (type === 'executeCode') ran = this.runCode(ctx, process);
+      this.trace(ctx, {
+        type: 'process',
+        name: process.id,
+        detail: `${type} (before header)${ran === false ? ': not run' : ''}`,
+        ms: performance.now() - started,
+      });
     }
     // hook: after-header/before-regions processing and item sources (extensions/server.ts)
     const headerErrors = runPointExtensions(this, ctx, 'afterHeader');
@@ -1012,6 +1083,22 @@ export class ApexRenderer {
   }
 
   compute(ctx: RenderContext, computation: ApxComponent): void {
+    const started = performance.now();
+    this.computeValue(ctx, computation);
+    const item = (
+      str(computation.props, 'itemName') ||
+      str(computation.props, 'item') ||
+      computation.id
+    ).toUpperCase();
+    this.trace(ctx, {
+      type: 'computation',
+      name: computation.id,
+      detail: `${item} = ${JSON.stringify(ctx.session.items[item] ?? '')}`,
+      ms: performance.now() - started,
+    });
+  }
+
+  computeValue(ctx: RenderContext, computation: ApxComponent): void {
     const item = (
       str(computation.props, 'itemName') ||
       str(computation.props, 'item') ||
@@ -1179,7 +1266,32 @@ export class ApexRenderer {
     values: Record<string, string>,
   ): { redirectURL?: string; errors?: ApexError[] } {
     const ctx = this.prepareSubmit(session, pageKey, request);
+    const started = performance.now();
     for (const [name, value] of Object.entries(values)) session.items[name.toUpperCase()] = value;
+    const result = this.acceptPage(ctx, values);
+    this.trace(ctx, {
+      type: 'end',
+      name: result.errors?.length ? 'Submit stopped' : 'Submit done',
+      detail: result.errors?.length
+        ? result.errors.map((error) => error.message).join('; ')
+        : `redirect ${result.redirectURL ?? ''}`,
+      level: result.errors?.length ? 'warning' : undefined,
+      ms: performance.now() - started,
+    });
+    return result;
+  }
+
+  acceptPage(
+    ctx: RenderContext,
+    values: Record<string, string>,
+  ): { redirectURL?: string; errors?: ApexError[] } {
+    const session = ctx.session;
+    const request = ctx.request;
+    this.trace(ctx, {
+      type: 'info',
+      name: 'Submitted items',
+      detail: Object.keys(values).join(', ') || 'none',
+    });
     const pressed = this.pageComponents(ctx, 'button').find(
       (button) => str(button.props, 'buttonName', button.id.toUpperCase()) === request,
     );
@@ -1198,14 +1310,26 @@ export class ApexRenderer {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
         continue;
-      if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) continue;
+      if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) {
+        this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: button or condition' });
+        continue;
+      }
       const type = str(process.props, 'type');
       let ran = true;
+      const started = performance.now();
       const extension = processHandler(type);
+      const traced = (detail: string) =>
+        this.trace(ctx, { type: 'process', name: process.id, detail, ms: performance.now() - started });
       if (extension) {
         const result = extension(this, ctx, process, 'submit', pressed);
-        if (result.errors?.length) return { errors: result.errors };
-        if (result.redirectURL) return { redirectURL: result.redirectURL };
+        if (result.errors?.length) {
+          traced(`${type}: raised ${result.errors.map((error) => error.message).join('; ')}`);
+          return { errors: result.errors };
+        }
+        if (result.redirectURL) {
+          traced(`${type}: redirect ${result.redirectURL}`);
+          return { redirectURL: result.redirectURL };
+        }
         ran = result.ran;
         if (result.closeDialog) closeDialog = true;
       } else if (type === 'formAutoRowProcessing')
@@ -1223,6 +1347,7 @@ export class ApexRenderer {
           process.id,
         );
       }
+      traced(`${type}: ${ran ? 'ran' : 'not run'}`);
       const message =
         str(process.props, 'successMessage.successMessage') ||
         str(process.props, 'successMessage') ||
@@ -1239,6 +1364,11 @@ export class ApexRenderer {
 
     for (const branch of bySequence(this.pageComponents(ctx, 'branch'))) {
       if (!this.whenButton(ctx, branch.props) || !this.condition(ctx, branch.props)) continue;
+      this.trace(ctx, {
+        type: 'branch',
+        name: branch.id,
+        detail: str(branch.props, 'behavior.type', 'redirect'),
+      });
       // hook: computed branch targets (extensions/server.ts evaluates the PL/SQL)
       const branchType = str(branch.props, 'behavior.type');
       if (branchType === 'plsqlProcedure') {
@@ -1279,7 +1409,7 @@ export class ApexRenderer {
   prepareSubmit(session: Session, pageKey: string, request: string): RenderContext {
     const page = this.findPage(pageKey);
     if (!page) throw new Error(`Page ${pageKey} does not exist`);
-    return {
+    const ctx: RenderContext = {
       session,
       page,
       pageId: page.id,
@@ -1291,6 +1421,12 @@ export class ApexRenderer {
       itemErrors: new Map(),
       messageTemplates: {},
     };
+    this.trace(ctx, {
+      type: 'begin',
+      name: `Process page ${page.id}`,
+      detail: [str(page.props, 'name'), request && `request ${request}`].filter(Boolean).join(' · '),
+    });
+    return ctx;
   }
 
   label(item: ApxComponent): string {
@@ -1312,8 +1448,10 @@ export class ApexRenderer {
       const name = item.id.toUpperCase();
       const value = ctx.session.items[name] ?? '';
       const label = this.label(item);
-      if (bool(item.props, 'validation.valueRequired', false) && value === '')
+      if (bool(item.props, 'validation.valueRequired', false) && value === '') {
         add(`${label} must have some value.`, name);
+        this.trace(ctx, { type: 'validation', name, detail: 'failed: value required', level: 'warning' });
+      }
       const max = num(item.props, 'validation.maxLength', 0);
       if (max && value.length > max) add(`${label} exceeds the maximum length of ${max}.`, name);
       if (
@@ -1332,9 +1470,17 @@ export class ApexRenderer {
       const value = ctx.session.items[item] ?? '';
       const associated = str(validation.props, 'error.associatedItem').toUpperCase() || item || undefined;
       let failed: boolean | undefined;
+      const started = performance.now();
       const extension = validationHandler(type)?.(this, ctx, validation);
       if (extension !== undefined) {
         if (extension !== null) add(this.substitute(ctx.session, extension, ctx.page, 'RAW'), associated);
+        this.trace(ctx, {
+          type: 'validation',
+          name: validation.id,
+          detail: `${type}: ${extension === null ? 'passed' : `failed — ${extension}`}`,
+          level: extension === null ? undefined : 'warning',
+          ms: performance.now() - started,
+        });
         continue;
       }
       if (type === 'itemIsNotNull' || type === 'itemNotNull') failed = value === '';
@@ -1363,6 +1509,13 @@ export class ApexRenderer {
           validation.id,
         );
       else if (failed) add(this.substitute(ctx.session, message, ctx.page, 'RAW'), associated);
+      this.trace(ctx, {
+        type: 'validation',
+        name: validation.id,
+        detail: `${type}: ${failed === undefined ? 'not evaluated' : failed ? `failed — ${message}` : 'passed'}`,
+        level: failed ? 'warning' : undefined,
+        ms: performance.now() - started,
+      });
     }
     return errors;
   }
@@ -1518,6 +1671,13 @@ export class ApexRenderer {
         .map((call) => String(call.params.placeholder)),
     );
     const values: Record<string, string> = {};
+    if (ctx.denied) {
+      // Page authorization denied ("view as"): APEX shows its error page instead of the regions.
+      positions.clear();
+      pageButtons.length = 0;
+      pageItems.length = 0;
+      values.BODY = `<div class="t-Alert t-Alert--colorBG t-Alert--horizontal t-Alert--danger t-Alert--defaultIcons apex-local-denied" role="alert"><div class="t-Alert-wrap"><div class="t-Alert-icon"><span class="t-Icon"></span></div><div class="t-Alert-content"><div class="t-Alert-header"><h2 class="t-Alert-title">Access denied by page security check</h2></div><div class="t-Alert-body">${escapeHtml(ctx.denied)}</div></div></div></div>`;
+    }
     for (const [key, list] of positions) {
       const cells = bySequence(list)
         .filter((region) => this.visible(ctx, region))
@@ -1585,7 +1745,7 @@ export class ApexRenderer {
       APEX_BASE_VERSION: APEX_FULL_VERSION.split('.').slice(0, 2).join('.'),
     };
     for (const extension of extensions) extension.page?.(this, ctx);
-    for (const action of this.pageComponents(ctx, 'dynamicAction')) {
+    for (const action of ctx.denied ? [] : this.pageComponents(ctx, 'dynamicAction')) {
       if (this.visible(ctx, action)) ctx.clientConfig.dynamicActions.push(this.dynamicAction(ctx, action));
     }
     const pageTemplate = text(template, 'id');
@@ -1697,6 +1857,7 @@ export class ApexRenderer {
       `${text(template, 'header_template')}${text(template, 'box')}${text(template, 'footer_template')}`,
       builtins,
     );
+    this.trace(ctx, { type: 'end', name: ctx.denied ? 'Access denied' : 'Page rendered' });
     return this.substitute(ctx.session, html, page, 'HTML');
   }
 
@@ -1720,13 +1881,21 @@ export class ApexRenderer {
     return label;
   }
 
+  /**
+   * Developer toolbar, styled after APEX's runtime developer toolbar: a compact bar at the bottom
+   * with the diagnostics of the page, extension tools (session, debug, view as, viewport, pages,
+   * reset; see extensions/devtools.ts) and the theme-style picker. Panels open above the bar.
+   */
   toolbar(ctx: RenderContext): string {
     const own = this.diagnostics.filter((diagnostic) => !diagnostic.page || diagnostic.page === ctx.pageId);
     const counts = (level: Diagnostic['level']) =>
       own.filter((diagnostic) => diagnostic.level === level).length;
     const items = own
-      .slice(0, 40)
-      .map((diagnostic) => `<li class="is-${diagnostic.level}">${escapeHtml(diagnostic.message)}</li>`)
+      .slice(0, 80)
+      .map(
+        (diagnostic) =>
+          `<li class="is-${diagnostic.level}"><span class="apex-local-level">${diagnostic.level}</span>${diagnostic.component ? `<code>${escapeHtml(diagnostic.component)}</code> ` : ''}${escapeHtml(diagnostic.message)}</li>`,
+      )
       .join('');
     const current = (ctx.session.themeStyle ?? '').toLowerCase();
     const styles = [...this.theme.styles.entries()]
@@ -1735,9 +1904,16 @@ export class ApexRenderer {
           `<option value="${escapeHtml(id)}"${id === current ? ' selected' : ''}>${escapeHtml(text(style, 'name') || id)}</option>`,
       )
       .join('');
-    const picker = `<label class="apex-local-style">Theme style <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
+    const picker = `<label class="apex-local-style" title="Theme style"><span class="fa fa-paint-brush" aria-hidden="true"></span><span class="apex-local-tb-label">Theme style</span> <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
     const tools = extensions.map((extension) => extension.toolbar?.(this, ctx) ?? '').join('');
-    return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary>${picker}${tools}<ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
+    const errors = counts('error');
+    const warnings = counts('warning');
+    const notes = counts('info');
+    const badge = (count: number, level: string, label: string) =>
+      count ? `<span class="apex-local-badge is-${level}" title="${count} ${label}">${count}</span>` : '';
+    const summary = `${errors} errors · ${warnings} warnings · ${notes} notes`;
+    const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? ' has-errors' : ''}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, 'error', 'errors')}${badge(warnings, 'warning', 'warnings')}${badge(notes, 'info', 'notes')}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics · page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || '<li>No diagnostics</li>'}</ul></div>`;
+    return `<div class="apex-local-toolbar" id="apexLocalToolbar" role="region" aria-label="APEX local developer toolbar"><div class="apex-local-tb-bar" role="toolbar"><span class="apex-local-tb-brand" title="APEX local preview · page ${escapeHtml(ctx.pageId)}"><span class="fa fa-apex" aria-hidden="true"></span><span class="apex-local-tb-label">APEX local · page ${escapeHtml(ctx.pageId)}</span></span>${diagnostics}${tools}${picker}<button type="button" class="apex-local-tb-button apex-local-tb-collapse" data-apex-local-collapse title="Hide toolbar"><span class="fa fa-chevron-down" aria-hidden="true"></span></button></div></div>`;
   }
 
   navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
@@ -2759,6 +2935,13 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
         whenFalse:
           str(child.props, 'execution.event') === 'false' ||
           str(child.props, 'execution.fireWhenEventResultIs') === 'false',
+        // Other attribute groups for extension action types (AI assistant, geocoding, downloads).
+        groups: Object.fromEntries(
+          DYNAMIC_ACTION_GROUPS.filter((key) => isObject(child.props[key])).map((key) => [
+            key,
+            child.props[key],
+          ]),
+        ),
         settings: Object.fromEntries(
           Object.entries(settings).map(([key, value]) => [
             key,
@@ -2803,7 +2986,10 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       (candidate) => this.regionDomId(candidate) === regionId || candidate.id === regionId,
     );
     if (!region) throw new Error(`Region ${regionId} not found`);
-    return this.renderRegion(ctx, region);
+    const started = performance.now();
+    const html = this.renderRegion(ctx, region);
+    this.trace(ctx, { type: 'end', name: `Region ${region.id} refreshed`, ms: performance.now() - started });
+    return html;
   }
 
   /** Loads `.apex-local/*.sql` (or supporting-object scripts) into a fresh database. */
