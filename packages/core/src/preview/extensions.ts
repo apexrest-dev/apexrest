@@ -120,6 +120,16 @@ export type RegionSqlFilter = (
   sql: string,
 ) => string | undefined;
 
+/**
+ * Supplies the SQL of a data region whose source is not a local query (e.g. a REST Data
+ * Source answered from fixtures). Return undefined to use the region's own SQL or table.
+ */
+export type RegionSourceProvider = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+) => string | undefined;
+
 export interface RouteRequest {
   method: string;
   params: URLSearchParams;
@@ -163,6 +173,7 @@ export interface PreviewExtension {
   expression?: ExpressionEvaluator;
   routes?: Record<string, RouteHandler>;
   regionSql?: RegionSqlFilter;
+  regionSource?: RegionSourceProvider;
   /** Browser JavaScript appended to /__apex/runtime.js; `apexLocal` and `apex` are available. */
   client?: string;
   /** CSS appended to /__apex/runtime.css. */
@@ -250,6 +261,18 @@ export function filterRegionSql(
   let result = sql;
   for (const extension of extensions) result = extension.regionSql?.(renderer, ctx, region, result) ?? result;
   return result;
+}
+
+export function regionSourceSql(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+): string | undefined {
+  for (let index = extensions.length - 1; index >= 0; index -= 1) {
+    const sql = extensions[index]!.regionSource?.(renderer, ctx, region);
+    if (sql !== undefined) return sql;
+  }
+  return undefined;
 }
 
 export const extensionClient = () =>

@@ -548,3 +548,21 @@ for (const [name, stub] of Object.entries(STUBS)) {
     return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
   });
 }
+
+/**
+ * Adds or replaces package stubs from a feature module (extensions/platform.ts); `sql: true`
+ * stubs also become SQL functions. Call at module load, before a database is opened.
+ */
+export function registerStubs(stubs: Record<string, Stub>): void {
+  for (const [name, stub] of Object.entries(stubs)) {
+    STUBS[name] = stub;
+    if (!stub.sql) continue;
+    registerOracleFunction(name, stub.params, (values) => {
+      const result = stub.fn(stubArgs(stub, values, {}), active);
+      return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
+    });
+  }
+}
+
+/** The renderer of the running (or last) PL/SQL unit, for SQL functions called outside a unit. */
+export const currentRenderer = () => active?.renderer ?? lastRenderer;

@@ -24,6 +24,7 @@ import {
   itemRenderer,
   processHandler,
   regionRenderer,
+  regionSourceSql,
   runCodeExtensions,
   runPointExtensions,
   validationHandler,
@@ -831,7 +832,8 @@ export class ApexRenderer {
     const table = str(source, 'tableName');
     const where = str(source, 'whereClause') || str(source, 'where');
     const orderBy = str(source, 'orderByClause') || str(source, 'orderBy');
-    let sql = str(source, 'sqlQuery');
+    // hook: sources that are not local SQL, e.g. REST Data Sources (extensions/platform.ts)
+    let sql = regionSourceSql(this, ctx, region) ?? str(source, 'sqlQuery');
     if (!sql && table) {
       this.ensureTable(ctx, table, this.regionColumns(ctx, region));
       sql = `select * from ${table}`;
@@ -998,6 +1000,7 @@ export class ApexRenderer {
     for (const process of bySequence(this.pageComponents(ctx, 'process'))) {
       if (str(process.props, 'execution.point') !== 'beforeHeader' || !this.condition(ctx, process.props))
         continue;
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       const type = str(process.props, 'type');
       const extension = processHandler(type);
       if (extension) extension(this, ctx, process, 'beforeHeader', undefined);
@@ -1198,6 +1201,7 @@ export class ApexRenderer {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
         continue;
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) continue;
       const type = str(process.props, 'type');
       let ran = true;

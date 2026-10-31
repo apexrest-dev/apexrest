@@ -4,5 +4,6 @@ import './charts.ts';
 import './components.ts';
 import './facets.ts';
 import './items.ts';
+import './platform.ts';
 import './reports.ts';
 import './server.ts';
