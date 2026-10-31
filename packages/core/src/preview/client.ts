@@ -1,11 +1,34 @@
 /** Browser-side helpers served next to the genuine APEX JavaScript. */
 
 export const RUNTIME_CSS = `
-.apex-local-toolbar{position:fixed;left:8px;bottom:8px;z-index:2000;max-width:min(640px,calc(100vw - 16px));font:12px/1.4 system-ui,sans-serif;background:rgba(32,32,36,.92);color:#fff;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
-.apex-local-toolbar summary{cursor:pointer;padding:6px 10px;list-style:none}
-.apex-local-style{display:block;padding:0 10px 8px}.apex-local-style select{margin-left:6px;font:inherit}
-.apex-local-toolbar ul{margin:0;padding:0 10px 8px 26px;max-height:40vh;overflow:auto}
-.apex-local-toolbar li.is-error{color:#ff9b9b}.apex-local-toolbar li.is-warning{color:#ffd479}.apex-local-toolbar li.is-info{color:#cfd8e3}
+/* Developer toolbar: after APEX's runtime developer toolbar (a-DevToolbar, Theme-Standard tokens). */
+.apex-local-toolbar{--apex-local-tb-bg:rgba(0,0,0,.75);--apex-local-tb-active:rgba(0,0,0,.5);--apex-local-tb-sep:rgba(255,255,255,.12);position:fixed;left:0;right:0;bottom:0;margin-inline:auto;width:fit-content;z-index:2000;max-width:calc(100vw - 16px);font:12px/16px var(--a-base-font-family,system-ui,sans-serif);color:#fff;text-align:start}
+.apex-local-tb-bar{display:flex;align-items:stretch;background:var(--apex-local-tb-bg);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);box-shadow:0 0 12px rgba(0,0,0,.3);border-start-start-radius:8px;border-start-end-radius:8px;flex-wrap:wrap;justify-content:center}
+.apex-local-tb-bar>*+*{border-inline-start:1px solid var(--apex-local-tb-sep)}
+.apex-local-tb-brand,.apex-local-tb-button,.apex-local-style{display:flex;align-items:center;gap:4px;flex:0 0 auto;padding:8px 12px;margin:0;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;white-space:nowrap;cursor:pointer}
+.apex-local-tb-brand{cursor:default;font-weight:600;opacity:.85}
+.apex-local-tb-button:hover,.apex-local-tb-button:focus-visible,.apex-local-tb-button.is-active,.apex-local-style:hover{background:var(--apex-local-tb-active);outline:none}
+.apex-local-tb-button.is-on{box-shadow:inset 0 -2px 0 #ffb347}
+.apex-local-tb-button.has-errors{background:rgba(234,24,24,.55)}
+.apex-local-tb-bar .fa{font-size:14px;width:16px;text-align:center}
+.apex-local-style select{margin-inline-start:2px;max-width:150px;padding:1px 2px;border:1px solid rgba(255,255,255,.3);border-radius:3px;background:rgba(0,0,0,.35);color:#fff;font:inherit}
+.apex-local-style select option{color:#000}
+.apex-local-badge{display:inline-block;min-width:16px;padding:0 4px;border-radius:8px;font-size:10px;line-height:16px;text-align:center;font-weight:600}
+.apex-local-badge.is-error{background:#ea1818}.apex-local-badge.is-warning{background:#b26a00}.apex-local-badge.is-info{background:rgba(255,255,255,.22)}
+.apex-local-panel{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:min(760px,calc(100vw - 16px));max-height:min(60vh,560px);overflow:auto;margin-bottom:6px;padding:0 0 8px;background:rgba(24,24,28,.94);backdrop-filter:blur(4px);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.08)}
+.apex-local-panel[hidden]{display:none}
+.apex-local-panel>header{position:sticky;top:0;display:flex;gap:12px;align-items:center;padding:8px 12px;background:rgba(24,24,28,.98);border-bottom:1px solid var(--apex-local-tb-sep);z-index:1}
+.apex-local-panel>header strong{flex:1}
+.apex-local-panel a{color:#9fd0ff}
+.apex-local-diagnostics{margin:0;padding:4px 12px;list-style:none}
+.apex-local-diagnostics li{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.apex-local-diagnostics code{color:#cfe3ff;font-size:11px}
+.apex-local-level{display:inline-block;width:52px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;opacity:.8}
+.apex-local-diagnostics li.is-error{color:#ff9b9b}.apex-local-diagnostics li.is-warning{color:#ffd479}.apex-local-diagnostics li.is-info{color:#cfd8e3}
+.apex-local-toolbar.is-collapsed .apex-local-tb-bar>:not(.apex-local-tb-collapse){display:none}
+.apex-local-toolbar.is-collapsed .apex-local-tb-collapse .fa{transform:rotate(180deg)}
+@media (max-width:768px){.apex-local-tb-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
+@media print{.apex-local-toolbar{display:none}}
 .apex-local-unsupported{padding:16px;border:1px dashed rgba(0,0,0,.25);border-radius:4px;color:rgba(0,0,0,.65);background:repeating-linear-gradient(45deg,rgba(0,0,0,.02),rgba(0,0,0,.02) 8px,transparent 8px,transparent 16px)}
 .apex-local-chart{display:grid;gap:16px;padding:8px 0}
 .apex-local-series-name{font-weight:600;margin-bottom:6px}
@@ -308,6 +331,7 @@ window.apexLocal = (function ($) {
     },
     refreshRegion: replaceRegion,
     registerAction: function (name, handler) { actionHandlers[name] = handler; },
+    hasAction: function (name) { return Object.prototype.hasOwnProperty.call(actionHandlers, name); },
     config: function () { return config; }
   };
 })(apex.jQuery);

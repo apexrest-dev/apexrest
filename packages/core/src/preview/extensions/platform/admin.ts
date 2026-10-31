@@ -1,6 +1,7 @@
 import { str } from '../../apexlang.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import type { Runtime, Stub, StubArgs } from '../server/apex-api.ts';
+import { aclCheck } from '../devtools/view-as.ts';
 import { PlsqlException } from '../server/plsql.ts';
 import { ensureDictionary, themeStyles } from './dictionary.ts';
 import { all, findShared, hashId, insertRow, now, one, raw, sharedOf, staticIdOf } from './store.ts';
@@ -108,6 +109,13 @@ function userRoles(rt: Runtime, user: unknown): { id: number; staticId: string }
     id,
   ).map((row) => ({ id: Number(row.role_id), staticId: String(row.role_static_id) }));
 }
+
+/**
+ * Role checks for the signed-in user stay with the developer toolbar's "view as" (permissive by
+ * default, devtools/view-as.ts); checks for other users answer from the local ACL tables.
+ */
+const isCurrentUser = (rt: Runtime, user: unknown) =>
+  user === null || user === undefined || String(user).toUpperCase() === rt.ctx.session.user.toUpperCase();
 
 const aclParams = ['p_application_id', 'p_user_name', 'p_role_id', 'p_role_static_id'];
 
@@ -357,14 +365,18 @@ export const ADMIN_STUBS: Record<string, Stub> = {
   'apex_acl.has_user_role': {
     params: ['p_application_id', 'p_user_name', 'p_role_static_id'],
     fn: (args, rt) => {
-      if (!runtime(rt)) return true;
+      if (!runtime(rt) || isCurrentUser(rt!, args.p_user_name))
+        return aclCheck(rt?.renderer, rt?.ctx.session, String(args.p_role_static_id ?? '')) === 1;
       const wanted = String(args.p_role_static_id ?? '').toUpperCase();
       return userRoles(rt!, args.p_user_name).some((role) => role.staticId.toUpperCase() === wanted);
     },
   },
   'apex_acl.has_user_any_roles': {
     params: ['p_application_id', 'p_user_name'],
-    fn: (args, rt) => (runtime(rt) ? userRoles(rt!, args.p_user_name).length > 0 : true),
+    fn: (args, rt) =>
+      !runtime(rt) || isCurrentUser(rt!, args.p_user_name)
+        ? aclCheck(rt?.renderer, rt?.ctx.session) === 1
+        : userRoles(rt!, args.p_user_name).length > 0,
   },
   'apex_acl.is_role_removed_from_user': {
     params: ['p_application_id', 'p_user_name', 'p_role_id', 'p_role_static_id', 'p_role_ids', 'p_role_static_ids'],
