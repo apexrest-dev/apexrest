@@ -221,6 +221,24 @@ export class PreviewServer {
         `APEXlang parse error: ${this.#loadError}`,
       );
     const renderer = this.renderer;
+    // Legacy f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES links redirect to friendly URLs.
+    if ((pathname === '/f' || pathname.endsWith(`${renderer.baseUrl}/f`)) && url.searchParams.has('p')) {
+      const [, pageKey = '', , requestValue = '', , clear = '', names = '', values = ''] = (
+        url.searchParams.get('p') ?? ''
+      ).split(':');
+      const target = renderer.findPage(pageKey || renderer.homePage());
+      const query = new URLSearchParams();
+      const itemValues = values.split(',');
+      names
+        .split(',')
+        .filter(Boolean)
+        .forEach((name, index) => query.set(name.toLowerCase(), decodeURIComponent(itemValues[index] ?? '')));
+      if (clear) query.set('clear', clear);
+      if (requestValue) query.set('request', requestValue);
+      const location = `${target ? renderer.pagePath(target) : renderer.baseUrl}${query.size ? `?${query}` : ''}`;
+      response.writeHead(302, { location }).end();
+      return;
+    }
     if (pathname === '/' || pathname === renderer.baseUrl || pathname === `${renderer.baseUrl}/`) {
       const home = renderer.findPage(renderer.homePage());
       response.writeHead(302, { location: home ? renderer.pagePath(home) : `${renderer.baseUrl}/1` }).end();
@@ -360,8 +378,11 @@ export class PreviewServer {
       for (const child of cleared?.children ?? [])
         if (child.type === 'pageItem') delete session.items[child.id.toUpperCase()];
     }
+    if (url.searchParams.has('apex_theme_style'))
+      session.themeStyle = url.searchParams.get('apex_theme_style') || undefined;
     for (const [key, value] of url.searchParams) {
-      if (!['clear', 'request', 'session', 'cs'].includes(key)) session.items[key.toUpperCase()] = value;
+      if (!['clear', 'request', 'session', 'cs', 'apex_theme_style'].includes(key))
+        session.items[key.toUpperCase()] = value;
     }
     const ctx = renderer.prepare(session, page.id, url.searchParams.get('request') ?? '');
     return this.#send(response, 200, TYPES['.html']!, renderer.renderPage(ctx));

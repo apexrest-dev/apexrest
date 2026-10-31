@@ -72,6 +72,8 @@ export interface Session {
   success?: string | undefined;
   errors?: ApexError[] | undefined;
   pagination: Record<string, number>;
+  /** Theme style chosen from the preview toolbar; overrides the application's current style. */
+  themeStyle?: string | undefined;
 }
 
 interface RenderContext {
@@ -436,7 +438,7 @@ export class ApexRenderer {
         return !runQuery();
       case 'currentPageEquals':
       case 'currentPage=page':
-        return ctx.pageId === value;
+        return ctx.pageId === (str(condition, 'page') || value);
       case 'currentPageIsInValue':
         return value.split(',').includes(ctx.pageId);
       default: {
@@ -1346,6 +1348,7 @@ export class ApexRenderer {
     );
     const themeComponent = this.themeComponent();
     const styleId = (
+      ctx.session.themeStyle ??
       ref(themeComponent?.props ?? {}, 'style.currentThemeStyle') ??
       defaultStaticId(this.theme, 'current_theme_style_id', 'vita')
     ).toLowerCase();
@@ -1534,7 +1537,15 @@ export class ApexRenderer {
       .slice(0, 40)
       .map((diagnostic) => `<li class="is-${diagnostic.level}">${escapeHtml(diagnostic.message)}</li>`)
       .join('');
-    return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary><ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
+    const current = (ctx.session.themeStyle ?? '').toLowerCase();
+    const styles = [...this.theme.styles.entries()]
+      .map(
+        ([id, style]) =>
+          `<option value="${escapeHtml(id)}"${id === current ? ' selected' : ''}>${escapeHtml(text(style, 'name') || id)}</option>`,
+      )
+      .join('');
+    const picker = `<label class="apex-local-style">Theme style <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
+    return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary>${picker}<ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
   }
 
   navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
@@ -2495,7 +2506,13 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       case 'jquerySelector':
         return str(props, 'jQuerySelector') || str(props, 'jquerySelector');
       case 'javascriptExpression':
-        return `js:${str(props, 'javascriptExpression')}`;
+      case 'jsExpression':
+        return `js:${str(props, 'javaScriptExpression') || str(props, 'javascriptExpression')}`;
+      case 'domObject':
+        return `js:document.getElementById(${JSON.stringify(str(props, 'domObject'))}) || ${JSON.stringify(str(props, 'domObject'))}`;
+      case 'columns':
+        this.diagnose('info', 'Dynamic actions on interactive grid columns are not simulated', ctx.pageId);
+        return '';
       case 'triggeringElement':
         return 'triggeringElement';
       default:
@@ -2511,6 +2528,8 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
         action: str(child.props, 'action'),
         selector: this.selector(ctx, child.props.affectedElements),
         fireOnInit: bool(child.props, 'execution.fireOnInit', false),
+        stopOnError: bool(child.props, 'execution.stopExecutionOnError', true),
+        wait: bool(child.props, 'execution.waitForResult', true),
         whenFalse:
           str(child.props, 'execution.event') === 'false' ||
           str(child.props, 'execution.fireWhenEventResultIs') === 'false',
@@ -2527,16 +2546,24 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       };
     });
     const condition = action.props.clientSideCondition;
+    const whenProps = isObject(when) ? when : {};
+    const event = str(whenProps, 'event', 'ready');
     return {
       id: action.id,
-      event: str((when as ApxObject) ?? {}, 'event', 'ready'),
+      event: event === 'custom' ? str(whenProps, 'customEvent', 'custom') : event,
       selector: this.selector(ctx, when),
+      scope: str(action.props, 'execution.eventScope', 'static'),
+      container: str(action.props, 'execution.staticContainer'),
+      timing: str(action.props, 'execution.type', 'immediate'),
+      time: num(action.props, 'execution.time', 0),
+      immediate: bool(action.props, 'execution.immediate', false),
       condition: isObject(condition)
         ? {
             type: str(condition, 'type'),
             item: str(condition, 'item').toUpperCase(),
             value: str(condition, 'value'),
-            expression: str(condition, 'javascriptExpression'),
+            list: strings(list(condition, 'list')),
+            expression: str(condition, 'javaScriptExpression') || str(condition, 'javascriptExpression'),
           }
         : null,
       actions,
