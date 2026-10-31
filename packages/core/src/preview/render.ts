@@ -16,6 +16,7 @@ import {
 } from './apexlang.ts';
 import { APEX_FULL_VERSION, type ApexAssets } from './assets.ts';
 import {
+  columnRenderer,
   conditionHandler,
   extensions,
   itemRenderer,
@@ -1540,20 +1541,28 @@ export class ApexRenderer {
   navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
     const app = this.app.app.props;
     const box = `${text(template, 'header_template')}${text(template, 'box')}`;
-    const menu = this.shared('list', ref(app, 'navigationMenu.list'));
+    // A page can override the application's navigation menu (overrideUserInterfaceLevel).
+    const nav = bool(ctx.page.props, 'navigationMenu.overrideUserInterfaceLevel', false)
+      ? ctx.page.props
+      : app;
+    const menu = this.shared('list', ref(nav, 'navigationMenu.list'));
     if (
       menu &&
       (box.includes('#SIDE_GLOBAL_NAVIGATION_LIST#') || box.includes('#TOP_GLOBAL_NAVIGATION_LIST#'))
     ) {
       const theme = this.themeComponent();
       const position = str(
-        app,
-        'navigationMenu.position',
-        str(theme?.props ?? {}, 'componentDefaults.navigationMenuListPosition', 'side'),
+        nav,
+        'navigationMenu.listPosition',
+        str(
+          nav,
+          'navigationMenu.position',
+          str(theme?.props ?? {}, 'componentDefaults.navigationMenuListPosition', 'side'),
+        ),
       );
       const fallback = position === 'top' ? 'top-navigation-menu' : 'side-navigation-menu';
-      const templateId = (ref(app, 'navigationMenu.listTemplate') ?? fallback).toLowerCase();
-      const options = strings(list(app, 'navigationMenu.templateOptions'));
+      const templateId = (ref(nav, 'navigationMenu.listTemplate') ?? fallback).toLowerCase();
+      const options = strings(list(nav, 'navigationMenu.templateOptions'));
       const html = this.renderList(ctx, menu, templateId, options, 't_TreeNav');
       if (templateId.includes('side') && box.includes('#SIDE_GLOBAL_NAVIGATION_LIST#'))
         values.SIDE_GLOBAL_NAVIGATION_LIST = html;
@@ -1657,7 +1666,9 @@ export class ApexRenderer {
   }
 
   regionDomId(region: ApxComponent): string {
-    return str(region.props, 'advanced.staticId') || slug(region.id);
+    return (
+      str(region.props, 'advanced.htmlDomId') || str(region.props, 'advanced.staticId') || slug(region.id)
+    );
   }
 
   renderRegion(ctx: RenderContext, region: ApxComponent): string {
@@ -1694,6 +1705,7 @@ export class ApexRenderer {
     const children = this.pageComponents(ctx, 'region').filter(
       (child) => ref(child.props, 'layout.parentRegion') === region.id && this.visible(ctx, child),
     );
+    const rendered = new Map<string, { component: ApxComponent; html: string }[]>();
     if (children.length) {
       const grouped = new Map<string, ApxComponent[]>();
       for (const child of bySequence(children)) {
@@ -1702,12 +1714,9 @@ export class ApexRenderer {
       }
       for (const [slot, group] of grouped) {
         const key = slots.get(slot) ?? (slot === 'regionBody' ? 'SUB_REGIONS' : slot.toUpperCase());
-        values[key] =
-          (values[key] ?? '') +
-          this.grid(
-            this.pageTemplate(ctx),
-            group.map((child) => ({ component: child, html: this.renderRegion(ctx, child) })),
-          );
+        const cells = group.map((child) => ({ component: child, html: this.renderRegion(ctx, child) }));
+        rendered.set(key, [...(rendered.get(key) ?? []), ...cells]);
+        values[key] = (values[key] ?? '') + this.grid(this.pageTemplate(ctx), cells);
       }
     }
     const options = templateOptions(
@@ -1724,7 +1733,7 @@ export class ApexRenderer {
       ctx.page,
       'HTML',
     );
-    return fill(text(template, 'template'), {
+    const filled: Record<string, string> = {
       ...values,
       TITLE: title,
       REGION_TITLE: title,
@@ -1746,7 +1755,16 @@ export class ApexRenderer {
           })
         : '',
       REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, 'RAW')),
-    });
+    };
+    for (let index = extensions.length - 1; index >= 0; index -= 1) {
+      const html = extensions[index]!.wrapRegion?.(this, ctx, region, {
+        template,
+        values: filled,
+        children: rendered,
+      });
+      if (html !== undefined) return html;
+    }
+    return fill(text(template, 'template'), filled);
   }
 
   regionBody(ctx: RenderContext, region: ApxComponent, slots: Record<string, string>): string {
@@ -1833,6 +1851,8 @@ export class ApexRenderer {
     const name = column.id.toUpperCase();
     const raw = row[name];
     const type = str(column.props, 'type', 'plainText');
+    const custom = columnRenderer(type);
+    if (custom) return custom(this, ctx, region, column, row);
     const mask = str(column.props, 'appearance.formatMask');
     let value = raw === null || raw === undefined ? '' : mask ? (formatOracle(raw, mask) ?? '') : String(raw);
     const escape = bool(
@@ -2155,6 +2175,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       templateId,
       strings(list(region.props, 'componentAppearance.templateOptions')),
       `${this.regionDomId(region)}_list`,
+      this.regionDomId(region),
     );
   }
 
@@ -2164,6 +2185,8 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     templateId: string,
     options: string[],
     listId: string,
+    /** Static ID of the owning region (`#PARENT_STATIC_ID#`, e.g. `<id>_menu` of Menu Popup). */
+    parentId = listId,
   ): string {
     const template = this.theme.lists.get(templateId);
     if (!template) {
@@ -2173,7 +2196,6 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     for (const file of text(template, 'javascript_file_urls').split('\n').filter(Boolean))
       ctx.jsFiles.add(file);
     for (const file of text(template, 'css_file_urls').split('\n').filter(Boolean)) ctx.cssFiles.add(file);
-    if (text(template, 'javascript_code_onload')) ctx.onload.push(text(template, 'javascript_code_onload'));
     const entries = listComponent.children.filter(
       (child) => child.type === 'entry' && this.visible(ctx, child),
     );
@@ -2245,10 +2267,13 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     };
     const shared = {
       LIST_ID: listId,
-      PARENT_STATIC_ID: listId,
+      PARENT_STATIC_ID: parentId,
       COMPONENT_CSS_CLASSES: templateOptions(options, text(template, 'default_template_options')),
       APEX_CSP_NONCE_ATTRIBUTE: '',
     };
+    // The onload code addresses the list by #PARENT_STATIC_ID# / #LIST_ID#.
+    if (text(template, 'javascript_code_onload'))
+      ctx.onload.push(fill(text(template, 'javascript_code_onload'), shared, false));
     return (
       fill(text(template, 'list_template_before_rows'), shared) +
       childrenOf(undefined)
