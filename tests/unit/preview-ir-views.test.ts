@@ -274,7 +274,7 @@ async function start(t: import('node:test').TestContext) {
     (await (
       await get(`/r/demo/__apex/x/report-download?page=5&region=${regionId}&format=${format}`)
     ).json()) as { filename: string; content: string; encoding?: string; mime?: string };
-  return { server, html, get, region, route, download, app, assets };
+  return { server, html, get, region, route, download, cookie, app, assets };
 }
 
 const textOf = (html: string) =>
@@ -476,7 +476,7 @@ test('downloads produce a real xlsx workbook and a labelled print page for PDF',
 });
 
 test('interactive grid column editors, edit authorization and saved-report formatting', async (t) => {
-  const { html, server } = await start(t);
+  const { html, server, region, cookie } = await start(t);
   const config = JSON.parse(
     /<script type="application\/json" id="staff_ig_config">([\s\S]*?)<\/script>/u.exec(html)![1]!,
   ) as {
@@ -490,7 +490,8 @@ test('interactive grid column editors, edit authorization and saved-report forma
     metaField: string;
     formats: string[];
   };
-  assert.deepEqual(config.allowed, { add: true, update: true, delete: false });
+  // edit authorization follows the preview policy: permissive unless "view as" enforces it
+  assert.deepEqual(config.allowed, { add: true, update: true, delete: true });
   assert.deepEqual(config.customItems.map((item) => item.kind).sort(), ['popupLov', 'stars', 'switch']);
   assert.equal(config.customItems.find((item) => item.kind === 'popupLov')!.lov!.length, 3);
   assert.match(html, /<input type="color" id="staff_ig_c_COLOR"/);
@@ -511,19 +512,17 @@ test('interactive grid column editors, edit authorization and saved-report forma
   const stars = config.data[0]![config.fields.RATING!.index] as { v: string; d: string };
   assert.match(stars.d, /aria-label="1 of 5"/);
 
-  // grid edit authorization: delete is refused by the server too
-  const response = (await (
-    await fetch(`${server.url}/r/demo/__apex/x/ig-save`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        page: '5',
-        region: 'staff',
-        changes: [{ op: 'delete', id: '1', values: { EMP_ID: '1' } }],
-      }),
-    })
-  ).json()) as { ok: boolean };
-  assert.equal(response.ok, false);
+  // with "view as" enforcing schemes, the denied delete is gone from the grid and the server
+  const viewAs = await fetch(`${server.url}/r/demo/__apex/x/view-as`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ roles: [], deny: [] }),
+  });
+  assert.equal(viewAs.ok, true);
+  const enforced = JSON.parse(
+    /id="staff_ig_config">([\s\S]*?)<\/script>/u.exec(await region('staff'))![1]!,
+  ) as { allowed: Record<string, boolean> };
+  assert.deepEqual(enforced.allowed, { add: true, update: true, delete: false });
 });
 
 test('preview check reports what the views do not simulate', async (t) => {
@@ -541,7 +540,7 @@ test('preview check reports what the views do not simulate', async (t) => {
   for (const expected of [
     /Interactive report people: Actions menu flashback, subscription are not simulated/,
     /Interactive report people: PDF download is a print-friendly HTML page locally/,
-    /Interactive Grid staff: edit authorization denies delete/,
+    /Authorization scheme no-deletes denies DEVELOPER locally; the preview allows access anyway/,
     /Interactive Grid column staff.DEPT: popup LOV is a local search dialog/,
   ])
     assert.ok(
@@ -554,4 +553,55 @@ test('preview check reports what the views do not simulate', async (t) => {
   assert.ok(
     !messages.some((message) => /alternative\/public saved report/.test(message) && /people/.test(message)),
   );
+});
+
+test('classic report named-column templates substitute positional #1# placeholders', async (t) => {
+  const theme = `begin
+wwv_flow_imp_shared.create_row_template(
+ p_id=>wwv_flow_imp.id(77)
+,p_row_template_name=>'Positional'
+,p_static_id=>'positional'
+,p_row_template1=>'<li data-n="#1#">#2# (#DEPT#) #4#</li>'
+,p_row_template_before_rows=>'<ul class="positional">'
+,p_row_template_after_rows=>'</ul>'
+,p_row_template_type=>'NAMED_COLUMNS'
+);
+end;
+/
+`;
+  const page = `page 6 (
+    name: Positional
+    alias: POSITIONAL
+
+    region names (
+        name: Names
+        type: classicReport
+        source {
+            location: localDatabase
+            sqlQuery:
+                \`\`\`sql
+                select emp_id, '<b>' || ename || '</b>' ename, dept, sal from emp where emp_id <= 2 order by emp_id
+                \`\`\`
+        }
+        componentAppearance {
+            template: @/positional
+        }
+        layout {
+            sequence: 10
+        }
+    )
+)
+`;
+  const { app, assets } = await workspace(
+    t,
+    { 'pages/p00006-positional.apx': page, '.apex-local/02-views.sql': SEED },
+    theme,
+  );
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const html = await (await fetch(`${server.url}/r/demo/positional`)).text();
+  assert.match(html, /<li data-n="1">&lt;b&gt;Emp 1&lt;\/b&gt; \(ACCOUNTING\) 100<\/li>/);
+  assert.match(html, /<li data-n="2">&lt;b&gt;Emp 2&lt;\/b&gt; \(SALES\) 200<\/li>/);
+  assert.doesNotMatch(html, /#[0-9]#/);
 });

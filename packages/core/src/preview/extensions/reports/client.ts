@@ -110,7 +110,9 @@ export const REPORTS_CSS = `
 .apex-local-ig-popupLov{display:flex;align-items:stretch}.apex-local-ig-popupLov .apex-item-text{flex:1 1 auto;min-width:0}
 .apex-local-popupLov ul{max-height:50vh;overflow:auto;margin-top:8px}.apex-local-popupLov .apex-local-lovPick{width:100%;text-align:start;padding:6px 8px}
 .apex-local-popupLov .apex-local-lovPick:hover{background:var(--a-menu-hover-background-color,rgba(0,0,0,.05))}
-.a-IG .a-IG-controlsLabel{border:0;background:none;padding:0;cursor:pointer}
+.a-IG .a-IG-controlsLabel[data-apex-local-ir-chip-edit]{cursor:pointer}
+.apex-local-dialog .a-IRR-dialogRow > input[type=checkbox]{flex:0 0 auto}
+.apex-local-dialog .a-IRR-highlightPreview{font-size:inherit;padding:6px 0}
 `;
 
 export const REPORTS_CLIENT = String.raw`
@@ -269,7 +271,7 @@ window.apexLocalReports = (function ($) {
   function row(label, control, cls) { return "<div class='a-IRR-dialogRow " + (cls || "") + "'><label>" + html(label) + "</label>" + control + "</div>"; }
   function select(cls, options, value) {
     return "<select class='selectlist apex-item-select " + cls + "'>" + options.map(function (o) {
-      return "<option value='" + html(o[0]) + "'" + (String(o[0]) === String(value === undefined ? "" : value) ? " selected" : "") + ">" + html(o[1]) + "</option>";
+      return "<option value='" + html(String(o[0])) + "'" + (String(o[0]) === String(value === undefined ? "" : value) ? " selected" : "") + ">" + html(String(o[1])) + "</option>";
     }).join("") + "</select>";
   }
   function text(cls, value, placeholder) { return "<input type='text' class='text_field apex-item-text " + cls + "' value='" + html(value === undefined || value === null ? "" : String(value)) + "'" + (placeholder ? " placeholder='" + html(placeholder) + "'" : "") + ">"; }
@@ -786,7 +788,7 @@ window.apexLocalReports = (function ($) {
       .then(function (markup) { if (markup) el.innerHTML = markup; });
   }
 
-  if (window.apexLocal && apexLocal.registerAction && !(apexLocal.hasAction && apexLocal.hasAction("invokeInteractiveReportDialog"))) {
+  if (window.apexLocal && apexLocal.registerAction) {
     apexLocal.registerAction("invokeInteractiveReportDialog", function (action, event, trigger, helpers) {
       var name = (action.settings && action.settings.action) || "columns";
       helpers.elements(action.selector, trigger).each(function () {
@@ -1198,8 +1200,8 @@ window.apexLocalReports = (function ($) {
       return "<li class='a-IG-controls-item a-IG-controls-item--" + (chip.kind === "breaks" ? "controlBreak" : "highlight") + "'>" +
         "<span class='a-IG-controls-cell'><input type='checkbox' class='a-IG-controlsCheckbox apex-local-chip' id='" + html(checkbox) + "' data-apex-local-ir-chip-toggle='" + target + "'" + (chip.enabled ? " checked" : "") + " aria-label='" + html(chip.label) + "'><label class='a-IG-controlsCheckboxLabel' for='" + html(checkbox) + "'></label></span>" +
         "<span class='a-IG-controls-cell'><span class='a-IG-controlsIcon a-Icon " + chip.icon + "' aria-hidden='true'></span></span>" +
-        "<span class='a-IG-controls-cell a-IG-controls-cell--label'><button type='button' class='a-IG-controlsLabel' data-apex-local-ir-chip-edit='" + target + "'>" + (chip.swatch ? "<span class='apex-local-swatch' style='background:" + html(chip.swatch) + "'></span>" : "") + "<span>" + html(chip.label) + "</span></button></span>" +
-        "<span class='a-IG-controls-cell a-IG-controls-cell--remove'><button type='button' class='a-Button a-IG-button apex-local-chip' data-apex-local-ir-chip-remove='" + target + "' title='Remove' aria-label='Remove'><span class='a-Icon icon-remove' aria-hidden='true'></span></button></span></li>";
+        "<span class='a-IG-controls-cell a-IG-controls-cell--label'><span class='a-IG-controlsLabel' role='button' tabindex='0' data-apex-local-ir-chip-edit='" + target + "'>" + (chip.swatch ? "<span class='apex-local-swatch' style='background:" + html(chip.swatch) + "'></span>" : "") + "<span>" + html(chip.label) + "</span></span></span>" +
+        "<span class='a-IG-controls-cell a-IG-controls-cell--remove'><button type='button' class='a-Button a-IG-button a-IG-button--remove apex-local-chip' data-apex-local-ir-chip-remove='" + target + "' title='Remove' aria-label='Remove'><span class='a-Icon icon-remove' aria-hidden='true'></span></button></span></li>";
     }).join("") + "</ul>");
     controls$.on("click", ".a-IG-controlsCheckbox:not(.apex-local-chip)", function () { gridAct(ig, { action: "toggleFilter", index: Number(this.getAttribute("data-index")), enabled: this.checked }); });
     controls$.on("click", ".a-IG-button--remove:not(.apex-local-chip)", function () { gridAct(ig, { action: "removeFilter", index: Number(this.getAttribute("data-index")) }); });

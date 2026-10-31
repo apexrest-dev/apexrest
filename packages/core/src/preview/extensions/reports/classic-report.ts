@@ -235,10 +235,19 @@ export function classicReport(renderer: ApexRenderer, ctx: RenderContext, region
     return cells.html(column, row);
   };
 
+  // `#1#`, `#2#` ... name query columns by position (1-based), escaped like named placeholders.
+  const positional = (markup: string, row: Row, index: number) =>
+    markup.replace(/#(\d+)#/gu, (whole, digits: string) => {
+      const name = result.columns[Number(digits) - 1];
+      if (name === undefined) return whole;
+      const column = byName.get(name);
+      return column ? display(column, row, index) : escapeHtml(row[name] ?? '');
+    });
+
   if (text(template, 'row_template_type') === 'NAMED_COLUMNS') {
     const rowHtml = visible
       .map((row, index) =>
-        fill(text(template, 'row_template1'), {
+        fill(positional(text(template, 'row_template1'), row, index), {
           ...Object.fromEntries(Object.keys(row).map((name) => [name, escapeHtml(row[name] ?? '')])),
           ...Object.fromEntries(all.map((column) => [column.id.toUpperCase(), display(column, row, index)])),
           ROWNUM: String((page - 1) * perPage + index + 1),
@@ -283,7 +292,9 @@ export function classicReport(renderer: ApexRenderer, ctx: RenderContext, region
   const body = visible
     .map(
       (row, index) =>
-        fill(text(template, 'row_template_before_first'), { ROWNUM: String(index + 1) }) +
+        fill(positional(text(template, 'row_template_before_first'), row, index), {
+          ROWNUM: String(index + 1),
+        }) +
         columns
           .map((column) => {
             const alignment = renderer.alignment(column, row[column.id.toUpperCase()]);
@@ -296,7 +307,7 @@ export function classicReport(renderer: ApexRenderer, ctx: RenderContext, region
             });
           })
           .join('') +
-        text(template, 'row_template_after_last'),
+        positional(text(template, 'row_template_after_last'), row, index),
     )
     .join('\n');
   return (

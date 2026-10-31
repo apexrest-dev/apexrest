@@ -1,6 +1,7 @@
 import { get, isRef, list, num, ref, str, type ApxComponent } from '../../apexlang.ts';
 import type { Binds, Row } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
+import { authorizeExtensions } from '../../extensions.ts';
 import { escapeHtml } from '../../theme.ts';
 import { aggregateText, aggregateValue, emptyViews, gridViews, highlightRow } from './ir-views.ts';
 import {
@@ -99,52 +100,16 @@ export interface GridModel {
 }
 
 /**
- * Evaluates an authorization scheme with the renderer's server-side conditions. Scheme types
- * that cannot be decided locally (roles and groups, custom plug-ins) allow access and are reported.
+ * Edit authorization follows the preview's authorization policy: schemes are evaluated and
+ * reported by the server extension, and only deny when developer tools enforce them ("view as").
  */
-export function authorizationAllows(
-  renderer: ApexRenderer,
-  ctx: RenderContext,
-  value: unknown,
-  owner: string,
-): boolean {
+export function authorizationAllows(renderer: ApexRenderer, ctx: RenderContext, value: unknown): boolean {
   const name = isRef(value as never)
     ? (value as { ref: string }).ref
     : typeof value === 'string'
       ? value
       : '';
-  if (!name || /^must_?not_?be_?public_?user$/iu.test(name)) return true;
-  const lower = name.toLowerCase();
-  const scheme =
-    renderer.shared('authorization', name) ??
-    renderer.app.shared.find(
-      (component) =>
-        component.type === 'authorization' && str(component.props, 'name').toLowerCase() === lower,
-    );
-  const note = (message: string) => renderer.diagnose('info', message, ctx.pageId, owner);
-  if (!scheme) {
-    note(`Authorization scheme ${name} of ${owner} is not defined locally; access is allowed`);
-    return true;
-  }
-  const type = str(scheme.props, 'type');
-  const settings = (key: string) => str(scheme.props, `settings.${key}`);
-  let condition: Record<string, string> | undefined;
-  if (/function|expression/iu.test(type) && settings('plsqlFunctionBody'))
-    condition = { type: 'functionBody', plsqlFunctionBody: settings('plsqlFunctionBody') };
-  else if (/expression/iu.test(type) && settings('plsqlExpression'))
-    condition = { type: 'plsqlExpression', plsqlExpression: settings('plsqlExpression') };
-  else if (/notexists|noRows/iu.test(type))
-    condition = { type: 'noRowsReturned', sqlQuery: settings('sqlQuery') };
-  else if (/exists|rows/iu.test(type)) condition = { type: 'rowsReturned', sqlQuery: settings('sqlQuery') };
-  else if (/itemisnotnull/iu.test(type)) condition = { type: 'itemIsNotNull', item: settings('item') };
-  else if (/itemisnull/iu.test(type)) condition = { type: 'itemIsNull', item: settings('item') };
-  if (!condition) {
-    note(
-      `Authorization scheme ${scheme.id} (${type}) of ${owner} is not evaluated locally; access is allowed`,
-    );
-    return true;
-  }
-  return renderer.condition(ctx, { condition }, 'condition');
+  return !name || authorizeExtensions(renderer, ctx, name) !== false;
 }
 
 /** Allowed grid operations after `editAuthorization` schemes are evaluated. */
@@ -162,7 +127,7 @@ function editOperations(
   for (const op of ['add', 'update', 'delete'] as const) {
     const scheme = get(region.props, `editAuthorization.${op}`);
     if (!allowed[op] || scheme === undefined) continue;
-    if (!authorizationAllows(renderer, ctx, scheme, region.id)) {
+    if (!authorizationAllows(renderer, ctx, scheme)) {
       allowed[op] = false;
       renderer.diagnose(
         'info',
@@ -794,7 +759,7 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
       ...(column && /^APEX\$/u.test(name) ? { virtual: true } : {}),
     };
   });
-  modelFields[META_FIELD] = { index: fields.length, virtual: true };
+  modelFields[META_FIELD] = { index: fields.length };
   const pagination = str(region.props, 'pagination.type', 'scroll');
   const details = renderer
     .pageComponents(ctx, 'region')
