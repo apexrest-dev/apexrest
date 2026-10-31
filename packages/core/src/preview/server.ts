@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
-import { loadApplication, str } from './apexlang.ts';
+import { loadApplication, str, type ApxComponent } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { LocalDatabase } from './database.ts';
@@ -377,6 +377,12 @@ export class PreviewServer {
       const cleared = renderer.findPage(clear);
       for (const child of cleared?.children ?? [])
         if (child.type === 'pageItem') delete session.items[child.id.toUpperCase()];
+      // Faceted search facets and smart filters are page items too (also inside facet groups).
+      const facets = (children: ApxComponent[]): ApxComponent[] =>
+        children.flatMap((child) =>
+          ['facet', 'filter', 'checkbox'].includes(child.type) ? [child] : facets(child.children),
+        );
+      for (const facet of facets(cleared?.children ?? [])) delete session.items[facet.id.toUpperCase()];
     }
     if (url.searchParams.has('apex_theme_style'))
       session.themeStyle = url.searchParams.get('apex_theme_style') || undefined;

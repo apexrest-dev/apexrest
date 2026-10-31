@@ -20,6 +20,7 @@ import {
   conditionHandler,
   evaluateExpression,
   extensions,
+  filterRegionSql,
   itemRenderer,
   processHandler,
   regionRenderer,
@@ -772,6 +773,7 @@ export class ApexRenderer {
     }
     if (!sql) return undefined;
     if (where) sql = `select * from (${sql}) where ${where}`;
+    sql = filterRegionSql(this, ctx, region, sql);
     if (orderBy) sql = `${sql} order by ${orderBy}`;
     return sql;
   }
@@ -1438,14 +1440,26 @@ export class ApexRenderer {
       (item) => !ref(item.props, 'layout.region'),
     );
 
+    // Display points without grid support (e.g. the left column) stack regions and ignore column spans.
+    const gridless = new Set(
+      this.assets.theme
+        .filter(
+          (call) =>
+            call.kind === 'page_tmpl_display_point' &&
+            String(call.params.page_template_id) === text(template, 'id') &&
+            (call.params.has_grid_support === false || call.params.has_grid_support === 'N'),
+        )
+        .map((call) => String(call.params.placeholder)),
+    );
     const values: Record<string, string> = {};
-    for (const [key, list] of positions)
-      values[key] = this.grid(
-        template,
-        bySequence(list)
-          .filter((region) => this.visible(ctx, region))
-          .map((region) => ({ component: region, html: this.renderRegion(ctx, region) })),
-      );
+    for (const [key, list] of positions) {
+      const cells = bySequence(list)
+        .filter((region) => this.visible(ctx, region))
+        .map((region) => ({ component: region, html: this.renderRegion(ctx, region) }));
+      values[key] = gridless.has(key)
+        ? cells.map((cell) => cell.html).join('\n')
+        : this.grid(template, cells);
+    }
     for (const button of bySequence(pageButtons)) {
       if (!this.visible(ctx, button)) continue;
       const key = placeholder(str(button.props, 'layout.slot', 'body'));
@@ -1818,9 +1832,14 @@ export class ApexRenderer {
         append(str(button.props, 'layout.slot', 'regionBody'), this.renderButton(ctx, button));
     }
     const body = this.regionBody(ctx, region, values);
-    const items = this.pageComponents(ctx, 'pageItem').filter(
+    const regionItems = this.pageComponents(ctx, 'pageItem').filter(
       (item) => ref(item.props, 'layout.region') === region.id,
     );
+    // Items in a template slot other than the body (e.g. the cards sort order) render there.
+    const itemSlot = (item: ApxComponent) => slots.get(str(item.props, 'layout.slot')) ?? 'BODY';
+    const items = regionItems.filter((item) => itemSlot(item) === 'BODY');
+    for (const item of bySequence(regionItems.filter((item) => itemSlot(item) !== 'BODY')))
+      values[itemSlot(item)] = (values[itemSlot(item)] ?? '') + this.renderItem(ctx, item);
     const itemsHtml = items.length ? this.itemsGrid(ctx, this.pageTemplate(ctx), items) : '';
     values.BODY = `${body}${values.BODY ?? ''}${itemsHtml}`;
     const children = this.pageComponents(ctx, 'region').filter(

@@ -98,6 +98,17 @@ export type ExpressionEvaluator = (
   language: 'plsqlExpression' | 'plsqlFunctionBody' | 'sqlExpression',
 ) => string | number | boolean | null | undefined;
 
+/**
+ * Rewrites the SQL of a data region before ordering is applied (e.g. faceted search filters).
+ * Return undefined to leave it unchanged.
+ */
+export type RegionSqlFilter = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  sql: string,
+) => string | undefined;
+
 export interface RouteRequest {
   method: string;
   params: URLSearchParams;
@@ -138,6 +149,7 @@ export interface PreviewExtension {
   code?: CodeRunner;
   expression?: ExpressionEvaluator;
   routes?: Record<string, RouteHandler>;
+  regionSql?: RegionSqlFilter;
   /** Browser JavaScript appended to /__apex/runtime.js; `apexLocal` and `apex` are available. */
   client?: string;
   /** CSS appended to /__apex/runtime.css. */
@@ -212,6 +224,17 @@ export function runPointExtensions(
   const errors: ApexError[] = [];
   for (const extension of extensions) errors.push(...(extension.point?.(renderer, ctx, point) ?? []));
   return errors;
+}
+
+export function filterRegionSql(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  sql: string,
+): string {
+  let result = sql;
+  for (const extension of extensions) result = extension.regionSql?.(renderer, ctx, region, result) ?? result;
+  return result;
 }
 
 export const extensionClient = () =>
