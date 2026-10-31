@@ -7,6 +7,7 @@ import { loadApplication, str } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { LocalDatabase } from './database.ts';
+import { extensionClient, extensionCss, routeHandler } from './extensions.ts';
 import { ApexRenderer, LOCAL_PREFIX, MESSAGES, type Diagnostic, type Session } from './render.ts';
 
 export interface PreviewOptions {
@@ -203,8 +204,10 @@ export class PreviewServer {
     const marker = pathname.indexOf(`${LOCAL_PREFIX}/`);
     if (marker >= 0) {
       const name = pathname.slice(marker + LOCAL_PREFIX.length + 1);
-      if (name === 'runtime.js') return this.#send(response, 200, TYPES['.js']!, RUNTIME_JS);
-      if (name === 'runtime.css') return this.#send(response, 200, TYPES['.css']!, RUNTIME_CSS);
+      if (name === 'runtime.js')
+        return this.#send(response, 200, TYPES['.js']!, RUNTIME_JS + extensionClient());
+      if (name === 'runtime.css')
+        return this.#send(response, 200, TYPES['.css']!, RUNTIME_CSS + extensionCss());
       if (name === 'messages.js') return this.#send(response, 200, TYPES['.js']!, messagesScript(MESSAGES));
       if (name === 'diagnostics')
         return this.#send(response, 200, TYPES['.json']!, JSON.stringify(this.diagnostics(), null, 2));
@@ -267,6 +270,22 @@ export class PreviewServer {
     if (rest === 'wwv_flow.ajax' || rest === 'wwv_flow.show') {
       renderer.diagnose('info', 'An APEX Ajax/plug-in request was ignored by the local preview');
       return this.#send(response, 200, TYPES['.json']!, '{}');
+    }
+    if (rest.startsWith(`${LOCAL_PREFIX.slice(1)}/x/`)) {
+      const handler = routeHandler(rest.slice(LOCAL_PREFIX.length + 2));
+      if (!handler) return this.#send(response, 404, 'text/plain', 'Unknown preview route');
+      const result = handler(renderer, session, {
+        method: request.method ?? 'GET',
+        params: url.searchParams,
+        body: request.method === 'POST' ? await body(request) : '',
+      });
+      const types = {
+        json: TYPES['.json']!,
+        html: TYPES['.html']!,
+        text: 'text/plain; charset=utf-8',
+        js: TYPES['.js']!,
+      };
+      return this.#send(response, result.status ?? 200, types[result.type], result.body);
     }
     if (rest === '__logout') {
       session.items = {};

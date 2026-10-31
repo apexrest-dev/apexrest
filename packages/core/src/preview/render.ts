@@ -15,6 +15,16 @@ import {
   type ApxValue,
 } from './apexlang.ts';
 import { APEX_FULL_VERSION, type ApexAssets } from './assets.ts';
+import {
+  conditionHandler,
+  extensions,
+  itemRenderer,
+  processHandler,
+  regionRenderer,
+  runCodeExtensions,
+  validationHandler,
+} from './extensions.ts';
+import './extensions/index.ts';
 import { formatOracle, LocalDatabase, splitScript, type Binds, type Row } from './database.ts';
 import {
   applyEscape,
@@ -238,7 +248,7 @@ export class ApexRenderer {
     return `${this.baseUrl}/${alias ? alias.toLowerCase() : page.id}`;
   }
 
-  #pageComponents(ctx: RenderContext, type: string): ApxComponent[] {
+  pageComponents(ctx: RenderContext, type: string): ApxComponent[] {
     const own = ctx.page.children.filter((child) => child.type === type);
     const global =
       ctx.page.id !== '0'
@@ -247,14 +257,14 @@ export class ApexRenderer {
     return [...own, ...global];
   }
 
-  #theme(): ApxComponent | undefined {
+  themeComponent(): ApxComponent | undefined {
     const current = ref(this.app.app.props, 'userInterface.currentTheme');
     return this.shared('theme', current) ?? this.app.shared.find((component) => component.type === 'theme');
   }
 
   // ---------------------------------------------------------------- substitutions
 
-  #filePrefix(): string {
+  filePrefix(): string {
     return `${IMAGE_PREFIX}themes/theme_42/${this.assets.manifest.apexVersion.split('.').slice(0, 2).join('.')}/`;
   }
 
@@ -263,8 +273,8 @@ export class ApexRenderer {
     return value
       .replaceAll('#APEX_FILES#', IMAGE_PREFIX)
       .replaceAll('#IMAGE_PREFIX#', IMAGE_PREFIX)
-      .replaceAll('#THEME_FILES#', this.#filePrefix())
-      .replaceAll('#THEME_IMAGES#', this.#filePrefix())
+      .replaceAll('#THEME_FILES#', this.filePrefix())
+      .replaceAll('#THEME_IMAGES#', this.filePrefix())
       .replaceAll('#APP_FILES#', `${this.baseUrl}/files/static/v1/`)
       .replaceAll('#APP_IMAGES#', `${this.baseUrl}/files/static/v1/`)
       .replaceAll('#WORKSPACE_FILES#', `${this.baseUrl}/files/workspace/`)
@@ -276,7 +286,7 @@ export class ApexRenderer {
       .replaceAll('#APP_VERSION#', '');
   }
 
-  #builtin(session: Session, page?: ApxComponent): Record<string, string> {
+  builtin(session: Session, page?: ApxComponent): Record<string, string> {
     const app = this.app.app.props;
     return {
       APP_ID: this.appId,
@@ -323,7 +333,7 @@ export class ApexRenderer {
     page?: ApxComponent,
     defaultEscape: 'HTML' | 'RAW' = 'HTML',
   ): string {
-    const builtins = this.#builtin(session, page);
+    const builtins = this.builtin(session, page);
     const replaced = value.replace(
       /&(?:"([^"]+)"|([A-Za-z][\w$#.]*?))(?:!([A-Z]+))?\./gu,
       (whole, quoted?: string, plain?: string, filter?: string) => {
@@ -332,7 +342,7 @@ export class ApexRenderer {
         if (name.startsWith('APP_TEXT$')) resolved = MESSAGES[name.slice(9)] ?? name.slice(9);
         else if (name in session.items) resolved = session.items[name];
         else if (name in builtins) resolved = builtins[name];
-        else if (this.#isKnownItem(name)) resolved = '';
+        else if (this.isKnownItem(name)) resolved = '';
         if (resolved === undefined) return whole;
         return applyEscape(resolved, filter ?? defaultEscape);
       },
@@ -340,7 +350,7 @@ export class ApexRenderer {
     return this.urls(replaced);
   }
 
-  #isKnownItem(name: string): boolean {
+  isKnownItem(name: string): boolean {
     for (const page of this.app.pages.values()) {
       if (page.children.some((child) => child.type === 'pageItem' && child.id.toUpperCase() === name))
         return true;
@@ -351,13 +361,13 @@ export class ApexRenderer {
   }
 
   binds(session: Session, page?: ApxComponent): Binds {
-    const builtins = this.#builtin(session, page);
+    const builtins = this.builtin(session, page);
     return { ...builtins, ...session.items };
   }
 
   // ---------------------------------------------------------------- conditions
 
-  #condition(ctx: RenderContext, props: ApxObject, key = 'serverSideCondition'): boolean {
+  condition(ctx: RenderContext, props: ApxObject, key = 'serverSideCondition'): boolean {
     const condition = get(props, key);
     if (!isObject(condition)) return true;
     const type = str(condition, 'type');
@@ -429,33 +439,36 @@ export class ApexRenderer {
         return ctx.pageId === value;
       case 'currentPageIsInValue':
         return value.split(',').includes(ctx.pageId);
-      default:
+      default: {
+        const extension = conditionHandler(type)?.(this, ctx, condition);
+        if (extension !== undefined) return extension;
         this.diagnose(
           'info',
           `Server-side condition type "${type}" is not evaluated locally; treated as true`,
           ctx.pageId,
         );
         return true;
+      }
     }
   }
 
-  #whenButton(ctx: RenderContext, props: ApxObject): boolean {
+  whenButton(ctx: RenderContext, props: ApxObject): boolean {
     const pressed = ref(props, 'serverSideCondition.whenButtonPressed');
     if (!pressed) return true;
-    const button = this.#pageComponents(ctx, 'button').find((candidate) => candidate.id === pressed);
+    const button = this.pageComponents(ctx, 'button').find((candidate) => candidate.id === pressed);
     return (
       (button ? str(button.props, 'buttonName', button.id.toUpperCase()) : pressed.toUpperCase()) ===
       ctx.request
     );
   }
 
-  #visible(ctx: RenderContext, component: ApxComponent): boolean {
-    return this.#condition(ctx, component.props);
+  visible(ctx: RenderContext, component: ApxComponent): boolean {
+    return this.condition(ctx, component.props);
   }
 
   // ---------------------------------------------------------------- links
 
-  #targetUrl(
+  targetUrl(
     ctx: RenderContext,
     target: ApxValue | undefined,
     row?: Row,
@@ -489,14 +502,14 @@ export class ApexRenderer {
     return { href: `${base}${query ? `?${query}` : ''}`, ...(page ? { page } : {}) };
   }
 
-  #isDialog(page: ApxComponent | undefined): boolean {
+  isDialog(page: ApxComponent | undefined): boolean {
     const mode = str(page?.props ?? {}, 'appearance.pageMode');
     return mode === 'modalDialog' || mode === 'nonModalDialog' || mode === 'drawer';
   }
 
-  #pageTemplateId(page: ApxComponent): string {
-    const theme = this.#theme();
-    if (this.#isDialog(page)) {
+  pageTemplateId(page: ApxComponent): string {
+    const theme = this.themeComponent();
+    if (this.isDialog(page)) {
       return (
         ref(page.props, 'appearance.dialogTemplate') ??
         ref(theme?.props ?? {}, 'dialogDefaults.dialogPage') ??
@@ -518,13 +531,13 @@ export class ApexRenderer {
 
   /** Link to a page: modal targets open through the theme's dialog JavaScript. */
   link(ctx: RenderContext, target: ApxValue | undefined, row?: Row, triggeringElement = 'this'): string {
-    const { href, page } = this.#targetUrl(ctx, target, row);
-    if (!page || !this.#isDialog(page)) return href;
-    return `javascript:${this.#dialogJs(page, href, triggeringElement)}`;
+    const { href, page } = this.targetUrl(ctx, target, row);
+    if (!page || !this.isDialog(page)) return href;
+    return `javascript:${this.dialogJs(page, href, triggeringElement)}`;
   }
 
-  #dialogJs(page: ApxComponent, url: string, triggeringElement: string): string {
-    const template = this.theme.pages.get(this.#pageTemplateId(page)) ?? this.theme.pages.get('modal-dialog');
+  dialogJs(page: ApxComponent, url: string, triggeringElement: string): string {
+    const template = this.theme.pages.get(this.pageTemplateId(page)) ?? this.theme.pages.get('modal-dialog');
     const options = strings(list(page.props, 'appearance.templateOptions'));
     const dialogClasses = options
       .filter((option) => option.startsWith('js-dialog-class-'))
@@ -569,16 +582,16 @@ export class ApexRenderer {
         this.diagnose('warning', `LOV @${ref(spec, 'lov')} not found`, ctx.pageId, owner);
         return [];
       }
-      return this.#sharedLov(ctx, shared);
+      return this.sharedLov(ctx, shared);
     }
     if (type === 'staticValues' || spec.staticValues !== undefined)
-      return this.#staticLov(str(spec, 'staticValues'));
+      return this.staticLov(str(spec, 'staticValues'));
     if (type === 'sqlQuery' || spec.sqlQuery !== undefined)
-      return this.#queryLov(ctx, str(spec, 'sqlQuery'), undefined, undefined, owner);
+      return this.queryLov(ctx, str(spec, 'sqlQuery'), undefined, undefined, owner);
     return [];
   }
 
-  #staticLov(value: string): Lov {
+  staticLov(value: string): Lov {
     const body = value.replace(/^STATIC2?:/u, '');
     if (!body) return [];
     return body.split(',').map((entry) => {
@@ -587,7 +600,7 @@ export class ApexRenderer {
     });
   }
 
-  #queryLov(
+  queryLov(
     ctx: RenderContext,
     sql: string,
     display: string | undefined,
@@ -608,7 +621,7 @@ export class ApexRenderer {
     }
   }
 
-  #sharedLov(ctx: RenderContext, lov: ApxComponent): Lov {
+  sharedLov(ctx: RenderContext, lov: ApxComponent): Lov {
     const entries = bySequence(lov.children.filter((child) => child.type === 'entry'));
     if (entries.length || str(lov.props, 'source.location') === 'staticValues') {
       return entries.map((entry) => ({
@@ -622,25 +635,25 @@ export class ApexRenderer {
     const sql = str(lov.props, 'source.sqlQuery') || (table ? `select * from ${table}` : '');
     if (!sql) return [];
     if (table)
-      this.#ensureTable(
+      this.ensureTable(
         ctx,
         table,
         [display, returned]
           .filter((value): value is string => Boolean(value))
           .map((name) => ({ name, type: 'varchar2' })),
       );
-    return this.#queryLov(ctx, sql, display, returned, `lov ${lov.id}`);
+    return this.queryLov(ctx, sql, display, returned, `lov ${lov.id}`);
   }
 
   // ---------------------------------------------------------------- data
 
   /** Creates an empty-but-plausible table so a design can be previewed before real DDL exists. */
-  #ensureTable(ctx: RenderContext, table: string, columns: Column[]): boolean {
+  ensureTable(ctx: RenderContext, table: string, columns: Column[]): boolean {
     const name = table.replaceAll('"', '');
     if (this.db.tableExists(name)) return false;
     const unique = new Map<string, Column>();
     // Form items anywhere in the app know the column types, keys and lengths best.
-    for (const column of [...this.#tableHints(name), ...columns])
+    for (const column of [...this.tableHints(name), ...columns])
       if (column.name && !unique.has(column.name.toUpperCase()))
         unique.set(column.name.toUpperCase(), column);
     if (!unique.size) unique.set('ID', { name: 'ID', type: 'number', pk: true });
@@ -686,7 +699,7 @@ export class ApexRenderer {
     return true;
   }
 
-  #tableHints(table: string): Column[] {
+  tableHints(table: string): Column[] {
     const hints: Column[] = [];
     for (const page of this.app.pages.values()) {
       const regions = page.children.filter(
@@ -718,7 +731,7 @@ export class ApexRenderer {
     return hints;
   }
 
-  #regionColumns(ctx: RenderContext, region: ApxComponent): Column[] {
+  regionColumns(ctx: RenderContext, region: ApxComponent): Column[] {
     const columns = region.children
       .filter((child) => child.type === 'column')
       .map((column) => ({
@@ -727,7 +740,7 @@ export class ApexRenderer {
         label: str(column.props, 'heading.heading') || undefined,
         pk: bool(column.props, 'source.primaryKey', false),
       }));
-    const items = this.#pageComponents(ctx, 'pageItem')
+    const items = this.pageComponents(ctx, 'pageItem')
       .filter(
         (item) => ref(item.props, 'source.formRegion') === region.id && str(item.props, 'source.column'),
       )
@@ -741,7 +754,7 @@ export class ApexRenderer {
     return [...items, ...columns];
   }
 
-  #regionSql(ctx: RenderContext, region: ApxComponent): string | undefined {
+  regionSql(ctx: RenderContext, region: ApxComponent): string | undefined {
     const source = region.props.source;
     if (!isObject(source)) return undefined;
     const table = str(source, 'tableName');
@@ -749,7 +762,7 @@ export class ApexRenderer {
     const orderBy = str(source, 'orderByClause') || str(source, 'orderBy');
     let sql = str(source, 'sqlQuery');
     if (!sql && table) {
-      this.#ensureTable(ctx, table, this.#regionColumns(ctx, region));
+      this.ensureTable(ctx, table, this.regionColumns(ctx, region));
       sql = `select * from ${table}`;
     }
     if (!sql) return undefined;
@@ -758,7 +771,7 @@ export class ApexRenderer {
     return sql;
   }
 
-  #query(
+  query(
     ctx: RenderContext,
     region: ApxComponent,
     sql: string,
@@ -769,7 +782,7 @@ export class ApexRenderer {
         return this.db.query(sql, this.binds(ctx.session, ctx.page), maxRows);
       } catch (error) {
         const message = (error as Error).message;
-        if (attempt < 25 && this.#repairSchema(ctx, region, sql, message)) continue;
+        if (attempt < 25 && this.repairSchema(ctx, region, sql, message)) continue;
         const dictionary = /no such table: (?:main\.)?"?(APEX_[\w$#]+)/iu.exec(message)?.[1];
         if (dictionary) {
           const view = dictionary.toUpperCase();
@@ -795,7 +808,7 @@ export class ApexRenderer {
    * Grows auto-created sample tables so queries written for the real schema still run:
    * missing tables are created and missing columns are added with sample values.
    */
-  #repairSchema(ctx: RenderContext, region: ApxComponent, sql: string, message: string): boolean {
+  repairSchema(ctx: RenderContext, region: ApxComponent, sql: string, message: string): boolean {
     const missingTable = /no such table: (?:main\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
     if (missingTable) {
       if (/^APEX_/iu.test(missingTable)) {
@@ -807,7 +820,7 @@ export class ApexRenderer {
         );
         return false;
       }
-      return this.#ensureTable(ctx, missingTable, this.#regionColumns(ctx, region));
+      return this.ensureTable(ctx, missingTable, this.regionColumns(ctx, region));
     }
     const missingColumn = /no such column: (?:"?[\w$#]+"?\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
     if (!missingColumn) return false;
@@ -856,7 +869,7 @@ export class ApexRenderer {
       itemErrors: new Map(),
       messageTemplates: {},
     };
-    for (const item of this.#pageComponents(ctx, 'pageItem')) {
+    for (const item of this.pageComponents(ctx, 'pageItem')) {
       const name = item.id.toUpperCase();
       if ((session.items[name] ?? '') !== '') continue;
       const type = str(item.props, 'default.type');
@@ -877,23 +890,24 @@ export class ApexRenderer {
         }
       }
     }
-    for (const computation of bySequence(this.#pageComponents(ctx, 'computation'))) {
+    for (const computation of bySequence(this.pageComponents(ctx, 'computation'))) {
       const point = str(computation.props, 'execution.point', 'beforeHeader');
-      if (point === 'beforeHeader' && this.#condition(ctx, computation.props))
-        this.#compute(ctx, computation);
+      if (point === 'beforeHeader' && this.condition(ctx, computation.props)) this.compute(ctx, computation);
     }
-    for (const process of bySequence(this.#pageComponents(ctx, 'process'))) {
-      if (str(process.props, 'execution.point') !== 'beforeHeader' || !this.#condition(ctx, process.props))
+    for (const process of bySequence(this.pageComponents(ctx, 'process'))) {
+      if (str(process.props, 'execution.point') !== 'beforeHeader' || !this.condition(ctx, process.props))
         continue;
       const type = str(process.props, 'type');
-      if (type === 'formInitialization') this.#initializeForm(ctx, ref(process.props, 'formRegion'));
-      else if (type === 'clearSessionState') this.#clearPage(ctx);
-      else if (type === 'executeCode') this.#runCode(ctx, process);
+      const extension = processHandler(type);
+      if (extension) extension(this, ctx, process, 'beforeHeader', undefined);
+      else if (type === 'formInitialization') this.initializeForm(ctx, ref(process.props, 'formRegion'));
+      else if (type === 'clearSessionState') this.clearPage(ctx);
+      else if (type === 'executeCode') this.runCode(ctx, process);
     }
     return ctx;
   }
 
-  #compute(ctx: RenderContext, computation: ApxComponent): void {
+  compute(ctx: RenderContext, computation: ApxComponent): void {
     const item = (str(computation.props, 'item') || computation.id).toUpperCase();
     const type = str(computation.props, 'computation.type', str(computation.props, 'type'));
     const value =
@@ -915,20 +929,20 @@ export class ApexRenderer {
       this.diagnose('info', `Computation ${computation.id} (${type}) is not evaluated locally`, ctx.pageId);
   }
 
-  #formItems(ctx: RenderContext, regionId: string | undefined) {
-    return this.#pageComponents(ctx, 'pageItem').filter(
+  formItems(ctx: RenderContext, regionId: string | undefined) {
+    return this.pageComponents(ctx, 'pageItem').filter(
       (item) => ref(item.props, 'source.formRegion') === regionId && str(item.props, 'source.column'),
     );
   }
 
-  #initializeForm(ctx: RenderContext, regionId: string | undefined): void {
-    const region = this.#pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
+  initializeForm(ctx: RenderContext, regionId: string | undefined): void {
+    const region = this.pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
     if (!region) return;
     const table = str(region.props, 'source.tableName');
-    const items = this.#formItems(ctx, regionId);
+    const items = this.formItems(ctx, regionId);
     const keys = items.filter((item) => bool(item.props, 'source.primaryKey', false));
     if (!table || !keys.length) return;
-    this.#ensureTable(ctx, table, this.#regionColumns(ctx, region));
+    this.ensureTable(ctx, table, this.regionColumns(ctx, region));
     if (keys.some((key) => !ctx.session.items[key.id.toUpperCase()])) {
       for (const item of items) if (!keys.includes(item)) delete ctx.session.items[item.id.toUpperCase()];
       return;
@@ -936,7 +950,7 @@ export class ApexRenderer {
     const where = keys
       .map((key) => `"${str(key.props, 'source.column').toUpperCase()}" = :${key.id.toUpperCase()}`)
       .join(' and ');
-    const result = this.#query(ctx, region, `select * from ${table} where ${where}`, 1);
+    const result = this.query(ctx, region, `select * from ${table} where ${where}`, 1);
     const row = result.rows[0];
     if (!row) return;
     for (const item of items) {
@@ -945,17 +959,19 @@ export class ApexRenderer {
     }
   }
 
-  #clearPage(ctx: RenderContext): void {
+  clearPage(ctx: RenderContext): void {
     for (const item of ctx.page.children.filter((child) => child.type === 'pageItem'))
       delete ctx.session.items[item.id.toUpperCase()];
   }
 
   /** PL/SQL cannot run here; bodies made only of SQL DML are executed, anything else is reported. */
-  #runCode(ctx: RenderContext, process: ApxComponent, codeKey = 'source.plsqlCode'): boolean {
+  runCode(ctx: RenderContext, process: ApxComponent, codeKey = 'source.plsqlCode'): boolean {
     const code =
       str(process.props, codeKey) ||
       str(process.props, 'settings.plsqlCode') ||
       str(process.props, 'source.code');
+    const handled = runCodeExtensions(this, ctx, code, process);
+    if (handled !== undefined) return handled;
     const body = code
       .trim()
       .replace(/^begin\b/iu, '')
@@ -995,7 +1011,7 @@ export class ApexRenderer {
 
   isLoginPage(pageKey: string): boolean {
     const page = this.findPage(pageKey);
-    return Boolean(page) && this.#pageTemplateId(page!) === 'login';
+    return Boolean(page) && this.pageTemplateId(page!) === 'login';
   }
 
   /** Any credentials sign in locally; the username becomes APP_USER. */
@@ -1017,28 +1033,35 @@ export class ApexRenderer {
   ): { redirectURL?: string; errors?: ApexError[] } {
     const ctx = this.prepareSubmit(session, pageKey, request);
     for (const [name, value] of Object.entries(values)) session.items[name.toUpperCase()] = value;
-    const pressed = this.#pageComponents(ctx, 'button').find(
+    const pressed = this.pageComponents(ctx, 'button').find(
       (button) => str(button.props, 'buttonName', button.id.toUpperCase()) === request,
     );
     const validate = pressed ? bool(pressed.props, 'behavior.executeValidations', true) : true;
-    const errors = validate ? this.#validate(ctx) : [];
+    const errors = validate ? this.validate(ctx) : [];
     if (errors.length) return { errors };
 
     let closeDialog = false;
     let success = '';
-    for (const process of bySequence(this.#pageComponents(ctx, 'process'))) {
+    for (const process of bySequence(this.pageComponents(ctx, 'process'))) {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
         continue;
-      if (!this.#whenButton(ctx, process.props) || !this.#condition(ctx, process.props)) continue;
+      if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) continue;
       const type = str(process.props, 'type');
       let ran = true;
-      if (type === 'formAutoRowProcessing')
-        ran = this.#processForm(ctx, ref(process.props, 'formRegion'), pressed);
+      const extension = processHandler(type);
+      if (extension) {
+        const result = extension(this, ctx, process, 'submit', pressed);
+        if (result.errors?.length) return { errors: result.errors };
+        if (result.redirectURL) return { redirectURL: result.redirectURL };
+        ran = result.ran;
+        if (result.closeDialog) closeDialog = true;
+      } else if (type === 'formAutoRowProcessing')
+        ran = this.processForm(ctx, ref(process.props, 'formRegion'), pressed);
       else if (type === 'closeDialog') closeDialog = true;
-      else if (type === 'clearSessionState') this.#clearPage(ctx);
-      else if (type === 'executeCode') ran = this.#runCode(ctx, process);
-      else if (type === 'formInitialization') this.#initializeForm(ctx, ref(process.props, 'formRegion'));
+      else if (type === 'clearSessionState') this.clearPage(ctx);
+      else if (type === 'executeCode') ran = this.runCode(ctx, process);
+      else if (type === 'formInitialization') this.initializeForm(ctx, ref(process.props, 'formRegion'));
       else {
         ran = false;
         this.diagnose(
@@ -1062,13 +1085,13 @@ export class ApexRenderer {
         redirectURL: `${this.baseUrl}${LOCAL_PREFIX}/close-dialog?page=${encodeURIComponent(ctx.pageId)}`,
       };
 
-    for (const branch of bySequence(this.#pageComponents(ctx, 'branch'))) {
-      if (!this.#whenButton(ctx, branch.props) || !this.#condition(ctx, branch.props)) continue;
+    for (const branch of bySequence(this.pageComponents(ctx, 'branch'))) {
+      if (!this.whenButton(ctx, branch.props) || !this.condition(ctx, branch.props)) continue;
       const target = get(branch.props, 'behavior.target');
-      if (target !== undefined) return { redirectURL: this.#targetUrl(ctx, target).href };
+      if (target !== undefined) return { redirectURL: this.targetUrl(ctx, target).href };
     }
     if (pressed && str(pressed.props, 'behavior.action') === 'redirectThisApp') {
-      return { redirectURL: this.#targetUrl(ctx, get(pressed.props, 'behavior.target')).href };
+      return { redirectURL: this.targetUrl(ctx, get(pressed.props, 'behavior.target')).href };
     }
     return { redirectURL: this.pagePath(ctx.page) };
   }
@@ -1090,11 +1113,11 @@ export class ApexRenderer {
     };
   }
 
-  #label(item: ApxComponent): string {
+  label(item: ApxComponent): string {
     return str(item.props, 'label.label', heading(item.id.replace(/^P\d+_/u, '')));
   }
 
-  #validate(ctx: RenderContext): ApexError[] {
+  validate(ctx: RenderContext): ApexError[] {
     const errors: ApexError[] = [];
     const add = (message: string, item?: string) =>
       errors.push({
@@ -1104,11 +1127,11 @@ export class ApexRenderer {
         message,
         unsafe: false,
       });
-    for (const item of this.#pageComponents(ctx, 'pageItem')) {
-      if (!this.#visible(ctx, item) || !this.#regionVisible(ctx, ref(item.props, 'layout.region'))) continue;
+    for (const item of this.pageComponents(ctx, 'pageItem')) {
+      if (!this.visible(ctx, item) || !this.regionVisible(ctx, ref(item.props, 'layout.region'))) continue;
       const name = item.id.toUpperCase();
       const value = ctx.session.items[name] ?? '';
-      const label = this.#label(item);
+      const label = this.label(item);
       if (bool(item.props, 'validation.valueRequired', false) && value === '')
         add(`${label} must have some value.`, name);
       const max = num(item.props, 'validation.maxLength', 0);
@@ -1120,14 +1143,19 @@ export class ApexRenderer {
       )
         add(`${label} must be Numeric.`, name);
     }
-    for (const validation of bySequence(this.#pageComponents(ctx, 'validation'))) {
-      if (!this.#whenButton(ctx, validation.props) || !this.#condition(ctx, validation.props)) continue;
+    for (const validation of bySequence(this.pageComponents(ctx, 'validation'))) {
+      if (!this.whenButton(ctx, validation.props) || !this.condition(ctx, validation.props)) continue;
       const type = str(validation.props, 'validation.type');
       const item = str(validation.props, 'validation.item').toUpperCase();
       const message = str(validation.props, 'error.errorMessage', `${validation.id} failed`);
       const value = ctx.session.items[item] ?? '';
       const associated = str(validation.props, 'error.associatedItem').toUpperCase() || item || undefined;
       let failed: boolean | undefined;
+      const extension = validationHandler(type)?.(this, ctx, validation);
+      if (extension !== undefined) {
+        if (extension !== null) add(this.substitute(ctx.session, extension, ctx.page, 'RAW'), associated);
+        continue;
+      }
       if (type === 'itemIsNotNull' || type === 'itemNotNull') failed = value === '';
       else if (type === 'itemIsNumeric') failed = value !== '' && !Number.isFinite(Number(value));
       else if (type === 'itemIsADate') failed = value !== '' && Number.isNaN(new Date(value).getTime());
@@ -1158,23 +1186,23 @@ export class ApexRenderer {
     return errors;
   }
 
-  #regionVisible(ctx: RenderContext, regionId: string | undefined): boolean {
+  regionVisible(ctx: RenderContext, regionId: string | undefined): boolean {
     if (!regionId) return true;
-    const region = this.#pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
+    const region = this.pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
     if (!region) return true;
-    return this.#visible(ctx, region) && this.#regionVisible(ctx, ref(region.props, 'layout.parentRegion'));
+    return this.visible(ctx, region) && this.regionVisible(ctx, ref(region.props, 'layout.parentRegion'));
   }
 
-  #processForm(ctx: RenderContext, regionId: string | undefined, pressed: ApxComponent | undefined): boolean {
-    const region = this.#pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
+  processForm(ctx: RenderContext, regionId: string | undefined, pressed: ApxComponent | undefined): boolean {
+    const region = this.pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
     if (!region) return false;
     const table = str(region.props, 'source.tableName');
     if (!table) {
       this.diagnose('info', `Form ${regionId} has no table; DML skipped`, ctx.pageId, regionId);
       return false;
     }
-    this.#ensureTable(ctx, table, this.#regionColumns(ctx, region));
-    const items = this.#formItems(ctx, regionId).filter(
+    this.ensureTable(ctx, table, this.regionColumns(ctx, region));
+    const items = this.formItems(ctx, regionId).filter(
       (item) => !bool(item.props, 'source.queryOnly', false) || bool(item.props, 'source.primaryKey', false),
     );
     const keys = items.filter((item) => bool(item.props, 'source.primaryKey', false));
@@ -1255,7 +1283,7 @@ export class ApexRenderer {
       file: '',
       line: 0,
     };
-    this.#runCode(ctx, pseudo);
+    this.runCode(ctx, pseudo);
     return Object.fromEntries(
       returnItems.map((name) => [name.toUpperCase(), session.items[name.toUpperCase()] ?? '']),
     );
@@ -1265,7 +1293,7 @@ export class ApexRenderer {
 
   renderPage(ctx: RenderContext): string {
     const page = ctx.page;
-    const templateId = this.#pageTemplateId(page);
+    const templateId = this.pageTemplateId(page);
     const template = this.theme.pages.get(templateId) ?? this.theme.pages.get('standard')!;
     if (!this.theme.pages.has(templateId))
       this.diagnose('warning', `Page template @/${templateId} not found; used Standard`, ctx.pageId);
@@ -1284,39 +1312,39 @@ export class ApexRenderer {
     };
 
     const positions = new Map<string, ApxComponent[]>();
-    const regions = this.#pageComponents(ctx, 'region');
+    const regions = this.pageComponents(ctx, 'region');
     for (const region of regions) {
       if (ref(region.props, 'layout.parentRegion')) continue;
       const key = placeholder(str(region.props, 'layout.slot', 'body'));
       positions.set(key, [...(positions.get(key) ?? []), region]);
     }
-    const pageButtons = this.#pageComponents(ctx, 'button').filter(
+    const pageButtons = this.pageComponents(ctx, 'button').filter(
       (button) => !ref(button.props, 'layout.region'),
     );
-    const pageItems = this.#pageComponents(ctx, 'pageItem').filter(
+    const pageItems = this.pageComponents(ctx, 'pageItem').filter(
       (item) => !ref(item.props, 'layout.region'),
     );
 
     const values: Record<string, string> = {};
     for (const [key, list] of positions)
-      values[key] = this.#grid(
+      values[key] = this.grid(
         template,
         bySequence(list)
-          .filter((region) => this.#visible(ctx, region))
+          .filter((region) => this.visible(ctx, region))
           .map((region) => ({ component: region, html: this.renderRegion(ctx, region) })),
       );
     for (const button of bySequence(pageButtons)) {
-      if (!this.#visible(ctx, button)) continue;
+      if (!this.visible(ctx, button)) continue;
       const key = placeholder(str(button.props, 'layout.slot', 'body'));
       values[key] = (values[key] ?? '') + this.renderButton(ctx, button);
     }
-    if (pageItems.length) values.BODY = (values.BODY ?? '') + this.#itemsGrid(ctx, template, pageItems);
+    if (pageItems.length) values.BODY = (values.BODY ?? '') + this.itemsGrid(ctx, template, pageItems);
 
     const pageOptions = templateOptions(
       strings(list(page.props, 'appearance.templateOptions')),
       text(template, 'default_template_options'),
     );
-    const themeComponent = this.#theme();
+    const themeComponent = this.themeComponent();
     const styleId = (
       ref(themeComponent?.props ?? {}, 'style.currentThemeStyle') ??
       defaultStaticId(this.theme, 'current_theme_style_id', 'vita')
@@ -1348,7 +1376,7 @@ export class ApexRenderer {
     const appJs = strings(list(this.app.app.props, 'javaScript.fileUrls'));
     const pageJs = strings(list(page.props, 'javaScript.fileUrls'));
 
-    this.#navigation(ctx, values, template);
+    this.navigation(ctx, values, template);
     const link = (url: string) =>
       `<link rel="stylesheet" href="${escapeHtml(this.urls(url))}" type="text/css" />`;
     const script = (url: string) => `<script src="${escapeHtml(this.urls(url))}"></script>`;
@@ -1362,8 +1390,9 @@ export class ApexRenderer {
       APEX_VERSION: APEX_FULL_VERSION,
       APEX_BASE_VERSION: APEX_FULL_VERSION.split('.').slice(0, 2).join('.'),
     };
-    for (const action of this.#pageComponents(ctx, 'dynamicAction')) {
-      if (this.#visible(ctx, action)) ctx.clientConfig.dynamicActions.push(this.#dynamicAction(ctx, action));
+    for (const extension of extensions) extension.page?.(this, ctx);
+    for (const action of this.pageComponents(ctx, 'dynamicAction')) {
+      if (this.visible(ctx, action)) ctx.clientConfig.dynamicActions.push(this.dynamicAction(ctx, action));
     }
     const pageTemplate = text(template, 'id');
     ctx.messageTemplates[`${pageTemplate}_S`] = text(template, 'success_message');
@@ -1402,7 +1431,7 @@ export class ApexRenderer {
         ...inlineCss.map((code) => `<style>\n${code}\n</style>`),
         `<link rel="stylesheet" href="${LOCAL_PREFIX}/runtime.css" />`,
       ].join('\n'),
-      FAVICONS: this.#favicons(),
+      FAVICONS: this.favicons(),
       HEAD: '',
       PAGE_CSS_CLASSES: [pageOptions, str(page.props, 'appearance.cssClasses')].filter(Boolean).join(' '),
       DIALOG_CSS_CLASSES: '',
@@ -1426,7 +1455,7 @@ export class ApexRenderer {
         `<input type="hidden" id="pPageFormRegionChecksums" value="[]" />`,
         '</form>',
       ].join('\n'),
-      DEVELOPER_TOOLBAR: this.options.toolbar && !this.#isDialog(page) ? this.#toolbar(ctx) : '',
+      DEVELOPER_TOOLBAR: this.options.toolbar && !this.isDialog(page) ? this.toolbar(ctx) : '',
       APEX_JAVASCRIPT: [
         `<script>var apex_img_dir = "${IMAGE_PREFIX}", htmldb_Img_Dir = apex_img_dir; window.apex = { env: ${JSON.stringify(env)} };</script>`,
         script(`#APEX_FILES#libraries/apex/#MIN_DIRECTORY#desktop_all#MIN#.js?v=#APEX_VERSION#`),
@@ -1462,7 +1491,7 @@ export class ApexRenderer {
           : ''
       }</span>`,
       GLOBAL_NOTIFICATION: '',
-      LOGO: this.#logo(ctx),
+      LOGO: this.logo(ctx),
       HOME_LINK: this.pagePath(this.findPage(this.homePage()) ?? page),
       APP_VERSION: '',
       CUSTOMIZE: '',
@@ -1477,7 +1506,7 @@ export class ApexRenderer {
     return this.substitute(ctx.session, html, page, 'HTML');
   }
 
-  #favicons(): string {
+  favicons(): string {
     const icon = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : '';
     const exists = fs.existsSync(
       path.join(this.app.root, 'shared-components', 'static-files', 'icons', 'app-icon-32.png'),
@@ -1485,7 +1514,7 @@ export class ApexRenderer {
     return icon && exists ? `<link rel="icon" sizes="32x32" href="${icon}">` : '';
   }
 
-  #logo(ctx: RenderContext): string {
+  logo(ctx: RenderContext): string {
     const type = str(this.app.app.props, 'logo.type', 'text');
     const value = str(this.app.app.props, 'logo.text', str(this.app.app.props, 'name'));
     const image = str(this.app.app.props, 'logo.imageUrl') || str(this.app.app.props, 'logo.image');
@@ -1497,7 +1526,7 @@ export class ApexRenderer {
     return label;
   }
 
-  #toolbar(ctx: RenderContext): string {
+  toolbar(ctx: RenderContext): string {
     const own = this.diagnostics.filter((diagnostic) => !diagnostic.page || diagnostic.page === ctx.pageId);
     const counts = (level: Diagnostic['level']) =>
       own.filter((diagnostic) => diagnostic.level === level).length;
@@ -1508,7 +1537,7 @@ export class ApexRenderer {
     return `<details class="apex-local-toolbar" id="apexLocalToolbar"><summary>APEX local · page ${escapeHtml(ctx.pageId)} · ${counts('error')} errors · ${counts('warning')} warnings · ${counts('info')} notes</summary><ul>${items || '<li>No diagnostics</li>'}</ul></details>`;
   }
 
-  #navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
+  navigation(ctx: RenderContext, values: Record<string, string>, template: TemplateParams): void {
     const app = this.app.app.props;
     const box = `${text(template, 'header_template')}${text(template, 'box')}`;
     const menu = this.shared('list', ref(app, 'navigationMenu.list'));
@@ -1516,7 +1545,7 @@ export class ApexRenderer {
       menu &&
       (box.includes('#SIDE_GLOBAL_NAVIGATION_LIST#') || box.includes('#TOP_GLOBAL_NAVIGATION_LIST#'))
     ) {
-      const theme = this.#theme();
+      const theme = this.themeComponent();
       const position = str(
         app,
         'navigationMenu.position',
@@ -1544,7 +1573,7 @@ export class ApexRenderer {
   }
 
   /** Fixed 12-column grid using the page template's container/row/column templates. */
-  #grid(template: TemplateParams, cells: { component: ApxComponent; html: string }[]): string {
+  grid(template: TemplateParams, cells: { component: ApxComponent; html: string }[]): string {
     if (!cells.length) return '';
     const rows: { component: ApxComponent; html: string }[][] = [];
     for (const cell of cells) {
@@ -1593,29 +1622,29 @@ export class ApexRenderer {
     return fill(containerTemplate, { ROWS: html });
   }
 
-  #itemsGrid(ctx: RenderContext, template: TemplateParams, items: ApxComponent[]): string {
-    const visible = bySequence(items).filter((item) => this.#visible(ctx, item));
+  itemsGrid(ctx: RenderContext, template: TemplateParams, items: ApxComponent[]): string {
+    const visible = bySequence(items).filter((item) => this.visible(ctx, item));
     const hidden = visible.filter((item) => str(item.props, 'type') === 'hidden');
     const shown = visible.filter((item) => str(item.props, 'type') !== 'hidden');
     return (
-      this.#grid(
+      this.grid(
         template,
         shown.map((item) => ({ component: item, html: this.renderItem(ctx, item) })),
       ) + hidden.map((item) => this.renderItem(ctx, item)).join('')
     );
   }
 
-  #pageTemplate(ctx: RenderContext): TemplateParams {
-    return this.theme.pages.get(this.#pageTemplateId(ctx.page)) ?? this.theme.pages.get('standard')!;
+  pageTemplate(ctx: RenderContext): TemplateParams {
+    return this.theme.pages.get(this.pageTemplateId(ctx.page)) ?? this.theme.pages.get('standard')!;
   }
 
   // ---------------------------------------------------------------- regions
 
-  #regionTemplateId(region: ApxComponent): string {
+  regionTemplateId(region: ApxComponent): string {
     const explicit = ref(region.props, 'appearance.template');
     if (explicit) return explicit.toLowerCase();
     const type = str(region.props, 'type');
-    const theme = this.#theme();
+    const theme = this.themeComponent();
     const defaults = theme?.props ?? {};
     if (type === 'breadcrumb')
       return (ref(defaults, 'regionDefaults.breadcrumbs') ?? 'title-bar').toLowerCase();
@@ -1632,7 +1661,7 @@ export class ApexRenderer {
   }
 
   renderRegion(ctx: RenderContext, region: ApxComponent): string {
-    const templateId = this.#regionTemplateId(region);
+    const templateId = this.regionTemplateId(region);
     const template = this.theme.regions.get(templateId) ?? this.theme.regions.get('standard')!;
     if (!this.theme.regions.has(templateId))
       this.diagnose(
@@ -1649,21 +1678,21 @@ export class ApexRenderer {
       values[key] = (values[key] ?? '') + html;
     };
     for (const button of bySequence(
-      this.#pageComponents(ctx, 'button').filter(
+      this.pageComponents(ctx, 'button').filter(
         (candidate) => ref(candidate.props, 'layout.region') === region.id,
       ),
     )) {
-      if (this.#visible(ctx, button))
+      if (this.visible(ctx, button))
         append(str(button.props, 'layout.slot', 'regionBody'), this.renderButton(ctx, button));
     }
-    const body = this.#regionBody(ctx, region, values);
-    const items = this.#pageComponents(ctx, 'pageItem').filter(
+    const body = this.regionBody(ctx, region, values);
+    const items = this.pageComponents(ctx, 'pageItem').filter(
       (item) => ref(item.props, 'layout.region') === region.id,
     );
-    const itemsHtml = items.length ? this.#itemsGrid(ctx, this.#pageTemplate(ctx), items) : '';
+    const itemsHtml = items.length ? this.itemsGrid(ctx, this.pageTemplate(ctx), items) : '';
     values.BODY = `${body}${values.BODY ?? ''}${itemsHtml}`;
-    const children = this.#pageComponents(ctx, 'region').filter(
-      (child) => ref(child.props, 'layout.parentRegion') === region.id && this.#visible(ctx, child),
+    const children = this.pageComponents(ctx, 'region').filter(
+      (child) => ref(child.props, 'layout.parentRegion') === region.id && this.visible(ctx, child),
     );
     if (children.length) {
       const grouped = new Map<string, ApxComponent[]>();
@@ -1675,8 +1704,8 @@ export class ApexRenderer {
         const key = slots.get(slot) ?? (slot === 'regionBody' ? 'SUB_REGIONS' : slot.toUpperCase());
         values[key] =
           (values[key] ?? '') +
-          this.#grid(
-            this.#pageTemplate(ctx),
+          this.grid(
+            this.pageTemplate(ctx),
             group.map((child) => ({ component: child, html: this.renderRegion(ctx, child) })),
           );
       }
@@ -1720,8 +1749,11 @@ export class ApexRenderer {
     });
   }
 
-  #regionBody(ctx: RenderContext, region: ApxComponent, slots: Record<string, string>): string {
+  regionBody(ctx: RenderContext, region: ApxComponent, slots: Record<string, string>): string {
     const type = str(region.props, 'type', 'staticContent');
+    const extension =
+      regionRenderer(type) ?? (type.includes('/') ? regionRenderer(type.split('/')[0]!) : undefined);
+    if (extension) return extension(this, ctx, region, slots);
     switch (type) {
       case 'staticContent':
       case 'helpText':
@@ -1734,7 +1766,7 @@ export class ApexRenderer {
       case 'form':
         return '';
       case 'classicReport':
-        return this.#report(ctx, region, 'classic');
+        return this.report(ctx, region, 'classic');
       case 'interactiveReport':
       case 'interactiveGrid':
         if (type === 'interactiveGrid')
@@ -1744,17 +1776,17 @@ export class ApexRenderer {
             ctx.pageId,
             region.id,
           );
-        return this.#report(ctx, region, 'interactive', slots);
+        return this.report(ctx, region, 'interactive', slots);
       case 'cards':
-        return this.#cards(ctx, region);
+        return this.cards(ctx, region);
       case 'list':
-        return this.#listRegion(ctx, region);
+        return this.listRegion(ctx, region);
       case 'breadcrumb':
-        return this.#breadcrumb(ctx, region);
+        return this.breadcrumb(ctx, region);
       case 'chart':
-        return this.#chart(ctx, region);
+        return this.chart(ctx, region);
       default:
-        if (type.startsWith('themeTemplateComponent/')) return this.#report(ctx, region, 'classic');
+        if (type.startsWith('themeTemplateComponent/')) return this.report(ctx, region, 'classic');
         this.diagnose(
           'warning',
           `Region type ${type} (${region.id}) is not simulated; a placeholder is shown`,
@@ -1765,7 +1797,7 @@ export class ApexRenderer {
     }
   }
 
-  #columns(region: ApxComponent, resultColumns: string[]) {
+  columns(region: ApxComponent, resultColumns: string[]) {
     const declared = region.children.filter((child) => child.type === 'column');
     const saved =
       region.children.find(
@@ -1797,7 +1829,7 @@ export class ApexRenderer {
     return visible;
   }
 
-  #cell(ctx: RenderContext, region: ApxComponent, column: ApxComponent, row: Row): string {
+  cell(ctx: RenderContext, region: ApxComponent, column: ApxComponent, row: Row): string {
     const name = column.id.toUpperCase();
     const raw = row[name];
     const type = str(column.props, 'type', 'plainText');
@@ -1829,7 +1861,7 @@ export class ApexRenderer {
     return html;
   }
 
-  #alignment(column: ApxComponent, sample: unknown): string {
+  alignment(column: ApxComponent, sample: unknown): string {
     const alignment =
       str(column.props, 'layout.columnAlignment') || str(column.props, 'appearance.alignment');
     if (/end|right/u.test(alignment) || (!alignment && typeof sample === 'number')) return 'u-tR';
@@ -1837,16 +1869,16 @@ export class ApexRenderer {
     return 'u-tL';
   }
 
-  #report(
+  report(
     ctx: RenderContext,
     region: ApxComponent,
     mode: 'classic' | 'interactive',
     slots: Record<string, string> = {},
   ): string {
-    const sql = this.#regionSql(ctx, region);
+    const sql = this.regionSql(ctx, region);
     if (!sql)
       return `<div class="apex-local-unsupported">Report “${escapeHtml(str(region.props, 'name', region.id))}” has no local source.</div>`;
-    const result = this.#query(ctx, region, sql);
+    const result = this.query(ctx, region, sql);
     if (result.error)
       return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(result.error)}</div></div>`;
     const domId = this.regionDomId(region);
@@ -1863,7 +1895,7 @@ export class ApexRenderer {
     );
     const pageNumber = Math.max(1, ctx.session.pagination[`${ctx.pageId}:${region.id}`] ?? 1);
     const rows = result.rows.slice((pageNumber - 1) * perPage, pageNumber * perPage);
-    const columns = this.#columns(region, result.columns);
+    const columns = this.columns(region, result.columns);
     const noData = this.substitute(
       ctx.session,
       str(region.props, 'messages.whenNoDataFound', 'No data found.'),
@@ -1895,7 +1927,7 @@ export class ApexRenderer {
       const header = `${linkColumn ? '<th class="a-IRR-header a-IRR-header--linkColumn" id="' + domId + '_link"><span class="u-VisuallyHidden">Link</span></th>' : ''}${columns
         .map(
           (column) =>
-            `<th class="a-IRR-header ${this.#alignment(column, rows[0]?.[column.id.toUpperCase()])}" id="${escapeHtml(domId)}_${escapeHtml(column.id)}"><a class="a-IRR-headerLink" href="#" data-column="${escapeHtml(column.id)}">${this.substitute(ctx.session, str(column.props, 'heading.heading', heading(column.id)), ctx.page, 'HTML')}</a></th>`,
+            `<th class="a-IRR-header ${this.alignment(column, rows[0]?.[column.id.toUpperCase()])}" id="${escapeHtml(domId)}_${escapeHtml(column.id)}"><a class="a-IRR-headerLink" href="#" data-column="${escapeHtml(column.id)}">${this.substitute(ctx.session, str(column.props, 'heading.heading', heading(column.id)), ctx.page, 'HTML')}</a></th>`,
         )
         .join('')}`;
       const body = rows
@@ -1904,7 +1936,7 @@ export class ApexRenderer {
             `<tr>${linkColumn ? `<td class="a-IRR-linkCol u-tC"><a href="${escapeHtml(this.link(ctx, get(region.props, 'link.target'), row, `apex.jQuery('#${domId}')`))}">${linkIcon}</a></td>` : ''}${columns
               .map(
                 (column) =>
-                  `<td class="${this.#alignment(column, row[column.id.toUpperCase()])}" headers="${escapeHtml(domId)}_${escapeHtml(column.id)}">${this.#cell(ctx, region, column, row)}</td>`,
+                  `<td class="${this.alignment(column, row[column.id.toUpperCase()])}" headers="${escapeHtml(domId)}_${escapeHtml(column.id)}">${this.cell(ctx, region, column, row)}</td>`,
               )
               .join('')}</tr>`,
         )
@@ -1942,7 +1974,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
           fill(text(template, 'row_template1'), {
             ...Object.fromEntries(Object.keys(row).map((key) => [key, escapeHtml(row[key] ?? '')])),
             ...Object.fromEntries(
-              columns.map((column) => [column.id.toUpperCase(), this.#cell(ctx, region, column, row)]),
+              columns.map((column) => [column.id.toUpperCase(), this.cell(ctx, region, column, row)]),
             ),
             ROWNUM: String(index + 1),
           }),
@@ -1964,7 +1996,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
             'HTML',
           ),
           COLUMN_HEADER_NAME: escapeHtml(column.id.toUpperCase()),
-          ALIGNMENT: `align="${this.#alignment(column, rows[0]?.[column.id.toUpperCase()]) === 'u-tR' ? 'right' : 'left'}"`,
+          ALIGNMENT: `align="${this.alignment(column, rows[0]?.[column.id.toUpperCase()]) === 'u-tR' ? 'right' : 'left'}"`,
           ARIA_SORT: '',
           COLUMN_WIDTH: '',
         }),
@@ -1977,8 +2009,8 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
           columns
             .map((column) =>
               fill(text(template, 'row_template1'), {
-                COLUMN_VALUE: this.#cell(ctx, region, column, row),
-                ALIGNMENT: `align="${this.#alignment(column, row[column.id.toUpperCase()]) === 'u-tR' ? 'right' : 'left'}"`,
+                COLUMN_VALUE: this.cell(ctx, region, column, row),
+                ALIGNMENT: `align="${this.alignment(column, row[column.id.toUpperCase()]) === 'u-tR' ? 'right' : 'left'}"`,
                 ACCESSIBLE_HEADERS: `headers="${escapeHtml(column.id.toUpperCase())}"`,
               }),
             )
@@ -1996,10 +2028,10 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     );
   }
 
-  #cards(ctx: RenderContext, region: ApxComponent): string {
-    const sql = this.#regionSql(ctx, region);
+  cards(ctx: RenderContext, region: ApxComponent): string {
+    const sql = this.regionSql(ctx, region);
     if (!sql) return '';
-    const result = this.#query(ctx, region, sql, 200);
+    const result = this.query(ctx, region, sql, 200);
     const value = (row: Row, key: string) => {
       const column = str(region.props, key).toUpperCase();
       return column && column in row ? escapeHtml(row[column] ?? '') : '';
@@ -2027,7 +2059,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     return `<div class="a-CardView-region"><ul class="a-CardView-items a-CardView-items--grid">${cards}</ul></div>`;
   }
 
-  #chart(ctx: RenderContext, region: ApxComponent): string {
+  chart(ctx: RenderContext, region: ApxComponent): string {
     const series = bySequence(region.children.filter((child) => child.type === 'series'));
     const type = str(region.props, 'chart.type', 'bar');
     const parts = series
@@ -2038,7 +2070,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
             ? `select * from ${str(entry.props, 'source.tableName')}`
             : '');
         if (!sql) return '';
-        const result = this.#query(ctx, entry, sql, num(entry.props, 'performance.maxRowsToProcess', 50));
+        const result = this.query(ctx, entry, sql, num(entry.props, 'performance.maxRowsToProcess', 50));
         const label = str(entry.props, 'columnMapping.label', result.columns[0] ?? '').toUpperCase();
         const valueColumn = str(entry.props, 'columnMapping.value', result.columns[1] ?? '').toUpperCase();
         const values = result.rows.map((row) => ({
@@ -2064,7 +2096,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     return `<div class="apex-local-chart" data-chart-type="${escapeHtml(type)}">${parts}</div>`;
   }
 
-  #breadcrumb(ctx: RenderContext, region: ApxComponent): string {
+  breadcrumb(ctx: RenderContext, region: ApxComponent): string {
     const breadcrumb = this.shared('breadcrumb', ref(region.props, 'source.breadcrumb'));
     if (!breadcrumb) return '';
     const templateId = (
@@ -2105,13 +2137,13 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     );
   }
 
-  #listRegion(ctx: RenderContext, region: ApxComponent): string {
+  listRegion(ctx: RenderContext, region: ApxComponent): string {
     const listComponent = this.shared('list', ref(region.props, 'source.list'));
     if (!listComponent) {
       this.diagnose('warning', `List @${ref(region.props, 'source.list')} not found`, ctx.pageId, region.id);
       return '';
     }
-    const theme = this.#theme();
+    const theme = this.themeComponent();
     const templateId = (
       ref(region.props, 'componentAppearance.listTemplate') ??
       ref(theme?.props ?? {}, 'componentDefaults.list') ??
@@ -2143,7 +2175,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     for (const file of text(template, 'css_file_urls').split('\n').filter(Boolean)) ctx.cssFiles.add(file);
     if (text(template, 'javascript_code_onload')) ctx.onload.push(text(template, 'javascript_code_onload'));
     const entries = listComponent.children.filter(
-      (child) => child.type === 'entry' && this.#visible(ctx, child),
+      (child) => child.type === 'entry' && this.visible(ctx, child),
     );
     const childrenOf = (parent: string | undefined) =>
       bySequence(entries.filter((entry) => ref(entry.props, 'layout.parentEntry') === parent));
@@ -2229,7 +2261,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
   // ---------------------------------------------------------------- buttons & items
 
   renderButton(ctx: RenderContext, button: ApxComponent): string {
-    const theme = this.#theme();
+    const theme = this.themeComponent();
     const templateId = (
       ref(button.props, 'appearance.buttonTemplate') ??
       ref(theme?.props ?? {}, 'componentDefaults.button') ??
@@ -2304,7 +2336,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     if (type === 'hidden')
       return `<input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value)}">`;
     const required = bool(item.props, 'validation.valueRequired', false);
-    const theme = this.#theme();
+    const theme = this.themeComponent();
     const templateId = (
       ref(item.props, 'appearance.template') ??
       ref(
@@ -2314,8 +2346,8 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       (required ? 'required-floating' : 'optional-floating')
     ).toLowerCase();
     const template = this.theme.fields.get(templateId) ?? this.theme.fields.get('optional-floating')!;
-    const element = this.#element(ctx, item, type, name, value);
-    const label = escapeHtml(this.substitute(ctx.session, this.#label(item), ctx.page, 'RAW'));
+    const element = this.element(ctx, item, type, name, value);
+    const label = escapeHtml(this.substitute(ctx.session, this.label(item), ctx.page, 'RAW'));
     const error = ctx.itemErrors.get(name);
     const singleCheckbox = type === 'checkbox';
     const values: Record<string, string> = {
@@ -2356,7 +2388,9 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     return `${fill(text(template, 'before_item'), values)}${labelHtml}${fill(text(template, 'before_element'), values)}${element}${fill(text(template, 'after_element'), values)}${fill(text(template, 'after_item'), values)}`;
   }
 
-  #element(ctx: RenderContext, item: ApxComponent, type: string, name: string, value: string): string {
+  element(ctx: RenderContext, item: ApxComponent, type: string, name: string, value: string): string {
+    const extension = itemRenderer(type);
+    if (extension) return extension(this, ctx, item, name, value);
     const v = escapeHtml(value);
     const width = num(item.props, 'appearance.width', 30);
     const max = num(item.props, 'validation.maxLength', 0);
@@ -2412,7 +2446,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       }
       case 'checkbox': {
         const checked = value === str(item.props, 'settings.checkedValue', 'Y');
-        return `<div class="apex-item-single-checkbox"><input type="hidden" name="${name}" id="${name}_HIDDENVALUE" value="${v}"><input type="checkbox" id="${name}" value="${escapeHtml(str(item.props, 'settings.checkedValue', 'Y'))}"${checked ? ' checked' : ''}><label for="${name}" id="${name}_LABEL" class="u-checkbox">${escapeHtml(this.#label(item))}</label></div>`;
+        return `<div class="apex-item-single-checkbox"><input type="hidden" name="${name}" id="${name}_HIDDENVALUE" value="${v}"><input type="checkbox" id="${name}" value="${escapeHtml(str(item.props, 'settings.checkedValue', 'Y'))}"${checked ? ' checked' : ''}><label for="${name}" id="${name}_LABEL" class="u-checkbox">${escapeHtml(this.label(item))}</label></div>`;
       }
       case 'switch': {
         const on = str(item.props, 'settings.onValue', 'Y');
@@ -2437,18 +2471,18 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
 
   // ---------------------------------------------------------------- dynamic actions
 
-  #selector(ctx: RenderContext, props: ApxValue | undefined): string {
+  selector(ctx: RenderContext, props: ApxValue | undefined): string {
     if (!isObject(props)) return '';
     const type = str(props, 'selectionType');
     switch (type) {
       case 'button': {
         const id = ref(props, 'button');
-        const button = this.#pageComponents(ctx, 'button').find((candidate) => candidate.id === id);
+        const button = this.pageComponents(ctx, 'button').find((candidate) => candidate.id === id);
         return button ? `#${str(button.props, 'advanced.staticId') || `B_${slug(button.id)}`}` : '';
       }
       case 'region': {
         const id = ref(props, 'region');
-        const region = this.#pageComponents(ctx, 'region').find((candidate) => candidate.id === id);
+        const region = this.pageComponents(ctx, 'region').find((candidate) => candidate.id === id);
         return region ? `#${this.regionDomId(region)}` : '';
       }
       case 'items':
@@ -2469,13 +2503,13 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     }
   }
 
-  #dynamicAction(ctx: RenderContext, action: ApxComponent): unknown {
+  dynamicAction(ctx: RenderContext, action: ApxComponent): unknown {
     const when = action.props.when;
     const actions = bySequence(action.children.filter((child) => child.type === 'action')).map((child) => {
       const settings = isObject(child.props.settings) ? child.props.settings : {};
       return {
         action: str(child.props, 'action'),
-        selector: this.#selector(ctx, child.props.affectedElements),
+        selector: this.selector(ctx, child.props.affectedElements),
         fireOnInit: bool(child.props, 'execution.fireOnInit', false),
         whenFalse:
           str(child.props, 'execution.event') === 'false' ||
@@ -2496,7 +2530,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     return {
       id: action.id,
       event: str((when as ApxObject) ?? {}, 'event', 'ready'),
-      selector: this.#selector(ctx, when),
+      selector: this.selector(ctx, when),
       condition: isObject(condition)
         ? {
             type: str(condition, 'type'),
@@ -2512,7 +2546,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
   /** HTML of a single region body for client-side refresh. */
   renderRegionFragment(session: Session, pageKey: string, regionId: string): string {
     const ctx = this.prepare(session, pageKey);
-    const region = this.#pageComponents(ctx, 'region').find(
+    const region = this.pageComponents(ctx, 'region').find(
       (candidate) => this.regionDomId(candidate) === regionId || candidate.id === regionId,
     );
     if (!region) throw new Error(`Region ${regionId} not found`);
