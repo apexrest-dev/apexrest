@@ -46,9 +46,9 @@ An agent can write an APEXlang page without ever seeing it; every design tweak n
 
 - **Live screens:** Oracle's public HR demo app with a report, a modal form, real validation messages, a save that refreshes the report, and an `.apx` edit visible on the next reload.
 - **Whole-app check:** `apexrest preview check` rendered all 43 pages in about 0.2 seconds and listed what it could not simulate.
-- **Scope:** a design aid, not Oracle evidence. General PL/SQL, APEX dictionary views and JET charts are not simulated; shipping still compiles and imports on DEV/QA/TEST.
+- **Scope:** a design aid, not Oracle evidence. PL/SQL runs through a local subset interpreter; APEX dictionary views, Oracle JET itself and authentication are not simulated; shipping still compiles and imports on DEV/QA/TEST.
 
-All application screens are captured from the APEXREST 2.4.0 runtime with locally generated sample data. The agent message, code card and loop diagram are illustrations, and the narrator voice is synthetic.
+All application screens are captured from the APEXREST 2.4.0 runtime with locally generated sample data. The agent message, code card and loop diagram are illustrations, and the narrator voice is synthetic. The preview has since grown well beyond what the video shows; see the next section.
 
 ## Watch: selecting components before generating a page
 
@@ -73,6 +73,28 @@ A one-page pilot of the optional [OpenAI Decisions selection](docs/component-cat
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
 > **Source version:** 2.4.0. Registry packages are a separate distribution path; use the repository bundle for its current features. See [current release notes](https://apexrest-dev.github.io/apexrest/release-notes/). Independent tooling; not an official Oracle, OpenAI or Anthropic product.
+
+## Local preview: run the UI without Oracle
+
+`apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`, so an agent (or you) can open real pages, click through them and see design changes on the next reload, before anything is compiled or imported.
+
+```sh
+apexrest preview setup                        # once: extracts the APEX 26.2 browser runtime and theme templates
+apexrest preview check --project /abs/app     # render every page, list what is not simulated
+apexrest preview start --project /abs/app     # serve pages and print their URLs
+```
+
+| Area       | What runs locally                                                                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Theme      | Genuine Universal Theme 26.2 templates, CSS and JavaScript; all page templates, navigation, theme styles (toolbar picker), messages and modal dialogs                        |
+| Reports    | Interactive reports (search, column menus, Actions, filters, download), editable interactive grids saved to SQLite, classic reports with sorting and pagination              |
+| Search     | Faceted Search and Smart Filters on Oracle's own widget with live counts; cards, list views                                                                                  |
+| Components | Template components (Content Row, Media List, Metric Card, Timeline, …) with full template directives; tabs, carousel, region display selector, inline dialogs               |
+| Visuals    | SVG charts (bar, line, area, combination, pie, donut, scatter, bubble, funnel, gauge, radar), FullCalendar calendars, offline maps                                           |
+| Items      | Genuine widgets: date picker, popup LOV, combobox, shuttle, switch, star rating, color picker, markdown, QR; cascading LOVs                                                  |
+| Logic      | PL/SQL subset interpreter for processes, validations, conditions, computations, branches and dynamic content; the dynamic action runtime; Oracle SQL shims and sample tables |
+
+All 91 pages of Oracle's three public APEXlang example applications render without errors. Anything not simulated is reported in a page toolbar and by `check`, never hidden. The preview is a design aid, not compiler, import or Oracle evidence. Read the [local preview guide](docs/local-preview.md).
 
 ## Install
 
@@ -113,7 +135,7 @@ Describe the change in the conversation or invoke the work skill: `$apexrest-wor
 
 1. **Project.** New app: `apexrest_project` `action:init` with `directory` and `template` (`blank-app` or `customer-crm`) generates real Oracle sources. Existing app: `action:inspect`; `apexrest_apex_sync` `action:status` shows a working copy.
 2. **References**, at most three lookups per change: `apexrest_reference` `mode:search` with short terms, `kind` and `limit:3`, then `mode:read` the chosen ID.
-3. **Edit** `.apx` files under the application source directory, keeping `.apex/apexlang.json`, Oracle IDs, authentication and authorization.
+3. **Edit** `.apx` files under the application source directory, keeping `.apex/apexlang.json`, Oracle IDs, authentication and authorization. For design work, `apexrest_preview` `action:start` serves the pages locally without a database; it is not validation.
 4. **Ship** ordinary authorized edits with one `apexrest_ship` `mode:apply` call, `env` and `userRequest` (your literal instruction). The shared runtime compiles, plans, records an exact-plan grant, backs up, imports, verifies and removes the grant. `importMode:auto` selects eligible changed pages/shared files; `files` binds exact paths; other/global changes use the full application.
 5. **Review when needed.** Use standalone `apexrest_apex_validate` for diagnostics or `mode:plan` for an explicit review; omit these duplicate calls during ordinary edits. A separate `mode:apply` prepares a fresh plan; granular `deploy apply` consumes a particular saved plan after review.
 6. **Wait for completion.** If the call is still running after `waitSeconds`, read `apexrest_job` with the returned `jobId`; never rerun ship to fetch a result.
@@ -133,11 +155,12 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 | `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run` |
 | `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                           |
 | `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                       |
+| `apexrest_preview`       | Database-free local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `stop`, `status`          |
 | `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                    |
 | `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                      |
 | `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)  |
 
-Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine; `ship` apply runs in a detached worker so a database write survives host termination. The tool catalog is about 12 KB. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
+Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine; `ship` apply runs in a detached worker so a database write survives host termination. The tool catalog is about 13 KB. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`, `preview`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
 
 ## Skills
 

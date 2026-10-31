@@ -25,6 +25,7 @@ Install the plugin in Codex (`codex plugin marketplace add apexrest-dev/apexrest
 | Start an application   | `apexrest_project` generates a blank application or CRM from native APEXlang templates.                                  |
 | Change an existing app | Adopt it as a working copy, make a focused edit and validate with the real Oracle compiler (`apexrest_apex_validate`).   |
 | Ship the change        | `apexrest_ship` selects `auto`, `files` or `full`, then plans, backs up, imports and verifies under the authorized plan. |
+| Preview the design     | `apexrest_preview` serves the pages locally on Node.js and SQLite, with genuine Universal Theme assets and no database.  |
 | Check the result       | `apexrest_browser_open` resolves the page; the agent verifies the changed behavior in the selected browser.              |
 
 ## Offline catalogs

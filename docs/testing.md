@@ -34,6 +34,8 @@ The integration harness uses `ship --mode apply --user-request TEXT` to bind the
 
 For an ordinary authorized page or dashboard change, use one `apexrest_ship mode:apply` call; it validates with the real Oracle compiler before import. Use standalone `apexrest_apex_validate` for editing diagnostics, reconcile source queries through authorized read-only checks (`apexrest_metadata_read`) when needed and report confirmed server completion. Inspect the page in the selected browser only when the user requests it. `apexrest_ship` validates again when planning, so a separate identical compilation immediately before it is unnecessary unless you are diagnosing a change.
 
+For design iteration before shipping, the [local preview](local-preview.md) (`apexrest_preview`) renders and runs the pages on Node.js and SQLite; `check` lists every unsupported feature. It is a design aid: it does not replace compiler validation, an import or browser verification on the target.
+
 When browser verification is requested, exercise the requested positive and negative interactions through the built-in or user-selected browser. Application writes need their own authorized scope and disposable test data. Compiler and metadata checks do not establish authenticated UI behavior.
 
 ## Browser verification

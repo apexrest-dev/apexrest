@@ -18,6 +18,7 @@ Oracle operations use SQLcl in `cli` mode (subprocess) or `mcp` mode (the offici
 | `packages/mcp/`                           | Stdio MCP catalog, structured output, in-process and detached job dispatch                                                                           |
 | `packages/cli/`                           | CLI parsing and JSON output, backed by the same operation schemas                                                                                    |
 | `packages/core/`                          | Configuration, connections, references, SQLcl sessions, deployment policy, browser handoff, jobs, artifacts and the status snapshot                  |
+| `packages/core/src/preview/`              | Database-free [local preview](local-preview.md): APEXlang parser, theme export evaluation, renderer, SQLite shims, HTTP server and feature modules   |
 | `packages/installer/`                     | Reviewed downloads, safe extraction, managed runtimes and Codex registration                                                                         |
 | `resources/`, `templates/`, `toolchains/` | Pinned references, component and pattern catalogs, project starters and toolchain definitions                                                        |
 
