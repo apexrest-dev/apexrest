@@ -25,6 +25,7 @@ import {
   itemRenderer,
   processHandler,
   regionRenderer,
+  regionSourceSql,
   runCodeExtensions,
   runPointExtensions,
   traceExtensions,
@@ -886,7 +887,8 @@ export class ApexRenderer {
     const table = str(source, 'tableName');
     const where = str(source, 'whereClause') || str(source, 'where');
     const orderBy = str(source, 'orderByClause') || str(source, 'orderBy');
-    let sql = str(source, 'sqlQuery');
+    // hook: sources that are not local SQL, e.g. REST Data Sources (extensions/platform.ts)
+    let sql = regionSourceSql(this, ctx, region) ?? str(source, 'sqlQuery');
     if (!sql && table) {
       this.ensureTable(ctx, table, this.regionColumns(ctx, region));
       sql = `select * from ${table}`;
@@ -1061,6 +1063,7 @@ export class ApexRenderer {
         this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: condition is false' });
         continue;
       }
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       const type = str(process.props, 'type');
       const started = performance.now();
       const extension = processHandler(type);
@@ -1310,6 +1313,7 @@ export class ApexRenderer {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
         continue;
+      if (ref(process.props, 'executionChain')) continue; // hook: run by their chain (extensions/platform.ts)
       if (!this.whenButton(ctx, process.props) || !this.condition(ctx, process.props)) {
         this.trace(ctx, { type: 'process', name: process.id, detail: 'skipped: button or condition' });
         continue;
@@ -2013,11 +2017,21 @@ export class ApexRenderer {
     const visible = bySequence(items).filter((item) => this.visible(ctx, item));
     const hidden = visible.filter((item) => str(item.props, 'type') === 'hidden');
     const shown = visible.filter((item) => str(item.props, 'type') !== 'hidden');
+    // "Stop and Start Grid Layout" items close the current grid and open a new one.
+    const segments: ApxComponent[][] = [[]];
+    for (const item of shown) {
+      if (str(item.props, 'type') === 'stopAndStartGridLayout') segments.push([]);
+      else segments.at(-1)!.push(item);
+    }
     return (
-      this.grid(
-        template,
-        shown.map((item) => ({ component: item, html: this.renderItem(ctx, item) })),
-      ) + hidden.map((item) => this.renderItem(ctx, item)).join('')
+      segments
+        .map((segment) =>
+          this.grid(
+            template,
+            segment.map((item) => ({ component: item, html: this.renderItem(ctx, item) })),
+          ),
+        )
+        .join('\n') + hidden.map((item) => this.renderItem(ctx, item)).join('')
     );
   }
 
@@ -2695,6 +2709,55 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       onclick = confirm
         ? `apex.confirm('${message}',{request:'${request}',showWait:true${str(button.props, 'confirmation.style') === 'danger' ? ",style:'danger'" : ''}});`
         : `apex.submit({request:'${request}',showWait:true});`;
+    } else if (action === 'nextPage' || action === 'previousPage') {
+      // Legacy pagination buttons submit; the structure extension pages the reports server-side.
+      onclick = `apex.submit({request:'${escapeJs(name)}',showWait:true});`;
+    } else if (action === 'resetPage') {
+      // Reset Page discards unsaved changes: a browser form reset, then items re-read their values.
+      this.diagnose(
+        'info',
+        `Button ${button.id} (Reset Page) is simulated as a form reset`,
+        ctx.pageId,
+        button.id,
+      );
+      onclick = `document.getElementById('wwvFlowForm').reset();apex.jQuery('#wwvFlowForm :input').trigger('change');`;
+    } else if (action === 'triggerAction') {
+      // The button's Trigger Action children run like a click dynamic action.
+      const triggers = button.children.filter((child) => child.type === 'triggerAction');
+      if (triggers.length)
+        ctx.clientConfig.dynamicActions.push(
+          this.dynamicAction(ctx, {
+            ...button,
+            type: 'dynamicAction',
+            id: `${button.id}-trigger`,
+            props: {
+              when: { event: 'click', selectionType: 'button', button: { ref: button.id, global: false } },
+            },
+            children: triggers.map((child) => ({ ...child, type: 'action' })),
+          }),
+        );
+    } else if (action === 'redirectOtherApp') {
+      const target = get(button.props, 'behavior.target');
+      const application = isObject(target) ? str(target, 'application') || str(target, 'app') : '';
+      const own =
+        !application ||
+        [this.appId, this.alias, this.app.app.id].some(
+          (id) => id.toLowerCase() === application.toLowerCase(),
+        );
+      if (own) {
+        const href = this.link(ctx, target, undefined, `apex.jQuery('#${domId}')`);
+        onclick = href.startsWith('javascript:')
+          ? href.slice(11)
+          : `apex.navigation.redirect('${escapeJs(href)}');`;
+      } else {
+        this.diagnose(
+          'info',
+          `Button ${button.id} redirects to application ${application}, which is not part of this preview`,
+          ctx.pageId,
+          button.id,
+        );
+        onclick = `apex.message.alert('${escapeJs(`Application ${application} is not available in the local preview.`)}');`;
+      }
     } else if (action === 'redirectThisApp' || action === 'redirectPage' || action === 'redirectUrl') {
       const target = get(button.props, 'behavior.target') ?? str(button.props, 'behavior.targetUrl');
       const href = this.link(ctx, target, undefined, `apex.jQuery('#${domId}')`);
