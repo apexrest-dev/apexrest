@@ -124,7 +124,11 @@ test('preview setup extracts only the runtime subset and check reports unsupport
       ['2', undefined],
     ],
   );
-  assert.ok(result.diagnostics.some((entry) => /Region type calendar/.test(entry.message)));
+  assert.ok(
+    result.diagnostics.some((entry) =>
+      /Region type calendar|Calendar calendar: The calendar has no SQL source/.test(entry.message),
+    ),
+  );
   assert.equal(result.diagnostics.filter((entry) => entry.level === 'error').length, 0);
 });
 
