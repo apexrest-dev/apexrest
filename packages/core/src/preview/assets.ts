@@ -65,15 +65,22 @@ interface ZipEntry {
 /** Minimal central-directory reader: stored and deflated entries, no ZIP64 (the APEX zip needs neither). */
 export class ZipReader {
   #fd: number;
+  #buffer: Buffer | undefined;
   readonly entries: ZipEntry[] = [];
 
-  constructor(file: string) {
-    this.#fd = fs.openSync(file, 'r');
-    const size = fs.fstatSync(this.#fd).size;
+  /** A zip file on disk, or an in-memory archive (an uploaded XLSX workbook). */
+  constructor(file: string | Uint8Array) {
+    const label = typeof file === 'string' ? file : 'archive';
+    if (typeof file === 'string') this.#fd = fs.openSync(file, 'r');
+    else {
+      this.#fd = -1;
+      this.#buffer = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
+    }
+    const size = this.#buffer ? this.#buffer.length : fs.fstatSync(this.#fd).size;
     const tailSize = Math.min(size, 65_557);
     const tail = this.#read(size - tailSize, tailSize);
     const eocd = tail.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
-    if (eocd === -1) throw new Error(`${file} is not a zip archive`);
+    if (eocd === -1) throw new Error(`${label} is not a zip archive`);
     const count = tail.readUInt16LE(eocd + 10);
     const directorySize = tail.readUInt32LE(eocd + 12);
     const directoryOffset = tail.readUInt32LE(eocd + 16);
@@ -98,6 +105,11 @@ export class ZipReader {
   }
 
   #read(position: number, length: number): Buffer {
+    if (this.#buffer) {
+      if (position < 0 || position + length > this.#buffer.length)
+        throw new Error('Unexpected end of zip archive');
+      return this.#buffer.subarray(position, position + length);
+    }
     const buffer = Buffer.alloc(length);
     let done = 0;
     while (done < length) {
@@ -119,7 +131,7 @@ export class ZipReader {
   }
 
   close(): void {
-    fs.closeSync(this.#fd);
+    if (this.#fd >= 0) fs.closeSync(this.#fd);
   }
 }
 
