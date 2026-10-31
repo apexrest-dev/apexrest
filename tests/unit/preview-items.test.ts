@@ -754,9 +754,8 @@ test('check renders every item family without errors and reports local fallbacks
       /Rich Text Editor P3_RTE uses a simple contenteditable/u.test(entry.message),
     ),
   );
-  assert.ok(
-    result.diagnostics.some((entry) => /File item P3_FILE renders the drop zone/u.test(entry.message)),
-  );
+  // uploads are stored locally (extensions/files.ts), so the drop zone is no longer reported
+  assert.ok(!result.diagnostics.some((entry) => /File item P3_FILE/u.test(entry.message)));
 });
 
 test('QR encoder produces a standard symbol', () => {

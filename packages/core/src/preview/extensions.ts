@@ -130,16 +130,31 @@ export type RegionSourceProvider = (
   region: ApxComponent,
 ) => string | undefined;
 
+/** A file part of a multipart request (`p_files` of apex.page.submit or apex.server calls). */
+export interface UploadedFile {
+  field: string;
+  filename: string;
+  mimeType: string;
+  data: Buffer;
+}
+
 export interface RouteRequest {
   method: string;
   params: URLSearchParams;
+  /** The body; multipart requests arrive as the url-encoded text fields. */
   body: string;
+  files?: UploadedFile[];
 }
 
 export interface RouteResponse {
   status?: number;
-  type: 'json' | 'html' | 'text' | 'js';
+  type: 'json' | 'html' | 'text' | 'js' | 'binary';
   body: string;
+  /** Content of a `binary` response (a downloaded file or an image). */
+  data?: Uint8Array;
+  /** Overrides the content type of the response type. */
+  contentType?: string;
+  headers?: Record<string, string>;
 }
 
 /** Served at `/r/<alias>/__apex/x/<name>` with the caller's session. */
@@ -158,6 +173,37 @@ export type PointHandler = (
   ctx: RenderContext,
   point: PreviewPoint,
 ) => ApexError[] | undefined;
+
+/** Outcome of `wwv_flow.accept`. */
+export interface AcceptResult {
+  redirectURL?: string;
+  errors?: ApexError[];
+}
+
+export interface SubmitRequest {
+  pageId: string;
+  request: string;
+  /** All submitted fields (p_json, f01-f50, x01-x20, ...). */
+  form: URLSearchParams;
+  files: UploadedFile[];
+  /** pageItems.itemsToSubmit of p_json; the 1-based `fileIndex` and `fileCount` point into `files`. */
+  items: { n: string; v: string | string[]; fileIndex?: number; fileCount?: number }[];
+  /** Item values passed on to the submit; hooks may change them. */
+  values: Record<string, string>;
+}
+
+/**
+ * Runs before a page submit is accepted (uploads, legacy f01-f50 arrays). The returned
+ * function, if any, sees and may replace the result once the submit was processed.
+ */
+export type SubmitHook = (
+  renderer: ApexRenderer,
+  session: Session,
+  submit: SubmitRequest,
+) => ((result: AcceptResult) => AcceptResult) | undefined;
+
+/** Replaces the response of a rendered page, e.g. a file download started by a before-header process. */
+export type PageResponder = (renderer: ApexRenderer, ctx: RenderContext) => RouteResponse | undefined;
 
 /**
  * Receives the renderer's debug trace: request begin/end, computations, processes, validations,
@@ -209,6 +255,8 @@ export interface PreviewExtension {
    */
   toolbar?: (renderer: ApexRenderer, ctx: RenderContext) => string;
   point?: PointHandler;
+  submit?: SubmitHook;
+  respond?: PageResponder;
   trace?: TraceHandler;
   authorize?: AuthorizationHandler;
 }
@@ -332,3 +380,19 @@ export const extensionCss = () =>
     .filter((entry) => entry.css)
     .map((entry) => `\n/* ${entry.name} */\n${entry.css}`)
     .join('\n');
+
+export function runSubmitExtensions(
+  renderer: ApexRenderer,
+  session: Session,
+  submit: SubmitRequest,
+): ((result: AcceptResult) => AcceptResult)[] {
+  return extensions.flatMap((extension) => extension.submit?.(renderer, session, submit) ?? []);
+}
+
+export function pageResponse(renderer: ApexRenderer, ctx: RenderContext): RouteResponse | undefined {
+  for (const extension of extensions) {
+    const response = extension.respond?.(renderer, ctx);
+    if (response) return response;
+  }
+  return undefined;
+}

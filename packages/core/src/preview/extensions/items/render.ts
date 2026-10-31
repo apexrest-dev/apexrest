@@ -985,15 +985,21 @@ const FILE_DISPLAY: Record<string, string> = {
   nativeFileBrowse: 'NATIVE',
 };
 
+/** Attributes describing the item's current file (file name, size, preview link); see extensions/files.ts. */
+export type FileAttributes = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  item: ApxComponent,
+  value: string,
+) => Record<string, string | undefined>;
+let fileAttributes: FileAttributes = (_renderer, _ctx, _item, value) => ({ filename: value || undefined });
+export function setFileAttributes(attributes: FileAttributes): void {
+  fileAttributes = attributes;
+}
+
 function fileUpload(kind: 'file' | 'image'): ItemRenderer {
   return (renderer, ctx, item, name, value) => {
     itemState.set(item, {});
-    renderer.diagnose(
-      'info',
-      `File item ${name} renders the drop zone; selected files are not uploaded or stored locally`,
-      ctx.pageId,
-      name,
-    );
     const readOnly = isReadOnly(renderer, ctx, item);
     const displayAs = str(
       item.props,
@@ -1016,7 +1022,7 @@ function fileUpload(kind: 'file' | 'image'): ItemRenderer {
       'max-file-size': num(item.props, 'storage.maxFileSize', 0) || undefined,
       'allow-crop': bool(item.props, 'cropping.allowCropping', false) ? 'true' : undefined,
       'show-preview': kind === 'image' ? 'true' : undefined,
-      filename: value || undefined,
+      ...fileAttributes(renderer, ctx, item, value),
       readonly: readOnly,
       required: required(item),
       'aria-labelledby': `${name}_LABEL`,

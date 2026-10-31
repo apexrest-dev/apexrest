@@ -405,11 +405,14 @@ export function truncDate(date: Date, unit = 'DD'): string {
 // ---------------------------------------------------------------- package functions in SQL
 
 export type SqlValue = string | number | null;
+/** SQL values as blob-aware functions see them: BLOB arguments arrive as bytes. */
+export type BlobSqlValue = SqlValue | Uint8Array;
 
 interface OracleFunction {
   sqlName: string;
   params: string[];
-  impl: (args: SqlValue[]) => SqlValue;
+  impl: (args: BlobSqlValue[]) => BlobSqlValue;
+  blobs: boolean;
 }
 
 /** Package functions (`apex_escape.html(...)`) callable from SQL, keyed by lowercase dotted name. */
@@ -419,9 +422,59 @@ export function registerOracleFunction(
   name: string,
   params: string[],
   impl: (args: SqlValue[]) => SqlValue,
+): void;
+/** With `blobs`, BLOB arguments (and BLOB tokens) arrive as bytes and bytes may be returned. */
+export function registerOracleFunction(
+  name: string,
+  params: string[],
+  impl: (args: BlobSqlValue[]) => BlobSqlValue,
+  options: { blobs: true },
+): void;
+export function registerOracleFunction(
+  name: string,
+  params: string[],
+  impl: (args: never[]) => BlobSqlValue,
+  options?: { blobs?: boolean },
 ): void {
   const key = name.toLowerCase();
-  oracleFunctions.set(key, { sqlName: key.replaceAll('.', '__'), params, impl });
+  oracleFunctions.set(key, {
+    sqlName: key.replaceAll('.', '__'),
+    params,
+    impl: impl as (args: BlobSqlValue[]) => BlobSqlValue,
+    blobs: options?.blobs ?? false,
+  });
+}
+
+/**
+ * Table functions (`table(apex_data_parser.parse(...)) p`): the implementation returns rows
+ * whose keys are the upper-case column names. Arguments may reference earlier FROM items.
+ */
+interface TableFunction {
+  columns: string[];
+}
+const tableFunctions = new Map<string, TableFunction>();
+
+export function registerTableFunction(
+  name: string,
+  params: string[],
+  columns: string[],
+  impl: (args: BlobSqlValue[]) => Record<string, SqlValue>[],
+): void {
+  const key = name.toLowerCase();
+  const upper = columns.map((column) => column.toUpperCase());
+  registerOracleFunction(
+    name,
+    params,
+    (args) => JSON.stringify(impl(args).map((row) => upper.map((column) => row[column] ?? null))),
+    { blobs: true },
+  );
+  tableFunctions.set(key.replaceAll('.', '__'), { columns: upper });
+}
+
+/** Schema the preview runtime needs in every database (APEX views and tables); run on open. */
+const databaseSetups: ((db: LocalDatabase) => void)[] = [];
+export function registerDatabaseSetup(setup: (db: LocalDatabase) => void): void {
+  databaseSetups.push(setup);
 }
 
 const MASK = /\u0000(\d+)\u0000/gu;
@@ -521,6 +574,7 @@ const TABLE_FUNCTIONS: Record<string, string> = {
 /** `table(expr)` over a collection-returning function → rows of `column_value`. */
 function rewriteTableCollections(text: string): string {
   const pattern = /\btable\s*\(/giu;
+  const lateral: { alias: string; columns: string[] }[] = [];
   let out = '';
   let last = 0;
   for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
@@ -529,13 +583,55 @@ function rewriteTableCollections(text: string): string {
     if (close < 0) continue;
     const inner = text.slice(open + 1, close).trim();
     const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, '')];
+    const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? '');
+    if (registered) {
+      const alias =
+        /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
+          text.slice(close + 1),
+        );
+      const columns = registered.columns
+        .map((column, index) => `json_extract(value, '$[${index}]') as ${column.toLowerCase()}`)
+        .join(', ');
+      // Arguments that reference other FROM items (f.blob_content) need a lateral join: json_each
+      // is a table-valued function, so `alias.column` references are rewritten onto its rows.
+      const args = inner.slice(inner.indexOf('(') + 1, -1);
+      if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
+        out += `${text.slice(last, match.index)}json_each(${inner})`;
+        last = close + 1;
+        lateral.push({ alias: alias[1]!, columns: registered.columns });
+      } else {
+        out += `${text.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
+        last = close + 1;
+      }
+      pattern.lastIndex = close + 1;
+      continue;
+    }
     out += builtin
       ? `${text.slice(last, match.index)}(${builtin})`
       : `${text.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
     last = close + 1;
     pattern.lastIndex = close + 1;
   }
-  return out + text.slice(last);
+  out += text.slice(last);
+  for (const { alias, columns } of lateral) {
+    // a bare select-list item keeps its column name: `select p.col001, ...` -> `... as col001`
+    out = out.replace(
+      new RegExp(
+        `(\\bselect\\s+(?:distinct\\s+)?|,\\s*)(${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*))(?=\\s*(?:,|\\bfrom\\b))`,
+        'giu',
+      ),
+      (whole, lead: string, reference: string, column: string) =>
+        columns.includes(column.toUpperCase()) ? `${lead}${reference} as ${column}` : whole,
+    );
+    out = out.replace(
+      new RegExp(`\\b${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*)\\b`, 'giu'),
+      (whole, column: string) => {
+        const index = columns.indexOf(column.toUpperCase());
+        return index < 0 ? whole : `json_extract(${alias}.value, '$[${index}]')`;
+      },
+    );
+  }
+  return out;
 }
 
 /** `where rownum <= 5` → `limit 5` on the enclosing query; other `rownum` uses → row_number(). */
@@ -758,10 +854,16 @@ export function splitScript(script: string): string[] {
   return statements.map((statement) => statement.trim().replace(/;\s*$/u, '')).filter(Boolean);
 }
 
+/** `[blob 1234 bytes #0123456789abcdef]`: how BLOB values travel through text-only session state and PL/SQL. */
+const BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
+const BLOB_CACHE_BYTES = 128 * 1_048_576;
+
 export class LocalDatabase {
   readonly db: DatabaseSync;
   readonly file: string;
   #binds: Binds = {};
+  #blobs = new Map<string, Uint8Array>();
+  #blobBytes = 0;
   #functions = new Set<string>();
   #sequences = new Map<string, { value: number | null; increment: number; start: number }>();
   #dirtySequences = new Set<string>();
@@ -771,6 +873,43 @@ export class LocalDatabase {
     if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.#registerOracleFunctions();
+    for (const setup of databaseSetups) setup(this);
+  }
+
+  /**
+   * Query results carry BLOBs as tokens (`[blob N bytes #hash]`) so they fit session state,
+   * PL/SQL variables and bind values; binding a token, or passing it to a blob-aware function,
+   * restores the bytes. Recently seen BLOBs are kept in memory for that.
+   */
+  blobToken(bytes: Uint8Array): string {
+    const key = crypto.createHash('sha1').update(bytes).digest('hex').slice(0, 16);
+    const token = `[blob ${bytes.length} bytes #${key}]`;
+    if (this.#blobs.has(token)) this.#blobs.delete(token);
+    else this.#blobBytes += bytes.length;
+    this.#blobs.set(token, bytes);
+    for (const [oldest, value] of this.#blobs) {
+      if (this.#blobBytes <= BLOB_CACHE_BYTES || oldest === token) break;
+      this.#blobs.delete(oldest);
+      this.#blobBytes -= value.length;
+    }
+    return token;
+  }
+
+  /** Bytes of a BLOB value or token; undefined for anything else. */
+  blob(value: unknown): Uint8Array | undefined {
+    if (value instanceof Uint8Array) return value;
+    if (typeof value !== 'string' || !BLOB_TOKEN.test(value)) return undefined;
+    return this.#blobs.get(value);
+  }
+
+  static isBlobToken(value: unknown): boolean {
+    return typeof value === 'string' && BLOB_TOKEN.test(value);
+  }
+
+  #sqlValue(value: unknown): SQLInputValue {
+    if (typeof value === 'bigint') return Number(value);
+    if (value instanceof Uint8Array) return this.blobToken(value);
+    return (value ?? null) as SQLInputValue;
   }
 
   #registerOracleFunctions(): void {
@@ -983,6 +1122,8 @@ export class LocalDatabase {
     fn('from_tz', (value) => value ?? null);
     fn('to_nchar', (value) => (value === null || value === undefined ? null : String(value)));
     fn('empty_clob', () => null);
+    fn('empty_blob', () => new Uint8Array());
+    fn('to_blob', (value) => (typeof value === 'string' ? (this.blob(value) ?? value) : (value ?? null)));
     fn('apex_local_num', (value) => {
       if (typeof value !== 'string') return value ?? null;
       const trimmed = value.trim();
@@ -1017,13 +1158,13 @@ export class LocalDatabase {
     for (const [name, fn] of oracleFunctions) {
       if (this.#functions.has(name)) continue;
       this.#functions.add(name);
-      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) =>
-        fn.impl(
-          args.map((arg) =>
-            typeof arg === 'bigint' ? Number(arg) : arg instanceof Uint8Array ? null : (arg ?? null),
-          ),
-        ),
-      );
+      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) => {
+        if (!fn.blobs) return fn.impl(args.map((arg) => this.#sqlValue(arg) as SqlValue)) as SQLInputValue;
+        const values = args.map((arg) =>
+          typeof arg === 'bigint' ? Number(arg) : (this.blob(arg) ?? (arg as BlobSqlValue) ?? null),
+        );
+        return fn.impl(values) as SQLInputValue;
+      });
     }
   }
 
@@ -1094,7 +1235,10 @@ export class LocalDatabase {
     for (const name of bindNames(translated)) {
       const value = this.#binds[name.toUpperCase()] ?? null;
       // node:sqlite binds JS numbers as REAL; keep integers INTEGER so `1 || ''` is '1', not '1.0'
-      values[name] = typeof value === 'number' && Number.isSafeInteger(value) ? BigInt(value) : value;
+      values[name] =
+        typeof value === 'number' && Number.isSafeInteger(value)
+          ? BigInt(value)
+          : (this.blob(value) ?? value);
     }
     const statement = this.db.prepare(translated);
     statement.setAllowUnknownNamedParameters(true);
@@ -1107,15 +1251,29 @@ export class LocalDatabase {
     const rows: Row[] = [];
     for (const raw of statement.iterate(values) as Iterable<Record<string, SQLInputValue>>) {
       const row: Row = {};
-      for (const [key, value] of Object.entries(raw)) {
-        row[key.toUpperCase()] =
-          typeof value === 'bigint'
-            ? Number(value)
-            : value instanceof Uint8Array
-              ? `[blob ${value.length} bytes]`
-              : (value as string | number | null);
-      }
+      for (const [key, value] of Object.entries(raw))
+        row[key.toUpperCase()] = this.#sqlValue(value) as string | number | null;
       rows.push(row);
+      if (rows.length >= maxRows) break;
+    }
+    this.#flushSequences();
+    return { columns, rows };
+  }
+
+  /** Like query, with BLOB columns as bytes and columns in select order. */
+  rawQuery(
+    sql: string,
+    binds: Binds = {},
+    maxRows = 10_000,
+  ): { columns: string[]; rows: (SqlValue | Uint8Array)[][] } {
+    const { statement, values } = this.#prepare(sql, binds);
+    statement.setReturnArrays(true);
+    const columns = statement.columns().map((column) => column.name.toUpperCase());
+    const rows: (SqlValue | Uint8Array)[][] = [];
+    for (const raw of statement.iterate(values) as Iterable<SQLInputValue[]>) {
+      rows.push(
+        raw.map((value) => (typeof value === 'bigint' ? Number(value) : (value as SqlValue | Uint8Array))),
+      );
       if (rows.length >= maxRows) break;
     }
     this.#flushSequences();

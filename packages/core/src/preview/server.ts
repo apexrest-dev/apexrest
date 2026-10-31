@@ -7,7 +7,15 @@ import { loadApplication, str, type ApxComponent } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { LocalDatabase } from './database.ts';
-import { extensionClient, extensionCss, routeHandler } from './extensions.ts';
+import {
+  extensionClient,
+  extensionCss,
+  pageResponse,
+  routeHandler,
+  runSubmitExtensions,
+  type RouteResponse,
+} from './extensions.ts';
+import { parseBody } from './extensions/files/multipart.ts';
 import { ApexRenderer, LOCAL_PREFIX, MESSAGES, type Diagnostic, type Session } from './render.ts';
 
 export interface PreviewOptions {
@@ -67,7 +75,7 @@ function newestApx(root: string): number {
   return newest;
 }
 
-async function body(request: http.IncomingMessage, limit = 8 * 1_048_576): Promise<string> {
+async function bytes(request: http.IncomingMessage, limit = 8 * 1_048_576): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -75,7 +83,16 @@ async function body(request: http.IncomingMessage, limit = 8 * 1_048_576): Promi
     if (size > limit) throw new Error('Request body is too large');
     chunks.push(chunk as Buffer);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
+}
+
+async function body(request: http.IncomingMessage, limit = 8 * 1_048_576): Promise<string> {
+  return (await bytes(request, limit)).toString('utf8');
+}
+
+/** Form fields and uploaded files of a POST (url-encoded or multipart/form-data, up to 64 MB). */
+async function formBody(request: http.IncomingMessage) {
+  return parseBody(await bytes(request, 64 * 1_048_576), request.headers['content-type']);
 }
 
 /** Local, database-free runtime for APEXlang sources: Universal Theme 26.2 assets plus SQLite. */
@@ -196,6 +213,23 @@ export class PreviewServer {
     response.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' }).end(content);
   }
 
+  #respond(response: http.ServerResponse, result: RouteResponse): void {
+    const types = {
+      json: TYPES['.json']!,
+      html: TYPES['.html']!,
+      text: 'text/plain; charset=utf-8',
+      js: TYPES['.js']!,
+      binary: 'application/octet-stream',
+    };
+    response
+      .writeHead(result.status ?? 200, {
+        'content-type': result.contentType ?? types[result.type],
+        'cache-control': 'no-store',
+        ...result.headers,
+      })
+      .end(result.type === 'binary' && result.data ? result.data : result.body);
+  }
+
   async #handle(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
     const url = new URL(request.url ?? '/', 'http://localhost');
     const pathname = url.pathname;
@@ -264,20 +298,31 @@ export class PreviewServer {
 
     const session = this.session(request, response);
     if (rest === 'wwv_flow.accept' && request.method === 'POST') {
-      const form = new URLSearchParams(await body(request));
+      // apex.page.submit sends multipart/form-data (p_json first, then p_files) when file items have files.
+      const { form, files } = await formBody(request);
       const json = JSON.parse(form.getAll('p_json').join('') || '{}') as {
-        pageItems?: { itemsToSubmit?: { n: string; v: string | string[] }[] };
+        pageItems?: {
+          itemsToSubmit?: { n: string; v: string | string[]; fileIndex?: number; fileCount?: number }[];
+        };
       };
+      const items = json.pageItems?.itemsToSubmit ?? [];
       const values = Object.fromEntries(
-        (json.pageItems?.itemsToSubmit ?? []).map((item) => [
-          item.n,
-          Array.isArray(item.v) ? item.v.join(':') : String(item.v ?? ''),
-        ]),
+        items.map((item) => [item.n, Array.isArray(item.v) ? item.v.join(':') : String(item.v ?? '')]),
       );
       const page = form.get('p_flow_step_id') ?? '';
-      const result = renderer.isLoginPage(page)
+      const requestValue = form.get('p_request') ?? '';
+      const finish = runSubmitExtensions(renderer, session, {
+        pageId: page,
+        request: requestValue,
+        form,
+        files,
+        items,
+        values,
+      });
+      let result = renderer.isLoginPage(page)
         ? renderer.login(session, values)
-        : renderer.accept(session, page, form.get('p_request') ?? '', values);
+        : renderer.accept(session, page, requestValue, values);
+      for (const step of finish) result = step(result);
       return this.#send(
         response,
         200,
@@ -292,18 +337,19 @@ export class PreviewServer {
     if (rest.startsWith(`${LOCAL_PREFIX.slice(1)}/x/`)) {
       const handler = routeHandler(rest.slice(LOCAL_PREFIX.length + 2));
       if (!handler) return this.#send(response, 404, 'text/plain', 'Unknown preview route');
+      const posted =
+        request.method === 'POST'
+          ? /^multipart\/form-data/iu.test(request.headers['content-type'] ?? '')
+            ? await formBody(request)
+            : { form: undefined, files: [], text: await body(request) }
+          : { form: undefined, files: [], text: '' };
       const result = handler(renderer, session, {
         method: request.method ?? 'GET',
         params: url.searchParams,
-        body: request.method === 'POST' ? await body(request) : '',
+        body: 'text' in posted ? posted.text : (posted.form?.toString() ?? ''),
+        files: posted.files,
       });
-      const types = {
-        json: TYPES['.json']!,
-        html: TYPES['.html']!,
-        text: 'text/plain; charset=utf-8',
-        js: TYPES['.js']!,
-      };
-      return this.#send(response, result.status ?? 200, types[result.type], result.body);
+      return this.#respond(response, result);
     }
     if (rest === '__logout') {
       session.items = {};
@@ -391,6 +437,8 @@ export class PreviewServer {
         session.items[key.toUpperCase()] = value;
     }
     const ctx = renderer.prepare(session, page.id, url.searchParams.get('request') ?? '');
+    const replaced = pageResponse(renderer, ctx);
+    if (replaced) return this.#respond(response, replaced);
     return this.#send(response, 200, TYPES['.html']!, renderer.renderPage(ctx));
   }
 }
