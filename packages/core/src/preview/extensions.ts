@@ -1,5 +1,6 @@
 import type { ApxComponent, ApxObject } from './apexlang.ts';
 import type { ApexError, ApexRenderer, RenderContext, Session } from './render.ts';
+import type { TemplateParams } from './theme.ts';
 
 /**
  * Feature modules plug into the local preview here instead of growing render.ts.
@@ -15,6 +16,15 @@ export type RegionRenderer = (
   slots: Record<string, string>,
 ) => string;
 
+/** Cell HTML of a report column by column `type` (e.g. `themeTemplateComponent/badge`). */
+export type ColumnRenderer = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  column: ApxComponent,
+  row: Record<string, unknown>,
+) => string;
+
 /** Element HTML of a page item (the label/field template wraps it). */
 export type ItemRenderer = (
   renderer: ApexRenderer,
@@ -23,6 +33,21 @@ export type ItemRenderer = (
   name: string,
   value: string,
 ) => string;
+
+/** A region's template, its filled positions and the rendered sub-regions by placeholder. */
+export interface RegionParts {
+  template: TemplateParams;
+  values: Record<string, string>;
+  children: Map<string, { component: ApxComponent; html: string }[]>;
+}
+
+/** Final region HTML (instead of filling the region template), or undefined for the default. */
+export type RegionWrapper = (
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  parts: RegionParts,
+) => string | undefined;
 
 export interface ProcessResult {
   ran: boolean;
@@ -106,6 +131,7 @@ export interface PreviewExtension {
   name: string;
   regions?: Record<string, RegionRenderer>;
   items?: Record<string, ItemRenderer>;
+  columns?: Record<string, ColumnRenderer>;
   processes?: Record<string, ProcessHandler>;
   conditions?: Record<string, ConditionHandler>;
   validations?: Record<string, ValidationHandler>;
@@ -116,6 +142,8 @@ export interface PreviewExtension {
   client?: string;
   /** CSS appended to /__apex/runtime.css. */
   css?: string;
+  /** Wraps a rendered region, e.g. sub-region templates or template components displayed as the region. */
+  wrapRegion?: RegionWrapper;
   /** Called once per page render before the template is filled (add ctx.jsFiles, ctx.cssFiles, ctx.onload). */
   page?: (renderer: ApexRenderer, ctx: RenderContext) => void;
   point?: PointHandler;
@@ -140,6 +168,10 @@ function lookup<K extends keyof PreviewExtension>(key: K, type: string) {
 
 export const regionRenderer = (type: string) => lookup('regions', type) as RegionRenderer | undefined;
 export const itemRenderer = (type: string) => lookup('items', type) as ItemRenderer | undefined;
+/** By full type, then by the part before `/` (`themeTemplateComponent/badge` -> `themeTemplateComponent`). */
+export const columnRenderer = (type: string) =>
+  (lookup('columns', type) ?? (type.includes('/') ? lookup('columns', type.split('/')[0]!) : undefined)) as
+    ColumnRenderer | undefined;
 export const processHandler = (type: string) => lookup('processes', type) as ProcessHandler | undefined;
 export const conditionHandler = (type: string) => lookup('conditions', type) as ConditionHandler | undefined;
 export const validationHandler = (type: string) =>

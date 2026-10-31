@@ -1,3 +1,4 @@
+import { processDirectives } from './extensions/components/directives.ts';
 import type { SqlValue, ThemeCall } from './theme-sql.ts';
 
 export type TemplateParams = Record<string, SqlValue>;
@@ -105,37 +106,11 @@ export function applyEscape(value: string, filter: string | undefined): string {
 }
 
 /**
- * Template directives used by Universal Theme: `{if NAME/}`, `{elsif NAME/}`, `{else/}`, `{endif/}`.
- * A name is true when its placeholder value is non-empty (and not "N"/"false").
+ * Template directives (`{if}`, `{case}`, `{loop}`, `{with/}{apply}`, …) as `apex.util.applyTemplate`
+ * evaluates them; see extensions/components/directives.ts. Placeholders are left for `fill`.
  */
 export function applyDirectives(template: string, values: Record<string, string>): string {
-  const truthy = (name: string) => {
-    const value = values[name.toUpperCase()] ?? '';
-    return value !== '' && value !== 'N' && value !== 'false';
-  };
-  let output = template;
-  for (let guard = 0; guard < 50 && output.includes('{if '); guard += 1) {
-    const replaced = output.replace(
-      /\{if \??([A-Za-z0-9_$]+)\/\}((?:(?!\{if )[\s\S])*?)\{endif\/\}/gu,
-      (_whole, first: string, body: string) => {
-        const branches: { name?: string; body: string }[] = [];
-        const parts = body.split(/\{(elsif \??[A-Za-z0-9_$]+|else)\/\}/u);
-        branches.push({ name: first, body: parts[0] ?? '' });
-        for (let index = 1; index < parts.length; index += 2) {
-          const marker = parts[index]!;
-          branches.push(
-            marker === 'else'
-              ? { body: parts[index + 1] ?? '' }
-              : { name: marker.replace(/^elsif \??/u, ''), body: parts[index + 1] ?? '' },
-          );
-        }
-        return branches.find((branch) => !branch.name || truthy(branch.name))?.body ?? '';
-      },
-    );
-    if (replaced === output) break;
-    output = replaced;
-  }
-  return output;
+  return processDirectives(template, values);
 }
 
 /**

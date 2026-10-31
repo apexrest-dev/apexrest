@@ -26,6 +26,7 @@ const IMAGE_PREFIXES = [
   'libraries/fullcalendar/',
   'libraries/markedjs/',
   'libraries/cropperjs/',
+  'plugins/com.oracle.apex.carousel/',
   `themes/theme_42/${APEX_VERSION}/`,
   'app_ui/',
   'css/',
