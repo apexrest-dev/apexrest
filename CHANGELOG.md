@@ -1,10 +1,10 @@
 # Current changes
 
-## 2.3.0
+## 2.4.0
 
-- Add optional project-scoped OpenAI Decisions component selection through `apexrest_reference mode:select` and `apexrest docs select`, retaining six skills and ten MCP tools.
-- Rank compatible English/Ukrainian catalog candidates in one bounded predicate batch. Keep final APEXlang generation in the current host model, with contracts and recipes loaded from the verified local catalog.
-- Read credentials from the configured environment or a private literal ENV file; retain explicit local fallback, cancellation, version isolation and bounded responses.
-- Record live selection measurements and a same-page generation pilot, including failures, repairs, actual usage and unqualified scopes. Align package and Codex/Claude Code source versions to 2.3.0; registry publication remains a separate outcome.
+- Add a database-free local APEXlang preview: `apexrest preview setup|start|check|stop|status` and the `apexrest_preview` MCP tool, bringing the catalog to eleven tools with six skills.
+- Download the official APEX 26.2 distribution once, extract only its browser runtime and evaluate the Universal Theme export into templates; render pages with genuine 26.2 templates and JavaScript.
+- Implement the `wwv_flow.accept` submit protocol and SQLite data with Oracle SQL shims, `.apex-local/*.sql` seeding and on-demand sample tables. Unsupported features are reported as diagnostics; the preview is not compiler, import or Oracle evidence.
+- Keep the 2.3.0 optional OpenAI Decisions component selection unchanged. Align package and Codex/Claude Code source versions to 2.4.0; registry publication remains a separate outcome.
 
 See [release notes](docs/release-notes.md), [implementation status](docs/implementation-status.md) and [open verification](docs/next-actions.md).

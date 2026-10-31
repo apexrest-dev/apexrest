@@ -1,18 +1,18 @@
 # Current release notes
 
-## Source bundle 2.3.0
+## Source bundle 2.4.0
 
-The repository bundle supports Codex and Claude Code with six skills and ten MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
+The repository bundle supports Codex and Claude Code with six skills and eleven MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
 
-## Changes in 2.3.0
+## Changes in 2.4.0
 
-- Add optional [OpenAI Decisions selection](component-catalog.md#optional-openai-decisions-selection) to `apexrest_reference mode:select` and `apexrest docs select`. A single `gpt-6-luna` predicate batch ranks up to 64 compatible local candidates; the current Codex or Claude Code model builds the final APEXlang page.
-- Add project `decisionApi` settings, private environment/ENV-file credential loading, cancellation and explicit local fallback for unavailable or unusable API results. Disabled selection and ordinary search/read remain local.
-- Preserve version isolation, verified local contracts/dependencies and the bounded MCP response while updating the shared authoring instructions. The bundle retains six skills and ten MCP tools.
-- Record real selection latency/usage and a fixed same-page generation pilot, including timeout fallback, repair costs and verification limits. The pilot does not establish native-host or deployed/browser quality.
-- Align package, workspace and Codex/Claude Code source versions to 2.3.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+- Add the [local preview](local-preview.md): `apexrest preview` and `apexrest_preview` run APEXlang sources on Node.js without an Oracle database for fast design iteration. Pages render with Universal Theme 26.2 templates and JavaScript extracted once from the official distribution.
+- Serve the APEX submit protocol, inline validation messages, modal dialogs, reports, forms, cards, lists and simple dynamic actions against SQLite, with Oracle SQL shims, `.apex-local/*.sql` seeding and on-demand sample tables. PL/SQL beyond plain DML, `APEX_*` views, authentication and several region types are reported as unsupported.
+- The MCP catalog grows to eleven tools; its byte budget rises to 13,600 bytes. The preview is a design aid and does not replace compiler validation, an authorized import or browser verification on DEV/QA/TEST.
+- Optional [OpenAI Decisions selection](component-catalog.md#optional-openai-decisions-selection) from 2.3.0 is unchanged.
+- Align package, workspace and Codex/Claude Code source versions to 2.4.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
 
 ## Upgrade a working copy
 
@@ -20,6 +20,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.3.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
+Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.4.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
 
 See [implementation status](implementation-status.md), [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Fixtures and offline compilation do not establish connected Oracle, authenticated application browsing or native model-host execution.

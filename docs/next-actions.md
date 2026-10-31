@@ -1,5 +1,14 @@
 # Next actions and verification limits
 
+## Current review defects
+
+- Fix the P1 remote SQL risk gap for parameterless function calls and calls within CTAS. Reproduce the exact remote planner/confirmation path; the 2026-10-31 review reconfirmed the existing defect without executing SQL on Oracle (SAFETY-01, A22).
+- Fix the P1 exit-drain outcome classification: killing a live descendant after normal launcher exit must leave an interrupted/unknown write outcome, and a migration must not be marked succeeded without its completion marker (A14, A16). Cancel the separate drain timer after normal close so it cannot signal a reused process-group ID. Local shell and fake-Oracle workflow reproductions are in `docs/evidence/code-review-20261031/`; native Oracle/JVM and Windows qualification remain separate.
+- Resolve password-file parents against canonical allowed roots and reject directory-symlink escapes while retaining no-follow/inode checks on the file (A21).
+- Bind Composer predicate identifiers to verified columns/SQL words and reject unresolved bare parameterless routines in both row predicates and write authorization (CMP013, CMP014, CMP037).
+- Make full APEXlang restore use the reviewed backup alias consistently during import and post-import verification; cover a backup alias different from the current configured alias (A13).
+- Upgrade the vulnerable locked dependencies, starting with direct Zod 4.6.2 and the relevant MCP SDK fixes. The authorized runtime and complete dependency audits report the same nine affected packages, with no additional packages from dev dependencies; assess reachability individually, preserving the distinction between current stdio execution and HTTP/OAuth advisories. Verify oversized-input handling and the existing CLI/MCP/packaging contracts. No dependency or runtime fix was applied by this review.
+
 ## Connected and host qualification
 
 - Broaden Decisions labels beyond the four live-checked scenarios and qualify cold-process distributions, backend-cache conditions and native-host authoring separately. The 2026-10-29 run has 20 successful warm measurements per scenario, 80/80 declared group/isolation checks, and three HTTP fallbacks among 92 attempts. Preserve failures in reporting and compare only equal-quality outcomes; investigate HTTP status/retry guidance when failures recur. Review the initial 0.5 threshold against broader labels rather than treating these fixed cases as general accuracy.
@@ -74,7 +83,7 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The retained 2.2.0 npm exception does not apply to source version 2.3.0. Current-version npm eligibility and full qualification require all nine source-bound reports under the existing configuration. Do not treat absent reports as passed gates.
 
-- A requested 2.3.0 publication needs its own applicable readiness decision, current required reports, green final-source CI on all four jobs, matching public archive integrity and a fresh registry installation with CLI/MCP/reference probes. Version update and main integration do not establish registry publication.
+- A requested 2.4.0 publication needs its own applicable readiness decision, current required reports, green final-source CI on all four jobs, matching public archive integrity and a fresh registry installation with CLI/MCP/reference probes. Version update and main integration do not establish registry publication.
 - Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The retained version-bound npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
 - Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
 - Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.

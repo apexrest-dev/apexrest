@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   canonicalHome,
   runtimeState
-} from "./chunk-M72VRTW5.mjs";
+} from "./chunk-UG7QMWFK.mjs";
 import "./chunk-UGZLKEGQ.mjs";
 import {
   managedHome

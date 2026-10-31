@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-10-29",
-  "release": "2.3.0",
+  "asOf": "2026-10-31",
+  "release": "2.4.0",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -147,7 +147,7 @@
       "implementation": "implemented",
       "verification": "partial",
       "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
-      "blocker": "Backup-before-import ordering is covered by unit fixtures. Actual Oracle backup, restore and restore-failure evidence remains open."
+      "blocker": "Backup-before-import ordering is covered by unit fixtures. The 2026-10-31 fake-Oracle review reproduced full APEXlang restore importing the current configured alias while verifying the backed-up alias, failing after the write when they differ. Actual Oracle backup, restore and restore-failure evidence remains open."
     },
     {
       "id": "A14",
@@ -155,7 +155,7 @@
       "implementation": "implemented",
       "verification": "partial",
       "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
-      "blocker": "Migration history and coordination are local only. Real Oracle DDL interruption/reconciliation requires an authorized target."
+      "blocker": "Migration history and coordination are local only. The 2026-10-31 local shell/fake-Oracle review reproduced exit-drain descendant termination being accepted as process success and persisted as a succeeded migration. Real Oracle DDL interruption/reconciliation requires an authorized target."
     },
     {
       "id": "A15",
@@ -179,7 +179,7 @@
         "tests/unit/working-copy.test.ts",
         "docs/deployment-safety.md"
       ],
-      "blocker": "Local recovery fixtures and one authorized connected already-applied reconciliation passed; broader lost-response/interruption, multi-host and operation-specific SQL reconciliation remain separate qualification."
+      "blocker": "Local recovery fixtures and one authorized connected already-applied reconciliation passed. The 2026-10-31 review reproduced unflagged exit-drain termination and an uncancelled drain SIGKILL after normal process close. Broader lost-response/interruption, multi-host and operation-specific SQL reconciliation remain separate qualification."
     },
     {
       "id": "A17",
@@ -212,7 +212,7 @@
         "packages/core/src/artifacts.ts",
         "tests/packaging/packages.test.mjs"
       ],
-      "blocker": "Credential references, private auth, redaction and bundle scan verified locally. No claim of exhaustive business-secret detection or full live trace audit."
+      "blocker": "Credential references, private auth, redaction and bundle scan verified locally. The 2026-10-31 disposable-file review reproduced passwordFile containment escaping through a parent-directory symlink. No claim of exhaustive business-secret detection or full live trace audit."
     },
     {
       "id": "A22",
@@ -270,7 +270,7 @@
       "implementation": "implemented",
       "verification": "passed",
       "evidence": ["scripts/check-release-readiness.mjs", "tests/contracts/release-readiness.test.mjs"],
-      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.3.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
+      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.4.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
       "regeneratedEvidence": ["dist/releases/release-readiness.json"]
     },
     {
@@ -542,9 +542,9 @@
       "id": "CMP014",
       "criterion": "Commands, authorization contracts and transaction semantics",
       "implementation": "implemented",
-      "verification": "passed",
+      "verification": "partial",
       "evidence": ["tests/unit/composer.test.ts"],
-      "blocker": null
+      "blocker": "The 2026-10-31 local binding review reproduced unqualified parameterless routine names passing both the row-predicate and write-authorization expression guards. Oracle runtime side effects were not executed."
     },
     {
       "id": "CMP015",
@@ -846,7 +846,7 @@
         "packages/core/src/local-env.ts",
         "docs/deployment-safety.md"
       ],
-      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. The 2026-10-30 code review reproduced missing mutation risks for parameterless query function calls and calls inside CREATE TABLE AS SELECT, allowing the remote confirmation gate to accept those scripts without confirmation; that SQL defect remains open. Real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
+      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. The 2026-10-31 review reconfirmed missing remote confirmation for parameterless query calls and calls inside CTAS, and reproduced unflagged exit-drain termination, a delayed group SIGKILL after normal close and a passwordFile parent-symlink escape. These defects remain open. Real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
     },
     {
       "id": "REF262-01",

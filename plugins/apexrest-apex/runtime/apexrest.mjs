@@ -6,9 +6,9 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-JAKKLNE4.mjs";
+} from "./chunk-IYJV3KZC.mjs";
 import "./chunk-RUBOECVN.mjs";
-import "./chunk-M72VRTW5.mjs";
+import "./chunk-UG7QMWFK.mjs";
 import "./chunk-UGZLKEGQ.mjs";
 import {
   loadProject
@@ -194,7 +194,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-TPIKZB26.mjs");
+    const { startMcp } = await import("./chunk-75IECP4S.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
