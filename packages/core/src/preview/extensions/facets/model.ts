@@ -374,10 +374,11 @@ export function predicate(context: FilterContext, facet: Facet, raw: string): st
     case 'checkbox':
       sql = inList(column, parsed.values);
       break;
-    case 'starRating':
-      sql = `${column} >= ${Math.min(...parsed.values.map(Number).filter(Number.isFinite), Infinity)}`;
-      if (sql.endsWith('Infinity')) sql = '';
+    case 'starRating': {
+      const stars = parsed.values.map(Number).filter(Number.isFinite);
+      sql = stars.length ? `${column} >= ${Math.min(...stars)}` : '';
       break;
+    }
     case 'rangeList':
     case 'range': {
       const known = new Set((facet.staticValues ?? []).map((entry) => entry.r));
