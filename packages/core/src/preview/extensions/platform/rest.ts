@@ -5,7 +5,18 @@ import type { ProcessResult } from '../../extensions.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import type { Runtime, Stub, StubArgs } from '../server/apex-api.ts';
 import { ensureDictionary } from './dictionary.ts';
-import { all, bySequence, findShared, insertRow, now, one, raw, refName, replaceTable, staticIdOf } from './store.ts';
+import {
+  all,
+  bySequence,
+  findShared,
+  insertRow,
+  now,
+  one,
+  raw,
+  refName,
+  replaceTable,
+  staticIdOf,
+} from './store.ts';
 
 /**
  * REST without a network: REST Data Sources, the Invoke API process and
@@ -38,7 +49,10 @@ export function readFixture(renderer: ApexRenderer, candidates: string[]): Fixtu
     try {
       parsed = JSON.parse(source);
     } catch (error) {
-      renderer.diagnose('warning', `REST fixture ${path.relative(renderer.app.root, file)} is not valid JSON: ${(error as Error).message}`);
+      renderer.diagnose(
+        'warning',
+        `REST fixture ${path.relative(renderer.app.root, file)} is not valid JSON: ${(error as Error).message}`,
+      );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
     const envelope =
@@ -63,7 +77,14 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 function logCall(
   renderer: ApexRenderer,
   ctx: RenderContext | undefined,
-  entry: { source: string; method: string; url: string; fixture?: Fixture; body?: string | null; note?: string },
+  entry: {
+    source: string;
+    method: string;
+    url: string;
+    fixture?: Fixture;
+    body?: string | null;
+    note?: string;
+  },
 ): void {
   ensureDictionary(renderer);
   const db = raw(renderer);
@@ -112,7 +133,13 @@ function operationOf(source: ApxComponent, key?: string): ApxComponent | undefin
 function sourceCandidates(source: ApxComponent, operation: ApxComponent | undefined): string[] {
   const ids = [...new Set([staticIdOf(source), source.id])];
   const opKeys = operation
-    ? [...new Set([str(operation.props, 'advanced.staticId'), operation.id, str(operation.props, 'operation.httpMethod')])]
+    ? [
+        ...new Set([
+          str(operation.props, 'advanced.staticId'),
+          operation.id,
+          str(operation.props, 'operation.httpMethod'),
+        ]),
+      ]
     : [];
   return [
     ...ids.flatMap((id) => opKeys.filter(Boolean).map((key) => `${id}.${key}`)),
@@ -146,7 +173,10 @@ function profileColumns(source: ApxComponent): ProfileColumn[] {
 /** Value at a dotted path (`a.b[0].c`), case-insensitive on keys. */
 function pick(value: unknown, selector: string): unknown {
   let current: unknown = value;
-  for (const part of selector.replace(/^\$\.?/u, '').split(/\.|\[(\d+)\]/u).filter((piece) => piece !== undefined && piece !== '')) {
+  for (const part of selector
+    .replace(/^\$\.?/u, '')
+    .split(/\.|\[(\d+)\]/u)
+    .filter((piece) => piece !== undefined && piece !== '')) {
     if (current === null || current === undefined) return undefined;
     if (Array.isArray(current) && /^\d+$/u.test(part)) current = current[Number(part)];
     else if (isPlainObject(current)) {
@@ -181,7 +211,11 @@ const scalar = (value: unknown) =>
 const regionCache = new WeakMap<RenderContext, Map<string, string>>();
 
 /** Region source: materializes the REST Data Source response into a table and returns its SQL. */
-export function restRegionSql(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string | undefined {
+export function restRegionSql(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+): string | undefined {
   const sourceProps = isObject(region.props.source) ? region.props.source : undefined;
   if (!sourceProps || str(sourceProps, 'location') !== 'restSource') return undefined;
   const cache = regionCache.get(ctx) ?? new Map<string, string>();
@@ -205,10 +239,19 @@ function materialize(
   const declared = profileColumns(source ?? { type: '', id: '', props: {}, children: [], file: '', line: 0 });
   const regionColumns = region.children
     .filter((child) => child.type === 'column')
-    .map((column) => ({ name: column.id.toUpperCase(), selector: column.id.toLowerCase(), type: str(column.props, 'source.dataType', 'varchar2') }));
+    .map((column) => ({
+      name: column.id.toUpperCase(),
+      selector: column.id.toLowerCase(),
+      type: str(column.props, 'source.dataType', 'varchar2'),
+    }));
   let rows: Record<string, unknown>[] = [];
   if (!source) {
-    renderer.diagnose('warning', `Region ${region.id}: REST Data Source ${key || '(none)'} is not defined in the APEXlang source`, ctx.pageId, region.id);
+    renderer.diagnose(
+      'warning',
+      `Region ${region.id}: REST Data Source ${key || '(none)'} is not defined in the APEXlang source`,
+      ctx.pageId,
+      region.id,
+    );
   } else {
     const operation = operationOf(source);
     const candidates = sourceCandidates(source, operation);
@@ -235,9 +278,18 @@ function materialize(
   }
   let columns = declared.length ? declared : regionColumns;
   if (!columns.length && rows[0])
-    columns = Object.keys(rows[0]).map((name) => ({ name: name.toUpperCase(), selector: name, type: 'varchar2' }));
+    columns = Object.keys(rows[0]).map((name) => ({
+      name: name.toUpperCase(),
+      selector: name,
+      type: 'varchar2',
+    }));
   if (!columns.length) columns = [{ name: 'VALUE', selector: 'value', type: 'varchar2' }];
-  const spec = columns.map((column) => `${column.name} ${column.type === 'number' ? 'n' : /date|timestamp/u.test(column.type) ? 'd' : ''}`).join(', ');
+  const spec = columns
+    .map(
+      (column) =>
+        `${column.name} ${column.type === 'number' ? 'n' : /date|timestamp/u.test(column.type) ? 'd' : ''}`,
+    )
+    .join(', ');
   replaceTable(
     raw(renderer),
     table,
@@ -246,7 +298,10 @@ function materialize(
       Object.fromEntries(
         columns.map((column) => {
           const value = scalar(pick(row, column.selector));
-          return [column.name, column.type === 'number' && value !== null && value !== '' ? Number(value) : value];
+          return [
+            column.name,
+            column.type === 'number' && value !== null && value !== '' ? Number(value) : value,
+          ];
         }),
       ),
     ),
@@ -258,17 +313,26 @@ function materialize(
 
 // ------------------------------------------------------------------ Invoke API process
 
-function parameterValue(renderer: ApexRenderer, ctx: RenderContext, parameter: ApxComponent): string | null | undefined {
+function parameterValue(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  parameter: ApxComponent,
+): string | null | undefined {
   const value = isObject(parameter.props.value) ? parameter.props.value : {};
   const type = str(value, 'type', str(value, 'item') ? 'item' : 'staticValue');
   if (type === 'item') return ctx.session.items[str(value, 'item').toUpperCase()] ?? null;
-  if (type === 'staticValue') return renderer.substitute(ctx.session, str(value, 'staticValue'), ctx.page, 'RAW');
+  if (type === 'staticValue')
+    return renderer.substitute(ctx.session, str(value, 'staticValue'), ctx.page, 'RAW');
   if (type === 'restSourceDefault' || type === 'apiDefault') return undefined;
   if (type === 'null') return null;
   return undefined;
 }
 
-export function invokeApiProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function invokeApiProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const type = str(process.props, 'invoke.type', 'restSource');
   const parameters = process.children.filter((child) => child.type === 'parameter');
   if (type !== 'restSource') {
@@ -283,7 +347,9 @@ export function invokeApiProcess(renderer: ApexRenderer, ctx: RenderContext, pro
         const param = refName(get(parameter.props, 'name')) || parameter.id;
         if (item) return `${param} => :${item.toUpperCase()}`;
         const literal = parameterValue(renderer, ctx, parameter);
-        return literal === undefined ? '' : `${param} => ${literal === null ? 'null' : `'${literal.replaceAll("'", "''")}'`}`;
+        return literal === undefined
+          ? ''
+          : `${param} => ${literal === null ? 'null' : `'${literal.replaceAll("'", "''")}'`}`;
       })
       .filter(Boolean);
     const ok = renderer.runCode(ctx, {
@@ -295,10 +361,18 @@ export function invokeApiProcess(renderer: ApexRenderer, ctx: RenderContext, pro
   const key = ref(process.props, 'invoke.restSource') ?? str(process.props, 'invoke.restSource');
   const source = key ? findShared(renderer, 'restDataSource', key) : undefined;
   if (!source) {
-    renderer.diagnose('warning', `process ${process.id}: REST Data Source ${key || '(none)'} is not defined`, ctx.pageId, process.id);
+    renderer.diagnose(
+      'warning',
+      `process ${process.id}: REST Data Source ${key || '(none)'} is not defined`,
+      ctx.pageId,
+      process.id,
+    );
     return { ran: false };
   }
-  const operation = operationOf(source, ref(process.props, 'invoke.operation') ?? str(process.props, 'invoke.operation'));
+  const operation = operationOf(
+    source,
+    ref(process.props, 'invoke.operation') ?? str(process.props, 'invoke.operation'),
+  );
   const method = str(operation?.props ?? {}, 'operation.httpMethod', 'get');
   const inputs: Record<string, string | null> = {};
   for (const parameter of parameters) {
@@ -329,9 +403,16 @@ export function invokeApiProcess(renderer: ApexRenderer, ctx: RenderContext, pro
     const item = str(value, 'item');
     if (!item) continue;
     const name = refName(get(parameter.props, 'name')) || parameter.id;
-    const header = Object.entries(fixture.headers).find(([header]) => header.toLowerCase() === name.toLowerCase());
-    const output = header ? header[1] : /^(status|status_code|http_status)$/iu.test(name) && pick(fixture.body, name) === undefined ? fixture.status : pick(fixture.body, name);
-    if (output !== undefined) ctx.session.items[item.toUpperCase()] = output === null ? '' : String(scalar(output));
+    const header = Object.entries(fixture.headers).find(
+      ([header]) => header.toLowerCase() === name.toLowerCase(),
+    );
+    const output = header
+      ? header[1]
+      : /^(status|status_code|http_status)$/iu.test(name) && pick(fixture.body, name) === undefined
+        ? fixture.status
+        : pick(fixture.body, name);
+    if (output !== undefined)
+      ctx.session.items[item.toUpperCase()] = output === null ? '' : String(scalar(output));
   }
   if (fixture.status >= 400)
     return {
@@ -382,7 +463,10 @@ function makeRequest(args: StubArgs, rt: Runtime | undefined): string | null {
     ...(fixture ? { fixture } : {}),
   });
   if (!fixture) {
-    rt.note('warning', `apex_web_service: no REST fixture for ${url}; add .apex-local/rest/${candidates[1] || 'response'}.json (returned NULL, status 404)`);
+    rt.note(
+      'warning',
+      `apex_web_service: no REST fixture for ${url}; add .apex-local/rest/${candidates[1] || 'response'}.json (returned NULL, status 404)`,
+    );
     lastStatus = 404;
     lastHeaders = {};
     return null;
@@ -424,6 +508,8 @@ export const REST_STUBS: Record<string, Stub> = {
   'apex_web_service.get_response_header': {
     params: ['p_name'],
     fn: (args) =>
-      Object.entries(lastHeaders).find(([name]) => name.toLowerCase() === String(args.p_name ?? '').toLowerCase())?.[1] ?? null,
+      Object.entries(lastHeaders).find(
+        ([name]) => name.toLowerCase() === String(args.p_name ?? '').toLowerCase(),
+      )?.[1] ?? null,
   },
 };

@@ -631,6 +631,12 @@ export function translateOracleSql(sql: string): string {
           : `group_concat(${value}, ${separator ?? "''"} ${order})`,
     )
     .replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ")
+    // trim(both|leading|trailing 'x' from expr) -> trim/ltrim/rtrim(expr, 'x')
+    .replace(
+      /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
+      (_whole, side: string, chars: string, value: string) =>
+        `${{ both: 'trim', leading: 'ltrim', trailing: 'rtrim' }[side.toLowerCase() as 'both']}(${value.trim()}, ${chars})`,
+    )
     .replace(
       /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
       '($1)',
@@ -861,6 +867,16 @@ export class LocalDatabase {
         })
       );
     });
+    // Oracle: a NULL (or missing) replacement removes the search string; SQLite would return NULL.
+    fn('replace', (value, search, replacement) =>
+      value === null || value === undefined
+        ? null
+        : search === null || search === undefined || search === ''
+          ? String(value)
+          : String(value)
+              .split(String(search))
+              .join(replacement === null || replacement === undefined ? '' : String(replacement)),
+    );
     fn('v', (name) => this.#binds[String(name).toUpperCase()] ?? null);
     fn('nv', (name) => {
       const value = this.#binds[String(name).toUpperCase()];

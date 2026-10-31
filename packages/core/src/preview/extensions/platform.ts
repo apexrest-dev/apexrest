@@ -17,7 +17,7 @@ import {
   workflowProcess,
 } from './platform/services.ts';
 import { raw } from './platform/store.ts';
-import { registerStubs } from './server/apex-api.ts';
+import { MESSAGE_FALLBACKS, registerStubs } from './server/apex-api.ts';
 
 /**
  * Platform services of the local preview: APEX collections, dictionary views generated from the
@@ -25,6 +25,20 @@ import { registerStubs } from './server/apex-api.ts';
  * to a local outbox, REST from JSON fixtures, execution chains, user preferences, application
  * settings, and a minimal record of workflows and human tasks.
  */
+
+// Built-in text messages of the generated administration pages (English).
+Object.assign(MESSAGE_FALLBACKS, {
+  'APEX.FEATURE.CONFIG.ENABLED': 'Enabled',
+  'APEX.FEATURE.CONFIG.DISABLED': 'Disabled',
+  'APEX.FEATURE.TOP_USERS.USERNAME.NOT_IDENTIFIED': 'Not identified',
+  'APEX.FEATURE.ACL.BULK_USER.MISSING_AT_SIGN': 'Missing at sign (@)',
+  'APEX.FEATURE.ACL.BULK_USER.MISSING_DOT': 'Missing dot (.) in the domain',
+  'APEX.FEATURE.ACL.BULK_USER.USERNAME_TOO_LONG': 'Username is too long',
+  'APEX.FEATURE.ACL.BULK_USER.ALREADY_IN_ACL': 'Already in the access control list',
+  'APEX.FEATURE.ACL.BULK_USER.DUPLICATE_USER': 'Duplicate user',
+  'APEX.FEATURE.ACL.BULK_USER.CREATE_CONFIRM':
+    'The following users will be added to the access control list:',
+});
 
 registerStubs({ ...COLLECTION_STUBS, ...ADMIN_STUBS, ...MAIL_STUBS, ...REST_STUBS, ...SERVICE_STUBS });
 
@@ -58,7 +72,8 @@ registerExtension({
   processes: {
     sendEMail: (renderer, ctx, process) => sendEmailProcess(renderer, ctx, process),
     invokeApi: (renderer, ctx, process) => invokeApiProcess(renderer, ctx, process),
-    executionChain: (renderer, ctx, process, point, pressed) => executionChain(renderer, ctx, process, point, pressed),
+    executionChain: (renderer, ctx, process, point, pressed) =>
+      executionChain(renderer, ctx, process, point, pressed),
     userPreferences: (renderer, ctx, process) => userPreferencesProcess(renderer, ctx, process),
     humanTaskCreate: (renderer, ctx, process) => humanTaskCreateProcess(renderer, ctx, process),
     humanTaskManage: (renderer, ctx, process) => humanTaskManageProcess(renderer, ctx, process),
@@ -66,7 +81,8 @@ registerExtension({
   },
   conditions: {
     'userPreference=value': (renderer, ctx, condition) => preferenceCondition(true)(renderer, ctx, condition),
-    'userPreference!=value': (renderer, ctx, condition) => preferenceCondition(false)(renderer, ctx, condition),
+    'userPreference!=value': (renderer, ctx, condition) =>
+      preferenceCondition(false)(renderer, ctx, condition),
   },
   regionSource: (renderer, ctx, region) => restRegionSql(renderer, ctx, region),
   routes: {
@@ -97,8 +113,9 @@ registerExtension({
     if (session) session.themeStyle = undefined;
   },
   toolbar: (renderer) => {
-    const count = raw(renderer).prepare('select count(*) as n from apex_local_mail').get() as { n: number } | undefined;
-    return `<a class="apex-local-outbox" href="${escapeHtml(renderer.baseUrl)}/__apex/x/outbox" target="_blank" rel="noopener">Outbox${count?.n ? ` (${count.n})` : ''}</a>`;
+    const count = raw(renderer).prepare('select count(*) as n from apex_local_mail').get() as
+      { n: number } | undefined;
+    return `<a class="apex-local-tb-button apex-local-outbox" href="${escapeHtml(renderer.baseUrl)}/__apex/x/outbox" target="_blank" rel="noopener" title="E-mail and REST calls recorded by the local preview"><span class="fa fa-envelope-o" aria-hidden="true"></span><span class="apex-local-tb-label">Outbox${count?.n ? ` (${count.n})` : ''}</span></a>`;
   },
-  css: '.apex-local-outbox{margin:0 8px;font-size:12px;color:inherit}',
+  css: 'a.apex-local-outbox{text-decoration:none}',
 });

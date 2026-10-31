@@ -53,8 +53,7 @@ function columnsOf(spec: string): { name: string; type: string }[] {
 function dropObject(db: DatabaseSync, name: string): void {
   const kind = (
     db.prepare('select type from sqlite_master where upper(name) = upper(?)').get(name) as
-      | { type: string }
-      | undefined
+      { type: string } | undefined
   )?.type;
   if (kind === 'view') db.exec(`drop view "${name}"`);
   else if (kind === 'table') db.exec(`drop table "${name}"`);
@@ -64,7 +63,9 @@ function dropObject(db: DatabaseSync, name: string): void {
 export function replaceTable(db: DatabaseSync, name: string, spec: string, rows: Row[]): void {
   const columns = columnsOf(spec);
   dropObject(db, name);
-  db.exec(`create table "${name}" (${columns.map((column) => `"${column.name}" ${column.type}`).join(', ')})`);
+  db.exec(
+    `create table "${name}" (${columns.map((column) => `"${column.name}" ${column.type}`).join(', ')})`,
+  );
   if (!rows.length) return;
   const insert = db.prepare(
     `insert into "${name}" (${columns.map((column) => `"${column.name}"`).join(', ')}) values (${columns.map(() => '?').join(', ')})`,
@@ -93,7 +94,8 @@ export function stateTable(db: DatabaseSync, name: string, spec: string, extra =
     ),
   );
   for (const column of columns)
-    if (!existing.has(column.name)) db.exec(`alter table "${name}" add column "${column.name}" ${column.type}`);
+    if (!existing.has(column.name))
+      db.exec(`alter table "${name}" add column "${column.name}" ${column.type}`);
 }
 
 export function insertRow(db: DatabaseSync, table: string, row: Row): number {

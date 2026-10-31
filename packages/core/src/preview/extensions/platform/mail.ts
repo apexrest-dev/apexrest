@@ -34,21 +34,27 @@ export interface Mail {
 /** Replaces `#NAME#` placeholders; `#NAME!RAW#` skips escaping in HTML bodies. */
 export function fillPlaceholders(template: string, values: Record<string, string>, html: boolean): string {
   const upper = Object.fromEntries(Object.entries(values).map(([key, value]) => [key.toUpperCase(), value]));
-  return template.replace(/#([A-Za-z0-9_$]+)(!RAW|!HTML|!STRIPHTML)?#/gu, (whole, name: string, filter?: string) => {
-    const value = upper[name.toUpperCase()];
-    if (value === undefined) return whole;
-    if (!html || filter === '!RAW') return value;
-    if (filter === '!STRIPHTML') return value.replace(/<[^>]*>/gu, '');
-    return escapeHtml(value);
-  });
+  return template.replace(
+    /#([A-Za-z0-9_$]+)(!RAW|!HTML|!STRIPHTML)?#/gu,
+    (whole, name: string, filter?: string) => {
+      const value = upper[name.toUpperCase()];
+      if (value === undefined) return whole;
+      if (!html || filter === '!RAW') return value;
+      if (filter === '!STRIPHTML') return value.replace(/<[^>]*>/gu, '');
+      return escapeHtml(value);
+    },
+  );
 }
 
 function parsePlaceholders(value: unknown): Record<string, string> {
   if (value === null || value === undefined || value === '') return {};
-  if (typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, String(v ?? '')]));
+  if (typeof value === 'object')
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, String(v ?? '')]));
   try {
     const parsed = JSON.parse(String(value)) as Record<string, unknown>;
-    return Object.fromEntries(Object.entries(parsed).map(([key, entry]) => [key, entry === null ? '' : String(entry)]));
+    return Object.fromEntries(
+      Object.entries(parsed).map(([key, entry]) => [key, entry === null ? '' : String(entry)]),
+    );
   } catch {
     return {};
   }
@@ -87,7 +93,8 @@ export function queueMail(renderer: ApexRenderer, ctx: RenderContext, mail: Mail
   let { subject, body, bodyHtml } = mail;
   if (mail.template) {
     const rendered = renderTemplate(renderer, mail.template, mail.placeholders ?? {});
-    if (!rendered) throw new PlsqlException('ora-20022', -20022, `E-mail template ${mail.template} not found`, 'app');
+    if (!rendered)
+      throw new PlsqlException('ora-20022', -20022, `E-mail template ${mail.template} not found`, 'app');
     subject = rendered.subject;
     body = rendered.text || null;
     bodyHtml = rendered.html || null;
@@ -109,7 +116,8 @@ export function queueMail(renderer: ApexRenderer, ctx: RenderContext, mail: Mail
     mail_body: textOf(body),
     mail_body_html: textOf(bodyHtml),
     template_static_id: textOf(mail.template),
-    placeholders: mail.placeholders && Object.keys(mail.placeholders).length ? JSON.stringify(mail.placeholders) : null,
+    placeholders:
+      mail.placeholders && Object.keys(mail.placeholders).length ? JSON.stringify(mail.placeholders) : null,
     status: mail.immediate ? 'SENT' : 'QUEUED',
     created_on: now(),
     sent_on: mail.immediate ? now() : null,
@@ -125,7 +133,9 @@ export function queueMail(renderer: ApexRenderer, ctx: RenderContext, mail: Mail
 
 function pushQueue(renderer: ApexRenderer): void {
   ensureDictionary(renderer);
-  raw(renderer).prepare("update apex_local_mail set status = 'SENT', sent_on = ? where status = 'QUEUED'").run(now());
+  raw(renderer)
+    .prepare("update apex_local_mail set status = 'SENT', sent_on = ? where status = 'QUEUED'")
+    .run(now());
 }
 
 const sendParams = [
@@ -175,24 +185,37 @@ export const MAIL_STUBS: Record<string, Stub> = {
       ensureDictionary(rt.renderer);
       const db = raw(rt.renderer);
       insertRow(db, 'apex_local_mail_attachments', {
-        id: Number(one(db, 'select coalesce(max(id), 0) + 1 as id from apex_local_mail_attachments')?.id ?? 1),
+        id: Number(
+          one(db, 'select coalesce(max(id), 0) + 1 as id from apex_local_mail_attachments')?.id ?? 1,
+        ),
         mail_id: Number(args.p_mail_id),
         filename: textOf(args.p_filename),
         mime_type: textOf(args.p_mime_type),
-        size_bytes: args.p_attachment === null || args.p_attachment === undefined ? 0 : String(args.p_attachment).length,
+        size_bytes:
+          args.p_attachment === null || args.p_attachment === undefined
+            ? 0
+            : String(args.p_attachment).length,
         created_on: now(),
       });
       return null;
     },
   },
-  'apex_mail.get_instance_url': { params: [], fn: (_args, rt) => (rt ? 'http://127.0.0.1/' : null), sql: true },
+  'apex_mail.get_instance_url': {
+    params: [],
+    fn: (_args, rt) => (rt ? 'http://127.0.0.1/' : null),
+    sql: true,
+  },
   'apex_mail.get_images_url': { params: [], fn: () => '/i/', sql: true },
 };
 
 // ------------------------------------------------------------------ Send E-Mail process
 
 /** Placeholder values of a process: `placeholderValues` JSON plus `parameter` children. */
-function processPlaceholders(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): Record<string, string> {
+function processPlaceholders(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): Record<string, string> {
   const values = parsePlaceholders(
     renderer.substitute(ctx.session, str(process.props, 'emailTemplate.placeholderValues'), ctx.page, 'RAW'),
   );
@@ -207,9 +230,18 @@ function processPlaceholders(renderer: ApexRenderer, ctx: RenderContext, process
   return values;
 }
 
-export function sendEmailProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function sendEmailProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const sub = (key: string) => renderer.substitute(ctx.session, str(process.props, key), ctx.page, 'RAW');
-  const html = renderer.substitute(ctx.session, str(process.props, 'emailContent.bodyHtml'), ctx.page, 'HTML');
+  const html = renderer.substitute(
+    ctx.session,
+    str(process.props, 'emailContent.bodyHtml'),
+    ctx.page,
+    'HTML',
+  );
   try {
     const template = ref(process.props, 'emailTemplate.emailTemplate');
     queueMail(renderer, ctx, {
@@ -239,7 +271,14 @@ export function sendEmailProcess(renderer: ApexRenderer, ctx: RenderContext, pro
     renderer.diagnose('warning', `process ${process.id}: ${message}`, ctx.pageId, process.id);
     return {
       ran: false,
-      errors: [{ type: 'error', location: ['page'], message: str(process.props, 'error.errorMessage') || message, unsafe: false }],
+      errors: [
+        {
+          type: 'error',
+          location: ['page'],
+          message: str(process.props, 'error.errorMessage') || message,
+          unsafe: false,
+        },
+      ],
     };
   }
 }
@@ -252,7 +291,9 @@ export function outboxHtml(renderer: ApexRenderer, restRows: Record<string, unkn
   const cell = (value: unknown) => escapeHtml(value === null || value === undefined ? '' : String(value));
   const mails = rows
     .map(
-      (row) => `<details class="mail"><summary><span class="status is-${cell(String(row.status).toLowerCase())}">${cell(row.status)}</span> <b>${cell(row.mail_subj) || '(no subject)'}</b> → ${cell(row.mail_to)} <small>${cell(row.created_on)} · ${cell(row.source)}</small></summary>
+      (
+        row,
+      ) => `<details class="mail"><summary><span class="status is-${cell(String(row.status).toLowerCase())}">${cell(row.status)}</span> <b>${cell(row.mail_subj) || '(no subject)'}</b> → ${cell(row.mail_to)} <small>${cell(row.created_on)} · ${cell(row.source)}</small></summary>
 <dl><dt>From</dt><dd>${cell(row.mail_from)}</dd><dt>Cc / Bcc</dt><dd>${cell(row.mail_cc)} / ${cell(row.mail_bcc)}</dd><dt>Template</dt><dd>${cell(row.template_static_id)}</dd></dl>
 ${row.mail_body_html ? `<iframe sandbox="" srcdoc="${cell(row.mail_body_html)}"></iframe>` : ''}
 ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ''}</details>`,

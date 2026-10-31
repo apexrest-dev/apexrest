@@ -59,15 +59,15 @@ export function ensureStateTables(db: DatabaseSync): void {
     'id n, application_id n, user_name, last_updated_by, last_updated_on d',
   );
   stateTable(db, 'apex_local_acl_user_roles', 'user_id n, role_id n');
-  stateTable(db, 'apex_local_build_options', 'application_id n, build_option_name, status, updated_by, updated_on d');
+  stateTable(
+    db,
+    'apex_local_build_options',
+    'application_id n, build_option_name, status, updated_by, updated_on d',
+  );
   stateTable(db, 'apex_local_app_state', 'application_id n, name, value');
   stateTable(db, 'apex_local_app_settings', 'application_id n, name, value, updated_on d');
   stateTable(db, 'apex_local_preferences', 'session_id, user_name, preference_name, preference_value');
-  stateTable(
-    db,
-    'apex_local_collections',
-    'session_id, collection_name, collection_changed, created_on d',
-  );
+  stateTable(db, 'apex_local_collections', 'session_id, collection_name, collection_changed, created_on d');
   const members = [
     'session_id',
     'collection_name',
@@ -86,7 +86,11 @@ export function ensureStateTables(db: DatabaseSync): void {
     'apex_local_mail',
     'id n, application_id n, session_id, user_name, mail_to, mail_from, mail_replyto, mail_cc, mail_bcc, mail_subj, mail_body, mail_body_html, template_static_id, placeholders, status, created_on d, sent_on d, source',
   );
-  stateTable(db, 'apex_local_mail_attachments', 'id n, mail_id n, filename, mime_type, size_bytes n, created_on d');
+  stateTable(
+    db,
+    'apex_local_mail_attachments',
+    'id n, mail_id n, filename, mime_type, size_bytes n, created_on d',
+  );
   stateTable(
     db,
     'apex_local_rest_log',
@@ -108,7 +112,11 @@ export function ensureStateTables(db: DatabaseSync): void {
     'apex_local_automation_log',
     'id n, application_id n, automation_static_id, automation_name, is_job, status, start_timestamp d, end_timestamp d, successful_row_count n, error_row_count n',
   );
-  stateTable(db, 'apex_local_automation_msg_log', 'id n, automation_log_id n, message_timestamp d, message_type, message, pk_value');
+  stateTable(
+    db,
+    'apex_local_automation_msg_log',
+    'id n, automation_log_id n, message_timestamp d, message_type, message, pk_value',
+  );
 }
 
 // ------------------------------------------------------------------ metadata rows
@@ -132,9 +140,10 @@ function pageRows(context: Context) {
       ...pageBase,
       page_title: str(props, 'title') || str(props, 'name'),
       page_alias: str(props, 'alias').toUpperCase(),
-      page_mode: { modalDialog: 'Modal Dialog', nonModalDialog: 'Non-Modal Dialog', drawer: 'Drawer' }[
-        str(props, 'appearance.pageMode') as 'modalDialog'
-      ] ?? 'Normal',
+      page_mode:
+        { modalDialog: 'Modal Dialog', nonModalDialog: 'Non-Modal Dialog', drawer: 'Drawer' }[
+          str(props, 'appearance.pageMode') as 'modalDialog'
+        ] ?? 'Normal',
       page_group: ref(props, 'pageGroup') ?? '',
       page_template: ref(props, 'appearance.pageTemplate') ?? 'Theme Default',
       help_text: str(props, 'help.helpText'),
@@ -181,7 +190,9 @@ function pageRows(context: Context) {
         region_id: region ? hashId(context.appId, page.id, 'region', region) : null,
         label: str(item.props, 'label.label'),
         display_as: str(item.props, 'type'),
-        display_as_code: `NATIVE_${str(item.props, 'type').replace(/([a-z])([A-Z])/gu, '$1_$2').toUpperCase()}`,
+        display_as_code: `NATIVE_${str(item.props, 'type')
+          .replace(/([a-z])([A-Z])/gu, '$1_$2')
+          .toUpperCase()}`,
         item_default: str(item.props, 'default.staticValue'),
         item_source_type: str(item.props, 'source.type'),
         item_source: str(item.props, 'source.column') || str(item.props, 'source.item'),
@@ -222,7 +233,9 @@ function listRows(context: Context) {
         count += 1;
         const id = hashId(appId, 'list', component.id, entry.id);
         const target = get(entry.props, 'link.target');
-        const attributes = isObject(entry.props.userDefinedAttributes) ? entry.props.userDefinedAttributes : {};
+        const attributes = isObject(entry.props.userDefinedAttributes)
+          ? entry.props.userDefinedAttributes
+          : {};
         entries.push({
           ...base,
           list_id: listId,
@@ -232,7 +245,8 @@ function listRows(context: Context) {
           display_sequence: Number(get(entry.props, 'layout.sequence') ?? 0),
           entry_text: str(entry.props, 'label'),
           entry_target: isObject(target)
-            ? str(target, 'url') || (str(target, 'page') ? `f?p=&APP_ID.:${str(target, 'page')}:&SESSION.` : '')
+            ? str(target, 'url') ||
+              (str(target, 'page') ? `f?p=&APP_ID.:${str(target, 'page')}:&SESSION.` : '')
             : typeof target === 'string'
               ? target
               : '',
@@ -311,7 +325,9 @@ function lovRows(context: Context) {
 }
 
 /** The application's theme styles: from APEXlang `style` children, else from the theme export. */
-export function themeStyles(renderer: ApexRenderer): { id: string; key: string; name: string; isPublic: boolean }[] {
+export function themeStyles(
+  renderer: ApexRenderer,
+): { id: string; key: string; name: string; isPublic: boolean }[] {
   const theme = renderer.themeComponent();
   const own = theme?.children.filter((child) => child.type === 'style') ?? [];
   if (own.length)
@@ -397,7 +413,9 @@ function sharedRows(context: Context) {
     authorization_scheme_name: str(scheme.props, 'name', scheme.id),
     static_id: scheme.id,
     scheme_type: str(scheme.props, 'type'),
-    scheme_type_code: str(scheme.props, 'type').replace(/([a-z])([A-Z])/gu, '$1_$2').toUpperCase(),
+    scheme_type_code: str(scheme.props, 'type')
+      .replace(/([a-z])([A-Z])/gu, '$1_$2')
+      .toUpperCase(),
     attribute_01:
       str(scheme.props, 'settings.plsqlFunctionBody') ||
       str(scheme.props, 'settings.sqlQuery') ||
@@ -456,7 +474,9 @@ function sharedRows(context: Context) {
     name: str(automation.props, 'name', automation.id),
     static_id: staticIdOf(automation),
     trigger_type: str(automation.props, 'type') || str(automation.props, 'trigger.type', 'scheduled'),
-    trigger_type_code: (str(automation.props, 'type') || str(automation.props, 'trigger.type', 'polling')).toUpperCase(),
+    trigger_type_code: (
+      str(automation.props, 'type') || str(automation.props, 'trigger.type', 'polling')
+    ).toUpperCase(),
     polling_interval: str(automation.props, 'trigger.schedule') || str(automation.props, 'schedule.schedule'),
     polling_status: 'Disabled (local preview)',
     polling_status_code: 'DISABLED',
@@ -575,8 +595,12 @@ export function ensureDictionary(renderer: ApexRenderer): void {
           owner: 'APEX_LOCAL',
           pages: renderer.app.pages.size,
           theme_number: themeNumber(renderer),
-          home_link: str(app, 'navigation.homeUrl.page') ? `f?p=&APP_ID.:${str(app, 'navigation.homeUrl.page')}:&SESSION.` : '',
-          login_url: str(app, 'navigation.loginUrl.page') ? `f?p=&APP_ID.:${str(app, 'navigation.loginUrl.page')}:&SESSION.` : '',
+          home_link: str(app, 'navigation.homeUrl.page')
+            ? `f?p=&APP_ID.:${str(app, 'navigation.homeUrl.page')}:&SESSION.`
+            : '',
+          login_url: str(app, 'navigation.loginUrl.page')
+            ? `f?p=&APP_ID.:${str(app, 'navigation.loginUrl.page')}:&SESSION.`
+            : '',
           authentication_scheme: ref(app, 'authentication.scheme') ?? '',
           authorization_scheme: ref(app, 'authorization.scheme') ?? '',
           build_status: 'Run and Develop',
@@ -886,19 +910,25 @@ function stateViews(db: DatabaseSync, base: Row, renderer: ApexRenderer): void {
 export function seedUser(renderer: ApexRenderer, user: string): void {
   const db = raw(renderer);
   const appId = Number(renderer.appId) || 0;
-  const seeded = db.prepare('select count(*) as n from apex_local_acl_users where application_id = ?').get(appId) as {
+  const seeded = db
+    .prepare('select count(*) as n from apex_local_acl_users where application_id = ?')
+    .get(appId) as {
     n: number;
   };
   if (seeded.n > 0) return;
   const roles = all(db, 'select role_id, role_static_id from APEX_APPL_ACL_ROLES');
   if (!roles.length) return;
   const id = Number(
-    (db.prepare('select coalesce(max(id), 0) + 1 as id from apex_local_acl_users').get() as { id: number }).id,
+    (db.prepare('select coalesce(max(id), 0) + 1 as id from apex_local_acl_users').get() as { id: number })
+      .id,
   );
   db.prepare(
     "insert into apex_local_acl_users (id, application_id, user_name, last_updated_by, last_updated_on) values (?, ?, ?, 'APEX_LOCAL', datetime('now','localtime'))",
   ).run(id, appId, user.toUpperCase());
   const admin = roles.filter((role) => role.role_static_id === 'ADMINISTRATOR');
   for (const role of admin.length ? admin : roles)
-    db.prepare('insert into apex_local_acl_user_roles (user_id, role_id) values (?, ?)').run(id, role.role_id as number);
+    db.prepare('insert into apex_local_acl_user_roles (user_id, role_id) values (?, ?)').run(
+      id,
+      role.role_id as number,
+    );
 }

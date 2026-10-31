@@ -48,7 +48,9 @@ function requireCollection(scope: Scope, name: string): void {
 
 function changed(scope: Scope, name: string): void {
   db(scope)
-    .prepare("update apex_local_collections set collection_changed = 'Y' where session_id = ? and collection_name = ?")
+    .prepare(
+      "update apex_local_collections set collection_changed = 'Y' where session_id = ? and collection_name = ?",
+    )
     .run(scope.session, name);
 }
 
@@ -71,11 +73,17 @@ function create(scope: Scope, name: string, truncate: boolean): void {
 
 function remove(scope: Scope, name: string): void {
   for (const table of ['apex_local_collection_members', 'apex_local_collections'])
-    db(scope).prepare(`delete from ${table} where session_id = ? and collection_name = ?`).run(scope.session, name);
+    db(scope)
+      .prepare(`delete from ${table} where session_id = ? and collection_name = ?`)
+      .run(scope.session, name);
 }
 
 const text = (value: unknown) =>
-  value === null || value === undefined || value === '' ? null : typeof value === 'number' ? value : String(value);
+  value === null || value === undefined || value === ''
+    ? null
+    : typeof value === 'number'
+      ? value
+      : String(value);
 
 const md5 = (values: unknown[]) =>
   createHash('md5')
@@ -102,7 +110,12 @@ function nextSeq(scope: Scope, name: string): number {
   return Number(row?.seq ?? 1);
 }
 
-function addMember(scope: Scope, name: string, values: Record<string, unknown>, generateMd5: boolean): number {
+function addMember(
+  scope: Scope,
+  name: string,
+  values: Record<string, unknown>,
+  generateMd5: boolean,
+): number {
   requireCollection(scope, name);
   const seq = nextSeq(scope, name);
   const columns = Object.keys(values);
@@ -329,7 +342,9 @@ export const COLLECTION_STUBS: Record<string, Stub> = {
       const name = nameOf(args);
       requireMember(current, name, Number(args.p_seq));
       db(current)
-        .prepare('delete from apex_local_collection_members where session_id = ? and collection_name = ? and seq_id = ?')
+        .prepare(
+          'delete from apex_local_collection_members where session_id = ? and collection_name = ? and seq_id = ?',
+        )
         .run(current.session, name, Number(args.p_seq));
       changed(current, name);
       return null;
@@ -415,7 +430,9 @@ export const COLLECTION_STUBS: Record<string, Stub> = {
     params: ['p_collection_name'],
     fn: withScope((current, args) => {
       db(current)
-        .prepare("update apex_local_collections set collection_changed = 'N' where session_id = ? and collection_name = ?")
+        .prepare(
+          "update apex_local_collections set collection_changed = 'N' where session_id = ? and collection_name = ?",
+        )
         .run(current.session, nameOf(args));
       return null;
     }),
@@ -423,7 +440,9 @@ export const COLLECTION_STUBS: Record<string, Stub> = {
   'apex_collection.reset_collection_changed_all': {
     params: [],
     fn: withScope((current) => {
-      db(current).prepare("update apex_local_collections set collection_changed = 'N' where session_id = ?").run(current.session);
+      db(current)
+        .prepare("update apex_local_collections set collection_changed = 'N' where session_id = ?")
+        .run(current.session);
       return null;
     }),
   },

@@ -18,7 +18,11 @@ type Pressed = Parameters<NonNullable<ReturnType<typeof processHandler>>>[4];
 
 /** Children of a chain, in sequence order. */
 const chainChildren = (renderer: ApexRenderer, ctx: RenderContext, chain: ApxComponent) =>
-  bySequence(renderer.pageComponents(ctx, 'process').filter((process) => ref(process.props, 'executionChain') === chain.id));
+  bySequence(
+    renderer
+      .pageComponents(ctx, 'process')
+      .filter((process) => ref(process.props, 'executionChain') === chain.id),
+  );
 
 /** Runs one process the way the page processing loop would. */
 function runProcess(
@@ -78,7 +82,11 @@ export function executionChain(
 
 // ------------------------------------------------------------------ user preferences
 
-export function userPreferencesProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function userPreferencesProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const type = str(process.props, 'action.type', 'setToItemValue');
   if (type === 'resetPreferences') {
     resetPreferences(renderer, ctx);
@@ -93,11 +101,12 @@ export function userPreferencesProcess(renderer: ApexRenderer, ctx: RenderContex
   return { ran: true };
 }
 
-export const preferenceCondition = (equal: boolean) => (renderer: ApexRenderer, ctx: RenderContext, condition: Record<string, unknown>) => {
-  const props = condition as import('../../apexlang.ts').ApxObject;
-  const value = getPreference(renderer, ctx, str(props, 'preference')) ?? '';
-  return (value === str(props, 'value')) === equal;
-};
+export const preferenceCondition =
+  (equal: boolean) => (renderer: ApexRenderer, ctx: RenderContext, condition: Record<string, unknown>) => {
+    const props = condition as import('../../apexlang.ts').ApxObject;
+    const value = getPreference(renderer, ctx, str(props, 'preference')) ?? '';
+    return (value === str(props, 'value')) === equal;
+  };
 
 // ------------------------------------------------------------------ workflows and tasks
 
@@ -110,7 +119,11 @@ function raise(message: string): never {
 }
 
 /** Process/API parameters as a JSON object for the task/workflow row. */
-function processParameters(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): Record<string, string> {
+function processParameters(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): Record<string, string> {
   const values: Record<string, string> = {};
   for (const parameter of process.children.filter((child) => child.type === 'parameter')) {
     const name = refName(get(parameter.props, 'name')) || parameter.id;
@@ -135,7 +148,12 @@ export function startWorkflow(
   const definition = findShared(renderer, 'workflow', staticId);
   if (!definition) raise(`Workflow ${staticId} is not defined in the APEXlang source`);
   const id = nextId(renderer, 'apex_local_workflows', 'workflow_id');
-  const title = renderer.substitute(ctx.session, str(definition.props, 'title') || str(definition.props, 'name', definition.id), ctx.page, 'RAW');
+  const title = renderer.substitute(
+    ctx.session,
+    str(definition.props, 'title') || str(definition.props, 'name', definition.id),
+    ctx.page,
+    'RAW',
+  );
   insertRow(raw(renderer), 'apex_local_workflows', {
     workflow_id: id,
     application_id: appIdOf(renderer),
@@ -162,7 +180,13 @@ export function createTask(
   renderer: ApexRenderer,
   ctx: RenderContext,
   staticId: string,
-  options: { subject?: string | null; detailPk?: string | null; priority?: number | null; parameters?: Record<string, string>; initiator?: string | null },
+  options: {
+    subject?: string | null;
+    detailPk?: string | null;
+    priority?: number | null;
+    parameters?: Record<string, string>;
+    initiator?: string | null;
+  },
 ): number {
   ensureDictionary(renderer);
   const definition = findShared(renderer, 'taskDefinition', staticId);
@@ -170,7 +194,14 @@ export function createTask(
   const id = nextId(renderer, 'apex_local_tasks', 'task_id');
   const subject =
     options.subject ||
-    renderer.substitute(ctx.session, str(definition.props, 'subject') || str(definition.props, 'settings.subject') || str(definition.props, 'name', definition.id), ctx.page, 'RAW');
+    renderer.substitute(
+      ctx.session,
+      str(definition.props, 'subject') ||
+        str(definition.props, 'settings.subject') ||
+        str(definition.props, 'name', definition.id),
+      ctx.page,
+      'RAW',
+    );
   insertRow(raw(renderer), 'apex_local_tasks', {
     task_id: id,
     application_id: appIdOf(renderer),
@@ -197,7 +228,13 @@ export function createTask(
 }
 
 /** Applies a task operation (claim, approve, reject, complete, cancel, ...). */
-export function manageTask(renderer: ApexRenderer, ctx: RenderContext, taskId: number, operation: string, outcome?: string | null): void {
+export function manageTask(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  taskId: number,
+  operation: string,
+  outcome?: string | null,
+): void {
   ensureDictionary(renderer);
   const db = raw(renderer);
   const task = one(db, 'select state_code from apex_local_tasks where task_id = ?', taskId);
@@ -205,9 +242,20 @@ export function manageTask(renderer: ApexRenderer, ctx: RenderContext, taskId: n
   const op = operation.toLowerCase().replace(/[^a-z]/gu, '');
   const user = ctx.session.user.toUpperCase();
   const set = (state: string, extra: Record<string, unknown> = {}) => {
-    const values: Record<string, unknown> = { state_code: state, last_updated_by: ctx.session.user, last_updated_on: now(), ...extra };
-    db.prepare(`update apex_local_tasks set ${Object.keys(values).map((key) => `${key} = ?`).join(', ')} where task_id = ?`).run(
-      ...Object.values(values).map((value) => (value === undefined ? null : (value as string | number | null))),
+    const values: Record<string, unknown> = {
+      state_code: state,
+      last_updated_by: ctx.session.user,
+      last_updated_on: now(),
+      ...extra,
+    };
+    db.prepare(
+      `update apex_local_tasks set ${Object.keys(values)
+        .map((key) => `${key} = ?`)
+        .join(', ')} where task_id = ?`,
+    ).run(
+      ...Object.values(values).map((value) =>
+        value === undefined ? null : (value as string | number | null),
+      ),
       taskId,
     );
   };
@@ -220,19 +268,31 @@ export function manageTask(renderer: ApexRenderer, ctx: RenderContext, taskId: n
   else if (op.startsWith('delegate')) set('ASSIGNED');
   else if (op.startsWith('requestinfo')) set('INFO_REQUESTED');
   else if (op.startsWith('submitinfo')) set('ASSIGNED');
-  else renderer.diagnose('info', `Task operation ${operation} is recorded without a state change locally`, ctx.pageId);
+  else
+    renderer.diagnose(
+      'info',
+      `Task operation ${operation} is recorded without a state change locally`,
+      ctx.pageId,
+    );
 }
 
-export function humanTaskCreateProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function humanTaskCreateProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const definition = ref(process.props, 'humanTask.definition') ?? str(process.props, 'humanTask.definition');
   const pkItem = str(process.props, 'humanTask.detailsPkItem');
   try {
     const id = createTask(renderer, ctx, definition, {
-      subject: str(process.props, 'settings.subject') ? renderer.substitute(ctx.session, str(process.props, 'settings.subject'), ctx.page, 'RAW') : null,
+      subject: str(process.props, 'settings.subject')
+        ? renderer.substitute(ctx.session, str(process.props, 'settings.subject'), ctx.page, 'RAW')
+        : null,
       detailPk: pkItem ? (ctx.session.items[pkItem.toUpperCase()] ?? null) : null,
       parameters: processParameters(renderer, ctx, process),
     });
-    const returnItem = str(process.props, 'humanTask.taskIdItem') || str(process.props, 'settings.returnTaskIdItem');
+    const returnItem =
+      str(process.props, 'humanTask.taskIdItem') || str(process.props, 'settings.returnTaskIdItem');
     if (returnItem) ctx.session.items[returnItem.toUpperCase()] = String(id);
     return { ran: true };
   } catch (error) {
@@ -240,12 +300,24 @@ export function humanTaskCreateProcess(renderer: ApexRenderer, ctx: RenderContex
   }
 }
 
-export function humanTaskManageProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function humanTaskManageProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const item = str(process.props, 'humanTask.taskIdItem');
   const taskId = Number(ctx.session.items[item.toUpperCase()] ?? '');
-  const operation = str(process.props, 'humanTask.type') || str(process.props, 'action.type') || str(process.props, 'settings.type');
+  const operation =
+    str(process.props, 'humanTask.type') ||
+    str(process.props, 'action.type') ||
+    str(process.props, 'settings.type');
   if (!taskId || !operation) {
-    renderer.diagnose('info', `process ${process.id}: no task ID or operation; nothing recorded`, ctx.pageId, process.id);
+    renderer.diagnose(
+      'info',
+      `process ${process.id}: no task ID or operation; nothing recorded`,
+      ctx.pageId,
+      process.id,
+    );
     return { ran: false };
   }
   try {
@@ -256,11 +328,16 @@ export function humanTaskManageProcess(renderer: ApexRenderer, ctx: RenderContex
   }
 }
 
-export function workflowProcess(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent): ProcessResult {
+export function workflowProcess(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+): ProcessResult {
   const action = str(process.props, 'action.type', 'start');
   try {
     if (action === 'start') {
-      const definition = ref(process.props, 'workflow.definition') ?? str(process.props, 'workflow.definition');
+      const definition =
+        ref(process.props, 'workflow.definition') ?? str(process.props, 'workflow.definition');
       const pkItem = str(process.props, 'workflow.detailsPkItem');
       const initiatorItem = str(process.props, 'workflow.initiatorItem');
       const id = startWorkflow(
@@ -272,40 +349,59 @@ export function workflowProcess(renderer: ApexRenderer, ctx: RenderContext, proc
         initiatorItem ? ctx.session.items[initiatorItem.toUpperCase()] : undefined,
       );
       const returnItem =
-        str(process.props, 'workflowInstance.returnWorkflowIdItem') || str(process.props, 'workflow.workflowIdItem');
+        str(process.props, 'workflowInstance.returnWorkflowIdItem') ||
+        str(process.props, 'workflow.workflowIdItem');
       if (returnItem) ctx.session.items[returnItem.toUpperCase()] = String(id);
       return { ran: true };
     }
-    const idItem = str(process.props, 'workflowInstance.workflowIdItem') || str(process.props, 'workflow.workflowIdItem');
+    const idItem =
+      str(process.props, 'workflowInstance.workflowIdItem') || str(process.props, 'workflow.workflowIdItem');
     const id = Number(ctx.session.items[idItem.toUpperCase()] ?? '');
     if (!id) return { ran: false };
-    const state = { terminate: 'TERMINATED', suspend: 'SUSPENDED', resume: 'ACTIVE', retry: 'ACTIVE' }[action as 'terminate'];
+    const state = { terminate: 'TERMINATED', suspend: 'SUSPENDED', resume: 'ACTIVE', retry: 'ACTIVE' }[
+      action as 'terminate'
+    ];
     if (state)
       raw(renderer)
         .prepare('update apex_local_workflows set state_code = ?, last_updated_on = ? where workflow_id = ?')
         .run(state, now(), id);
-    else renderer.diagnose('info', `Workflow action ${action} is not simulated locally`, ctx.pageId, process.id);
+    else
+      renderer.diagnose('info', `Workflow action ${action} is not simulated locally`, ctx.pageId, process.id);
     return { ran: true };
   } catch (error) {
     return failed(renderer, ctx, process, error);
   }
 }
 
-function failed(renderer: ApexRenderer, ctx: RenderContext, process: ApxComponent, error: unknown): ProcessResult {
+function failed(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  process: ApxComponent,
+  error: unknown,
+): ProcessResult {
   const message = (error as Error).message;
   renderer.diagnose('warning', `process ${process.id}: ${message}`, ctx.pageId, process.id);
   return {
     ran: false,
-    errors: [{ type: 'error', location: ['page'], message: str(process.props, 'error.errorMessage').replaceAll('#SQLERRM_TEXT#', message) || message, unsafe: false }],
+    errors: [
+      {
+        type: 'error',
+        location: ['page'],
+        message: str(process.props, 'error.errorMessage').replaceAll('#SQLERRM_TEXT#', message) || message,
+        unsafe: false,
+      },
+    ],
   };
 }
 
 // ------------------------------------------------------------------ PL/SQL APIs
 
-const text = (value: unknown) => (value === null || value === undefined || value === '' ? null : String(value));
+const text = (value: unknown) =>
+  value === null || value === undefined || value === '' ? null : String(value);
 
 function params(value: unknown): Record<string, string> {
-  if (Array.isArray(value)) return Object.fromEntries(value.map((entry, index) => [String(index + 1), String(entry ?? '')]));
+  if (Array.isArray(value))
+    return Object.fromEntries(value.map((entry, index) => [String(index + 1), String(entry ?? '')]));
   if (typeof value === 'string') {
     try {
       return JSON.parse(value) as Record<string, string>;
@@ -316,13 +412,19 @@ function params(value: unknown): Record<string, string> {
   return {};
 }
 
-const withRt =
-  (fn: (rt: Runtime, args: StubArgs) => unknown) =>
-  (args: StubArgs, rt: Runtime | undefined) =>
-    rt ? fn(rt, args) : null;
+const withRt = (fn: (rt: Runtime, args: StubArgs) => unknown) => (args: StubArgs, rt: Runtime | undefined) =>
+  rt ? fn(rt, args) : null;
 
 const taskCreate: Stub = {
-  params: ['p_application_id', 'p_task_def_static_id', 'p_subject', 'p_parameters', 'p_priority', 'p_initiator', 'p_detail_pk'],
+  params: [
+    'p_application_id',
+    'p_task_def_static_id',
+    'p_subject',
+    'p_parameters',
+    'p_priority',
+    'p_initiator',
+    'p_detail_pk',
+  ],
   fn: withRt((rt, args) =>
     createTask(rt.renderer, rt.ctx, String(args.p_task_def_static_id ?? ''), {
       subject: text(args.p_subject),
@@ -373,7 +475,14 @@ export const SERVICE_STUBS: Record<string, Stub> = {
   'apex_workflow.start': {
     params: ['p_application_id', 'p_static_id', 'p_detail_pk', 'p_initiator', 'p_parameters'],
     fn: withRt((rt, args) =>
-      startWorkflow(rt.renderer, rt.ctx, String(args.p_static_id ?? ''), text(args.p_detail_pk), params(args.p_parameters), text(args.p_initiator) ?? undefined),
+      startWorkflow(
+        rt.renderer,
+        rt.ctx,
+        String(args.p_static_id ?? ''),
+        text(args.p_detail_pk),
+        params(args.p_parameters),
+        text(args.p_initiator) ?? undefined,
+      ),
     ),
   },
   'apex_workflow.terminate': {
@@ -381,7 +490,9 @@ export const SERVICE_STUBS: Record<string, Stub> = {
     fn: withRt((rt, args) => {
       ensureDictionary(rt.renderer);
       raw(rt.renderer)
-        .prepare("update apex_local_workflows set state_code = 'TERMINATED', last_updated_on = ? where workflow_id = ?")
+        .prepare(
+          "update apex_local_workflows set state_code = 'TERMINATED', last_updated_on = ? where workflow_id = ?",
+        )
         .run(now(), Number(args.p_instance_id));
       return null;
     }),
