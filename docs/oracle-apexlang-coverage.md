@@ -1,6 +1,6 @@
 # Official Oracle APEXlang coverage
 
-APEXREST includes every official APEX 26.2 inventory definition, with byte-exact paginated retrieval. This establishes source-library completeness against an explicit upstream directory, not universal Oracle APEX platform support or deployed application qualification. Checked on 21 October 2026 against the official sources below.
+APEXREST includes every official APEX 26.2 inventory definition, with byte-exact paginated retrieval. This establishes source-library completeness against an explicit upstream directory, not universal Oracle APEX platform support or deployed application qualification. Checked on 30 October 2026 against the official sources below.
 
 ## Source and version matrix
 
@@ -14,7 +14,9 @@ APEXREST includes every official APEX 26.2 inventory definition, with byte-exact
 | Local pattern UX catalog                    | `26.1@d92b2cf4623f`                                                                             | 406 records; 58 patterns and 84 recipes, 69 compiler-ready; 15 unresolved recipes and nine unresolved patterns                                                               |
 | Installed offline compiler inspected        | SQLcl `26.3.0.260.1620`, actual MMD `26.2.0+3479`                                               | Oracle compiler validation of the six local 26.2 recipes passed; no database, import or browser execution                                                                    |
 
-Primary provenance: [pinned revision](https://github.com/oracle/skills/commit/03ee10d02273bc4002fd527089e7fbb5884f94c4), [inspected HEAD](https://github.com/oracle/skills/commit/6c57a52588c2a68e261ff0542b8fde80fd2b9c42), [official 26.2 tree](https://github.com/oracle/skills/tree/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2), [26.1 source pin](https://github.com/oracle/skills/commit/b94ccf4dec34b27859c2378fa71ba2bad884f2fe). Oracle publishes this material as repository commits; the inspected repository had no release/tag version for these skills. A date or Git commit is not an Oracle semantic release number.
+Primary provenance: [pinned revision](https://github.com/oracle/skills/commit/03ee10d02273bc4002fd527089e7fbb5884f94c4), [inspected HEAD](https://github.com/oracle/skills/commit/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1), [official 26.2 tree](https://github.com/oracle/skills/tree/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2), [26.1 source pin](https://github.com/oracle/skills/commit/b94ccf4dec34b27859c2378fa71ba2bad884f2fe). Oracle publishes this material as repository commits; the inspected repository had no release/tag version for these skills. A date or Git commit is not an Oracle semantic release number.
+
+The current [official version router](https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/SKILL.md) lists compile, deploy, inventory and example-application skills for both 26.1 and 26.2; the generation skill is listed only for 26.1. The 30 October review found no newer APEXlang commit or release directory. Repository 2.3.0 MCP retrieval passed all 389 definitions and 2,269 paginated reads. Catalog consistency, licensed public-source provenance, plugin parity, 43 focused unit tests and 43 catalog/reference contract tests passed. Existing hash-bound recipe compiler evidence was checked; recipe compilation, connected Oracle and browser execution were not rerun. Private results are under ignored `docs/evidence/oracle-upstream-review-20261030/`.
 
 ## Complete inventory denominator
 

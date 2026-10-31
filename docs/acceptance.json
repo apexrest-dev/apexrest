@@ -846,7 +846,7 @@
         "packages/core/src/local-env.ts",
         "docs/deployment-safety.md"
       ],
-      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification."
+      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. The 2026-10-30 code review reproduced missing mutation risks for parameterless query function calls and calls inside CREATE TABLE AS SELECT, allowing the remote confirmation gate to accept those scripts without confirmation; that SQL defect remains open. Real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
     },
     {
       "id": "REF262-01",

@@ -10649,8 +10649,9 @@ function spawnTree(executable, args, options) {
   return spawn(executable, args, { ...options, ...groupKills ? { detached: true } : {} });
 }
 function killTree(child, signal) {
-  if (child.pid === void 0 || child.exitCode !== null || child.signalCode !== null) return;
+  if (child.pid === void 0) return;
   if (!groupKills) {
+    if (child.exitCode !== null || child.signalCode !== null) return;
     try {
       spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill()).unref();
     } catch {
@@ -10667,10 +10668,14 @@ function killTree(child, signal) {
     }
   }
 }
+var stopping = /* @__PURE__ */ new WeakSet();
 function stopTree(child) {
+  if (stopping.has(child)) return;
+  stopping.add(child);
   killTree(child, "SIGTERM");
   const hard = setTimeout(() => killTree(child, "SIGKILL"), 1500);
   hard.unref();
+  child.once("close", () => clearTimeout(hard));
 }
 async function runProcess(r) {
   if (r.signal?.aborted)
@@ -10745,6 +10750,7 @@ async function runProcess(r) {
     child.on("close", (code) => finish(code));
     child.on("exit", (code) => {
       const drain = setTimeout(() => {
+        killTree(child, "SIGKILL");
         child.stdout?.destroy();
         child.stderr?.destroy();
         finish(code);

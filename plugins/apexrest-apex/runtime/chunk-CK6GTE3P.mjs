@@ -49,12 +49,12 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-FQJLXXFY.mjs";
+} from "./chunk-M72VRTW5.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-QG6GE7LO.mjs";
+} from "./chunk-UGZLKEGQ.mjs";
 import {
   browserModeSchema,
   browserPreferences
@@ -15092,7 +15092,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-P6BQBFFU.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-ZENM5HEP.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -15257,29 +15257,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-TVDLN7PV.mjs");
+        const { ToolchainService } = await import("./chunk-SQ62GPAP.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-2Z2G2WWR.mjs");
+        const { uninstallTools } = await import("./chunk-X5TXLDWJ.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-F4WOC6XR.mjs");
+        const { setup: setup2 } = await import("./chunk-HK7HCJP6.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-F4WOC6XR.mjs");
+        const { validateNative } = await import("./chunk-HK7HCJP6.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-F4WOC6XR.mjs");
+        const { uninstallNative } = await import("./chunk-HK7HCJP6.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

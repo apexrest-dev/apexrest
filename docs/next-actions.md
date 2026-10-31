@@ -17,6 +17,12 @@
 - Qualify native selected export for shared-component files; current isolated component imports disclose full APEXlang observation. The local page/LOV/dashboard and selected-page restore checks passed; broader families, independent machines and target builds remain separate qualification.
 - Exercise current server-first recovery under real interrupted/lost-response imports, backup/restore and externally serialized runners. Retain unknown ownership until the outcome is reconciled.
 
+## Open source code review findings
+
+- Fix SQL script risk inspection in `packages/core/src/sql-review.ts`: parameterless query function calls and calls inside `CREATE TABLE AS SELECT` currently produce no mutation risk. Both synthetic cases pass the remote confirmation gate without confirmation. Add negative regressions for the complete risk-to-authorization path while retaining ordinary schema creation and built-in function cases.
+
+- Qualify process-tree termination against a real stalled Oracle JVM, on Windows and through a fresh native host; local Node process fixtures do not cover them.
+
 ## Open quality findings from review qualification
 
 Private triage and repaired harness evidence are in `docs/evidence/qp-harness/review-fixes/faults-26.1-R8.json` and `extension-26.2-R8.json`; original final reports remain preserved. These findings do not authorize runtime or catalog changes.
@@ -47,7 +53,8 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 ## APEX 26.2
 
 - Use the [Oracle synchronization skill](../plugins/apexrest-apex/skills/apexrest-oracle-sync/SKILL.md) for source updates. Review new release directories, imported catalog/examples, licensing and compiler MMD separately; preserve 26.1 evidence and routing. Full inventory retrieval does not close runtime/provider/import/browser qualification.
-- The 2026-10-21 upstream comparison found no bundled 26.1/26.2 source changes or newer release directory. Keep the reviewed pins; repeat the comparison for a future refresh rather than changing pins solely for a newer repository commit.
+- The 2026-10-30 upstream comparison found no bundled 26.1/26.2 source changes or newer release directory. Oracle's latest APEXlang commit remains `03ee10d02273bc4002fd527089e7fbb5884f94c4` (6 October); the official generation skill is listed only for 26.1. Keep the reviewed pins and repeat the comparison for a future refresh.
+- Keep the recipe gap explicit: the local component/pattern catalogs remain bound to 26.1, while 1,350 public 26.2 pages are source references. A 26.2 recipe expansion needs its own dependencies, MMD and compiler evidence. Fifteen pattern recipes remain unresolved, including master-detail concepts without implementations; do not promote them based on inventory coverage. The one unresolved component is the internal theme Button helper without a supported standalone host; use the ready native button recipes.
 
 - Keep the managed installer default at 26.1 until broader qualification is complete. A 26.2 project needs its explicit profile, compiler and lock.
 - ORDS and SQLcl MCP-mode selected-file imports require a separate transport implementation; explicit file mode must continue refusing unsupported transports.

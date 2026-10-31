@@ -5,7 +5,7 @@ import {
   runPooledSqlcl,
   runProcess,
   runSqlclMcp
-} from "./chunk-QG6GE7LO.mjs";
+} from "./chunk-UGZLKEGQ.mjs";
 import {
   isProductionTarget,
   managedHome,

@@ -40,8 +40,9 @@ export function spawnTree(executable: string, args: string[], options: SpawnOpti
 }
 /** Terminate a spawned tree: the process group on POSIX, `taskkill /T` on Windows. */
 export function killTree(child: ChildProcess, signal: 'SIGTERM' | 'SIGKILL') {
-  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  if (child.pid === undefined) return;
   if (!groupKills) {
+    if (child.exitCode !== null || child.signalCode !== null) return;
     try {
       spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
         .on('error', () => child.kill())
@@ -51,6 +52,8 @@ export function killTree(child: ChildProcess, signal: 'SIGTERM' | 'SIGKILL') {
     }
     return;
   }
+  // The POSIX process group can outlive its launcher. Escalation must still
+  // reach descendants after SIGTERM has already ended the group leader.
   try {
     process.kill(-child.pid, signal);
   } catch {
@@ -61,11 +64,19 @@ export function killTree(child: ChildProcess, signal: 'SIGTERM' | 'SIGKILL') {
     }
   }
 }
-/** Send SIGTERM to the tree, then SIGKILL if it is still alive shortly after. */
+const stopping = new WeakSet<ChildProcess>();
+/**
+ * Send SIGTERM to the tree, then SIGKILL if it is still alive shortly after.
+ * Repeated calls are ignored. Once every stdio holder has closed the pipes the
+ * group is gone and its ID may be reused, so the pending SIGKILL is cancelled.
+ */
 export function stopTree(child: ChildProcess) {
+  if (stopping.has(child)) return;
+  stopping.add(child);
   killTree(child, 'SIGTERM');
   const hard = setTimeout(() => killTree(child, 'SIGKILL'), 1500);
   hard.unref();
+  child.once('close', () => clearTimeout(hard));
 }
 export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
   if (r.signal?.aborted)
@@ -146,9 +157,11 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       reject(new Fault('DEPENDENCY_MISSING', e.message, 3, 'dependency_missing'));
     });
     child.on('close', (code) => finish(code));
-    // A descendant that survived the tree kill may still hold the pipes; do not wait for it forever.
+    // A descendant that outlived the launcher, or survived the tree kill, may
+    // still hold the pipes. Stop it and do not wait for it forever.
     child.on('exit', (code) => {
       const drain = setTimeout(() => {
+        killTree(child, 'SIGKILL');
         child.stdout?.destroy();
         child.stderr?.destroy();
         finish(code);
