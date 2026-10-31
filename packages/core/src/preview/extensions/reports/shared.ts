@@ -3,6 +3,7 @@ import { formatOracle, type Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext, Session } from '../../render.ts';
 import { columnRenderer } from '../../extensions.ts';
 import { escapeHtml } from '../../theme.ts';
+import type { IrViews } from './ir-views.ts';
 
 /** Shared plumbing for the classic report, interactive report and interactive grid simulations. */
 
@@ -12,6 +13,8 @@ export interface ReportFilter {
   operator: string;
   value: string;
   value2?: string;
+  /** Unit of the relative date operators (`isInTheLast` ...): min, hours, days, weeks, months, years. */
+  unit?: string;
   enabled: boolean;
 }
 
@@ -31,6 +34,8 @@ export interface ReportState {
   selected?: string;
   /** Interactive grid: changes posted before a page submit, applied by the row processing process. */
   pending?: GridChanges | undefined;
+  /** Interactive report views and formatting: breaks, highlights, computations, group by, pivot, chart. */
+  views?: IrViews;
 }
 
 export interface GridChange {
@@ -314,6 +319,11 @@ const OPERATOR_ALIASES: Record<string, string> = {
   isEmpty: 'isNull',
   isNotEmpty: 'isNotNull',
   notContains: 'doesNotContain',
+  inTheLast: 'isInTheLast',
+  notInTheLast: 'isNotInTheLast',
+  inTheNext: 'isInTheNext',
+  notInTheNext: 'isNotInTheNext',
+  matchesRegularExpression: 'regexp',
 };
 
 export const OPERATOR_LABELS: Record<string, string> = {
@@ -333,6 +343,12 @@ export const OPERATOR_LABELS: Record<string, string> = {
   in: 'in',
   notIn: 'not in',
   between: 'between',
+  notBetween: 'not between',
+  regexp: 'matches regular expression',
+  isInTheLast: 'is in the last',
+  isNotInTheLast: 'is not in the last',
+  isInTheNext: 'is in the next',
+  isNotInTheNext: 'is not in the next',
 };
 
 export function normalizeOperator(operator: string): string {
@@ -347,6 +363,30 @@ function likeRegex(pattern: string): RegExp {
     .map((char) => (char === '%' ? '.*' : char === '_' ? '.' : char.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')))
     .join('');
   return new RegExp(`^${source}$`, 'isu');
+}
+
+const UNIT_MS: Record<string, number> = {
+  min: 60_000,
+  minutes: 60_000,
+  hours: 3_600_000,
+  days: 86_400_000,
+  weeks: 604_800_000,
+  months: 2_629_800_000,
+  years: 31_557_600_000,
+};
+
+function dateOf(raw: unknown): number | undefined {
+  if (isEmpty(raw)) return undefined;
+  const time = new Date(typeof raw === 'number' ? raw : String(raw).replace(' ', 'T')).getTime();
+  return Number.isNaN(time) ? undefined : time;
+}
+
+/** `isInTheLast 2 days` and friends, relative to now. */
+function inWindow(raw: unknown, amount: string, unit: string | undefined, future: boolean, now = Date.now()) {
+  const time = dateOf(raw);
+  if (time === undefined) return false;
+  const span = (Number(amount) || 0) * (UNIT_MS[unit ?? 'days'] ?? UNIT_MS.days!);
+  return future ? time >= now && time <= now + span : time <= now && time >= now - span;
 }
 
 /** True when the raw value or its display text satisfies the filter. */
@@ -394,6 +434,24 @@ export function matches(filter: ReportFilter, raw: unknown, display: string): bo
       return (
         !isEmpty(raw) && compareValues(raw, value) >= 0 && compareValues(raw, filter.value2 ?? value) <= 0
       );
+    case 'notBetween':
+      return (
+        !isEmpty(raw) && !(compareValues(raw, value) >= 0 && compareValues(raw, filter.value2 ?? value) <= 0)
+      );
+    case 'regexp':
+      try {
+        return new RegExp(value, 'iu').test(display) || new RegExp(value, 'iu').test(String(raw ?? ''));
+      } catch {
+        return false;
+      }
+    case 'isInTheLast':
+      return inWindow(raw, value, filter.unit, false);
+    case 'isNotInTheLast':
+      return dateOf(raw) !== undefined && !inWindow(raw, value, filter.unit, false);
+    case 'isInTheNext':
+      return inWindow(raw, value, filter.unit, true);
+    case 'isNotInTheNext':
+      return dateOf(raw) !== undefined && !inWindow(raw, value, filter.unit, true);
     default:
       return true;
   }
@@ -450,7 +508,10 @@ export function filterLabel(filter: ReportFilter, label: string): string {
   const operator = normalizeOperator(filter.operator);
   if (!filter.column) return `Row text contains '${filter.value}'`;
   if (operator === 'isNull' || operator === 'isNotNull') return `${label} ${OPERATOR_LABELS[operator]}`;
-  if (operator === 'between') return `${label} between '${filter.value}' and '${filter.value2 ?? ''}'`;
+  if (operator === 'between' || operator === 'notBetween')
+    return `${label} ${OPERATOR_LABELS[operator]} '${filter.value}' and '${filter.value2 ?? ''}'`;
+  if (/^isN?o?t?In/u.test(operator) && filter.unit)
+    return `${label} ${OPERATOR_LABELS[operator]} ${filter.value} ${filter.unit}`;
   if (operator === 'in' || operator === 'notIn')
     return `${label} ${OPERATOR_LABELS[operator]} '${filter.value.split(',').join(`', '`)}'`;
   return `${label} ${OPERATOR_LABELS[operator] ?? operator} '${filter.value}'`;
@@ -486,6 +547,7 @@ export function savedFilters(
       operator,
       value: str(child.props, 'value', str(child.props, 'from')),
       ...(str(child.props, 'to') ? { value2: str(child.props, 'to') } : {}),
+      ...(str(child.props, 'unit') ? { unit: str(child.props, 'unit') } : {}),
       enabled,
     });
   }
@@ -506,15 +568,27 @@ export function savedSorts(saved: ApxComponent | undefined): ReportSort[] {
     });
 }
 
+export interface SavedReportSupport {
+  /** Saved-report child types the caller simulates. */
+  children?: Set<string>;
+  /** Default views the caller simulates besides `report` and `grid`. */
+  views?: Set<string>;
+  /** True when the caller offers alternative/public saved reports. */
+  alternatives?: boolean;
+}
+
 /** Reports saved-report children and settings that are not simulated. */
 export function diagnoseSavedReport(
   renderer: ApexRenderer,
   ctx: RenderContext,
   region: ApxComponent,
   saved: ApxComponent | undefined,
+  support: SavedReportSupport = {},
 ): void {
   if (!saved) return;
-  const unsupported = new Set(['aggregate', 'computation', 'controlBreak', 'highlight']);
+  const unsupported = new Set(
+    ['aggregate', 'computation', 'controlBreak', 'highlight'].filter((type) => !support.children?.has(type)),
+  );
   for (const child of saved.children)
     if (unsupported.has(child.type))
       renderer.diagnose(
@@ -524,7 +598,7 @@ export function diagnoseSavedReport(
         region.id,
       );
   const view = str(saved.props, 'view.default');
-  if (view && view !== 'report' && view !== 'grid')
+  if (view && view !== 'report' && view !== 'grid' && !support.views?.has(view))
     renderer.diagnose(
       'info',
       `Saved report view ${view} in ${region.id} is shown as a report`,
@@ -537,7 +611,7 @@ export function diagnoseSavedReport(
     (child) =>
       child.type === 'savedReport' && child !== saved && !/^primary/u.test(str(child.props, 'visibility')),
   );
-  if (others.length)
+  if (others.length && !support.alternatives)
     renderer.diagnose(
       'info',
       `${others.length} alternative/public saved report(s) of ${region.id} are not offered locally`,

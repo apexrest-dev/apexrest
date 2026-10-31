@@ -1,12 +1,14 @@
-import { get, list, num, ref, str, type ApxComponent } from '../../apexlang.ts';
+import { get, isRef, list, num, ref, str, type ApxComponent } from '../../apexlang.ts';
 import type { Binds, Row } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml } from '../../theme.ts';
+import { aggregateText, aggregateValue, emptyViews, gridViews, highlightRow } from './ir-views.ts';
 import {
   applyFiltersAndSort,
   bySequence,
   Cells,
   columnRef,
+  compareValues,
   diagnoseSavedReport,
   filterLabel,
   findRegion,
@@ -26,19 +28,32 @@ import {
 const EDITORS: Record<string, string> = {
   textField: 'text',
   textFieldWithAutocomplete: 'text',
+  autoComplete: 'text',
   numberField: 'number',
   textarea: 'textarea',
+  richTextEditor: 'textarea',
+  markdownEditor: 'textarea',
   selectList: 'select',
-  radioGroup: 'select',
-  popupLov: 'select',
-  datePicker: 'date',
-  datePickerJquery: 'date',
-  checkbox: 'yesno',
-  switch: 'yesno',
-  password: 'text',
-  colorPicker: 'text',
+  selectOne: 'select',
   combobox: 'select',
+  radioGroup: 'radio',
+  checkboxGroup: 'checkboxGroup',
+  popupLov: 'popupLov',
+  datePicker: 'date',
+  datePickerApex: 'date',
+  datePickerJquery: 'date',
+  datePickerHtml: 'date',
+  checkbox: 'checkbox',
+  singleCheckbox: 'checkbox',
+  switch: 'switch',
+  yesNo: 'switch',
+  password: 'password',
+  colorPicker: 'color',
+  starRating: 'stars',
 };
+
+/** Editors that need a small apex.item implementation in the browser. */
+const CUSTOM_EDITORS = new Set(['popupLov', 'checkbox', 'switch', 'stars', 'date']);
 
 const DISPLAY_TYPES = new Set([
   'displayOnly',
@@ -46,10 +61,11 @@ const DISPLAY_TYPES = new Set([
   'link',
   'hidden',
   'percentGraph',
-  'starRating',
-  'richTextEditor',
-  'markdownEditor',
+  'rowSelector',
+  'actionsMenu',
 ]);
+
+export const GRID_DOWNLOAD_FORMATS = ['csv', 'html', 'excel', 'pdf'];
 
 export const ROW_ID = 'APEX$ROWID';
 
@@ -78,6 +94,85 @@ export interface GridModel {
   editable: boolean;
   allowed: { add: boolean; update: boolean; delete: boolean };
   master?: { region: ApxComponent; row?: Row };
+  /** Enabled control break columns, outermost first. */
+  breaks: GridColumn[];
+}
+
+/**
+ * Evaluates an authorization scheme with the renderer's server-side conditions. Scheme types
+ * that cannot be decided locally (roles and groups, custom plug-ins) allow access and are reported.
+ */
+export function authorizationAllows(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  value: unknown,
+  owner: string,
+): boolean {
+  const name = isRef(value as never)
+    ? (value as { ref: string }).ref
+    : typeof value === 'string'
+      ? value
+      : '';
+  if (!name || /^must_?not_?be_?public_?user$/iu.test(name)) return true;
+  const lower = name.toLowerCase();
+  const scheme =
+    renderer.shared('authorization', name) ??
+    renderer.app.shared.find(
+      (component) =>
+        component.type === 'authorization' && str(component.props, 'name').toLowerCase() === lower,
+    );
+  const note = (message: string) => renderer.diagnose('info', message, ctx.pageId, owner);
+  if (!scheme) {
+    note(`Authorization scheme ${name} of ${owner} is not defined locally; access is allowed`);
+    return true;
+  }
+  const type = str(scheme.props, 'type');
+  const settings = (key: string) => str(scheme.props, `settings.${key}`);
+  let condition: Record<string, string> | undefined;
+  if (/function|expression/iu.test(type) && settings('plsqlFunctionBody'))
+    condition = { type: 'functionBody', plsqlFunctionBody: settings('plsqlFunctionBody') };
+  else if (/expression/iu.test(type) && settings('plsqlExpression'))
+    condition = { type: 'plsqlExpression', plsqlExpression: settings('plsqlExpression') };
+  else if (/notexists|noRows/iu.test(type))
+    condition = { type: 'noRowsReturned', sqlQuery: settings('sqlQuery') };
+  else if (/exists|rows/iu.test(type)) condition = { type: 'rowsReturned', sqlQuery: settings('sqlQuery') };
+  else if (/itemisnotnull/iu.test(type)) condition = { type: 'itemIsNotNull', item: settings('item') };
+  else if (/itemisnull/iu.test(type)) condition = { type: 'itemIsNull', item: settings('item') };
+  if (!condition) {
+    note(
+      `Authorization scheme ${scheme.id} (${type}) of ${owner} is not evaluated locally; access is allowed`,
+    );
+    return true;
+  }
+  return renderer.condition(ctx, { condition }, 'condition');
+}
+
+/** Allowed grid operations after `editAuthorization` schemes are evaluated. */
+function editOperations(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  ops: string[],
+): { add: boolean; update: boolean; delete: boolean } {
+  const allowed = {
+    add: ops.includes('add'),
+    update: ops.includes('update'),
+    delete: ops.includes('delete'),
+  };
+  for (const op of ['add', 'update', 'delete'] as const) {
+    const scheme = get(region.props, `editAuthorization.${op}`);
+    if (!allowed[op] || scheme === undefined) continue;
+    if (!authorizationAllows(renderer, ctx, scheme, region.id)) {
+      allowed[op] = false;
+      renderer.diagnose(
+        'info',
+        `Interactive Grid ${region.id}: edit authorization denies ${op} for ${ctx.session.user} locally`,
+        ctx.pageId,
+        region.id,
+      );
+    }
+  }
+  return allowed;
 }
 
 export function igState(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): ReportState {
@@ -98,6 +193,7 @@ export function igState(renderer: ApexRenderer, ctx: RenderContext, region: ApxC
       sort: savedSorts(saved),
       ...(rowsPerPage ? { rowsPerPage } : {}),
       ...(shown.length || hidden.length ? { columns: shown } : {}),
+      views: gridViews(renderer, ctx, region, saved),
     };
   });
 }
@@ -193,6 +289,29 @@ export function gridModel(
     state.filters,
     state.sort,
   );
+  const views = (state.views ??= emptyViews());
+  const breaks = views.breaks
+    .filter((entry) => entry.enabled && byName.has(entry.column))
+    .map((entry) => byName.get(entry.column)!);
+  if (breaks.length) {
+    const indexed = rows.map((row, index) => ({ row, index }));
+    indexed.sort((a, b) => {
+      for (const column of breaks) {
+        const lov = cells.lov(column.component);
+        const left = lov ? cells.text(column.component, a.row) : a.row[column.name];
+        const right = lov ? cells.text(column.component, b.row) : b.row[column.name];
+        const empty = (value: unknown) => value === null || value === undefined || value === '';
+        if (empty(left) || empty(right)) {
+          if (empty(left) && empty(right)) continue;
+          return empty(left) ? 1 : -1;
+        }
+        const compared = compareValues(left, right);
+        if (compared) return compared;
+      }
+      return a.index - b.index;
+    });
+    rows = indexed.map((entry) => entry.row);
+  }
   let master: GridModel['master'];
   const masterId = ref(region.props, 'masterDetail.masterRegion');
   const masterRegion = masterId ? findRegion(renderer, ctx, masterId) : undefined;
@@ -228,8 +347,9 @@ export function gridModel(
     rows,
     ...(result.error ? { error: result.error } : {}),
     editable: edit && identity.length > 0,
-    allowed: { add: ops.includes('add'), update: ops.includes('update'), delete: ops.includes('delete') },
+    allowed: edit ? editOperations(renderer, ctx, region, ops) : { add: false, update: false, delete: false },
     ...(master ? { master } : {}),
+    breaks,
   };
 }
 
@@ -242,18 +362,21 @@ function diagnoseGrid(renderer: ApexRenderer, ctx: RenderContext, model: GridMod
     if (/^APEX\$/u.test(column.name) || column.editor || DISPLAY_TYPES.has(column.type)) continue;
     note(`Interactive Grid column ${region.id}.${column.name} of type ${column.type} is shown as text`);
   }
-  for (const key of ['editAuthorization.add', 'editAuthorization.update', 'editAuthorization.delete'])
-    if (get(region.props, key) !== undefined)
-      note(`Interactive Grid ${region.id}: edit authorization is not checked`);
   if (str(region.props, 'edit.lostUpdateType') === 'rowVersionColumn')
     note(`Interactive Grid ${region.id}: lost update detection is not simulated`);
   if (get(region.props, 'edit.allowedRowOperationsColumn') !== undefined)
     note(`Interactive Grid ${region.id}: allowed row operations column is not simulated`);
-  const formats = stringList(list(region.props, 'download.formats')).filter(
-    (format) => !/^(csv|html)$/u.test(format),
-  );
-  if (formats.length)
-    note(`Interactive Grid ${region.id}: download formats ${formats.join(', ')} are not simulated`);
+  const formats = stringList(list(region.props, 'download.formats'));
+  const other = formats.filter((format) => !GRID_DOWNLOAD_FORMATS.includes(format));
+  if (other.length)
+    note(`Interactive Grid ${region.id}: download formats ${other.join(', ')} are not simulated`);
+  if (formats.includes('pdf'))
+    note(`Interactive Grid ${region.id}: PDF download is a print-friendly HTML page locally`);
+  for (const column of model.columns)
+    if (column.type === 'popupLov' && column.editor)
+      note(`Interactive Grid column ${region.id}.${column.name}: popup LOV is a local search dialog`);
+    else if ((column.type === 'richTextEditor' || column.type === 'markdownEditor') && column.editor)
+      note(`Interactive Grid column ${region.id}.${column.name}: ${column.type} is edited as a text area`);
   if (str(region.props, 'heading.fixedTo') === 'region')
     note(`Interactive Grid ${region.id}: fixed report height is not simulated`);
   for (const column of model.columns) {
@@ -267,18 +390,75 @@ function diagnoseGrid(renderer: ApexRenderer, ctx: RenderContext, model: GridMod
   }
 }
 
+const VISUAL_TYPES = new Set([
+  'starRating',
+  'colorPicker',
+  'checkbox',
+  'singleCheckbox',
+  'switch',
+  'yesNo',
+  'richTextEditor',
+]);
+
+/** Columns whose cells are markup (links, HTML expressions, stars, swatches, check marks). */
+function isMarkup(column: GridColumn): boolean {
+  const props = column.component.props;
+  return (
+    column.type === 'link' ||
+    column.type === 'htmlExpression' ||
+    VISUAL_TYPES.has(column.type) ||
+    get(props, 'link.target') !== undefined ||
+    str(props, 'columnFormatting.htmlExpression') !== '' ||
+    str(props, 'settings.htmlExpression') !== ''
+  );
+}
+
+/** On/off values and labels of checkbox and switch columns. */
+function switchValues(column: GridColumn) {
+  const props = column.component.props;
+  const checkbox = column.editor === 'checkbox' || /checkbox/iu.test(column.type);
+  return {
+    on: str(props, 'settings.checkedValue', str(props, 'settings.onValue', 'Y')),
+    off: str(props, 'settings.uncheckedValue', str(props, 'settings.offValue', 'N')),
+    onLabel: str(props, 'settings.onLabel', checkbox ? 'Checked' : 'On'),
+    offLabel: str(props, 'settings.offLabel', checkbox ? 'Unchecked' : 'Off'),
+  };
+}
+
+const starCount = (column: GridColumn) =>
+  Math.max(1, num(column.component.props, 'settings.numberOfStars', 5));
+
+/** Display markup of the visual column types, shared with the browser item implementations. */
+export function visualDisplay(column: GridColumn, value: string): string {
+  switch (column.type) {
+    case 'starRating': {
+      const max = starCount(column);
+      const count = Math.max(0, Math.min(max, Math.round(Number(value) || 0)));
+      return `<span class="apex-local-stars" role="img" aria-label="${count} of ${max}">${'<span class="fa fa-star is-active" aria-hidden="true"></span>'.repeat(count)}${'<span class="fa fa-star" aria-hidden="true"></span>'.repeat(max - count)}</span>`;
+    }
+    case 'colorPicker':
+      return value
+        ? `<span class="apex-local-swatch" style="background-color:${escapeHtml(value)}" aria-hidden="true"></span> ${escapeHtml(value)}`
+        : '';
+    case 'richTextEditor':
+      // Rendered like APEX does, without scripts or event handlers.
+      return value
+        .replace(/<(script|style|iframe)[\s\S]*?<\/\1>/giu, '')
+        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/giu, '');
+    default: {
+      const values = switchValues(column);
+      const on = value === values.on;
+      return `<span class="apex-local-check${on ? ' is-checked' : ''}" role="img" aria-label="${escapeHtml(on ? values.onLabel : values.offLabel)}"><span class="fa ${on ? 'fa-check-square-o' : 'fa-square-o'}" aria-hidden="true"></span></span>`;
+    }
+  }
+}
+
 /** Value sent to the client model: raw value, or `{ v, d }` when the display differs. */
 function modelValue(model: GridModel, column: GridColumn, row: Row, trigger: string) {
   const raw = row[column.name];
   const value = raw === null || raw === undefined ? '' : String(raw);
-  const props = column.component.props;
-  const markup =
-    column.type === 'link' ||
-    column.type === 'htmlExpression' ||
-    get(props, 'link.target') !== undefined ||
-    str(props, 'columnFormatting.htmlExpression') !== '' ||
-    str(props, 'settings.htmlExpression') !== '';
-  if (markup) return { v: value, d: model.cells.html(column.component, row, trigger) };
+  if (VISUAL_TYPES.has(column.type)) return { v: value, d: visualDisplay(column, value) };
+  if (isMarkup(column)) return { v: value, d: model.cells.html(column.component, row, trigger) };
   const display = model.cells.text(column.component, row);
   return display === value ? value : { v: value, d: display };
 }
@@ -286,42 +466,87 @@ function modelValue(model: GridModel, column: GridColumn, row: Row, trigger: str
 const alignmentName = (alignment: string) =>
   alignment === 'u-tR' ? 'end' : alignment === 'u-tC' ? 'center' : 'start';
 
-function columnItem(renderer: ApexRenderer, model: GridModel, column: GridColumn, id: string): string {
+function hasTime(column: GridColumn): boolean {
+  return /HH|MI/u.test(str(column.component.props, 'appearance.formatMask'));
+}
+
+/** Column item markup: native controls apex.item understands, or containers the browser completes. */
+function columnItem(model: GridModel, column: GridColumn, id: string): string {
   const props = column.component.props;
   const label = escapeHtml(model.cells.label(column.component));
   const max = num(props, 'validation.maxLength', 0);
   const required = get(props, 'validation.valueRequired') === true ? ' required' : '';
+  const lov = () => [...(model.cells.lov(column.component) ?? new Map<string, string>())];
   switch (column.editor) {
-    case 'select':
-    case 'yesno': {
-      const lov = column.editor === 'yesno' ? undefined : model.cells.lov(column.component);
-      const on = str(props, 'settings.checkedValue', str(props, 'settings.onValue', 'Y'));
-      const off = str(props, 'settings.uncheckedValue', str(props, 'settings.offValue', 'N'));
-      const entries: [string, string][] = lov
-        ? [...lov]
-        : column.editor === 'yesno'
-          ? [
-              [on, 'Yes'],
-              [off, 'No'],
-            ]
-          : [];
+    case 'select': {
       const nullOption =
         get(props, 'lov.displayNullValue') === false
           ? ''
           : `<option value="${escapeHtml(str(props, 'lov.nullReturnValue'))}">${escapeHtml(str(props, 'lov.nullDisplayValue'))}</option>`;
-      return `<select id="${id}" class="selectlist apex-item-select" aria-label="${label}"${required}>${column.editor === 'yesno' ? '' : nullOption}${entries
+      return `<select id="${id}" class="selectlist apex-item-select" aria-label="${label}"${required}>${nullOption}${lov()
         .map(([value, display]) => `<option value="${escapeHtml(value)}">${escapeHtml(display)}</option>`)
         .join('')}</select>`;
     }
+    case 'radio':
+    case 'checkboxGroup': {
+      const input = column.editor === 'radio' ? 'radio' : 'checkbox';
+      return `<div id="${id}" tabindex="-1" class="${input === 'radio' ? 'radio_group apex-item-radio' : 'checkbox_group apex-item-checkbox'} apex-item-group apex-item-group--rc" role="${input === 'radio' ? 'radiogroup' : 'group'}" aria-label="${label}">${lov()
+        .map(
+          ([value, display], index) =>
+            `<div class="apex-item-option"><input type="${input}" id="${id}_${index}" name="${id}" value="${escapeHtml(value)}"><label for="${id}_${index}">${escapeHtml(display)}</label></div>`,
+        )
+        .join('')}</div>`;
+    }
+    case 'popupLov':
+      return `<div id="${id}" class="apex-local-ig-popupLov apex-item-group apex-item-group--popup-lov" aria-label="${label}"><input type="hidden" id="${id}_value"><input type="text" id="${id}_display" class="text_field apex-item-text apex-item-popup-lov" aria-label="${label}" readonly${required}><button type="button" class="a-Button a-Button--popupLOV" id="${id}_lov_btn" tabindex="-1" aria-label="List of Values" title="List of Values"><span class="a-Icon icon-popup-lov" aria-hidden="true"></span></button></div>`;
+    case 'checkbox':
+      return `<span id="${id}" class="apex-local-ig-check apex-item-single-checkbox"><input type="checkbox" id="${id}_input" aria-label="${label}"></span>`;
+    case 'switch':
+      return `<span id="${id}" class="a-Switch apex-local-ig-switch"><input type="checkbox" id="${id}_input" class="a-Switch-input" aria-label="${label}"><span class="a-Switch-toggle"></span></span>`;
+    case 'stars':
+      return `<div id="${id}" class="apex-local-ig-stars a-StarRating" role="radiogroup" aria-label="${label}">${Array.from(
+        { length: starCount(column) },
+        (_unused, index) =>
+          `<button type="button" class="apex-local-ig-star" data-value="${index + 1}" aria-label="${index + 1}" tabindex="-1"><span class="fa fa-star" aria-hidden="true"></span></button>`,
+      ).join(
+        '',
+      )}<button type="button" class="apex-local-ig-star-clear" data-value="" aria-label="Clear" title="Clear"><span class="fa fa-times-circle-o" aria-hidden="true"></span></button></div>`;
+    case 'color':
+      return `<input type="color" id="${id}" class="apex-item-color-picker apex-local-ig-color" aria-label="${label}">`;
     case 'textarea':
-      return `<textarea id="${id}" class="textarea apex-item-textarea" rows="2" aria-label="${label}"${max ? ` maxlength="${max}"` : ''}${required}></textarea>`;
+      return `<textarea id="${id}" class="textarea apex-item-textarea" rows="${column.type === 'textarea' ? 2 : 4}" aria-label="${label}"${max ? ` maxlength="${max}"` : ''}${required}></textarea>`;
     case 'number':
       return `<input type="text" id="${id}" class="number_field apex-item-text apex-item-number" inputmode="decimal" aria-label="${label}"${required}>`;
     case 'date':
-      return `<input type="date" id="${id}" class="datepicker apex-item-text apex-item-datepicker" aria-label="${label}"${required}>`;
+      return `<input type="${hasTime(column) ? 'datetime-local' : 'date'}" id="${id}" class="datepicker apex-item-text apex-item-datepicker" aria-label="${label}"${required}>`;
+    case 'password':
+      return `<input type="password" id="${id}" class="password apex-item-text" aria-label="${label}"${required}>`;
     default:
-      void renderer;
       return `<input type="text" id="${id}" class="text_field apex-item-text" aria-label="${label}"${max ? ` maxlength="${max}"` : ''}${required}>`;
+  }
+}
+
+/** Browser-side apex.item implementations for the custom column editors. */
+function customItem(model: GridModel, column: GridColumn, id: string) {
+  if (!column.editor || !CUSTOM_EDITORS.has(column.editor)) return undefined;
+  const base = { id, kind: column.editor, column: column.name };
+  switch (column.editor) {
+    case 'popupLov':
+      return {
+        ...base,
+        title: model.cells.label(column.component),
+        lov: [...(model.cells.lov(column.component) ?? new Map<string, string>())].map(([r, d]) => ({
+          r,
+          d,
+        })),
+      };
+    case 'checkbox':
+    case 'switch':
+      return { ...base, ...switchValues(column) };
+    case 'stars':
+      return { ...base, max: starCount(column) };
+    default:
+      return { ...base, time: hasTime(column) };
   }
 }
 
@@ -336,6 +561,125 @@ function defaultValue(model: GridModel, column: GridColumn): string | undefined 
   return undefined;
 }
 
+const META_FIELD = 'APEX$LOCAL_META';
+
+const AGGREGATE_NAMES: Record<string, string> = {
+  sum: 'SUM',
+  average: 'AVG',
+  count: 'COUNT',
+  countDistinct: 'COUNT_DISTINCT',
+  min: 'MIN',
+  max: 'MAX',
+  median: 'MEDIAN',
+};
+
+/**
+ * Model records with metadata: highlights (`meta.highlight`, `meta.fields[COL].highlight`),
+ * control break ends and server-computed aggregate records, as the APEX grid expects them.
+ */
+function gridViewData(model: GridModel, fields: string[], trigger: string) {
+  const views = model.state.views ?? emptyViews();
+  const components = new Map(model.columns.map((column) => [column.name, column.component]));
+  const highlights = views.highlights.filter((highlight) => highlight.enabled);
+  const highlightOptions = Object.fromEntries(
+    highlights.map((highlight, index) => [
+      `h${index}`,
+      {
+        seq: highlight.sequence,
+        row: highlight.type === 'row',
+        ...(highlight.background ? { background: highlight.background } : {}),
+        ...(highlight.text ? { color: highlight.text } : {}),
+      },
+    ]),
+  );
+  const aggregates = views.aggregates.filter(
+    (aggregate) =>
+      aggregate.enabled !== false && AGGREGATE_NAMES[aggregate.fn] && model.byName.has(aggregate.column),
+  );
+  const functions = [...new Set(aggregates.map((aggregate) => aggregate.fn))];
+  const aggregateLabels = Object.fromEntries(
+    functions.map((fn) => {
+      const label =
+        {
+          sum: 'Sum',
+          average: 'Average',
+          count: 'Count',
+          countDistinct: 'Count Distinct',
+          min: 'Minimum',
+          max: 'Maximum',
+          median: 'Median',
+        }[fn] ?? fn;
+      return [AGGREGATE_NAMES[fn]!, { label, overallLabel: `Overall ${label}` }];
+    }),
+  );
+  const record = (row: Row) =>
+    fields.map((name) => {
+      const column = model.byName.get(name);
+      if (!column) return row[name] === null || row[name] === undefined ? '' : String(row[name]);
+      if (/^APEX\$/u.test(name)) return '';
+      return modelValue(model, column, row, trigger);
+    });
+  const breakKey = (row: Row) => JSON.stringify(model.breaks.map((column) => row[column.name] ?? ''));
+  let counter = 0;
+  const aggregateRecords = (rows: Row[], grandTotal: boolean) =>
+    functions
+      .filter(
+        (fn) =>
+          !grandTotal ||
+          !model.breaks.length ||
+          aggregates.some((entry) => entry.fn === fn && entry.grandTotal !== false),
+      )
+      .map((fn) => {
+        counter += 1;
+        const values = fields.map((name) => {
+          if (model.identity.includes(name)) return `apex-local-agg-${counter}`;
+          const aggregate = aggregates.find((entry) => entry.fn === fn && entry.column === name);
+          if (!aggregate) return '';
+          const column = model.byName.get(name)!;
+          return aggregateText(
+            fn,
+            aggregateValue(
+              fn,
+              rows.map((row) => row[name]),
+            ),
+            str(column.component.props, 'appearance.formatMask'),
+          );
+        });
+        return [...values, { agg: AGGREGATE_NAMES[fn], ...(grandTotal ? { grandTotal: true } : {}) }];
+      });
+  const data: unknown[][] = [];
+  model.rows.forEach((row, index) => {
+    const meta: {
+      highlight?: string;
+      fields?: Record<string, { highlight: string }>;
+      endControlBreak?: boolean;
+    } = {};
+    highlights.forEach((highlight, position) => {
+      const match = highlightRow([highlight], row, model.cells, components);
+      if (match.row && !meta.highlight) meta.highlight = `h${position}`;
+      for (const name of match.cells.keys()) {
+        meta.fields ??= {};
+        meta.fields[name] ??= { highlight: `h${position}` };
+      }
+    });
+    const next = model.rows[index + 1];
+    const endBreak = model.breaks.length > 0 && (!next || breakKey(next) !== breakKey(row));
+    if (endBreak) meta.endControlBreak = true;
+    data.push([...record(row), meta]);
+    if (endBreak && functions.length) {
+      const key = breakKey(row);
+      data.push(
+        ...aggregateRecords(
+          model.rows.filter((candidate) => breakKey(candidate) === key),
+          false,
+        ),
+      );
+    }
+  });
+  if (functions.length && model.rows.length) data.push(...aggregateRecords(model.rows, true));
+  return { data, highlights: highlightOptions, aggregateLabels };
+}
+
 /** Interactive grid region: genuine APEX grid + toolbar widgets over a local model. */
 export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string {
   if (!renderer.regionSql(ctx, region))
@@ -344,7 +688,9 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
   if (model.error)
     return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(model.error)}</div></div>`;
   diagnoseGrid(renderer, ctx, model);
-  diagnoseSavedReport(renderer, ctx, region, primarySavedReport(region));
+  diagnoseSavedReport(renderer, ctx, region, primarySavedReport(region), {
+    children: new Set(['aggregate', 'controlBreak', 'highlight']),
+  });
   const { domId, state, cells } = model;
   const id = escapeHtml(domId);
   ctx.clientConfig.regions.push({ id: domId, kind: 'interactiveGrid' });
@@ -362,21 +708,17 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
     ...model.columns.map((column) => column.name),
     ...(model.identity[0] === ROW_ID ? [ROW_ID] : []),
   ];
-  const data = model.rows.map((row) =>
-    fields.map((name) => {
-      const column = model.byName.get(name);
-      if (!column) return row[name] === null || row[name] === undefined ? '' : String(row[name]);
-      if (/^APEX\$/u.test(name)) return '';
-      return modelValue(model, column, row, trigger);
-    }),
-  );
+  const grid = gridViewData(model, fields, trigger);
+  const data = grid.data;
   const order = state.columns;
   const sortIndex = new Map(state.sort.map((entry, index) => [entry.column, { ...entry, index }]));
   const hasSelector = model.columns.some((column) => column.type === 'rowSelector');
   const hasActions = model.columns.some((column) => column.type === 'actionsMenu');
   const editable = model.editable && (model.allowed.update || model.allowed.add || model.allowed.delete);
   const items: string[] = [];
+  const customItems: Record<string, unknown>[] = [];
   const gridColumns: Record<string, unknown> = {};
+  const breakIndex = new Map(model.breaks.map((column, index) => [column.name, index + 1]));
   model.columns.forEach((column, index) => {
     if (column.type === 'rowSelector') return;
     const props = column.component.props;
@@ -384,14 +726,13 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
     const itemId = `${domId}_ig_c_${column.name.replace(/\W/gu, '_')}`;
     const canEdit = editable && model.allowed.update && column.editor !== undefined && !column.primaryKey;
     const canInsert = editable && model.allowed.add && column.editor !== undefined;
-    if (canEdit || canInsert)
-      items.push(`<div class="a-GV-columnItem">${columnItem(renderer, model, column, itemId)}</div>`);
+    if (canEdit || canInsert) {
+      items.push(`<div class="a-GV-columnItem">${columnItem(model, column, itemId)}</div>`);
+      const custom = customItem(model, column, itemId);
+      if (custom) customItems.push(custom);
+    }
     const shownByReport = order ? order.includes(column.name) : true;
-    const markup =
-      column.type === 'link' ||
-      column.type === 'htmlExpression' ||
-      get(props, 'link.target') !== undefined ||
-      str(props, 'columnFormatting.htmlExpression') !== '';
+    const markup = isMarkup(column);
     if (column.type === 'actionsMenu') {
       gridColumns[column.name] = {
         heading: '',
@@ -426,7 +767,10 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
       ),
       alignment: alignmentName(renderer.alignment(column.component, model.rows[0]?.[column.name])),
       seq: order && order.includes(column.name) ? order.indexOf(column.name) + 1 : 1000 + index,
-      hidden: column.hidden || !shownByReport || /^APEX\$/u.test(column.name),
+      hidden: column.hidden || !shownByReport || /^APEX\$/u.test(column.name) || breakIndex.has(column.name),
+      ...(breakIndex.has(column.name)
+        ? { controlBreakIndex: breakIndex.get(column.name), controlBreakDirection: 'asc' }
+        : {}),
       canHide: !column.hidden && get(props, 'enableUsersTo.hide') !== false,
       canSort: !column.hidden && get(props, 'enableUsersTo.sort') !== false,
       readonly: !(canEdit || canInsert),
@@ -450,6 +794,7 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
       ...(column && /^APEX\$/u.test(name) ? { virtual: true } : {}),
     };
   });
+  modelFields[META_FIELD] = { index: fields.length, virtual: true };
   const pagination = str(region.props, 'pagination.type', 'scroll');
   const details = renderer
     .pageComponents(ctx, 'region')
@@ -496,7 +841,21 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
     searchColumns: model.columns
       .filter((column) => !column.hidden && !/^APEX\$/u.test(column.name))
       .map((column) => ({ name: column.name, label: cells.label(column.component) })),
-    formats: ['csv', 'html'],
+    formats: (() => {
+      const formats = stringList(list(region.props, 'download.formats')).filter((format) =>
+        GRID_DOWNLOAD_FORMATS.includes(format),
+      );
+      return formats.length ? formats : ['csv', 'html'];
+    })(),
+    metaField: META_FIELD,
+    customItems,
+    highlights: grid.highlights,
+    aggregateLabels: grid.aggregateLabels,
+    views: {
+      breaks: state.views?.breaks ?? [],
+      highlights: state.views?.highlights ?? [],
+      aggregates: state.views?.aggregates ?? [],
+    },
   };
   return `<div class="a-IG" id="${id}_ig" role="group" aria-label="${escapeHtml(str(region.props, 'title', str(region.props, 'name')))}" data-apex-local-ig="${id}">
 <div class="a-IG-header" id="${id}_ig_toolbar"></div>
@@ -661,7 +1020,11 @@ export function pageErrors(region: ApxComponent, result: SaveResult): ApexError[
 }
 
 /** Rows and headings for CSV/HTML downloads of a grid (visible columns, current filters and sort). */
-export function gridExport(model: GridModel): { headings: string[]; rows: string[][] } {
+export function gridExport(model: GridModel): {
+  headings: string[];
+  rows: string[][];
+  columns: GridColumn[];
+} {
   const order = model.state.columns;
   const columns = model.columns
     .filter((column) => !column.hidden && !/^APEX\$/u.test(column.name))
@@ -671,6 +1034,7 @@ export function gridExport(model: GridModel): { headings: string[]; rows: string
   return {
     headings: columns.map((column) => model.cells.label(column.component)),
     rows: model.rows.map((row) => columns.map((column) => model.cells.text(column.component, row))),
+    columns,
   };
 }
 

@@ -394,7 +394,7 @@ test('interactive report applies saved-report defaults and session state from th
     region: 'people',
     action: 'filter',
     column: 'SAL',
-    operator: 'regexp',
+    operator: 'soundsLike',
   });
   assert.match(String(bad.error), /Unsupported filter/);
 });
@@ -498,8 +498,7 @@ test('grid without row processing refuses to save and unsupported features are d
   const messages = result.diagnostics.map((entry) => entry.message);
   for (const expected of [
     /Classic report classic: printing is not simulated/,
-    /Interactive report people: Actions menu controlBreak, highlight, .* are not simulated/,
-    /Saved report highlight in people is not simulated/,
+    /Interactive report people: Actions menu flashback, subscription are not simulated/,
     /Interactive Grid column staff.HIRED: cascading LOV is not simulated/,
   ])
     assert.ok(
