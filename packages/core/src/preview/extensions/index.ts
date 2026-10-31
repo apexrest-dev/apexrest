@@ -7,3 +7,4 @@ import './facets.ts';
 import './items.ts';
 import './reports.ts';
 import './server.ts';
+import './structure.ts';
