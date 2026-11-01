@@ -33,6 +33,7 @@ You ask for a change, such as "add an order status report". The agent then:
 - **Partial imports on APEX 26.2.** Import only the changed pages and shared components, with drift and conflict checks.
 - **Safe deployment.** Exact 30-minute plans, backups, drift detection and recovery from unknown outcomes. DEV, QA and TEST targets only.
 - **Direct or ORDS access.** Reach the database through the Oracle listener or REST-Enabled SQL over HTTPS.
+- **Two providers, one team.** Work in Claude Code with Codex as the reviewer, or in Codex with Claude Code. The second agent reviews each deployment plan read-only under your own subscription or API key; set `peerReview.mode: required` to block deployment until it approves. See [peer review](docs/configuration.md#cross-vendor-peer-review).
 
 Watch the short videos and read the details on [Features and videos](docs/features.md).
 
