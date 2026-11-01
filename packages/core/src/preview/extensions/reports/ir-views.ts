@@ -403,15 +403,33 @@ const RESERVED = new Set([
   'DATE',
 ]);
 
-/** Column identifiers like APEX assigns them: A, B, ... Z, AA, AB ... in column order. */
-export function identifiers(columns: ApxComponent[]): { id: string; name: string }[] {
-  const id = (index: number) => {
+/**
+ * Column identifiers for computations: the declared `advanced.endUserAlias` of a column, else the
+ * next free letter like APEX assigns them (A, B, ... Z, AA, AB ...) in column order. Aliases declared
+ * on `others` (e.g. ROWID, which is never offered) stay reserved.
+ */
+export function identifiers(
+  columns: ApxComponent[],
+  others: ApxComponent[] = [],
+): { id: string; name: string }[] {
+  const letters = (index: number) => {
     let name = '';
     for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26))
       name = String.fromCharCode(65 + ((value - 1) % 26)) + name;
     return name;
   };
-  return columns.map((column, index) => ({ id: id(index), name: column.id.toUpperCase() }));
+  const alias = (column: ApxComponent) => str(column.props, 'advanced.endUserAlias').trim().toUpperCase();
+  const used = new Set([...columns, ...others].map(alias).filter(Boolean));
+  let next = 0;
+  return columns.map((column) => {
+    let id = alias(column);
+    if (!id) {
+      while (used.has(letters(next))) next += 1;
+      id = letters(next);
+      used.add(id);
+    }
+    return { id, name: column.id.toUpperCase() };
+  });
 }
 
 /** Rewrites identifiers and column names of a computation expression to subquery columns. */

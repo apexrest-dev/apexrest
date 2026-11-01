@@ -43,6 +43,8 @@ export function classicState(ctx: RenderContext, region: ApxComponent): ReportSt
 }
 
 const PAGINATION_TYPES = new Set([
+  'showAll',
+  'externalPaginationButtons',
   'rowRangesXToY',
   'rowRangesXToYOfZ',
   'rowRangesXToYNoPagination',
@@ -66,7 +68,8 @@ interface Pager {
 /** Pagination markup built from the report template's pagination templates. */
 function pagination(template: TemplateParams, type: string, pager: Pager): string {
   const { domId, page, perPage, total, shown, align } = pager;
-  if (!shown) return '';
+  // `showAll` (No Pagination) and `externalPaginationButtons` (computed but not displayed) print no pager.
+  if (!shown || type === 'showAll' || type === 'externalPaginationButtons') return '';
   const first = (page - 1) * perPage + 1;
   const last = first + shown - 1;
   const pages = Math.max(1, Math.ceil(total / perPage));
@@ -138,9 +141,13 @@ export function classicReport(renderer: ApexRenderer, ctx: RenderContext, region
     (column) => !/^hidden/u.test(str(column.props, 'type')) && !isSpecialColumn(column.id),
   );
 
-  const perPage = Math.max(1, num(region.props, 'reportLayout.numberOfRows', 15));
   const type = str(region.props, 'pagination.type', 'rowRangesXToY');
-  const noPaging = /NoPagination$/u.test(type);
+  // No Pagination (Show All Rows) renders every processed row on one page.
+  const perPage =
+    type === 'showAll'
+      ? Math.max(1, rows.length)
+      : Math.max(1, num(region.props, 'reportLayout.numberOfRows', 15));
+  const noPaging = /NoPagination$/u.test(type) || type === 'showAll';
   const key = stateKey(ctx.pageId, region.id);
   const pages = Math.max(1, Math.ceil(rows.length / perPage));
   const page = noPaging ? 1 : Math.min(pages, Math.max(1, ctx.session.pagination[key] ?? 1));

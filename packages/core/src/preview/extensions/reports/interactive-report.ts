@@ -138,7 +138,10 @@ export function irModel(renderer: ApexRenderer, ctx: RenderContext, region: ApxC
     ? renderer.query(ctx, region, sql, limit + 1)
     : { columns: [], rows: [], error: 'no local source' };
   const base = regionColumns(region, result.columns);
-  const ids = identifiers(base.filter((column) => !isSpecialColumn(column.id)));
+  const ids = identifiers(
+    base.filter((column) => !isSpecialColumn(column.id)),
+    base.filter((column) => isSpecialColumn(column.id)),
+  );
   let computed: ApxComponent[] = [];
   if (sql && !result.error && views.computations.length) {
     const working = workingComputations(renderer, ctx, region, sql, views, ids);

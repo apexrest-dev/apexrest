@@ -1,8 +1,10 @@
 import { bool, get, isObject, isRef, list, num, ref, str, type ApxComponent } from '../../apexlang.ts';
-import { formatOracle, type Row } from '../../database.ts';
+import type { Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext, Session } from '../../render.ts';
 import { columnRenderer } from '../../extensions.ts';
 import { escapeHtml } from '../../theme.ts';
+import { applyTemplate } from '../components/directives.ts';
+import { formatValue, SUPPORTED_MASK } from './masks.ts';
 import type { IrViews } from './ir-views.ts';
 
 /** Shared plumbing for the classic report, interactive report and interactive grid simulations. */
@@ -120,39 +122,7 @@ export function findRegion(renderer: ApexRenderer, ctx: RenderContext, id: strin
     .find((candidate) => renderer.regionDomId(candidate) === id || candidate.id === id);
 }
 
-/** Bare-bones human date difference used by the `SINCE` format mask. */
-export function since(value: unknown, now = Date.now()): string {
-  if (value === null || value === undefined || value === '') return '';
-  const date = new Date(typeof value === 'number' ? value : String(value).replace(' ', 'T'));
-  if (Number.isNaN(date.getTime())) return String(value);
-  const seconds = Math.round((now - date.getTime()) / 1000);
-  const future = seconds < 0;
-  const abs = Math.abs(seconds);
-  const units: [number, string][] = [
-    [31_536_000, 'year'],
-    [2_592_000, 'month'],
-    [604_800, 'week'],
-    [86_400, 'day'],
-    [3600, 'hour'],
-    [60, 'minute'],
-  ];
-  for (const [size, unit] of units) {
-    const count = Math.floor(abs / size);
-    if (count >= 1) return `${count} ${unit}${count === 1 ? '' : 's'} ${future ? 'from now' : 'ago'}`;
-  }
-  return `${abs} second${abs === 1 ? '' : 's'} ${future ? 'from now' : 'ago'}`;
-}
-
-export function formatValue(raw: unknown, mask: string): string {
-  if (raw === null || raw === undefined) return '';
-  if (!mask) return String(raw);
-  if (/^since(_short)?$/iu.test(mask)) return since(raw);
-  if (/^pct_graph/iu.test(mask)) return String(raw);
-  return formatOracle(raw, mask) ?? '';
-}
-
-const SUPPORTED_MASK =
-  /^(FM)?[L$]?[0-9GD,.]+$|9|^since(_short)?$|^[A-Z]{0,4}(YYYY|RR|YY|MON|MM|DD|HH|MI|SS|[ ./:-]|AM|PM|DS|DL|MONTH|FM)+$/iu;
+export { formatValue, since } from './masks.ts';
 
 /**
  * Renders cell values like APEX: format masks, LOV display values, HTML expressions, links and
@@ -213,15 +183,21 @@ export class Cells {
     );
   }
 
-  /** `#COLUMN#` substitutions inside templates use the escaped (or raw) column values. */
+  /**
+   * `#COLUMN#` substitutions inside templates use the escaped (or raw) column values; template
+   * directives (`{if/}`, `{case/}`, `{loop/}` ...) are evaluated over the row like APEX does for
+   * report HTML expressions. `&ITEM.` session state is substituted first.
+   */
   substituteRow(template: string, row: Row, escape = true): string {
-    const replaced = template.replace(/#([A-Za-z0-9_$]+)#/gu, (whole, key: string) => {
-      const name = key.toUpperCase();
-      if (!(name in row)) return whole;
-      const value = row[name] === null || row[name] === undefined ? '' : String(row[name]);
-      return escape ? escapeHtml(value) : value;
+    if (!template) return '';
+    const values: Record<string, string> = {};
+    for (const [key, value] of Object.entries(row))
+      values[key.toUpperCase()] = value === null || value === undefined ? '' : String(value);
+    const substituted = this.renderer.substitute(this.ctx.session, template, this.ctx.page, 'HTML');
+    return applyTemplate(substituted, values, {
+      defaultEscape: escape ? 'HTML' : false,
+      removeUnknown: false,
     });
-    return this.renderer.substitute(this.ctx.session, replaced, this.ctx.page, 'HTML');
   }
 
   /** Cell HTML. `trigger` is the JavaScript expression used as triggering element for dialog links. */
