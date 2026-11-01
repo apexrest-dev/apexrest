@@ -1,5 +1,5 @@
 import { bool, num, ref, str, type ApxComponent } from '../../apexlang.ts';
-import { isoDate, parseOracleDate, type Binds, type LocalDatabase } from '../../database.ts';
+import { isoDate, oracleRegExp, parseOracleDate, type Binds, type LocalDatabase } from '../../database.ts';
 import type { ProcessResult } from '../../extensions.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { columnName, detectType, formatOf, parseFile, type FileFormat, type ParseOptions } from './parse.ts';
@@ -291,9 +291,9 @@ function transform(column: ApxComponent | undefined, value: string): string {
     case 'nullIf':
       return value === str(column.props, 'transformation.value') ? '' : value;
     case 'regexpReplace':
-      return regexp ? value.replace(new RegExp(regexp, 'gu'), replace) : value;
+      return regexp ? value.replace(oracleRegExp(regexp, '', true), replace) : value;
     case 'regexpNullIf':
-      return regexp && new RegExp(regexp, 'u').test(value) ? '' : value;
+      return regexp && oracleRegExp(regexp).test(value) ? '' : value;
     default:
       return value;
   }

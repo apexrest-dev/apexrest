@@ -1,4 +1,4 @@
-import type { Binds, Row } from '../../database.ts';
+import { oracleNumberText, type Binds, type Row } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { findStub, stubArgs, withRuntime, type Runtime } from './apex-api.ts';
 import {
@@ -191,7 +191,7 @@ export function itemText(value: Value | undefined): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (value instanceof Collection) return value.values().map(itemText).join(':');
   if (value instanceof RecordValue) return '';
-  return String(value);
+  return typeof value === 'number' ? oracleNumberText(value) : String(value);
 }
 
 function sameValue(left: Value, right: Value): boolean {
@@ -365,6 +365,7 @@ export class Interpreter implements Runtime {
       case 'string':
         if (value === null || value === '') return null;
         if (value instanceof Collection || value instanceof RecordValue) return value;
+        if (typeof value === 'number') return oracleNumberText(value);
         return typeof value === 'boolean' ? (value ? 'TRUE' : 'FALSE') : String(value);
       case 'boolean':
         return value === null ? null : truthy(value);
@@ -839,7 +840,7 @@ export class Interpreter implements Runtime {
 
   /**
    * Turns PL/SQL expression tokens into SQLite text. Variables, record fields, collection
-   * elements and package calls become bind values; `||` becomes null-safe `concat()`.
+   * elements and package calls become bind values.
    */
   translate(
     tokens: Expr,
@@ -979,7 +980,7 @@ export class Interpreter implements Runtime {
       bind(pre, this.call(names, callArgs, scope, true));
       index = callOpen >= 0 ? callClose : end;
     }
-    concatPieces(pieces);
+    // `||` stays as written: the SQL translation gives it Oracle precedence and NULL semantics.
     const meaningful = pieces.filter((piece) => piece.text.trim() !== '');
     const sql = pieces
       .map((piece, index) => (index === 0 ? '' : piece.pre) + piece.text)
@@ -1006,98 +1007,6 @@ function targetOf(tokens: Token[]): Target {
     return { kind: 'var', name: first.value, field: third.value };
   if (first?.kind === 'word') return { kind: 'var', name: first.value };
   throw new PlsqlUnsupported('OUT argument must be a variable or bind', first?.line ?? 0);
-}
-
-/** Rewrites `a || b || c` into `concat(a, b, c)` so NULL behaves like Oracle's empty string. */
-function concatPieces(pieces: Piece[]): void {
-  const isText = (piece: Piece | undefined, text: string) =>
-    piece?.token?.kind !== 'string' && piece?.text.toLowerCase() === text;
-  const depthAt = () => {
-    const depths: number[] = [];
-    let depth = 0;
-    for (const piece of pieces) {
-      if (isText(piece, '(') || /\($/u.test(piece.text)) depth += 1;
-      depths.push(depth);
-      if (isText(piece, ')')) depth -= 1;
-    }
-    return depths;
-  };
-  const operandStart = (from: number): number => {
-    let index = from;
-    if (isText(pieces[index], ')')) {
-      let depth = 0;
-      for (; index >= 0; index -= 1) {
-        if (isText(pieces[index], ')')) depth += 1;
-        else if (isText(pieces[index], '(') || /\($/u.test(pieces[index]!.text)) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-      if (isText(pieces[index], '(') && pieces[index - 1]?.token?.kind === 'word') index -= 1;
-    } else if (isText(pieces[index], 'end')) {
-      let depth = 0;
-      for (; index >= 0; index -= 1) {
-        if (isText(pieces[index], 'end')) depth += 1;
-        else if (isText(pieces[index], 'case')) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    }
-    while (isText(pieces[index - 1], '.') && pieces[index - 2]) index -= 2;
-    return Math.max(0, index);
-  };
-  const operandEnd = (from: number): number => {
-    let index = from;
-    while (isText(pieces[index + 1], '.') && pieces[index + 2]) index += 2;
-    if (pieces[index]?.token?.kind === 'word' && isText(pieces[index + 1], '(')) index += 1;
-    if (isText(pieces[index], '(') || /\($/u.test(pieces[index]?.text ?? '')) {
-      let depth = 0;
-      for (; index < pieces.length; index += 1) {
-        if (isText(pieces[index], '(') || /\($/u.test(pieces[index]!.text)) depth += 1;
-        else if (isText(pieces[index], ')')) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    } else if (isText(pieces[index], 'case')) {
-      let depth = 0;
-      for (; index < pieces.length; index += 1) {
-        if (isText(pieces[index], 'case')) depth += 1;
-        else if (isText(pieces[index], 'end')) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    }
-    return Math.min(index, pieces.length - 1);
-  };
-  const render = (from: number, to: number) =>
-    pieces
-      .slice(from, to + 1)
-      .map((piece, index) => (index === 0 ? '' : piece.pre) + piece.text)
-      .join('');
-  for (let guard = 0; guard < 500; guard += 1) {
-    const depths = depthAt();
-    let target = -1;
-    for (let index = 0; index < pieces.length; index += 1) {
-      if (isText(pieces[index], '||') && (target < 0 || depths[index]! > depths[target]!)) target = index;
-    }
-    if (target < 0) return;
-    const start = operandStart(target - 1);
-    const operands = [render(start, target - 1)];
-    let cursor = target;
-    let end = target;
-    while (isText(pieces[cursor], '||')) {
-      end = operandEnd(cursor + 1);
-      operands.push(render(cursor + 1, end));
-      cursor = end + 1;
-    }
-    pieces.splice(start, end - start + 1, {
-      pre: pieces[start]!.pre,
-      text: `concat(${operands.join(', ')})`,
-    });
-  }
 }
 
 /** Runs PL/SQL code for a component and returns the outcome; nothing is diagnosed here. */

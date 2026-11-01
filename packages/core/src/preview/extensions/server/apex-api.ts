@@ -1,5 +1,5 @@
 import { str } from '../../apexlang.ts';
-import { registerOracleFunction } from '../../database.ts';
+import { oracleText, registerOracleFunction } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml, escapeJs } from '../../theme.ts';
 import { aclCheck } from '../devtools/view-as.ts';
@@ -42,7 +42,7 @@ export const rememberRenderer = (renderer: ApexRenderer) => {
 };
 
 const text = (value: unknown): string | null =>
-  value === null || value === undefined || value === '' ? null : String(value);
+  value === null || value === undefined || value === '' ? null : oracleText(value);
 const sessionState = (rt: Runtime | undefined) => rt?.ctx.session.items;
 
 export const MESSAGE_FALLBACKS: Record<string, string> = {
