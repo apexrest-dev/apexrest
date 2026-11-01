@@ -1,6 +1,6 @@
 # form
 
-Aliases: form; форма реквізити картка запису редагування збереження видалення; Read-only Form; Editable form with explicit table prerequisite
+Aliases: form; форма реквізити картка запису редагування збереження видалення; Read-only Form; Editable form with explicit table prerequisite; sectioned form; region display selector form; expense report form; Dialog Form Buttons; dialog form buttons; modal footer buttons
 
 Bind page items to a form source and initialize a record; saving requires a declared table or API contract and processing.
 
@@ -22,6 +22,8 @@ Source descriptions and exact example links: component:regions/form/source-examp
 
 - component:regions/form/recipes/basic: ready
 - component:regions/form/recipes/save: ready
+- component:regions/form/recipes/sectioned-form-expense-report: ready
+- component:regions/form/recipes/form-dialog-buttons: ready
 
 ## Parameters and adaptation
 

@@ -1,0 +1,113 @@
+page 1 (
+    name: Submit Button with Request
+    alias: HOME
+    title: Submit Button with Request
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Note
+        type: staticContent
+        source {
+            htmlCode: <p>Each submit button sends its button name as the request; processes run only for their request.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_NOTE (
+        type: textField
+        label {
+            label: Note
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_LAST_REQUEST (
+        type: displayOnly
+        label {
+            label: Last Request
+        }
+        layout {
+            sequence: 20
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+    button save (
+        buttonName: SAVE
+        label: Save
+        layout {
+            sequence: 10
+            region: @form
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+    button save-draft (
+        buttonName: SAVE_DRAFT
+        label: Save as Draft
+        layout {
+            sequence: 20
+            region: @form
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+    process record-request (
+        name: Record Request
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_LAST_REQUEST := :REQUEST;
+                    apex_debug.message('Submitted with request %s', :REQUEST);
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: processing
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: SAVE,SAVE_DRAFT
+        }
+    )
+)

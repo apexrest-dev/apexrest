@@ -1,0 +1,79 @@
+page 1 (
+    name: Map Lines Layer from GeoJSON
+    alias: HOME
+    title: Map Lines Layer from GeoJSON
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region routes-map (
+        name: Delivery Routes
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 8
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer routes (
+            name: Routes
+            layerType: lines
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'North Route' ROUTE_NAME, 1050 DISTANCE_KM,
+                           '{"type":"LineString","coordinates":[[2.35,48.86],[4.35,50.85],[13.40,52.52]]}' GEOJSON
+                      from dual union all
+                    select 2, 'South Route', 1420,
+                           '{"type":"LineString","coordinates":[[-3.70,40.42],[2.17,41.39],[7.27,43.70],[12.50,41.90]]}'
+                      from dual union all
+                    select 3, 'Alpine Route', 690,
+                           '{"type":"LineString","coordinates":[[8.54,47.37],[11.58,48.14],[16.37,48.21]]}'
+                      from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            appearance {
+                strokeColor: #056AC8
+                strokeWidth: 4
+            }
+            tooltip {
+                advancedFormatting: true
+                htmlExpression: &ROUTE_NAME. (&DISTANCE_KM. km)
+            }
+        )
+    )
+)

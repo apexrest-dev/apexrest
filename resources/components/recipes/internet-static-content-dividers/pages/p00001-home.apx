@@ -1,0 +1,87 @@
+page 1 (
+    name: Stacked Regions with Dividers
+    alias: HOME
+    title: Stacked Regions with Dividers
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region settings (
+        name: Account Settings
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+            ]
+        }
+    )
+    region profile (
+        name: Profile
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic profile section.</p>
+        }
+        layout {
+            sequence: 10
+            parentRegion: @settings
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--stacked
+                t-Region--scrollBody
+            ]
+        }
+    )
+    region notifications (
+        name: Notifications
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic notifications section.</p>
+        }
+        layout {
+            sequence: 20
+            parentRegion: @settings
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--stacked
+                t-Region--scrollBody
+            ]
+        }
+    )
+    region privacy (
+        name: Privacy
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic privacy section.</p>
+        }
+        layout {
+            sequence: 30
+            parentRegion: @settings
+            slot: subRegions
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--stacked
+                t-Region--scrollBody
+            ]
+        }
+    )
+)

@@ -1,0 +1,73 @@
+page 1 (
+    name: Notifications Report
+    alias: HOME
+    title: Notifications Report
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region notifications (
+        name: Notifications
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Maintenance window' ALERT_TITLE, 'Synthetic: the system will be unavailable Sunday 02:00-03:00.' ALERT_DESC, 'warning' ALERT_TYPE from dual union all
+                select 'New release', 'Synthetic: version 2.0 is now available.', 'success' from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/alerts
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No notifications
+        }
+        column ALERT_TITLE (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Title
+            }
+            layout {
+                sequence: 10
+            }
+        )
+        column ALERT_DESC (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Description
+            }
+            layout {
+                sequence: 20
+            }
+        )
+        column ALERT_TYPE (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Type
+            }
+            layout {
+                sequence: 30
+            }
+        )
+    )
+)

@@ -1,6 +1,6 @@
 # Interactive Grid
 
-Aliases: Interactive Grid; інтерактивна таблиця інтерактивний грід таблична частина редагування; Editable Interactive Grid with explicit table prerequisite
+Aliases: Interactive Grid; інтерактивна таблиця інтерактивний грід таблична частина редагування; Editable Interactive Grid with explicit table prerequisite; editable interactive grid; grid select list date number columns; expense lines grid; Read-only Grid with Toolbar; interactive grid toolbar; interactive grid download
 
 Present a grid of keyed rows; editing additionally needs a declared persistence contract.
 
@@ -22,6 +22,8 @@ Source descriptions and exact example links: component:reports/interactive-grid/
 
 - component:reports/interactive-grid/recipes/basic: ready
 - component:reports/interactive-grid/recipes/editable: ready
+- component:reports/interactive-grid/recipes/editable-grid-expense-lines: ready
+- component:reports/interactive-grid/recipes/interactive-grid-toolbar-download: ready
 
 ## Parameters and adaptation
 

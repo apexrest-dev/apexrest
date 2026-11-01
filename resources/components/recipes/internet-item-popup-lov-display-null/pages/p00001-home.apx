@@ -1,0 +1,58 @@
+page 1 (
+    name: Popup LOV with Null Entry
+    alias: HOME
+    title: Popup LOV with Null Entry
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A modal-dialog popup LOV with a labeled null entry and automatic initial fetch.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_COUNTRY (
+        type: popupLov
+        label {
+            label: Country
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Germany' d, 'DE' r from dual union all
+                select 'Japan', 'JP' from dual union all
+                select 'Brazil', 'BR' from dual
+                ```
+            displayNullValue: true
+            nullDisplayValue: - No country -
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            displayAs: modalDialog
+            title: Select Country
+            initialFetch: auto
+        }
+    )
+)

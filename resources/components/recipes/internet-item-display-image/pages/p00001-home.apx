@@ -1,0 +1,50 @@
+page 1 (
+    name: Display Image
+    alias: HOME
+    title: Display Image
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>Display an image whose URL is stored in the page item value.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_IMAGE (
+        type: displayImage
+        label {
+            label: Logo
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            basedOn: url
+            altText: Application logo
+        }
+        default {
+            type: static
+            staticValue: #APEX_FILES#apex_ui/img/apex-logo.svg
+        }
+    )
+)

@@ -1,0 +1,129 @@
+page 1 (
+    name: Line with Area Chart
+    alias: HOME
+    title: Line with Area Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region quarterly-orders (
+        name: Quarterly Orders by Channel
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: lineWithArea
+        }
+        chartLayout {
+            height: 420
+        }
+        dataCursor {
+            behavior: smooth
+            dimOnHover: false
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            position: top
+        }
+
+        series online (
+            name: Online
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Q1' as quarter, 320 as orders from dual union all
+                    select 'Q2', 410 from dual union all
+                    select 'Q3', 385 from dual union all
+                    select 'Q4', 520 from dual
+                    ```
+            }
+            columnMapping {
+                label: QUARTER
+                value: ORDERS
+            }
+            line {
+                type: curved
+            }
+            marker {
+                show: true
+                shape: circle
+            }
+            label {
+                show: true
+                position: aboveMarker
+            }
+        )
+
+        series retail (
+            name: Retail Stores
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Q1' as quarter, 210 as orders from dual union all
+                    select 'Q2', 190 from dual union all
+                    select 'Q3', 240 from dual union all
+                    select 'Q4', 300 from dual
+                    ```
+            }
+            columnMapping {
+                label: QUARTER
+                value: ORDERS
+            }
+            line {
+                style: dashed
+                type: curved
+            }
+            marker {
+                show: true
+                shape: diamond
+            }
+            label {
+                show: true
+                position: belowMarker
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Orders
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+    )
+)

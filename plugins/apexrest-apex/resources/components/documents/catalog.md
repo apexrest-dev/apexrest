@@ -653,10 +653,11 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 
 ## Coverage
 
-112 component families; 176 ready recipes; 1 unresolved recipes.
+118 component families; 269 ready recipes; 1 unresolved recipes.
 
 - component:business-logic/computations: computations
 - component:business-logic/dynamic-actions: dynamic actions
+- component:business-logic/processes: processes
 - component:business-logic/validations: validations
 - component:buttons/icon: Icon Button
 - component:buttons/text: Text Button
@@ -666,9 +667,11 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 - component:items/color-picker: Color Picker
 - component:items/combobox: Combobox
 - component:items/date-picker: Date Picker
+- component:items/display-image: display image
 - component:items/display-map: Display Map
 - component:items/display-only: Display Only
 - component:items/file-upload: File Upload
+- component:items/geocoded-address: geocoded address
 - component:items/hidden: Hidden
 - component:items/image-upload: Image Upload
 - component:items/list-manager: List Manager
@@ -679,6 +682,7 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 - component:items/popup-lov: Popup LOV
 - component:items/qr-code: QR Code
 - component:items/radio-group: Radio Group
+- component:items/rich-text-editor: rich text editor
 - component:items/select-list: Select List
 - component:items/select-many: Select Many
 - component:items/select-one: Select One
@@ -712,6 +716,7 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 - component:regions/alert: Alert
 - component:regions/blank-with-attributes: Blank with Attributes
 - component:regions/blank-with-attributes-no-grid: Blank with Attributes (No Grid)
+- component:regions/breadcrumb: breadcrumb
 - component:regions/buttons-container: Buttons Container
 - component:regions/calendar: Calendar
 - component:regions/cards: Cards
@@ -723,6 +728,7 @@ Offline component selection, parameter contracts and compiler-checked APEXlang r
 - component:regions/dynamic-content: dynamic content
 - component:regions/faceted-search: Faceted Search
 - component:regions/form: form
+- component:regions/help-text: help text
 - component:regions/hero: Hero
 - component:regions/image: Image
 - component:regions/inline-dialog: Inline Dialog

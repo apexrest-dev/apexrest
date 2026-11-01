@@ -1,0 +1,71 @@
+page 1 (
+    name: Empty State
+    alias: HOME
+    title: Empty State
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region empty-state (
+        name: No Projects Yet
+        type: staticContent
+        source {
+            htmlCode:
+                ```html
+                <div class="u-tC">
+                    <span class="fa fa-folder-open-o fa-3x u-color-29-text" aria-hidden="true"></span>
+                    <h2 class="t-Region-title">No projects yet</h2>
+                    <p>Synthetic empty state. Create your first project to get started.</p>
+                </div>
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noBorder
+            ]
+        }
+    )
+    region empty-state-actions (
+        name: Empty State Actions
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button create-project (
+        buttonName: CREATE_PROJECT
+        label: Create Project
+        layout {
+            sequence: 10
+            region: @empty-state-actions
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: #DEFAULT#
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+            }
+        }
+    )
+)

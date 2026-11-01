@@ -1,0 +1,103 @@
+page 1 (
+    name: Bubble Chart
+    alias: HOME
+    title: Bubble Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region pension-contributions (
+        name: Pension Contributions by Country
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: bubble
+        }
+        title {
+            title: Pension Contribution Revenues (% of GDP)
+        }
+        chartLayout {
+            height: 400
+        }
+        animation {
+            onDataChange: none
+        }
+        tooltip {
+            showSeriesName: false
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series contributions (
+            name: Contributions
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Austria' as country, 0.040 as employee, 0.050 as employer, 0.090 as total from dual union all
+                    select 'Belgium', 0.025, 0.065, 0.090 from dual union all
+                    select 'Canada', 0.020, 0.025, 0.045 from dual union all
+                    select 'France', 0.040, 0.075, 0.115 from dual union all
+                    select 'Germany', 0.060, 0.065, 0.125 from dual union all
+                    select 'Japan', 0.055, 0.060, 0.115 from dual union all
+                    select 'Spain', 0.020, 0.080, 0.100 from dual
+                    ```
+            }
+            columnMapping {
+                label: COUNTRY
+                x: EMPLOYEE
+                y: EMPLOYER
+                z: TOTAL
+            }
+            label {
+                show: true
+                position: center
+            }
+        )
+
+        axis x (
+            name: x
+            title: Employee Contribution (% of GDP)
+            value {
+                format: percent
+                decimalPlaces: 1
+                formatScaling: none
+            }
+            minorTicks {
+                show: true
+            }
+        )
+
+        axis y (
+            name: y
+            title: Employer Contribution (% of GDP)
+            value {
+                format: percent
+                decimalPlaces: 1
+                formatScaling: none
+            }
+            minorTicks {
+                show: true
+            }
+        )
+    )
+)

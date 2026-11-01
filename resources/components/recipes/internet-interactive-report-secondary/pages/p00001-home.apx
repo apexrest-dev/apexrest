@@ -1,0 +1,93 @@
+page 1 (
+    name: Secondary Interactive Report
+    alias: HOME
+    title: Secondary Interactive Report
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region recent-activity (
+        name: Recent Activity
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select level ACTIVITY_ID,
+                       'Activity ' || level ACTIVITY,
+                       systimestamp - numtodsinterval(level, 'HOUR') LOGGED_AT
+                  from dual
+               connect by level <= 30
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: recent_activity_ir
+        }
+        pagination {
+            type: rowRangesXToY
+        }
+        performance {
+            maxRowsToProcess: 500
+        }
+        messages {
+            whenNoDataFound: No recent activity
+        }
+        column ACTIVITY_ID (
+            type: hidden
+            heading {
+                heading: Activity Id
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+        column ACTIVITY (
+            type: plainText
+            heading {
+                heading: Activity
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+        column LOGGED_AT (
+            type: plainText
+            heading {
+                heading: Logged
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                formatMask: SINCE
+            }
+            source {
+                dataType: TIMESTAMP
+            }
+        )
+        savedReport primary (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 5
+            }
+        )
+    )
+)

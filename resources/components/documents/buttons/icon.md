@@ -1,6 +1,6 @@
 # Icon Button
 
-Aliases: Icon Button; кнопка піктограма іконка
+Aliases: Icon Button; кнопка піктограма іконка; button trigger action; declarative button action hide region; icon button hide region
 
 Provide an icon command with an accessible name and a real action.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:buttons/icon/source-examp
 ## Recipes
 
 - component:buttons/icon/recipes/basic: ready
+- component:buttons/icon/recipes/button-trigger-action: ready
 
 ## Parameters and adaptation
 

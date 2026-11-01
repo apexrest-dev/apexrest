@@ -1,0 +1,53 @@
+page 1 (
+    name: Radio Group in Columns
+    alias: HOME
+    title: Radio Group in Columns
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A priority radio group laid out in three columns.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_PRIORITY (
+        type: radioGroup
+        label {
+            label: Priority
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Low;LOW,Medium;MEDIUM,High;HIGH
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            noOfCols: 3
+        }
+        default {
+            type: static
+            staticValue: MEDIUM
+        }
+    )
+)

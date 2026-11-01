@@ -1,6 +1,6 @@
 # Contextual Info
 
-Aliases: Contextual Info; контекстна інформація класичний звіт короткі реквізити; Classic Report Contextual Info
+Aliases: Contextual Info; контекстна інформація класичний звіт короткі реквізити; Classic Report Contextual Info; Contextual Info Rows; contextual info rows; metric rows report
 
 Render compact contextual facts through the Contextual Info Classic Report template and its column mappings.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:reports/contextual-info/s
 ## Recipes
 
 - component:reports/contextual-info/recipes/basic: ready
+- component:reports/contextual-info/recipes/contextual-info-row-based: ready
 
 ## Parameters and adaptation
 

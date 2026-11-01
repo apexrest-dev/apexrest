@@ -1,0 +1,135 @@
+page 1 (
+    name: Bar Chart with Dual Y Axis
+    alias: HOME
+    title: Bar Chart with Dual Y Axis
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region units-and-revenue (
+        name: Units and Revenue by Product
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: unitsRevenueChart
+        }
+        chart {
+            type: bar
+        }
+        chartLayout {
+            height: 400
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        legend {
+            position: top
+        }
+
+        series units-sold (
+            name: Units Sold
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Laptops' as product_name, 120 as units from dual union all
+                    select 'Monitors', 85 from dual union all
+                    select 'Keyboards', 240 from dual union all
+                    select 'Headsets', 160 from dual union all
+                    select 'Docking Stations', 60 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: UNITS
+            }
+            label {
+                show: true
+                position: insideBarEdge
+                fontColor: WHITE
+            }
+        )
+
+        series revenue (
+            name: Revenue (USD)
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Laptops' as product_name, 156000 as revenue from dual union all
+                    select 'Monitors', 25500 from dual union all
+                    select 'Keyboards', 12000 from dual union all
+                    select 'Headsets', 14400 from dual union all
+                    select 'Docking Stations', 13200 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: REVENUE
+            }
+            appearance {
+                assignedToY2Axis: true
+            }
+            label {
+                show: true
+                position: outsideBarEdge
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Units Sold
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y-2 (
+            name: y2
+            title: Revenue (USD)
+            value {
+                format: currency
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+            dualYAxes {
+                show: true
+                splitterPosition: 0.7
+            }
+        )
+    )
+)

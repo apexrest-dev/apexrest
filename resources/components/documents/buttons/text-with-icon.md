@@ -1,6 +1,6 @@
 # Text With Icon Button
 
-Aliases: Text With Icon Button; кнопка текст піктограма
+Aliases: Text With Icon Button; кнопка текст піктограма; button defined by dynamic action; client side button click; button click alert; redirect button set items; button link with page items; redirect clear cache reset pagination
 
 Combine a visible command label with an icon.
 
@@ -21,6 +21,8 @@ Source descriptions and exact example links: component:buttons/text-with-icon/so
 ## Recipes
 
 - component:buttons/text-with-icon/recipes/basic: ready
+- component:buttons/text-with-icon/recipes/button-dynamic-action: ready
+- component:buttons/text-with-icon/recipes/button-redirect-items: ready
 
 ## Parameters and adaptation
 

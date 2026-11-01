@@ -1,0 +1,663 @@
+# Faceted Search with Grouped Content Rows
+
+Faceted search filtering a Content Row grouped by business unit with tag badges loop, multiple row selection, select-all item and bulk-actions menu; synthetic data.
+
+Status: ready.
+
+Component: component:regions/faceted-search.
+
+## Source attribution
+
+Original adaptation of the pinned public source below. This source is separate from the captured Universal Theme reference application. The source hash identifies the reviewed upstream file; compiler evidence binds the authored recipe files.
+
+```json
+{
+  "sourceUrl": "https://github.com/oracle/apex/blob/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/faceted-search-pattern/apexlang/oracle-apex-faceted-search-patterns/pages/p00020-fs-08-grouped-rows.apx",
+  "repository": "https://github.com/oracle/apex",
+  "commit": "244dd3691fa5c2897a069fc912b149b9c2853679",
+  "path": "sample-apps/faceted-search-pattern/apexlang/oracle-apex-faceted-search-patterns/pages/p00020-fs-08-grouped-rows.apx",
+  "sourceSha256": "e9f41bcce0b0a06aa99aea8a49a0fdcca0ef9c36d622d821ccbec0aa8ced63b5",
+  "license": "UPL-1.0",
+  "derivation": "original-adaptation"
+}
+```
+
+## Data contract
+
+```json
+{
+  "source": "synthetic-dual",
+  "tables": [],
+  "bindings": [],
+  "submittedItems": []
+}
+```
+
+## Adaptation
+
+- Choose a free page number and rename all P1_ items consistently.
+- The JSON tags column is pre-flattened to a colon list; image avatars and profile links were replaced by initials and mailto.
+- Preserve the target application authentication and authorization.
+- Bulk and Delete menu entries are placeholders (#); wire them to authorized processes before use.
+
+Apply the files below as an overlay to component:scaffold for offline validation. In an existing project, adapt and merge the component into its existing page and shared objects. The example is not an import authorization.
+
+## pages/p00001-home.apx
+
+```apexlang
+page 1 (
+    name: Faceted Search Grouped Rows
+    alias: HOME
+    title: Faceted Search Grouped Rows
+    appearance {
+        pageTemplate: @/left-side-column
+        templateOptions: #DEFAULT#
+    }
+    navigation {
+        cursorFocus: firstItemOnPage
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region title-bar (
+        name: Faceted Search Grouped Rows
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useRegionTitle
+            ]
+        }
+    )
+    region button-bar (
+        name: Button Bar
+        type: staticContent
+        source {
+            htmlCode: <div id="active_facets"></div>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: [
+                #DEFAULT#
+                t-ButtonRegion--noPadding
+                t-ButtonRegion--noUI
+            ]
+        }
+    )
+    region search (
+        name: Filter employees
+        type: facetedSearch
+        source {
+            filteredRegion: @search-results
+        }
+        layout {
+            sequence: 10
+            slot: leftColumn
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            compactNosThreshold: 10000
+            showCurrentFacets: selector
+            currentFacetsSelector: #active_facets
+        }
+
+        facet P1_JOB_TITLE (
+            type: checkboxGroup
+            label {
+                label: Job Title
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 5
+            }
+            listEntries {
+                maxDisplayedEntries: 10
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: JOB_TITLE
+            }
+        )
+        facet P1_SEARCH (
+            type: search
+            label {
+                label: Search
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dbColumns: NAME,EMAIL,JOB_TITLE,BUSINESS_UNIT,WORK_ARRANGEMENT
+            }
+        )
+        facet P1_BUSINESS_UNIT (
+            type: checkboxGroup
+            label {
+                label: Business Unit
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 90
+            }
+            listEntries {
+                maxDisplayedEntries: 5
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: BUSINESS_UNIT
+            }
+        )
+        facet P1_WORK_ARRANGEMENT (
+            type: checkboxGroup
+            label {
+                label: Work Arrangement
+            }
+            lov {
+                type: distinctValues
+            }
+            layout {
+                sequence: 110
+            }
+            listEntries {
+                maxDisplayedEntries: 10
+                allowToExclude: false
+            }
+            source {
+                databaseColumn: WORK_ARRANGEMENT
+            }
+        )
+    )
+    region search-results (
+        name: Employees
+        type: themeTemplateComponent/contentRow
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select e.EMPLOYEE_ID,
+                       e.FIRST_NAME || ' ' || e.LAST_NAME as NAME,
+                       e.JOB_TITLE,
+                       e.BUSINESS_UNIT,
+                       e.EMAIL,
+                       e.PHONE_NUMBER,
+                       e.TAGS as TAGS_LIST,
+                       initcap(e.WORK_ARRANGEMENT) as WORK_ARRANGEMENT,
+                       to_char(e.HIRE_DATE, 'DD Mon YYYY') as HIRE_DATE,
+                       initcap(e.EMPLOYMENT_STATUS) as EMPLOYMENT_STATUS,
+                       e.COUNTRY,
+                       e.CAREER_LEVEL,
+                       case e.EMPLOYMENT_STATUS
+                           when 'ACTIVE'   then 'success'
+                           when 'INACTIVE' then 'danger'
+                           when 'LEAVE'    then 'warning'
+                       end as BADGE_STATE,
+                       case e.EMPLOYMENT_STATUS
+                           when 'ACTIVE'   then 'fa-check-circle-o'
+                           when 'INACTIVE' then 'fa-times-circle-o'
+                           when 'LEAVE'    then 'fa-minus-circle-o'
+                       end as BADGE_ICON,
+                       substr(e.FIRST_NAME, 1, 1) || substr(e.LAST_NAME, 1, 1) as INITIALS
+                  from (
+                      select 101 EMPLOYEE_ID, 'Ava' FIRST_NAME, 'Moreno' LAST_NAME, 'ava.moreno@example.com' EMAIL, 'Data Engineer' JOB_TITLE, 'Engineering' BUSINESS_UNIT, 'Platform' COST_CENTER, 'ACTIVE' EMPLOYMENT_STATUS, 'HYBRID' WORK_ARRANGEMENT, 'FULL_TIME' EMPLOYMENT_TYPE, date '2021-03-15' HIRE_DATE, 'Spain' COUNTRY, 'es' COUNTRY_CODE, 'Madrid' CITY, 'EMEA' GEOGRAPHIC_REGION, 'L3' CAREER_LEVEL, 'Europe/Madrid' TIME_ZONE, '+34 600 101 101' PHONE_NUMBER, 2 DIRECT_REPORTS, 'Data:Cloud' TAGS from dual union all
+                      select 102, 'Liam', 'Okafor', 'liam.okafor@example.com', 'Product Manager', 'Product', 'Growth', 'ACTIVE', 'REMOTE', 'FULL_TIME', date '2019-07-01', 'Nigeria', 'ng', 'Lagos', 'EMEA', 'L4', 'Africa/Lagos', '+234 800 102 102', 4, 'Strategy:Mentor' from dual union all
+                      select 103, 'Mia', 'Tanaka', 'mia.tanaka@example.com', 'UX Designer', 'Product', 'Growth', 'LEAVE', 'ONSITE', 'PART_TIME', date '2022-01-10', 'Japan', 'jp', 'Tokyo', 'APAC', 'L2', 'Asia/Tokyo', '+81 90 103 103', 0, 'Design' from dual union all
+                      select 104, 'Noah', 'Schmidt', 'noah.schmidt@example.com', 'Data Engineer', 'Engineering', 'Platform', 'ACTIVE', 'ONSITE', 'FULL_TIME', date '2018-11-05', 'Germany', 'de', 'Berlin', 'EMEA', 'L4', 'Europe/Berlin', '+49 151 104 104', 3, 'Data:Mentor' from dual union all
+                      select 105, 'Zoe', 'Martin', 'zoe.martin@example.com', 'Account Executive', 'Sales', 'Field Sales', 'INACTIVE', 'REMOTE', 'CONTRACTOR', date '2020-05-20', 'France', 'fr', 'Paris', 'EMEA', 'L2', 'Europe/Paris', '+33 6 105 105', 0, 'Sales' from dual union all
+                      select 106, 'Omar', 'Haddad', 'omar.haddad@example.com', 'Support Analyst', 'Operations', 'Service Desk', 'ACTIVE', 'HYBRID', 'FULL_TIME', date '2023-02-27', 'Jordan', 'jo', 'Amman', 'EMEA', 'L1', 'Asia/Amman', '+962 7 106 106', 0, 'Support' from dual union all
+                      select 107, 'Iris', 'Novak', 'iris.novak@example.com', 'Account Executive', 'Sales', 'Field Sales', 'ACTIVE', 'HYBRID', 'FULL_TIME', date '2017-09-12', 'United States', 'us', 'New York', 'AMER', 'L3', 'America/New_York', '+1 212 107 107', 5, 'Sales:Mentor' from dual union all
+                      select 108, 'Hugo', 'Silva', 'hugo.silva@example.com', 'Support Analyst', 'Operations', 'Service Desk', 'LEAVE', 'REMOTE', 'PART_TIME', date '2024-04-08', 'Brazil', 'br', 'Sao Paulo', 'AMER', 'L1', 'America/Sao_Paulo', '+55 11 108 108', 0, 'Support:Cloud' from dual
+                       ) e
+                ```
+        }
+        orderBy {
+            type: item
+            item: {
+                itemName: P1_ORDER_BY
+                orderBys: {
+                    BUSINESS_UNIT: BUSINESS_UNIT ASC
+                    JOB_TITLE: JOB_TITLE ASC
+                    ENAME: NAME ASC
+                }
+            }
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h1
+                t-ContentBlock--lightBG
+                t-Region--removeHeader js-removeLandmark
+            ]
+        }
+        advanced {
+            htmlDomId: search-results
+        }
+        componentAppearance {
+            display: report
+        }
+        settings {
+            overline: &WORK_ARRANGEMENT.
+            title: &NAME.
+            description:
+                ```html
+                &EMAIL.
+                {if TAGS_LIST/}<br>{loop ":" TAGS_LIST/}
+                {with/}
+                  LABEL:=Tag
+                  VALUE:=&APEX$ITEM.
+                  LABEL_DISPLAY:=N
+                  STYLE:=t-Badge--subtle t-Badge--circle u-text-muted-color
+                  SIZE:=t-Badge--md
+                {apply THEME$BADGE/}{endloop/}{endif/}
+                ```
+            miscellaneous: Business Unit: &BUSINESS_UNIT.
+            displayAvatar: true
+        }
+        plugin-avatar {
+            type: initials
+            initials: INITIALS
+            shape: circular
+        }
+        plugin-grouping {
+            title: &BUSINESS_UNIT.
+        }
+        rowSelection {
+            type: multipleSelection
+            selectAllPageItem: P1_SELECT_ALL
+        }
+
+        column EMPLOYEE_ID (
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: EMPLOYEE_ID
+                dataType: number
+            }
+        )
+        column NAME (
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: NAME
+                dataType: varchar2
+            }
+        )
+        column EMAIL (
+            layout {
+                sequence: 30
+            }
+            source {
+                databaseColumn: EMAIL
+                dataType: varchar2
+                primaryKey: true
+            }
+        )
+        column JOB_TITLE (
+            layout {
+                sequence: 40
+            }
+            source {
+                databaseColumn: JOB_TITLE
+                dataType: varchar2
+            }
+        )
+        column BUSINESS_UNIT (
+            layout {
+                sequence: 50
+            }
+            source {
+                databaseColumn: BUSINESS_UNIT
+                dataType: varchar2
+            }
+            appearance {
+                group: true
+            }
+        )
+        column PHONE_NUMBER (
+            layout {
+                sequence: 60
+            }
+            source {
+                databaseColumn: PHONE_NUMBER
+                dataType: varchar2
+            }
+        )
+        column TAGS_LIST (
+            layout {
+                sequence: 70
+            }
+            source {
+                databaseColumn: TAGS_LIST
+                dataType: varchar2
+            }
+        )
+        column WORK_ARRANGEMENT (
+            layout {
+                sequence: 80
+            }
+            source {
+                databaseColumn: WORK_ARRANGEMENT
+                dataType: varchar2
+            }
+        )
+        column HIRE_DATE (
+            layout {
+                sequence: 90
+            }
+            source {
+                databaseColumn: HIRE_DATE
+                dataType: varchar2
+            }
+        )
+        column EMPLOYMENT_STATUS (
+            layout {
+                sequence: 100
+            }
+            source {
+                databaseColumn: EMPLOYMENT_STATUS
+                dataType: varchar2
+            }
+        )
+        column COUNTRY (
+            layout {
+                sequence: 110
+            }
+            source {
+                databaseColumn: COUNTRY
+                dataType: varchar2
+            }
+        )
+        column CAREER_LEVEL (
+            layout {
+                sequence: 120
+            }
+            source {
+                databaseColumn: CAREER_LEVEL
+                dataType: varchar2
+            }
+        )
+        column BADGE_STATE (
+            layout {
+                sequence: 130
+            }
+            source {
+                databaseColumn: BADGE_STATE
+                dataType: varchar2
+            }
+        )
+        column BADGE_ICON (
+            layout {
+                sequence: 140
+            }
+            source {
+                databaseColumn: BADGE_ICON
+                dataType: varchar2
+            }
+        )
+        column INITIALS (
+            layout {
+                sequence: 150
+            }
+            source {
+                databaseColumn: INITIALS
+                dataType: varchar2
+            }
+        )
+
+        action title-link (
+            position: titleLink
+            layout {
+                sequence: 30
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: mailto:&EMAIL.
+            }
+        )
+
+        action employee-actions (
+            position: primaryActions
+            template: menu
+            label: Employee actions
+            layout {
+                sequence: 20
+            }
+            appearance {
+                displayType: icon
+                icon: fa-ellipsis-v
+                cssClasses: t-Button--noUI
+            }
+
+            menu email-employee (
+                label: Email employee
+                layout {
+                    sequence: 20
+                }
+                behavior {
+                    type: redirectUrl
+                    targetUrl: mailto:&EMAIL.
+                }
+                appearance {
+                    icon: fa-envelope-o
+                }
+                serverSideCondition {
+                    type: itemIsNotNull
+                    item: EMAIL
+                }
+            )
+            menu separator-30 (
+                type: separator
+                layout {
+                    sequence: 30
+                }
+            )
+            menu delete (
+                label: Delete
+                layout {
+                    sequence: 40
+                }
+                behavior {
+                    type: redirectUrl
+                    targetUrl: #
+                }
+                appearance {
+                    icon: fa-trash-o
+                }
+            )
+        )
+    )
+    pageItem P1_ORDER_BY (
+        type: selectList
+        label {
+            label: Order By
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Job;JOB_TITLE,Employee Name;ENAME,Business Unit;BUSINESS_UNIT
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @button-bar
+            slot: next
+            alignment: left
+        }
+        appearance {
+            template: @/hidden
+            templateOptions: #DEFAULT#
+            icon: fa-sort
+            height: 1
+        }
+        validation {
+            valueRequired: true
+        }
+        advanced {
+            cssClasses: no-item-ui
+            warnOnUnsavedChanges: ignore
+        }
+        default {
+            type: static
+            staticValue: BUSINESS_UNIT
+        }
+    )
+    pageItem P1_SELECT_ALL (
+        type: checkbox
+        label {
+            label: Select All
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @button-bar
+            slot: previous
+            alignment: left
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            warnOnUnsavedChanges: ignore
+        }
+    )
+    button bulk-actions (
+        buttonName: BULK_ACTIONS
+        label: Bulk Actions
+        layout {
+            sequence: 40
+            region: @title-bar
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--noUI
+            ]
+            icon: fa-ellipsis-v
+        }
+        behavior {
+            type: menu
+        }
+
+        menu update-department (
+            label: Change department
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                icon: fa-building-o
+            }
+        )
+        menu update-job-title (
+            label: Change job title
+            layout {
+                sequence: 20
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                icon: fa-briefcase
+            }
+        )
+        menu separator-40 (
+            type: separator
+            layout {
+                sequence: 40
+            }
+        )
+        menu export (
+            label: Export
+            layout {
+                sequence: 50
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+            appearance {
+                icon: fa-download
+            }
+        )
+    )
+    button reset (
+        buttonName: RESET
+        label: Reset
+        layout {
+            sequence: 20
+            region: @title-bar
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-undo
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                clearCache: 1
+                action: resetRegions
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+
+)
+
+```
+
+## Verification
+
+```json
+{
+  "compiler": {
+    "status": "passed",
+    "evidence": "recipes/compiler-evidence.json",
+    "sourceSha256": "31d50346f9b97fc53e8432bba1f691fc1060c030c08632e064fecbe8dcb1ca11",
+    "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+    "mmdVersion": "26.1.0+3102"
+  },
+  "sql": "not-run",
+  "import": "not-run",
+  "browser": "not-run"
+}
+```
+
+Compile again after adapting. Compiler success is not SQL, imported application or browser evidence.

@@ -1,6 +1,6 @@
 # Classic Report
 
-Aliases: Classic Report; класичний звіт табличний звіт; Classic Report conditional template directives; case if loop report tags status badges; Scheduler jobs health dashboard; dbms_scheduler jobs failures next runs monitoring badge list
+Aliases: Classic Report; класичний звіт табличний звіт; Classic Report conditional template directives; case if loop report tags status badges; Scheduler jobs health dashboard; dbms_scheduler jobs failures next runs monitoring badge list; Percent Graph Columns; percent graph column; progress bar report; Suggestions List Report; suggestions list; link list report; Notifications Report; notifications report; alerts report template
 
 Render query rows through a selected report template and explicit column metadata.
 
@@ -23,6 +23,9 @@ Source descriptions and exact example links: component:reports/classic-report/so
 - component:reports/classic-report/recipes/basic: ready
 - component:reports/classic-report/recipes/template-directives: ready
 - component:reports/classic-report/recipes/scheduler-jobs-dashboard: ready
+- component:reports/classic-report/recipes/classic-report-percent-graph: ready
+- component:reports/classic-report/recipes/classic-report-suggestions: ready
+- component:reports/classic-report/recipes/classic-report-notifications: ready
 
 ## Parameters and adaptation
 

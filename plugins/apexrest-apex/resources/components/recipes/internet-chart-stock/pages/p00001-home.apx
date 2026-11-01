@@ -1,0 +1,105 @@
+page 1 (
+    name: Stock Chart
+    alias: HOME
+    title: Stock Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region sample-corp-stock (
+        name: Sample Corp Stock Chart
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                i-h480
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: stock
+        }
+        dataCursor {
+            cursor: true
+            behavior: smooth
+        }
+        settings {
+            timeAxisType: auto
+            zoomAndScroll: delayed
+            initialZooming: first
+        }
+        overview {
+            show: false
+        }
+
+        series prices (
+            name: Prices
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select pricing_date as label,
+                           opening_val,
+                           least(opening_val, closing_val) - 1.5 as low,
+                           greatest(opening_val, closing_val) + 1.5 as high,
+                           closing_val,
+                           volume
+                      from (select trunc(sysdate) - 60 + level as pricing_date,
+                                   round(50 + 6 * sin(level / 5), 2) as opening_val,
+                                   round(50 + 6 * sin((level + 1) / 5), 2) as closing_val,
+                                   100000 + mod(level * 7919, 50000) as volume
+                              from dual
+                           connect by level <= 60)
+                     order by pricing_date
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                open: OPENING_VAL
+                low: LOW
+                high: HIGH
+                close: CLOSING_VAL
+                volume: VOLUME
+                labelTooltip: LABEL
+            }
+        )
+
+        axis x (
+            name: x
+            value {
+                format: datetimeLong
+            }
+            minorTicks {
+                show: true
+            }
+        )
+
+        axis y (
+            name: y
+            value {
+                format: currency
+                decimalPlaces: 0
+                baselineScaling: min
+            }
+            appearance {
+                position: end
+            }
+            minorTicks {
+                show: true
+            }
+        )
+    )
+)

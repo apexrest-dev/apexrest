@@ -1,0 +1,84 @@
+page 1 (
+    name: Accordion Static Content
+    alias: HOME
+    title: Accordion Static Content
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region faq (
+        name: Frequently Asked Questions
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    region faq-orders (
+        name: How are orders created?
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic answer: orders are created from the cart page.</p>
+        }
+        layout {
+            sequence: 10
+            parentRegion: @faq
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-expanded
+                t-Region--scrollBody
+            ]
+        }
+    )
+    region faq-returns (
+        name: How do returns work?
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic answer: returns are accepted within 30 days.</p>
+        }
+        layout {
+            sequence: 20
+            parentRegion: @faq
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+    region faq-support (
+        name: Who do I contact for support?
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic answer: contact the help desk from the navigation bar.</p>
+        }
+        layout {
+            sequence: 30
+            parentRegion: @faq
+            slot: subRegions
+        }
+        appearance {
+            template: @/collapsible
+            templateOptions: [
+                #DEFAULT#
+                is-collapsed
+                t-Region--scrollBody
+            ]
+        }
+    )
+)

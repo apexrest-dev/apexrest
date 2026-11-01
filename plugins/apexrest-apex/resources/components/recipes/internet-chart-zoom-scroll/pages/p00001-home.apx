@@ -1,0 +1,100 @@
+page 1 (
+    name: Chart Zoom and Scroll
+    alias: HOME
+    title: Chart Zoom and Scroll
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region daily-visits (
+        name: Daily Site Visits
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: line
+        }
+        chartLayout {
+            height: 400
+        }
+        dataCursor {
+            cursor: true
+            behavior: smooth
+        }
+        settings {
+            timeAxisType: enabled
+            zoomAndScroll: delayed
+            initialZooming: first
+        }
+        overview {
+            show: true
+        }
+        animation {
+            onDataChange: none
+        }
+        tooltip {
+            showSeriesName: false
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series visits (
+            name: Visits
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select trunc(sysdate) - 180 + level as visit_date,
+                           round(1200 + 300 * sin(level / 7) + mod(level * 37, 150)) as visits
+                      from dual
+                   connect by level <= 180
+                     order by visit_date
+                    ```
+            }
+            columnMapping {
+                label: VISIT_DATE
+                value: VISITS
+            }
+        )
+
+        axis x (
+            name: x
+            value {
+                format: dateMedium
+            }
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Visits
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+    )
+)

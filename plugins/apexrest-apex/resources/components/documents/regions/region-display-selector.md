@@ -1,6 +1,6 @@
 # Region Display Selector
 
-Aliases: Region Display Selector; перемикач регіонів вкладки вибір регіону; Region Display Selector viewSingleRegion; Region Display Selector scrollWindow
+Aliases: Region Display Selector; перемикач регіонів вкладки вибір регіону; Region Display Selector viewSingleRegion; Region Display Selector scrollWindow; Region Display Selector Icons; region display selector icons; single region tabs
 
 Switch or scroll between explicitly selected regions without changing their authorization.
 
@@ -22,6 +22,7 @@ Source descriptions and exact example links: component:regions/region-display-se
 
 - component:regions/region-display-selector/recipes/basic: ready
 - component:regions/region-display-selector/recipes/scroll-window: ready
+- component:regions/region-display-selector/recipes/region-display-selector-icons: ready
 
 ## Parameters and adaptation
 

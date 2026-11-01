@@ -1,0 +1,109 @@
+page 1 (
+    name: Refresh region after dialog
+    alias: HOME
+    title: Refresh region after dialog
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region results (
+        name: Example Results
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select level ID, 'Sample row ' || level TITLE, to_char(systimestamp, 'HH24:MI:SS.FF3') REFRESHED_AT from dual connect by level <= 3
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        column ID (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Id
+            }
+            layout {
+                sequence: 10
+            }
+        )
+        column TITLE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Title
+            }
+            layout {
+                sequence: 20
+            }
+        )
+        column REFRESHED_AT (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Refreshed at
+            }
+            layout {
+                sequence: 30
+            }
+        )
+    )
+    button open-dialog (
+        buttonName: OPEN_DIALOG
+        label: Open dialog
+        layout {
+            sequence: 10
+            region: @results
+            slot: rightOfTitle
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 2
+                clearCache: 2
+            }
+        }
+    )
+    dynamicAction refresh-after-dialog (
+        name: Refresh results after dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: apexafterclosedialog
+            selectionType: region
+            region: @results
+        }
+        action refresh-results (
+            action: refresh
+            affectedElements {
+                selectionType: region
+                region: @results
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

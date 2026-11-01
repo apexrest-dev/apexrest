@@ -1,6 +1,6 @@
 # Text Button
 
-Aliases: Text Button; текстова кнопка команда
+Aliases: Text Button; текстова кнопка команда; button confirmation dialog; confirm before submit; danger confirmation button; conditional button; button item equals value condition; show button when status; submit page request; button request value process; save and save draft buttons
 
 Provide a labeled command with a real target or event consumer.
 
@@ -21,6 +21,9 @@ Source descriptions and exact example links: component:buttons/text/source-examp
 ## Recipes
 
 - component:buttons/text/recipes/basic: ready
+- component:buttons/text/recipes/button-confirmation: ready
+- component:buttons/text/recipes/button-server-side-condition: ready
+- component:buttons/text/recipes/button-submit-request: ready
 
 ## Parameters and adaptation
 

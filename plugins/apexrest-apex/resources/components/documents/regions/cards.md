@@ -1,6 +1,6 @@
 # Cards
 
-Aliases: Cards; картки регіон карток; Native Cards; картки; картки регіон; Cards with filter and refresh; SLA monitor dashboard; service level breach at risk overdue tickets kpi cards chart department
+Aliases: Cards; картки регіон карток; Native Cards; картки; картки регіон; Cards with filter and refresh; SLA monitor dashboard; service level breach at risk overdue tickets kpi cards chart department; Cards with Actions; cards actions; cards badge icon buttons
 
 Map query columns to native card title, body, media and actions.
 
@@ -23,6 +23,7 @@ Source descriptions and exact example links: component:regions/cards/source-exam
 - component:regions/cards/recipes/basic: ready
 - component:regions/cards/recipes/filter-refresh: ready
 - component:regions/cards/recipes/sla-monitor: ready
+- component:regions/cards/recipes/cards-actions: ready
 
 ## Parameters and adaptation
 

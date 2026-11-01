@@ -1,0 +1,56 @@
+page 1 (
+    name: Rich Text Editor
+    alias: HOME
+    title: Rich Text Editor
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>An HTML rich text editor with the full toolbar on multiple lines.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_BODY (
+        type: richTextEditor
+        label {
+            label: Message Body
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            format: html
+            toolbar: full
+            toolbarStyle: multiline
+            minHeight: 180
+        }
+        help {
+            helpText: Compose the message with basic HTML formatting.
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+)

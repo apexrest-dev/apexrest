@@ -1,0 +1,120 @@
+page 1 (
+    name: Chart Links
+    alias: HOME
+    title: Chart Links
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region product-sales (
+        name: Product Sales (Click a Bar)
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: bar
+        }
+        chartLayout {
+            height: 360
+        }
+        legend {
+            show: false
+        }
+
+        series sales (
+            name: Sales
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Apples' as product_name, 120 as total_quantity from dual union all
+                    select 'Bananas', 95 from dual union all
+                    select 'Grapes', 60 from dual union all
+                    select 'Oranges', 140 from dual union all
+                    select 'Pears', 45 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: TOTAL_QUANTITY
+            }
+            link {
+                type: redirectThisApp
+                target: {
+                    page: 1
+                    items: {
+                        P1_SELECTED_PRODUCT: &PRODUCT_NAME.
+                    }
+                    clearCache: 1
+                }
+            }
+            label {
+                show: true
+            }
+        )
+
+        axis x (
+            name: x
+            title: Product
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Quantity
+            minorTicks {
+                show: false
+            }
+        )
+    )
+
+    region selection (
+        name: Selected Product
+        type: staticContent
+        source {
+            htmlCode: <p>Click a bar to reload this page with the product passed through a checksummed link.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+
+    pageItem P1_SELECTED_PRODUCT (
+        type: displayOnly
+        label {
+            label: Selected product
+        }
+        layout {
+            sequence: 10
+            region: @selection
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+)

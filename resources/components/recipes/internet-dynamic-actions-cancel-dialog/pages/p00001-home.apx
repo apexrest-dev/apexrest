@@ -1,0 +1,48 @@
+page 1 (
+    name: Cancel dialog dynamic action
+    alias: HOME
+    title: Cancel dialog dynamic action
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region launcher (
+        name: Launcher
+        type: staticContent
+        source {
+            htmlCode: <p>Open the modal dialog and press Cancel; the dialog is dismissed without submitting the page.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    button open-dialog (
+        buttonName: OPEN_DIALOG
+        label: Open dialog
+        layout {
+            sequence: 10
+            region: @launcher
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 2
+                clearCache: 2
+            }
+        }
+    )
+)

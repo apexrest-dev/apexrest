@@ -1,0 +1,48 @@
+page 1 (
+    name: Select List with Shared LOV
+    alias: HOME
+    title: Select List with Shared LOV
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A select list that references a shared static list of values.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_STATUS (
+        type: selectList
+        label {
+            label: Status
+        }
+        lov {
+            type: sharedComponent
+            lov: @example-statuses
+            displayNullValue: true
+            nullDisplayValue: - Select status -
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+)

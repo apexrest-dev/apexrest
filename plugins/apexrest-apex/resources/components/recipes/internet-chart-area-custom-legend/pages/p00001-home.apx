@@ -1,0 +1,158 @@
+page 1 (
+    name: Area Chart with Custom Legend
+    alias: HOME
+    title: Area Chart with Custom Legend
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region regional-sales (
+        name: Regional Sales (Custom Legend)
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        advanced {
+            htmlDomId: customLegendChart
+        }
+        chart {
+            type: area
+        }
+        chartAppearance {
+            stack: true
+        }
+        chartLayout {
+            height: 400
+        }
+        dataCursor {
+            cursor: true
+            behavior: smooth
+            dimOnHover: false
+        }
+        legend {
+            position: top
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( options ) {
+                    // Replace the default legend with a custom single-section legend.
+                    options.dataFilter = function( data ) {
+                        var shapes = [ "square", "circle", "diamond", "triangleUp" ];
+                        data.legend = {
+                            title: "Sales Region",
+                            sections: [ { items: [] } ]
+                        };
+                        for ( var i = 0; i < data.series.length; i++ ) {
+                            data.legend.sections[ 0 ].items.push( {
+                                text: data.series[ i ].name,
+                                color: data.series[ i ].color,
+                                markerShape: shapes[ i % shapes.length ]
+                            } );
+                            data.series[ i ].displayInLegend = "off";
+                        }
+                        return data;
+                    };
+                    return options;
+                }
+                ```
+        }
+
+        series east (
+            name: East
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(add_months(trunc(sysdate, 'YYYY'), level - 1), 'Mon') as month_label,
+                           level as month_no,
+                           100 + level * 12 as sales
+                      from dual
+                   connect by level <= 6
+                     order by month_no
+                    ```
+            }
+            columnMapping {
+                label: MONTH_LABEL
+                value: SALES
+            }
+        )
+
+        series west (
+            name: West
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(add_months(trunc(sysdate, 'YYYY'), level - 1), 'Mon') as month_label,
+                           level as month_no,
+                           80 + mod(level * 17, 40) as sales
+                      from dual
+                   connect by level <= 6
+                     order by month_no
+                    ```
+            }
+            columnMapping {
+                label: MONTH_LABEL
+                value: SALES
+            }
+        )
+
+        series central (
+            name: Central
+            execution {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(add_months(trunc(sysdate, 'YYYY'), level - 1), 'Mon') as month_label,
+                           level as month_no,
+                           60 + level * 5 as sales
+                      from dual
+                   connect by level <= 6
+                     order by month_no
+                    ```
+            }
+            columnMapping {
+                label: MONTH_LABEL
+                value: SALES
+            }
+        )
+
+        axis x (
+            name: x
+            title: Month
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Sales (Units)
+            minorTicks {
+                show: false
+            }
+        )
+    )
+)

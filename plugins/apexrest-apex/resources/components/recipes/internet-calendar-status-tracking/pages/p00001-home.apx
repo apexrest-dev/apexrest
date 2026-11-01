@@ -1,0 +1,191 @@
+page 1 (
+    name: Calendar Status Tracking
+    alias: HOME
+    title: Calendar Status Tracking
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        layout {
+            sequence: 5
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    region tasks (
+        name: Tasks
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID, PROJECT, TASK_NAME, STATUS, START_DATE, END_DATE,
+                       case STATUS
+                          when 'Pending' then 'apex-cal-blue'
+                          when 'Open'    then 'apex-cal-green'
+                          when 'Closed'  then 'apex-cal-gray'
+                          when 'On-Hold' then 'apex-cal-orange'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Website' PROJECT, 'Gather requirements' TASK_NAME, 'Closed' STATUS, trunc(sysdate, 'MM') + 1 START_DATE, trunc(sysdate, 'MM') + 3 END_DATE from dual union all
+                    select 2, 'Website', 'Design mockups', 'Open', trunc(sysdate, 'MM') + 4, trunc(sysdate, 'MM') + 8 from dual union all
+                    select 3, 'Mobile App', 'Plan sprint', 'Pending', trunc(sysdate, 'MM') + 9, trunc(sysdate, 'MM') + 9 from dual union all
+                    select 4, 'Mobile App', 'Security review', 'On-Hold', trunc(sysdate, 'MM') + 12, trunc(sysdate, 'MM') + 14 from dual union all
+                    select 5, 'Data Migration', 'Load test data', 'Open', trunc(sysdate, 'MM') + 18, trunc(sysdate, 'MM') + 20 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: project_tasks
+        }
+        settings {
+            displayColumn: TASK_NAME
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                month
+                week
+                day
+                list
+                navigation
+            ]
+            maxEventsDay: 5
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+    pageItem P1_VIEW_TYPE (
+        type: displayOnly
+        label {
+            label: View Type
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+    )
+    pageItem P1_VIEW_START (
+        type: displayOnly
+        label {
+            label: View Start
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+    )
+    pageItem P1_VIEW_END (
+        type: displayOnly
+        label {
+            label: View End
+            alignment: left
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+        }
+        layout {
+            sequence: 30
+            region: @controls
+            slot: regionBody
+        }
+    )
+    dynamicAction get-calendar-status (
+        name: Get Calendar Status
+        execution {
+            sequence: 10
+        }
+        when {
+            event: region/calendar/apexcalendarviewchange
+            selectionType: region
+            region: @tasks
+        }
+        action set-view-type (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.viewType
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_VIEW_TYPE
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action set-view-start (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.dates.startDate.toDateString()
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_VIEW_START
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+        action set-view-end (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.dates.endDate.toDateString()
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_VIEW_END
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+    )
+)

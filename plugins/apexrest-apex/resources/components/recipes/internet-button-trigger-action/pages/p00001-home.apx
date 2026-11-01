@@ -1,0 +1,71 @@
+page 1 (
+    name: Button with Trigger Action
+    alias: HOME
+    title: Button with Trigger Action
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region details (
+        name: Details
+        type: staticContent
+        source {
+            htmlCode: <p>The Hide Details button runs a declarative trigger action without a separate dynamic action.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    region actions (
+        name: Actions
+        type: staticContent
+        source {
+            htmlCode: <p>Hide the details region.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button hide-details (
+        buttonName: HIDE_DETAILS
+        label: Hide Details
+        layout {
+            sequence: 10
+            region: @actions
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/icon
+            templateOptions: #DEFAULT#
+            icon: fa-eye-slash
+        }
+        behavior {
+            action: triggerAction
+            executeValidations: false
+        }
+
+        triggerAction hide-region (
+            action: hide
+            affectedElements {
+                selectionType: region
+                region: @details
+            }
+            execution {
+                sequence: 10
+            }
+        )
+    )
+)

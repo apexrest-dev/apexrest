@@ -1,0 +1,87 @@
+page 1 (
+    name: Redirect Button with Item Values
+    alias: HOME
+    title: Redirect Button with Item Values
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Filter
+        type: staticContent
+        source {
+            htmlCode: <p>The button reloads the page and sets item values through the declarative target.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_STATUS (
+        type: displayOnly
+        label {
+            label: Status
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_SOURCE (
+        type: displayOnly
+        label {
+            label: Source
+        }
+        layout {
+            sequence: 20
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+    button show-open (
+        buttonName: SHOW_OPEN
+        label: Show Open Items
+        layout {
+            sequence: 10
+            region: @form
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-filter
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                items: {
+                    P1_STATUS: OPEN
+                    P1_SOURCE: BUTTON
+                }
+                clearCache: 1
+                action: resetPagination
+            }
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+)

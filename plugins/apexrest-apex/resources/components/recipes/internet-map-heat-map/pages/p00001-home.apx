@@ -1,0 +1,75 @@
+page 1 (
+    name: Map Heat Map Layer
+    alias: HOME
+    title: Map Heat Map Layer
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region incident-density (
+        name: Incident Density
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                infiniteMap
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 10
+            latitude: 50
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer incidents (
+            name: Incidents
+            layerType: heatMap
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select level ID,
+                           2 + mod(level * 37, 200) / 10 LONGITUDE,
+                           44 + mod(level * 53, 110) / 10 LATITUDE,
+                           mod(level * 7, 10) + 1 WEIGHT
+                      from dual
+                   connect by level <= 300
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: longitudeLatitude
+                longitudeColumn: LONGITUDE
+                latitudeColumn: LATITUDE
+                primaryKeyColumn: ID
+            }
+            appearance {
+                valueColumn: WEIGHT
+                colorScheme: sequential
+                schemeName: sunset
+            }
+        )
+    )
+)

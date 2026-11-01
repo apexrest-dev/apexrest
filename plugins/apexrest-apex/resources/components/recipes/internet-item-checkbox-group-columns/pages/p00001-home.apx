@@ -1,0 +1,55 @@
+page 1 (
+    name: Checkbox Group in Columns
+    alias: HOME
+    title: Checkbox Group in Columns
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A weekday checkbox group laid out in four columns.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_DAYS (
+        type: checkboxGroup
+        label {
+            label: Working Days
+        }
+        lov {
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select to_char(date '2024-01-01' + level - 1, 'fmDay', 'nls_date_language=english') d,
+                       to_char(level) r
+                  from dual
+                connect by level <= 7
+                ```
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            noOfCols: 4
+        }
+    )
+)

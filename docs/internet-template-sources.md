@@ -75,6 +75,18 @@ For a reusable recipe: preserve provenance and license; choose the actual compon
 
 A useful dependency-light extraction candidate is [Dynamic Actions: Debounce and Throttle](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-dynamic-actions/apexlang/sample-dynamic-actions/pages/p00021-debounce-and-throttle.apx). Its interaction is client-side, but breadcrumb and authorization references still require adaptation. Most richer reporting, card and chart examples require their source data contract.
 
+### 2026-11-01 refresh
+
+The `oracle/apex` [26.2 branch](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679) moved from the pinned commit to `244dd3691fa5c2897a069fc912b149b9c2853679`. It adds three UPL-1.0 sample applications (85 new `.apx` files) and changes six UX Pattern Catalog files. Page counts include global and login pages:
+
+| Application                                                                                                                                                                             | Pages | Topics                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------- |
+| [Faceted Search Patterns](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/faceted-search-pattern/apexlang/oracle-apex-faceted-search-patterns) |    13 | Faceted search with content row, cards, search-only report, map, calendar, timeline, dashboard and grouped rows |
+| [Forms Patterns](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/forms-patterns/apexlang/sample-forms)                                         |    12 | Expense report forms, receipts, categories and an editable grid                                                 |
+| [Sample Directory Search](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/sample-directory-search/apexlang/sample-directory-search)            |     8 | Employee directory, hero search, content row and Oracle Text search                                             |
+
+The `main` branch now publishes release downloads instead of `.apx` trees, and `oracle/skills` is unchanged at `014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1`. The 1,350-page public reference library stays pinned to the earlier commit; the new applications are not imported as reference pages. Twenty-six compiler-checked recipes are adapted from this commit (Sample Charts, Sample Maps, Sample Dynamic Actions and the three new applications), and 67 more from the `oracle/skills` 26.1 generation templates. Each recipe records its single upstream path and SHA-256.
+
 ## Official Oracle skills examples
 
 Repository: [oracle/skills, pinned source](https://github.com/oracle/skills/tree/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/apex/apexlang), [UPL-1.0 license](https://github.com/oracle/skills/blob/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/LICENSE.txt). Current source is organized under `apex/apexlang/26.1` and `apex/apexlang/26.2`. Search-engine results referring to the former unversioned `apex/apexlang/templates` path can be stale.

@@ -1,0 +1,137 @@
+page 1 (
+    name: Collection Toolbar
+    alias: HOME
+    title: Collection Toolbar
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region toolbar (
+        name: Collection Toolbar
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+    )
+    region filters (
+        name: Filters
+        type: smartFilters
+        source {
+            filteredRegion: @projects
+        }
+        layout {
+            sequence: 10
+            parentRegion: @toolbar
+            slot: subRegions
+            columnSpan: 9
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        filter P1_SEARCH (
+            type: search
+            label {
+                label: Search projects
+            }
+            layout {
+                sequence: 10
+            }
+            source {
+                dbColumns: NAME
+            }
+        )
+        filter P1_STATUS (
+            type: checkboxGroup
+            label {
+                label: Status
+            }
+            layout {
+                sequence: 20
+            }
+            lov {
+                type: distinctValues
+            }
+            source {
+                databaseColumn: STATUS
+            }
+        )
+    )
+    region toolbar-actions (
+        name: Toolbar Actions
+        type: staticContent
+        layout {
+            sequence: 20
+            parentRegion: @toolbar
+            slot: subRegions
+            startNewRow: false
+            columnSpan: 3
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button create-project (
+        buttonName: CREATE_PROJECT
+        label: Create Project
+        layout {
+            sequence: 10
+            region: @toolbar-actions
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: #DEFAULT#
+            icon: fa-plus
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+            }
+        }
+    )
+    region projects (
+        name: Projects
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 ID, 'Website refresh' NAME, 'Open' STATUS from dual union all
+                select 2, 'Mobile release', 'Closed' from dual union all
+                select 3, 'Data migration', 'Open' from dual
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: ID
+        }
+        title {
+            advancedFormatting: false
+            column: NAME
+        }
+        subtitle {
+            advancedFormatting: false
+            column: STATUS
+        }
+    )
+)

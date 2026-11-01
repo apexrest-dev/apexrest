@@ -1,0 +1,93 @@
+page 1 (
+    name: Region Display Selector Icons
+    alias: HOME
+    title: Region Display Selector Icons
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region section-selector (
+        name: Section Selector
+        type: regionDisplaySelector
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/blank-with-attributes-no-grid
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: section-selector
+        }
+        settings {
+            mode: viewSingleRegion
+            displayRegionIcons: true
+            includeShowAll: false
+            rememberSelection: bySession
+        }
+    )
+    region overview (
+        name: Overview
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic overview content.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+            icon: fa-home
+        }
+        advanced {
+            htmlDomId: overview
+            regionDisplaySelector: true
+        }
+    )
+    region activity (
+        name: Activity
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic activity content.</p>
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+            icon: fa-clock-o
+        }
+        advanced {
+            htmlDomId: activity
+            regionDisplaySelector: true
+        }
+    )
+    region settings (
+        name: Settings
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic settings content.</p>
+        }
+        layout {
+            sequence: 40
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+            icon: fa-gear
+        }
+        advanced {
+            htmlDomId: settings
+            regionDisplaySelector: true
+        }
+    )
+)

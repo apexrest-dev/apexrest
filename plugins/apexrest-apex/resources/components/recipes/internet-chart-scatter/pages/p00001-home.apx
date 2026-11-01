@@ -1,0 +1,99 @@
+page 1 (
+    name: Scatter Chart
+    alias: HOME
+    title: Scatter Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region open-close-scatter (
+        name: Opening vs Closing Price
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: scatter
+        }
+        title {
+            title: Sample Corp Daily Prices
+        }
+        chartLayout {
+            height: 400
+        }
+        animation {
+            onDataChange: none
+        }
+        tooltip {
+            showSeriesName: false
+        }
+        legend {
+            hideAndShowBehavior: none
+        }
+
+        series daily-prices (
+            name: Daily Prices
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select to_char(trunc(sysdate) - level, 'YYYY-MM-DD') as label,
+                           round(100 + 8 * sin(level / 3), 2) as x_value,
+                           round(100 + 8 * sin(level / 3) + 3 * cos(level), 2) as y_value
+                      from dual
+                   connect by level <= 30
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                x: X_VALUE
+                y: Y_VALUE
+            }
+            marker {
+                shape: star
+            }
+        )
+
+        axis x (
+            name: x
+            title: Opening Value
+            value {
+                format: decimal
+                decimalPlaces: 0
+                formatScaling: none
+            }
+            minorTicks {
+                show: true
+            }
+        )
+
+        axis y (
+            name: y
+            title: Closing Value
+            value {
+                format: decimal
+                decimalPlaces: 0
+                formatScaling: none
+            }
+            minorTicks {
+                show: true
+            }
+        )
+    )
+)

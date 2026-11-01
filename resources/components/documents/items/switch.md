@@ -1,6 +1,6 @@
 # Switch
 
-Aliases: Switch; перемикач увімкнення вимкнення; Switch form item
+Aliases: Switch; перемикач увімкнення вимкнення; Switch form item; switch on off values; switch custom labels; toggle active inactive
 
 Capture a binary choice with explicit on and off return values.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/switch/source-examp
 ## Recipes
 
 - component:items/switch/recipes/basic: ready
+- component:items/switch/recipes/item-switch-custom-values: ready
 
 ## Parameters and adaptation
 

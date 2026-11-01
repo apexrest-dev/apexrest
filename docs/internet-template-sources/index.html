@@ -250,6 +250,34 @@
 <p>The full application payloads total 49,883,949 uncompressed bytes. Many examples use <code>EBA_DEMO_*</code> tables, supporting SQL packages, shared LOVs, breadcrumbs, authorization schemes, plug-ins, static files or external REST endpoints. Charts, reports and maps may require database features or seeded sample data. Some sample pages perform writes, reset sample data, or change authentication behavior. Source inclusion is not authorization to run those actions or install supporting objects.</p>
 <p>For a reusable recipe: preserve provenance and license; choose the actual component rather than a navigation-only sample page; resolve shared references; replace sample-schema SQL with a documented synthetic projection or explicit project data contract; preserve the destination authentication; and run the required Oracle compiler checks. Import and browser evidence remain separate. Do not remove source-declared MMD requirements or silently claim 26.1 compatibility for 26.2 examples.</p>
 <p>A useful dependency-light extraction candidate is <a href="https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-dynamic-actions/apexlang/sample-dynamic-actions/pages/p00021-debounce-and-throttle.apx">Dynamic Actions: Debounce and Throttle</a>. Its interaction is client-side, but breadcrumb and authorization references still require adaptation. Most richer reporting, card and chart examples require their source data contract.</p>
+<h3 id="2026-11-01-refresh">2026-11-01 refresh</h3>
+<p>The <code>oracle/apex</code> <a href="https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679">26.2 branch</a> moved from the pinned commit to <code>244dd3691fa5c2897a069fc912b149b9c2853679</code>. It adds three UPL-1.0 sample applications (85 new <code>.apx</code> files) and changes six UX Pattern Catalog files. Page counts include global and login pages:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Application</th>
+<th align="right">Pages</th>
+<th>Topics</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/faceted-search-pattern/apexlang/oracle-apex-faceted-search-patterns">Faceted Search Patterns</a></td>
+<td align="right">13</td>
+<td>Faceted search with content row, cards, search-only report, map, calendar, timeline, dashboard and grouped rows</td>
+</tr>
+<tr>
+<td><a href="https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/forms-patterns/apexlang/sample-forms">Forms Patterns</a></td>
+<td align="right">12</td>
+<td>Expense report forms, receipts, categories and an editable grid</td>
+</tr>
+<tr>
+<td><a href="https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/sample-directory-search/apexlang/sample-directory-search">Sample Directory Search</a></td>
+<td align="right">8</td>
+<td>Employee directory, hero search, content row and Oracle Text search</td>
+</tr>
+</tbody></table>
+</div>
+<p>The <code>main</code> branch now publishes release downloads instead of <code>.apx</code> trees, and <code>oracle/skills</code> is unchanged at <code>014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1</code>. The 1,350-page public reference library stays pinned to the earlier commit; the new applications are not imported as reference pages. Twenty-six compiler-checked recipes are adapted from this commit (Sample Charts, Sample Maps, Sample Dynamic Actions and the three new applications), and 67 more from the <code>oracle/skills</code> 26.1 generation templates. Each recipe records its single upstream path and SHA-256.</p>
 <h2 id="official-oracle-skills-examples">Official Oracle skills examples</h2>
 <p>Repository: <a href="https://github.com/oracle/skills/tree/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/apex/apexlang">oracle/skills, pinned source</a>, <a href="https://github.com/oracle/skills/blob/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/LICENSE.txt">UPL-1.0 license</a>. Current source is organized under <code>apex/apexlang/26.1</code> and <code>apex/apexlang/26.2</code>. Search-engine results referring to the former unversioned <code>apex/apexlang/templates</code> path can be stale.</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>

@@ -1,0 +1,152 @@
+page 1 (
+    name: Map Multiple Layers with Legend
+    alias: HOME
+    title: Map Multiple Layers with Legend
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region logistics-map (
+        name: Logistics Network
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 520
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 8
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+        legend {
+            show: true
+            position: end
+            title: Layers
+        }
+
+        layer regions (
+            name: Service Regions
+            layerType: polygons
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'West Region' REGION_NAME,
+                           '{"type":"Polygon","coordinates":[[[-5,40],[5,40],[5,50],[-5,50],[-5,40]]]}' GEOJSON
+                      from dual union all
+                    select 2, 'East Region',
+                           '{"type":"Polygon","coordinates":[[[5,44],[17,44],[17,54],[5,54],[5,44]]]}'
+                      from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            appearance {
+                fillColor: #808080
+                fillOpacity: .3
+                strokeColor: #101010
+            }
+            tooltip {
+                column: REGION_NAME
+            }
+            legend {
+                show: true
+            }
+        )
+
+        layer routes (
+            name: Trunk Routes
+            layerType: lines
+            layout {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Paris - Berlin' ROUTE_NAME,
+                           '{"type":"LineString","coordinates":[[2.35,48.86],[13.40,52.52]]}' GEOJSON
+                      from dual union all
+                    select 2, 'Berlin - Rome',
+                           '{"type":"LineString","coordinates":[[13.40,52.52],[12.50,41.90]]}'
+                      from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            appearance {
+                strokeColor: #C66A00
+                strokeWidth: 3
+            }
+            tooltip {
+                column: ROUTE_NAME
+            }
+            legend {
+                show: true
+            }
+        )
+
+        layer hubs (
+            name: Hubs
+            layerType: points
+            layout {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Paris Hub' HUB_NAME, 2.35 LONGITUDE, 48.86 LATITUDE from dual union all
+                    select 2, 'Berlin Hub', 13.40, 52.52 from dual union all
+                    select 3, 'Rome Hub', 12.50, 41.90 from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: longitudeLatitude
+                longitudeColumn: LONGITUDE
+                latitudeColumn: LATITUDE
+                primaryKeyColumn: ID
+            }
+            appearance {
+                fillColor: #056AC8
+                strokeColor: #ffffff
+            }
+            tooltip {
+                column: HUB_NAME
+            }
+            legend {
+                show: true
+            }
+        )
+    )
+)

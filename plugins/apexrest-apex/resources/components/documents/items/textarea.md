@@ -1,6 +1,6 @@
 # Textarea
 
-Aliases: Textarea; багаторядкове поле текст область тексту; Textarea form item
+Aliases: Textarea; багаторядкове поле текст область тексту; Textarea form item; textarea max length; character counter text area; required comment field
 
 Capture plain multi-line text with an explicit length bound.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/textarea/source-exa
 ## Recipes
 
 - component:items/textarea/recipes/basic: ready
+- component:items/textarea/recipes/item-textarea-required-length: ready
 
 ## Parameters and adaptation
 

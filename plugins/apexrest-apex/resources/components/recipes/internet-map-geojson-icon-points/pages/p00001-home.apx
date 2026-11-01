@@ -1,0 +1,82 @@
+page 1 (
+    name: Map Icon Points from GeoJSON
+    alias: HOME
+    title: Map Icon Points from GeoJSON
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region office-map (
+        name: Offices
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 10
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer offices (
+            name: Offices
+            layerType: points
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Headquarters' OFFICE_NAME, 'fa-building' MARKER_ICON,
+                           '{"type":"Point","coordinates":[13.40,52.52]}' GEOJSON
+                      from dual union all
+                    select 2, 'Regional Office', 'fa-building-o',
+                           '{"type":"Point","coordinates":[2.35,48.86]}'
+                      from dual union all
+                    select 3, 'Satellite Office', 'fa-map-marker',
+                           '{"type":"Point","coordinates":[12.50,41.90]}'
+                      from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            pointObjects {
+                style: icon
+                iconSource: iconClassColumn
+                iconColumn: MARKER_ICON
+            }
+            appearance {
+                fillColor: #056AC8
+            }
+            tooltip {
+                column: OFFICE_NAME
+            }
+        )
+    )
+)

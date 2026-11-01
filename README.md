@@ -26,7 +26,7 @@ You ask for a change, such as "add an order status report". The agent then:
 
 ## Features
 
-- **Component library.** 389 pinned Oracle 26.2 definitions, 176 compiler-checked component recipes, UX patterns and 1,350 public Oracle pages, searchable in English or Ukrainian.
+- **Component library.** 389 pinned Oracle 26.2 definitions, 269 compiler-checked component recipes, UX patterns and 1,350 public Oracle pages, searchable in English or Ukrainian.
 - **Decisions API selection.** Optional OpenAI ranking of catalog components before generation. A one-page pilot cut active time by 48%.
 - **Local preview.** Run APEXlang on Node.js and SQLite with the genuine Universal Theme 26.2: reports, grids, forms, items, charts, calendars, maps, dynamic actions and a PL/SQL interpreter.
 - **Real compiler validation.** Structured diagnostics with file, line, column and valid values.

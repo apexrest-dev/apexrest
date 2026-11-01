@@ -1,0 +1,90 @@
+page 1 (
+    name: Conditional Button
+    alias: HOME
+    title: Conditional Button
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>The Approve button renders only when the status is PENDING.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_STATUS (
+        type: selectList
+        label {
+            label: Status
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Pending;PENDING,Approved;APPROVED
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        default {
+            type: static
+            staticValue: PENDING
+        }
+    )
+    button apply-status (
+        buttonName: APPLY_STATUS
+        label: Apply Status
+        layout {
+            sequence: 10
+            region: @form
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+            warnOnUnsavedChanges: doNotCheck
+        }
+    )
+    button approve (
+        buttonName: APPROVE
+        label: Approve
+        layout {
+            sequence: 20
+            region: @form
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+            warnOnUnsavedChanges: doNotCheck
+        }
+        serverSideCondition {
+            type: item=value
+            item: P1_STATUS
+            value: PENDING
+        }
+    )
+)

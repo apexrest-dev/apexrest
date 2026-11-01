@@ -1,6 +1,6 @@
 # Popup LOV
 
-Aliases: Popup LOV; спливний список значень пошук довідник lov; PopupLov form item
+Aliases: Popup LOV; спливний список значень пошук довідник lov; PopupLov form item; popup lov null value; popup lov modal dialog; lov display null
 
 Select a return value while displaying a label from the declared LOV.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/popup-lov/source-ex
 ## Recipes
 
 - component:items/popup-lov/recipes/basic: ready
+- component:items/popup-lov/recipes/item-popup-lov-display-null: ready
 
 ## Parameters and adaptation
 

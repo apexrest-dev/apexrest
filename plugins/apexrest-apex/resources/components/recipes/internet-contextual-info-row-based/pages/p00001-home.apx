@@ -1,0 +1,70 @@
+page 1 (
+    name: Contextual Info Rows
+    alias: HOME
+    title: Contextual Info Rows
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region metrics (
+        name: Order Metrics
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Open orders' METRIC, '42' VALUE from dual union all
+                select 'Shipped today', '17' from dual union all
+                select 'Average lead time', '3.2 days' from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 4
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--noUI
+            ]
+        }
+        componentAppearance {
+            template: @/contextual-info
+            templateOptions: #DEFAULT#
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No metrics available
+        }
+        column METRIC (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Metric
+            }
+            layout {
+                sequence: 10
+            }
+        )
+        column VALUE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Value
+            }
+            layout {
+                sequence: 20
+            }
+        )
+    )
+)

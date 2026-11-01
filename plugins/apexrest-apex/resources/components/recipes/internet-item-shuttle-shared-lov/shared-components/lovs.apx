@@ -1,0 +1,31 @@
+lov example-skills (
+    name: EXAMPLE_SKILLS
+    source {
+        location: staticValues
+    }
+
+    entry sql (
+        sequence: 10
+        display: SQL
+        return: SQL
+    )
+
+    entry plsql (
+        sequence: 20
+        display: PL/SQL
+        return: PLSQL
+    )
+
+    entry javascript (
+        sequence: 30
+        display: JavaScript
+        return: JS
+    )
+
+    entry css (
+        sequence: 40
+        display: CSS
+        return: CSS
+    )
+
+)

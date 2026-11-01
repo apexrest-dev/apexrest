@@ -1,0 +1,82 @@
+page 1 (
+    name: Map Static Bounding Box
+    alias: HOME
+    title: Map Static Bounding Box
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region bounded-map (
+        name: Bounded Map
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: basedOnSpatialResults
+        }
+        boundingBox {
+            type: staticValues
+            minLongitude: -10
+            minLatitude: 35
+            maxLongitude: 30
+            maxLatitude: 60
+            currentBoundsItem: P1_MAP_BOUNDS
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer cities (
+            name: Cities
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Berlin' CITY, 13.40 LONGITUDE, 52.52 LATITUDE from dual union all
+                    select 2, 'Paris', 2.35, 48.86 from dual union all
+                    select 3, 'Rome', 12.50, 41.90 from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: longitudeLatitude
+                longitudeColumn: LONGITUDE
+                latitudeColumn: LATITUDE
+                primaryKeyColumn: ID
+            }
+            tooltip {
+                column: CITY
+            }
+        )
+    )
+
+    pageItem P1_MAP_BOUNDS (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @bounded-map
+            slot: regionBody
+        }
+    )
+)

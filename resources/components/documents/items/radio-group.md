@@ -1,6 +1,6 @@
 # Radio Group
 
-Aliases: Radio Group; група перемикачів один вибір; RadioGroup form item
+Aliases: Radio Group; група перемикачів один вибір; RadioGroup form item; radio group columns; horizontal radio buttons; radio group number of columns
 
 Select one value from a small declared list.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/radio-group/source-
 ## Recipes
 
 - component:items/radio-group/recipes/basic: ready
+- component:items/radio-group/recipes/item-radio-group-columns: ready
 
 ## Parameters and adaptation
 

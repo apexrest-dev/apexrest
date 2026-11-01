@@ -1,6 +1,6 @@
 # static content
 
-Aliases: static content; статичний вміст текст html; Static Content
+Aliases: static content; статичний вміст текст html; Static Content; Accordion Static Content; accordion region; collapsible faq; Empty State Static Content; empty state region; no data placeholder; Stacked Regions with Dividers; region dividers; stacked sub regions; Collection Toolbar; collection toolbar; smart filters toolbar
 
 Render trusted static content; escape values when adapting dynamic substitutions.
 
@@ -21,6 +21,10 @@ Source descriptions and exact example links: component:regions/static-content/so
 ## Recipes
 
 - component:regions/static-content/recipes/basic: ready
+- component:regions/static-content/recipes/static-content-accordion: ready
+- component:regions/static-content/recipes/static-content-empty-state: ready
+- component:regions/static-content/recipes/static-content-dividers: ready
+- component:regions/static-content/recipes/static-content-collection-toolbar: ready
 
 ## Parameters and adaptation
 

@@ -1,0 +1,125 @@
+page 1 (
+    name: Add and remove a region CSS class
+    alias: HOME
+    title: Add and remove a region CSS class
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Highlight adds CSS classes to the Status panel region; Clear removes them. No page submit occurs.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    button highlight (
+        buttonName: HIGHLIGHT
+        label: Highlight
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    button clear (
+        buttonName: CLEAR
+        label: Clear
+        layout {
+            sequence: 20
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    region panel (
+        name: Status panel
+        type: staticContent
+        source {
+            htmlCode: <p>This region receives the highlight classes.</p>
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction highlight-panel (
+        name: Highlight panel
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @highlight
+        }
+        action add-class (
+            action: addClass
+            settings {
+                class: is-highlighted u-color-29-bg
+            }
+            affectedElements {
+                selectionType: region
+                region: @panel
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+    dynamicAction clear-panel (
+        name: Clear panel highlight
+        execution {
+            sequence: 20
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @clear
+        }
+        action remove-class (
+            action: removeClass
+            settings {
+                class: is-highlighted u-color-29-bg
+            }
+            affectedElements {
+                selectionType: region
+                region: @panel
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)

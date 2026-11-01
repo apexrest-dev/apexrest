@@ -1,0 +1,70 @@
+page 1 (
+    name: Map Browser Location
+    alias: HOME
+    title: Map Browser Location
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region nearby-map (
+        name: Nearby Locations
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                getBrowserLocation
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            getPositionFromBrowser: true
+            longitude: 10
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer cities (
+            name: Cities
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Berlin' CITY, 13.40 LONGITUDE, 52.52 LATITUDE from dual union all
+                    select 2, 'Paris', 2.35, 48.86 from dual union all
+                    select 3, 'Rome', 12.50, 41.90 from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: longitudeLatitude
+                longitudeColumn: LONGITUDE
+                latitudeColumn: LATITUDE
+                primaryKeyColumn: ID
+            }
+            tooltip {
+                column: CITY
+            }
+        )
+    )
+)

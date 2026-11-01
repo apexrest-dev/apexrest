@@ -1,0 +1,159 @@
+page 1 (
+    name: Interactive Report Options
+    alias: HOME
+    title: Interactive Report Options
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    pageItem P1_ORDER_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            slot: body
+        }
+    )
+    region orders (
+        name: Orders
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select level ORDER_ID,
+                       'Customer ' || level CUSTOMER,
+                       case mod(level, 3) when 0 then 'Closed' when 1 then 'Open' else 'Pending' end STATUS,
+                       level * 125.5 ORDER_TOTAL,
+                       trunc(sysdate) - level ORDER_DATE
+                  from dual
+               connect by level <= 25
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: orders_ir
+        }
+        link {
+            linkColumn: customTarget
+            target: {
+                page: 1
+                items: {
+                    P1_ORDER_ID: #ORDER_ID#
+                }
+                clearCache: 1
+            }
+        }
+        componentAppearance {
+            showNullValuesAs: -
+        }
+        pagination {
+            type: rowRangesXToYOfZ
+        }
+        performance {
+            maxRowsToProcess: 10000
+        }
+        messages {
+            whenNoDataFound: No orders found
+            whenMoreDataFound: More than 10,000 orders found. Refine the filter.
+        }
+        actionsMenu {
+            savePublicReport: false
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+        }
+        detailView {
+            show: false
+        }
+        column ORDER_ID (
+            type: plainText
+            heading {
+                heading: Order
+                alignment: end
+            }
+            layout {
+                sequence: 10
+                columnAlignment: end
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+        column CUSTOMER (
+            type: plainText
+            heading {
+                heading: Customer
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                dataType: STRING
+            }
+        )
+        column STATUS (
+            type: plainText
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 30
+            }
+            source {
+                dataType: STRING
+            }
+        )
+        column ORDER_TOTAL (
+            type: plainText
+            heading {
+                heading: Total
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G999G990D00
+            }
+            source {
+                dataType: NUMBER
+            }
+        )
+        column ORDER_DATE (
+            type: plainText
+            heading {
+                heading: Order Date
+            }
+            layout {
+                sequence: 50
+            }
+            appearance {
+                formatMask: DD-MON-YYYY
+            }
+            source {
+                dataType: DATE
+            }
+        )
+        savedReport primary (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 10
+            }
+        )
+    )
+)

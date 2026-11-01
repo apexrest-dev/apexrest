@@ -1,6 +1,6 @@
 # Date Picker
 
-Aliases: Date Picker; вибір дати календар поле дати; DatePicker form item
+Aliases: Date Picker; вибір дати календар поле дати; DatePicker form item; date picker min max; date picker format mask; date range limit
 
 Capture dates with a declared format and validation rules.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/date-picker/source-
 ## Recipes
 
 - component:items/date-picker/recipes/basic: ready
+- component:items/date-picker/recipes/item-date-picker-range: ready
 
 ## Parameters and adaptation
 

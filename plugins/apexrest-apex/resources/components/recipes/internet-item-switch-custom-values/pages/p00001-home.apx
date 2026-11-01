@@ -1,0 +1,53 @@
+page 1 (
+    name: Switch with Custom Values
+    alias: HOME
+    title: Switch with Custom Values
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A switch with explicit on and off values and labels.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_ACTIVE (
+        type: switch
+        label {
+            label: Account Status
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            useDefaults: false
+            onValue: ACTIVE
+            onLabel: Active
+            offValue: INACTIVE
+            offLabel: Inactive
+        }
+        default {
+            type: static
+            staticValue: ACTIVE
+        }
+    )
+)

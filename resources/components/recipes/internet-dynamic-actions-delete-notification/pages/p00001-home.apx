@@ -1,0 +1,129 @@
+page 1 (
+    name: Confirm, server call and success notification
+    alias: HOME
+    title: Confirm, server call and success notification
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Delete asks for confirmation, runs server-side code that only builds a result message from session state (no DML), and then shows a success notification.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_ROW_ID (
+        type: selectList
+        label {
+            label: Row
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Alpha sample;1,Beta sample;2,Gamma sample;3
+            displayNullValue: false
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_RESULT (
+        type: displayOnly
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    dynamicAction delete-row (
+        name: Delete row with notification
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @delete
+        }
+        action confirm-delete (
+            action: confirm
+            settings {
+                title: Delete row
+                message: Delete the selected sample row?
+                style: danger
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action run-delete (
+            action: executeServerSideCode
+            settings {
+                itemsToSubmit: P1_ROW_ID
+                itemsToReturn: P1_RESULT
+                plsqlCode:
+                    ```plsql
+                    begin
+                        -- Synthetic example: no table is changed.
+                        :P1_RESULT := 'Row ' || :P1_ROW_ID || ' processed at ' || to_char(sysdate, 'HH24:MI:SS');
+                    end;
+                    ```
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+        action notify (
+            action: showSuccessMessage
+            settings {
+                message: The sample row request completed.
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+    )
+)

@@ -218,14 +218,15 @@ test('changed-only compilation rejects stale, malformed or warning-bearing cache
   }
 });
 
-test('catalog covers distinct native hosts and all 27 source-app item types without demonstration dependencies', async () => {
+test('catalog covers distinct native hosts, all 27 source-app item types and three official-source item types without demonstration dependencies', async () => {
   const { registry } = await load();
   const ready = registry.recipes.filter((recipe: any) => recipe.readiness === 'ready');
-  assert.equal(
-    new Set(ready.filter((recipe: any) => recipe.family === 'items').map((recipe: any) => recipe.componentId))
-      .size,
-    27,
+  const items = new Set(
+    ready.filter((recipe: any) => recipe.family === 'items').map((recipe: any) => recipe.componentId),
   );
+  assert.equal(items.size, 30);
+  for (const item of ['rich-text-editor', 'geocoded-address', 'display-image'])
+    assert.ok(items.has(`component:items/${item}`), item);
   for (const component of [
     'regions/standard',
     'reports/interactive-report',

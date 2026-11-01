@@ -1,0 +1,79 @@
+page 1 (
+    name: Monthly Project Calendar
+    alias: HOME
+    title: Monthly Project Calendar
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region tasks (
+        name: Project Tasks
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID, PROJECT, TASK_NAME, STATUS, START_DATE, END_DATE,
+                       case STATUS
+                          when 'Pending' then 'apex-cal-blue'
+                          when 'Open'    then 'apex-cal-green'
+                          when 'Closed'  then 'apex-cal-gray'
+                          when 'On-Hold' then 'apex-cal-orange'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Website' PROJECT, 'Gather requirements' TASK_NAME, 'Closed' STATUS, trunc(sysdate, 'MM') + 1 START_DATE, trunc(sysdate, 'MM') + 3 END_DATE from dual union all
+                    select 2, 'Website', 'Design mockups', 'Open', trunc(sysdate, 'MM') + 4, trunc(sysdate, 'MM') + 8 from dual union all
+                    select 3, 'Mobile App', 'Plan sprint', 'Pending', trunc(sysdate, 'MM') + 9, trunc(sysdate, 'MM') + 9 from dual union all
+                    select 4, 'Mobile App', 'Security review', 'On-Hold', trunc(sysdate, 'MM') + 12, trunc(sysdate, 'MM') + 14 from dual union all
+                    select 5, 'Data Migration', 'Load test data', 'Open', trunc(sysdate, 'MM') + 18, trunc(sysdate, 'MM') + 20 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: project_tasks
+        }
+        settings {
+            displayColumn: TASK_NAME
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: false
+            additionalCalendarViews: [
+                list
+                navigation
+            ]
+            supplementalInfo: &PROJECT. (&STATUS.)
+            maxEventsDay: 3
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.endDateExclusive = false;
+                    return pOptions;
+                }
+                ```
+        }
+    )
+)

@@ -1,0 +1,66 @@
+page 1 (
+    name: Suggestions List
+    alias: HOME
+    title: Suggestions List
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region suggestions (
+        name: Suggested Searches
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Open orders this week' SUGGESTION from dual union all
+                select 'Customers without orders' from dual union all
+                select 'Top products by revenue' from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+            columnSpan: 4
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--horizontalBorders
+            ]
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        messages {
+            whenNoDataFound: No suggestions
+        }
+        column SUGGESTION (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            type: link
+            heading {
+                heading: Suggestion
+            }
+            layout {
+                sequence: 10
+            }
+            link {
+                target: {
+                    page: 1
+                }
+                linkText: #SUGGESTION#
+            }
+        )
+    )
+)

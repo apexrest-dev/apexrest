@@ -1,0 +1,53 @@
+page 1 (
+    name: Number Field with Format Mask
+    alias: HOME
+    title: Number Field with Format Mask
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A required currency amount with a format mask and range.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_AMOUNT (
+        type: numberField
+        label {
+            label: Amount
+            alignment: left
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+            alignment: left
+        }
+        appearance {
+            template: @/required
+            templateOptions: #DEFAULT#
+            formatMask: FML999G999G990D00
+        }
+        settings {
+            minValue: 0
+            maxValue: 1000000
+            numberAlignment: end
+        }
+        validation {
+            valueRequired: true
+        }
+    )
+)

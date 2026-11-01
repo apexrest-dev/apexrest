@@ -1,0 +1,92 @@
+page 1 (
+    name: Map Polygons with Color Scheme
+    alias: HOME
+    title: Map Polygons with Color Scheme
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region sales-territories (
+        name: Sales Territories
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 10
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer territories (
+            name: Territories
+            layerType: polygons
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'West' TERRITORY, 120 REVENUE,
+                           '{"type":"Polygon","coordinates":[[[-5,40],[3,40],[3,48],[-5,48],[-5,40]]]}' GEOJSON
+                      from dual union all
+                    select 2, 'Central', 340,
+                           '{"type":"Polygon","coordinates":[[[3,45],[12,45],[12,54],[3,54],[3,45]]]}'
+                      from dual union all
+                    select 3, 'South', 210,
+                           '{"type":"Polygon","coordinates":[[[7,37],[18,37],[18,45],[7,45],[7,37]]]}'
+                      from dual union all
+                    select 4, 'East', 90,
+                           '{"type":"Polygon","coordinates":[[[12,46],[24,46],[24,54],[12,54],[12,46]]]}'
+                      from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            appearance {
+                useColorScheme: true
+                colorScheme: sequential
+                schemeName: blueToYellow
+                colorValueColumn: REVENUE
+                fillOpacity: .6
+                strokeColor: #ffffff
+            }
+            tooltip {
+                column: TERRITORY
+            }
+            infoWindow {
+                advancedFormatting: true
+                htmlExpression:
+                    ```html
+                    <strong>&TERRITORY.</strong><br>Revenue: &REVENUE.k
+                    ```
+            }
+        )
+    )
+)

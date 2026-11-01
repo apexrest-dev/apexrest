@@ -1,0 +1,86 @@
+page 1 (
+    name: Show error or success message on change
+    alias: HOME
+    title: Show error or success message on change
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Enter a quantity. Values outside 1 to 100 show a page-level error message; valid values clear errors and show a success message.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_QUANTITY (
+        type: numberField
+        label {
+            label: Quantity (1-100)
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    dynamicAction check-quantity (
+        name: Check quantity
+        execution {
+            sequence: 10
+        }
+        when {
+            event: change
+            selectionType: items
+            items: P1_QUANTITY
+        }
+        clientSideCondition {
+            type: jsExpression
+            javaScriptExpression: !(Number(apex.items.P1_QUANTITY.value) >= 1 && Number(apex.items.P1_QUANTITY.value) <= 100)
+        }
+        action show-error (
+            action: showErrorMessage
+            settings {
+                message: Quantity must be a number from 1 to 100.
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action clear-errors (
+            action: clearErrors
+            execution {
+                sequence: 20
+                fireWhenEventResultIs: false
+                fireOnInit: false
+            }
+        )
+        action show-success (
+            action: showSuccessMessage
+            settings {
+                message: Quantity accepted.
+            }
+            execution {
+                sequence: 30
+                fireWhenEventResultIs: false
+                fireOnInit: false
+            }
+        )
+    )
+)

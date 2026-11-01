@@ -1,0 +1,88 @@
+page 1 (
+    name: Calendar Custom Styling
+    alias: HOME
+    title: Calendar Custom Styling
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    css {
+        inline:
+            ```css
+            .fc-event.cal-priority-high { background-color: #b42318; border-color: #b42318; color: #ffffff; }
+            .fc-event.cal-priority-medium { background-color: #c66a00; border-color: #c66a00; color: #ffffff; }
+            .fc-event.cal-priority-low { background-color: #117733; border-color: #117733; color: #ffffff; }
+            ```
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region styled-sessions (
+        name: Styled Sessions
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       '<span class="fa ' || ICON || '" aria-hidden="true"></span>&nbsp;' || apex_escape.html(TITLE) TITLE,
+                       apex_escape.html(SPEAKER) SPEAKER,
+                       START_DATE, END_DATE,
+                       case PRIORITY
+                          when 'HIGH'   then 'cal-priority-high'
+                          when 'MEDIUM' then 'cal-priority-medium'
+                          else 'cal-priority-low'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Release Planning' TITLE, 'A. Rivera' SPEAKER, 'HIGH' PRIORITY, 'fa-flag' ICON, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10.5/24 END_DATE from dual union all
+                    select 2, 'Design Sync', 'J. Chen', 'MEDIUM', 'fa-users', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 3, 'Lunch and Learn', 'M. Novak', 'LOW', 'fa-coffee', trunc(sysdate, 'IW') + 2 + 12/24, trunc(sysdate, 'IW') + 2 + 13/24 from dual union all
+                    select 4, 'Incident Review', 'A. Rivera', 'HIGH', 'fa-warning', trunc(sysdate, 'IW') + 3 + 14/24, trunc(sysdate, 'IW') + 3 + 15/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        security {
+            escapeSpecialChars: false
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            supplementalInfo: &SPEAKER.
+            cssClass: CSS_CLASS
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.slotMinTime  = "07:00:00";
+                    pOptions.slotMaxTime  = "18:00:00";
+                    pOptions.slotDuration = "00:15:00";
+                    return pOptions;
+                }
+                ```
+        }
+    )
+)

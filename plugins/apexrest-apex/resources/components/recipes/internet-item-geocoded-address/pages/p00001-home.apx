@@ -1,0 +1,66 @@
+page 1 (
+    name: Geocoded Address
+    alias: HOME
+    title: Geocoded Address
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>Type an unstructured address; the geocoded address item resolves it to coordinates automatically.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_ADDRESS (
+        type: textField
+        label {
+            label: Address
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_LOCATION (
+        type: geocodedAddress
+        label {
+            label: Location
+        }
+        layout {
+            sequence: 20
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+        }
+        settings {
+            structuredAddress: false
+            triggerGeocoding: automatic
+        }
+        geocodingInput {
+            addressItem: P1_ADDRESS
+            countryType: static
+            country: us
+        }
+    )
+)

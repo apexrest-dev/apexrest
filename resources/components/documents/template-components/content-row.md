@@ -1,6 +1,6 @@
 # Content Row
 
-Aliases: Content Row; рядок вмісту шаблонний компонент компактні деталі; Content Row in Interactive Report column; Content Row report with link action
+Aliases: Content Row; рядок вмісту шаблонний компонент компактні деталі; Content Row in Interactive Report column; Content Row report with link action; hero search content row; quick picks search field; debounced live search
 
 Map primary text and supporting details to the UT Content Row template component and its supported actions.
 
@@ -24,6 +24,7 @@ Source descriptions and exact example links: component:template-components/conte
 - component:template-components/content-row/recipes/partial: ready
 - component:template-components/content-row/recipes/partial-column: ready
 - component:template-components/content-row/recipes/link-action: ready
+- component:template-components/content-row/recipes/directory-hero-search-content-row: ready
 
 ## Parameters and adaptation
 

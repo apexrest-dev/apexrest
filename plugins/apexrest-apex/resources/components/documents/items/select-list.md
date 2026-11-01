@@ -1,6 +1,6 @@
 # Select List
 
-Aliases: Select List; випадний список один вибір; SelectList form item
+Aliases: Select List; випадний список один вибір; SelectList form item; select list shared lov; shared list of values select; static shared lov
 
 Select a return value from a declared list of values.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/select-list/source-
 ## Recipes
 
 - component:items/select-list/recipes/basic: ready
+- component:items/select-list/recipes/item-select-list-shared-lov: ready
 
 ## Parameters and adaptation
 

@@ -1,0 +1,80 @@
+page 1 (
+    name: Map Points from Longitude and Latitude
+    alias: HOME
+    title: Map Points from Longitude and Latitude
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region store-map (
+        name: Store Locations
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                rectangleZoom
+                scaleBar
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 10
+            latitude: 50
+            zoomLevel: 3
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer stores (
+            name: Stores
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 1 ID, 'Berlin Store' STORE_NAME, 'DE' COUNTRY_CODE, 13.40 LONGITUDE, 52.52 LATITUDE, '#056AC8' PIN_COLOR from dual union all
+                    select 2, 'Paris Store', 'FR', 2.35, 48.86, '#117733' from dual union all
+                    select 3, 'Madrid Store', 'ES', -3.70, 40.42, '#C66A00' from dual union all
+                    select 4, 'Rome Store', 'IT', 12.50, 41.90, '#6B7280' from dual union all
+                    select 5, 'Warsaw Store', 'PL', 21.01, 52.23, '#056AC8' from dual
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: longitudeLatitude
+                longitudeColumn: LONGITUDE
+                latitudeColumn: LATITUDE
+                primaryKeyColumn: ID
+            }
+            appearance {
+                fillColor: &PIN_COLOR.
+            }
+            tooltip {
+                column: STORE_NAME
+            }
+            infoWindow {
+                advancedFormatting: true
+                htmlExpression:
+                    ```html
+                    <strong>&STORE_NAME.</strong><br>Country: &COUNTRY_CODE.
+                    ```
+            }
+        )
+    )
+)

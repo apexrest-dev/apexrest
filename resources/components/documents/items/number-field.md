@@ -1,6 +1,6 @@
 # Number Field
 
-Aliases: Number Field; числове поле число сума кількість; NumberField form item
+Aliases: Number Field; числове поле число сума кількість; NumberField form item; number field format mask; currency amount item; number min max
 
 Capture a number using declared bounds and formatting.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/number-field/source
 ## Recipes
 
 - component:items/number-field/recipes/basic: ready
+- component:items/number-field/recipes/item-number-field-format-mask: ready
 
 ## Parameters and adaptation
 

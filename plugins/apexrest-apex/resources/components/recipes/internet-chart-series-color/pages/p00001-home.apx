@@ -1,0 +1,75 @@
+page 1 (
+    name: Chart Series Colors from SQL
+    alias: HOME
+    title: Chart Series Colors from SQL
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region fruit-prices (
+        name: List Price by Product
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: pie
+        }
+        chartLayout {
+            height: 360
+        }
+        legend {
+            position: end
+        }
+
+        series products (
+            name: Products
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select product_name,
+                           list_price,
+                           case product_name
+                             when 'Apples'     then 'green'
+                             when 'Bananas'    then 'yellow'
+                             when 'Grapes'     then 'purple'
+                             when 'Cantaloupe' then 'orange'
+                             when 'Dates'      then '#791b19'
+                           end as series_color
+                      from (select 'Apples' as product_name, 1.20 as list_price from dual union all
+                            select 'Bananas', 0.60 from dual union all
+                            select 'Grapes', 2.80 from dual union all
+                            select 'Cantaloupe', 3.50 from dual union all
+                            select 'Dates', 4.10 from dual)
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: LIST_PRICE
+            }
+            appearance {
+                color: &SERIES_COLOR.
+            }
+            label {
+                show: true
+                position: outsideSlice
+            }
+        )
+    )
+)

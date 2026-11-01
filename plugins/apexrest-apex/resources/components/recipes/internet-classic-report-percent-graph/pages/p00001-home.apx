@@ -1,0 +1,83 @@
+page 1 (
+    name: Percent Graph Columns
+    alias: HOME
+    title: Percent Graph Columns
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region progress (
+        name: Project Progress
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Website refresh' PROJECT, 80 PCT_COMPLETE, 35 PCT_BUDGET from dual union all
+                select 'Mobile release', 45, 60 from dual union all
+                select 'Data migration', 10, 15 from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Report--stretch
+                t-Report--horizontalBorders
+            ]
+        }
+        pagination {
+            type: rowRangesXToYNoPagination
+        }
+        column PROJECT (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Project
+            }
+            layout {
+                sequence: 10
+            }
+        )
+        column PCT_COMPLETE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            type: percentGraph
+            heading {
+                heading: Complete
+                alignment: start
+            }
+            layout {
+                sequence: 20
+            }
+        )
+        column PCT_BUDGET (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            type: percentGraph
+            heading {
+                heading: Budget Used
+                alignment: start
+            }
+            layout {
+                sequence: 30
+            }
+            appearance {
+                backgroundColor: #E5E5E5
+                foregroundColor: #309FDB
+            }
+        )
+    )
+)

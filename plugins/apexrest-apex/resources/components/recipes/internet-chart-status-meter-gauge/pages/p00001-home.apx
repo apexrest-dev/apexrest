@@ -1,0 +1,74 @@
+page 1 (
+    name: Status Meter Gauge
+    alias: HOME
+    title: Status Meter Gauge
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region ticket-resolution (
+        name: Tickets Resolved This Week
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: statusMeterGauge
+        }
+        chartLayout {
+            maxWidth: 300
+            height: 300
+        }
+        gauge {
+            orientation: circular
+            indicatorSize: 0.5
+            innerRadius: 0.7
+            startAngle: 180
+            angleExtent: 180
+        }
+        value {
+            format: decimal
+            decimalPlaces: 0
+            formatScaling: none
+        }
+
+        series resolved (
+            name: Resolved
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Resolved' as label, 14 as value, 20 as max_value from dual
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+                maxValue: MAX_VALUE
+            }
+            thresholds {
+                values: 8,14,20
+                colors: #D63B25,#F5C342,#2E8540
+                display: all
+            }
+            label {
+                show: true
+            }
+        )
+    )
+)

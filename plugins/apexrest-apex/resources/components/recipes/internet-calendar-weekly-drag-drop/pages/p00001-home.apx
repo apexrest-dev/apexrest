@@ -1,0 +1,78 @@
+page 1 (
+    name: Weekly Calendar Drag and Drop
+    alias: HOME
+    title: Weekly Calendar Drag and Drop
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region sessions (
+        name: Sessions
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID, TITLE, START_DATE, END_DATE,
+                       case SESSION_TYPE
+                          when 'BREAK'     then 'apex-cal-silver'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          when 'GENERAL'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Opening Keynote' TITLE, 'GENERAL' SESSION_TYPE, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'Coffee Break', 'BREAK', trunc(sysdate, 'IW') + 10/24, trunc(sysdate, 'IW') + 10.5/24 from dual union all
+                    select 3, 'Roadmap Review', 'BUSINESS', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 4, 'SQL Deep Dive', 'TECHNICAL', trunc(sysdate, 'IW') + 2 + 13/24, trunc(sysdate, 'IW') + 2 + 15/24 from dual union all
+                    select 5, 'Closing Session', 'GENERAL', trunc(sysdate, 'IW') + 4 + 16/24, trunc(sysdate, 'IW') + 4 + 17/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            dragAndDrop: true
+            dragAndDropPlsqlCode:
+                ```plsql
+                begin
+                    apex_debug.message(
+                        'Calendar event %s moved to %s - %s',
+                        :APEX$PK_VALUE,
+                        :APEX$NEW_START_DATE,
+                        :APEX$NEW_END_DATE );
+                end;
+                ```
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+)

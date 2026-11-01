@@ -1,0 +1,102 @@
+page 1 (
+    name: Stacked Horizontal Bar Chart
+    alias: HOME
+    title: Stacked Horizontal Bar Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region budget-by-project (
+        name: Task Budget by Project
+        type: chart
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Website Redesign' as label, 42000 as value, 'Under budget' as series from dual union all
+                select 'Website Redesign', 8000, 'Over budget' from dual union all
+                select 'CRM Migration', 30000, 'Under budget' from dual union all
+                select 'CRM Migration', 21000, 'Over budget' from dual union all
+                select 'Data Warehouse', 55000, 'Under budget' from dual union all
+                select 'Data Warehouse', 4000, 'Over budget' from dual union all
+                select 'Mobile App', 18000, 'Under budget' from dual union all
+                select 'Mobile App', 12500, 'Over budget' from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: bar
+        }
+        chartAppearance {
+            orientation: horizontal
+            stack: true
+        }
+        chartLayout {
+            height: 400
+        }
+        dataCursor {
+            dimOnHover: false
+        }
+        animation {
+            onDataChange: none
+        }
+        legend {
+            position: top
+            hideAndShowBehavior: none
+        }
+
+        series budget-status (
+            name: Budget Status
+            execution {
+                sequence: 10
+            }
+            source {
+                location: regionSource
+            }
+            columnMapping {
+                seriesName: SERIES
+                label: LABEL
+                value: VALUE
+                labelTooltip: LABEL
+            }
+            label {
+                show: true
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Budget (USD)
+            value {
+                format: currency
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+    )
+)

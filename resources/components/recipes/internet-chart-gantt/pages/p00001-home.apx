@@ -1,0 +1,120 @@
+page 1 (
+    name: Gantt Chart
+    alias: HOME
+    title: Gantt Chart
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region project-schedule (
+        name: Project Schedule
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                js-showMaximizeButton
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: gantt
+        }
+        chartLayout {
+            height: 400
+        }
+        settings {
+            showHorizontalGrid: true
+            showVerticalGrid: true
+        }
+        animation {
+            onDataChange: none
+        }
+        tooltip {
+            showRow: false
+            showBaseline: false
+        }
+        messages {
+            whenNoDataFound: No tasks are scheduled.
+        }
+
+        series tasks (
+            name: Tasks
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select t.task_id,
+                           t.task_name,
+                           t.task_start_date,
+                           t.task_end_date,
+                           t.progress,
+                           t.task_start_date - 2 as baseline_start,
+                           t.task_end_date + 3   as baseline_end,
+                           trunc(sysdate) - 45   as gantt_start,
+                           trunc(sysdate) + 60   as gantt_end
+                      from (select 1 as task_id, 'Requirements workshop' as task_name, trunc(sysdate) - 40 as task_start_date, trunc(sysdate) - 30 as task_end_date, 1 as progress from dual union all
+                            select 2, 'Data model design',   trunc(sysdate) - 28, trunc(sysdate) - 14, 1    from dual union all
+                            select 3, 'Page development',    trunc(sysdate) - 12, trunc(sysdate) + 10, 0.6  from dual union all
+                            select 4, 'User acceptance test', trunc(sysdate) + 12, trunc(sysdate) + 25, 0.1 from dual union all
+                            select 5, 'Production cutover',  trunc(sysdate) + 28, trunc(sysdate) + 32, 0    from dual) t
+                     order by t.task_start_date
+                    ```
+            }
+            timeline {
+                startDateSourceType: databaseColumn
+                startDateColumn: GANTT_START
+                endDateSourceType: databaseColumn
+                endDateColumn: GANTT_END
+            }
+            columnMapping {
+                rowId: TASK_ID
+                rowName: TASK_NAME
+                taskId: TASK_ID
+                taskName: TASK_NAME
+                taskStartDate: TASK_START_DATE
+                taskEndDate: TASK_END_DATE
+                progress: PROGRESS
+                baselineStartDate: BASELINE_START
+                baselineEndDate: BASELINE_END
+            }
+            appearance {
+                taskCssClasses: u-color-22
+                progressCssClasses: u-color-11
+                baselineCssClasses: u-color-43
+            }
+            label {
+                show: true
+                taskLabelPosition: innerStart
+            }
+        )
+
+        axis major (
+            name: major
+            timeScale {
+                scale: months
+            }
+        )
+
+        axis minor (
+            name: minor
+            timeScale {
+                scale: weeks
+            }
+            value {
+                format: dateMedium
+            }
+        )
+    )
+)

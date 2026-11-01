@@ -1,0 +1,260 @@
+page 1 (
+    name: Weekly Calendar Time Format Toggle
+    alias: HOME
+    title: Weekly Calendar Time Format Toggle
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        layout {
+            sequence: 5
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    region sessions-default (
+        name: Sessions (default)
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       case when SPEAKER is not null then TITLE || ' (' || SPEAKER || ')' else TITLE end TITLE,
+                       SPEAKER, START_DATE, END_DATE,
+                       case SESSION_TYPE
+                          when 'BREAK'     then 'apex-cal-silver'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          when 'GENERAL'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Opening Keynote' TITLE, 'A. Rivera' SPEAKER, 'GENERAL' SESSION_TYPE, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'Coffee Break', null, 'BREAK', trunc(sysdate, 'IW') + 10/24, trunc(sysdate, 'IW') + 10.5/24 from dual union all
+                    select 3, 'Roadmap Review', 'J. Chen', 'BUSINESS', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 4, 'SQL Deep Dive', 'M. Novak', 'TECHNICAL', trunc(sysdate, 'IW') + 2 + 13/24, trunc(sysdate, 'IW') + 2 + 15/24 from dual union all
+                    select 5, 'Closing Session', 'A. Rivera', 'GENERAL', trunc(sysdate, 'IW') + 4 + 16/24, trunc(sysdate, 'IW') + 4 + 17/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        serverSideCondition {
+            type: item=value
+            item: P1_TIME_FORMAT
+            value: default
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            cssClass: CSS_CLASS
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.displayEventTime = true;
+                    return pOptions;
+                }
+                ```
+        }
+    )
+    region sessions-12h (
+        name: Sessions (12h)
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       case when SPEAKER is not null then TITLE || ' (' || SPEAKER || ')' else TITLE end TITLE,
+                       SPEAKER, START_DATE, END_DATE,
+                       case SESSION_TYPE
+                          when 'BREAK'     then 'apex-cal-silver'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          when 'GENERAL'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Opening Keynote' TITLE, 'A. Rivera' SPEAKER, 'GENERAL' SESSION_TYPE, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'Coffee Break', null, 'BREAK', trunc(sysdate, 'IW') + 10/24, trunc(sysdate, 'IW') + 10.5/24 from dual union all
+                    select 3, 'Roadmap Review', 'J. Chen', 'BUSINESS', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 4, 'SQL Deep Dive', 'M. Novak', 'TECHNICAL', trunc(sysdate, 'IW') + 2 + 13/24, trunc(sysdate, 'IW') + 2 + 15/24 from dual union all
+                    select 5, 'Closing Session', 'A. Rivera', 'GENERAL', trunc(sysdate, 'IW') + 4 + 16/24, trunc(sysdate, 'IW') + 4 + 17/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        serverSideCondition {
+            type: item=value
+            item: P1_TIME_FORMAT
+            value: 12
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            timeFormat: 12Hour
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            cssClass: CSS_CLASS
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.displayEventTime = true;
+                    return pOptions;
+                }
+                ```
+        }
+    )
+    region sessions-24h (
+        name: Sessions (24h)
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       case when SPEAKER is not null then TITLE || ' (' || SPEAKER || ')' else TITLE end TITLE,
+                       SPEAKER, START_DATE, END_DATE,
+                       case SESSION_TYPE
+                          when 'BREAK'     then 'apex-cal-silver'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          when 'GENERAL'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Opening Keynote' TITLE, 'A. Rivera' SPEAKER, 'GENERAL' SESSION_TYPE, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'Coffee Break', null, 'BREAK', trunc(sysdate, 'IW') + 10/24, trunc(sysdate, 'IW') + 10.5/24 from dual union all
+                    select 3, 'Roadmap Review', 'J. Chen', 'BUSINESS', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 4, 'SQL Deep Dive', 'M. Novak', 'TECHNICAL', trunc(sysdate, 'IW') + 2 + 13/24, trunc(sysdate, 'IW') + 2 + 15/24 from dual union all
+                    select 5, 'Closing Session', 'A. Rivera', 'GENERAL', trunc(sysdate, 'IW') + 4 + 16/24, trunc(sysdate, 'IW') + 4 + 17/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        serverSideCondition {
+            type: item=value
+            item: P1_TIME_FORMAT
+            value: 24
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            timeFormat: 24Hour
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            cssClass: CSS_CLASS
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.displayEventTime = true;
+                    return pOptions;
+                }
+                ```
+        }
+    )
+    pageItem P1_TIME_FORMAT (
+        type: selectList
+        label {
+            label: Time Format
+            alignment: left
+        }
+        settings {
+            pageActionOnSelection: redirectSetValue
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC2:Default (based on NLS);default,12 hour;12,24 hour;24
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        appearance {
+            template: @/optional-above
+            templateOptions: #DEFAULT#
+            height: 1
+        }
+        default {
+            type: static
+            staticValue: default
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+    )
+)

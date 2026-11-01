@@ -1,0 +1,69 @@
+page 1 (
+    name: Help Text Region
+    alias: HOME
+    title: Help Text Region
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    help {
+        helpText:
+            ```html
+            <p>This page summarizes synthetic order activity.</p>
+            <p>Use the <strong>Status</strong> item to narrow the list. Values are illustrative only.</p>
+            ```
+    }
+    region overview (
+        name: Order Activity
+        type: staticContent
+        source {
+            htmlCode: <p>Synthetic content. Open the help region below for page-level guidance.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_STATUS (
+        type: textField
+        label {
+            label: Status
+        }
+        layout {
+            sequence: 10
+            region: @overview
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        help {
+            inlineHelpText: Enter Open or Closed.
+            helpText: Status filters the synthetic activity list. Leave it empty to show every row.
+        }
+    )
+    region page-help (
+        name: Page Help
+        type: helpText
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        headerAndFooter {
+            headerText: <p>About this page</p>
+            footerText: <p>Contact your administrator for more help.</p>
+        }
+    )
+)

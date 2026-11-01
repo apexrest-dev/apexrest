@@ -1,0 +1,938 @@
+# Sectioned Form with Region Display Selector
+
+Form whose items are spread across content-block sections navigated by a Region Display Selector, with create/save/delete buttons and a date validation; synthetic data.
+
+Status: ready.
+
+Component: component:regions/form.
+
+## Source attribution
+
+Original adaptation of the pinned public source below. This source is separate from the captured Universal Theme reference application. The source hash identifies the reviewed upstream file; compiler evidence binds the authored recipe files.
+
+```json
+{
+  "sourceUrl": "https://github.com/oracle/apex/blob/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/forms-patterns/apexlang/sample-forms/pages/p00002-expense-report.apx",
+  "repository": "https://github.com/oracle/apex",
+  "commit": "244dd3691fa5c2897a069fc912b149b9c2853679",
+  "path": "sample-apps/forms-patterns/apexlang/sample-forms/pages/p00002-expense-report.apx",
+  "sourceSha256": "a979e3241f80860d5edc082fa846735db753e4dcd82abfed4bf61f48b9f8937c",
+  "license": "UPL-1.0",
+  "derivation": "original-adaptation"
+}
+```
+
+## Data contract
+
+```json
+{
+  "source": "synthetic-dual",
+  "tables": [],
+  "bindings": [],
+  "submittedItems": []
+}
+```
+
+## Adaptation
+
+- Choose a free page number and rename all P1_ items consistently.
+- The form reads a single DUAL row; Form Automatic Row Processing was replaced by an apex_debug preview process that stores nothing.
+- Preserve the target application authentication and authorization.
+- To save, use an authorized project table as the form source and restore a formAutoRowProcessing process.
+
+Apply the files below as an overlay to component:scaffold for offline validation. In an existing project, adapt and merge the component into its existing page and shared objects. The example is not an import authorization.
+
+## pages/p00001-home.apx
+
+```apexlang
+page 1 (
+    name: Expense Report
+    alias: HOME
+    title: Expense Report
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region approval (
+        name: Justification and Reimbursement
+        type: staticContent
+        layout {
+            sequence: 42
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+    region buttons (
+        name: Expense Report
+        type: staticContent
+        layout {
+            sequence: 22
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/title-bar
+            templateOptions: [
+                #DEFAULT#
+                t-BreadcrumbRegion--useRegionTitle
+            ]
+        }
+    )
+    region coding (
+        name: Accounting and Approval Contact
+        type: staticContent
+        layout {
+            sequence: 32
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+    region form (
+        name: Report and Employee
+        type: form
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1001 REPORT_ID,
+                       'Berlin client visit' REPORT_TITLE,
+                       'SUBMITTED' STATUS,
+                       date '2026-10-05' REPORT_DATE,
+                       'EUR' CURRENCY_CODE,
+                       'Ava Moreno' EMPLOYEE_NAME,
+                       'ava.moreno@example.com' EMPLOYEE_EMAIL,
+                       '+34 600 101 101' CONTACT_PHONE,
+                       'Berlin, Germany' DESTINATION,
+                       date '2026-10-01' TRAVEL_START,
+                       date '2026-10-03' TRAVEL_END,
+                       'Engineering' DEPARTMENT,
+                       'PRJ-2041' PROJECT_CODE,
+                       'manager@example.com' MANAGER_EMAIL,
+                       'CC-PLATFORM' COST_CENTER,
+                       to_clob('Quarterly roadmap workshop with a key customer.') BUSINESS_JUSTIFICATION,
+                       cast(timestamp '2026-10-05 09:30:00' as timestamp) SUBMITTED_ON,
+                       'BANK_TRANSFER' PAYMENT_METHOD,
+                       150 ADVANCE_AMOUNT,
+                       'Y' POLICY_ACCEPTED_YN
+                  from dual
+                 where :P1_REPORT_ID is null or :P1_REPORT_ID = 1001
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+        edit {
+            enabled: true
+        }
+    )
+    region sections (
+        name: Sections
+        type: regionDisplaySelector
+        layout {
+            sequence: 32
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/blank-with-attributes
+            templateOptions: #DEFAULT#
+        }
+        advanced {
+            htmlDomId: rds
+        }
+    )
+    region trip (
+        name: Trip Details
+        type: staticContent
+        layout {
+            sequence: 12
+            slot: body
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h3
+            ]
+        }
+        advanced {
+            regionDisplaySelector: true
+        }
+    )
+    pageItem P1_REPORT_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        source {
+            formRegion: @form
+            column: REPORT_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+    pageItem P1_REPORT_TITLE (
+        type: textField
+        label {
+            label: Report Title
+            alignment: left
+        }
+        layout {
+            sequence: 30
+            region: @form
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+            maxLength: 200
+        }
+        source {
+            formRegion: @form
+            column: REPORT_TITLE
+            dataType: varchar2
+        }
+        help {
+            helpText: Provide the expense report title.
+        }
+    )
+    pageItem P1_STATUS (
+        type: selectList
+        label {
+            label: Status
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Draft;DRAFT,Submitted;SUBMITTED,Approved;APPROVED,Paid;PAID,Returned;RETURNED
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 40
+            region: @form
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @form
+            column: STATUS
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: DRAFT
+        }
+        help {
+            helpText: Provide the status for this expense report.
+        }
+    )
+    pageItem P1_REPORT_DATE (
+        type: datePicker
+        label {
+            label: Report Date
+            alignment: left
+        }
+        layout {
+            sequence: 50
+            region: @form
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @form
+            column: REPORT_DATE
+            dataType: date
+        }
+        help {
+            helpText: Provide the expense report date.
+        }
+    )
+    pageItem P1_CURRENCY_CODE (
+        type: selectList
+        label {
+            label: Currency
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:USD;USD,EUR;EUR,GBP;GBP,CAD;CAD
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 70
+            region: @form
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            valueRequired: true
+        }
+        source {
+            formRegion: @form
+            column: CURRENCY_CODE
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: USD
+        }
+        help {
+            helpText: Provide the currency for this expense report.
+        }
+    )
+    pageItem P1_EMPLOYEE_NAME (
+        type: textField
+        label {
+            label: Employee Name
+            alignment: left
+        }
+        layout {
+            sequence: 80
+            region: @form
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            icon: fa-user
+        }
+        validation {
+            valueRequired: true
+            maxLength: 100
+        }
+        source {
+            formRegion: @form
+            column: EMPLOYEE_NAME
+            dataType: varchar2
+        }
+    )
+    pageItem P1_EMPLOYEE_EMAIL (
+        type: textField
+        label {
+            label: Employee Email
+            alignment: left
+        }
+        settings {
+            subtype: email
+        }
+        layout {
+            sequence: 90
+            region: @form
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/required-floating
+            templateOptions: #DEFAULT#
+            icon: fa-envelope-o
+        }
+        validation {
+            valueRequired: true
+            maxLength: 254
+        }
+        source {
+            formRegion: @form
+            column: EMPLOYEE_EMAIL
+            dataType: varchar2
+        }
+    )
+    pageItem P1_CONTACT_PHONE (
+        type: textField
+        label {
+            label: Contact Phone
+            alignment: left
+        }
+        settings {
+            subtype: phone
+        }
+        layout {
+            sequence: 110
+            region: @form
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            icon: fa-mobile
+        }
+        validation {
+            maxLength: 40
+        }
+        source {
+            formRegion: @form
+            column: CONTACT_PHONE
+            dataType: varchar2
+        }
+    )
+    pageItem P1_DESTINATION (
+        type: textField
+        label {
+            label: Destination
+            alignment: left
+        }
+        layout {
+            sequence: 150
+            region: @trip
+            slot: regionBody
+            columnSpan: 12
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            icon: fa-map-marker-o
+        }
+        validation {
+            maxLength: 150
+        }
+        source {
+            formRegion: @form
+            column: DESTINATION
+            dataType: varchar2
+        }
+    )
+    pageItem P1_TRAVEL_START (
+        type: datePicker
+        label {
+            label: Travel Start
+            alignment: left
+        }
+        layout {
+            sequence: 160
+            region: @trip
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD
+        }
+        source {
+            formRegion: @form
+            column: TRAVEL_START
+            dataType: date
+        }
+    )
+    pageItem P1_TRAVEL_END (
+        type: datePicker
+        label {
+            label: Travel End
+            alignment: left
+        }
+        layout {
+            sequence: 180
+            region: @trip
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD
+        }
+        source {
+            formRegion: @form
+            column: TRAVEL_END
+            dataType: date
+        }
+        help {
+            helpText: Choose the last travel date. It cannot be before Travel Start.
+        }
+    )
+    pageItem P1_DEPARTMENT (
+        type: textField
+        label {
+            label: Department
+            alignment: left
+        }
+        layout {
+            sequence: 110
+            region: @coding
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 100
+        }
+        source {
+            formRegion: @form
+            column: DEPARTMENT
+            dataType: varchar2
+        }
+    )
+    pageItem P1_PROJECT_CODE (
+        type: textField
+        label {
+            label: Project Code
+            alignment: left
+        }
+        layout {
+            sequence: 120
+            region: @coding
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 40
+        }
+        source {
+            formRegion: @form
+            column: PROJECT_CODE
+            dataType: varchar2
+        }
+    )
+    pageItem P1_MANAGER_EMAIL (
+        type: textField
+        label {
+            label: Manager Email
+            alignment: left
+        }
+        settings {
+            subtype: email
+        }
+        layout {
+            sequence: 150
+            region: @coding
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 254
+        }
+        source {
+            formRegion: @form
+            column: MANAGER_EMAIL
+            dataType: varchar2
+        }
+    )
+    pageItem P1_COST_CENTER (
+        type: textField
+        label {
+            label: Cost Center
+            alignment: left
+        }
+        layout {
+            sequence: 160
+            region: @coding
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        validation {
+            maxLength: 30
+        }
+        source {
+            formRegion: @form
+            column: COST_CENTER
+            dataType: varchar2
+        }
+    )
+    pageItem P1_BUSINESS_JUSTIFICATION (
+        type: textarea
+        label {
+            label: Business Justification
+            alignment: left
+        }
+        layout {
+            sequence: 80
+            region: @approval
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            width: 80
+            height: 6
+        }
+        source {
+            formRegion: @form
+            column: BUSINESS_JUSTIFICATION
+            dataType: clob
+        }
+        sessionState {
+            dataType: clob
+            storage: session
+        }
+        help {
+            helpText: Explain the business purpose. This CLOB-backed field supports long text.
+        }
+    )
+    pageItem P1_SUBMITTED_ON (
+        type: datePicker
+        label {
+            label: Submitted On
+            alignment: left
+        }
+        layout {
+            sequence: 90
+            region: @approval
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD HH24:MI
+        }
+        source {
+            formRegion: @form
+            column: SUBMITTED_ON
+            dataType: timestamp
+        }
+    )
+    pageItem P1_PAYMENT_METHOD (
+        type: selectList
+        label {
+            label: Payment Method
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Bank Transfer;BANK_TRANSFER,Payroll;PAYROLL,Corporate Card;CORPORATE_CARD
+            nullDisplayValue: - Select -
+        }
+        layout {
+            sequence: 180
+            region: @approval
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @form
+            column: PAYMENT_METHOD
+            dataType: varchar2
+        }
+    )
+    pageItem P1_ADVANCE_AMOUNT (
+        type: numberField
+        label {
+            label: Advance or Credit
+            alignment: left
+        }
+        settings {
+            minValue: -9999999999.99
+            maxValue: 9999999999.99
+        }
+        layout {
+            sequence: 190
+            region: @approval
+            slot: regionBody
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+            formatMask: FM9G999G999G990D00
+        }
+        source {
+            formRegion: @form
+            column: ADVANCE_AMOUNT
+            dataType: number
+        }
+        help {
+            helpText: Enter a positive advance or a negative credit in the report currency.
+        }
+    )
+    pageItem P1_POLICY_ACCEPTED_YN (
+        type: selectList
+        label {
+            label: Policy Reviewed
+            alignment: left
+        }
+        lov {
+            type: staticValues
+            staticValues: STATIC:Yes;Y,No;N
+            displayExtraValues: false
+            displayNullValue: false
+        }
+        layout {
+            sequence: 200
+            region: @approval
+            slot: regionBody
+            startNewRow: false
+            columnSpan: 6
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @form
+            column: POLICY_ACCEPTED_YN
+            dataType: varchar2
+        }
+        default {
+            type: static
+            staticValue: N
+        }
+    )
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                clearCache: 1
+            }
+        }
+    )
+    button delete (
+        buttonName: DELETE
+        label: Delete
+        layout {
+            sequence: 30
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: [
+                #DEFAULT#
+                t-Button--danger
+            ]
+        }
+        behavior {
+            executeValidations: false
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: delete
+            requiresConfirmation: true
+        }
+        confirmation {
+            message: Delete this record and its dependent sample records?
+            style: danger
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P1_REPORT_ID
+        }
+    )
+    button apply-changes (
+        buttonName: APPLY-CHANGES
+        label: Save
+        layout {
+            sequence: 50
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: update
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P1_REPORT_ID
+        }
+    )
+    button create (
+        buttonName: CREATE
+        label: Create
+        layout {
+            sequence: 60
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            warnOnUnsavedChanges: doNotCheck
+            databaseAction: insert
+        }
+        serverSideCondition {
+            type: itemIsNull
+            item: P1_REPORT_ID
+        }
+    )
+    validation travel-dates (
+        name: Travel dates in order
+        execution {
+            sequence: 10
+        }
+        validation {
+            plsqlExpression:
+                ```plsql
+                :P1_TRAVEL_START is null or :P1_TRAVEL_END is null
+                or to_date(:P1_TRAVEL_END, 'YYYY-MM-DD') >= to_date(:P1_TRAVEL_START, 'YYYY-MM-DD')
+                ```
+        }
+        error {
+            errorMessage: Travel End must be on or after Travel Start.
+            associatedItem: @P1_TRAVEL_END
+        }
+    )
+    process initialize (
+        name: Initialize Expense Report
+        type: formInitialization
+        formRegion: @form
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+    process save (
+        name: Save Expense Report Preview
+        type: executeCode
+        execution {
+            sequence: 20
+        }
+        source {
+            location: localDatabase
+            language: plsql
+            plsqlCode:
+                ```plsql
+                apex_debug.message('Expense report %s request %s (synthetic preview, nothing stored)', :P1_REPORT_TITLE, :REQUEST);
+                ```
+        }
+        successMessage {
+            successMessage: Expense Report validated. Connect a project table to save it.
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,APPLY-CHANGES,DELETE
+        }
+    )
+    branch (
+        name: Return to expense report
+        execution {
+            sequence: 50
+        }
+        behavior {
+            target: {
+                page: 1
+            }
+        }
+        serverSideCondition {
+            type: requestIsContainedInValue
+            value: CREATE,APPLY-CHANGES,DELETE
+        }
+    )
+
+)
+
+```
+
+## Verification
+
+```json
+{
+  "compiler": {
+    "status": "passed",
+    "evidence": "recipes/compiler-evidence.json",
+    "sourceSha256": "005741693cf3deab12e96b45baf6c1b62f81a1b08d6cb6d53f1c435c20526f5f",
+    "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
+    "mmdVersion": "26.1.0+3102"
+  },
+  "sql": "not-run",
+  "import": "not-run",
+  "browser": "not-run"
+}
+```
+
+Compile again after adapting. Compiler success is not SQL, imported application or browser evidence.

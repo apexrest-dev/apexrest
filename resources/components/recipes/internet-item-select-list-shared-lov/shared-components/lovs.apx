@@ -1,0 +1,25 @@
+lov example-statuses (
+    name: EXAMPLE_STATUSES
+    source {
+        location: staticValues
+    }
+
+    entry open (
+        sequence: 10
+        display: Open
+        return: OPEN
+    )
+
+    entry in-progress (
+        sequence: 20
+        display: In Progress
+        return: IN_PROGRESS
+    )
+
+    entry closed (
+        sequence: 30
+        display: Closed
+        return: CLOSED
+    )
+
+)

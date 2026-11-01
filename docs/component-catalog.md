@@ -21,7 +21,10 @@ Public pages have `readiness:reference`: they can depend on sample tables, APIs,
 
 The separate 26.1 catalog adds **30 dependency-closed recipes**: 12 dynamic actions, eight computations, seven validations, Area/Donut charts and a Classic Report with CASE/IF/LOOP directives. They use synthetic data and have exact-source attribution (29 Oracle UPL adaptations and one MIT adaptation with its complete notice). Offline compilation uses SQLcl 26.3 while retaining the original `26.1.0+3102` MMD; this does not upgrade the recipe's APEX version. SQL execution, import and browser verification remain `not-run`.
 
+The 2026-11-01 expansion adds **93 more dependency-closed recipes** adapted from official Oracle sources: 67 from the `oracle/skills` 26.1 generation templates and 26 from `oracle/apex` 26.2 sample applications, including the new Faceted Search Patterns, Forms Patterns and Sample Directory Search applications. They cover 16 chart variants (bar, stacked, dual axis, bubble, scatter, Gantt, status meter gauge, stock, combination, links, tooltips, zoom, series colors, 3D, densification), nine map layers and controls, nine calendar variants, nine faceted search layouts, processes, dialog and message dynamic actions, button behaviors, item variants, Rich Text Editor, Geocoded Address and Display Image items, Help Text and Breadcrumb regions, static-content layouts, report variants and an editable Interactive Grid. All use synthetic data, retain exact UPL source attribution and passed the same SQLcl 26.3 offline compilation with the 26.1 MMD. The editable grid and sectioned form do not save data until a project table and row-processing process are added; Geocoded Address calls Oracle's geocoding service at runtime. SQL execution, import and browser verification remain `not-run`.
+
 ```sh
+apexrest docs search --corpus components --version 26.1 --kind template --query "gantt chart" --limit 3 --json
 apexrest docs search --corpus components --version 26.1 --kind template --query "conditional field visibility" --limit 3 --json
 apexrest docs search --corpus components --version 26.1 --kind template --query "template directives" --limit 3 --json
 ```

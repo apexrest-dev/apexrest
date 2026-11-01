@@ -1,0 +1,88 @@
+page 1 (
+    name: Chart Custom Tooltips
+    alias: HOME
+    title: Chart Custom Tooltips
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region order-quantities (
+        name: Order Quantities with Custom Tooltips
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: bar
+        }
+        chartLayout {
+            height: 360
+        }
+        tooltip {
+            showSeriesName: false
+        }
+        legend {
+            show: false
+        }
+
+        series orders (
+            name: Orders
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select product_name,
+                           quantity,
+                           product_name || ': ' || to_char(quantity, 'FM999,990') || ' units, ' ||
+                           to_char(quantity * unit_price, 'FM$999,990.00') || ' revenue' as tooltip_text
+                      from (select 'Apples' as product_name, 1250 as quantity, 0.45 as unit_price from dual union all
+                            select 'Bananas', 980, 0.30 from dual union all
+                            select 'Grapes', 430, 2.10 from dual union all
+                            select 'Oranges', 760, 0.65 from dual)
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+                customTooltip: TOOLTIP_TEXT
+            }
+            label {
+                show: true
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Quantity
+            value {
+                format: decimal
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+        )
+    )
+)

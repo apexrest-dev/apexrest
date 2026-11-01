@@ -1,0 +1,87 @@
+page 1 (
+    name: Map Extruded Polygons
+    alias: HOME
+    title: Map Extruded Polygons
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region warehouse-capacity (
+        name: Warehouse Capacity
+        type: map
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        map {
+            background: builtIn
+            height: 480
+        }
+        controls {
+            options: [
+                scaleBar
+                rectangleZoom
+            ]
+        }
+        initialPositionAndZoom {
+            type: staticValues
+            longitude: 10
+            latitude: 48
+            zoomLevel: 4
+        }
+        attributes {
+            messagesPosition: below
+        }
+
+        layer capacity-zones (
+            name: Capacity Zones
+            layerType: extrudedPolygons
+            layout {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select ID, ZONE_NAME, CAPACITY, CAPACITY * 2 POLYGON_HEIGHT, GEOJSON
+                      from (
+                        select 1 ID, 'Zone A' ZONE_NAME, 40 CAPACITY,
+                               '{"type":"Polygon","coordinates":[[[0,44],[6,44],[6,50],[0,50],[0,44]]]}' GEOJSON
+                          from dual union all
+                        select 2, 'Zone B', 90,
+                               '{"type":"Polygon","coordinates":[[[7,46],[13,46],[13,52],[7,52],[7,46]]]}'
+                          from dual union all
+                        select 3, 'Zone C', 65,
+                               '{"type":"Polygon","coordinates":[[[14,44],[20,44],[20,50],[14,50],[14,44]]]}'
+                          from dual
+                      )
+                    ```
+            }
+            columnMapping {
+                geometryColumnDataType: geojson
+                geojsonColumn: GEOJSON
+                primaryKeyColumn: ID
+            }
+            appearance {
+                useColorScheme: true
+                colorScheme: diverging
+                schemeName: temps
+                colorValueColumn: CAPACITY
+                extrusionValueColumn: POLYGON_HEIGHT
+                unit: kilometer
+                fillOpacity: .7
+            }
+            tooltip {
+                advancedFormatting: true
+                htmlExpression: &ZONE_NAME.: &CAPACITY. units
+            }
+        )
+    )
+)

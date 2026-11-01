@@ -1,0 +1,134 @@
+page 1 (
+    name: Validation with PL/SQL raising an error
+    alias: HOME
+    title: Validation with PL/SQL raising an error
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>The validation code raises an application error when the maximum is lower than the minimum; #SQLERRM_TEXT# shows the raised text as the validation message.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_MIN_QTY (
+        type: numberField
+        label {
+            label: Minimum quantity
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_MAX_QTY (
+        type: numberField
+        label {
+            label: Maximum quantity
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_RESULT (
+        type: displayOnly
+        label {
+            label: Result
+        }
+        layout {
+            sequence: 30
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button check (
+        buttonName: CHECK
+        label: Validate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    validation max-not-below-min (
+        name: Maximum not below minimum
+        execution {
+            sequence: 10
+        }
+        validation {
+            type: plsqlError
+            plsqlCodeRaisingError:
+                ```plsql
+                begin
+                    if :P1_MIN_QTY is not null
+                       and :P1_MAX_QTY is not null
+                       and to_number(:P1_MAX_QTY) < to_number(:P1_MIN_QTY)
+                    then
+                        raise_application_error(-20001, 'Maximum quantity ' || :P1_MAX_QTY || ' is lower than minimum ' || :P1_MIN_QTY || '.');
+                    end if;
+                end;
+                ```
+        }
+        error {
+            errorMessage: #SQLERRM_TEXT#
+            associatedItem: @P1_MAX_QTY
+        }
+        serverSideCondition {
+            whenButtonPressed: @check
+        }
+    )
+    process accepted (
+        name: Accept valid range
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_RESULT := 'Accepted range: ' || :P1_MIN_QTY || ' to ' || :P1_MAX_QTY;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+        }
+        serverSideCondition {
+            whenButtonPressed: @check
+        }
+    )
+)

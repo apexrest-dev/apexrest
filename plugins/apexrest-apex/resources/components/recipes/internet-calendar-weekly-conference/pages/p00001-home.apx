@@ -1,0 +1,85 @@
+page 1 (
+    name: Weekly Conference Calendar
+    alias: HOME
+    title: Weekly Conference Calendar
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region agenda (
+        name: Conference Agenda
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       TITLE || ' (' || ROOM || ')' TITLE,
+                       SPEAKER, ROOM, START_DATE, END_DATE,
+                       case TRACK
+                          when 'KEYNOTE'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          else 'apex-cal-silver'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Welcome Keynote' TITLE, 'A. Rivera' SPEAKER, 'Hall A' ROOM, 'KEYNOTE' TRACK, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'APEX Performance', 'M. Novak', 'Room 1', 'TECHNICAL', trunc(sysdate, 'IW') + 10.5/24, trunc(sysdate, 'IW') + 11.5/24 from dual union all
+                    select 3, 'Customer Journeys', 'J. Chen', 'Room 2', 'BUSINESS', trunc(sysdate, 'IW') + 10.5/24, trunc(sysdate, 'IW') + 11.5/24 from dual union all
+                    select 4, 'Lunch', null, 'Foyer', 'BREAK', trunc(sysdate, 'IW') + 12/24, trunc(sysdate, 'IW') + 13/24 from dual union all
+                    select 5, 'Hands-on Lab', 'M. Novak', 'Lab', 'TECHNICAL', trunc(sysdate, 'IW') + 1 + 9/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 6, 'Closing Panel', 'A. Rivera', 'Hall A', 'KEYNOTE', trunc(sysdate, 'IW') + 1 + 15/24, trunc(sysdate, 'IW') + 1 + 16/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        advanced {
+            htmlDomId: conference_agenda
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            supplementalInfo: &SPEAKER.
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                ```javascript-browser
+                function( pOptions ) {
+                    pOptions.initialView = "timeGridWeek";
+                    pOptions.slotMinTime = "08:00:00";
+                    pOptions.slotMaxTime = "18:00:00";
+                    return pOptions;
+                }
+                ```
+        }
+    )
+)

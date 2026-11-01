@@ -1,0 +1,179 @@
+page 1 (
+    name: Dialog Form Buttons
+    alias: HOME
+    title: Dialog Form Buttons
+    appearance {
+        pageMode: modalDialog
+        dialogTemplate: @/modal-dialog
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region customer (
+        name: Customer
+        type: form
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 CUSTOMER_ID, 'Acme Corporation' CUSTOMER_NAME, 'Retail' SEGMENT from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: contentBody
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: false
+        }
+    )
+    pageItem P1_CUSTOMER_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @customer
+            slot: regionBody
+        }
+        source {
+            formRegion: @customer
+            column: CUSTOMER_ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+    )
+    pageItem P1_CUSTOMER_NAME (
+        type: displayOnly
+        label {
+            label: Customer
+        }
+        layout {
+            sequence: 20
+            region: @customer
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @customer
+            column: CUSTOMER_NAME
+            dataType: varchar2
+            queryOnly: true
+        }
+    )
+    pageItem P1_SEGMENT (
+        type: displayOnly
+        label {
+            label: Segment
+        }
+        layout {
+            sequence: 30
+            region: @customer
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @customer
+            column: SEGMENT
+            dataType: varchar2
+            queryOnly: true
+        }
+    )
+    region buttons (
+        name: Buttons
+        type: staticContent
+        layout {
+            sequence: 20
+            slot: dialogFooter
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button cancel (
+        buttonName: CANCEL
+        label: Cancel
+        layout {
+            sequence: 10
+            region: @buttons
+            slot: close
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    button done (
+        buttonName: DONE
+        label: Done
+        layout {
+            sequence: 20
+            region: @buttons
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            hot: true
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-check
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    dynamicAction cancel-dialog (
+        name: Cancel Dialog
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @cancel
+        }
+        action cancel-dialog-action (
+            action: cancelDialog
+            execution {
+                sequence: 10
+            }
+        )
+    )
+    process initialize-form (
+        name: Initialize form Customer
+        type: formInitialization
+        formRegion: @customer
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+    process close-dialog (
+        name: Close Dialog
+        type: closeDialog
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+        serverSideCondition {
+            whenButtonPressed: @done
+        }
+    )
+)

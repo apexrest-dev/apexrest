@@ -1,0 +1,125 @@
+page 1 (
+    name: Cards with Actions
+    alias: HOME
+    title: Cards with Actions
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    pageItem P1_TASK_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            slot: body
+        }
+    )
+    region tasks (
+        name: Tasks
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 ID, 'Review contract' TITLE, 'Legal' TEAM, 'Due in 2 days' DETAILS, 'Open' STATUS, 'fa-file-text-o' ICON_CLASS from dual union all
+                select 2, 'Plan release', 'Engineering', 'Due next week', 'In Progress', 'fa-rocket' from dual union all
+                select 3, 'Update pricing', 'Sales', 'Completed yesterday', 'Closed', 'fa-tag' from dual
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+        card {
+            primaryKeyColumn1: ID
+        }
+        title {
+            advancedFormatting: false
+            column: TITLE
+        }
+        subtitle {
+            advancedFormatting: false
+            column: TEAM
+        }
+        body {
+            advancedFormatting: false
+            column: DETAILS
+        }
+        iconAndBadge {
+            iconSource: iconClassColumn
+            iconColumn: ICON_CLASS
+            iconPosition: start
+            badgeColumn: STATUS
+            badgeLabel: Status
+        }
+        messages {
+            whenNoDataFound: No tasks found
+        }
+        componentAppearance {
+            layout: grid
+            gridColumns: 3
+        }
+        action open-task (
+            type: fullCard
+            layout {
+                sequence: 10
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 1
+                    items: {
+                        P1_TASK_ID: &ID.
+                    }
+                    clearCache: 1
+                }
+            }
+        )
+        action view-details (
+            type: button
+            label: View Details
+            layout {
+                position: primary
+                sequence: 20
+            }
+            appearance {
+                displayType: textWithIcon
+                icon: fa-eye
+                hot: true
+            }
+            behavior {
+                type: redirectThisApp
+                target: {
+                    page: 1
+                    items: {
+                        P1_TASK_ID: &ID.
+                    }
+                    clearCache: 1
+                }
+            }
+        )
+        action share-task (
+            type: button
+            label: Share
+            layout {
+                position: secondary
+                sequence: 30
+            }
+            appearance {
+                displayType: icon
+                icon: fa-share-alt
+            }
+            behavior {
+                type: redirectUrl
+                targetUrl: #
+            }
+        )
+    )
+)

@@ -1,0 +1,132 @@
+page 1 (
+    name: Read-only Grid with Toolbar
+    alias: HOME
+    title: Read-only Grid with Toolbar
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region inventory (
+        name: Inventory
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select level PRODUCT_ID,
+                       'Product ' || level PRODUCT_NAME,
+                       mod(level * 7, 50) QUANTITY,
+                       level * 9.99 UNIT_PRICE
+                  from dual
+               connect by level <= 40
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: false
+        }
+        pagination {
+            type: page
+            showTotalCount: true
+        }
+        performance {
+            lazyLoading: false
+        }
+        messages {
+            whenNoDataFound: No products found
+        }
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+            ]
+        }
+        download {
+            formats: [
+                csv
+                html
+            ]
+            csvSeparator: ;
+            filename: inventory
+        }
+        savedReport primary (
+            visibility: primary
+            view {
+                default: grid
+            }
+            singleRowView {
+                displayedColumns: true
+            }
+        )
+        column PRODUCT_ID (
+            type: hidden
+            layout {
+                sequence: 10
+            }
+            source {
+                databaseColumn: PRODUCT_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+        column PRODUCT_NAME (
+            type: textField
+            heading {
+                heading: Product
+            }
+            layout {
+                sequence: 20
+            }
+            source {
+                databaseColumn: PRODUCT_NAME
+                dataType: varchar2
+            }
+        )
+        column QUANTITY (
+            type: numberField
+            heading {
+                heading: Quantity
+                alignment: end
+            }
+            layout {
+                sequence: 30
+                columnAlignment: end
+            }
+            source {
+                databaseColumn: QUANTITY
+                dataType: number
+            }
+        )
+        column UNIT_PRICE (
+            type: numberField
+            heading {
+                heading: Unit Price
+                alignment: end
+            }
+            layout {
+                sequence: 40
+                columnAlignment: end
+            }
+            appearance {
+                formatMask: FML999G990D00
+            }
+            source {
+                databaseColumn: UNIT_PRICE
+                dataType: number
+            }
+        )
+    )
+)

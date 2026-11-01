@@ -1,6 +1,6 @@
 # Shuttle
 
-Aliases: Shuttle; перенесення вибору подвійний список; Shuttle form item
+Aliases: Shuttle; перенесення вибору подвійний список; Shuttle form item; shuttle shared lov; shuttle moving controls only; multi select shuttle list
 
 Move values between available and selected collections.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/shuttle/source-exam
 ## Recipes
 
 - component:items/shuttle/recipes/basic: ready
+- component:items/shuttle/recipes/item-shuttle-shared-lov: ready
 
 ## Parameters and adaptation
 

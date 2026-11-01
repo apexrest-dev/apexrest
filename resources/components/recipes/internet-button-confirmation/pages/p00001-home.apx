@@ -1,0 +1,60 @@
+page 1 (
+    name: Button with Confirmation
+    alias: HOME
+    title: Button with Confirmation
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region actions (
+        name: Actions
+        type: staticContent
+        source {
+            htmlCode: <p>Clearing the draft asks for confirmation first.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button clear-draft (
+        buttonName: CLEAR_DRAFT
+        label: Clear Draft
+        layout {
+            sequence: 10
+            region: @actions
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+            requiresConfirmation: true
+            warnOnUnsavedChanges: doNotCheck
+        }
+        confirmation {
+            message: Clear the current draft? This cannot be undone.
+            style: danger
+        }
+    )
+    process clear-draft (
+        name: Clear Draft
+        type: clearSessionState
+        execution {
+            sequence: 10
+            point: processing
+        }
+        serverSideCondition {
+            whenButtonPressed: @clear-draft
+        }
+    )
+)

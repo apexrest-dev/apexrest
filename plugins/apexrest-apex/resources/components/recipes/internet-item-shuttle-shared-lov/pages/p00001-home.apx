@@ -1,0 +1,50 @@
+page 1 (
+    name: Shuttle with Shared LOV
+    alias: HOME
+    title: Shuttle with Shared LOV
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A shuttle that references a shared static list of values and limits controls to moving.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_SKILLS (
+        type: shuttle
+        label {
+            label: Skills
+        }
+        lov {
+            type: sharedComponent
+            lov: @example-skills
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            height: 6
+        }
+        settings {
+            showControls: movingOnly
+        }
+    )
+)

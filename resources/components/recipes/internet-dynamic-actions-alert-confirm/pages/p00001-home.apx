@@ -1,0 +1,109 @@
+page 1 (
+    name: Confirm before action
+    alias: HOME
+    title: Confirm before action
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>Proceed opens a confirmation dialog. OK runs the following actions; Cancel stops the action chain and leaves the value unchanged.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_RESULT (
+        type: displayOnly
+        label {
+            label: Last confirmation
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button proceed (
+        buttonName: PROCEED
+        label: Proceed
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    dynamicAction confirm-proceed (
+        name: Confirm proceed
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @proceed
+        }
+        action confirm (
+            action: confirm
+            settings {
+                title: Proceed with the example?
+                message: Choose OK to continue or Cancel to stop.
+                style: warning
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action record-confirmed (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: 'Confirmed at ' + new Date().toLocaleTimeString()
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_RESULT
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+        action alert-confirmed (
+            action: alert
+            settings {
+                title: Confirmed
+                message: The actions after the confirmation ran because OK was chosen.
+                style: success
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+    )
+)

@@ -1,6 +1,6 @@
 # Checkbox Group
 
-Aliases: Checkbox Group; група прапорців множинний вибір; CheckboxGroup form item
+Aliases: Checkbox Group; група прапорців множинний вибір; CheckboxGroup form item; checkbox group columns; multi column checkboxes; weekday checkbox group
 
 Select multiple values from a declared list of values.
 
@@ -21,6 +21,7 @@ Source descriptions and exact example links: component:items/checkbox-group/sour
 ## Recipes
 
 - component:items/checkbox-group/recipes/basic: ready
+- component:items/checkbox-group/recipes/item-checkbox-group-columns: ready
 
 ## Parameters and adaptation
 

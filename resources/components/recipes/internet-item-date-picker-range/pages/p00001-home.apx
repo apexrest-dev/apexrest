@@ -1,0 +1,51 @@
+page 1 (
+    name: Date Picker with Range
+    alias: HOME
+    title: Date Picker with Range
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region form (
+        name: Form
+        type: staticContent
+        source {
+            htmlCode: <p>A date picker with an explicit format mask and minimum and maximum dates.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_DUE_DATE (
+        type: datePicker
+        label {
+            label: Due Date
+        }
+        layout {
+            sequence: 10
+            region: @form
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional
+            templateOptions: #DEFAULT#
+            formatMask: YYYY-MM-DD
+        }
+        settings {
+            displayAs: popup
+            minDate: static
+            minStatic: +0d
+            maxDate: static
+            maxStatic: +90d
+            showTime: false
+        }
+    )
+)

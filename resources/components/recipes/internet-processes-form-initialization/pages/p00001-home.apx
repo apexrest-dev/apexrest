@@ -1,0 +1,171 @@
+page 1 (
+    name: Form initialization by primary key
+    alias: HOME
+    title: Form initialization by primary key
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region chooser (
+        name: Choose a record
+        type: staticContent
+        source {
+            htmlCode: <p>Each button sets P1_ID; the form initialization process fetches that row from a synthetic query before the header renders.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    button load-first (
+        buttonName: LOAD_FIRST
+        label: Load record 1
+        layout {
+            sequence: 10
+            region: @chooser
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                items: {
+                    P1_ID: 1
+                }
+                clearCache: 1
+            }
+        }
+    )
+    button load-second (
+        buttonName: LOAD_SECOND
+        label: Load record 2
+        layout {
+            sequence: 20
+            region: @chooser
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 1
+                items: {
+                    P1_ID: 2
+                }
+                clearCache: 1
+            }
+        }
+    )
+    region record (
+        name: Record
+        type: form
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 1 ID, 'Alpha sample' TITLE, 'Open' STATUS from dual
+                union all
+                select 2, 'Beta sample', 'Closed' from dual
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        edit {
+            enabled: false
+        }
+    )
+    pageItem P1_ID (
+        type: hidden
+        layout {
+            sequence: 10
+            region: @record
+            slot: regionBody
+        }
+        source {
+            formRegion: @record
+            column: ID
+            dataType: number
+            queryOnly: true
+            primaryKey: true
+        }
+        security {
+            sessionStateProtection: checksumRequiredSessionLevel
+        }
+    )
+    pageItem P1_TITLE (
+        type: displayOnly
+        label {
+            label: Title
+        }
+        layout {
+            sequence: 20
+            region: @record
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @record
+            column: TITLE
+            dataType: varchar2
+            queryOnly: true
+        }
+    )
+    pageItem P1_STATUS (
+        type: displayOnly
+        label {
+            label: Status
+        }
+        layout {
+            sequence: 30
+            region: @record
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+        source {
+            formRegion: @record
+            column: STATUS
+            dataType: varchar2
+            queryOnly: true
+        }
+    )
+    process initialize-record (
+        name: Initialize record form
+        type: formInitialization
+        formRegion: @record
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+        serverSideCondition {
+            type: itemIsNotNull
+            item: P1_ID
+        }
+    )
+)

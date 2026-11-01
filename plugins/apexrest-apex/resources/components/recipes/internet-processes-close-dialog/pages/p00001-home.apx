@@ -1,0 +1,48 @@
+page 1 (
+    name: Close dialog process
+    alias: HOME
+    title: Close dialog process
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region launcher (
+        name: Launcher
+        type: staticContent
+        source {
+            htmlCode: <p>Open the modal dialog, then press Save; the dialog closes only after its after-submit processing succeeds.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    button open-dialog (
+        buttonName: OPEN_DIALOG
+        label: Open dialog
+        layout {
+            sequence: 10
+            region: @launcher
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: redirectThisApp
+            target: {
+                page: 2
+                clearCache: 2
+            }
+        }
+    )
+)

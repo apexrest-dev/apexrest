@@ -1,6 +1,6 @@
 # validations
 
-Aliases: validations; Required input validation; validations required; Reference code regular expression; validations reference format; Null-safe numeric range validation; validations number range; Allowed synthetic code validation; validations sql exists; Reserved synthetic code validation; validations sql exclusion; Structured code Boolean validation; validations procedural boolean; Validation with a dynamic error message; validations function message
+Aliases: validations; Required input validation; validations required; Reference code regular expression; validations reference format; Null-safe numeric range validation; validations number range; Allowed synthetic code validation; validations sql exists; Reserved synthetic code validation; validations sql exclusion; Structured code Boolean validation; validations procedural boolean; Validation with a dynamic error message; validations function message; plsql error validation; raise application error validation; sqlerrm validation message
 
 Use this business-logic component in the matching Universal Theme context.
 
@@ -27,6 +27,7 @@ Source descriptions and exact example links: component:business-logic/validation
 - component:business-logic/validations/recipes/validations-sql-exclusion: ready
 - component:business-logic/validations/recipes/validations-procedural-boolean: ready
 - component:business-logic/validations/recipes/validations-function-message: ready
+- component:business-logic/validations/recipes/validations-plsql-error: ready
 
 ## Parameters and adaptation
 

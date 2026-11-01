@@ -1,0 +1,130 @@
+page 1 (
+    name: Execute code process
+    alias: HOME
+    title: Execute code process
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        source {
+            htmlCode: <p>A before-header process seeds a default; an after-submit process runs inline PL/SQL on session state only when Calculate is pressed.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_QUANTITY (
+        type: numberField
+        label {
+            label: Quantity
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_UNIT_PRICE (
+        type: numberField
+        label {
+            label: Unit price
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    pageItem P1_TOTAL (
+        type: displayOnly
+        label {
+            label: Total
+        }
+        layout {
+            sequence: 30
+            region: @controls
+            slot: regionBody
+        }
+        appearance {
+            template: @/optional-floating
+            templateOptions: #DEFAULT#
+        }
+    )
+    button calculate (
+        buttonName: CALCULATE
+        label: Calculate
+        layout {
+            sequence: 10
+            region: @controls
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text
+            hot: true
+            templateOptions: #DEFAULT#
+        }
+        behavior {
+            action: submitPage
+        }
+    )
+    process seed-defaults (
+        name: Seed defaults
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    if :P1_UNIT_PRICE is null then
+                        :P1_UNIT_PRICE := 12.5;
+                    end if;
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+    process calculate-total (
+        name: Calculate total
+        type: executeCode
+        source {
+            plsqlCode:
+                ```plsql
+                begin
+                    :P1_TOTAL := to_char(nvl(to_number(:P1_QUANTITY), 0) * nvl(to_number(:P1_UNIT_PRICE), 0), 'FM999G999G990D00');
+                    apex_debug.message('Calculated total %s', :P1_TOTAL);
+                end;
+                ```
+        }
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+        serverSideCondition {
+            whenButtonPressed: @calculate
+        }
+        successMessage {
+            successMessage: Total calculated.
+        }
+    )
+)

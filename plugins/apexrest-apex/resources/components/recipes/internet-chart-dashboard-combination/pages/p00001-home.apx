@@ -1,0 +1,166 @@
+page 1 (
+    name: Combination Chart (Bar, Line, Area)
+    alias: HOME
+    title: Combination Chart (Bar, Line, Area)
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+
+    region store-orders (
+        name: Orders by Store
+        type: chart
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                i-h320
+                t-Region--scrollBody
+            ]
+        }
+        chart {
+            type: combination
+        }
+        legend {
+            position: end
+            hideAndShowBehavior: noRescaling
+        }
+
+        series north-store (
+            name: North Store
+            type: bar
+            execution {
+                sequence: 10
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Apples' as product_name, 45 as quantity from dual union all
+                    select 'Bananas', 30 from dual union all
+                    select 'Grapes', 22 from dual union all
+                    select 'Oranges', 38 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+            label {
+                show: true
+                position: center
+            }
+        )
+
+        series south-store (
+            name: South Store
+            type: bar
+            execution {
+                sequence: 20
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Apples' as product_name, 28 as quantity from dual union all
+                    select 'Bananas', 41 from dual union all
+                    select 'Grapes', 19 from dual union all
+                    select 'Oranges', 26 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+        )
+
+        series target (
+            name: Weekly Target
+            type: line
+            execution {
+                sequence: 30
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Apples' as product_name, 40 as quantity from dual union all
+                    select 'Bananas', 40 from dual union all
+                    select 'Grapes', 25 from dual union all
+                    select 'Oranges', 30 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: QUANTITY
+            }
+            label {
+                show: true
+                position: aboveMarker
+            }
+        )
+
+        series online-share (
+            name: Online Share
+            type: area
+            execution {
+                sequence: 40
+            }
+            source {
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    select 'Apples' as product_name, 0.35 as share from dual union all
+                    select 'Bananas', 0.20 from dual union all
+                    select 'Grapes', 0.55 from dual union all
+                    select 'Oranges', 0.30 from dual
+                    ```
+            }
+            columnMapping {
+                label: PRODUCT_NAME
+                value: SHARE
+            }
+            appearance {
+                assignedToY2Axis: true
+            }
+        )
+
+        axis x (
+            name: x
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y (
+            name: y
+            title: Quantity
+            minorTicks {
+                show: false
+            }
+        )
+
+        axis y-2 (
+            name: y2
+            title: Online Share
+            value {
+                format: percent
+                decimalPlaces: 0
+            }
+            minorTicks {
+                show: false
+            }
+            dualYAxes {
+                show: true
+                splitterPosition: 0.7
+            }
+        )
+    )
+)

@@ -1,6 +1,6 @@
 # Map
 
-Aliases: Map; карта мапа географія шари; Map with one point layer
+Aliases: Map; карта мапа географія шари; Map with one point layer; map longitude latitude points; store locator map; map heat map; point density map; map lines layer; route map geojson; map polygons layer; choropleth map; 3d extruded polygons map; map polygon height; map geojson column; map icon markers; map browser location; map current position; map bounding box; map current bounds item; map multiple layers; map legend
 
 Map authorized location data to declared layers.
 
@@ -21,6 +21,15 @@ Source descriptions and exact example links: component:regions/map/source-exampl
 ## Recipes
 
 - component:regions/map/recipes/basic: ready
+- component:regions/map/recipes/map-points-lonlat: ready
+- component:regions/map/recipes/map-heat-map: ready
+- component:regions/map/recipes/map-lines-geojson: ready
+- component:regions/map/recipes/map-polygons-color-scheme: ready
+- component:regions/map/recipes/map-extruded-polygons: ready
+- component:regions/map/recipes/map-geojson-icon-points: ready
+- component:regions/map/recipes/map-browser-location: ready
+- component:regions/map/recipes/map-bbox-static: ready
+- component:regions/map/recipes/map-multi-layer-legend: ready
 
 ## Parameters and adaptation
 

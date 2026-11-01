@@ -1,0 +1,181 @@
+page 1 (
+    name: Calendar Create Event on Select
+    alias: HOME
+    title: Calendar Create Event on Select
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region controls (
+        name: Controls
+        type: staticContent
+        layout {
+            sequence: 5
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    region sessions (
+        name: Sessions
+        type: calendar
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select ID,
+                       case when SPEAKER is not null then TITLE || ' (' || SPEAKER || ')' else TITLE end TITLE,
+                       SPEAKER, START_DATE, END_DATE,
+                       case SESSION_TYPE
+                          when 'BREAK'     then 'apex-cal-silver'
+                          when 'BUSINESS'  then 'apex-cal-orange'
+                          when 'GENERAL'   then 'apex-cal-blue'
+                          when 'TECHNICAL' then 'apex-cal-green'
+                       end CSS_CLASS
+                  from (
+                    select 1 ID, 'Opening Keynote' TITLE, 'A. Rivera' SPEAKER, 'GENERAL' SESSION_TYPE, trunc(sysdate, 'IW') + 9/24 START_DATE, trunc(sysdate, 'IW') + 10/24 END_DATE from dual union all
+                    select 2, 'Coffee Break', null, 'BREAK', trunc(sysdate, 'IW') + 10/24, trunc(sysdate, 'IW') + 10.5/24 from dual union all
+                    select 3, 'Roadmap Review', 'J. Chen', 'BUSINESS', trunc(sysdate, 'IW') + 1 + 11/24, trunc(sysdate, 'IW') + 1 + 12/24 from dual union all
+                    select 4, 'SQL Deep Dive', 'M. Novak', 'TECHNICAL', trunc(sysdate, 'IW') + 2 + 13/24, trunc(sysdate, 'IW') + 2 + 15/24 from dual union all
+                    select 5, 'Closing Session', 'A. Rivera', 'GENERAL', trunc(sysdate, 'IW') + 4 + 16/24, trunc(sysdate, 'IW') + 4 + 17/24 from dual
+                  )
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: [
+                #DEFAULT#
+                t-Region--noPadding
+                t-Region--hideHeader js-addHiddenHeadingRoleDesc
+                t-Region--hiddenOverflow
+            ]
+        }
+        settings {
+            displayColumn: TITLE
+            startDateColumn: START_DATE
+            endDateColumn: END_DATE
+            pkColumn: ID
+            showTime: true
+            calendarViewsAndNavigation: [
+                week
+                day
+                list
+                navigation
+            ]
+            cssClass: CSS_CLASS
+        }
+        performance {
+            lazyLoading: true
+        }
+    )
+    pageItem P1_NEW_START_DATE (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 10
+            region: @controls
+            slot: regionBody
+        }
+    )
+    pageItem P1_NEW_END_DATE (
+        type: hidden
+        settings {
+            valueProtected: false
+        }
+        layout {
+            sequence: 20
+            region: @controls
+            slot: regionBody
+        }
+    )
+    dynamicAction date-range-selected (
+        name: Date Range Selected: Create Event
+        execution {
+            sequence: 10
+        }
+        when {
+            event: region/calendar/apexcalendardateselect
+            selectionType: region
+            region: @sessions
+        }
+        action set-start (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.newStartDate
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_NEW_START_DATE
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+        action set-end (
+            action: setValue
+            settings {
+                type: jsExpression
+                jsExpression: this.data.newEndDate
+                suppressChangeEvent: true
+            }
+            affectedElements {
+                selectionType: items
+                items: P1_NEW_END_DATE
+            }
+            execution {
+                sequence: 20
+                fireOnInit: false
+            }
+        )
+        action log-new-event (
+            action: executeServerSideCode
+            settings {
+                plsqlCode:
+                    ```plsql
+                    apex_debug.message(
+                        'Create calendar event requested: %s - %s',
+                        :P1_NEW_START_DATE,
+                        :P1_NEW_END_DATE );
+                    ```
+                itemsToSubmit: [
+                    P1_NEW_START_DATE
+                    P1_NEW_END_DATE
+                ]
+            }
+            execution {
+                sequence: 30
+                fireOnInit: false
+            }
+        )
+        action show-message (
+            action: executeJsCode
+            settings {
+                jsCode:
+                    ```javascript-browser
+                    apex.message.showPageSuccess(
+                        "New event requested from " + $v("P1_NEW_START_DATE") + " to " + $v("P1_NEW_END_DATE") + "."
+                    );
+                    ```
+            }
+            execution {
+                sequence: 40
+                fireOnInit: false
+            }
+        )
+    )
+)

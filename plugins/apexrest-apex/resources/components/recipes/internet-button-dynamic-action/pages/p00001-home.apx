@@ -1,0 +1,69 @@
+page 1 (
+    name: Button Defined by Dynamic Action
+    alias: HOME
+    title: Button Defined by Dynamic Action
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    security {
+        pageAccessProtection: argumentsMustHaveChecksum
+    }
+    region actions (
+        name: Actions
+        type: staticContent
+        source {
+            htmlCode: <p>The button has no server behavior; a click dynamic action shows a message.</p>
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/buttons-container
+            templateOptions: #DEFAULT#
+        }
+    )
+    button show-tip (
+        buttonName: SHOW_TIP
+        label: Show Tip
+        layout {
+            sequence: 10
+            region: @actions
+            slot: next
+        }
+        appearance {
+            buttonTemplate: @/text-with-icon
+            templateOptions: [
+                #DEFAULT#
+                t-Button--iconLeft
+            ]
+            icon: fa-lightbulb-o
+        }
+        behavior {
+            action: definedByDynamicAction
+        }
+    )
+    dynamicAction show-tip-click (
+        name: Show Tip on Click
+        execution {
+            sequence: 10
+        }
+        when {
+            event: click
+            selectionType: button
+            button: @show-tip
+        }
+        action step-10 (
+            action: alert
+            settings {
+                message: Buttons defined by dynamic actions run only client-side logic.
+                style: information
+            }
+            execution {
+                sequence: 10
+                fireOnInit: false
+            }
+        )
+    )
+)
