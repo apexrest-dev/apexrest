@@ -218,6 +218,16 @@ main img {
   border-radius: 0.8rem;
   background: white;
 }
+main video.doc-video {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: black;
+}
 main img[src$='/apexrest-logo.svg'] {
   max-width: 144px;
   border: 0;

@@ -8,6 +8,10 @@
       "route": "/apexrest/"
     },
     {
+      "source": "docs/features.md",
+      "route": "/apexrest/features/"
+    },
+    {
       "source": "site/content/install.md",
       "route": "/apexrest/install/"
     },
@@ -171,6 +175,8 @@
     "docs/index.html",
     "existing-app/index.html",
     "existing-app.html",
+    "features/index.html",
+    "features.html",
     "getting-started/index.html",
     "getting-started.html",
     "implementation-status/index.html",

@@ -192,3 +192,23 @@ test('tracked branch-hosted output matches the staging site and covers every cur
     }
   }
 });
+
+test('GitHub video attachments play from the local asset copy or are left out', () => {
+  const id = '0e024a0a-d8b2-4366-b87f-55496e3ad55d';
+  const video = {
+    ...context,
+    assets: ['docs/assets/demo.mp4', 'docs/assets/demo-poster.png'],
+    videos: { [id]: 'docs/assets/demo.mp4' },
+  };
+  const html = renderMarkdown(`Intro.\n\nhttps://github.com/user-attachments/assets/${id}\n`, video);
+  assert.match(
+    html,
+    /<video class="doc-video" controls preload="metadata" playsinline src="\/apexrest\/assets\/demo\.mp4" poster="\/apexrest\/assets\/demo-poster\.png"><\/video>/,
+  );
+  assert.match(html, /<p>Intro\.<\/p>/);
+  const missing = renderMarkdown(
+    'https://github.com/user-attachments/assets/ffffffff-0000-0000-0000-000000000000\n',
+    video,
+  );
+  assert.equal(missing.trim(), '');
+});

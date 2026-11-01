@@ -96,6 +96,22 @@ export function renderMarkdown(text, context) {
           ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(text)}"${title ? ` title="${escapeHtml(title)}"` : ''} loading="lazy" decoding="async">`
           : escapeHtml(text);
       },
+      // GitHub plays a bare user-attachments link as a video; the site plays the same
+      // video from docs/assets, or drops the paragraph when no local copy is configured.
+      paragraph(token) {
+        const attachment = token.text
+          .trim()
+          .match(/^https:\/\/github\.com\/user-attachments\/assets\/([0-9a-f-]+)$/);
+        if (!attachment) return defaultRenderer.paragraph.call(this, token);
+        const file = context.videos?.[attachment[1]];
+        if (!file || !context.assets?.includes(file)) return '';
+        const src = context.base + 'assets/' + encodeURIComponent(file.slice('docs/assets/'.length));
+        const posterFile = file.replace(/\.mp4$/, '-poster.png');
+        const poster = context.assets.includes(posterFile)
+          ? ` poster="${escapeHtml(context.base + 'assets/' + encodeURIComponent(posterFile.slice('docs/assets/'.length)))}"`
+          : '';
+        return `<video class="doc-video" controls preload="metadata" playsinline src="${escapeHtml(src)}"${poster}></video>\n`;
+      },
       table(token) {
         defaultRenderer.parser = this.parser;
         return `<div class="table-scroll" role="region" aria-label="${escapeHtml(context.tableLabel ?? 'Documentation table')}" tabindex="0">${defaultRenderer.table(token)}</div>\n`;

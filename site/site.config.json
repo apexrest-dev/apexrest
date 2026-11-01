@@ -13,6 +13,14 @@
       "group": "Start here"
     },
     {
+      "slug": "features",
+      "title": "Features and videos",
+      "source": "docs/features.md",
+      "lang": "en",
+      "key": "features",
+      "group": "Start here"
+    },
+    {
       "slug": "install",
       "title": "Install",
       "source": "site/content/install.md",
@@ -276,5 +284,12 @@
       "key": "changelog",
       "group": "Project"
     }
-  ]
+  ],
+  "videos": {
+    "dddd2f88-66f6-4040-9359-13bb4ee999f4": "docs/assets/apexrest-component-library.mp4",
+    "7136505b-c13c-4478-8473-318d4827062f": "docs/assets/apexrest-decisions-pilot.mp4",
+    "e1923958-59a8-4c09-bb1a-0ce94dd540bf": "docs/assets/apexrest-preview-showcase.mp4",
+    "0e024a0a-d8b2-4366-b87f-55496e3ad55d": "docs/assets/apexrest-2-scoped-updates.mp4",
+    "fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a": "docs/assets/apexrest-local-preview.mp4"
+  }
 }

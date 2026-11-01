@@ -15,7 +15,7 @@ if (base !== config.basePath && !preview) throw new Error('Use --preview for a t
 const repository = 'https://github.com/apexrest-dev/apexrest';
 const origin = new URL(publisher.siteOrigin).origin;
 const assets = (await readdir('docs/assets', { withFileTypes: true }))
-  .filter((entry) => entry.isFile() && /\.(?:svg|png|jpe?g|webp)$/.test(entry.name))
+  .filter((entry) => entry.isFile() && /\.(?:svg|png|jpe?g|webp|mp4)$/.test(entry.name))
   .map((entry) => 'docs/assets/' + entry.name);
 const downloads = ['docs/acceptance.json'];
 const routes = new Set();
@@ -77,6 +77,7 @@ for (const page of config.pages) {
     downloads,
     origin,
     repository,
+    videos: config.videos ?? {},
     tableLabel: locale.table,
   });
   const sections = [...body.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)]

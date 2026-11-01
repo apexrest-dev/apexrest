@@ -2,6 +2,7 @@
 Source version 2.5.0. See implementation status for verification limits.
 
 - [Overview](https://apexrest-dev.github.io/apexrest/)
+- [Features and videos](https://apexrest-dev.github.io/apexrest/features/)
 - [Install](https://apexrest-dev.github.io/apexrest/install/)
 - [Documentation](https://apexrest-dev.github.io/apexrest/docs/)
 - [Getting started](https://apexrest-dev.github.io/apexrest/getting-started/)
