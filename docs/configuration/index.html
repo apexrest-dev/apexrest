@@ -24,6 +24,7 @@
 </tbody></table>
 </div>
 <p><code>vendor: auto</code> picks the opposite of the detected host (<code>APEXREST_HOST</code>, then the MCP client name sent at initialization, then the host&#39;s own environment); pass <code>vendor</code> explicitly when detection is unavailable. The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns <code>approve</code> or <code>changes_requested</code> with findings. The verdict is written to <code>.apexrest/reviews/&lt;planDigest&gt;.json</code>.</p>
+<p>Local-only work without an Oracle target can still be reviewed: omit <code>plan</code> (CLI <code>apexrest peer review</code> without <code>--plan</code>). The reviewer then receives the list of application and database sources and the Git diff, and the verdict is written to <code>.apexrest/reviews/source-&lt;sourceDigest&gt;.json</code>. A source review is advisory only; it never satisfies the <code>required</code> apply gate, which needs a review of the exact saved plan.</p>
 <p>Gate modes apply to <code>apexrest_ship mode:apply</code> (and the CLI <code>ship --mode apply</code>):</p>
 <ul>
 <li><code>off</code>: no review state is read.</li>

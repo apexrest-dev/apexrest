@@ -10932,19 +10932,16 @@ var schemas = {
   "peer.status": external_exports.strictObject(base),
   "peer.review": external_exports.strictObject({
     ...base,
-    plan: relativePath.describe("Saved plan path from apexrest_ship mode:plan"),
+    plan: relativePath.optional().describe("Saved plan path from apexrest_ship mode:plan"),
     vendor: external_exports.enum(["codex", "claude"]).optional(),
     focus: external_exports.string().min(1).max(2e3).optional()
   }),
   peer: external_exports.strictObject({
     ...base,
     action: external_exports.enum(["status", "review"]).default("review"),
-    plan: relativePath.optional().describe("review: saved ship plan path"),
+    plan: relativePath.optional().describe("review: saved plan path; omit for local sources"),
     vendor: external_exports.enum(["codex", "claude"]).optional().describe("codex from Claude Code, claude from Codex"),
     focus: external_exports.string().min(1).max(2e3).optional()
-  }).refine((value) => value.action !== "review" || !!value.plan, {
-    path: ["plan"],
-    message: "action review requires the saved plan path."
   }),
   job: external_exports.strictObject({
     ...base,
@@ -11038,7 +11035,7 @@ var toolCatalog = [
   {
     name: "apexrest_peer_review",
     operation: "peer",
-    description: "Other-vendor CLI (codex or claude) reviews a saved ship plan read-only; digest-bound verdict gates required apply. status: CLI and sign-in. Never deploys.",
+    description: "Other-vendor CLI (codex or claude) reviews a saved ship plan or, without plan, local sources, read-only; plan verdict gates required apply. status: CLI/sign-in. Never deploys.",
     readOnly: false,
     destructive: false,
     long: true,
@@ -15188,9 +15185,10 @@ var peerVerdictSchema = external_exports.strictObject({
 });
 var peerReviewRecordSchema = peerVerdictSchema.safeExtend({
   schemaVersion: external_exports.literal(1),
-  planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
-  planId: external_exports.string(),
-  environment: external_exports.string(),
+  planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
+  planId: external_exports.string().optional(),
+  environment: external_exports.string().optional(),
+  sourceDigest: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
   vendor: external_exports.enum(peerVendors),
   cliVersion: external_exports.string().max(200),
   reviewedAt: external_exports.iso.datetime(),
@@ -15303,6 +15301,7 @@ async function peerStatus(ctx) {
   };
 }
 var reviewPath = (digest3) => ".apexrest/reviews/" + digest3 + ".json";
+var sourceReviewPath = (digest3) => ".apexrest/reviews/source-" + digest3 + ".json";
 async function readPeerReview(ctx, digest3) {
   const file = await contained(ctx.root, reviewPath(digest3));
   if (!await exists(file)) return void 0;
@@ -15327,29 +15326,29 @@ async function sourceDiff(ctx, signal) {
   const limit = 6e4;
   return result.stdout.length > limit ? result.stdout.slice(0, limit) + "\n[diff truncated; read the listed files directly]\n" : result.stdout;
 }
-function peerPrompt(ctx, plan, planPath, diff, focus) {
-  const preview = planPreview(ctx, plan);
-  const files = plan.operations.map((o) => "file" in o && typeof o.file === "string" ? `${o.kind}: ${o.file}` : void 0).filter(Boolean);
+function peerPrompt(ctx, subject, diff, focus) {
+  const planned = "plan" in subject ? subject : void 0;
+  const files = planned ? planned.plan.operations.map((o) => "file" in o && typeof o.file === "string" ? `${o.kind}: ${o.file}` : void 0).filter(Boolean) : [];
+  const listed = planned ? "the files named in the plan" : "the source files listed above";
   return [
     "You are the peer reviewer of an Oracle APEX change prepared by another coding agent.",
     "Review only; do not modify files, run deployments, or contact any database.",
     `Project root: ${ctx.root}. Application sources: ${ctx.config.application.sourceDir} (APEXlang .apx).`,
-    `Saved deployment plan: ${planPath} (digest ${plan.digest}).`,
+    planned ? `Saved deployment plan: ${planned.planPath} (digest ${planned.plan.digest}).` : "Local-only change: there is no deployment plan or Oracle target yet. Review the sources as they would be imported.",
     "",
     "Check, in priority order:",
     "1. Correctness of the APEXlang change against the stated intent and the existing application.",
     "2. Security: authorization schemes, session state protection, escaping/XSS, SQL and PL/SQL injection, exposed data.",
     "3. Database migrations and packages: destructive or non-idempotent statements, data loss, missing grants.",
-    "4. Plan risks and import scope below: anything broader than the change needs.",
+    planned ? "4. Plan risks and import scope below: anything broader than the change needs." : "4. Consistency between pages, shared components and database objects they reference.",
     "5. Maintainability issues worth fixing now. Skip style nits.",
     "Approve when nothing critical or major remains. Request changes otherwise, with file and line where possible.",
     ...focus ? ["", "Requested focus: " + focus] : [],
     "",
-    "Plan preview (JSON):",
-    JSON.stringify(preview, null, 2),
+    ...planned ? ["Plan preview (JSON):", JSON.stringify(planPreview(ctx, planned.plan), null, 2)] : ["Source files:", ...subject.sources.slice(0, 400)],
     ...files.length ? ["", "Database operations:", ...files] : [],
     "",
-    diff === void 0 ? "No Git diff is available; read the files named in the plan." : diff.trim() ? "Working-tree diff of deployable sources against HEAD:\n" + diff : "The deployable sources match HEAD; review the files named in the plan.",
+    diff === void 0 ? `No Git diff is available; read ${listed}.` : diff.trim() ? "Working-tree diff of deployable sources against HEAD:\n" + diff : `The deployable sources match HEAD; review ${listed}.`,
     "",
     "Answer only with the JSON object required by the output schema."
   ].join("\n");
@@ -15443,21 +15442,29 @@ async function runPeer(vendor, ctx, prompt, options) {
   }
 }
 async function peerReview(ctx, input, signal) {
-  const plan = deployPlanSchema.parse(await readJson(await contained(ctx.root, input.plan)));
-  if (Date.parse(plan.expiresAt) <= Date.now())
+  const plan = input.plan ? deployPlanSchema.parse(await readJson(await contained(ctx.root, input.plan))) : void 0;
+  if (plan && Date.parse(plan.expiresAt) <= Date.now())
     throw new Fault(
       "PLAN_EXPIRED",
       "The saved plan has expired; create a new plan before review.",
       4,
       "blocked"
     );
+  const sources = plan ? void 0 : await sourceInventory(ctx);
+  if (sources && !Object.keys(sources).length)
+    throw new Fault("INPUT_INVALID", "The project has no application or database sources to review.", 2);
   const vendor = resolvePeer(ctx, input.vendor);
   const settings = ctx.config.peerReview;
   const started = performance2.now();
   const verdict = await runPeer(
     vendor,
     ctx,
-    peerPrompt(ctx, plan, input.plan, await sourceDiff(ctx, signal), input.focus),
+    peerPrompt(
+      ctx,
+      plan ? { plan, planPath: input.plan } : { sources: Object.keys(sources) },
+      await sourceDiff(ctx, signal),
+      input.focus
+    ),
     {
       model: settings?.model,
       timeoutMs: (settings?.timeoutSeconds ?? 600) * 1e3,
@@ -15471,24 +15478,25 @@ async function peerReview(ctx, input, signal) {
     env: peerEnv(),
     timeoutMs: 15e3
   }).catch(() => void 0);
+  const sourceDigest = sources ? hash(canonical(sources)) : void 0;
   const record = {
     schemaVersion: 1,
-    planDigest: plan.digest,
-    planId: plan.id,
-    environment: plan.environment,
+    ...plan ? { planDigest: plan.digest, planId: plan.id, environment: plan.environment } : { sourceDigest },
     vendor,
     cliVersion: version2?.stdout.trim().split("\n")[0]?.slice(0, 200) ?? "unknown",
     reviewedAt: (/* @__PURE__ */ new Date()).toISOString(),
     durationMs: Math.round(performance2.now() - started),
     ...verdict
   };
-  const file = reviewPath(plan.digest);
+  const file = plan ? reviewPath(plan.digest) : sourceReviewPath(sourceDigest);
   await writeJson(await contained(ctx.root, file), record);
   return {
     ...record,
     reviewPath: file,
     gate: ctx.config.peerReview?.mode ?? "off",
-    nextActions: record.verdict === "approve" ? ["Apply this exact saved plan with apexrest_ship mode:apply plan:" + input.plan] : [
+    nextActions: !plan ? [
+      record.verdict === "approve" ? "Source review approved. It is advisory: a deployment still needs apexrest_ship mode:plan and, when peerReview.mode is required, a review of that plan." : "Address the findings and rerun apexrest_peer_review on the updated sources. Report every finding to the user."
+    ] : record.verdict === "approve" ? ["Apply this exact saved plan with apexrest_ship mode:apply plan:" + input.plan] : [
       "Address the findings, rerun apexrest_ship mode:plan, then review the new plan. Report every finding to the user."
     ]
   };
@@ -15873,7 +15881,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await peerReview(
               ctx,
               {
-                plan: text2("plan"),
+                plan: parsed.plan,
                 vendor: parsed.vendor,
                 focus: parsed.focus
               },

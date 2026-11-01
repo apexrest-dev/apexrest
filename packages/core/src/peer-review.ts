@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import type { ProjectContext } from './config.ts';
-import { deployPlanSchema, type DeployPlan } from './deploy.ts';
-import { contained, exists, readJson, writeJson } from './fs.ts';
+import { deployPlanSchema, sourceInventory, type DeployPlan } from './deploy.ts';
+import { canonical, contained, exists, hash, readJson, writeJson } from './fs.ts';
 import { runProcess } from './process.ts';
 import { Fault } from './result.ts';
 import { planPreview } from './ship.ts';
@@ -14,7 +14,9 @@ import { planPreview } from './ship.ts';
  * Cross-vendor peer review: the host agent (Claude Code or Codex) asks the
  * other vendor's CLI, signed in with the user's own subscription or API key,
  * for a read-only review of one saved ship plan. The verdict is bound to the
- * plan digest; the host alone applies. This is a workflow gate for a single
+ * plan digest; the host alone applies. Without a plan (local-only work, no
+ * Oracle target) it reviews the current sources; that advisory record is
+ * bound to the source digest and never satisfies the apply gate. This is a workflow gate for a single
  * user, not a security boundary against the host agent.
  */
 export const peerVendors = ['codex', 'claude'] as const;
@@ -40,9 +42,16 @@ export const peerVerdictSchema = z.strictObject({
 export type PeerVerdict = z.infer<typeof peerVerdictSchema>;
 export const peerReviewRecordSchema = peerVerdictSchema.safeExtend({
   schemaVersion: z.literal(1),
-  planDigest: z.string().regex(/^[a-f0-9]{64}$/),
-  planId: z.string(),
-  environment: z.string(),
+  planDigest: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+  planId: z.string().optional(),
+  environment: z.string().optional(),
+  sourceDigest: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   vendor: z.enum(peerVendors),
   cliVersion: z.string().max(200),
   reviewedAt: z.iso.datetime(),
@@ -176,6 +185,7 @@ export async function peerStatus(ctx: ProjectContext | undefined) {
 }
 
 const reviewPath = (digest: string) => '.apexrest/reviews/' + digest + '.json';
+const sourceReviewPath = (digest: string) => '.apexrest/reviews/source-' + digest + '.json';
 
 export async function readPeerReview(ctx: ProjectContext, digest: string) {
   const file = await contained(ctx.root, reviewPath(digest));
@@ -208,39 +218,46 @@ async function sourceDiff(ctx: ProjectContext, signal?: AbortSignal) {
 
 export function peerPrompt(
   ctx: ProjectContext,
-  plan: DeployPlan,
-  planPath: string,
+  subject: { plan: DeployPlan; planPath: string } | { sources: string[] },
   diff: string | undefined,
   focus?: string,
 ) {
-  const preview = planPreview(ctx, plan);
-  const files = plan.operations
-    .map((o) => ('file' in o && typeof o.file === 'string' ? `${o.kind}: ${o.file}` : undefined))
-    .filter(Boolean);
+  const planned = 'plan' in subject ? subject : undefined;
+  const files = planned
+    ? planned.plan.operations
+        .map((o) => ('file' in o && typeof o.file === 'string' ? `${o.kind}: ${o.file}` : undefined))
+        .filter(Boolean)
+    : [];
+  const listed = planned ? 'the files named in the plan' : 'the source files listed above';
   return [
     'You are the peer reviewer of an Oracle APEX change prepared by another coding agent.',
     'Review only; do not modify files, run deployments, or contact any database.',
     `Project root: ${ctx.root}. Application sources: ${ctx.config.application.sourceDir} (APEXlang .apx).`,
-    `Saved deployment plan: ${planPath} (digest ${plan.digest}).`,
+    planned
+      ? `Saved deployment plan: ${planned.planPath} (digest ${planned.plan.digest}).`
+      : 'Local-only change: there is no deployment plan or Oracle target yet. Review the sources as they would be imported.',
     '',
     'Check, in priority order:',
     '1. Correctness of the APEXlang change against the stated intent and the existing application.',
     '2. Security: authorization schemes, session state protection, escaping/XSS, SQL and PL/SQL injection, exposed data.',
     '3. Database migrations and packages: destructive or non-idempotent statements, data loss, missing grants.',
-    '4. Plan risks and import scope below: anything broader than the change needs.',
+    planned
+      ? '4. Plan risks and import scope below: anything broader than the change needs.'
+      : '4. Consistency between pages, shared components and database objects they reference.',
     '5. Maintainability issues worth fixing now. Skip style nits.',
     'Approve when nothing critical or major remains. Request changes otherwise, with file and line where possible.',
     ...(focus ? ['', 'Requested focus: ' + focus] : []),
     '',
-    'Plan preview (JSON):',
-    JSON.stringify(preview, null, 2),
+    ...(planned
+      ? ['Plan preview (JSON):', JSON.stringify(planPreview(ctx, planned.plan), null, 2)]
+      : ['Source files:', ...(subject as { sources: string[] }).sources.slice(0, 400)]),
     ...(files.length ? ['', 'Database operations:', ...files] : []),
     '',
     diff === undefined
-      ? 'No Git diff is available; read the files named in the plan.'
+      ? `No Git diff is available; read ${listed}.`
       : diff.trim()
         ? 'Working-tree diff of deployable sources against HEAD:\n' + diff
-        : 'The deployable sources match HEAD; review the files named in the plan.',
+        : `The deployable sources match HEAD; review ${listed}.`,
     '',
     'Answer only with the JSON object required by the output schema.',
   ].join('\n');
@@ -352,24 +369,34 @@ async function runPeer(
 
 export async function peerReview(
   ctx: ProjectContext,
-  input: { plan: string; vendor?: PeerVendor | undefined; focus?: string | undefined },
+  input: { plan?: string | undefined; vendor?: PeerVendor | undefined; focus?: string | undefined },
   signal?: AbortSignal,
 ) {
-  const plan = deployPlanSchema.parse(await readJson(await contained(ctx.root, input.plan)));
-  if (Date.parse(plan.expiresAt) <= Date.now())
+  const plan = input.plan
+    ? deployPlanSchema.parse(await readJson(await contained(ctx.root, input.plan)))
+    : undefined;
+  if (plan && Date.parse(plan.expiresAt) <= Date.now())
     throw new Fault(
       'PLAN_EXPIRED',
       'The saved plan has expired; create a new plan before review.',
       4,
       'blocked',
     );
+  const sources = plan ? undefined : await sourceInventory(ctx);
+  if (sources && !Object.keys(sources).length)
+    throw new Fault('INPUT_INVALID', 'The project has no application or database sources to review.', 2);
   const vendor = resolvePeer(ctx, input.vendor);
   const settings = ctx.config.peerReview;
   const started = performance.now();
   const verdict = await runPeer(
     vendor,
     ctx,
-    peerPrompt(ctx, plan, input.plan, await sourceDiff(ctx, signal), input.focus),
+    peerPrompt(
+      ctx,
+      plan ? { plan, planPath: input.plan! } : { sources: Object.keys(sources!) },
+      await sourceDiff(ctx, signal),
+      input.focus,
+    ),
     {
       model: settings?.model,
       timeoutMs: (settings?.timeoutSeconds ?? 600) * 1000,
@@ -383,25 +410,31 @@ export async function peerReview(
     env: peerEnv(),
     timeoutMs: 15000,
   }).catch(() => undefined);
+  const sourceDigest = sources ? hash(canonical(sources)) : undefined;
   const record: PeerReviewRecord = {
     schemaVersion: 1,
-    planDigest: plan.digest,
-    planId: plan.id,
-    environment: plan.environment,
+    ...(plan
+      ? { planDigest: plan.digest, planId: plan.id, environment: plan.environment }
+      : { sourceDigest: sourceDigest! }),
     vendor,
     cliVersion: version?.stdout.trim().split('\n')[0]?.slice(0, 200) ?? 'unknown',
     reviewedAt: new Date().toISOString(),
     durationMs: Math.round(performance.now() - started),
     ...verdict,
   };
-  const file = reviewPath(plan.digest);
+  const file = plan ? reviewPath(plan.digest) : sourceReviewPath(sourceDigest!);
   await writeJson(await contained(ctx.root, file), record);
   return {
     ...record,
     reviewPath: file,
     gate: ctx.config.peerReview?.mode ?? 'off',
-    nextActions:
-      record.verdict === 'approve'
+    nextActions: !plan
+      ? [
+          record.verdict === 'approve'
+            ? 'Source review approved. It is advisory: a deployment still needs apexrest_ship mode:plan and, when peerReview.mode is required, a review of that plan.'
+            : 'Address the findings and rerun apexrest_peer_review on the updated sources. Report every finding to the user.',
+        ]
+      : record.verdict === 'approve'
         ? ['Apply this exact saved plan with apexrest_ship mode:apply plan:' + input.plan]
         : [
             'Address the findings, rerun apexrest_ship mode:plan, then review the new plan. Report every finding to the user.',

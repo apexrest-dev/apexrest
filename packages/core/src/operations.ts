@@ -374,22 +374,17 @@ export const schemas = {
   'peer.status': z.strictObject(base),
   'peer.review': z.strictObject({
     ...base,
-    plan: relativePath.describe('Saved plan path from apexrest_ship mode:plan'),
+    plan: relativePath.optional().describe('Saved plan path from apexrest_ship mode:plan'),
     vendor: z.enum(['codex', 'claude']).optional(),
     focus: z.string().min(1).max(2000).optional(),
   }),
-  peer: z
-    .strictObject({
-      ...base,
-      action: z.enum(['status', 'review']).default('review'),
-      plan: relativePath.optional().describe('review: saved ship plan path'),
-      vendor: z.enum(['codex', 'claude']).optional().describe('codex from Claude Code, claude from Codex'),
-      focus: z.string().min(1).max(2000).optional(),
-    })
-    .refine((value) => value.action !== 'review' || !!value.plan, {
-      path: ['plan'],
-      message: 'action review requires the saved plan path.',
-    }),
+  peer: z.strictObject({
+    ...base,
+    action: z.enum(['status', 'review']).default('review'),
+    plan: relativePath.optional().describe('review: saved plan path; omit for local sources'),
+    vendor: z.enum(['codex', 'claude']).optional().describe('codex from Claude Code, claude from Codex'),
+    focus: z.string().min(1).max(2000).optional(),
+  }),
   job: z.strictObject({
     ...base,
     action: z.enum(['status', 'cancel']).default('status'),
@@ -504,7 +499,7 @@ export const toolCatalog: {
     name: 'apexrest_peer_review',
     operation: 'peer',
     description:
-      'Other-vendor CLI (codex or claude) reviews a saved ship plan read-only; digest-bound verdict gates required apply. status: CLI and sign-in. Never deploys.',
+      'Other-vendor CLI (codex or claude) reviews a saved ship plan or, without plan, local sources, read-only; plan verdict gates required apply. status: CLI/sign-in. Never deploys.',
     readOnly: false,
     destructive: false,
     long: true,

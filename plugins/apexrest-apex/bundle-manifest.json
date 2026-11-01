@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "version": "2.5.0",
-  "sourceDigest": "0d363a0696a82e2ec9d133b058100ae25364eb3a9888b3387a6467a186e25b03",
+  "sourceDigest": "53f7cda54b8604d70759401f77925ce9a535fe18e0fae1428949facd9c1542cb",
   "files": {
     ".claude-plugin/plugin.json": "d9e808dcb3624199929ea0f13e7606fe22250d2be3a5a5e236a1346e2fc3c120",
     ".codex-plugin/plugin.json": "b65cd762a4590e3073fdc2422977cdf38f72b63ca373653cc1ad63d9e36741c0",
@@ -3505,11 +3505,11 @@
     "resources/toolchains/sources.lock.json": "865a0a141ee8c32155ed31796cebb30395bb19a87753c98d50fda6cfd3c89817",
     "resources/toolchains/toolchain-26.2.lock.json": "9564aaf52aaf574d1a5897e4d428886d2d1c62066c68858ae5aab8a356533c9d",
     "resources/toolchains/toolchain.lock.json": "0d982dc15f547af6694c7f710a9868cb81db8a575356ba65b732ae11c779cad6",
-    "runtime/apexrest.mjs": "bf583b6a120ba412e60ab82822452ffbfee507dba4a22f96e48beb5265243605",
+    "runtime/apexrest.mjs": "a6d36f1d8b0f7ae27bddbf7aed7921cc1caa81ea94e7b6d819faf4c28c63b376",
     "runtime/chunk-2BM2L6ZT.mjs": "74807ca8f2a8a765eab61c9945967001cf355f7b4b1df7aaabaee733d54dca25",
     "runtime/chunk-4S26F3JE.mjs": "52cf5e2e0b5f0ca18a699196326fb1cb9be241a9b146a870b153c6c61acc1266",
-    "runtime/chunk-6IEGAQCB.mjs": "f0cc0db4656a730217586512f637e45e9488d208fac5b70fc128bc8f317363c4",
     "runtime/chunk-75I6YHSV.mjs": "0eb87a20acf40281cff38213a0281230c5c005ac6f58284a214007aa29d198db",
+    "runtime/chunk-B4BOGYZM.mjs": "e4c6716af76e301a943a43487a9558695c2be20fc840c65f1e097bc366f36ace",
     "runtime/chunk-CTXWQ45G.mjs": "e040d06bea96542c223d3d821b9196d18dad45b970fa1857c14ffd72ce6aaff4",
     "runtime/chunk-F4MSWKZJ.mjs": "6f94c7e966f342825887d360995c9d10d9800215476e37195ca11cb1df55304a",
     "runtime/chunk-GQDQAOWR.mjs": "518a8377445e3391ce44cb572ba2245b234e1c35879ffec102ec86f03fe47798",
@@ -3518,10 +3518,10 @@
     "runtime/chunk-K2XCD6I4.mjs": "295ecf1bf74ac827fd3ea2ba05bfab64ac01a4305a4e8fc9d4ccb31e3aaf14a4",
     "runtime/chunk-MG3YV2PW.mjs": "48b986abdaa70521cfa66b6e538e73e48dfc693b098aa0398880a911fd46a0fc",
     "runtime/chunk-ON46TMC5.mjs": "7a90af71088d5fad377661f6eb66c02fb717754bad4645d5f1b881e7ae0d6ff1",
-    "runtime/chunk-QOT54WQM.mjs": "681a40c0817ac514bb48fbaf5cb8afd4ed04ff4cc880e229b9dbdc2037a64d9c",
+    "runtime/chunk-RSD766E7.mjs": "3c9cd83f9b55acb989312bd296838494bb1247e962696eae9b497e9e451c32fe",
     "runtime/chunk-UQUM7OVR.mjs": "363281d131c05c5422fb63c0d981a0838d59e6cd5cac571531b93ae40b57d23e",
     "runtime/chunk-ZT2TJWQE.mjs": "6dc92ecc7d8a5672624db2fa317680732b43fa4d393f5e1d8833bb89c1332dc9",
-    "runtime/mcp.mjs": "6eb3ff80a5f04e1aa5a6bf5d4b07f20a485c899ec4cc447f1cd3372aba548215",
+    "runtime/mcp.mjs": "4abeec054ebf7c09a65a7808363ec90e46f8d96d5a3768dfb9453c5192388b2b",
     "skills/apexrest-apexlang/SKILL.md": "2533a65c8255a162532040bcb7b5d90083a384654f9b6dc27aadec5894a10856",
     "skills/apexrest-apexlang/agents/openai.yaml": "a62b6e8173a0d9fba0b45b496f881e1834161d8283f18e0ba3448a00bdad3787",
     "skills/apexrest-apexlang/assets/p00020-filtered-components.apx": "6e08325e0e25b0b8b3298f00a4d10f66dc0731529c93e9170c0444b657702d21",
@@ -3540,6 +3540,6 @@
     "skills/apexrest-setup/references/ords.md": "2d3510393762315a6948e839bfe213987fe07eb69dcc2c09348220ce615a5db2",
     "skills/apexrest-work/SKILL.md": "ced207db57f402f83f47c879ed14c08a4783b7ee5980064274bddad15da1ae8c",
     "skills/apexrest-work/agents/openai.yaml": "ed03f80f5528023b79b36fd9d9ac340c833f61176b304c0ab7c2b6204566d71f",
-    "skills/apexrest-work/references/peer-review.md": "6f362e34cc31d895443c1701c80dfe9fc9cf0f7ca7905d8683b97563ef130471"
+    "skills/apexrest-work/references/peer-review.md": "ed3ec33a6e7ad0d48f6db18aefba1529c8efd79e3c215d920977a444bebb5e69"
   }
 }

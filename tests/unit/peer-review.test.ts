@@ -201,6 +201,32 @@ writeFileSync(args[args.indexOf('-o') + 1], '{"verdict":"maybe"}');
   });
 });
 
+test('local source review without a plan is source-bound and never satisfies the gate', async () => {
+  const ctx = await project({ mode: 'required', vendor: 'auto', timeoutSeconds: 600 });
+  await mkdir(path.join(ctx.root, 'apex/pages'), { recursive: true });
+  await writeFile(path.join(ctx.root, 'apex/pages/p00001.apx'), 'page 1 {}\n');
+  const log = path.join(ctx.root, 'codex-prompt.txt');
+  const bin = await fakeCli(
+    ctx,
+    'codex-src',
+    `import { readFileSync, writeFileSync } from 'node:fs';
+const args = process.argv.slice(2);
+if (args[0] === '--version') { console.log('codex-cli 9.9.9'); process.exit(0); }
+writeFileSync(${JSON.stringify(log)}, readFileSync(0, 'utf8'));
+writeFileSync(args[args.indexOf('-o') + 1], ${JSON.stringify(JSON.stringify(verdict))});
+`,
+  );
+  const result = await withEnv({ APEXREST_CODEX_BIN: bin }, () => peerReview(ctx, { vendor: 'codex' }));
+  const prompt = await readFile(log, 'utf8');
+  assert.ok(prompt.includes('Local-only change'));
+  assert.ok(prompt.includes('apex/pages/p00001.apx'));
+  assert.equal(result.planDigest, undefined);
+  assert.match(result.sourceDigest!, /^[a-f0-9]{64}$/);
+  assert.equal(result.reviewPath, '.apexrest/reviews/source-' + result.sourceDigest + '.json');
+  await assert.rejects(peerReviewGate(ctx, plan()), { code: 'PEER_REVIEW_REQUIRED' });
+  await assert.rejects(peerReview(await project(), { vendor: 'codex' }), { code: 'INPUT_INVALID' });
+});
+
 async function record(ctx: ProjectContext, value: Partial<PeerReviewRecord>) {
   await mkdir(path.join(ctx.root, '.apexrest/reviews'), { recursive: true });
   const full: PeerReviewRecord = {
@@ -243,8 +269,9 @@ test('apply gate: off ignores, advisory reports, required blocks without an appr
   });
 });
 
-test('peer tool input binds review to a saved plan', () => {
-  assert.equal(schemas.peer.safeParse({ action: 'review' }).success, false);
+test('peer tool input accepts a saved plan or local sources', () => {
+  assert.equal(schemas.peer.safeParse({ action: 'review' }).success, true);
+  assert.equal(schemas.peer.safeParse({ action: 'publish' }).success, false);
   assert.equal(schemas.peer.safeParse({ action: 'status' }).success, true);
   assert.equal(schemas.peer.safeParse({ plan: '.apexrest/plans/x.json', vendor: 'codex' }).success, true);
   assert.equal(schemas.peer.safeParse({ plan: '../x.json' }).success, false);

@@ -21,6 +21,8 @@ Claude Code and Codex can review each other's APEX changes. The host agent prepa
 
 `vendor: auto` picks the opposite of the detected host (`APEXREST_HOST`, then the MCP client name sent at initialization, then the host's own environment); pass `vendor` explicitly when detection is unavailable. The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns `approve` or `changes_requested` with findings. The verdict is written to `.apexrest/reviews/<planDigest>.json`.
 
+Local-only work without an Oracle target can still be reviewed: omit `plan` (CLI `apexrest peer review` without `--plan`). The reviewer then receives the list of application and database sources and the Git diff, and the verdict is written to `.apexrest/reviews/source-<sourceDigest>.json`. A source review is advisory only; it never satisfies the `required` apply gate, which needs a review of the exact saved plan.
+
 Gate modes apply to `apexrest_ship mode:apply` (and the CLI `ship --mode apply`):
 
 - `off`: no review state is read.

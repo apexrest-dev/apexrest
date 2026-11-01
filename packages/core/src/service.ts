@@ -416,7 +416,7 @@ async function dispatchObserved(
             data = await peerReview(
               ctx,
               {
-                plan: text('plan'),
+                plan: parsed.plan as string | undefined,
                 vendor: parsed.vendor as PeerVendor | undefined,
                 focus: parsed.focus as string | undefined,
               },
