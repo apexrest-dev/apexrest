@@ -852,6 +852,21 @@ window.apexLocalReports = (function ($) {
     apex.message.showErrors(messages);
   }
 
+  // Errors of a page submit that belong to grid rows (regionDomId, recordId, columnName) mark the
+  // cells too, as the Interactive Grid does with the errors of its region.
+  var baseShowErrors = apex.message.showErrors;
+  apex.message.showErrors = function (errors) {
+    (Array.isArray(errors) ? errors : errors ? [errors] : []).forEach(function (error) {
+      var ig = error && error.regionDomId && grids[error.regionDomId];
+      if (!ig || !error.recordId || !error.columnName) return;
+      var model = apex.model.get(ig.cfg.modelName);
+      if (!model) return;
+      if (model.getRecord(error.recordId)) model.setValidity("error", error.recordId, error.columnName, error.message);
+      apex.model.release(ig.cfg.modelName);
+    });
+    return baseShowErrors.apply(this, arguments);
+  };
+
   function saveGrid(ig) {
     var changes = gridChanges(ig);
     if (!changes.length) { apex.message.showPageSuccess("No changes to save"); return Promise.resolve(); }

@@ -1,6 +1,7 @@
 import type { Binds, Row } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { findStub, stubArgs, withRuntime, type Runtime } from './apex-api.ts';
+import { commitWork, rollbackWork, savepoint } from './transaction.ts';
 import {
   isOp,
   isWord,
@@ -282,6 +283,11 @@ export class Interpreter implements Runtime {
 
   run(code: string, mode: 'block' | 'functionBody' | 'plsqlExpression' | 'sqlExpression'): ExecResult {
     const result: ExecResult = { ok: true, value: null, output: '', errors: this.errors };
+    if (/\bpragma\s+autonomous_transaction\b/iu.test(code))
+      this.note(
+        'info',
+        'PRAGMA AUTONOMOUS_TRANSACTION is not simulated; the block joins the page transaction, so its COMMIT also commits the page work done so far',
+      );
     try {
       withRuntime(this, () => {
         if (mode === 'plsqlExpression' || mode === 'sqlExpression') {
@@ -315,6 +321,20 @@ export class Interpreter implements Runtime {
     result.output = this.output.join('');
     if (this.redirectURL) result.redirectURL = this.redirectURL;
     return result;
+  }
+
+  /** COMMIT, ROLLBACK [TO SAVEPOINT name] and SAVEPOINT name act on the page transaction. */
+  transactionControl(op: 'commit' | 'rollback' | 'savepoint', name?: string): void {
+    const db = this.renderer.db.db;
+    if (op === 'commit') commitWork(db);
+    else if (op === 'savepoint') savepoint(db, name ?? '');
+    else if (!rollbackWork(db, name))
+      throw new PlsqlException(
+        'others',
+        -1086,
+        `ORA-01086: savepoint '${(name ?? '').toUpperCase()}' never established in this session or is invalid`,
+        'app',
+      );
   }
 
   // ------------------------------------------------------------ declarations
@@ -433,6 +453,9 @@ export class Interpreter implements Runtime {
     switch (statement.k) {
       case 'null':
       case 'noop':
+        return undefined;
+      case 'tx':
+        this.transactionControl(statement.op, statement.savepoint);
         return undefined;
       case 'unsupported':
         this.note('info', `${statement.what} are not simulated; skipped`);

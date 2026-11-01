@@ -5,6 +5,7 @@ import { escapeHtml } from '../theme.ts';
 import { enforcing, hasRole } from './devtools/view-as.ts';
 import { rememberRenderer, setAuthorizer, type Runtime } from './server/apex-api.ts';
 import { itemText, runPlsql, truthy, type ExecResult, type PlsqlOwner } from './server/plsql.ts';
+import { pageRowValidation } from './server/rows.ts';
 
 /**
  * Server-side logic for the local preview: a PL/SQL subset interpreter wired into processes,
@@ -50,6 +51,19 @@ function report(
   return undefined;
 }
 
+/** The user-facing error of a failed process (its Error Message with #SQLERRM# when set). */
+function failureError(component: ApxComponent, result: ExecResult, message: string): ApexError {
+  const custom = str(component.props, 'error.errorMessage');
+  return {
+    type: 'error',
+    location: ['page'],
+    message: custom
+      ? custom.replaceAll('#SQLERRM#', result.failure!.message).replaceAll('#SQLERRM_TEXT#', message)
+      : message,
+    unsafe: false,
+  };
+}
+
 function run(
   renderer: ApexRenderer,
   ctx: RenderContext,
@@ -93,17 +107,19 @@ function executeCode(
   const result = run(renderer, ctx, code, 'block', who);
   const errors: ApexError[] = [...result.errors];
   if (!result.ok) {
-    const message = report(renderer, ctx, who, result, 'the process was skipped');
+    // An unhandled error stops page processing and is shown (APEX rolls the transaction back);
+    // code the interpreter cannot run is a preview limitation and is only skipped.
+    const unsupported = result.failure?.kind === 'unsupported';
+    const message =
+      report(
+        renderer,
+        ctx,
+        who,
+        result,
+        unsupported ? 'the process was skipped' : 'processing stopped with this error',
+      ) ?? (unsupported ? undefined : result.failure!.message);
     if (message === undefined) return { ran: false };
-    const custom = str(process.props, 'error.errorMessage');
-    errors.push({
-      type: 'error',
-      location: ['page'],
-      message: custom
-        ? custom.replaceAll('#SQLERRM#', result.failure!.message).replaceAll('#SQLERRM_TEXT#', message)
-        : message,
-      unsafe: false,
-    });
+    errors.push(failureError(process, result, message));
   }
   if (errors.length) {
     if (point === 'beforeHeader') {
@@ -513,16 +529,20 @@ registerExtension({
     if (!code.trim()) return true;
     const who = owner(component);
     const result = run(renderer, ctx, code, 'block', who);
+    const errors: ApexError[] = [...result.errors];
     if (!result.ok) {
-      const message = report(renderer, ctx, who, result, 'skipped');
-      if (message !== undefined) {
-        ctx.session.errors = [
-          ...(ctx.session.errors ?? []),
-          { type: 'error', location: ['page'], message, unsafe: false },
-        ];
-      }
+      const unsupported = result.failure?.kind === 'unsupported';
+      const message =
+        report(renderer, ctx, who, result, unsupported ? 'skipped' : 'stopped with this error') ??
+        (unsupported ? undefined : result.failure!.message);
+      if (message !== undefined) errors.push(failureError(component, result, message));
     }
-    return result.ok;
+    // Submit and Ajax processing collect the errors (see ctx.processErrors); a page render shows them.
+    if (errors.length) {
+      if (ctx.processErrors) ctx.processErrors.push(...errors);
+      else ctx.session.errors = [...(ctx.session.errors ?? []), ...errors];
+    }
+    return result.ok && !errors.length;
   },
   expression: (renderer, ctx, expression, language) => {
     if (!expression.trim()) return undefined;
@@ -694,6 +714,7 @@ registerExtension({
     }
     return errors;
   },
+  rowValidation: (renderer, ctx) => pageRowValidation(renderer, ctx),
   page: (renderer) => rememberRenderer(renderer),
   authorize: (renderer, ctx, scheme) => enforcedAuthorization(renderer, ctx, scheme) === 1,
 });

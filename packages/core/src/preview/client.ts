@@ -83,7 +83,14 @@ window.apexLocal = (function ($) {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
       body: JSON.stringify({ code: settings.plsqlCode || settings.code || "", items: items, returnItems: returnItems })
     }).then(function (response) { return response.json(); }).then(function (values) {
-      Object.keys(values || {}).forEach(function (name) { apex.item(name).setValue(values[name]); });
+      var errors = values && Array.isArray(values.errors) ? values.errors : null;
+      Object.keys(values || {}).forEach(function (name) { if (name !== "errors") apex.item(name).setValue(values[name]); });
+      if (errors && errors.length) {
+        // As in APEX: the error is shown and the following actions do not run.
+        apex.message.clearErrors();
+        apex.message.showErrors(errors);
+        return Promise.reject(null);
+      }
     });
   }
 
@@ -123,6 +130,8 @@ window.apexLocal = (function ($) {
       case "refresh":
         return Promise.all(elements(action.selector, trigger).toArray().map(function (el) {
           if (apex.region.isRegion && apex.region.isRegion(el.id)) return apex.region(el.id).refresh();
+          // Regions without a client widget (calendar, ...) are rendered again by the server.
+          if (el.id && (submitted(el.id) || (el.querySelector && el.querySelector(".apex-local-calendar")))) return replaceRegion(el.id);
           if (isItem(el) && apex.item(el.id).refresh) return apex.item(el.id).refresh();
           return undefined;
         }));
@@ -239,20 +248,27 @@ window.apexLocal = (function ($) {
     }
   }
 
+  // Actions run synchronously until one returns a promise it must wait for, so Cancel Event and
+  // the first actions take effect inside the browser event handler (also for element.click()).
   function fire(da, event, trigger, init) {
     var holds = conditionHolds(da.condition, trigger);
     var queue = da.actions.filter(function (action) { return action.whenFalse === !holds && (!init || action.fireOnInit); });
-    return queue.reduce(function (promise, action) {
-      return promise.then(function () {
+    var index = 0;
+    function step() {
+      while (index < queue.length) {
+        var action = queue[index++];
+        var result;
         try {
-          var result = run(action, event, trigger);
-          return action.wait === false ? undefined : result;
+          result = run(action, event, trigger);
         } catch (error) {
-          if (action.stopOnError === false) { apex.debug.error(error); return undefined; }
-          throw error;
+          if (action.stopOnError === false) { apex.debug.error(error); continue; }
+          return Promise.reject(error);
         }
-      });
-    }, Promise.resolve()).catch(function (error) { if (error) apex.debug.error(error); });
+        if (action.wait !== false && result && typeof result.then === "function") return Promise.resolve(result).then(step);
+      }
+      return Promise.resolve();
+    }
+    return step().catch(function (error) { if (error) apex.debug.error(error); });
   }
 
   var EVENTS = { "page load": "ready", pageload: "ready", "lose focus": "focusout", losefocus: "focusout", "get focus": "focusin", getfocus: "focusin",
@@ -280,7 +296,8 @@ window.apexLocal = (function ($) {
 
   function bindDynamicAction(da) {
     var event = EVENTS[String(da.event).toLowerCase()] || da.event;
-    if (event === "ready") return fire(da, null, document, false);
+    // Page load and Fire on Initialization actions start after the rest of the page init code.
+    if (event === "ready") return Promise.resolve().then(function () { return fire(da, null, document, false); });
     var handler = timed(da, function (browserEvent, data) {
       if (data !== undefined) browserEvent.data = data;
       fire(da, browserEvent, this, false);
@@ -290,14 +307,37 @@ window.apexLocal = (function ($) {
     else if (da.selector.indexOf("js:") === 0) elements(da.selector, document)[on](event, handler);
     else if (da.scope === "dynamic" || da.scope === "static") $(da.container || document)[on](event, da.selector, handler);
     else $(da.selector)[on](event, handler);
-    elements(da.selector, document).each(function () { fire(da, null, this, true); });
+    var targets = elements(da.selector, document).toArray();
+    Promise.resolve().then(function () { targets.forEach(function (target) { fire(da, null, target, true); }); });
+  }
+
+  // Page Items to Submit of a region: { NAME: value } of the items it declares, or null.
+  function submitted(id) {
+    var names = (config.regionItems || {})[id];
+    if (!names || !names.length) return null;
+    var values = {};
+    names.forEach(function (name) {
+      var item = apex.item(name);
+      if (!item || !item.node) return;
+      var value = item.getValue();
+      values[name] = Array.isArray(value) ? value.join(":") : value;
+    });
+    return values;
+  }
+  function itemsQuery(id) {
+    var values = submitted(id);
+    return values ? "&items=" + encodeURIComponent(JSON.stringify(values)) : "";
   }
 
   function replaceRegion(id, extra) {
     var region$ = $("#" + apex.util.escapeCSS(id));
     region$.trigger("apexbeforerefresh");
     var url = base + "/__apex/region?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(id) + (extra || "");
-    return fetch(url, { credentials: "same-origin" }).then(function (response) { return response.text(); }).then(function (html) {
+    var items = submitted(id);
+    var init = items
+      ? { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: items }) }
+      : { credentials: "same-origin" };
+    return fetch(url, init).then(function (response) { return response.text(); }).then(function (html) {
       var next$ = $(html);
       region$.replaceWith(next$);
       registerRegion({ id: id });
@@ -308,7 +348,9 @@ window.apexLocal = (function ($) {
   function registerRegion(region) {
     if (apex.region.isRegion && apex.region.isRegion(region.id)) apex.region.destroy(region.id);
     if (!document.getElementById(region.id)) return;
-    apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); } });
+    apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); },
+      // Target of the links of region errors in the page notification (interactive grid rows).
+      gotoError: function () { var el = document.getElementById(region.id); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); } });
   }
 
   $(document).on("click", "[data-apex-local-page]", function (event) {
@@ -330,6 +372,8 @@ window.apexLocal = (function ($) {
       config.dynamicActions.forEach(bindDynamicAction);
     },
     refreshRegion: replaceRegion,
+    submittedItems: submitted,
+    itemsQuery: itemsQuery,
     registerAction: function (name, handler) { actionHandlers[name] = handler; },
     hasAction: function (name) { return Object.prototype.hasOwnProperty.call(actionHandlers, name); },
     config: function () { return config; }

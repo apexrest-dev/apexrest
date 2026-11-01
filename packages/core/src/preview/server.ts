@@ -16,7 +16,30 @@ import {
   type RouteResponse,
 } from './extensions.ts';
 import { parseBody } from './extensions/files/multipart.ts';
-import { ApexRenderer, LOCAL_PREFIX, MESSAGES, type Diagnostic, type Session } from './render.ts';
+import { transaction } from './extensions/server/transaction.ts';
+import {
+  ApexRenderer,
+  LOCAL_PREFIX,
+  MESSAGES,
+  type ApexError,
+  type Diagnostic,
+  type Session,
+} from './render.ts';
+
+/** Preview Ajax routes that change data; they commit or roll back like a page submit. */
+const TRANSACTIONAL_ROUTES = new Set(['ig-save', 'set-value']);
+
+/** A route response that reports a failure (HTTP error, `ok: false` or an `error`). */
+function failedResponse(result: RouteResponse): boolean {
+  if ((result.status ?? 200) >= 400) return true;
+  if (result.type !== 'json') return false;
+  try {
+    const parsed = JSON.parse(result.body) as { ok?: unknown; error?: unknown };
+    return parsed.ok === false || parsed.error !== undefined;
+  } catch {
+    return false;
+  }
+}
 
 export interface PreviewOptions {
   /** Folder that contains application.apx. */
@@ -196,6 +219,42 @@ export class PreviewServer {
     return session;
   }
 
+  /**
+   * Sets the session state of a region's Page Items to Submit before it is rendered or queried
+   * again (region refresh, calendar feed). Only the items the region declares are taken.
+   */
+  #submitRegionItems(session: Session, pageKey: string, regionId: string, items: unknown): void {
+    if (!items || !regionId) return;
+    let values: unknown = items;
+    if (typeof items === 'string') {
+      try {
+        values = JSON.parse(items);
+      } catch {
+        return;
+      }
+    }
+    if (!values || typeof values !== 'object') return;
+    const page = this.renderer.findPage(pageKey);
+    if (!page) return;
+    const region = [page, this.renderer.app.pages.get('0')]
+      .flatMap((candidate) => candidate?.children ?? [])
+      .find(
+        (child) =>
+          child.type === 'region' && (child.id === regionId || this.renderer.regionDomId(child) === regionId),
+      );
+    if (!region) return;
+    const allowed = new Set(this.renderer.regionItemsToSubmit(region));
+    for (const [name, value] of Object.entries(values as Record<string, unknown>)) {
+      const upper = name.toUpperCase();
+      if (!allowed.has(upper)) continue;
+      session.items[upper] = Array.isArray(value)
+        ? value.join(':')
+        : value === null || value === undefined
+          ? ''
+          : String(value);
+    }
+  }
+
   #static(response: http.ServerResponse, root: string, relative: string, cache: boolean): void {
     const target = path.resolve(root, decodeURIComponent(relative));
     if (!target.startsWith(root + path.sep) || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
@@ -319,10 +378,18 @@ export class PreviewServer {
         items,
         values,
       });
-      let result = renderer.isLoginPage(page)
-        ? renderer.login(session, values)
-        : renderer.accept(session, page, requestValue, values);
-      for (const step of finish) result = step(result);
+      // One transaction per submit: committed on success, rolled back when processing fails.
+      const result = transaction(
+        renderer.db.db,
+        () => {
+          let accepted = renderer.isLoginPage(page)
+            ? renderer.login(session, values)
+            : renderer.accept(session, page, requestValue, values);
+          for (const step of finish) accepted = step(accepted);
+          return accepted;
+        },
+        (accepted) => Boolean((accepted as { errors?: unknown[] }).errors?.length),
+      );
       return this.#send(
         response,
         200,
@@ -343,12 +410,24 @@ export class PreviewServer {
             ? await formBody(request)
             : { form: undefined, files: [], text: await body(request) }
           : { form: undefined, files: [], text: '' };
-      const result = handler(renderer, session, {
-        method: request.method ?? 'GET',
-        params: url.searchParams,
-        body: 'text' in posted ? posted.text : (posted.form?.toString() ?? ''),
-        files: posted.files,
-      });
+      this.#submitRegionItems(
+        session,
+        url.searchParams.get('page') ?? '',
+        url.searchParams.get('region') ?? '',
+        url.searchParams.get('items'),
+      );
+      const call = () =>
+        handler(renderer, session, {
+          method: request.method ?? 'GET',
+          params: url.searchParams,
+          body: 'text' in posted ? posted.text : (posted.form?.toString() ?? ''),
+          files: posted.files,
+        });
+      const name = rest.slice(LOCAL_PREFIX.length + 2);
+      // Ajax requests that change data run in a transaction like a page submit.
+      const result = TRANSACTIONAL_ROUTES.has(name)
+        ? transaction(renderer.db.db, call, failedResponse)
+        : call();
       return this.#respond(response, result);
     }
     if (rest === '__logout') {
@@ -360,6 +439,15 @@ export class PreviewServer {
     if (rest === `${LOCAL_PREFIX.slice(1)}/region`) {
       const page = url.searchParams.get('page') ?? '';
       const region = url.searchParams.get('region') ?? '';
+      // Page Items to Submit of the region: POST { items } or ?items=<json>.
+      const posted = request.method === 'POST' ? await body(request) : '';
+      let items: unknown = url.searchParams.get('items');
+      try {
+        if (posted) items = (JSON.parse(posted) as { items?: unknown }).items ?? null;
+      } catch {
+        return this.#send(response, 400, 'text/plain', 'Region refresh expects JSON { items }');
+      }
+      this.#submitRegionItems(session, page, region, items);
       const target = Number(url.searchParams.get('pg'));
       if (target > 0) {
         const component = renderer
@@ -375,14 +463,27 @@ export class PreviewServer {
         items?: Record<string, string>;
         returnItems?: string[];
       };
-      const values = renderer.executeServerCode(
-        session,
-        url.searchParams.get('page') ?? '',
-        input.code ?? '',
-        input.items ?? {},
-        input.returnItems ?? [],
+      const errors: ApexError[] = [];
+      const values = transaction(
+        renderer.db.db,
+        () =>
+          renderer.executeServerCode(
+            session,
+            url.searchParams.get('page') ?? '',
+            input.code ?? '',
+            input.items ?? {},
+            input.returnItems ?? [],
+            errors,
+          ),
+        () => errors.length > 0,
       );
-      return this.#send(response, 200, TYPES['.json']!, JSON.stringify(values));
+      // An unhandled error is shown like apex.server errors and stops the following actions.
+      return this.#send(
+        response,
+        200,
+        TYPES['.json']!,
+        JSON.stringify(errors.length ? { ...values, errors } : values),
+      );
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/close-dialog`) {
       const success = session.success;

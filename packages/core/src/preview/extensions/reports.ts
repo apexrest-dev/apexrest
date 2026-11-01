@@ -34,6 +34,7 @@ import {
   type IrView,
 } from './reports/ir-views.ts';
 import { toPrintHtml, toXlsx } from './reports/xlsx.ts';
+import { validateRows } from './server/rows.ts';
 import {
   findRegion,
   normalizeOperator,
@@ -606,7 +607,11 @@ function saveRoute(renderer: ApexRenderer, session: Session, request: RouteReque
       ],
     });
   }
-  return json(saveGrid(renderer, found.ctx, found.region, changesOf(input)));
+  const changes = changesOf(input);
+  // Validations of the editable region run per changed row before any DML (all failures).
+  const rowErrors = validateRows(renderer, found.ctx, found.region, changes);
+  if (rowErrors.length) return json({ ok: false, saved: 0, errors: rowErrors });
+  return json(saveGrid(renderer, found.ctx, found.region, changes));
 }
 
 function stageRoute(renderer: ApexRenderer, session: Session, request: RouteRequest): RouteResponse {

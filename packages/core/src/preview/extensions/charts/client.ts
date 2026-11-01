@@ -117,7 +117,7 @@ export const CHARTS_JS = String.raw`
   }
   function eventsUrl(config, start, end) {
     return base + "/__apex/x/calendar?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(config.region) +
-      (start ? "&start=" + start.toISOString() + "&end=" + end.toISOString() : "");
+      (start ? "&start=" + start.toISOString() + "&end=" + end.toISOString() : "") + window.apexLocal.itemsQuery(config.region);
   }
   function go(url, element) {
     if (!url) return;

@@ -28,11 +28,19 @@ import {
   regionSourceSql,
   runCodeExtensions,
   runPointExtensions,
+  runRowValidationExtensions,
   traceExtensions,
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
 import { formatOracle, LocalDatabase, splitScript, type Binds, type Row } from './database.ts';
+import {
+  forgetRow,
+  LOST_UPDATE_MESSAGE,
+  rememberRow,
+  rowChanged,
+  rowVersionColumn,
+} from './extensions/server/lost-update.ts';
 import {
   applyEscape,
   defaultStaticId,
@@ -68,6 +76,10 @@ export interface ApexError {
   type: 'error';
   location: string[];
   pageItem?: string;
+  /** Region errors (interactive grid rows): the region, record and column they belong to. */
+  regionDomId?: string;
+  recordId?: string;
+  columnName?: string;
   message: string;
   unsafe: boolean;
 }
@@ -115,11 +127,21 @@ interface RenderContext {
   onload: string[];
   jsFiles: Set<string>;
   cssFiles: Set<string>;
-  clientConfig: { regions: { id: string; kind: string }[]; dynamicActions: unknown[] };
+  clientConfig: {
+    regions: { id: string; kind: string }[];
+    dynamicActions: unknown[];
+    /** Page Items to Submit of refreshable regions by DOM id (and component id). */
+    regionItems?: Record<string, string[]>;
+  };
   itemErrors: Map<string, string>;
   messageTemplates: Record<string, string>;
   /** Set when the page authorization denies access ("view as"); the page body shows this message. */
   denied?: string | undefined;
+  /**
+   * Unhandled errors of submit or Ajax processing (PL/SQL, form DML). Set while page processing
+   * runs: an error stops it, is shown to the user and rolls the transaction back.
+   */
+  processErrors?: ApexError[] | undefined;
 }
 
 export interface RenderOptions {
@@ -585,7 +607,12 @@ export class ApexRenderer {
         parameters.set(name.toLowerCase(), this.substitute(ctx.session, rowValue(raw), ctx.page, 'RAW'));
       }
     }
-    const clear = str(target, 'clearCache');
+    // clearCache: 16,17 or a list [ 16 17 18 ] (page numbers, RP, APP, ...).
+    const clear = strings(list(target, 'clearCache'))
+      .flatMap((value) => value.split(','))
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join(',');
     if (clear) parameters.set('clear', clear);
     const request = str(target, 'request');
     if (request) parameters.set('request', request);
@@ -1190,6 +1217,15 @@ export class ApexRenderer {
     const result = this.query(ctx, region, `select * from ${table} where ${where}`, 1);
     const row = result.rows[0];
     if (!row) return;
+    // Lost update detection compares this row with the one Automatic Row Processing changes.
+    rememberRow(
+      ctx.session,
+      ctx.pageId,
+      region,
+      keys.map((key) => ctx.session.items[key.id.toUpperCase()] ?? '').join('|'),
+      row,
+      items.map((item) => str(item.props, 'source.column').toUpperCase()),
+    );
     for (const item of items) {
       const value = row[str(item.props, 'source.column').toUpperCase()];
       ctx.session.items[item.id.toUpperCase()] = value === null || value === undefined ? '' : String(value);
@@ -1271,7 +1307,10 @@ export class ApexRenderer {
     const ctx = this.prepareSubmit(session, pageKey, request);
     const started = performance.now();
     for (const [name, value] of Object.entries(values)) session.items[name.toUpperCase()] = value;
+    const success = session.success;
     const result = this.acceptPage(ctx, values);
+    // A failed submit shows its errors only (no success message of the processes that ran).
+    if (result.errors?.length) session.success = success;
     this.trace(ctx, {
       type: 'end',
       name: result.errors?.length ? 'Submit stopped' : 'Submit done',
@@ -1309,6 +1348,7 @@ export class ApexRenderer {
 
     let closeDialog = false;
     let success = '';
+    const processErrors: ApexError[] = (ctx.processErrors = []);
     for (const process of bySequence(this.pageComponents(ctx, 'process'))) {
       const point = str(process.props, 'execution.point', 'processing');
       if (point !== 'processing' && point !== 'afterSubmit' && point !== 'onSubmitBeforeComputations')
@@ -1351,6 +1391,10 @@ export class ApexRenderer {
           process.id,
         );
       }
+      if (processErrors.length) {
+        traced(`${type}: raised ${processErrors.map((error) => error.message).join('; ')}`);
+        return { errors: processErrors };
+      }
       traced(`${type}: ${ran ? 'ran' : 'not run'}`);
       const message =
         str(process.props, 'successMessage.successMessage') ||
@@ -1377,6 +1421,7 @@ export class ApexRenderer {
       const branchType = str(branch.props, 'behavior.type');
       if (branchType === 'plsqlProcedure') {
         runCodeExtensions(this, ctx, str(branch.props, 'behavior.plsqlCode'), branch);
+        if (processErrors.length) return { errors: processErrors };
         continue;
       }
       if (branchType === 'functionReturningPage' || branchType === 'functionReturningUrl') {
@@ -1467,61 +1512,96 @@ export class ApexRenderer {
         add(`${label} must be Numeric.`, name);
     }
     for (const validation of bySequence(this.pageComponents(ctx, 'validation'))) {
+      // Validations of an editable region run per changed row (runRowValidationExtensions).
+      if (ref(validation.props, 'validation.editableRegion')) continue;
       if (!this.whenButton(ctx, validation.props) || !this.condition(ctx, validation.props)) continue;
-      const type = str(validation.props, 'validation.type');
       const item = str(validation.props, 'validation.item').toUpperCase();
-      const message = str(validation.props, 'error.errorMessage', `${validation.id} failed`);
-      const value = ctx.session.items[item] ?? '';
       const associated = str(validation.props, 'error.associatedItem').toUpperCase() || item || undefined;
-      let failed: boolean | undefined;
-      const started = performance.now();
-      const extension = validationHandler(type)?.(this, ctx, validation);
-      if (extension !== undefined) {
-        if (extension !== null) add(this.substitute(ctx.session, extension, ctx.page, 'RAW'), associated);
-        this.trace(ctx, {
-          type: 'validation',
-          name: validation.id,
-          detail: `${type}: ${extension === null ? 'passed' : `failed — ${extension}`}`,
-          level: extension === null ? undefined : 'warning',
-          ms: performance.now() - started,
-        });
-        continue;
-      }
-      if (type === 'itemIsNotNull' || type === 'itemNotNull') failed = value === '';
-      else if (type === 'itemIsNumeric') failed = value !== '' && !Number.isFinite(Number(value));
-      else if (type === 'itemIsADate') failed = value !== '' && Number.isNaN(new Date(value).getTime());
-      else if (
-        type === 'rowsReturned' ||
-        type === 'noRowsReturned' ||
-        type === 'exists' ||
-        type === 'notExists'
-      ) {
-        try {
-          const found =
-            this.db.query(str(validation.props, 'validation.sqlQuery'), this.binds(ctx.session, ctx.page), 1)
-              .rows.length > 0;
-          failed = type === 'rowsReturned' || type === 'exists' ? !found : found;
-        } catch {
-          failed = undefined;
-        }
-      }
-      if (failed === undefined)
-        this.diagnose(
-          'info',
-          `Validation ${validation.id} (${type}) is not evaluated locally`,
-          ctx.pageId,
-          validation.id,
-        );
-      else if (failed) add(this.substitute(ctx.session, message, ctx.page, 'RAW'), associated);
+      const message = this.validationFailure(ctx, validation, {
+        label: associated ? this.itemLabel(ctx, associated) : '',
+      });
+      if (message !== null) add(message, associated);
+    }
+    errors.push(...runRowValidationExtensions(this, ctx));
+    return errors;
+  }
+
+  /** Label of a page item by name (its name when the page has no such item). */
+  itemLabel(ctx: RenderContext, name: string): string {
+    const item = this.pageComponents(ctx, 'pageItem').find(
+      (candidate) => candidate.id.toUpperCase() === name,
+    );
+    return item ? this.label(item) : name;
+  }
+
+  /**
+   * Runs one validation: its error message (#LABEL# / #COLUMN_HEADER# and substitutions
+   * replaced) or null when it passes or cannot be evaluated locally.
+   */
+  validationFailure(
+    ctx: RenderContext,
+    validation: ApxComponent,
+    names: { label?: string; columnHeader?: string } = {},
+  ): string | null {
+    const type = str(validation.props, 'validation.type');
+    const item = str(validation.props, 'validation.item').toUpperCase();
+    const value = ctx.session.items[item] ?? '';
+    const finish = (message: string) =>
+      this.substitute(
+        ctx.session,
+        message
+          .replaceAll('#LABEL#', names.label ?? names.columnHeader ?? '')
+          .replaceAll('#COLUMN_HEADER#', names.columnHeader ?? names.label ?? ''),
+        ctx.page,
+        'RAW',
+      );
+    const message = str(validation.props, 'error.errorMessage', `${validation.id} failed`);
+    let failed: boolean | undefined;
+    const started = performance.now();
+    const extension = validationHandler(type)?.(this, ctx, validation);
+    if (extension !== undefined) {
       this.trace(ctx, {
         type: 'validation',
         name: validation.id,
-        detail: `${type}: ${failed === undefined ? 'not evaluated' : failed ? `failed — ${message}` : 'passed'}`,
-        level: failed ? 'warning' : undefined,
+        detail: `${type}: ${extension === null ? 'passed' : `failed — ${extension}`}`,
+        level: extension === null ? undefined : 'warning',
         ms: performance.now() - started,
       });
+      return extension === null ? null : finish(extension);
     }
-    return errors;
+    if (type === 'itemIsNotNull' || type === 'itemNotNull') failed = value === '';
+    else if (type === 'itemIsNumeric') failed = value !== '' && !Number.isFinite(Number(value));
+    else if (type === 'itemIsADate') failed = value !== '' && Number.isNaN(new Date(value).getTime());
+    else if (
+      type === 'rowsReturned' ||
+      type === 'noRowsReturned' ||
+      type === 'exists' ||
+      type === 'notExists'
+    ) {
+      try {
+        const found =
+          this.db.query(str(validation.props, 'validation.sqlQuery'), this.binds(ctx.session, ctx.page), 1)
+            .rows.length > 0;
+        failed = type === 'rowsReturned' || type === 'exists' ? !found : found;
+      } catch {
+        failed = undefined;
+      }
+    }
+    if (failed === undefined)
+      this.diagnose(
+        'info',
+        `Validation ${validation.id} (${type}) is not evaluated locally`,
+        ctx.pageId,
+        validation.id,
+      );
+    this.trace(ctx, {
+      type: 'validation',
+      name: validation.id,
+      detail: `${type}: ${failed === undefined ? 'not evaluated' : failed ? `failed — ${message}` : 'passed'}`,
+      level: failed ? 'warning' : undefined,
+      ms: performance.now() - started,
+    });
+    return failed ? finish(message) : null;
   }
 
   regionVisible(ctx: RenderContext, regionId: string | undefined): boolean {
@@ -1559,6 +1639,26 @@ export class ApexRenderer {
     const binds = this.binds(ctx.session, ctx.page);
     const column = (item: ApxComponent) => str(item.props, 'source.column').toUpperCase();
     const where = keys.map((key) => `"${column(key)}" = :${key.id.toUpperCase()}`).join(' and ');
+    const fail = (message: string) => {
+      const error: ApexError = { type: 'error', location: ['page'], message, unsafe: false };
+      if (ctx.processErrors) ctx.processErrors.push(error);
+      else ctx.session.errors = [...(ctx.session.errors ?? []), error];
+      return false;
+    };
+    if (operation !== 'insert' && where) {
+      const key = keys.map((item) => ctx.session.items[item.id.toUpperCase()] ?? '').join('|');
+      const columnNames = this.formItems(ctx, regionId).map(column);
+      const current = this.query(ctx, region, `select * from ${table} where ${where}`, 1).rows[0];
+      if (rowChanged(ctx.session, ctx.pageId, region, key, current, columnNames)) {
+        this.diagnose(
+          'info',
+          `Form ${regionId}: lost update detected (${rowVersionColumn(region) ? `row version column ${rowVersionColumn(region)}` : 'row values'} changed since the row was fetched); ${operation} refused`,
+          ctx.pageId,
+          regionId,
+        );
+        return fail(LOST_UPDATE_MESSAGE);
+      }
+    }
     try {
       if (operation === 'insert') {
         const values = items.filter(
@@ -1591,15 +1691,16 @@ export class ApexRenderer {
         this.db.execute(`delete from ${table} where ${where}`, binds);
         ctx.session.success = 'Action Processed.';
       }
+      forgetRow(ctx.session, ctx.pageId, region);
       return true;
     } catch (error) {
       this.diagnose(
-        'error',
-        `Automatic row processing on ${table} failed: ${(error as Error).message}`,
+        'warning',
+        `Automatic row processing on ${table} failed: ${(error as Error).message}; processing stopped with this error`,
         ctx.pageId,
         regionId,
       );
-      return false;
+      return fail((error as Error).message);
     }
   }
 
@@ -1610,8 +1711,10 @@ export class ApexRenderer {
     code: string,
     submitted: Record<string, string>,
     returnItems: string[],
+    errors: ApexError[] = [],
   ): Record<string, string> {
     const ctx = this.prepareSubmit(session, pageKey, '');
+    ctx.processErrors = errors;
     for (const [name, value] of Object.entries(submitted)) session.items[name.toUpperCase()] = value;
     const pseudo: ApxComponent = {
       type: 'dynamicAction',
@@ -1752,6 +1855,14 @@ export class ApexRenderer {
     for (const action of ctx.denied ? [] : this.pageComponents(ctx, 'dynamicAction')) {
       if (this.visible(ctx, action)) ctx.clientConfig.dynamicActions.push(this.dynamicAction(ctx, action));
     }
+    const regionItems: Record<string, string[]> = {};
+    for (const region of this.pageComponents(ctx, 'region')) {
+      const names = this.regionItemsToSubmit(region);
+      if (!names.length) continue;
+      regionItems[this.regionDomId(region)] = names;
+      regionItems[region.id] = names;
+    }
+    if (Object.keys(regionItems).length) ctx.clientConfig.regionItems = regionItems;
     const pageTemplate = text(template, 'id');
     ctx.messageTemplates[`${pageTemplate}_S`] = text(template, 'success_message');
     ctx.messageTemplates[`${pageTemplate}_E`] = text(template, 'notification_message');
@@ -2979,6 +3090,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
         this.diagnose('info', 'Dynamic actions on interactive grid columns are not simulated', ctx.pageId);
         return '';
       case 'triggeringElement':
+      case 'eventSource':
         return 'triggeringElement';
       default:
         return 'document';
@@ -3040,6 +3152,17 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
         : null,
       actions,
     };
+  }
+
+  /** Page Items to Submit of a region (sent with its refresh and set in session state). */
+  regionItemsToSubmit(region: ApxComponent): string[] {
+    return strings([
+      ...list(region.props, 'source.pageItemsToSubmit'),
+      ...list(region.props, 'pageItemsToSubmit'),
+    ])
+      .flatMap((value) => value.split(','))
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
   }
 
   /** HTML of a single region body for client-side refresh. */
