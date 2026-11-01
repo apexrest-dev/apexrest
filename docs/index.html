@@ -47,8 +47,9 @@
 &lt;td align=&quot;center&quot; width=&quot;33%&quot;&gt;&lt;a href=&quot;docs/assets/apexrest-decisions-pilot.mp4&quot;&gt;&lt;img src=&quot;docs/assets/apexrest-decisions-pilot-poster.png&quot; alt=&quot;Decisions pilot explainer: average active time 5:44 without and 2:58 with Decisions selection, 48% less&quot; width=&quot;260&quot;&gt;&lt;/a&gt;&lt;br&gt;&lt;b&gt;Decisions API selection&lt;/b&gt;&lt;br&gt;1:09 · &lt;a href=&quot;docs/assets/apexrest-decisions-pilot.mp4&quot;&gt;MP4&lt;/a&gt; · &lt;a href=&quot;docs/assets/apexrest-decisions-pilot.srt&quot;&gt;SRT&lt;/a&gt;&lt;/td&gt;
 &lt;td align=&quot;center&quot; width=&quot;33%&quot;&gt;&lt;a href=&quot;docs/assets/apexrest-preview-showcase.mp4&quot;&gt;&lt;img src=&quot;docs/assets/apexrest-preview-showcase-poster.png&quot; alt=&quot;Preview showcase explainer: a grid of 20 screenshots from the 22-page showcase application running without a database&quot; width=&quot;260&quot;&gt;&lt;/a&gt;&lt;br&gt;&lt;b&gt;Run APEX locally&lt;/b&gt;&lt;br&gt;2:48 · &lt;a href=&quot;docs/assets/apexrest-preview-showcase.mp4&quot;&gt;MP4&lt;/a&gt; · &lt;a href=&quot;docs/assets/apexrest-preview-showcase.srt&quot;&gt;SRT&lt;/a&gt;&lt;/td&gt;
 &lt;/tr&gt;
-&lt;/table&gt;<p>Each video has English narration from a synthetic voice and burned-in captions, at 1080×1350. Provenance, data sources and limits are recorded in <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/README.md">docs/assets/README.md</a>.</p>
+&lt;/table&gt;<p>The players below run on GitHub; the posters link to the same MP4 files in <code>docs/assets/</code>. Each video has English narration from a synthetic voice and burned-in captions. Provenance, data sources and limits are recorded in <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/README.md">docs/assets/README.md</a>.</p>
 <h3 id="1-the-component-library-read-before-writing">1. The component library: read before writing</h3>
+<p><a href="https://github.com/user-attachments/assets/dddd2f88-66f6-4040-9359-13bb4ee999f4">https://github.com/user-attachments/assets/dddd2f88-66f6-4040-9359-13bb4ee999f4</a></p>
 <p>A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read first:</p>
 <ul>
 <li><strong>Oracle definitions.</strong> The complete <a href="/apexrest/oracle-apexlang-coverage/">26.2 Oracle inventory</a>: 389 definitions and 32,187 contextual property occurrences.</li>
@@ -59,6 +60,7 @@
 </ul>
 <p>The video shows real APEXREST 2.1.0 search results, an <code>LOV_NOT_FOUND</code> compiler diagnostic and the passing validation after the fix. The user request and the compile-loop sketch are illustrations.</p>
 <h3 id="2-decisions-api-choose-components-before-generating">2. Decisions API: choose components before generating</h3>
+<p><a href="https://github.com/user-attachments/assets/7136505b-c13c-4478-8473-318d4827062f">https://github.com/user-attachments/assets/7136505b-c13c-4478-8473-318d4827062f</a></p>
 <p>The optional <a href="/apexrest/component-catalog/#optional-openai-decisions-selection">OpenAI Decisions selection</a> runs through <code>apexrest_reference mode:select</code> and <code>apexrest docs select</code>. One bounded predicate batch ranks up to 64 compatible local catalog candidates. The host model then writes the page from the verified local contracts. Disabled selection, search and read stay fully local.</p>
 <p>In a one-page pilot, the same model built the same APEXlang page three times with selection and three times without it:</p>
 <ul>
@@ -69,6 +71,7 @@
 </ul>
 <p>This is a single-page pilot, not a general benchmark. The page in the video is a wireframe with synthetic data.</p>
 <h3 id="3-the-local-preview-run-apexlang-without-a-database">3. The local preview: run APEXlang without a database</h3>
+<p><a href="https://github.com/user-attachments/assets/e1923958-59a8-4c09-bb1a-0ce94dd540bf">https://github.com/user-attachments/assets/e1923958-59a8-4c09-bb1a-0ce94dd540bf</a></p>
 <p><code>apexrest preview</code> serves an APEXlang application from Node.js and SQLite on <code>127.0.0.1</code>. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an <code>.apx</code> edit on the next reload, before anything is compiled or imported. The video tours a 22-page showcase application with one page per component family. <code>preview check</code> renders all 22 pages with 0 errors and 0 warnings.</p>
 <pre><code class="language-sh">apexrest preview setup                        # once: extracts the APEX 26.2 browser runtime and theme templates
 apexrest preview check --project /abs/app     # render every page, list what is not simulated
@@ -124,10 +127,10 @@ apexrest preview start --project /abs/app     # serve pages and print their URLs
 </ul>
 <p>The preview is a design aid, not Oracle evidence. Charts are SVG rather than Oracle JET, maps have no tiles, and anything it does not simulate is listed in diagnostics. Read the <a href="/apexrest/local-preview/">local preview guide</a>.</p>
 <h3 id="more-videos">More videos</h3>
-<ul>
-<li><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-2-scoped-updates.mp4">Scoped APEXlang updates in 90 seconds</a> (<a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-2-scoped-updates.srt">captions</a>): selective export, local edit, compiler validation, scope planning and a selected-file import.</li>
-<li><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-local-preview.mp4">See the UI before it reaches a database</a> (<a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-local-preview.srt">captions</a>): the first local preview video, on Oracle&#39;s public HR demo app.</li>
-</ul>
+<p><strong>Scoped APEXlang updates in 90 seconds:</strong> selective export, local edit, compiler validation, scope planning and a selected-file import (<a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-2-scoped-updates.mp4">MP4</a>, <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-2-scoped-updates.srt">captions</a>).</p>
+<p><a href="https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d">https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d</a></p>
+<p><strong>See the UI before it reaches a database:</strong> the first local preview video, on Oracle&#39;s public HR demo app (<a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-local-preview.mp4">MP4</a>, <a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/assets/apexrest-local-preview.srt">captions</a>).</p>
+<p><a href="https://github.com/user-attachments/assets/fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a">https://github.com/user-attachments/assets/fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a</a></p>
 <h2 id="install">Install</h2>
 <p>The repository ships the built plugin under <code>plugins/apexrest-apex</code>, so you need no <code>npm ci</code> and no TypeScript build. Keep Node 24 LTS on <code>PATH</code> (supported range: Node 24–26). Oracle work needs Java 21 and a matching SQLcl: SQLcl 26.1.2 for APEX 26.1, and SQLcl 26.3 for <a href="/apexrest/apex-26.2/">APEX 26.2</a>. The local preview needs neither Java nor SQLcl.</p>
 <p><strong>Codex</strong> (desktop or CLI with native plugin support):</p>

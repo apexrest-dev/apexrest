@@ -14,11 +14,11 @@
 
 APEXREST is the framework that lets a coding agent do this work well. It ships as **one plugin for two hosts**:
 
-| Host                                | What you install                                                    | How you use it                                                   |
-| ----------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Codex** (desktop app and CLI)     | `apexrest-apex` from the `apexrest` marketplace                     | Describe the change, or invoke `$apexrest-work`                  |
-| **Claude Code** (CLI, desktop, IDE) | `apexrest` from the `apexrest` marketplace                          | Describe the change, or invoke `/apexrest:apexrest-work`         |
-| Scripts, CI and Codex Cloud         | The `apexrest` CLI from the same bundle (`npm install -g apexrest`) | The same operations as commands, with JSON output                |
+| Host                                | What you install                                                    | How you use it                                           |
+| ----------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Codex** (desktop app and CLI)     | `apexrest-apex` from the `apexrest` marketplace                     | Describe the change, or invoke `$apexrest-work`          |
+| **Claude Code** (CLI, desktop, IDE) | `apexrest` from the `apexrest` marketplace                          | Describe the change, or invoke `/apexrest:apexrest-work` |
+| Scripts, CI and Codex Cloud         | The `apexrest` CLI from the same bundle (`npm install -g apexrest`) | The same operations as commands, with JSON output        |
 
 Inside the plugin, **six skills** tell the agent how to work and **eleven MCP tools** do the work through one shared runtime that drives Oracle SQLcl. A request such as "add an order status report" becomes:
 
@@ -40,9 +40,11 @@ Production targets are always blocked. Each outcome (compiled, imported, seen in
 </tr>
 </table>
 
-Each video has English narration from a synthetic voice and burned-in captions, at 1080×1350. Provenance, data sources and limits are recorded in [docs/assets/README.md](docs/assets/README.md).
+The players below run on GitHub; the posters link to the same MP4 files in `docs/assets/`. Each video has English narration from a synthetic voice and burned-in captions. Provenance, data sources and limits are recorded in [docs/assets/README.md](docs/assets/README.md).
 
 ### 1. The component library: read before writing
+
+https://github.com/user-attachments/assets/dddd2f88-66f6-4040-9359-13bb4ee999f4
 
 A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read first:
 
@@ -55,6 +57,8 @@ A single Metric Card page is 69 lines of nested APEXlang, and every guessed prop
 The video shows real APEXREST 2.1.0 search results, an `LOV_NOT_FOUND` compiler diagnostic and the passing validation after the fix. The user request and the compile-loop sketch are illustrations.
 
 ### 2. Decisions API: choose components before generating
+
+https://github.com/user-attachments/assets/7136505b-c13c-4478-8473-318d4827062f
 
 The optional [OpenAI Decisions selection](docs/component-catalog.md#optional-openai-decisions-selection) runs through `apexrest_reference mode:select` and `apexrest docs select`. One bounded predicate batch ranks up to 64 compatible local catalog candidates. The host model then writes the page from the verified local contracts. Disabled selection, search and read stay fully local.
 
@@ -69,6 +73,8 @@ This is a single-page pilot, not a general benchmark. The page in the video is a
 
 ### 3. The local preview: run APEXlang without a database
 
+https://github.com/user-attachments/assets/e1923958-59a8-4c09-bb1a-0ce94dd540bf
+
 `apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an `.apx` edit on the next reload, before anything is compiled or imported. The video tours a 22-page showcase application with one page per component family. `preview check` renders all 22 pages with 0 errors and 0 warnings.
 
 ```sh
@@ -77,16 +83,16 @@ apexrest preview check --project /abs/app     # render every page, list what is 
 apexrest preview start --project /abs/app     # serve pages and print their URLs
 ```
 
-| Area       | What runs locally                                                                                                                                                       |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reports    | Classic reports (every pagination type, directives); interactive reports with control break, highlight, compute, aggregate, Group By, Pivot, Chart and downloads; editable interactive grids and master-detail |
-| Forms      | Modal dialogs, Form Initialization and DML, server validations shown inline, interactive grid row validations, lost-update detection                                    |
-| Items      | Date pickers, popup LOV, combobox, cascading LOVs, shuttle, switch, star rating, color picker, rich text and markdown editors, QR code, file and image upload           |
-| Search     | Faceted Search and Smart Filters with live counts; cards with actions; list views; template components (Content Row, Timeline, Comments, Media List, Metric Card, …)    |
-| Visuals    | SVG charts (bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, radar, polar, range, gauges); FullCalendar calendars; offline maps; tree regions |
-| Logic      | Dynamic actions; a PL/SQL subset interpreter for processes, validations, computations and dynamic content; one transaction per submit with rollback on error          |
-| Data       | Oracle SQL semantics over SQLite; seed scripts; file uploads and BLOB downloads; `apex_collection`; local e-mail outbox; REST sources from JSON fixtures               |
-| Tools      | Developer toolbar: diagnostics, session state, debug log, "view as" roles, device sizes, data reset, theme styles; APEXlang property validation                          |
+| Area    | What runs locally                                                                                                                                                                                              |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reports | Classic reports (every pagination type, directives); interactive reports with control break, highlight, compute, aggregate, Group By, Pivot, Chart and downloads; editable interactive grids and master-detail |
+| Forms   | Modal dialogs, Form Initialization and DML, server validations shown inline, interactive grid row validations, lost-update detection                                                                           |
+| Items   | Date pickers, popup LOV, combobox, cascading LOVs, shuttle, switch, star rating, color picker, rich text and markdown editors, QR code, file and image upload                                                  |
+| Search  | Faceted Search and Smart Filters with live counts; cards with actions; list views; template components (Content Row, Timeline, Comments, Media List, Metric Card, …)                                           |
+| Visuals | SVG charts (bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, radar, polar, range, gauges); FullCalendar calendars; offline maps; tree regions                                       |
+| Logic   | Dynamic actions; a PL/SQL subset interpreter for processes, validations, computations and dynamic content; one transaction per submit with rollback on error                                                   |
+| Data    | Oracle SQL semantics over SQLite; seed scripts; file uploads and BLOB downloads; `apex_collection`; local e-mail outbox; REST sources from JSON fixtures                                                       |
+| Tools   | Developer toolbar: diagnostics, session state, debug log, "view as" roles, device sizes, data reset, theme styles; APEXlang property validation                                                                |
 
 Why run APEXlang locally:
 
@@ -99,8 +105,13 @@ The preview is a design aid, not Oracle evidence. Charts are SVG rather than Ora
 
 ### More videos
 
-- [Scoped APEXlang updates in 90 seconds](docs/assets/apexrest-2-scoped-updates.mp4) ([captions](docs/assets/apexrest-2-scoped-updates.srt)): selective export, local edit, compiler validation, scope planning and a selected-file import.
-- [See the UI before it reaches a database](docs/assets/apexrest-local-preview.mp4) ([captions](docs/assets/apexrest-local-preview.srt)): the first local preview video, on Oracle's public HR demo app.
+**Scoped APEXlang updates in 90 seconds:** selective export, local edit, compiler validation, scope planning and a selected-file import ([MP4](docs/assets/apexrest-2-scoped-updates.mp4), [captions](docs/assets/apexrest-2-scoped-updates.srt)).
+
+https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d
+
+**See the UI before it reaches a database:** the first local preview video, on Oracle's public HR demo app ([MP4](docs/assets/apexrest-local-preview.mp4), [captions](docs/assets/apexrest-local-preview.srt)).
+
+https://github.com/user-attachments/assets/fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a
 
 ## Install
 
@@ -164,7 +175,7 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 | Tool                     | Purpose                                                                                                                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile`        |
-| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                               |
+| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                                |
 | `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                       |
 | `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`)                  |
 | `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run` |
