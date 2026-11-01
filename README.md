@@ -32,15 +32,7 @@ Production targets are always blocked. Each outcome (compiled, imported, seen in
 
 ## Watch the main features
 
-<table>
-<tr>
-<td align="center" width="33%"><a href="docs/assets/apexrest-component-library.mp4"><img src="docs/assets/apexrest-component-library-poster.png" alt="Component library explainer: four offline catalogs with 389 Oracle definitions, 176 component recipes, 69 pattern recipes and 1,350 public pages" width="260"></a><br><b>Component library</b><br>1:41 · <a href="docs/assets/apexrest-component-library.mp4">MP4</a> · <a href="docs/assets/apexrest-component-library.srt">SRT</a></td>
-<td align="center" width="33%"><a href="docs/assets/apexrest-decisions-pilot.mp4"><img src="docs/assets/apexrest-decisions-pilot-poster.png" alt="Decisions pilot explainer: average active time 5:44 without and 2:58 with Decisions selection, 48% less" width="260"></a><br><b>Decisions API selection</b><br>1:09 · <a href="docs/assets/apexrest-decisions-pilot.mp4">MP4</a> · <a href="docs/assets/apexrest-decisions-pilot.srt">SRT</a></td>
-<td align="center" width="33%"><a href="docs/assets/apexrest-preview-showcase.mp4"><img src="docs/assets/apexrest-preview-showcase-poster.png" alt="Preview showcase explainer: a grid of 20 screenshots from the 22-page showcase application running without a database" width="260"></a><br><b>Run APEX locally</b><br>2:48 · <a href="docs/assets/apexrest-preview-showcase.mp4">MP4</a> · <a href="docs/assets/apexrest-preview-showcase.srt">SRT</a></td>
-</tr>
-</table>
-
-The players below run on GitHub; the posters link to the same MP4 files in `docs/assets/`. Each video has English narration from a synthetic voice and burned-in captions. Provenance, data sources and limits are recorded in [docs/assets/README.md](docs/assets/README.md).
+Each video has English narration from a synthetic voice and burned-in captions. Provenance, data sources and limits are recorded in [docs/assets/README.md](docs/assets/README.md).
 
 ### 1. The component library: read before writing
 
@@ -105,11 +97,11 @@ The preview is a design aid, not Oracle evidence. Charts are SVG rather than Ora
 
 ### More videos
 
-**Scoped APEXlang updates in 90 seconds:** selective export, local edit, compiler validation, scope planning and a selected-file import ([MP4](docs/assets/apexrest-2-scoped-updates.mp4), [captions](docs/assets/apexrest-2-scoped-updates.srt)).
+**Scoped APEXlang updates in 90 seconds:** selective export, local edit, compiler validation, scope planning and a selected-file import.
 
 https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d
 
-**See the UI before it reaches a database:** the first local preview video, on Oracle's public HR demo app ([MP4](docs/assets/apexrest-local-preview.mp4), [captions](docs/assets/apexrest-local-preview.srt)).
+**See the UI before it reaches a database:** the first local preview video, on Oracle's public HR demo app.
 
 https://github.com/user-attachments/assets/fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a
 
