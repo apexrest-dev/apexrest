@@ -67,4 +67,28 @@ Provenance: rendered on October 31, 2026 from an original, deterministic HTML mo
 
 Provenance: rendered on November 1, 2026 from an original, deterministic HTML motion-graphics project kept outside the repository. Every application screen is a real capture (puppeteer and headless Chrome) of `apexrest preview start` at commit `856b104` with the official APEX 26.2 browser assets. It serves an original 22-page APEXlang showcase application generated for this purpose, with synthetic sample data in local SQLite. The validation errors in the modal form are real preview responses. `22 pages · 0 errors · 0 warnings · 23 notes` comes from `apexrest preview check` on the same source. The pipeline diagram and terminal cards are illustrations. No Oracle import, compiler run or connected browser check was performed. Narration is a synthetic voice (Kokoro-82M, Apache-2.0, voice `am_michael`).
 
+### Connected preview video (part 2)
+
+| Asset                                                                          | Purpose                                                                                                                                    | Text reference                                                                         |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [apexrest-connected-preview.mp4](apexrest-connected-preview.mp4)               | 129-second English explainer, part 2 of the local preview series: the connected backend (H.264/AAC, 1080×1350, 30 fps, captions burned in) | [Features](../features.md), [Local preview](../local-preview.md#connected-oracle-mode) |
+| [apexrest-connected-preview-poster.png](apexrest-connected-preview-poster.png) | Receipt-posting frame used as the thumbnail                                                                                                | [Features](../features.md)                                                             |
+| [apexrest-connected-preview.srt](apexrest-connected-preview.srt)               | Caption file matching the spoken narration                                                                                                 | —                                                                                      |
+
+Provenance: rendered on November 1, 2026 from an original, deterministic HTML motion-graphics project kept outside the repository.
+
+- **Application screens.** Every application screen is a real capture (puppeteer and headless Chrome) of `apexrest preview start` at commit `2251682`. The app is an original stock-control application with 16 pages and a login page.
+  - The part 1 dashboard is the local SQLite preview.
+  - The other screens run `--env test` against a demo Oracle Autonomous Database (APEX 26.1.6) through a SQLcl saved connection.
+- **Receipt and issue screens.**
+  - "Document posted." with status DRAFT is the real response when the committed draft receipt RC-2026-00013 is posted. The project's `STK_DOC_API` package ran in Oracle, and the request was rolled back.
+  - The over-stock message is the package's real ORA-20201 text.
+- **Figures.**
+  - `17 pages · 21 s · 0 errors · 1 warning · 10 notes` comes from `apexrest preview check --env test` on the same project.
+  - The second-session result (drafts still DRAFT, 137 stock moves before and after) comes from the same evening's verification run.
+- **Illustrations.** The part cards, the code card, the backend diagram, the terminal cards (text taken from real output) and the agent-loop cards.
+- **Not performed.** No application import was run for the video, and the deployed application was not opened in a browser.
+- **Narration.** A synthetic voice (Kokoro-82M, Apache-2.0, voice `am_michael`).
+- **Playback.** The video is linked as a repository file; GitHub does not play it inline on the features page.
+
 Use meaningful alternative text when embedding these images in Markdown. Keep the linked text documentation available so the graphics are never the only source of operational instructions.

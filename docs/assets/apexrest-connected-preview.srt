@@ -1,0 +1,112 @@
+1
+00:00:00,450 --> 00:00:03,845
+Part 2 of local Oracle APEX for AI agents.
+
+2
+00:00:04,105 --> 00:00:10,216
+In part 1, the agent ran APEX pages on a laptop, with SQLite instead of Oracle.
+
+3
+00:00:11,366 --> 00:00:14,232
+But a real application lives in its database.
+
+4
+00:00:14,492 --> 00:00:18,902
+Packages, triggers and real rows cannot be imitated in SQLite.
+
+5
+00:00:20,052 --> 00:00:23,394
+So the local preview now connects to your own database.
+
+6
+00:00:23,654 --> 00:00:30,511
+Add --env, and the Node.js backend opens one session to a DEV, QA or TEST schema,
+
+7
+00:00:30,771 --> 00:00:33,248
+through your saved SQLcl connection.
+
+8
+00:00:34,398 --> 00:00:39,348
+The UI still renders locally, with APEX's own templates and JavaScript.
+
+9
+00:00:39,608 --> 00:00:45,202
+Region SQL runs in Oracle as written, with page items as binds.
+
+10
+00:00:45,462 --> 00:00:50,656
+Processes, validations and conditions run as real PL/SQL blocks.
+
+11
+00:00:50,916 --> 00:00:57,264
+With the app installed, a real APEX session makes v() and apex_util work.
+
+12
+00:00:58,414 --> 00:01:03,005
+This stock-control app is connected to an Oracle Autonomous Database.
+
+13
+00:01:03,265 --> 00:01:06,274
+Every figure and chart comes from the real tables.
+
+14
+00:01:07,424 --> 00:01:11,535
+Post a draft receipt: the project's own package runs in Oracle.
+
+15
+00:01:11,795 --> 00:01:15,437
+The page reports success, and the status is DRAFT again.
+
+16
+00:01:15,697 --> 00:01:18,508
+The request was rolled back, so nothing was saved.
+
+17
+00:01:19,658 --> 00:01:21,137
+Issue more than is on hand,
+
+18
+00:01:21,397 --> 00:01:24,643
+and the package's own error appears as an APEX message.
+
+19
+00:01:25,793 --> 00:01:27,790
+Every request ends with a rollback.
+
+20
+00:01:28,050 --> 00:01:34,820
+COMMIT and dynamic SQL in page code are never sent, and a tripwire catches commits from stored code.
+
+21
+00:01:35,080 --> 00:01:38,968
+Production is refused, and the database identity must match.
+
+22
+00:01:40,118 --> 00:01:45,881
+All 17 pages checked against the real database: 21 seconds, 0 errors.
+
+23
+00:01:46,141 --> 00:01:48,933
+A second session confirmed that no row was saved.
+
+24
+00:01:50,083 --> 00:01:52,103
+Part 1: design on SQLite.
+
+25
+00:01:52,363 --> 00:01:55,109
+Part 2: verify against the real logic.
+
+26
+00:01:55,369 --> 00:01:57,869
+Then compile and import on a DEV target.
+
+27
+00:01:59,019 --> 00:02:01,860
+Real database logic. Nothing persisted.
+
+28
+00:02:02,120 --> 00:02:06,521
+Rendering is still local: shipping still compiles and imports on DEV.
+

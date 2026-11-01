@@ -33,6 +33,8 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
 
 ## Connected Oracle mode
 
+[Watch part 2 (MP4, 2:09)](assets/apexrest-connected-preview.mp4) · [Captions](assets/apexrest-connected-preview.srt): a stock-control app posting documents through its own PL/SQL package on a demo Autonomous Database, with every request rolled back.
+
 Without a database the preview simulates data in SQLite and interprets a subset of PL/SQL. When the project has an Oracle DEV/QA/TEST environment with a SQLcl saved connection, `--env <name>` (MCP: `env`) on `start` or `check` runs the application's data and server logic in that database instead. Rendering stays in Node.js. Choose this when a page depends on project packages, procedures, functions, views or real rows.
 
 - **Target guard.** The environment comes from `apexrest.json` and uses its `readConnectionRef`. Production is refused: either `kind: production` or a target registered in `production-trust.json` (see [deployment safety](deployment-safety.md)). The connection must be a SQLcl saved connection; ORDS-only connections cannot hold one transaction and are refused. On connect the database unique name, service, parsing schema and workspace must match the environment exactly, as for deployment.

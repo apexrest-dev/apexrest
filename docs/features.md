@@ -63,6 +63,35 @@ Running APEXlang locally gives you:
 
 The preview is a design aid, not Oracle evidence. Charts are SVG rather than Oracle JET, maps have no tiles, and anything it does not simulate is listed in diagnostics. Read the [local preview guide](local-preview.md).
 
+## Connected preview: run the backend in your database (part 2)
+
+[![Part 2: a draft receipt posted through the project's own PL/SQL package in Oracle, then rolled back](assets/apexrest-connected-preview-poster.png)](assets/apexrest-connected-preview.mp4)
+
+[Watch part 2 (MP4, 2:09)](assets/apexrest-connected-preview.mp4) · [Captions](assets/apexrest-connected-preview.srt)
+
+Part 2 of the local preview series. The local UI from part 1 can run its backend in your own DEV, QA or TEST database. Add `--env` and the Node.js preview opens one session through your saved SQLcl connection.
+
+- **SQL.** Region, report, LOV and form SQL runs in Oracle as written, with page items as binds.
+- **PL/SQL.** Processes, validations and conditions run as real PL/SQL blocks, including your own packages. Bind values flow back into the page.
+- **APEX session.** When the application is installed in the target, a real APEX session makes `v()` and `apex_util` work inside packages.
+- **Nothing persists.**
+  - Every request ends with a rollback.
+  - COMMIT and dynamic SQL in page code are never sent, and a tripwire catches commits from stored code.
+  - Production is refused, and the database identity must match.
+
+```sh
+apexrest preview check --project /abs/app --env test   # every page against the real database
+apexrest preview start --project /abs/app --env test   # local UI, data and PL/SQL in Oracle
+```
+
+The video shows an original stock-control application on a demo Oracle Autonomous Database:
+
+- all 17 pages checked in 21 seconds with 0 errors;
+- a receipt posted through the project's package and then rolled back;
+- an over-stock issue rejected with the package's own error message.
+
+It is a verification aid, not import evidence. Read [Connected Oracle mode](local-preview.md#connected-oracle-mode).
+
 ## APEX 26.2: import only what changed
 
 https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d

@@ -88,7 +88,7 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 ## Documentation
 
-- [Features and videos](docs/features.md): component library, Decisions selection, local preview, partial imports, tools and skills.
+- [Features and videos](docs/features.md): component library, Decisions selection, local preview, connected preview (part 2), partial imports, tools and skills.
 - [Getting started](https://apexrest-dev.github.io/apexrest/getting-started/): install, connect, create or adopt an application, ship and verify.
 - [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database.
 - [Configuration](https://apexrest-dev.github.io/apexrest/configuration/): environments, connection references, trust policy and deployment coordination.
