@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-10-31",
-  "release": "2.4.0",
+  "asOf": "2026-11-01",
+  "release": "2.5.0",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -270,7 +270,7 @@
       "implementation": "implemented",
       "verification": "passed",
       "evidence": ["scripts/check-release-readiness.mjs", "tests/contracts/release-readiness.test.mjs"],
-      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.4.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
+      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.5.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
       "regeneratedEvidence": ["dist/releases/release-readiness.json"]
     },
     {

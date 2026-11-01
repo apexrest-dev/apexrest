@@ -1,5 +1,13 @@
 # Current changes
 
+## 2.5.0
+
+- Give the local preview Oracle data semantics: empty items bind as NULL, real division, Oracle number text, date arithmetic on any date expression, ANSI date literals and `DEFAULT sysdate` in seeds, `json_value`/`json_query`/`json_exists`, nested LISTAGG, POSIX regular expressions and ISO date storage for form DML.
+- Run page submits, server-side code and grid saves in one transaction: unhandled process errors stop processing, are shown to the user and roll back. Add interactive grid row validations, `#LABEL#`/`#COLUMN_HEADER#` substitution, lost-update detection, region items to submit on refresh, `clearCache` lists and synchronous Cancel Event.
+- Render 26.2 report and card syntax: show-all pagination, card actions, `&COLUMN.` substitution, list view features, calendar views, template directives in HTML expressions, template component format masks, FILESIZE/SINCE_SHORT masks, interactive report aliases and integer chart ticks.
+- Fix switch styling, floating labels, grid column offsets and label spans, native date pickers, button static IDs, the region display selector, and map height, row assignment, styles, heat maps and info windows. Warn about unknown APEXlang properties and values; Oracle's 1,350 public sample pages produce no findings.
+- Rewrite the README around the Codex and Claude Code plugin and its three feature videos, adding a tour of the local preview on a 22-page showcase application. Align package and Codex/Claude Code source versions to 2.5.0; registry publication remains a separate outcome.
+
 ## 2.4.0
 
 - Add a database-free local APEXlang preview: `apexrest preview setup|start|check|stop|status` and the `apexrest_preview` MCP tool, bringing the catalog to eleven tools with six skills.

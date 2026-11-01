@@ -1,10 +1,19 @@
 # Current release notes
 
-## Source bundle 2.4.0
+## Source bundle 2.5.0
 
 The repository bundle supports Codex and Claude Code with six skills and eleven MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
+
+## Changes in 2.5.0
+
+- The [local preview](local-preview.md) follows Oracle semantics more closely: NULL for empty items, real division and Oracle number text, date arithmetic, ANSI date literals and `DEFAULT sysdate` in seed scripts, JSON functions, nested LISTAGG, POSIX regular expressions and ISO dates in form DML.
+- Page submits, server-side code and grid saves are transactional; an unhandled process error is shown to the user and rolls back the page's DML. Interactive grid row validations mark failing cells, validation messages substitute labels, forms detect lost updates and region refreshes submit their page items.
+- APEX 26.2 syntax for show-all pagination, card actions, `&COLUMN.` substitution, list views and calendar views is rendered; template components apply format masks; chart ticks no longer show spurious decimals.
+- Items and layout match APEX more closely (switches, floating labels, grid offsets, native date pickers, static button IDs, region display selector, maps). The preview warns about unknown APEXlang property names and values.
+- The README now presents APEXREST as a Codex and Claude Code plugin with three feature videos, including a new tour of a 22-page showcase application running in the preview.
+- Align package, workspace and Codex/Claude Code source versions to 2.5.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
 
 ## Changes in 2.4.0
 
@@ -22,6 +31,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.4.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
+Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.5.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
 
 See [implementation status](implementation-status.md), [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Fixtures and offline compilation do not establish connected Oracle, authenticated application browsing or native model-host execution.

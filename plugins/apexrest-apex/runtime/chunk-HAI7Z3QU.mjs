@@ -9,8 +9,8 @@ import {
 } from "./chunk-SSL73I4K.mjs";
 
 // packages/core/src/preview/service.ts
-import fs9 from "node:fs";
-import path11 from "node:path";
+import fs10 from "node:fs";
+import path12 from "node:path";
 
 // packages/core/src/preview/assets.ts
 import crypto from "node:crypto";
@@ -30,8 +30,8 @@ var FUNCTIONS = {
 var Parser = class {
   #text;
   #index = 0;
-  constructor(text8) {
-    this.#text = text8;
+  constructor(text9) {
+    this.#text = text9;
   }
   get done() {
     return this.#index >= this.#text.length;
@@ -275,14 +275,14 @@ async function download(url2, target2, onProgress) {
   });
   await pipeline(body4, fs.createWriteStream(target2, { mode: 384 }));
 }
-async function setupAssets(options2 = {}) {
-  const dir = path.resolve(options2.assetsDir ?? defaultAssetsDir());
-  const progress = options2.onProgress ?? (() => void 0);
+async function setupAssets(options3 = {}) {
+  const dir = path.resolve(options3.assetsDir ?? defaultAssetsDir());
+  const progress = options3.onProgress ?? (() => void 0);
   fs.mkdirSync(dir, { recursive: true });
-  let zipPath = options2.zipPath ? path.resolve(options2.zipPath) : void 0;
+  let zipPath = options3.zipPath ? path.resolve(options3.zipPath) : void 0;
   let downloaded = false;
   if (!zipPath) {
-    const url2 = options2.url ?? APEX_DOWNLOAD_URL;
+    const url2 = options3.url ?? APEX_DOWNLOAD_URL;
     zipPath = path.join(dir, `apex_${APEX_VERSION}.zip`);
     if (!fs.existsSync(zipPath)) {
       progress(`downloading ${url2}`);
@@ -293,7 +293,7 @@ async function setupAssets(options2 = {}) {
     downloaded = true;
   }
   const digest = await sha256(zipPath);
-  if (options2.expectedSha256 && digest !== options2.expectedSha256.toLowerCase()) {
+  if (options3.expectedSha256 && digest !== options3.expectedSha256.toLowerCase()) {
     throw new Error(`SHA-256 mismatch for ${zipPath}: ${digest}`);
   }
   const imagesDir = path.join(dir, "images");
@@ -331,14 +331,14 @@ async function setupAssets(options2 = {}) {
   fs.renameSync(staging, imagesDir);
   const manifest = {
     apexVersion: APEX_FULL_VERSION,
-    source: options2.zipPath ? zipPath : options2.url ?? APEX_DOWNLOAD_URL,
+    source: options3.zipPath ? zipPath : options3.url ?? APEX_DOWNLOAD_URL,
     sha256: digest,
     extractedAt: (/* @__PURE__ */ new Date()).toISOString(),
     files
   };
   fs.writeFileSync(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}
 `);
-  if (downloaded && !options2.keepZip) fs.rmSync(zipPath, { force: true });
+  if (downloaded && !options3.keepZip) fs.rmSync(zipPath, { force: true });
   progress(`ready: ${files} files in ${imagesDir}`);
   return { dir, imagesDir, manifest, theme };
 }
@@ -360,9 +360,9 @@ function loadAssets(assetsDir = defaultAssetsDir()) {
 
 // packages/core/src/preview/server.ts
 import { randomUUID } from "node:crypto";
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import http from "node:http";
-import path10 from "node:path";
+import path11 from "node:path";
 
 // packages/core/src/preview/apexlang.ts
 import fs2 from "node:fs";
@@ -396,18 +396,18 @@ function unquote(raw2) {
   return raw2;
 }
 function scalar(raw2) {
-  const text8 = raw2.trim();
-  if (text8 === "true") return true;
-  if (text8 === "false") return false;
-  if (text8.startsWith('"') && text8.endsWith('"') && text8.length >= 2) return unquote(text8);
-  if (text8.length >= 2 && text8.startsWith("\\") && text8.endsWith("\\")) return text8.slice(1, -1);
-  if (/^@\S+$/u.test(text8) && !text8.endsWith("@")) {
-    return text8.startsWith("@/") ? { ref: text8.slice(2), global: true } : { ref: text8.slice(1), global: false };
+  const text9 = raw2.trim();
+  if (text9 === "true") return true;
+  if (text9 === "false") return false;
+  if (text9.startsWith('"') && text9.endsWith('"') && text9.length >= 2) return unquote(text9);
+  if (text9.length >= 2 && text9.startsWith("\\") && text9.endsWith("\\")) return text9.slice(1, -1);
+  if (/^@\S+$/u.test(text9) && !text9.endsWith("@")) {
+    return text9.startsWith("@/") ? { ref: text9.slice(2), global: true } : { ref: text9.slice(1), global: false };
   }
-  return text8;
+  return text9;
 }
-function inlineArray(text8) {
-  const body4 = text8.slice(1, -1).trim();
+function inlineArray(text9) {
+  const body4 = text9.slice(1, -1).trim();
   if (!body4) return [];
   const values = [];
   for (const match of body4.matchAll(/"(?:[^"\\]|\\.)*"|\S+/gu)) values.push(scalar(match[0]));
@@ -466,63 +466,63 @@ function parseApexLang(source, file = "<memory>") {
     return body4.join("\n");
   };
   const readValue = (raw2) => {
-    const text8 = (raw2 ?? "").trim();
-    if (text8 === "") {
+    const text9 = (raw2 ?? "").trim();
+    if (text9 === "") {
       const next = (lines[index] ?? "").trim();
       if (next.startsWith("```")) return readFence();
       return "";
     }
-    if (text8 === "{") return readBlock("}");
-    if (text8 === "[") return readArray();
-    if (text8.startsWith("[") && text8.endsWith("]")) return inlineArray(text8);
-    if (text8.startsWith("```") && text8.endsWith("```") && text8.length >= 6) return text8.slice(3, -3);
-    return scalar(text8);
+    if (text9 === "{") return readBlock("}");
+    if (text9 === "[") return readArray();
+    if (text9.startsWith("[") && text9.endsWith("]")) return inlineArray(text9);
+    if (text9.startsWith("```") && text9.endsWith("```") && text9.length >= 6) return text9.slice(3, -3);
+    return scalar(text9);
   };
   const readArray = () => {
     const values = [];
     while (index < lines.length) {
-      const text8 = (lines[index] ?? "").trim();
+      const text9 = (lines[index] ?? "").trim();
       index += 1;
-      if (!text8) continue;
-      if (text8 === "]") return values;
-      if (text8 === "{") values.push(readBlock("}"));
-      else if (text8.startsWith("```")) {
+      if (!text9) continue;
+      if (text9 === "]") return values;
+      if (text9 === "{") values.push(readBlock("}"));
+      else if (text9.startsWith("```")) {
         index -= 1;
         values.push(readFence());
-      } else values.push(scalar(text8));
+      } else values.push(scalar(text9));
     }
     return fail("unterminated array");
   };
-  function readBlock(close, children2) {
+  function readBlock(close2, children2) {
     const props = {};
     while (index < lines.length) {
-      const text8 = (lines[index] ?? "").trim();
+      const text9 = (lines[index] ?? "").trim();
       const lineNumber = index + 1;
       index += 1;
-      if (!text8) continue;
-      if (text8 === close) return props;
-      const property = PROPERTY.exec(text8);
+      if (!text9) continue;
+      if (text9 === close2) return props;
+      const property = PROPERTY.exec(text9);
       if (property) {
         props[unquote(property[1])] = readValue(property[2]);
         continue;
       }
-      const group2 = GROUP.exec(text8);
+      const group2 = GROUP.exec(text9);
       if (group2) {
         const nested = readBlock("}", children2);
         const existing = props[group2[1]];
         props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
         continue;
       }
-      const component = COMPONENT.exec(text8);
+      const component = COMPONENT.exec(text9);
       if (component && children2) {
         children2.push(readComponent(component[1], component[2] ?? "", lineNumber));
         continue;
       }
       index -= 1;
-      fail(`unexpected line: ${text8.slice(0, 120)}`);
+      fail(`unexpected line: ${text9.slice(0, 120)}`);
     }
-    if (close === "") return props;
-    return fail(`missing closing "${close}"`);
+    if (close2 === "") return props;
+    return fail(`missing closing "${close2}"`);
   }
   function readComponent(type, rawId, line) {
     const children2 = [];
@@ -531,14 +531,14 @@ function parseApexLang(source, file = "<memory>") {
   }
   const components = [];
   while (index < lines.length) {
-    const text8 = (lines[index] ?? "").trim();
+    const text9 = (lines[index] ?? "").trim();
     const lineNumber = index + 1;
     index += 1;
-    if (!text8) continue;
-    const component = COMPONENT.exec(text8);
+    if (!text9) continue;
+    const component = COMPONENT.exec(text9);
     if (!component) {
       index -= 1;
-      fail(`expected a component declaration, found: ${text8.slice(0, 120)}`);
+      fail(`expected a component declaration, found: ${text9.slice(0, 120)}`);
     }
     components.push(readComponent(component[1], component[2] ?? "", lineNumber));
   }
@@ -614,11 +614,11 @@ function loadApplication(root, deployment = "default") {
   let app;
   for (const file of files) {
     const relative = path2.relative(root, file);
-    const text8 = fs2.readFileSync(file, "utf8").replace(
+    const text9 = fs2.readFileSync(file, "utf8").replace(
       /@([A-Z][A-Z0-9_]*)@/gu,
       (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path2.basename(root).toLowerCase() : name === "APP_NAME" ? path2.basename(root) : whole)
     );
-    for (const component of parseApexLang(text8, relative)) {
+    for (const component of parseApexLang(text9, relative)) {
       if (component.type === "app") app = component;
       else if (component.type === "page") pages2.set(component.id, component);
       else shared3.push(component);
@@ -711,7 +711,14 @@ window.apexLocal = (function ($) {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
       body: JSON.stringify({ code: settings.plsqlCode || settings.code || "", items: items, returnItems: returnItems })
     }).then(function (response) { return response.json(); }).then(function (values) {
-      Object.keys(values || {}).forEach(function (name) { apex.item(name).setValue(values[name]); });
+      var errors = values && Array.isArray(values.errors) ? values.errors : null;
+      Object.keys(values || {}).forEach(function (name) { if (name !== "errors") apex.item(name).setValue(values[name]); });
+      if (errors && errors.length) {
+        // As in APEX: the error is shown and the following actions do not run.
+        apex.message.clearErrors();
+        apex.message.showErrors(errors);
+        return Promise.reject(null);
+      }
     });
   }
 
@@ -751,6 +758,8 @@ window.apexLocal = (function ($) {
       case "refresh":
         return Promise.all(elements(action.selector, trigger).toArray().map(function (el) {
           if (apex.region.isRegion && apex.region.isRegion(el.id)) return apex.region(el.id).refresh();
+          // Regions without a client widget (calendar, ...) are rendered again by the server.
+          if (el.id && (submitted(el.id) || (el.querySelector && el.querySelector(".apex-local-calendar")))) return replaceRegion(el.id);
           if (isItem(el) && apex.item(el.id).refresh) return apex.item(el.id).refresh();
           return undefined;
         }));
@@ -867,20 +876,27 @@ window.apexLocal = (function ($) {
     }
   }
 
+  // Actions run synchronously until one returns a promise it must wait for, so Cancel Event and
+  // the first actions take effect inside the browser event handler (also for element.click()).
   function fire(da, event, trigger, init) {
     var holds = conditionHolds(da.condition, trigger);
     var queue = da.actions.filter(function (action) { return action.whenFalse === !holds && (!init || action.fireOnInit); });
-    return queue.reduce(function (promise, action) {
-      return promise.then(function () {
+    var index = 0;
+    function step() {
+      while (index < queue.length) {
+        var action = queue[index++];
+        var result;
         try {
-          var result = run(action, event, trigger);
-          return action.wait === false ? undefined : result;
+          result = run(action, event, trigger);
         } catch (error) {
-          if (action.stopOnError === false) { apex.debug.error(error); return undefined; }
-          throw error;
+          if (action.stopOnError === false) { apex.debug.error(error); continue; }
+          return Promise.reject(error);
         }
-      });
-    }, Promise.resolve()).catch(function (error) { if (error) apex.debug.error(error); });
+        if (action.wait !== false && result && typeof result.then === "function") return Promise.resolve(result).then(step);
+      }
+      return Promise.resolve();
+    }
+    return step().catch(function (error) { if (error) apex.debug.error(error); });
   }
 
   var EVENTS = { "page load": "ready", pageload: "ready", "lose focus": "focusout", losefocus: "focusout", "get focus": "focusin", getfocus: "focusin",
@@ -908,7 +924,8 @@ window.apexLocal = (function ($) {
 
   function bindDynamicAction(da) {
     var event = EVENTS[String(da.event).toLowerCase()] || da.event;
-    if (event === "ready") return fire(da, null, document, false);
+    // Page load and Fire on Initialization actions start after the rest of the page init code.
+    if (event === "ready") return Promise.resolve().then(function () { return fire(da, null, document, false); });
     var handler = timed(da, function (browserEvent, data) {
       if (data !== undefined) browserEvent.data = data;
       fire(da, browserEvent, this, false);
@@ -918,14 +935,37 @@ window.apexLocal = (function ($) {
     else if (da.selector.indexOf("js:") === 0) elements(da.selector, document)[on](event, handler);
     else if (da.scope === "dynamic" || da.scope === "static") $(da.container || document)[on](event, da.selector, handler);
     else $(da.selector)[on](event, handler);
-    elements(da.selector, document).each(function () { fire(da, null, this, true); });
+    var targets = elements(da.selector, document).toArray();
+    Promise.resolve().then(function () { targets.forEach(function (target) { fire(da, null, target, true); }); });
+  }
+
+  // Page Items to Submit of a region: { NAME: value } of the items it declares, or null.
+  function submitted(id) {
+    var names = (config.regionItems || {})[id];
+    if (!names || !names.length) return null;
+    var values = {};
+    names.forEach(function (name) {
+      var item = apex.item(name);
+      if (!item || !item.node) return;
+      var value = item.getValue();
+      values[name] = Array.isArray(value) ? value.join(":") : value;
+    });
+    return values;
+  }
+  function itemsQuery(id) {
+    var values = submitted(id);
+    return values ? "&items=" + encodeURIComponent(JSON.stringify(values)) : "";
   }
 
   function replaceRegion(id, extra) {
     var region$ = $("#" + apex.util.escapeCSS(id));
     region$.trigger("apexbeforerefresh");
     var url = base + "/__apex/region?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(id) + (extra || "");
-    return fetch(url, { credentials: "same-origin" }).then(function (response) { return response.text(); }).then(function (html) {
+    var items = submitted(id);
+    var init = items
+      ? { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: items }) }
+      : { credentials: "same-origin" };
+    return fetch(url, init).then(function (response) { return response.text(); }).then(function (html) {
       var next$ = $(html);
       region$.replaceWith(next$);
       registerRegion({ id: id });
@@ -936,7 +976,9 @@ window.apexLocal = (function ($) {
   function registerRegion(region) {
     if (apex.region.isRegion && apex.region.isRegion(region.id)) apex.region.destroy(region.id);
     if (!document.getElementById(region.id)) return;
-    apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); } });
+    apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); },
+      // Target of the links of region errors in the page notification (interactive grid rows).
+      gotoError: function () { var el = document.getElementById(region.id); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); } });
   }
 
   $(document).on("click", "[data-apex-local-page]", function (event) {
@@ -958,6 +1000,8 @@ window.apexLocal = (function ($) {
       config.dynamicActions.forEach(bindDynamicAction);
     },
     refreshRegion: replaceRegion,
+    submittedItems: submitted,
+    itemsQuery: itemsQuery,
     registerAction: function (name, handler) { actionHandlers[name] = handler; },
     hasAction: function (name) { return Object.prototype.hasOwnProperty.call(actionHandlers, name); },
     config: function () { return config; }
@@ -965,10 +1009,206 @@ window.apexLocal = (function ($) {
 })(apex.jQuery);
 `;
 
-// packages/core/src/preview/database.ts
-import crypto2 from "node:crypto";
+// packages/core/src/preview/properties.ts
 import fs3 from "node:fs";
 import path3 from "node:path";
+import { fileURLToPath } from "node:url";
+var CHECKED = /* @__PURE__ */ new Set([
+  "page",
+  "region",
+  "pageItem",
+  "button",
+  "dynamicAction",
+  "validation",
+  "computation",
+  "branch",
+  "layer",
+  "series",
+  "axis"
+]);
+var EXTRA_GROUPS = {
+  // Report printing attributes and map region attributes.
+  region: ["attributes", "columnHeadings", "columns", "page", "pageHeader"]
+};
+var EXTRA_PATHS = {
+  region: ["settings.enableExport"]
+};
+var EXTRA_VALUES = {
+  "region pagination.type": ["showAll"]
+};
+var ITEM_VALUES = /* @__PURE__ */ new Set(["pageItem geocodingInput.country"]);
+var TYPED_CONTEXTS = /* @__PURE__ */ new Set(["region", "pageItem"]);
+var STRUCTURED_TYPES = /* @__PURE__ */ new Set([
+  "LINK",
+  "LINK_IN_APP",
+  "LINK_IN_DIFF_APP",
+  "LINK_BRANCH",
+  "linkToTargetPageUrl",
+  "STATIC LOV",
+  "ORDER BY ITEM"
+]);
+var ENUMERATED_TYPES = /* @__PURE__ */ new Set(["SELECT LIST", "PILL BUTTONS", "CHECKBOXES", "selectList", "checkboxes"]);
+var cached;
+function catalogFile() {
+  const here = path3.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    process.env.APEXREST_RESOURCES,
+    path3.resolve(here, "../resources"),
+    path3.resolve(here, "../../../../resources")
+  ].filter((entry) => Boolean(entry));
+  for (const root of candidates) {
+    const file = path3.join(root, "components", "source", "parameters.json");
+    if (fs3.existsSync(file)) return file;
+  }
+  return void 0;
+}
+function add(catalog, context) {
+  let entry = catalog.get(context);
+  if (!entry) {
+    entry = {
+      generic: /* @__PURE__ */ new Set(),
+      byType: /* @__PURE__ */ new Map(),
+      genericGroups: /* @__PURE__ */ new Set(),
+      structured: /* @__PURE__ */ new Set(),
+      values: /* @__PURE__ */ new Map()
+    };
+    catalog.set(context, entry);
+  }
+  return entry;
+}
+function buildCatalog(json5) {
+  const catalog = /* @__PURE__ */ new Map();
+  const record = (context, relative, parameter2) => {
+    const entry = add(catalog, context);
+    const type = TYPED_CONTEXTS.has(context) ? parameter2?.nativeType ?? "" : "";
+    const forms = /* @__PURE__ */ new Set([relative, relative.replace(/(^|\.)plugin-/gu, "$1")]);
+    for (const form of forms) {
+      if (type) {
+        if (!entry.byType.has(type)) entry.byType.set(type, /* @__PURE__ */ new Set());
+        entry.byType.get(type).add(form);
+      } else {
+        entry.generic.add(form);
+        entry.genericGroups.add(form.split(".")[0]);
+      }
+      if (!parameter2) continue;
+      if (STRUCTURED_TYPES.has(parameter2.type)) entry.structured.add(form);
+      if (ENUMERATED_TYPES.has(parameter2.type) && parameter2.values.length) {
+        if (!entry.values.has(form)) entry.values.set(form, /* @__PURE__ */ new Map());
+        const byType = entry.values.get(form);
+        if (!byType.has(type)) byType.set(type, /* @__PURE__ */ new Set());
+        for (const value2 of parameter2.values) byType.get(type).add(value2.name);
+      }
+    }
+  };
+  for (const parameter2 of json5.nativeParameters) {
+    if (!parameter2.apexlangPath) continue;
+    let relative = parameter2.apexlangPath.slice(parameter2.context.length + 1);
+    let context = parameter2.context;
+    if (context === "attributes") {
+      context = "region";
+      relative = relative.replace(/^attributes\./u, "");
+    }
+    record(context, relative, parameter2);
+  }
+  for (const attribute3 of json5.utAttributes ?? []) {
+    const context = attribute3.apexlangPath.split(".")[0];
+    add(catalog, context).generic.add(attribute3.apexlangRelativePath);
+  }
+  return catalog;
+}
+function loadCatalog() {
+  if (cached !== void 0) return cached;
+  const file = catalogFile();
+  try {
+    cached = file ? buildCatalog(JSON.parse(fs3.readFileSync(file, "utf8"))) : null;
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+var isSubstitution = (value2) => /[&#][A-Za-z_][\w$#]*[.#]|^#|^&/u.test(value2);
+function checkComponentProperties(components, page, catalog = loadCatalog()) {
+  if (!catalog) return [];
+  const findings = [];
+  const visit = (component) => {
+    const entry = catalog.get(component.type);
+    if (entry && CHECKED.has(component.type)) checkComponent(component, entry, page, findings);
+    for (const child of component.children) visit(child);
+  };
+  for (const component of components) visit(component);
+  return findings;
+}
+function checkComponent(component, entry, page, findings) {
+  const type = typeof component.props.type === "string" ? component.props.type : "";
+  const typed = entry.byType.get(type);
+  const custom = type.includes("/");
+  const extra = new Set(EXTRA_GROUPS[component.type] ?? []);
+  const typedGroups = new Set([...typed ?? []].map((dotted) => dotted.split(".")[0]));
+  const extraPaths = new Set(EXTRA_PATHS[component.type] ?? []);
+  const known = (dotted) => entry.generic.has(dotted) || Boolean(typed?.has(dotted)) || extraPaths.has(dotted);
+  const label = `${component.type} ${component.id}`;
+  const report2 = (message) => findings.push({ message: `${label}: ${message}`, ...page ? { page } : {}, component: component.id });
+  const walk3 = (props, prefix) => {
+    for (const [key, value2] of Object.entries(props)) {
+      const dotted = prefix ? `${prefix}.${key}` : key;
+      const group2 = dotted.split(".")[0];
+      const groupKnown = entry.genericGroups.has(group2) || typedGroups.has(group2);
+      if (extra.has(group2)) continue;
+      if (custom && !entry.genericGroups.has(group2)) continue;
+      if (group2 === "settings" && (custom || !typed)) continue;
+      if (entry.structured.has(dotted)) {
+        checkValue(component.type, dotted, value2, entry, type, report2);
+        continue;
+      }
+      if (!groupKnown) {
+        report2(`unknown property group "${group2}"`);
+        continue;
+      }
+      if (isObject(value2) && !known(dotted)) {
+        walk3(value2, dotted);
+        continue;
+      }
+      if (!known(dotted)) {
+        report2(`unknown property "${dotted}"${type ? ` for type ${type}` : ""}`);
+        continue;
+      }
+      checkValue(component.type, dotted, value2, entry, type, report2);
+    }
+  };
+  walk3(component.props, "");
+}
+function checkValue(context, dotted, value2, entry, type, report2) {
+  const allowed = entry.values.get(dotted);
+  if (!allowed) return;
+  let names = allowed.get(type);
+  const generic = allowed.get("");
+  if (!names && !generic) {
+    names = new Set([...allowed.values()].flatMap((set) => [...set]));
+  }
+  const accepted = /* @__PURE__ */ new Set([
+    ...names ?? [],
+    ...generic ?? [],
+    ...EXTRA_VALUES[`${context} ${dotted}`] ?? []
+  ]);
+  const items = ITEM_VALUES.has(`${context} ${dotted}`);
+  const candidates = Array.isArray(value2) ? value2 : [value2];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" || isRef(candidate)) continue;
+    if (isSubstitution(candidate)) continue;
+    for (const part2 of candidate.split(":")) {
+      if (part2 === "" || accepted.has(part2) || items && /^P\d+_\w+$/iu.test(part2)) continue;
+      report2(
+        `unknown value "${part2}" for ${dotted} (expected ${[...accepted].sort().slice(0, 12).join(", ")}${accepted.size > 12 ? ", \u2026" : ""})`
+      );
+      return;
+    }
+  }
+}
+
+// packages/core/src/preview/database.ts
+import crypto2 from "node:crypto";
+import fs4 from "node:fs";
+import path4 from "node:path";
 import { DatabaseSync } from "node:sqlite";
 var MONTH_NAMES = [
   "January",
@@ -1198,23 +1438,261 @@ function formatNumber(value2, upper4) {
   const [whole = "", fraction = ""] = body4.split(/[D.]/u);
   const decimals = fraction.replace(/[^09]/gu, "").length;
   const zeros = whole.includes("0") ? whole.slice(whole.indexOf("0")).replace(/[^09]/gu, "").length : 0;
-  let text8 = Math.abs(number2).toLocaleString("en-US", {
+  let text9 = Math.abs(number2).toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
     minimumIntegerDigits: Math.max(1, zeros),
     useGrouping: /[G,]/u.test(whole)
   });
-  if (!zeros && !decimals && text8 === "0" && whole && !whole.includes("0")) text8 = "0";
-  if (!zeros && text8.startsWith("0.") && !whole.includes("0") && whole) text8 = text8.slice(1);
-  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text8 = `$${text8}`;
-  if (number2 < 0) return upper4.endsWith("MI") ? `${text8}-` : upper4.endsWith("PR") ? `<${text8}>` : `-${text8}`;
-  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text8}` : text8;
+  if (!zeros && !decimals && text9 === "0" && whole && !whole.includes("0")) text9 = "0";
+  if (!zeros && text9.startsWith("0.") && !whole.includes("0") && whole) text9 = text9.slice(1);
+  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text9 = `$${text9}`;
+  if (number2 < 0) return upper4.endsWith("MI") ? `${text9}-` : upper4.endsWith("PR") ? `<${text9}>` : `-${text9}`;
+  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text9}` : text9;
+}
+function oracleNumberText(value2) {
+  if (Number.isNaN(value2)) return "NaN";
+  if (!Number.isFinite(value2)) return value2 > 0 ? "~" : "-~";
+  if (Number.isInteger(value2)) return Math.abs(value2) < 1e21 ? String(value2 || 0) : BigInt(value2).toString();
+  const rounded = Number(value2.toPrecision(15));
+  if (Number.isInteger(rounded)) return String(rounded || 0);
+  let text9 = String(rounded);
+  if (/e/iu.test(text9)) {
+    const exponent = Number(text9.split(/e/iu)[1]);
+    text9 = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, "");
+  }
+  return text9.replace(/^(-?)0\./u, "$1.");
+}
+function oracleText(value2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  if (typeof value2 === "bigint") return value2.toString();
+  return String(value2);
+}
+function decimalNumber(value2) {
+  return Number.isFinite(value2) && !Number.isInteger(value2) ? Number(value2.toPrecision(15)) : value2;
+}
+var DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
+function arithmeticNumber(value2) {
+  if (typeof value2 === "number") return value2;
+  if (typeof value2 === "bigint") return Number(value2);
+  if (typeof value2 !== "string" || value2.trim() === "") return void 0;
+  const number2 = Number(value2.trim());
+  return Number.isFinite(number2) ? number2 : void 0;
+}
+function arithmeticDate(value2) {
+  if (typeof value2 !== "string" || arithmeticNumber(value2) !== void 0) return void 0;
+  const text9 = value2.trim();
+  return DATE_TEXT.test(text9) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text9) ? oracleDate(text9) : void 0;
+}
+var sqlNumber = (value2) => Number.isSafeInteger(value2) ? BigInt(value2) : decimalNumber(value2);
+function sqlArithmetic(left, operator, right) {
+  if (left === null || left === void 0 || right === null || right === void 0) return null;
+  const leftDate = arithmeticDate(left);
+  const rightDate = arithmeticDate(right);
+  if (leftDate && rightDate && operator === "-") {
+    const utc = (date2) => Date.UTC(
+      date2.getFullYear(),
+      date2.getMonth(),
+      date2.getDate(),
+      date2.getHours(),
+      date2.getMinutes(),
+      date2.getSeconds()
+    );
+    return sqlNumber((utc(leftDate) - utc(rightDate)) / 864e5);
+  }
+  const date = leftDate ?? (operator === "+" ? rightDate : void 0);
+  if (date) {
+    const days = arithmeticNumber(leftDate ? right : left);
+    if (days === void 0) return null;
+    const signed = operator === "-" ? -days : days;
+    const whole = Math.trunc(signed);
+    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
+    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
+    result.setTime(result.getTime() + Math.round((signed - whole) * 86400) * 1e3);
+    const source = String(leftDate ? left : right);
+    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
+    return isoDate(result, Boolean(timed));
+  }
+  const a = arithmeticNumber(left);
+  const b = arithmeticNumber(right);
+  if (a === void 0 || b === void 0) return null;
+  return sqlNumber(operator === "-" ? a - b : a + b);
+}
+function parseJsonPath(path13) {
+  const text9 = path13.trim().replace(/^(?:lax|strict)\s+/iu, "");
+  if (!text9.startsWith("$")) return void 0;
+  const steps = [];
+  let index = 1;
+  while (index < text9.length) {
+    const rest = text9.slice(index);
+    let match;
+    if (match = /^\.\*/u.exec(rest)) steps.push({ kind: "any" });
+    else if (match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest)) steps.push({ kind: "field", name: match[1] });
+    else if (match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest))
+      steps.push({ kind: "field", name: match[1].replace(/\\(.)/gu, "$1") });
+    else if (match = /^\[\s*\*\s*\]/u.exec(rest)) steps.push({ kind: "all" });
+    else if (match = /^\[([^\]]*)\]/u.exec(rest)) {
+      const position2 = (part2) => part2.trim().toLowerCase() === "last" ? "last" : Number(part2);
+      const indexes = match[1].split(",").map((part2) => {
+        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part2.trim());
+        return range ? [position2(range[1]), position2(range[2])] : position2(part2);
+      });
+      if (indexes.some((entry) => typeof entry === "number" && !Number.isInteger(entry))) return void 0;
+      steps.push({ kind: "index", indexes });
+    } else return void 0;
+    index += match[0].length;
+  }
+  return steps;
+}
+function jsonMatches(doc, pathText) {
+  if (doc === null || doc === void 0 || pathText === null || pathText === void 0) return void 0;
+  const steps = parseJsonPath(String(pathText));
+  if (!steps) return void 0;
+  let data;
+  try {
+    data = typeof doc === "string" ? JSON.parse(doc) : doc;
+  } catch {
+    return void 0;
+  }
+  let current3 = [data];
+  for (const step of steps) {
+    const next = [];
+    for (const value2 of current3) {
+      if (step.kind === "field" || step.kind === "any") {
+        for (const target2 of Array.isArray(value2) ? value2 : [value2]) {
+          if (!target2 || typeof target2 !== "object" || Array.isArray(target2)) continue;
+          if (step.kind === "any") next.push(...Object.values(target2));
+          else if (Object.hasOwn(target2, step.name))
+            next.push(target2[step.name]);
+        }
+      } else {
+        const array = Array.isArray(value2) ? value2 : [value2];
+        if (step.kind === "all") {
+          next.push(...array);
+          continue;
+        }
+        const resolve = (entry) => entry === "last" ? array.length - 1 : entry;
+        for (const entry of step.indexes) {
+          if (Array.isArray(entry)) {
+            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
+              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
+          } else {
+            const at = resolve(entry);
+            if (at >= 0 && at < array.length) next.push(array[at]);
+          }
+        }
+      }
+    }
+    current3 = next;
+  }
+  return current3;
+}
+function jsonValue(doc, pathText, returning) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3 || matches3.length !== 1) return null;
+  const value2 = matches3[0];
+  if (value2 === null || typeof value2 === "object") return null;
+  if (returning === "number" || returning === "integer" || returning === "float" || returning === "binary_double") {
+    const number2 = Number(value2);
+    return Number.isFinite(number2) ? number2 : null;
+  }
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  return String(value2);
+}
+function jsonQuery(doc, pathText, wrapper) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3?.length) return null;
+  if (wrapper) return JSON.stringify(matches3);
+  if (matches3.length !== 1 || matches3[0] === null || typeof matches3[0] !== "object") return null;
+  return JSON.stringify(matches3[0]);
+}
+var POSIX_CLASSES = {
+  alpha: "a-zA-Z",
+  digit: "0-9",
+  alnum: "a-zA-Z0-9",
+  upper: "A-Z",
+  lower: "a-z",
+  space: "\\s",
+  blank: " \\t",
+  punct: "!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~",
+  xdigit: "0-9A-Fa-f",
+  cntrl: "\\x00-\\x1f\\x7f",
+  print: "\\x20-\\x7e",
+  graph: "\\x21-\\x7e",
+  word: "\\w"
+};
+function oracleRegExp(pattern, matchParameter = "", global = false) {
+  let ignoreCase = false;
+  let dotAll = false;
+  let multiline = false;
+  let extended = false;
+  for (const flag3 of matchParameter) {
+    if (flag3 === "i") ignoreCase = true;
+    else if (flag3 === "c") ignoreCase = false;
+    else if (flag3 === "n") dotAll = true;
+    else if (flag3 === "m") multiline = true;
+    else if (flag3 === "x") extended = true;
+  }
+  let source = "";
+  let inClass = false;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === "\\") {
+      source += pattern.slice(index, index + 2);
+      index += 1;
+      continue;
+    }
+    if (inClass) {
+      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
+      if (posix && POSIX_CLASSES[posix[1]] !== void 0) {
+        source += POSIX_CLASSES[posix[1]];
+        index += posix[0].length - 1;
+        continue;
+      }
+      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
+      if (equivalence) {
+        source += equivalence[1].replace(/[\\\]^-]/u, "\\$&");
+        index += equivalence[0].length - 1;
+        continue;
+      }
+      if (char === "]") inClass = false;
+      else if (char === "[") {
+        source += "\\[";
+        continue;
+      }
+      source += char;
+      continue;
+    }
+    if (char === "[") {
+      inClass = true;
+      source += char;
+      if (pattern[index + 1] === "^") {
+        source += "^";
+        index += 1;
+      }
+      if (pattern[index + 1] === "]") {
+        source += "\\]";
+        index += 1;
+      }
+      continue;
+    }
+    if (extended && /\s/u.test(char)) continue;
+    source += char;
+  }
+  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}${dotAll ? "s" : ""}${multiline ? "m" : ""}`;
+  try {
+    return new RegExp(source, `${flags}u`);
+  } catch {
+    return new RegExp(source, flags);
+  }
 }
 function formatOracle(value2, mask2) {
   if (value2 === null || value2 === void 0) return null;
-  if (!mask2) return String(value2);
+  if (!mask2) return oracleText(value2);
   const upper4 = mask2.trim().toUpperCase();
-  if (upper4 === "TM" || upper4 === "TM9") return String(Number(value2));
+  if (upper4 === "TM" || upper4 === "TM9" || upper4 === "TME")
+    return value2 === "" ? null : oracleNumberText(Number(value2));
   if (/[90X]/u.test(upper4) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper4))
     return formatNumber(value2, upper4);
   if (upper4 === "DS" || upper4 === "DL") {
@@ -1311,6 +1789,12 @@ function parseOracleDate(value2, mask2) {
   const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
   return Number.isNaN(date.getTime()) ? void 0 : date;
 }
+function canonicalDate(value2, mask2) {
+  const text9 = value2.trim();
+  if (text9 === "") return value2;
+  const date = DATE_TEXT.test(text9) ? oracleDate(text9) : parseOracleDate(text9, mask2);
+  return date ? isoDate(date) : value2;
+}
 function truncDate(date, unit = "DD") {
   const upper4 = unit.toUpperCase();
   const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -1330,13 +1814,13 @@ function truncDate(date, unit = "DD") {
   return isoDate(result, false);
 }
 var oracleFunctions = /* @__PURE__ */ new Map();
-function registerOracleFunction(name, params2, impl, options2) {
+function registerOracleFunction(name, params2, impl, options3) {
   const key = name.toLowerCase();
   oracleFunctions.set(key, {
     sqlName: key.replaceAll(".", "__"),
     params: params2,
     impl,
-    blobs: options2?.blobs ?? false
+    blobs: options3?.blobs ?? false
   });
 }
 var tableFunctions = /* @__PURE__ */ new Map();
@@ -1358,29 +1842,29 @@ function registerDatabaseSetup(setup) {
 var MASK = /\u0000(\d+)\u0000/gu;
 function maskLiterals(sql) {
   const literals = [];
-  const text8 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+  const text9 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
     literals.push(literal2);
     return `\0${literals.length - 1}\0`;
   });
-  return { text: text8, literals };
+  return { text: text9, literals };
 }
-var unmask = (text8, literals) => text8.replace(MASK, (_match, index) => literals[Number(index)]);
-function closingParen(text8, open) {
+var unmask = (text9, literals) => text9.replace(MASK, (_match, index) => literals[Number(index)]);
+function closingParen(text9, open2) {
   let depth = 0;
-  for (let index = open; index < text8.length; index += 1) {
-    if (text8[index] === "(") depth += 1;
-    else if (text8[index] === ")") {
+  for (let index = open2; index < text9.length; index += 1) {
+    if (text9[index] === "(") depth += 1;
+    else if (text9[index] === ")") {
       depth -= 1;
       if (depth === 0) return index;
     }
   }
   return -1;
 }
-function topLevelCommas(text8) {
+function topLevelCommas(text9) {
   const parts = [];
   let depth = 0;
   let current3 = "";
-  for (const char of text8) {
+  for (const char of text9) {
     if (char === "(") depth += 1;
     if (char === ")") depth -= 1;
     if (char === "," && depth === 0) {
@@ -1391,17 +1875,17 @@ function topLevelCommas(text8) {
   if (current3.trim() || parts.length) parts.push(current3);
   return parts;
 }
-function rewritePackageCalls(text8) {
+function rewritePackageCalls(text9) {
   const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
   let out = "";
   let last = 0;
-  for (let match = pattern.exec(text8); match; match = pattern.exec(text8)) {
+  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
     const fn = oracleFunctions.get(`${match[1].toLowerCase()}.${match[2].toLowerCase()}`);
     if (!fn) continue;
-    const open = match.index + match[0].length - 1;
-    const close = closingParen(text8, open);
-    if (close < 0) continue;
-    const args = topLevelCommas(rewritePackageCalls(text8.slice(open + 1, close)));
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text9, open2);
+    if (close2 < 0) continue;
+    const args = topLevelCommas(rewritePackageCalls(text9.slice(open2 + 1, close2)));
     const positional = [];
     for (const arg of args) {
       const named2 = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
@@ -1411,11 +1895,11 @@ function rewritePackageCalls(text8) {
         if (index >= 0) positional[index] = named2[2].trim();
       }
     }
-    out += `${text8.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
-    last = close + 1;
-    pattern.lastIndex = close + 1;
+    out += `${text9.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
+    last = close2 + 1;
+    pattern.lastIndex = close2 + 1;
   }
-  return out + text8.slice(last);
+  return out + text9.slice(last);
 }
 var TABLE_FUNCTIONS = {
   "apex_util.get_timeframe_lov_data": [
@@ -1435,40 +1919,40 @@ var TABLE_FUNCTIONS = {
     ["Last 4 Weeks", 2419200]
   ].map(([disp, val], index) => `select '${disp}' as disp, ${val} as val, ${index + 1} as insert_order`).join(" union all ")
 };
-function rewriteTableCollections(text8) {
+function rewriteTableCollections(text9) {
   const pattern = /\btable\s*\(/giu;
   const lateral = [];
   let out = "";
   let last = 0;
-  for (let match = pattern.exec(text8); match; match = pattern.exec(text8)) {
-    const open = match.index + match[0].length - 1;
-    const close = closingParen(text8, open);
-    if (close < 0) continue;
-    const inner = text8.slice(open + 1, close).trim();
+  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text9, open2);
+    if (close2 < 0) continue;
+    const inner = text9.slice(open2 + 1, close2).trim();
     const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, "")];
     const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? "");
     if (registered) {
       const alias = /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
-        text8.slice(close + 1)
+        text9.slice(close2 + 1)
       );
       const columns = registered.columns.map((column2, index) => `json_extract(value, '$[${index}]') as ${column2.toLowerCase()}`).join(", ");
       const args = inner.slice(inner.indexOf("(") + 1, -1);
       if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
-        out += `${text8.slice(last, match.index)}json_each(${inner})`;
-        last = close + 1;
+        out += `${text9.slice(last, match.index)}json_each(${inner})`;
+        last = close2 + 1;
         lateral.push({ alias: alias[1], columns: registered.columns });
       } else {
-        out += `${text8.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
-        last = close + 1;
+        out += `${text9.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
+        last = close2 + 1;
       }
-      pattern.lastIndex = close + 1;
+      pattern.lastIndex = close2 + 1;
       continue;
     }
-    out += builtin ? `${text8.slice(last, match.index)}(${builtin})` : `${text8.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
-    last = close + 1;
-    pattern.lastIndex = close + 1;
+    out += builtin ? `${text9.slice(last, match.index)}(${builtin})` : `${text9.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
+    last = close2 + 1;
+    pattern.lastIndex = close2 + 1;
   }
-  out += text8.slice(last);
+  out += text9.slice(last);
   for (const { alias, columns } of lateral) {
     out = out.replace(
       new RegExp(
@@ -1487,15 +1971,15 @@ function rewriteTableCollections(text8) {
   }
   return out;
 }
-function rewriteRownum(text8) {
-  if (!/\brownum\b/iu.test(text8)) return text8;
+function rewriteRownum(text9) {
+  if (!/\brownum\b/iu.test(text9)) return text9;
   const predicate2 = /\b(where|and)\s+rownum\s*(<=|<|=)\s*(\d+|:\w+)\s*(and\b)?/giu;
-  for (const match of [...text8.matchAll(predicate2)].reverse()) {
+  for (const match of [...text9.matchAll(predicate2)].reverse()) {
     let depth = 0;
-    let scopeEnd = text8.length;
-    for (let index = match.index + match[0].length; index < text8.length; index += 1) {
-      if (text8[index] === "(") depth += 1;
-      else if (text8[index] === ")") {
+    let scopeEnd = text9.length;
+    for (let index = match.index + match[0].length; index < text9.length; index += 1) {
+      if (text9[index] === "(") depth += 1;
+      else if (text9[index] === ")") {
         if (depth === 0) {
           scopeEnd = index;
           break;
@@ -1503,56 +1987,347 @@ function rewriteRownum(text8) {
         depth -= 1;
       }
     }
-    const tail = text8.slice(match.index + match[0].length, scopeEnd);
+    const tail = text9.slice(match.index + match[0].length, scopeEnd);
     if (/\blimit\b/iu.test(tail)) continue;
     const [, keyword, op, bound, trailingAnd] = match;
     const limit = op === "<" ? /^\d+$/u.test(bound) ? String(Number(bound) - 1) : `${bound} - 1` : op === "=" ? "1" : bound;
     const replacement = keyword.toLowerCase() === "where" ? trailingAnd ? "where " : "" : trailingAnd ? "and " : "";
-    text8 = `${text8.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text8.slice(scopeEnd)}`;
+    text9 = `${text9.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text9.slice(scopeEnd)}`;
   }
-  return text8.replace(/\brownum\b/giu, "row_number() over ()");
+  return text9.replace(/\brownum\b/giu, "row_number() over ()");
 }
-function rewriteConnectBy(text8) {
+function rewriteConnectBy(text9) {
   const pattern = /(\bfrom\s+[\w$#.]+(?:\s+(?!connect\b)[\w$#]+)?\s+)?\bconnect\s+by\s+(?:level|rownum)\s*(<=|<)\s*/giu;
-  for (let match = pattern.exec(text8); match; match = pattern.exec(text8)) {
+  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
     let depth = 0;
     let end = match.index + match[0].length;
-    for (; end < text8.length; end += 1) {
-      const char = text8[end];
+    for (; end < text9.length; end += 1) {
+      const char = text9[end];
       if (char === "(") depth += 1;
       else if (char === ")") {
         if (depth === 0) break;
         depth -= 1;
-      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text8.slice(end, end + 12)))
+      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text9.slice(end, end + 12)))
         break;
     }
-    const bound = text8.slice(match.index + match[0].length, end).trim();
+    const bound = text9.slice(match.index + match[0].length, end).trim();
     const generator = `(with recursive apex_local_levels(level) as (select 1 union all select level + 1 from apex_local_levels where level < (${bound})${match[2] === "<" ? " - 1" : ""}) select level from apex_local_levels)`;
     const replacement = match[1] ? `${match[1].trimEnd()}, ${generator} ` : `from ${generator} `;
-    text8 = text8.slice(0, match.index) + replacement + text8.slice(end);
+    text9 = text9.slice(0, match.index) + replacement + text9.slice(end);
     pattern.lastIndex = match.index + replacement.length;
   }
-  return text8;
+  return text9;
 }
+var SQL_TOKEN = /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
+function tokenizeSql(text9) {
+  const tokens = [];
+  SQL_TOKEN.lastIndex = 0;
+  let position2 = 0;
+  for (let match = SQL_TOKEN.exec(text9); match && match[2]; match = SQL_TOKEN.exec(text9)) {
+    const value2 = match[2];
+    const kind = value2.startsWith("\0") ? "literal" : /^[\d.]/u.test(value2) && value2 !== "." ? "number" : /^:[\w]/u.test(value2) ? "bind" : /^[A-Za-z_"]/u.test(value2) ? "word" : "op";
+    tokens.push({ pre: match[1], text: value2, kind });
+    position2 = SQL_TOKEN.lastIndex;
+  }
+  return { tokens, tail: text9.slice(position2) };
+}
+var renderTokens = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("");
+var SQL_KEYWORDS = new Set(
+  "select from where and or not when then else end as on by group order having union all intersect minus except in is like between escape asc desc nulls limit offset join left right inner outer cross natural into values set distinct exists over within partition using with recursive returning default collate glob regexp isnull notnull prior connect interval return".split(" ")
+);
+var isOpToken = (token, ...values) => token?.kind === "op" && values.includes(token.text);
+var isWordToken = (token, ...values) => token?.kind === "word" && values.includes(token.text.toLowerCase());
+function matchForward(tokens, open2) {
+  let depth = 0;
+  for (let index = open2; index < tokens.length; index += 1) {
+    if (isOpToken(tokens[index], "(")) depth += 1;
+    else if (isOpToken(tokens[index], ")")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function matchBackward(tokens, close2) {
+  let depth = 0;
+  for (let index = close2; index >= 0; index -= 1) {
+    if (isOpToken(tokens[index], ")")) depth += 1;
+    else if (isOpToken(tokens[index], "(")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function callSuffix(tokens, end) {
+  for (; ; ) {
+    const next = tokens[end + 1];
+    if (isWordToken(next, "over", "keep", "filter") && isOpToken(tokens[end + 2], "(")) {
+      const close2 = matchForward(tokens, end + 2);
+      if (close2 < 0) return end;
+      end = close2;
+    } else if (isWordToken(next, "within") && isWordToken(tokens[end + 2], "group") && isOpToken(tokens[end + 3], "(")) {
+      const close2 = matchForward(tokens, end + 3);
+      if (close2 < 0) return end;
+      end = close2;
+    } else return end;
+  }
+}
+function operandEnd(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, "+", "-")) return operandEnd(tokens, index + 1);
+  if (isOpToken(token, "(")) {
+    const close2 = matchForward(tokens, index);
+    return close2 < 0 ? -1 : close2;
+  }
+  if (token.kind === "word") {
+    const lower2 = token.text.toLowerCase();
+    if (lower2 === "case") {
+      let depth = 0;
+      for (let cursor = index; cursor < tokens.length; cursor += 1) {
+        if (isWordToken(tokens[cursor], "case")) depth += 1;
+        else if (isWordToken(tokens[cursor], "end")) {
+          depth -= 1;
+          if (depth === 0) return cursor;
+        }
+      }
+      return -1;
+    }
+    if (SQL_KEYWORDS.has(lower2)) return -1;
+    let end = index;
+    while (isOpToken(tokens[end + 1], ".") && tokens[end + 2]?.kind === "word") end += 2;
+    if (isOpToken(tokens[end + 1], "(")) {
+      const close2 = matchForward(tokens, end + 1);
+      if (close2 < 0) return -1;
+      end = callSuffix(tokens, close2);
+    }
+    return end;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function operandStart(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, ")")) {
+    let open2 = matchBackward(tokens, index);
+    if (open2 < 0) return -1;
+    if (isWordToken(tokens[open2 - 1], "over", "keep", "filter")) return operandStart(tokens, open2 - 2);
+    if (isWordToken(tokens[open2 - 1], "group") && isWordToken(tokens[open2 - 2], "within"))
+      return operandStart(tokens, open2 - 3);
+    const name = tokens[open2 - 1];
+    if (name?.kind === "word" && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
+      open2 -= 1;
+      while (isOpToken(tokens[open2 - 1], ".") && tokens[open2 - 2]?.kind === "word") open2 -= 2;
+    }
+    return open2;
+  }
+  if (isWordToken(token, "end")) {
+    let depth = 0;
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      if (isWordToken(tokens[cursor], "end")) depth += 1;
+      else if (isWordToken(tokens[cursor], "case")) {
+        depth -= 1;
+        if (depth === 0) return cursor;
+      }
+    }
+    return -1;
+  }
+  if (token.kind === "word") {
+    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
+    let start = index;
+    while (isOpToken(tokens[start - 1], ".") && tokens[start - 2]?.kind === "word") start -= 2;
+    return start;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function isBinaryAt(tokens, index) {
+  const previous = tokens[index - 1];
+  if (!previous) return false;
+  if (isOpToken(previous, ")")) return true;
+  if (previous.kind === "word")
+    return isWordToken(previous, "end") || !SQL_KEYWORDS.has(previous.text.toLowerCase());
+  return previous.kind !== "op";
+}
+function leftOperand(tokens, operator) {
+  let start = operandStart(tokens, operator - 1);
+  while (start > 0) {
+    const previous = start - 1;
+    if (isOpToken(tokens[previous], "*", "/", "%", "+", "-") && isBinaryAt(tokens, previous)) {
+      const earlier = operandStart(tokens, previous - 1);
+      if (earlier < 0) break;
+      start = earlier;
+    } else if (isOpToken(tokens[previous], "+", "-")) {
+      start = previous;
+      break;
+    } else break;
+  }
+  return start;
+}
+function rightOperand(tokens, operator) {
+  let end = operandEnd(tokens, operator + 1);
+  while (end >= 0 && isOpToken(tokens[end + 1], "*", "/", "%")) {
+    const later = operandEnd(tokens, end + 2);
+    if (later < 0) break;
+    end = later;
+  }
+  return end;
+}
+function rewriteConcatTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 0; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "||")) continue;
+    const start = leftOperand(out, index);
+    if (start < 0) continue;
+    const operands = [renderTokens(out.slice(start, index))];
+    let cursor = index;
+    let end = index;
+    while (isOpToken(out[cursor], "||")) {
+      const last = rightOperand(out, cursor);
+      if (last < 0) break;
+      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
+      end = last;
+      cursor = last + 1;
+    }
+    if (end === index) continue;
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `concat(${operands.join(", ")})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+var DATE_CAPABLE_CALLS = /* @__PURE__ */ new Set([
+  "trunc",
+  "round",
+  "to_date",
+  "to_timestamp",
+  "last_day",
+  "next_day",
+  "add_months",
+  "datetime",
+  "date",
+  "nvl",
+  "coalesce",
+  "greatest",
+  "least",
+  "max",
+  "min",
+  "decode",
+  "nullif",
+  "new_time",
+  "from_tz",
+  "cast",
+  "apex_local_arith"
+]);
+function dateCapable(tokens) {
+  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
+  const first = tokens[0];
+  if (first.kind === "bind") return true;
+  if (first.kind === "atom") return /^apex_local_arith\(/u.test(first.text);
+  if (isOpToken(first, "(")) return dateCapable(tokens.slice(1, -1));
+  if (first.kind !== "word" || isWordToken(first, "case", "null")) return false;
+  const open2 = tokens.findIndex((token) => isOpToken(token, "("));
+  if (open2 < 0) return !isWordToken(tokens.at(-1), "level", "rownum");
+  return DATE_CAPABLE_CALLS.has(tokens[open2 - 1].text.toLowerCase());
+}
+function rewriteDateArithmeticTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 1; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "+", "-") || !isBinaryAt(out, index)) continue;
+    const start = leftOperand(out, index);
+    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
+    const end = rightOperand(out, index);
+    if (end < 0) continue;
+    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index].text}', ${right})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+function rewriteExpressions(text9, rewrite) {
+  const { tokens, tail } = tokenizeSql(text9);
+  if (!tokens.length) return text9;
+  const lead = tokens[0].pre;
+  return lead + renderTokens(rewrite(tokens)) + tail;
+}
+function rewriteListagg(text9) {
+  const pattern = /\blistagg\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text9, open2);
+    if (close2 < 0) continue;
+    const within = /^\s*within\s+group\s*\(/iu.exec(text9.slice(close2 + 1));
+    const orderOpen = within ? close2 + within[0].length : -1;
+    const orderClose = within ? closingParen(text9, orderOpen) : -1;
+    let inner = rewriteListagg(text9.slice(open2 + 1, close2)).replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, "").trim();
+    const distinct = /^distinct\s+/iu.exec(inner);
+    if (distinct) inner = inner.slice(distinct[0].length);
+    const [value2 = "null", separator2] = topLevelCommas(inner).map((part2) => part2.trim());
+    const order = orderClose > 0 ? text9.slice(orderOpen + 1, orderClose).trim() : "";
+    const measure = `apex_local_text(${value2})`;
+    out += text9.slice(last, match.index);
+    out += distinct ? `group_concat(distinct ${measure})` : `group_concat(${measure}, ${separator2 || "''"}${order ? ` ${order}` : ""})`;
+    last = orderClose > 0 ? orderClose + 1 : close2 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text9.slice(last);
+}
+function rewriteJsonFunctions(text9) {
+  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text9, open2);
+    if (close2 < 0) continue;
+    const args = topLevelCommas(rewriteJsonFunctions(text9.slice(open2 + 1, close2)));
+    if (args.length < 2) continue;
+    const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
+    const rest = args.slice(1).join(",").trim();
+    const path13 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path13) continue;
+    const clauses = rest.slice(path13.length);
+    const kind = match[1].toLowerCase();
+    const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
+    out += `${text9.slice(last, match.index)}json_${kind}(${doc}, ${path13}${option ? `, '${option}'` : ""})`;
+    last = close2 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text9.slice(last);
+}
+var IDENTITY_MARKER = "/*apex_local_identity*/";
+var PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
 function translateOracleSql(sql) {
   const trimmed = sql.trim().replace(/;\s*\/?\s*$/u, "").replace(/\n\/\s*$/u, "");
   const masked = maskLiterals(trimmed);
-  let text8 = masked.text.replace(/\bfrom\s+dual\b/giu, "").replace(
+  const literal2 = (value2) => {
+    masked.literals.push(value2);
+    return `\0${masked.literals.length - 1}\0`;
+  };
+  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
+  let text9 = uncommented.replace(/\bfrom\s+dual\b/giu, "").replace(/\bdefault\s+on\s+null\b/giu, "default").replace(
+    /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
+    "default (datetime('now','localtime'))"
+  ).replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, "default $1").replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, "default ($1)").replace(/\bdate\s+(\u0000\d+\u0000)/giu, "to_date($1)").replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, "to_timestamp($1)").replace(
     /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
-    (_whole, sign, days) => `datetime('now','localtime','${sign}${days} days')`
-  ).replace(
-    /\b(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\s*([+-])\s*(\(\s*[^()]*\)|:\w+|\d+(?:\.\d+)?(?:\s*[/*]\s*(?:\d+(?:\.\d+)?|:\w+))+)/giu,
-    (_whole, sign, operand) => `datetime('now','localtime', printf('%+.6f days', ${sign === "-" ? "-" : ""}(${operand.replace(/\//gu, "*1.0/")})))`
+    (_whole, sign, days) => `datetime('now','localtime',${literal2(`'${sign}${days} days'`)})`
   ).replace(
     /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
     "datetime('now','localtime')"
   ).replace(
     /\boffset\s+(\d+|:\w+)\s+rows?\s+fetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu,
     "limit $2 offset $1"
-  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(
-    /\blistagg\s*\(\s*(distinct\s+)?([^(),]*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)[^(),]*)*)\s*(?:,\s*([^(),]+?))?\s*(?:on\s+overflow\s+\w+(?:\s+\S+)?(?:\s+(?:with|without)\s+count)?)?\s*\)\s*within\s+group\s*\(\s*(order\s+by\s+[^()]*(?:\([^()]*\)[^()]*)*)\)/giu,
-    (_whole, distinct, value2, separator2, order) => distinct ? `group_concat(distinct ${value2})` : `group_concat(${value2}, ${separator2 ?? "''"} ${order})`
-  ).replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
+  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
     /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
     (_whole, side, chars, value2) => `${{ both: "trim", leading: "ltrim", trailing: "rtrim" }[side.toLowerCase()]}(${value2.trim()}, ${chars})`
   ).replace(
@@ -1561,38 +2336,48 @@ function translateOracleSql(sql) {
   ).replace(/\s+at\s+(?:local\b|time\s+zone\s+(?:\u0000\d+\u0000|[\w$#.:+-]+))/giu, "").replace(
     /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
     (_whole, name, kind) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`
-  ).replace(/\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu, "").replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "");
-  text8 = rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text8))));
-  return unmask(text8, masked.literals);
+  ).replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, "default ($1)").replace(
+    /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
+    IDENTITY_MARKER
+  ).replace(
+    /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
+    "integer$1"
+  ).replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "").replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, "* 1.0 /");
+  text9 = rewriteJsonFunctions(
+    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text9)))))
+  );
+  if (!ddl)
+    text9 = rewriteExpressions(rewriteExpressions(text9, rewriteConcatTokens), rewriteDateArithmeticTokens);
+  return unmask(text9, masked.literals);
 }
 function translateMerge(sql) {
   const masked = maskLiterals(translateOracleSql(sql));
-  const text8 = masked.text;
-  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text8);
+  const text9 = masked.text;
+  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text9);
   if (!head) return void 0;
   const table = head[1];
   const alias = head[2] ?? table;
   let position2 = head[0].length;
   let source;
-  if (text8[position2] === "(") {
-    const close2 = closingParen(text8, position2);
-    if (close2 < 0) return void 0;
-    source = text8.slice(position2 + 1, close2);
-    position2 = close2 + 1;
+  if (text9[position2] === "(") {
+    const close3 = closingParen(text9, position2);
+    if (close3 < 0) return void 0;
+    source = text9.slice(position2 + 1, close3);
+    position2 = close3 + 1;
   } else {
-    const name = /^[\w$#."]+/u.exec(text8.slice(position2))[0];
+    const name = /^[\w$#."]+/u.exec(text9.slice(position2))[0];
     source = name.toLowerCase() === "dual" ? "select 1 as dummy" : `select * from ${name}`;
     position2 += name.length;
   }
-  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text8.slice(position2));
+  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text9.slice(position2));
   const sAlias = sourceAlias ? sourceAlias[1] : "apex_local_src";
   if (sourceAlias) position2 += sourceAlias[0].length;
-  const on = /^\s*on\s*\(/iu.exec(text8.slice(position2));
+  const on = /^\s*on\s*\(/iu.exec(text9.slice(position2));
   if (!on) return void 0;
-  const open = position2 + on[0].length - 1;
-  const close = closingParen(text8, open);
-  const condition = text8.slice(open + 1, close);
-  const rest = text8.slice(close + 1);
+  const open2 = position2 + on[0].length - 1;
+  const close2 = closingParen(text9, open2);
+  const condition = text9.slice(open2 + 1, close2);
+  const rest = text9.slice(close2 + 1);
   const from = `from (${source}) as ${sAlias}`;
   const statements = [];
   const matched = /\bwhen\s+matched\s+then\s+update\s+set\s+([\s\S]*?)(?=\bwhen\s+not\s+matched\b|$)/iu.exec(
@@ -1631,7 +2416,12 @@ function splitScript(script) {
   let plsql = false;
   for (const line of script.replace(/\r\n?/gu, "\n").split("\n")) {
     const trimmed = line.trim();
-    if (!current3.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b)/iu.test(trimmed)) continue;
+    if (!current3.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
+    if (!plsql && trimmed.startsWith("--")) {
+      current3 += `${line}
+`;
+      continue;
+    }
     if (!current3.trim() && /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
       trimmed
     )) {
@@ -1666,7 +2456,7 @@ var LocalDatabase = class {
   #dirtySequences = /* @__PURE__ */ new Set();
   constructor(file) {
     this.file = file;
-    if (file !== ":memory:") fs3.mkdirSync(path3.dirname(file), { recursive: true });
+    if (file !== ":memory:") fs4.mkdirSync(path4.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.#registerOracleFunctions();
     for (const setup of databaseSetups) setup(this);
@@ -1700,6 +2490,7 @@ var LocalDatabase = class {
   }
   #sqlValue(value2) {
     if (typeof value2 === "bigint") return Number(value2);
+    if (typeof value2 === "number") return decimalNumber(value2);
     if (value2 instanceof Uint8Array) return this.blobToken(value2);
     return value2 ?? null;
   }
@@ -1719,6 +2510,18 @@ var LocalDatabase = class {
       return pairs.length % 2 === 1 ? pairs.at(-1) ?? null : null;
     });
     fn("to_char", (value2, mask2) => formatOracle(value2, typeof mask2 === "string" ? mask2 : void 0));
+    fn("concat", (...args) => {
+      if (args.every((arg) => arg === null || arg === void 0)) return null;
+      return args.map((arg) => oracleText(arg) ?? "").join("");
+    });
+    fn("apex_local_text", (value2) => oracleText(value2));
+    fn("apex_local_arith", (left, operator, right) => sqlArithmetic(left, String(operator), right));
+    fn("json_value", (doc, pathText, returning) => jsonValue(doc, pathText, returning));
+    fn("json_query", (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === "wrapper"));
+    fn("json_exists", (doc, pathText) => {
+      const matches3 = jsonMatches(doc, pathText);
+      return matches3 === void 0 ? null : matches3.length ? 1 : 0;
+    });
     fn("to_number", (value2) => value2 === null || value2 === "" ? null : Number(value2));
     fn("to_date", (value2, mask2) => {
       const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
@@ -1766,32 +2569,34 @@ var LocalDatabase = class {
       "least",
       (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) < (b ?? 0) ? a : b)
     );
+    const flagText = (flags) => typeof flags === "string" ? flags : "";
     fn(
       "regexp_like",
-      (value2, pattern, flags) => value2 !== null && new RegExp(String(pattern), String(flags ?? "").includes("i") ? "iu" : "u").test(String(value2)) ? 1 : 0
+      (value2, pattern, flags) => value2 === null || pattern === null || value2 === void 0 || pattern === void 0 ? null : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value2))) ? 1 : 0
     );
     fn("regexp_replace", (value2, pattern, replacement, position2, occurrence, flags) => {
       if (value2 === null) return null;
-      const text8 = String(value2);
+      const text9 = String(value2);
       const offset = Number(position2 ?? 1) - 1;
       const nth = Number(occurrence ?? 0);
-      const regex = new RegExp(String(pattern), `g${String(flags ?? "").includes("i") ? "i" : ""}u`);
+      const regex = oracleRegExp(String(pattern ?? ""), flagText(flags), true);
+      const single = oracleRegExp(String(pattern ?? ""), flagText(flags));
       const replace = String(replacement ?? "").replace(/\\(\d)/gu, "$$$1");
       let count = 0;
-      return text8.slice(0, offset) + text8.slice(offset).replace(regex, (...match) => {
+      return text9.slice(0, offset) + text9.slice(offset).replace(regex, (...match) => {
         count += 1;
         if (nth && count !== nth) return match[0];
-        return match[0].replace(
-          new RegExp(String(pattern), `${String(flags ?? "").includes("i") ? "i" : ""}u`),
-          replace
-        );
+        return match[0].replace(single, replace);
       });
     });
     fn(
       "replace",
       (value2, search, replacement) => value2 === null || value2 === void 0 ? null : search === null || search === void 0 || search === "" ? String(value2) : String(value2).split(String(search)).join(replacement === null || replacement === void 0 ? "" : String(replacement))
     );
-    fn("v", (name) => this.#binds[String(name).toUpperCase()] ?? null);
+    fn("v", (name) => {
+      const value2 = this.#binds[String(name).toUpperCase()];
+      return value2 === void 0 || value2 === "" ? null : value2;
+    });
     fn("nv", (name) => {
       const value2 = this.#binds[String(name).toUpperCase()];
       return value2 === null || value2 === void 0 || value2 === "" ? null : Number(value2);
@@ -1806,22 +2611,22 @@ var LocalDatabase = class {
     });
     fn("instr", (value2, search, start, occurrence) => {
       if (value2 === null || search === null) return null;
-      const text8 = String(value2);
+      const text9 = String(value2);
       const needle = String(search);
       let from = Number(start ?? 1);
       let count = Number(occurrence ?? 1);
       if (from > 0) {
         let index2 = from - 2;
         while (count > 0) {
-          index2 = text8.indexOf(needle, index2 + 1);
+          index2 = text9.indexOf(needle, index2 + 1);
           if (index2 < 0) return 0;
           count -= 1;
         }
         return index2 + 1;
       }
-      let index = text8.length + from + 1;
+      let index = text9.length + from + 1;
       while (count > 0) {
-        index = text8.lastIndexOf(needle, index - 1);
+        index = text9.lastIndexOf(needle, index - 1);
         if (index < 0) return 0;
         count -= 1;
       }
@@ -1842,26 +2647,27 @@ var LocalDatabase = class {
     });
     fn("regexp_substr", (value2, pattern, position2, occurrence, flags, group2) => {
       if (value2 === null || pattern === null) return null;
-      const regex = new RegExp(String(pattern), `g${String(flags ?? "").includes("i") ? "i" : ""}u`);
+      const regex = oracleRegExp(String(pattern), flagText(flags), true);
       const matches3 = [
         ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(regex)
       ];
       const match = matches3[Number(occurrence ?? 1) - 1];
       return match ? match[Number(group2 ?? 0)] ?? null : null;
     });
-    fn("regexp_instr", (value2, pattern, position2, occurrence) => {
+    fn("regexp_instr", (value2, pattern, position2, occurrence, returnOption, flags) => {
       if (value2 === null || pattern === null) return null;
       const offset = Number(position2 ?? 1) - 1;
       const matches3 = [
-        ...String(value2).slice(offset).matchAll(new RegExp(String(pattern), "gu"))
+        ...String(value2).slice(offset).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
       ];
       const match = matches3[Number(occurrence ?? 1) - 1];
-      return match ? match.index + offset + 1 : 0;
+      if (!match) return 0;
+      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
     });
     fn(
       "regexp_count",
       (value2, pattern, position2, flags) => value2 === null || pattern === null ? null : [
-        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(new RegExp(String(pattern), `g${String(flags ?? "").includes("i") ? "i" : ""}u`))
+        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
       ].length
     );
     fn("last_day", (value2) => {
@@ -1953,7 +2759,8 @@ var LocalDatabase = class {
     this.#dirtySequences.clear();
   }
   /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
-  #sequenceDdl(sql) {
+  #sequenceDdl(statement) {
+    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, "");
     const create2 = /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
     const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
     if (!create2 && !drop) return false;
@@ -1964,9 +2771,9 @@ var LocalDatabase = class {
       this.db.prepare("delete from apex_local_sequences where name = ?").run(name);
       return true;
     }
-    const options2 = create2[2] ?? "";
-    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options2)?.[1] ?? 1);
-    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options2)?.[1] ?? 1);
+    const options3 = create2[2] ?? "";
+    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
+    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
     this.#sequences.set(name, { value: null, increment, start });
     this.#dirtySequences.add(name);
     this.#flushSequences();
@@ -1979,7 +2786,8 @@ var LocalDatabase = class {
     if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
     const values = {};
     for (const name of bindNames(translated)) {
-      const value2 = this.#binds[name.toUpperCase()] ?? null;
+      const bound = this.#binds[name.toUpperCase()] ?? null;
+      const value2 = bound === "" ? null : bound;
       values[name] = typeof value2 === "number" && Number.isSafeInteger(value2) ? BigInt(value2) : this.blob(value2) ?? value2;
     }
     const statement = this.db.prepare(translated);
@@ -2008,7 +2816,9 @@ var LocalDatabase = class {
     const rows = [];
     for (const raw2 of statement.iterate(values)) {
       rows.push(
-        raw2.map((value2) => typeof value2 === "bigint" ? Number(value2) : value2)
+        raw2.map(
+          (value2) => typeof value2 === "bigint" ? Number(value2) : typeof value2 === "number" ? decimalNumber(value2) : value2
+        )
       );
       if (rows.length >= maxRows) break;
     }
@@ -2049,9 +2859,36 @@ var LocalDatabase = class {
       type: column2.type.toUpperCase()
     }));
   }
+  /**
+   * How a missing primary key value is filled on insert: an identity column, a column default
+   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
+   */
+  keySource(table, column2) {
+    const name = table.replaceAll('"', "").toUpperCase();
+    const ddl = this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name)?.sql;
+    const definition = ddl ? new RegExp(`[(,]\\s*"?${column2.replace(/[^\w$#]/gu, "")}"?\\s[^,]*`, "iu").exec(ddl)?.[0] : void 0;
+    if (definition?.includes(IDENTITY_MARKER)) return "identity";
+    const info = this.db.prepare(`pragma table_info("${name}")`).all().find((entry) => entry.name.toUpperCase() === column2.toUpperCase());
+    if (info && info.dflt_value !== null && info.dflt_value !== void 0) return "default";
+    if (this.tableExists("apex_local_insert_triggers")) {
+      const trigger = this.db.prepare("select 1 from apex_local_insert_triggers where table_name = ?").get(name.replace(/^.*\./u, ""));
+      if (trigger) return "trigger";
+    }
+    return "none";
+  }
   /** Runs a script statement by statement; failures are reported, not fatal. */
   runScript(script, source) {
     const problems = [];
+    const triggers = [
+      ...script.matchAll(
+        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu
+      )
+    ].map((match) => match[1].toUpperCase());
+    if (triggers.length) {
+      this.db.exec("create table if not exists apex_local_insert_triggers (table_name text primary key)");
+      const insert = this.db.prepare("insert or ignore into apex_local_insert_triggers values (?)");
+      for (const table of triggers) insert.run(table);
+    }
     for (const statement of splitScript(script)) {
       try {
         this.execute(statement);
@@ -2107,6 +2944,9 @@ function runPointExtensions(renderer, ctx, point) {
   const errors = [];
   for (const extension of extensions) errors.push(...extension.point?.(renderer, ctx, point) ?? []);
   return errors;
+}
+function runRowValidationExtensions(renderer, ctx) {
+  return extensions.flatMap((extension) => extension.rowValidation?.(renderer, ctx) ?? []);
 }
 function traceExtensions(renderer, ctx, event) {
   for (const extension of extensions) extension.trace?.(renderer, ctx, event);
@@ -2202,9 +3042,74 @@ function parseBody(body4, contentType) {
   return { form: new URLSearchParams(body4.toString("utf8")), files: [] };
 }
 
+// packages/core/src/preview/extensions/server/transaction.ts
+var OUTER = "apex_local_page";
+var active = /* @__PURE__ */ new WeakMap();
+var quote = (name) => `"${name.replaceAll('"', '""')}"`;
+function open(db2) {
+  const owned = !db2.isTransaction;
+  db2.exec(owned ? "begin" : `savepoint ${OUTER}`);
+  return { owned, savepoints: [] };
+}
+function close(db2, state2, commit) {
+  if (state2.owned) {
+    if (db2.isTransaction) db2.exec(commit ? "commit" : "rollback");
+    return;
+  }
+  if (!db2.isTransaction) return;
+  if (!commit) db2.exec(`rollback to ${OUTER}`);
+  db2.exec(`release ${OUTER}`);
+}
+function transaction(db2, work, failed2) {
+  if (active.has(db2) || !db2.isOpen) return work();
+  const state2 = open(db2);
+  active.set(db2, state2);
+  let ok = false;
+  try {
+    const result = work();
+    ok = !failed2(result);
+    return result;
+  } finally {
+    active.delete(db2);
+    close(db2, state2, ok);
+  }
+}
+function commitWork(db2) {
+  const state2 = active.get(db2);
+  if (!state2 || !state2.owned) return;
+  if (db2.isTransaction) db2.exec("commit");
+  db2.exec("begin");
+  state2.savepoints = [];
+}
+function rollbackWork(db2, savepoint2) {
+  const state2 = active.get(db2);
+  if (savepoint2) {
+    const name = savepoint2.toUpperCase();
+    const index = state2?.savepoints.lastIndexOf(name) ?? -1;
+    if (!state2 || index < 0) return false;
+    db2.exec(`rollback to ${quote(`apex_sp_${name}`)}`);
+    state2.savepoints.length = index + 1;
+    return true;
+  }
+  if (!state2) return true;
+  if (state2.owned) {
+    if (db2.isTransaction) db2.exec("rollback");
+    db2.exec("begin");
+  } else if (db2.isTransaction) db2.exec(`rollback to ${OUTER}`);
+  state2.savepoints = [];
+  return true;
+}
+function savepoint(db2, name) {
+  const state2 = active.get(db2);
+  if (!state2) return;
+  const upper4 = name.toUpperCase();
+  db2.exec(`savepoint ${quote(`apex_sp_${upper4}`)}`);
+  state2.savepoints.push(upper4);
+}
+
 // packages/core/src/preview/render.ts
-import fs7 from "node:fs";
-import path9 from "node:path";
+import fs8 from "node:fs";
+import path10 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
 var strings = (values) => values.map((value2) => typeof value2 === "string" ? value2 : String(value2));
@@ -2304,9 +3209,9 @@ var Engine = class _Engine {
   #ifStack = [];
   #caseStack = [];
   #loopDepth = 0;
-  constructor(template, options2, scope2) {
+  constructor(template, options3, scope2) {
     this.#tokens = tokenize(template);
-    this.#options = options2;
+    this.#options = options3;
     this.#scope = scope2;
   }
   run() {
@@ -2343,9 +3248,9 @@ var Engine = class _Engine {
     if (this.#options.defaultEscape === false || this.#options.placeholders === false) return value2;
     return escapeValue(value2, this.#options.escapes?.[name] ?? this.#options.defaultEscape ?? "HTML");
   }
-  #text(text8) {
-    if (!this.#scope.loop.length) return text8;
-    return text8.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
+  #text(text9) {
+    if (!this.#scope.loop.length) return text9;
+    return text9.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
       const value2 = this.#lookup(name);
       if (value2 === void 0) return whole;
       if (filter) return escapeValue(value2, filter);
@@ -2357,8 +3262,8 @@ var Engine = class _Engine {
     const token = this.#tokens[index];
     const next = index + 1;
     if (token.type === "text") {
-      const text8 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
-      this.#output += this.#text(text8);
+      const text9 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
+      this.#output += this.#text(text9);
       this.#lastDirective = false;
       return next;
     }
@@ -2378,15 +3283,15 @@ var Engine = class _Engine {
     return handler(next, token.arg);
   }
   /** Index of the next directive in `match` at nesting level 0 (or the end). */
-  #lookAhead(index, match, open, close) {
+  #lookAhead(index, match, open2, close2) {
     let level = 0;
     let position2 = index;
     for (; position2 < this.#tokens.length; position2 += 1) {
       const token = this.#tokens[position2];
       if (token.type !== "directive") continue;
       if (Object.hasOwn(match, token.name) && level === 0) break;
-      if (token.name === open) level += 1;
-      else if (token.name === close) level -= 1;
+      if (token.name === open2) level += 1;
+      else if (token.name === close2) level -= 1;
       if (level < 0) break;
     }
     return position2;
@@ -2575,17 +3480,17 @@ var Engine = class _Engine {
       const escape = formal.escape ?? definition.defaultEscape;
       if (escape && escape !== "RAW") argEscapes[formal.name] = escape;
     }
-    for (const [argument, text8] of argumentText) {
+    for (const [argument, text9] of argumentText) {
       const escaped2 = Object.hasOwn(argEscapes, argument);
-      args[argument] = /[#&{]|\/\}/u.test(text8) ? new _Engine(
-        text8,
+      args[argument] = /[#&{]|\/\}/u.test(text9) ? new _Engine(
+        text9,
         {
           ...this.#options,
           placeholders: true,
           ...escaped2 ? { defaultEscape: false } : {}
         },
         { ...this.#scope, argEscapes: void 0, loop: [...this.#scope.loop] }
-      ).run() : text8;
+      ).run() : text9;
     }
     return new _Engine(
       definition.template,
@@ -2599,9 +3504,9 @@ var Engine = class _Engine {
     ).run();
   }
 };
-function applyTemplate(template, values, options2 = {}) {
+function applyTemplate(template, values, options3 = {}) {
   if (!/[#{&]/u.test(template)) return template;
-  return new Engine(template, options2, { values, loop: [] }).run();
+  return new Engine(template, options3, { values, loop: [] }).run();
 }
 function processDirectives(template, values) {
   if (!template.includes("{")) return template;
@@ -2693,9 +3598,9 @@ function fill(template, values, removeUnknown = true) {
     }
   );
 }
-function templateOptions(options2, defaults) {
+function templateOptions(options3, defaults) {
   const classes2 = [];
-  for (const option of options2.length ? options2 : ["#DEFAULT#"]) {
+  for (const option of options3.length ? options3 : ["#DEFAULT#"]) {
     if (option === "#DEFAULT#") classes2.push(...defaults.split(/[:\s]+/u).filter(Boolean));
     else classes2.push(...option.split(/\s+/u).filter(Boolean));
   }
@@ -2703,8 +3608,8 @@ function templateOptions(options2, defaults) {
 }
 
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs4 from "node:fs";
-import path4 from "node:path";
+import fs5 from "node:fs";
+import path5 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
 var SCALES = [
@@ -2757,31 +3662,40 @@ function formatValue(value2, spec = {}) {
     }
   }
   const digits = spec.decimalPlaces ?? (suffix ? Math.abs(scaled) < 10 && scaled % 1 !== 0 ? 1 : 0 : void 0);
-  const options2 = digits === void 0 ? { maximumFractionDigits: Math.abs(scaled) < 1 && scaled !== 0 ? 4 : 2 } : { minimumFractionDigits: digits, maximumFractionDigits: digits };
+  const options3 = digits === void 0 ? { maximumFractionDigits: Math.abs(scaled) < 1 && scaled !== 0 ? 4 : 2 } : { minimumFractionDigits: digits, maximumFractionDigits: digits };
   if (format2 === "percent") {
-    return `${new Intl.NumberFormat("en-US", { ...options2, style: "percent" }).format(scaled)}${suffix}`;
+    return `${new Intl.NumberFormat("en-US", { ...options3, style: "percent" }).format(scaled)}${suffix}`;
   }
   if (format2 === "currency") {
-    let text8;
+    let text9;
     try {
-      text8 = new Intl.NumberFormat("en-US", {
-        ...options2,
+      text9 = new Intl.NumberFormat("en-US", {
+        ...options3,
         style: "currency",
         currency: /^[A-Z]{3}$/u.test(currency ?? "") ? currency : "USD"
       }).format(scaled);
     } catch {
-      text8 = `$${new Intl.NumberFormat("en-US", options2).format(scaled)}`;
+      text9 = `$${new Intl.NumberFormat("en-US", options3).format(scaled)}`;
     }
-    return `${text8}${suffix}`;
+    return `${text9}${suffix}`;
   }
-  return `${new Intl.NumberFormat("en-US", options2).format(scaled)}${suffix}`;
+  return `${new Intl.NumberFormat("en-US", options3).format(scaled)}${suffix}`;
+}
+function decimalsOf(value2) {
+  const abs = Math.abs(value2);
+  if (!Number.isFinite(abs) || abs === 0) return 0;
+  for (let digits = 0; digits < 4; digits += 1) {
+    const shifted = abs * 10 ** digits;
+    if (Math.abs(shifted - Math.round(shifted)) <= 1e-9 * Math.max(1, shifted)) return digits;
+  }
+  return 4;
 }
 function formatTick(value2, spec, step) {
   const scaling = spec.scaling ?? "auto";
   const magnitude = Math.max(Math.abs(value2), Math.abs(step));
   const entry = scaling === "auto" ? SCALES.find(([, factor2]) => magnitude >= factor2) : SCALES.find(([name]) => name === scaling);
   const factor = entry?.[1] ?? 1;
-  const stepDigits = Math.max(0, Math.ceil(-Math.log10(Math.abs(step / factor) || 1) + 1e-4));
+  const stepDigits = decimalsOf(step / factor);
   const digits = Math.min(4, Math.max(spec.decimalPlaces ?? 0, stepDigits));
   return formatValue(value2, {
     ...spec,
@@ -2789,24 +3703,24 @@ function formatTick(value2, spec, step) {
     decimalPlaces: spec.format === "percent" ? Math.max(0, digits - 2) : digits
   });
 }
-function niceScale(low, high, options2 = {}) {
-  const zero = options2.includeZero ?? true;
-  let min = options2.min ?? (zero ? Math.min(0, low) : low);
-  let max = options2.max ?? (zero ? Math.max(0, high) : high);
+function niceScale(low, high, options3 = {}) {
+  const zero = options3.includeZero ?? true;
+  let min = options3.min ?? (zero ? Math.min(0, low) : low);
+  let max = options3.max ?? (zero ? Math.max(0, high) : high);
   if (!(max > min)) {
-    if (options2.max === void 0) max = min + (Math.abs(min) || 1);
+    if (options3.max === void 0) max = min + (Math.abs(min) || 1);
     else min = max - (Math.abs(max) || 1);
   }
-  const target2 = options2.ticks ?? 5;
-  let step = options2.step;
+  const target2 = options3.ticks ?? 5;
+  let step = options3.step;
   if (!step || step <= 0) {
     const raw2 = (max - min) / target2;
     const power = 10 ** Math.floor(Math.log10(raw2));
     const fraction = raw2 / power;
     step = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10) * power;
   }
-  if (options2.min === void 0) min = Math.floor(min / step + 1e-9) * step;
-  if (options2.max === void 0) max = Math.ceil(max / step - 1e-9) * step;
+  if (options3.min === void 0) min = Math.floor(min / step + 1e-9) * step;
+  if (options3.max === void 0) max = Math.ceil(max / step - 1e-9) * step;
   if (max === min) max = min + step;
   return { min, max, step };
 }
@@ -2945,9 +3859,9 @@ function leafPaths(props, prefix = "") {
 }
 function reportUnsupported(renderer, ctx, owner2, component, groups, supported, label) {
   const ignored = leafPaths(component.props).filter(
-    (path12) => (groups.includes(path12.split(".")[0]) || !path12.includes(".")) && !supported.has(path12) && !/(^|\.)(font\w*|cssStyling)$/u.test(path12)
+    (path13) => (groups.includes(path13.split(".")[0]) || !path13.includes(".")) && !supported.has(path13) && !/(^|\.)(font\w*|cssStyling)$/u.test(path13)
   );
-  const own = ignored.filter((path12) => path12.includes(".") || label !== "Chart");
+  const own = ignored.filter((path13) => path13.includes(".") || label !== "Chart");
   if (own.length)
     renderer.diagnose(
       "info",
@@ -3139,10 +4053,10 @@ function chartModel(renderer, ctx, region) {
     }
     if (type === "stock") {
       for (const series of bySeries.values()) {
-        const close = mapping("close");
+        const close2 = mapping("close");
         series.type = "line";
         series.points.forEach((point, index) => {
-          point.value = numberOf(result.rows[index]?.[close]) ?? point.value;
+          point.value = numberOf(result.rows[index]?.[close2]) ?? point.value;
         });
       }
     }
@@ -3160,8 +4074,8 @@ function chartModel(renderer, ctx, region) {
   return model;
 }
 function heightOption(props) {
-  const options2 = get(props, "appearance.templateOptions");
-  const values = Array.isArray(options2) ? options2.map(String) : typeof options2 === "string" ? [options2] : [];
+  const options3 = get(props, "appearance.templateOptions");
+  const values = Array.isArray(options3) ? options3.map(String) : typeof options3 === "string" ? [options3] : [];
   for (const option of values) {
     const match = /\bi-h(\d{3})\b/u.exec(option);
     if (match) return Number(match[1]) - 32;
@@ -3171,9 +4085,9 @@ function heightOption(props) {
 function labelText(value2, model) {
   if (value2 === null || value2 === void 0) return "";
   if (typeof value2 === "number") return String(value2);
-  const text8 = String(value2);
-  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text8)) return `${text8} 00:00:00`;
-  return text8;
+  const text9 = String(value2);
+  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text9)) return `${text9} 00:00:00`;
+  return text9;
 }
 function referenceLines(series) {
   const values = str(series.props, "referenceLines.values").split(/[,:]/u).map((value2) => value2.trim()).filter(Boolean).map(Number).filter(Number.isFinite);
@@ -3216,6 +4130,7 @@ var SUPPORTED = /* @__PURE__ */ new Set([
   "createLink",
   "supplementalInfo",
   "additionalCalendarViews",
+  "calendarViewsAndNavigation",
   "timeFormat",
   "firstHour",
   "showWeekend",
@@ -3303,14 +4218,32 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
   return isoOf(upcoming ?? latest).iso.slice(0, 10);
 }
 function fullCalendarScript(renderer) {
-  const root = path4.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
+  const root = path5.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs4.readdirSync(root).filter((entry) => fs4.existsSync(path4.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs5.readdirSync(root).filter((entry) => fs5.existsSync(path5.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
     return void 0;
   }
+}
+var VIEW_NAMES = {
+  month: "dayGridMonth",
+  week: "timeGridWeek",
+  day: "timeGridDay",
+  list: "listMonth"
+};
+var options = (region, key) => {
+  if (get(region.props, `settings.${key}`) === void 0) return void 0;
+  return list(region.props, `settings.${key}`).flatMap((value2) => String(value2).split(/[\s:,]+/u)).map((value2) => value2.toLowerCase()).filter(Boolean);
+};
+function calendarViews(region) {
+  const timed = bool(region.props, "settings.showTime", false);
+  const combined = options(region, "calendarViewsAndNavigation");
+  const additional = options(region, "additionalCalendarViews");
+  const chosen = timed || combined && !additional ? combined ?? ["month", "week", "day", "list", "navigation"] : ["month", ...additional ?? ["list", "navigation"]];
+  const views = ["month", "week", "day", "list"].filter((view) => chosen.includes(view)).map((view) => VIEW_NAMES[view]);
+  return { views: views.length ? views : ["dayGridMonth"], navigation: chosen.includes("navigation") };
 }
 function renderCalendar(renderer, ctx, region) {
   const domId = renderer.regionDomId(region);
@@ -3341,20 +4274,20 @@ function renderCalendar(renderer, ctx, region) {
     );
   const { events, error } = calendarEvents(renderer, ctx, region);
   if (error) renderer.diagnose("warning", `Calendar ${region.id}: ${error}`, ctx.pageId, region.id);
-  const views = list(region.props, "settings.additionalCalendarViews").map(String);
-  const additional = views.length ? views : ["list", "navigation"];
+  const { views, navigation } = calendarViews(region);
   const create2 = get(region.props, "settings.createLink");
   let createUrl;
   if (create2 !== void 0) {
-    const marker2 = { APEX$NEW_START_DATE: NEW_START, APEX$NEW_END_DATE: NEW_END };
-    const withMarkers = substituteDeep(create2, marker2);
+    const marker3 = { APEX$NEW_START_DATE: NEW_START, APEX$NEW_END_DATE: NEW_END };
+    const withMarkers = substituteDeep(create2, marker3);
     createUrl = renderer.link(ctx, withMarkers);
   }
   const config = {
     region: region.id,
     initialDate: initialDate(events),
-    navigation: additional.includes("navigation"),
-    list: additional.includes("list"),
+    navigation,
+    views,
+    list: views.includes("listMonth"),
     timeFormat: str(region.props, "settings.timeFormat"),
     firstHour: num(region.props, "settings.firstHour", 8),
     weekends: bool(region.props, "settings.showWeekend", true),
@@ -3412,8 +4345,6 @@ var CHARTS_CSS = String.raw`
 .apex-local-map{display:grid;gap:8px}
 .apex-local-map-note{font-size:12px;color:rgba(22,21,19,.65)}
 .apex-local-map-canvas{display:block;border-radius:6px;border:1px solid rgba(22,21,19,.12)}
-.apex-local-map-bg{fill:#eef3f6}
-.apex-local-map-point{stroke:#fff;stroke-width:1.5}
 .apex-local-map-point:hover,.apex-local-map-shape:hover{opacity:.8}
 .apex-local-map-layers,.apex-local-map-features{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px}
 .apex-local-map-features{max-height:160px;overflow:auto}
@@ -3482,7 +4413,7 @@ var CHARTS_JS = String.raw`
   }
   function eventsUrl(config, start, end) {
     return base + "/__apex/x/calendar?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(config.region) +
-      (start ? "&start=" + start.toISOString() + "&end=" + end.toISOString() : "");
+      (start ? "&start=" + start.toISOString() + "&end=" + end.toISOString() : "") + window.apexLocal.itemsQuery(config.region);
   }
   function go(url, element) {
     if (!url) return;
@@ -3500,13 +4431,13 @@ var CHARTS_JS = String.raw`
     if (!window.FullCalendar) return fallbackCalendar(el, config);
     var hour12 = config.timeFormat !== "24Hour" && config.timeFormat !== "24";
     var timeFormat = { hour: "numeric", minute: "2-digit", omitZeroMinute: hour12, meridiem: "short", hour12: hour12 };
-    var right = ["dayGridMonth", "timeGridWeek", "timeGridDay"];
-    if (config.list) right.push("listMonth");
+    var right = config.views && config.views.length ? config.views.slice() : ["dayGridMonth", "timeGridWeek", "timeGridDay"];
+    if (!config.views && config.list) right.push("listMonth");
     var calendar = new FullCalendar.Calendar(el, {
       themeSystem: "standard",
-      initialView: "dayGridMonth",
+      initialView: right[0] || "dayGridMonth",
       initialDate: config.initialDate,
-      headerToolbar: { left: config.navigation ? "prev,next today" : "", center: "title", right: right.join(",") },
+      headerToolbar: { left: config.navigation ? "prev,next today" : "", center: "title", right: right.length > 1 ? right.join(",") : "" },
       buttonText: { today: "today", month: "month", week: "week", day: "day", list: "list" },
       firstDay: config.firstDay || 0,
       weekends: config.weekends !== false,
@@ -3606,9 +4537,9 @@ function groupLabel(model, group2) {
   const date = parseDate(group2);
   return formatDate2(group2, date && (date.getHours() || date.getMinutes()) ? "datetimeShort" : "dateMedium");
 }
-function textEl(x, y, value2, options2 = {}) {
-  const transform2 = options2.rotate ? ` transform="rotate(${options2.rotate} ${fixed(x)} ${fixed(y)})"` : "";
-  return `<text x="${fixed(x)}" y="${fixed(y)}"${attr("class", options2.cls ?? "ajc-label")}${attr("text-anchor", options2.anchor)}${attr("dominant-baseline", options2.baseline ?? "middle")}${options2.size ? ` font-size="${options2.size}"` : ""}${options2.fill ? ` style="fill:${esc(options2.fill)}"` : ""}${transform2}>${esc(value2)}</text>`;
+function textEl(x, y, value2, options3 = {}) {
+  const transform2 = options3.rotate ? ` transform="rotate(${options3.rotate} ${fixed(x)} ${fixed(y)})"` : "";
+  return `<text x="${fixed(x)}" y="${fixed(y)}"${attr("class", options3.cls ?? "ajc-label")}${attr("text-anchor", options3.anchor)}${attr("dominant-baseline", options3.baseline ?? "middle")}${options3.size ? ` font-size="${options3.size}"` : ""}${options3.fill ? ` style="fill:${esc(options3.fill)}"` : ""}${transform2}>${esc(value2)}</text>`;
 }
 function contrast(color) {
   const hex = /^#?([0-9a-f]{6})$/iu.exec(color.trim())?.[1];
@@ -3922,8 +4853,8 @@ function cartesian(model, outer) {
   const barSeries = all2.filter(isBar);
   const slots = [];
   for (const series of barSeries) {
-    const slot = model.stack ? `${series.y2 ? "y2" : "y"}|${series.stackCategory}` : series.id;
-    if (!slots.includes(slot)) slots.push(slot);
+    const slot2 = model.stack ? `${series.y2 ? "y2" : "y"}|${series.stackCategory}` : series.id;
+    if (!slots.includes(slot2)) slots.push(slot2);
   }
   const groupWidth = band * (slots.length > 1 ? 0.75 : 0.6);
   const slotWidth = groupWidth / Math.max(1, slots.length);
@@ -3934,7 +4865,7 @@ function cartesian(model, outer) {
   for (const series of barSeries) {
     const color = seriesColor(model, series);
     const scale = series.y2 && y2Scale ? y2Scale : yScale;
-    const slot = slots.indexOf(model.stack ? `${series.y2 ? "y2" : "y"}|${series.stackCategory}` : series.id);
+    const slot2 = slots.indexOf(model.stack ? `${series.y2 ? "y2" : "y"}|${series.stackCategory}` : series.id);
     const bars = [];
     for (const point of series.points) {
       const index = groups.indexOf(point.group);
@@ -3960,7 +4891,7 @@ function cartesian(model, outer) {
       const clampedTo = Math.min(Math.max(to, scale.min), scale.max);
       const a = valuePos(scale, clampedFrom);
       const b = valuePos(scale, clampedTo);
-      const offset = groupCenter(index) - groupWidth / 2 + slotWidth * slot + (slotWidth - barWidth) / 2;
+      const offset = groupCenter(index) - groupWidth / 2 + slotWidth * slot2 + (slotWidth - barWidth) / 2;
       const rect = horizontal ? { x: Math.min(a, b), y: offset, w: Math.max(Math.abs(b - a), 0.5), h: barWidth } : { x: offset, y: Math.min(a, b), w: barWidth, h: Math.max(Math.abs(b - a), 0.5) };
       const fill2 = point.color ?? color;
       const formatted = series.type === "barRange" ? `${formatValue(from, model.value)} \u2013 ${formatValue(to, model.value)}` : formatValue(point.value, scale === y2Scale ? model.axes.y2.format : model.axes.y.format);
@@ -3971,7 +4902,7 @@ function cartesian(model, outer) {
         )
       );
       if (model.stack && model.stackLabel && series.type !== "barRange") {
-        const key = `${slot}|${index}|${to < 0 ? -1 : 1}`;
+        const key = `${slot2}|${index}|${to < 0 ? -1 : 1}`;
         stackTotals.set(key, {
           value: (stackTotals.get(key)?.value ?? 0) + (point.value ?? 0),
           pos: b,
@@ -3979,15 +4910,15 @@ function cartesian(model, outer) {
         });
       }
       if (series.label.show && series.label.position !== "none") {
-        const text8 = dataLabel(series, point, formatted, model);
-        const inside = horizontal ? rect.w > textWidth(text8, 11) + 8 : rect.h > 16 && rect.w > textWidth(text8, 11) * 0.6;
+        const text9 = dataLabel(series, point, formatted, model);
+        const inside = horizontal ? rect.w > textWidth(text9, 11) + 8 : rect.h > 16 && rect.w > textWidth(text9, 11) * 0.6;
         const outsidePosition = series.label.position === "outsideBarEdge" || !inside;
         const negative = to < from;
         if (horizontal) {
           const x = outsidePosition ? negative ? rect.x - 4 : rect.x + rect.w + 4 : series.label.position === "insideBarEdge" ? negative ? rect.x + 4 : rect.x + rect.w - 4 : rect.x + rect.w / 2;
           const anchor = outsidePosition ? negative ? "end" : "start" : series.label.position === "insideBarEdge" ? negative ? "start" : "end" : "middle";
           labels.push(
-            textEl(x, rect.y + rect.h / 2, text8, {
+            textEl(x, rect.y + rect.h / 2, text9, {
               anchor,
               cls: "ajc-value",
               size: 11,
@@ -3997,7 +4928,7 @@ function cartesian(model, outer) {
         } else {
           const y = outsidePosition ? negative ? rect.y + rect.h + 8 : rect.y - 8 : series.label.position === "insideBarEdge" ? negative ? rect.y + rect.h - 9 : rect.y + 9 : rect.y + rect.h / 2;
           labels.push(
-            textEl(rect.x + rect.w / 2, y, text8, {
+            textEl(rect.x + rect.w / 2, y, text9, {
               anchor: "middle",
               cls: "ajc-value",
               size: 11,
@@ -4010,9 +4941,9 @@ function cartesian(model, outer) {
     out.push(`<g class="ajc-series" data-series="${esc(series.name)}">${bars.join("")}</g>`);
   }
   for (const total of stackTotals.values()) {
-    const text8 = formatValue(total.value, model.axes.y.format);
+    const text9 = formatValue(total.value, model.axes.y.format);
     labels.push(
-      horizontal ? textEl(total.pos + 4, total.center, text8, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text8, {
+      horizontal ? textEl(total.pos + 4, total.center, text9, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text9, {
         anchor: "middle",
         cls: "ajc-value ajc-stack-label",
         size: 11
@@ -4053,25 +4984,25 @@ function cartesian(model, outer) {
     for (const segment of segments) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
-      const path12 = linePath(
+      const path13 = linePath(
         points.map((entry) => [entry.x, entry.y]),
         series.line.type,
         horizontal
       );
       if (isArea(series)) {
         const baseline = points.map((entry) => horizontal ? [entry.base, entry.y] : [entry.x, entry.base]).reverse();
-        const close = linePath(baseline, series.line.type, horizontal).replace(
+        const close2 = linePath(baseline, series.line.type, horizontal).replace(
           /^M/u,
           "L"
         );
         parts.push(
-          `<path class="ajc-area" d="${path12} ${close} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
+          `<path class="ajc-area" d="${path13} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
         );
       }
       if (series.type !== "area") {
         const dash = series.line.style === "dashed" ? ' stroke-dasharray="8 5"' : series.line.style === "dotted" ? ' stroke-dasharray="2 4"' : "";
         parts.push(
-          `<path class="ajc-line" d="${path12}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
+          `<path class="ajc-line" d="${path13}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
         );
       }
     }
@@ -4091,10 +5022,10 @@ function cartesian(model, outer) {
         )
       );
       if (series.label.show && series.label.position !== "none") {
-        const text8 = dataLabel(series, entry.point, formatted, model);
+        const text9 = dataLabel(series, entry.point, formatted, model);
         const below = series.label.position === "belowMarker";
         labels.push(
-          textEl(entry.x, entry.y + (below ? 14 : -12), text8, {
+          textEl(entry.x, entry.y + (below ? 14 : -12), text9, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11
@@ -4269,15 +5200,15 @@ function pie(model, outer) {
       )
     );
     if (labelled && slice.series.label.show && slice.series.label.position !== "none") {
-      const text8 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
+      const text9 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
       const mid = angle + sweep / 2;
       const ring = r - inner;
-      const fitsInside = sweep * (inner + ring / 2) > textWidth(text8, 11) * 0.9 && ring > 18;
+      const fitsInside = sweep * (inner + ring / 2) > textWidth(text9, 11) * 0.9 && ring > 18;
       const position2 = slice.series.label.position;
       if (position2 === "center" || position2 === "auto" && fitsInside || position2 === "inside" && fitsInside) {
         const [lx, ly] = polar(cx, cy, inner ? (r + inner) / 2 : r * 0.62, mid);
         labels.push(
-          textEl(lx, ly, text8, {
+          textEl(lx, ly, text9, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11,
@@ -4294,7 +5225,7 @@ function pie(model, outer) {
           textEl(
             ex + (rightSide ? 3 : -3),
             by,
-            truncate(text8, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
+            truncate(text9, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
             {
               anchor: rightSide ? "start" : "end",
               cls: "ajc-value",
@@ -4348,10 +5279,10 @@ function funnel(model, outer) {
         slice.point.link
       )
     );
-    const text8 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
-    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text8, 11) + 8)
+    const text9 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
+    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text9, 11) + 8)
       parts.push(
-        textEl(cx, y + height / 2, text8, {
+        textEl(cx, y + height / 2, text9, {
           anchor: "middle",
           cls: "ajc-value",
           size: 11,
@@ -4695,55 +5626,93 @@ var mercator = ([lon, lat]) => {
   const clamped = Math.max(-85, Math.min(85, lat));
   return [lon, Math.log(Math.tan(Math.PI / 4 + clamped * Math.PI / 360)) * 180 / Math.PI];
 };
+function htmlSubstitute(template, row) {
+  return template.replace(/&([A-Za-z][\w$#]*)\./gu, (whole, name) => {
+    const key = name.toUpperCase();
+    return key in row ? esc2(String(row[key] ?? "")) : whole;
+  });
+}
+var textOf = (html) => html.replace(/<br\s*\/?>/giu, " ").replace(/<[^>]*>/gu, "").replace(/&lt;/gu, "<").replace(/&gt;/gu, ">").replace(/&quot;/gu, '"').replace(/&#39;/gu, "'").replace(/&amp;/gu, "&").replace(/\s+/gu, " ").trim();
+var DASHES = {
+  dashed: "6 4",
+  dash: "6 4",
+  dotted: "1.5 4",
+  dot: "1.5 4",
+  dashDot: "6 3 1.5 3"
+};
+function rowStyle(props, row, layer, kind) {
+  const value2 = (path13) => rowSubstitute(str(props, path13), row).trim();
+  const number2 = (path13, fallback) => {
+    const parsed2 = Number(value2(path13));
+    return value2(path13) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
+  };
+  const fill2 = value2("appearance.fillColor");
+  const stroke = value2("appearance.strokeColor");
+  return {
+    fill: fill2 && !fill2.includes("&") ? fill2 : layer.color,
+    stroke: stroke && !stroke.includes("&") ? stroke : kind === "points" ? "#ffffff" : layer.stroke,
+    strokeWidth: number2("appearance.strokeWidth", kind === "lines" ? 3 : 1.5),
+    fillOpacity: number2("appearance.fillOpacity", kind === "polygons" ? 0.35 : 1),
+    dash: DASHES[value2("appearance.strokeStyle")] ?? "",
+    shape: value2("pointObjects.shape") || "Default",
+    scale: Math.max(0.2, Math.min(5, number2("pointObjects.shapeScale", 1)))
+  };
+}
 function renderMap(renderer, ctx, region) {
   const layers = [];
-  const features2 = [];
+  const features = [];
   const definitions = region.children.filter((child) => child.type === "layer").sort((a, b) => num(a.props, "layout.sequence", 0) - num(b.props, "layout.sequence", 0));
+  const domId = renderer.regionDomId(region);
   for (const definition of definitions) {
     if (!renderer.condition(ctx, definition.props)) continue;
+    const props = definition.props;
     const index = layers.length;
-    const type = str(definition.props, "layerType", "points");
-    const color = str(definition.props, "appearance.fillColor") || PALETTE[index % PALETTE.length];
+    const type = str(props, "layerType", "points");
+    const color = str(props, "appearance.fillColor") || PALETTE[index % PALETTE.length];
     const layer = {
-      name: str(definition.props, "name", definition.id),
+      name: str(props, "name", definition.id),
       type,
       color: color.includes("&") ? PALETTE[index % PALETTE.length] : color,
-      stroke: str(definition.props, "appearance.strokeColor") || color,
-      count: 0
+      stroke: str(props, "appearance.strokeColor") || color,
+      count: 0,
+      legend: bool(props, "legend.show", true)
     };
+    if (layer.stroke.includes("&")) layer.stroke = layer.color;
     layers.push(layer);
-    if (type === "heatMap" || type === "extrudedPolygons")
+    if (type === "extrudedPolygons")
       renderer.diagnose(
         "info",
-        `Map layer ${definition.id} (${type}) is drawn as plain ${type === "heatMap" ? "points" : "polygons"} locally`,
+        `Map layer ${definition.id} (extrudedPolygons) is drawn as flat polygons locally`,
         ctx.pageId,
         region.id
       );
-    const location = str(definition.props, "source.location");
-    const sql = location === "regionSource" || !isObject(definition.props.source) ? renderer.regionSql(ctx, region) : renderer.regionSql(ctx, definition);
+    const location = str(props, "source.location");
+    const fromRegion = location === "regionSource" || !isObject(props.source);
+    const sql = fromRegion ? renderer.regionSql(ctx, region) : renderer.regionSql(ctx, definition);
     if (!sql) {
       layer.error = "no SQL source";
       continue;
     }
-    const result = renderer.query(
-      ctx,
-      region,
-      sql,
-      num(definition.props, "performance.maxRowsToProcess", 0) || 5e3
-    );
+    const result = renderer.query(ctx, region, sql, num(props, "performance.maxRowsToProcess", 0) || 5e3);
     if (result.error) {
       layer.error = result.error;
       continue;
     }
-    const column2 = (key) => str(definition.props, `columnMapping.${key}`).toUpperCase();
-    const dataType = str(definition.props, "columnMapping.geometryColumnDataType", "longitudeLatitude");
+    const column2 = (key) => str(props, `columnMapping.${key}`).toUpperCase();
+    const dataType = str(props, "columnMapping.geometryColumnDataType", "longitudeLatitude");
     const lon = column2("longitudeColumn");
     const lat = column2("latitudeColumn");
     const geometryColumn = column2("geojsonColumn") || column2("geometryColumn");
-    const tooltipColumn = str(definition.props, "tooltip.column").toUpperCase();
-    const titleColumn = str(definition.props, "infoWindow.titleColumn").toUpperCase();
-    const labelColumn = str(definition.props, "label.label");
-    const target2 = get(definition.props, "link.target");
+    const tooltipColumn = str(props, "tooltip.column").toUpperCase();
+    const tooltipHtml = bool(props, "tooltip.advancedFormatting", false) ? str(props, "tooltip.htmlExpression") : "";
+    const infoHtml = bool(props, "infoWindow.advancedFormatting", false) ? str(props, "infoWindow.htmlExpression") : "";
+    const titleColumn = str(props, "infoWindow.titleColumn").toUpperCase();
+    const bodyColumn = str(props, "infoWindow.bodyColumn").toUpperCase();
+    const labelColumn = str(props, "label.label");
+    const valueColumn = str(props, "appearance.valueColumn").toUpperCase();
+    const assignColumn = fromRegion ? str(props, "rowAssignment.column").toUpperCase() : "";
+    const assignValue = str(props, "rowAssignment.valueForThisLayer");
+    const target2 = get(props, "link.target");
     if (dataType === "sdoGeometry")
       renderer.diagnose(
         "warning",
@@ -4752,11 +5721,15 @@ function renderMap(renderer, ctx, region) {
         region.id
       );
     for (const row of result.rows) {
-      const shapes = dataType === "longitudeLatitude" ? Number.isFinite(Number(row[lon])) && Number.isFinite(Number(row[lat])) && row[lon] !== null && row[lat] !== null ? [{ kind: "point", parts: [[[Number(row[lon]), Number(row[lat])]]] }] : [] : geometry(row[geometryColumn]);
+      if (assignColumn && String(row[assignColumn] ?? "") !== assignValue) continue;
+      const shapes = dataType === "longitudeLatitude" ? Number.isFinite(Number(row[lon])) && Number.isFinite(Number(row[lat])) && row[lon] !== null && row[lat] !== null && row[lon] !== void 0 && row[lat] !== void 0 ? [{ kind: "point", parts: [[[Number(row[lon]), Number(row[lat])]]] }] : [] : geometry(row[geometryColumn]);
       if (!shapes.length) continue;
-      const label = tooltipColumn && String(row[tooltipColumn] ?? "") || titleColumn && String(row[titleColumn] ?? "") || labelColumn && rowSubstitute(labelColumn.includes("&") ? labelColumn : `&${labelColumn}.`, row) || "";
+      const label = tooltipHtml && textOf(htmlSubstitute(tooltipHtml, row)) || tooltipColumn && String(row[tooltipColumn] ?? "") || titleColumn && String(row[titleColumn] ?? "") || labelColumn && rowSubstitute(labelColumn.includes("&") ? labelColumn : `&${labelColumn}.`, row) || "";
+      const info = infoHtml ? htmlSubstitute(infoHtml, row) : titleColumn || bodyColumn ? `${titleColumn ? `<h4>${esc2(String(row[titleColumn] ?? ""))}</h4>` : ""}${bodyColumn ? `<p>${esc2(String(row[bodyColumn] ?? ""))}</p>` : ""}` : "";
       const link = target2 === void 0 ? void 0 : renderer.link(ctx, substituteDeep(target2, row), row);
-      for (const shape of shapes) features2.push({ layer: index, ...shape, label, link });
+      const style2 = rowStyle(props, row, layer, type);
+      const weight = valueColumn && Number.isFinite(Number(row[valueColumn])) ? Number(row[valueColumn]) : void 0;
+      for (const shape of shapes) features.push({ layer: index, ...shape, label, info, link, style: style2, weight });
       layer.count += 1;
     }
   }
@@ -4766,18 +5739,43 @@ function renderMap(renderer, ctx, region) {
     ctx.pageId,
     region.id
   );
-  return mapHtml(
-    region,
-    renderer.regionDomId(region),
-    layers,
-    features2,
-    num(region.props, "appearance.height", 0) || 420
-  );
+  const height = num(region.props, "map.height", 0) || num(region.props, "appearance.height", 0) || 640;
+  return mapHtml(region, domId, layers, features, height);
 }
-function mapHtml(region, domId, layers, features2, height) {
+function marker2(shape, x, y, scale) {
+  const r = 6 * scale;
+  const name = shape.toLowerCase();
+  if (name === "circle" || name === "dot") return { kind: "circle", d: "", r };
+  if (name === "square")
+    return {
+      kind: "path",
+      d: `M${fixed2(x - r)} ${fixed2(y - r)}h${fixed2(2 * r)}v${fixed2(2 * r)}h${fixed2(-2 * r)}Z`,
+      r
+    };
+  if (name === "diamond")
+    return {
+      kind: "path",
+      d: `M${fixed2(x)} ${fixed2(y - r * 1.3)}L${fixed2(x + r * 1.3)} ${fixed2(y)}L${fixed2(x)} ${fixed2(y + r * 1.3)}L${fixed2(x - r * 1.3)} ${fixed2(y)}Z`,
+      r
+    };
+  if (name === "triangle")
+    return {
+      kind: "path",
+      d: `M${fixed2(x)} ${fixed2(y - r * 1.3)}L${fixed2(x + r * 1.2)} ${fixed2(y + r)}L${fixed2(x - r * 1.2)} ${fixed2(y + r)}Z`,
+      r
+    };
+  const h = 22 * scale;
+  const w = 8 * scale;
+  return {
+    kind: "path",
+    d: `M${fixed2(x)} ${fixed2(y)}C${fixed2(x - w * 0.3)} ${fixed2(y - h * 0.35)} ${fixed2(x - w)} ${fixed2(y - h * 0.5)} ${fixed2(x - w)} ${fixed2(y - h * 0.7)}A${fixed2(w)} ${fixed2(w)} 0 1 1 ${fixed2(x + w)} ${fixed2(y - h * 0.7)}C${fixed2(x + w)} ${fixed2(y - h * 0.5)} ${fixed2(x + w * 0.3)} ${fixed2(y - h * 0.35)} ${fixed2(x)} ${fixed2(y)}Z`,
+    r
+  };
+}
+function mapHtml(region, domId, layers, features, height) {
   const width = 800;
-  const all2 = features2.flatMap((feature) => feature.parts.flat()).filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
-  const summary = layers.map(
+  const all2 = features.flatMap((feature) => feature.parts.flat()).filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+  const summary = layers.filter((layer) => layer.legend || layer.error).map(
     (layer) => `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${esc2(layer.name)} <span class="apex-local-map-count">${layer.error ? `(${esc2(truncate(layer.error, 120))})` : `${layer.count} ${layer.type}`}</span></li>`
   ).join("");
   const note2 = `<div class="apex-local-map-note"><span class="fa fa-map-o" aria-hidden="true"></span> Offline map preview: background tiles are not loaded.</div>`;
@@ -4820,13 +5818,34 @@ function mapHtml(region, domId, layers, features2, height) {
       `<line class="ajc-grid" x1="0" y1="${fixed2(y)}" x2="${width}" y2="${fixed2(y)}"/><text class="ajc-tick" x="4" y="${fixed2(y - 3)}" font-size="10">${esc2(`${Math.abs(lat)}\xB0${lat < 0 ? "S" : lat > 0 ? "N" : ""}`)}</text>`
     );
   }
-  const shapes = features2.map((feature) => {
+  const gradients = [];
+  const weights = /* @__PURE__ */ new Map();
+  layers.forEach((layer, index) => {
+    if (layer.type !== "heatMap") return;
+    gradients.push(
+      `<radialGradient id="${esc2(domId)}_heat${index}"><stop offset="0" stop-color="${esc2(layer.color)}" stop-opacity="0.85"/><stop offset="0.45" stop-color="${esc2(layer.color)}" stop-opacity="0.4"/><stop offset="1" stop-color="${esc2(layer.color)}" stop-opacity="0"/></radialGradient>`
+    );
+    const values = features.filter((feature) => feature.layer === index && feature.weight !== void 0).map((feature) => feature.weight);
+    if (values.length) weights.set(index, { min: Math.min(...values), max: Math.max(...values) });
+  });
+  const shapes = features.map((feature) => {
     const layer = layers[feature.layer];
+    const style2 = feature.style;
     const tip = feature.label ? ` data-tip="${esc2(`${layer.name}	${feature.label}`)}"` : ` data-tip="${esc2(layer.name)}"`;
+    const info = feature.info ? ` data-info="${esc2(feature.info)}"` : "";
+    const href = feature.link && feature.info ? ` data-href="${esc2(feature.link)}"` : "";
+    const dash = style2.dash ? ` stroke-dasharray="${style2.dash}"` : "";
     let markup2;
-    if (feature.kind === "point") {
+    if (layer.type === "heatMap") {
       const [x, y] = toScreen(feature.parts[0][0]);
-      markup2 = `<circle class="apex-local-map-point" cx="${fixed2(x)}" cy="${fixed2(y)}" r="6" fill="${esc2(layer.color)}"${tip}/>`;
+      const range = weights.get(feature.layer);
+      const ratio = range && feature.weight !== void 0 && range.max > range.min ? (feature.weight - range.min) / (range.max - range.min) : 0.6;
+      markup2 = `<circle class="apex-local-map-heat" cx="${fixed2(x)}" cy="${fixed2(y)}" r="${fixed2(18 + 26 * ratio)}" fill="url(#${esc2(domId)}_heat${feature.layer})" fill-opacity="${fixed2(0.45 + 0.55 * ratio)}"${tip}/>`;
+    } else if (feature.kind === "point") {
+      const [x, y] = toScreen(feature.parts[0][0]);
+      const shape = marker2(style2.shape, x, y, style2.scale);
+      const paint = `fill="${esc2(style2.fill)}" fill-opacity="${style2.fillOpacity}" stroke="${esc2(style2.stroke)}" stroke-width="${style2.strokeWidth}"`;
+      markup2 = shape.kind === "circle" ? `<circle class="apex-local-map-point" cx="${fixed2(x)}" cy="${fixed2(y)}" r="${fixed2(shape.r)}" ${paint}${tip}${info}${href}/>` : `<path class="apex-local-map-point" d="${shape.d}" ${paint}${tip}${info}${href}/>`;
     } else {
       const d = feature.parts.map(
         (part2) => part2.map((position2, index) => {
@@ -4834,20 +5853,52 @@ function mapHtml(region, domId, layers, features2, height) {
           return `${index ? "L" : "M"}${fixed2(x)} ${fixed2(y)}`;
         }).join("") + (feature.kind === "polygon" ? "Z" : "")
       ).join("");
-      markup2 = feature.kind === "polygon" ? `<path class="apex-local-map-shape" d="${d}" fill="${esc2(layer.color)}" fill-opacity="0.35" stroke="${esc2(layer.stroke)}" stroke-width="1.5" fill-rule="evenodd"${tip}/>` : `<path class="apex-local-map-shape" d="${d}" fill="none" stroke="${esc2(layer.stroke)}" stroke-width="3"${tip}/>`;
+      markup2 = feature.kind === "polygon" ? `<path class="apex-local-map-shape" d="${d}" fill="${esc2(style2.fill)}" fill-opacity="${style2.fillOpacity}" stroke="${esc2(style2.stroke)}" stroke-width="${style2.strokeWidth}"${dash} fill-rule="evenodd"${tip}${info}${href}/>` : `<path class="apex-local-map-shape" d="${d}" fill="none" stroke="${esc2(style2.stroke)}" stroke-width="${style2.strokeWidth}"${dash}${tip}${info}${href}/>`;
     }
-    return feature.link ? `<a href="${esc2(feature.link)}">${markup2}</a>` : markup2;
+    return feature.link && !feature.info ? `<a href="${esc2(feature.link)}">${markup2}</a>` : markup2;
   }).join("");
-  const labelled = features2.filter((feature) => feature.label).slice(0, 40);
-  const items = labelled.map((feature) => {
+  const labelled = features.filter((feature) => feature.label && layers[feature.layer].type !== "heatMap");
+  const items = labelled.slice(0, 40).map((feature) => {
     const layer = layers[feature.layer];
     const [lon, lat] = feature.parts[0][0];
-    const text8 = esc2(feature.label);
-    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text8}</a>` : text8} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
+    const text9 = esc2(feature.label);
+    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text9}</a>` : text9} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
   }).join("");
-  const more = features2.filter((feature) => feature.label).length - labelled.length;
-  return `<div class="apex-local-map" id="${esc2(domId)}_map" data-map-region="${esc2(region.id)}">${note2}<svg xmlns="http://www.w3.org/2000/svg" class="apex-local-map-canvas" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="${esc2(str(region.props, "name", region.id))}"><rect class="apex-local-map-bg" x="0" y="0" width="${width}" height="${height}"/>${grid.join("")}${shapes}</svg><ul class="apex-local-map-layers">${summary}</ul>${items ? `<ul class="apex-local-map-features">${items}${more > 0 ? `<li class="apex-local-map-count">\u2026 ${more} more</li>` : ""}</ul>` : ""}</div>`;
+  const more = labelled.length - Math.min(labelled.length, 40);
+  return `<div class="apex-local-map" id="${esc2(domId)}_map" data-map-region="${esc2(region.id)}">${note2}<div class="apex-local-map-frame"><svg xmlns="http://www.w3.org/2000/svg" class="apex-local-map-canvas" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="height:${height}px" role="img" aria-label="${esc2(str(region.props, "name", region.id))}">${gradients.length ? `<defs>${gradients.join("")}</defs>` : ""}${grid.join("")}${shapes}</svg></div><ul class="apex-local-map-layers">${summary}</ul>${items ? `<ul class="apex-local-map-features">${items}${more > 0 ? `<li class="apex-local-map-count">\u2026 ${more} more</li>` : ""}</ul>` : ""}</div>`;
 }
+var MAP_JS = String.raw`
+(function ($) {
+  "use strict";
+  function close() { $(".apex-local-map-info").remove(); }
+  $(document).on("click", ".apex-local-map [data-info]", function (event) {
+    var feature = this, frame = $(feature).closest(".apex-local-map-frame");
+    var html = feature.getAttribute("data-info") || "", href = feature.getAttribute("data-href");
+    event.preventDefault();
+    close();
+    var offset = frame[0].getBoundingClientRect();
+    var popup = $('<div class="apex-local-map-info" role="dialog"><button type="button" class="apex-local-map-info-close" aria-label="Close">&times;</button><div class="apex-local-map-info-body"></div></div>');
+    popup.find(".apex-local-map-info-body").html(html);
+    if (href) popup.append($('<a class="apex-local-map-info-link"></a>').attr("href", href).text("Open"));
+    popup.css({ left: Math.max(4, event.clientX - offset.left - 20) + "px", top: Math.max(4, event.clientY - offset.top + 12) + "px" });
+    frame.append(popup);
+  });
+  $(document).on("click", ".apex-local-map-info-close", close);
+  $(document).on("keydown", function (event) { if (event.key === "Escape") close(); });
+})(apex.jQuery);
+`;
+var MAP_CSS = String.raw`
+.apex-local-map-frame{position:relative}
+.apex-local-map-canvas{background:#eef3f6}
+.apex-local-map [data-info]{cursor:pointer}
+.apex-local-map-heat{pointer-events:all}
+.apex-local-map-info{position:absolute;z-index:20;min-width:160px;max-width:300px;background:var(--ut-component-background-color,#fff);color:var(--ut-body-text-color,#161513);border:1px solid rgba(22,21,19,.12);border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:8px 28px 8px 12px;font-size:13px;line-height:1.4}
+.apex-local-map-info h3,.apex-local-map-info h4{margin:0 0 4px;font-size:14px}
+.apex-local-map-info p{margin:0 0 4px}
+.apex-local-map-info-close{position:absolute;top:2px;right:4px;border:0;background:none;font-size:18px;line-height:1;cursor:pointer;color:inherit}
+.apex-local-map-info-link{display:inline-block;margin-top:4px;font-weight:600}
+`;
+registerExtension({ name: "maps", client: MAP_JS, css: MAP_CSS });
 
 // packages/core/src/preview/extensions/charts.ts
 var DEFAULT_WIDTH = 640;
@@ -4962,8 +6013,8 @@ var escapeMode = (value2, fallback) => {
 };
 var cache = /* @__PURE__ */ new WeakMap();
 function componentIndex(calls) {
-  const cached = cache.get(calls);
-  if (cached) return cached;
+  const cached2 = cache.get(calls);
+  if (cached2) return cached2;
   const index = { byApexlang: /* @__PURE__ */ new Map(), named: /* @__PURE__ */ new Map() };
   const plugins = /* @__PURE__ */ new Map();
   const groups = /* @__PURE__ */ new Map();
@@ -5056,16 +6107,72 @@ function componentIndex(calls) {
   return index;
 }
 
+// packages/core/src/preview/extensions/reports/masks.ts
+var SINCE_UNITS = [
+  [31536e3, "year", "y"],
+  [2592e3, "month", "mo"],
+  [604800, "week", "w"],
+  [86400, "day", "d"],
+  [3600, "hour", "h"],
+  [60, "minute", "m"]
+];
+function since(value2, now2 = Date.now(), short = false) {
+  if (value2 === null || value2 === void 0 || value2 === "") return "";
+  const date = new Date(typeof value2 === "number" ? value2 : String(value2).replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) return String(value2);
+  const seconds = Math.round((now2 - date.getTime()) / 1e3);
+  const future = seconds < 0;
+  const abs = Math.abs(seconds);
+  for (const [size, unit, letter] of SINCE_UNITS) {
+    const count = Math.floor(abs / size);
+    if (count >= 1) {
+      if (short) return future ? `in ${count}${letter}` : `${count}${letter}`;
+      return `${count} ${unit}${count === 1 ? "" : "s"} ${future ? "from now" : "ago"}`;
+    }
+  }
+  if (short) return future ? `in ${abs}s` : `${abs}s`;
+  return `${abs} second${abs === 1 ? "" : "s"} ${future ? "from now" : "ago"}`;
+}
+function filesize(value2) {
+  const bytes2 = typeof value2 === "number" ? value2 : Number(String(value2).trim());
+  if (!Number.isFinite(bytes2)) return String(value2);
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = Math.abs(bytes2);
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  const rounded = Math.round(size * 10) / 10;
+  return `${bytes2 < 0 ? "-" : ""}${unit === 0 ? Math.round(size) : rounded}${units[unit]}`;
+}
+function formatValue2(raw2, mask2) {
+  if (raw2 === null || raw2 === void 0) return "";
+  if (!mask2) return String(raw2);
+  if (/^since$/iu.test(mask2)) return since(raw2);
+  if (/^since_short$/iu.test(mask2)) return since(raw2, Date.now(), true);
+  if (/^filesize$/iu.test(mask2)) return filesize(raw2);
+  if (/^pct_graph/iu.test(mask2)) return String(raw2);
+  return formatOracle(raw2, mask2) ?? "";
+}
+var SUPPORTED_MASK = /^(FM)?[L$]?[0-9GD,.]+$|9|^since(_short)?$|^filesize$|^pct_graph|^[A-Z]{0,4}(YYYY|RR|YY|MON|MM|DD|HH24|HH12|HH|MI|SS|[ ./:-]|AM|PM|DS|DL|MONTH|FM)+$/iu;
+
 // packages/core/src/preview/extensions/components/template-component.ts
 var SOURCE_TYPES = /* @__PURE__ */ new Set(["SESSION STATE VALUE", "MEDIA"]);
 var strings2 = (values) => values.map((value2) => typeof value2 === "string" ? value2 : isRef(value2) ? value2.ref : String(value2));
 function findComponent(renderer, name) {
   return componentIndex(renderer.assets.theme).byApexlang.get(name.toLowerCase());
 }
-function configured(owner2, attribute3) {
-  const paths = attribute3.group ? [`plugin-${attribute3.group}.${attribute3.apexlangName}`, `settings.${attribute3.apexlangName}`] : [`settings.${attribute3.apexlangName}`];
-  for (const path12 of paths) {
-    const value2 = get(owner2.props, path12);
+function configured(owner2, attribute3, component) {
+  const shadowed = component?.attributes.some(
+    (other) => !other.group && other.apexlangName === attribute3.apexlangName
+  );
+  const paths = attribute3.group ? [
+    `plugin-${attribute3.group}.${attribute3.apexlangName}`,
+    ...shadowed ? [] : [`settings.${attribute3.apexlangName}`]
+  ] : [`settings.${attribute3.apexlangName}`];
+  for (const path13 of paths) {
+    const value2 = get(owner2.props, path13);
     if (value2 !== void 0) return value2;
   }
   return void 0;
@@ -5090,14 +6197,18 @@ var ComponentRenderer = class {
   owner;
   component;
   domId;
+  /** Columns whose format masks apply besides the owner's own (the report of a column component). */
+  maskColumns;
   #byId = /* @__PURE__ */ new Map();
   #menuCount = 0;
-  constructor(renderer, ctx, owner2, component, domId) {
+  #masks;
+  constructor(renderer, ctx, owner2, component, domId, maskColumns = []) {
     this.renderer = renderer;
     this.ctx = ctx;
     this.owner = owner2;
     this.component = component;
     this.domId = domId;
+    this.maskColumns = maskColumns;
     for (const attribute3 of component.attributes) this.#byId.set(attribute3.id, attribute3);
   }
   get named() {
@@ -5136,17 +6247,33 @@ var ComponentRenderer = class {
         if (!holds) return "";
       }
     }
-    const value2 = configured(this.owner, attribute3);
+    const value2 = configured(this.owner, attribute3, this.component);
     if (value2 === void 0) return attribute3.defaultValue ?? "";
     return stored(attribute3, value2);
+  }
+  /** `appearance.formatMask` by upper-case column name, from the region's (or report's) columns. */
+  get masks() {
+    if (!this.#masks) {
+      this.#masks = /* @__PURE__ */ new Map();
+      for (const child of [...this.maskColumns, ...this.owner.children])
+        if (child.type === "column" && str(child.props, "appearance.formatMask"))
+          this.#masks.set(child.id.toUpperCase(), str(child.props, "appearance.formatMask"));
+    }
+    return this.#masks;
+  }
+  /** A row value as APEX substitutes it: formatted with the column's format mask. */
+  columnValue(row, name) {
+    const key = name.toUpperCase();
+    if (!row || !(key in row)) return void 0;
+    const value2 = row[key];
+    if (value2 === null || value2 === void 0) return "";
+    const mask2 = this.masks.get(key);
+    return mask2 ? formatValue2(value2, mask2) : String(value2);
   }
   /** Substitutes `&COLUMN.` (and `#COLUMN#`) row values and session state into an attribute value. */
   resolve(attribute3, raw2, row) {
     if (!raw2) return "";
-    const columnValue = (name) => {
-      const key = name.toUpperCase();
-      return row && key in row ? String(row[key] ?? "") : void 0;
-    };
+    const columnValue = (name) => this.columnValue(row, name);
     if (SOURCE_TYPES.has(attribute3.type) && /^[A-Za-z][\w$#]*$/u.test(raw2)) {
       const value2 = columnValue(raw2);
       if (value2 !== void 0) return value2;
@@ -5177,7 +6304,7 @@ var ComponentRenderer = class {
     for (const attribute3 of this.component.attributes) {
       if (attribute3.scope !== scope2) continue;
       const value2 = this.resolve(attribute3, this.setting(attribute3), row);
-      values[attribute3.staticId] = attribute3.type === "ICON" && /(^|\s)fa-/u.test(value2) && !/(^|\s)fa(\s|$)/u.test(value2) ? `fa ${value2}` : value2;
+      values[attribute3.staticId] = attribute3.type === "ICON" ? faIcon(value2) : value2;
       escapes[attribute3.staticId] = attribute3.escape;
     }
     return { values, escapes };
@@ -5218,7 +6345,7 @@ var ComponentRenderer = class {
         "HTML"
       );
       const icon3 = str(entry.props, "appearance.icon");
-      const iconHtml = icon3 ? `<span class="${escapeValue(icon3, "ATTR")}"></span>` : "";
+      const iconHtml = icon3 ? `<span class="${escapeValue(faIcon(icon3), "ATTR")}"></span>` : "";
       if (type === "subMenu")
         return `<li>${iconHtml}<span>${label}</span><ul>${render(entry.id)}</ul></li>`;
       return `<li><a href="${escapeValue(this.target(entry, row), "ATTR")}" ${this.resolve({ ...TEXT_ATTRIBUTE }, str(entry.props, "behavior.linkAttributes"), row)}>${iconHtml}${label}</a></li>`;
@@ -5263,7 +6390,7 @@ var ComponentRenderer = class {
           LABEL: this.resolve({ ...TEXT_ATTRIBUTE }, str(action.props, "label", action.id), row),
           LINK_URL: isMenu ? "" : this.target(action, row),
           LINK_ATTR: this.resolve({ ...TEXT_ATTRIBUTE }, str(action.props, "behavior.linkAttributes"), row),
-          ICON_CLASSES: displayType === "text" ? "" : str(action.props, "appearance.icon"),
+          ICON_CLASSES: displayType === "text" ? "" : faIcon(str(action.props, "appearance.icon")),
           CSS_CLASSES: strings2(list(action.props, "appearance.cssClasses")).join(" "),
           IS_HOT: bool(action.props, "appearance.hot", false) ? "Y" : "N",
           IS_ICON_ONLY: displayType === "icon" ? "Y" : "N",
@@ -5336,11 +6463,12 @@ var ComponentRenderer = class {
     const groupColumns = this.owner.children.filter((child) => child.type === "column" && bool(child.props, "appearance.group", false)).map((child) => child.id.toUpperCase());
     const rowHtml = (row, index) => {
       const id = this.rowId(row);
+      const perRow = this.attributes("REPORT", row);
       return this.apply(
         this.component.reportRow || "<li #APEX$ROW_IDENTIFICATION#>#APEX$PARTIAL#</li>",
         {
           ...this.builtins(),
-          ...report2.values,
+          ...perRow.values,
           APEX$ROW_IDENTIFICATION: `data-id="${escapeValue(id || String(index + 1), "ATTR")}"`,
           APEX$PARTIAL: this.partial(row, {}, `_${index + 1}`)
         },
@@ -5382,6 +6510,7 @@ var ComponentRenderer = class {
     ) + pagination2;
   }
 };
+var faIcon = (value2) => /(^|\s)fa-/u.test(value2) && !/(^|\s)fa(\s|$)/u.test(value2) ? `fa ${value2}` : value2;
 var TEXT_ATTRIBUTE = {
   id: "",
   staticId: "",
@@ -5480,13 +6609,13 @@ function wrapRegionOnly(renderer, ctx, region, values, children2) {
   const domId = renderer.regionDomId(region);
   const tc = new ComponentRenderer(renderer, ctx, region, component, domId);
   const slots = {};
-  for (const slot of component.slots.length ? component.slots : [{ placeholder: "BODY", apexlangName: "body" }]) {
-    const key = `PLUGIN-${slot.apexlangName.toUpperCase()}`;
+  for (const slot2 of component.slots.length ? component.slots : [{ placeholder: "BODY", apexlangName: "body" }]) {
+    const key = `PLUGIN-${slot2.apexlangName.toUpperCase()}`;
     const own = [
       ...children2.get(key) ?? [],
-      ...slot.placeholder === "BODY" ? children2.get("SUB_REGIONS") ?? [] : []
+      ...slot2.placeholder === "BODY" ? children2.get("SUB_REGIONS") ?? [] : []
     ];
-    slots[slot.placeholder] = own.map((child) => child.html).join("\n");
+    slots[slot2.placeholder] = own.map((child) => child.html).join("\n");
   }
   if (values.BODY) slots.BODY = `${values.BODY}${slots.BODY ?? ""}`;
   const classes2 = [str(region.props, "appearance.cssClasses"), tc.builtins().APEX$COMPONENT_CSS_CLASSES].filter(Boolean).join(" ");
@@ -5506,7 +6635,7 @@ function renderTemplateComponentColumn(renderer, ctx, region, column2, row) {
     return escapeValue(value2 === null || value2 === void 0 ? "" : String(value2), "HTML");
   }
   const domId = `${renderer.regionDomId(region)}_${column2.id.toLowerCase()}`;
-  return new ComponentRenderer(renderer, ctx, column2, component, domId).partial(row);
+  return new ComponentRenderer(renderer, ctx, column2, component, domId, region.children).partial(row);
 }
 
 // packages/core/src/preview/extensions/components.ts
@@ -5553,7 +6682,8 @@ function regionDisplaySelector(renderer, ctx, region) {
   ).sort(
     (a, b) => Number(get(a.props, "layout.sequence") ?? 0) - Number(get(b.props, "layout.sequence") ?? 0)
   );
-  const includeShowAll = bool(region.props, "settings.includeShowAll", true);
+  const jump = str(region.props, "settings.mode", "viewSingleRegion") === "scrollWindow";
+  const includeShowAll = !jump && bool(region.props, "settings.includeShowAll", true);
   const tab = (id, label, first) => `<li class="apex-rds-item${first ? " apex-rds-first" : ""}" role="presentation" id="${escapeHtml(id)}_tab"><a class="a-RDS-link" href="#${escapeHtml(id)}" role="tab" aria-controls="${escapeHtml(id)}" aria-selected="false" tabindex="-1"><span class="a-RDS-icon a-Icon " aria-hidden="true"></span><span class="a-RDS-label">${label}</span></a></li>`;
   const tabs = [
     ...includeShowAll ? [tab("SHOW_ALL", "Show All", true)] : [],
@@ -5570,10 +6700,14 @@ function regionDisplaySelector(renderer, ctx, region) {
       )
     )
   ];
-  const mode = str(region.props, "settings.mode", "standard") === "scrollWindow" ? "jump" : "standard";
+  const remember = str(region.props, "settings.rememberSelection", "byUser");
   ctx.jsFiles.add("#APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.apexTabs#MIN#.js?v=#APEX_VERSION#");
   ctx.onload.push(
-    `apex.widget.regionDisplaySelector(${JSON.stringify(domId)},{mode:${JSON.stringify(mode)},useSlider:${bool(region.props, "settings.useSlider", true)},useLocalStorage:${bool(region.props, "settings.rememberSelection", true)}});`
+    `apex.widget.regionDisplaySelector(${JSON.stringify(domId)},${JSON.stringify({
+      mode: jump ? "jump" : "standard",
+      useSlider: bool(region.props, "settings.useSlider", true),
+      useSessionStorage: remember !== "false" && remember !== "N"
+    })});`
   );
   if (!targets.length)
     renderer.diagnose(
@@ -5584,7 +6718,9 @@ function regionDisplaySelector(renderer, ctx, region) {
     );
   return `<div class="apex-rds-container"><ul class="apex-rds a-Tabs is-disabled" id="${escapeHtml(domId)}_RDS" role="tablist">${tabs.join("")}</ul></div>`;
 }
-var hasSelector = (renderer, ctx) => renderer.pageComponents(ctx, "region").some((region) => str(region.props, "type") === "regionDisplaySelector");
+var hasStandardSelector = (renderer, ctx) => renderer.pageComponents(ctx, "region").some(
+  (region) => str(region.props, "type") === "regionDisplaySelector" && str(region.props, "settings.mode", "viewSingleRegion") !== "scrollWindow"
+);
 function wrapRegion(renderer, ctx, region, parts) {
   const { template, values, children: children2 } = parts;
   registerNamedTemplates(componentIndex(renderer.assets.theme).named);
@@ -5596,7 +6732,7 @@ function wrapRegion(renderer, ctx, region, parts) {
     const html = wrapRegionOnly(renderer, ctx, region, values, children2);
     if (html !== void 0) return html;
   }
-  const substitute = (path12, escape) => renderer.substitute(ctx.session, str(region.props, path12), ctx.page, escape);
+  const substitute = (path13, escape) => renderer.substitute(ctx.session, str(region.props, path13), ctx.page, escape);
   values.REGION_IMAGE_ALT_TEXT ||= escapeHtml(substitute("image.accessibleDescription", "RAW"));
   values.REGION_IMAGE_ATTRIBUTES ||= substitute("image.customAttributes", "RAW") || substitute("advanced.imageTagAttributes", "RAW");
   const advancedImage = substitute("advanced.regionImage", "RAW");
@@ -5606,8 +6742,10 @@ function wrapRegion(renderer, ctx, region, parts) {
       REGION_IMAGE_URL: values.REGION_IMAGE_URL
     });
   }
-  if (bool(region.props, "advanced.regionDisplaySelector", false) && hasSelector(renderer, ctx))
+  if (bool(region.props, "advanced.regionDisplaySelector", false) && hasStandardSelector(renderer, ctx))
     values.REGION_CSS_CLASSES = `${values.REGION_CSS_CLASSES ?? ""} apex-rds-region`.trim();
+  if (type === "regionDisplaySelector")
+    values.REGION_CSS_CLASSES = `${values.REGION_CSS_CLASSES ?? ""} apex-tabs-region`.trim();
   const body4 = bodies.get(region);
   if (body4 && str(region.props, "appearance.renderComponents") === "aboveContent" && values.BODY?.startsWith(body4))
     values.BODY = values.BODY.slice(body4.length) + body4;
@@ -6132,15 +7270,15 @@ function generateTextProcess(renderer, ctx, process2) {
   const target2 = str(process2.props, "useResponse.item").toUpperCase();
   const prompt = [str(process2.props, "genAI.systemPrompt"), inputValue(renderer, ctx, process2)].filter(Boolean).join(" ");
   const agent = ref(process2.props, "genAI.agent") ?? "";
-  const text8 = aiPlaceholder(prompt, agent);
-  if (target2) ctx.session.items[target2] = text8;
+  const text9 = aiPlaceholder(prompt, agent);
+  if (target2) ctx.session.items[target2] = text9;
   renderer.diagnose(
     "info",
     `Process ${process2.id} (generateTextWithAi) returns placeholder text${target2 ? ` into ${target2}` : ""}; no AI service is called locally`,
     ctx.pageId,
     process2.id
   );
-  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text8 });
+  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text9 });
   return { ran: true };
 }
 function pushNotificationProcess(renderer, ctx, process2) {
@@ -6214,12 +7352,12 @@ function graph(version) {
   const ids = activities.map((activity) => activity.id.toLowerCase());
   const level = /* @__PURE__ */ new Map();
   const start = activities.find((activity) => /start/iu.test(str(activity.props, "type"))) ?? activities[0];
-  const visit = (id, depth, path12) => {
-    if (path12.has(id) || (level.get(id) ?? -1) >= depth) return;
+  const visit = (id, depth, path13) => {
+    if (path13.has(id) || (level.get(id) ?? -1) >= depth) return;
     level.set(id, depth);
-    path12.add(id);
-    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path12);
-    path12.delete(id);
+    path13.add(id);
+    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path13);
+    path13.delete(id);
   };
   if (start) visit(start.id.toLowerCase(), 0, /* @__PURE__ */ new Set());
   let next = Math.max(-1, ...level.values()) + 1;
@@ -6270,9 +7408,9 @@ function svgFor(nodes, edges, title) {
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const back = y2 <= y1;
-    const path12 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+    const path13 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
     const label = edge.name && !/^(connection|normal)\b/iu.test(edge.name) ? `<text class="apex-local-wf-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2}">${escapeHtml(edge.name)}</text>` : "";
-    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path12}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
+    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path13}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
   }).join("");
   const boxes = nodes.map((node) => {
     const kind = ICONS[node.type] ?? node.type;
@@ -6544,6 +7682,33 @@ registerExtension({
   css: DEVTOOLS_CSS
 });
 
+// packages/core/src/preview/extensions/components/row-template.ts
+function rowValues(row) {
+  const values = {};
+  for (const [key, value2] of Object.entries(row))
+    values[key.toUpperCase()] = value2 === null || value2 === void 0 ? "" : String(value2);
+  return values;
+}
+var AMPERSAND = /&(?:"([^"]+)"|([A-Za-z][\w$#]*?))(?:!([A-Z]+))?\./gu;
+function columnPlaceholders(template, values, defaultFilter) {
+  if (!template.includes("&")) return template;
+  return template.replace(AMPERSAND, (whole, quoted, plain, filter) => {
+    const name = (quoted ?? plain ?? "").toUpperCase();
+    if (!Object.hasOwn(values, name) || !/^[_$A-Z0-9]+$/u.test(name)) return whole;
+    return `#${name}!${filter ?? defaultFilter}#`;
+  });
+}
+function rowTemplate(renderer, ctx, template, row, escape) {
+  if (!template) return "";
+  const values = rowValues(row);
+  const converted = columnPlaceholders(template, values, escape ? "HTML" : "RAW");
+  const substituted = renderer.substitute(ctx.session, converted, ctx.page, escape ? "HTML" : "RAW");
+  return applyTemplate(substituted, values, {
+    defaultEscape: escape ? "HTML" : false,
+    removeUnknown: false
+  });
+}
+
 // packages/core/src/preview/extensions/facets/model.ts
 var FILTER_REGION_TYPES = /* @__PURE__ */ new Set(["facetedSearch", "smartFilters"]);
 var FACET_KINDS = {
@@ -6734,7 +7899,7 @@ function inputPredicate(column2, facet, raw2) {
     value2 = prefix[2];
   }
   if (value2 === "") return "";
-  const text8 = `upper(${column2})`;
+  const text9 = `upper(${column2})`;
   const needle = `upper(${quoteText(value2)})`;
   switch (operator) {
     case "NEQ":
@@ -6748,13 +7913,13 @@ function inputPredicate(column2, facet, raw2) {
     case "GTE":
       return `${column2} >= ${literal(value2, facet.number)}`;
     case "STARTS":
-      return `instr(${text8}, ${needle}) = 1`;
+      return `instr(${text9}, ${needle}) = 1`;
     case "NSTARTS":
-      return `coalesce(instr(${text8}, ${needle}), 0) <> 1`;
+      return `coalesce(instr(${text9}, ${needle}), 0) <> 1`;
     case "C":
-      return `instr(${text8}, ${needle}) > 0`;
+      return `instr(${text9}, ${needle}) > 0`;
     case "NC":
-      return `coalesce(instr(${text8}, ${needle}), 0) = 0`;
+      return `coalesce(instr(${text9}, ${needle}), 0) = 0`;
     default:
       return inList(column2, [value2]);
   }
@@ -6929,19 +8094,6 @@ var KNOWN_GROUPS = /* @__PURE__ */ new Set([
   "name",
   "type"
 ]);
-function rowTemplate(renderer, ctx, template, row, escape) {
-  const values = {};
-  for (const [key, value2] of Object.entries(row)) values[key.toUpperCase()] = String(value2 ?? "");
-  const substituted = renderer.substitute(ctx.session, template, ctx.page, "HTML");
-  return applyDirectives(substituted, values).replace(
-    /#([A-Z][A-Z0-9_$]*)(?:!([A-Z]+))?#/gu,
-    (whole, name, filter) => {
-      if (!(name in values)) return whole;
-      if (filter) return applyEscape(values[name], filter);
-      return escape ? escapeHtml(values[name]) : values[name];
-    }
-  );
-}
 function initials(value2) {
   const words = value2.trim().split(/[\s._@-]+/u).filter(Boolean);
   if (!words.length) return "";
@@ -6950,6 +8102,13 @@ function initials(value2) {
 }
 function position(value2) {
   return value2.replace(/[^a-z]/giu, "").toLowerCase();
+}
+function actionPosition(action) {
+  const legacy = str(action.props, "position");
+  if (legacy) return position(legacy);
+  const type = position(str(action.props, "type", "button"));
+  if (type === "button") return position(str(action.props, "layout.position", "primary"));
+  return type;
 }
 function renderCards(renderer, ctx, region) {
   const domId = renderer.regionDomId(region);
@@ -6979,7 +8138,7 @@ function renderCards(renderer, ctx, region) {
   const listClass = layout === "float" ? "a-CardView-items--float" : layout === "horizontal" ? "a-CardView-items--row" : `a-CardView-items--grid${columns ? ` a-CardView-items--grid${columns}col` : ""}`;
   const actions = region.children.filter((child) => child.type === "action" && renderer.condition(ctx, child.props)).sort((a, b) => num(a.props, "layout.sequence", 0) - num(b.props, "layout.sequence", 0)).map((component) => ({
     component,
-    position: position(str(component.props, "position")),
+    position: actionPosition(component),
     label: str(component.props, "label")
   }));
   for (const action of actions)
@@ -7101,7 +8260,13 @@ function renderCard(renderer, ctx, region, row, actions) {
   let badge = "";
   if (badgeColumn && row[badgeColumn] !== null && row[badgeColumn] !== void 0 && row[badgeColumn] !== "") {
     const badgeLabel = rowTemplate(renderer, ctx, str(props, "iconAndBadge.badgeLabel"), row, true);
-    const badgeCss = strings3(props, "iconAndBadge.badgeCssClasses").join(" ");
+    const badgeCss = rowTemplate(
+      renderer,
+      ctx,
+      strings3(props, "iconAndBadge.badgeCssClasses").join(" "),
+      row,
+      false
+    );
     badge = `<div class="a-CardView-badge${badgeCss ? ` ${escapeHtml(badgeCss)}` : ""}">${badgeLabel ? `<span class="a-CardView-badgeLabel">${badgeLabel}</span>` : ""}<span class="a-CardView-badgeValue">${escapeOrNot(row[badgeColumn], escape)}</span></div>`;
     classes2.push("has-badge");
   }
@@ -7172,7 +8337,7 @@ function renderCard(renderer, ctx, region, row, actions) {
     ].includes(action.position))
       renderer.diagnose(
         "info",
-        `Cards ${region.id}: action position ${str(action.component.props, "position")} is not simulated`,
+        `Cards ${region.id}: action position ${str(action.component.props, "position", str(action.component.props, "type"))} is not simulated`,
         ctx.pageId,
         region.id
       );
@@ -7373,18 +8538,22 @@ var FACETS_CLIENT = String.raw`
 `.replace("__MESSAGES__", JSON.stringify(FACET_MESSAGES));
 
 // packages/core/src/preview/extensions/facets/lists.ts
-function rowSubstitute2(renderer, ctx, template, row) {
-  const upper4 = Object.fromEntries(Object.entries(row).map(([key, value2]) => [key.toUpperCase(), value2]));
-  const replaced = template.replace(
-    /&([A-Za-z][\w$#]*?)(?:!([A-Z]+))?\./gu,
-    (whole, name, filter) => {
-      const key = name.toUpperCase();
-      return key in upper4 ? applyEscape(String(upper4[key] ?? ""), filter ?? "HTML") : whole;
-    }
+var FEATURE_ALIASES = {
+  search: "enableSearch",
+  inset: "insetList",
+  divider: "showListDivider",
+  listDivider: "showListDivider",
+  image: "showImage",
+  advanced: "advancedFormatting",
+  advanced_formatting: "advancedFormatting",
+  split_button: "hasSplitButton",
+  nested: "isNestedListView"
+};
+function listViewFeatures(region) {
+  return new Set(
+    strings3(region.props, "settings.features").flatMap((value2) => value2.split(/[\s,:]+/u)).filter(Boolean).map((value2) => FEATURE_ALIASES[value2] ?? FEATURE_ALIASES[value2.toLowerCase()] ?? value2)
   );
-  return renderer.substitute(ctx.session, replaced, ctx.page, "HTML");
 }
-var features = (region) => strings3(region.props, "settings.features").flatMap((value2) => value2.split(/[\s,:]+/u));
 function renderListView(renderer, ctx, region) {
   const domId = renderer.regionDomId(region);
   const sql = renderer.regionSql(ctx, region);
@@ -7401,30 +8570,50 @@ function renderListView(renderer, ctx, region) {
   );
   if (result.error)
     return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(result.error)}</div></div>`;
-  const options2 = new Set(features(region));
-  const column2 = (key) => str(region.props, `settings.${key}`).toUpperCase();
-  const text8 = column2("textColumn") || result.columns[0] || "";
-  const format2 = str(region.props, "settings.textFormatting");
+  const options3 = listViewFeatures(region);
+  const advanced = options3.has("advancedFormatting");
+  const setting3 = (key) => str(region.props, `settings.${key}`);
+  const column2 = (...keys) => (keys.map((key) => setting3(key)).find(Boolean) ?? "").toUpperCase();
+  const html = (template, row) => rowTemplate(renderer, ctx, template, row, true);
+  const text9 = column2("textColumn") || result.columns[0] || "";
   const target2 = get(region.props, "settings.linkTarget") ?? get(region.props, "link.target");
-  let divider = "";
+  const info = column2("supplementalInfoColumn", "supplementalInformationColumn");
+  const counter = column2("counterColumn");
+  const icon3 = column2("iconClassColumn");
+  const imageType = setting3("imageType");
+  const imageUrl = column2("imageUrlColumn");
+  const dividerColumn = options3.has("showListDivider") ? column2("listDividerColumn") : "";
+  let divider;
   const items = result.rows.map((row) => {
-    const label = options2.has("advancedFormatting") && format2 ? rowSubstitute2(renderer, ctx, format2, row) : escapeHtml(row[text8] ?? "");
-    const info = column2("supplementalInformationColumn");
-    const counter = column2("counterColumn");
-    const icon3 = column2("iconClassColumn");
-    const body4 = `${icon3 && row[icon3] ? `<span class="ui-li-icon fa ${escapeHtml(row[icon3])}" aria-hidden="true"></span>` : ""}${label}${info && row[info] !== null ? `<p class="ui-li-aside">${escapeHtml(row[info])}</p>` : ""}${counter && row[counter] !== null ? `<span class="ui-li-count">${escapeHtml(row[counter])}</span>` : ""}`;
-    const dividerColumn = column2("listDividerColumn");
+    const label = advanced && setting3("textFormatting") ? html(setting3("textFormatting"), row) : escapeHtml(row[text9] ?? "");
+    const supplemental = advanced && setting3("supplementalInfoFormatting") ? html(setting3("supplementalInfoFormatting"), row) : info && row[info] !== null && row[info] !== void 0 ? escapeHtml(row[info]) : "";
+    let image = "";
+    if (options3.has("showImage") && /Url$/u.test(imageType) && imageUrl && row[imageUrl]) {
+      const kind = imageType === "iconUrl" ? "ui-li-icon" : "ui-li-thumb";
+      image = `<img class="${kind}" src="${escapeHtml(row[imageUrl])}" alt="">`;
+    } else if (icon3 && row[icon3])
+      image = `<span class="ui-li-icon fa ${escapeHtml(row[icon3])}" aria-hidden="true"></span>`;
+    const body4 = `${image}${label}${supplemental ? `<p class="ui-li-aside">${supplemental}</p>` : ""}${counter && row[counter] !== null ? `<span class="ui-li-count">${escapeHtml(row[counter])}</span>` : ""}`;
     let heading3 = "";
     if (dividerColumn && String(row[dividerColumn] ?? "") !== divider) {
       divider = String(row[dividerColumn] ?? "");
-      heading3 = `<li class="a-ListView-divider" role="heading">${escapeHtml(divider)}</li>`;
+      const dividerHtml = advanced && setting3("listDividerFormatting") ? html(setting3("listDividerFormatting"), row) : escapeHtml(divider);
+      heading3 = `<li class="a-ListView-divider" role="heading">${dividerHtml}</li>`;
     }
     const href = target2 ? renderer.link(ctx, target2, row, `apex.jQuery('#${domId}')`) : "";
-    return `${heading3}<li class="a-ListView-item${icon3 ? " has-icon" : ""}${counter ? " has-count" : ""}">${href ? `<a class="ui-btn" href="${escapeHtml(href)}">${body4}</a>` : body4}</li>`;
+    const entryAttributes = advanced && setting3("listEntryAttrs") ? ` ${html(setting3("listEntryAttrs"), row)}` : "";
+    return `${heading3}<li class="a-ListView-item${image ? " has-icon" : ""}${counter ? " has-count" : ""}"${entryAttributes}>${href ? `<a class="ui-btn" href="${escapeHtml(href)}">${body4}</a>` : body4}</li>`;
   }).join("");
-  const search = options2.has("search") ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="Search..." aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>` : "";
+  const placeholder2 = renderer.substitute(
+    ctx.session,
+    setting3("searchBoxPlaceholder") || "Search...",
+    ctx.page,
+    "HTML"
+  );
+  const search = options3.has("enableSearch") ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="${placeholder2}" aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>` : "";
   const empty = result.rows.length ? "" : `<span class="nodatafound">${renderer.substitute(ctx.session, str(region.props, "messages.whenNoDataFound", "No data found."), ctx.page, "HTML")}</span>`;
-  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options2.has("inset") ? " a-ListView--inset" : ""}" id="${escapeHtml(domId)}_listview" data-role="listview">${items}</ul>${empty}</div>`;
+  const listAttributes = advanced && setting3("listAttrs") ? ` ${renderer.substitute(ctx.session, setting3("listAttrs"), ctx.page, "HTML")}` : "";
+  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options3.has("insetList") ? " a-ListView--inset" : ""}" id="${escapeHtml(domId)}_listview" data-role="listview"${listAttributes}>${items}</ul>${empty}</div>`;
 }
 
 // packages/core/src/preview/extensions/facets/search.ts
@@ -7643,7 +8832,7 @@ function renderFilters(renderer, ctx, region) {
   if (search) inputs.push(hidden2(search.name, facetValue(renderer, ctx, search)));
   const currentFacets = str(region.props, "settings.showCurrentFacets", "true");
   const totalCountSetting = str(region.props, "settings.showTotalRowCount", smart ? "false" : "true");
-  const options2 = {
+  const options3 = {
     regionDomId: domId,
     ajaxIdentifier: `apexlocal:facets:${domId}`,
     uiMode: smart ? "S" : "F",
@@ -7663,23 +8852,23 @@ function renderFilters(renderer, ctx, region) {
     }
   };
   if (smart) {
-    options2.maxChips = num(
+    options3.maxChips = num(
       region.props,
       "settings.maximumSuggestionChips",
       num(region.props, "settings.maxSuggestionChips", 5)
     );
-    options2.moreFiltersChip = bool(region.props, "settings.showMoreFiltersChip", true);
+    options3.moreFiltersChip = bool(region.props, "settings.showMoreFiltersChip", true);
     const collapsible = get(region.props, "settings.collapsibleSearchBar");
-    if (typeof collapsible === "boolean") options2.collapsibleSearchBar = collapsible;
+    if (typeof collapsible === "boolean") options3.collapsibleSearchBar = collapsible;
   }
   const threshold = num(region.props, "settings.compactNosThreshold", 0);
-  if (threshold) options2.numberFormatThreshold = threshold;
+  if (threshold) options3.numberFormatThreshold = threshold;
   ctx.jsFiles.add("#APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.facets#MIN#.js?v=#APEX_VERSION#");
   if (controls.some((entry) => entry.filterValues || entry.actionsFilter))
     ctx.jsFiles.add("#APEX_FILES#libraries/apex/#MIN_DIRECTORY#widget.filterable#MIN#.js?v=#APEX_VERSION#");
   const widgetId = `${domId}_FS`;
   ctx.onload.push(
-    `apexLocalFacets.patchWidget();apex.jQuery('#${widgetId}').facets(${JSON.stringify(options2).replaceAll("<", "\\u003c")});`
+    `apexLocalFacets.patchWidget();apex.jQuery('#${widgetId}').facets(${JSON.stringify(options3).replaceAll("<", "\\u003c")});`
   );
   return `<div id="${escapeHtml(widgetId)}" data-apex-local-region="${escapeHtml(domId)}" data-apex-local-filtered="${escapeHtml(renderer.regionDomId(target2))}" data-apex-local-items="${escapeHtml(items.join(","))}"></div><div class="apex-local-facet-items" hidden>${inputs.join("")}</div>`;
 }
@@ -7957,8 +9146,8 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs5 from "node:fs";
-import path5 from "node:path";
+import fs6 from "node:fs";
+import path6 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
 var libraryCache = /* @__PURE__ */ new Map();
@@ -7967,7 +9156,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs5.readdirSync(path5.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs6.readdirSync(path6.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -8074,7 +9263,7 @@ function cascading(item2) {
     required: bool(item2.props, "cascadingLov.parentRequired", true)
   };
 }
-function lovEntries(renderer, ctx, item2, options2 = {}) {
+function lovEntries(renderer, ctx, item2, options3 = {}) {
   const name = item2.id.toUpperCase();
   const parents = cascading(item2);
   const parentEmpty = parents.parents !== "" && parents.required && strings4(get(item2.props, "cascadingLov.parentItems")).some(
@@ -8082,14 +9271,14 @@ function lovEntries(renderer, ctx, item2, options2 = {}) {
   );
   const rows = parentEmpty ? [] : renderer.lov(ctx, get(item2.props, "lov"), name);
   const entries = [];
-  if (bool(item2.props, "lov.displayNullValue", options2.nullDefault ?? false))
+  if (bool(item2.props, "lov.displayNullValue", options3.nullDefault ?? false))
     entries.push({
-      d: str(item2.props, "lov.nullDisplayValue", options2.nullText ?? ""),
+      d: str(item2.props, "lov.nullDisplayValue", options3.nullText ?? ""),
       r: str(item2.props, "lov.nullReturnValue")
     });
   entries.push(...rows);
   if (bool(item2.props, "lov.displayExtraValues", true)) {
-    for (const value2 of options2.values ?? [])
+    for (const value2 of options3.values ?? [])
       if (value2 !== "" && !entries.some((entry) => entry.r === value2)) entries.push({ d: value2, r: value2 });
   }
   return entries;
@@ -8382,8 +9571,8 @@ var Matrix = class {
     return score;
   }
 };
-function qrMatrix(text8, ecc = "M") {
-  const bytes2 = [...Buffer.from(text8, "utf8")];
+function qrMatrix(text9, ecc = "M") {
+  const bytes2 = [...Buffer.from(text9, "utf8")];
   let version = 1;
   for (; version <= 40; version += 1) {
     const countBits = version <= 9 ? 8 : 16;
@@ -8421,19 +9610,19 @@ function qrMatrix(text8, ecc = "M") {
   }
   return best.modules;
 }
-function qrSvg(text8, options2 = {}) {
-  const modules = qrMatrix(text8);
+function qrSvg(text9, options3 = {}) {
+  const modules = qrMatrix(text9);
   const border = 4;
   const dimension = modules.length + border * 2;
-  const path12 = [];
+  const path13 = [];
   modules.forEach(
     (row, y) => row.forEach((dark, x) => {
-      if (dark) path12.push(`M${x + border},${y + border}h1v1h-1z`);
+      if (dark) path13.push(`M${x + border},${y + border}h1v1h-1z`);
     })
   );
-  const size = options2.size ?? 160;
+  const size = options3.size ?? 160;
   const attr3 = (value2) => value2.replace(/[^#\w(),.% -]/gu, "");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options2.background ?? "#ffffff")}"/><path fill="${attr3(options2.foreground ?? "#000000")}" d="${path12.join("")}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path13.join("")}"/></svg>`;
 }
 
 // packages/core/src/preview/extensions/items/render.ts
@@ -8633,13 +9822,16 @@ var displayOnly = (renderer, ctx, item2, name, value2) => {
   } else if (flag(renderer, item2, "showLineBreaks", true) && escape) html = html.replaceAll("\n", "<br>");
   return `<span id="${name}_DISPLAY" class="display_only apex-item-display-only"${escape ? ' data-escape="true"' : ""}>${html}</span>${flag(renderer, item2, "sendOnPageSubmit", true) ? `<input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value2)}">` : ""}`;
 };
+var DATE_DISPLAY = { inline: "inline", nativeHtml: "native", popup: "popup" };
 var datePicker = (renderer, ctx, item2, name, value2) => {
   itemState.set(item2, {});
   const mask2 = dateMask(renderer, item2);
   const shown = dateValue(value2, mask2);
   if (isReadOnly(renderer, ctx, item2)) return readOnlyMarkup(item2, name, value2, shown);
-  const displayAs = setting(renderer, item2, "displayAs", "popup");
-  const behavior = new Set(setting(renderer, item2, "appearanceBehavior").split(":").filter(Boolean));
+  const displayAs = DATE_DISPLAY[setting(renderer, item2, "displayAs", "popup")] ?? "popup";
+  const behavior = new Set(
+    setting(renderer, item2, "appearanceBehavior", "monthPicker:yearPicker:showTodayButton").split(":").filter(Boolean)
+  );
   const limit = (kind) => {
     const type = setting(renderer, item2, `${kind}Date`, "none");
     if (type === "static") {
@@ -8663,15 +9855,22 @@ var datePicker = (renderer, ctx, item2, name, value2) => {
     ...displayAs === "native" ? ["date-picker-apex-native"] : []
   ];
   const example = formatOracle((/* @__PURE__ */ new Date()).toISOString(), mask2) ?? "";
+  const native = (text9) => {
+    if (!text9 || displayAs !== "native") return text9;
+    const date = ISO_DATE.test(text9) ? new Date(text9.replace(" ", "T")) : parseOracleDate(text9, mask2);
+    if (!date || Number.isNaN(date.getTime())) return text9;
+    const iso = isoDate(date);
+    return showTime ? iso.slice(0, 16).replace(" ", "T") : iso.slice(0, 10);
+  };
   return `<a-date-picker${attrs({
     id: name,
     class: classes(`apex-item-datepicker--${displayAs}`, ...extras.classes),
     "display-as": displayAs,
     format: mask2,
     "valid-example": example,
-    value: shown,
-    min: limit("min"),
-    max: limit("max"),
+    value: native(shown),
+    min: native(limit("min")),
+    max: native(limit("max")),
     name,
     placeholder: placeholder(renderer, ctx, item2) || void 0,
     required: required(item2),
@@ -8690,7 +9889,7 @@ var datePicker = (renderer, ctx, item2, name, value2) => {
     "aria-labelledby": `${name}_LABEL`
   })}${extras.attributes}></a-date-picker>`;
 };
-function options(entries, selected) {
+function options2(entries, selected) {
   return entries.map(
     (entry) => `<option value="${escapeHtml(entry.r)}"${selected.includes(entry.r) ? ' selected="selected"' : ""}>${escapeHtml(entry.d)}</option>`
   ).join("");
@@ -8716,14 +9915,13 @@ var selectList = (renderer, ctx, item2, name, value2) => {
   const extras = elementExtras(renderer, ctx, item2);
   const cascade = cascadeInit(ctx, item2, name);
   const action = setting(renderer, item2, "pageActionOnSelection", "none");
-  if (cascade.ajaxIdentifier || action !== "none")
-    ctx.onload.push(
-      `apex.widget.selectList(${json3(`#${name}`)},${json3({
-        ...cascade,
-        ...nullShown ? { nullValue: str(item2.props, "lov.nullReturnValue") } : {},
-        ...multiple ? { storageType: "SEPARATED", separator: separator(item2) } : {}
-      })});`
-    );
+  ctx.onload.push(
+    `apex.widget.selectList(${json3(`#${name}`)},${json3({
+      ...cascade,
+      ...nullShown ? { nullValue: str(item2.props, "lov.nullReturnValue") } : {},
+      ...multiple ? { storageType: "SEPARATED", separator: separator(item2) } : {}
+    })});`
+  );
   return `<select${attrs({
     id: name,
     name,
@@ -8733,7 +9931,7 @@ var selectList = (renderer, ctx, item2, name, value2) => {
     multiple,
     required: required(item2),
     onchange: action === "submitPage" ? `apex.submit('${name}');` : action === "redirectSetValue" ? `apex.navigation.redirect(apex.util.makeApplicationUrl({itemNames:['${name}'],itemValues:[this.value]}));` : void 0
-  })}${extras.attributes}>${options(entries, values)}</select>`;
+  })}${extras.attributes}>${options2(entries, values)}</select>`;
 };
 function choices(renderer, ctx, item2, name, value2, input) {
   const selected = input === "checkbox" ? splitValues(item2, value2) : [value2];
@@ -8844,7 +10042,7 @@ var switchItem = (renderer, ctx, item2, name, value2) => {
     return `<div tabindex="-1" id="${name}" class="apex-button-group apex-item-group apex-item-group--switch" role="group" aria-labelledby="${name}_LABEL">${radio("Y", on, onLabel)}${radio("N", off, offLabel)}</div>`;
   }
   if (style2 === "selectList")
-    return `<select id="${name}" name="${name}" class="selectlist apex-item-select" size="1">${options(
+    return `<select id="${name}" name="${name}" class="selectlist apex-item-select" size="1">${options2(
       [
         { d: onLabel, r: on },
         { d: offLabel, r: off }
@@ -8909,7 +10107,7 @@ var shuttle = (renderer, ctx, item2, name, value2) => {
     role: "group",
     "aria-labelledby": `${name}_LABEL`,
     tabindex: "-1"
-  })}${extras.attributes}><table cellpadding="0" cellspacing="0" border="0" role="presentation" class="shuttle"><tbody><tr><td class="shuttleSelect1"><select title="Move from" multiple="multiple" id="${name}_LEFT" size="${height}" class="shuttle_left apex-item-select">${options(left, [])}</select></td>${moving ? `<td align="center" class="shuttleControl">${SHUTTLE_BUTTONS.move.map(button2).join("")}</td>` : ""}<td class="shuttleSelect2"><select title="Move to" multiple="multiple" id="${name}_RIGHT" name="${name}" size="${height}" class="shuttle_right apex-item-select"${required(item2) ? " required" : ""}>${options(right, [])}</select></td>${ordering ? `<td align="center" class="shuttleSort2">${SHUTTLE_BUTTONS.sort.map(button2).join("")}</td>` : ""}</tr></tbody></table></div>`;
+  })}${extras.attributes}><table cellpadding="0" cellspacing="0" border="0" role="presentation" class="shuttle"><tbody><tr><td class="shuttleSelect1"><select title="Move from" multiple="multiple" id="${name}_LEFT" size="${height}" class="shuttle_left apex-item-select">${options2(left, [])}</select></td>${moving ? `<td align="center" class="shuttleControl">${SHUTTLE_BUTTONS.move.map(button2).join("")}</td>` : ""}<td class="shuttleSelect2"><select title="Move to" multiple="multiple" id="${name}_RIGHT" name="${name}" size="${height}" class="shuttle_right apex-item-select"${required(item2) ? " required" : ""}>${options2(right, [])}</select></td>${ordering ? `<td align="center" class="shuttleSort2">${SHUTTLE_BUTTONS.sort.map(button2).join("")}</td>` : ""}</tr></tbody></table></div>`;
 };
 var popupLov = (renderer, ctx, item2, name, value2) => {
   itemState.set(item2, {});
@@ -8921,7 +10119,7 @@ var popupLov = (renderer, ctx, item2, name, value2) => {
     (entry) => lov.rows.find((row) => row[lov.returned] === entry)?.[lov.display] ?? entry
   );
   if (isReadOnly(renderer, ctx, item2)) return readOnlyMarkup(item2, name, value2, display2.join(", "));
-  const isPopup = setting(renderer, item2, "displayAs", "popup") !== "dialog";
+  const isPopup = !["modalDialog", "dialog"].includes(setting(renderer, item2, "displayAs", "inlinePopup"));
   const columns = Object.fromEntries([
     ...lov.columns.map((column2, index) => [
       column2.name,
@@ -9118,7 +10316,7 @@ var colorPicker = (renderer, ctx, item2, name, value2) => {
     return `<span id="${name}_DISPLAY" class="display_only apex-item-display-only"><span aria-hidden="true" style="display:inline-block;inline-size:1em;block-size:1em;border-radius:50%;vertical-align:middle;background:${escapeHtml(value2)}"></span> ${escapeHtml(value2)}</span><input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value2)}">`;
   }
   const displayAs = setting(renderer, item2, "displayAs", "popup");
-  const preset = setting(renderer, item2, "colorPreset", "none");
+  const preset = setting(renderer, item2, "colorPreset", "themeStyle");
   const presetColors = preset === "custom" ? setting(renderer, item2, "colors").split(/[,;:\s]+/u).filter(Boolean).join(",") : preset === "themeStyle" ? THEME_COLORS.join(",") : "";
   ctx.jsFiles.add(apexScript("item.Colorpicker"));
   state(item2).wrapper = [
@@ -9134,7 +10332,7 @@ var colorPicker = (renderer, ctx, item2, name, value2) => {
     class: extras.classes.join(" ") || void 0,
     value: value2,
     "display-as": displayAs === "inline" ? "INLINE" : displayAs === "nativeColorPicker" ? "NATIVE" : displayAs === "colorOnlyPopup" ? "COLOR_ONLY" : "POPUP",
-    "display-mode": setting(renderer, item2, "mode", "simple").toUpperCase(),
+    "display-mode": setting(renderer, item2, "mode", "full").toUpperCase(),
     "return-value-as": setting(renderer, item2, "returnValueAs", "hex").toUpperCase().replace("ANYCSSVALUE", "CSS"),
     "preset-colors": presetColors || void 0,
     "max-preset-colors": presetColors ? Math.min(presetColors.split(",").length, 8) : void 0,
@@ -9168,8 +10366,8 @@ var richTextEditor = (renderer, ctx, item2, name, value2) => {
     Object.assign(state(item2), { container: ["is-readonly"], wrapper: ["display-only"] });
     return `<div id="${name}_DISPLAY" class="display_only apex-item-display-only">${html}</div><input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value2)}">`;
   }
-  const toolbar = setting(renderer, item2, "toolbar", "simple");
-  const tools = toolbar === "none" ? [] : toolbar === "simple" ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
+  const toolbar = setting(renderer, item2, "toolbar", "intermediate");
+  const tools = toolbar === "none" ? [] : toolbar === "basic" || toolbar === "simple" ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
   ctx.onload.push(`apexLocal.items.richText(${json3(name)});`);
   const height = num(item2.props, "settings.height", num(item2.props, "appearance.height", 5) * 24 + 48);
   return `<div class="apex-item-group apex-item-group--rich-text-editor apex-local-rte" id="${name}_CONTAINER_RTE">${tools.length ? `<div class="apex-local-rte-toolbar" role="toolbar" aria-label="Formatting">${tools.map(
@@ -9211,6 +10409,7 @@ var FILE_DISPLAY = {
   inlineFileBrowse: "INLINE",
   inlineDropzone: "DROPZONE_INLINE",
   blockDropzone: "DROPZONE_BLOCK",
+  iconDropzone: "DROPZONE_ICON",
   nativeFileBrowse: "NATIVE"
 };
 var fileAttributes = (_renderer, _ctx, _item, value2) => ({ filename: value2 || void 0 });
@@ -9224,7 +10423,7 @@ function fileUpload(kind) {
     const displayAs = str(
       item2.props,
       "display.displayAs",
-      kind === "image" ? "blockDropzone" : "inlineDropzone"
+      kind === "image" ? "iconDropzone" : "inlineFileBrowse"
     );
     ctx.jsFiles.add(apexScript("item.FileUpload"));
     state(item2).wrapper = kind === "image" ? ["image-upload"] : ["file"];
@@ -9233,7 +10432,7 @@ function fileUpload(kind) {
       id: name,
       name,
       class: extras.classes.join(" ") || void 0,
-      "display-style": FILE_DISPLAY[displayAs] ?? "DROPZONE_BLOCK",
+      "display-style": FILE_DISPLAY[displayAs] ?? (kind === "image" ? "DROPZONE_ICON" : "INLINE"),
       "upload-type": kind === "image" ? "IMAGE" : "FILE",
       label: str(item2.props, "display.dropzoneTitle") || void 0,
       description: str(item2.props, "display.dropzoneDesc") || void 0,
@@ -9365,14 +10564,14 @@ var itemTemplate = (renderer, ctx, item2, values) => {
     (str(item2.props, "appearance.template") || "").replace(/^\//u, "").toLowerCase()
   );
   const optionsList = strings4(get(item2.props, "appearance.templateOptions"));
-  const options2 = optionsList.length ? templateOptions(
+  const options3 = optionsList.length ? templateOptions(
     optionsList.flatMap((option) => option === "#DEFAULT#" ? [option] : option.split(/\s+/u)),
     text(field, "default_template_options")
   ) : "";
   const containerClasses = strings4(get(item2.props, "appearance.cssClasses"));
   const value2 = ctx.session.items[name] ?? "";
   tokens.push(
-    ...options2.split(/\s+/u).filter(Boolean),
+    ...options3.split(/\s+/u).filter(Boolean),
     ...containerClasses,
     ...entry?.container ?? [],
     ...placeholder(renderer, ctx, item2) ? ["apex-item-wrapper--has-placeholder"] : [],
@@ -9418,8 +10617,8 @@ function pluginRequest(renderer, session, body4) {
   return { ctx, item: item2, name, form, json: json5 };
 }
 var escaped = (entries) => entries.map((entry) => ({ r: escapeHtml(entry.r), d: escapeHtml(entry.d) }));
-function matches(text8, search) {
-  return text8.toLowerCase().includes(search.toLowerCase());
+function matches(text9, search) {
+  return text9.toLowerCase().includes(search.toLowerCase());
 }
 function popupLovResponse(renderer, request) {
   const { ctx, item: item2, name, form, json: json5 } = request;
@@ -9526,11 +10725,11 @@ var help = (renderer, session, request) => {
   if (!renderer.findPage(pageId)) return reply({ error: `Page ${pageId} not found` }, 404);
   const ctx = renderer.prepareSubmit(session, pageId, "");
   const item2 = renderer.pageComponents(ctx, "pageItem").find((candidate) => candidate.id.toUpperCase() === name);
-  const text8 = item2 ? str(item2.props, "help.helpText") : "";
-  if (!item2 || !text8) return reply({ error: `No help for ${name}` }, 404);
+  const text9 = item2 ? str(item2.props, "help.helpText") : "";
+  if (!item2 || !text9) return reply({ error: `No help for ${name}` }, 404);
   return reply({
     title: escapeHtml(renderer.substitute(session, renderer.label(item2), ctx.page, "RAW")),
-    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text8, ctx.page, "HTML")}</div>`
+    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text9, ctx.page, "HTML")}</div>`
   });
 };
 var IGNORED = [
@@ -9566,23 +10765,23 @@ registerExtension({
 });
 
 // packages/core/src/preview/extensions/server/apex-api.ts
-var active;
+var active2;
 var lastRenderer;
-var activeRuntime = () => active;
+var activeRuntime = () => active2;
 function withRuntime(rt, run2) {
-  const previous = active;
-  active = rt;
+  const previous = active2;
+  active2 = rt;
   lastRenderer = rt.renderer;
   try {
     return run2();
   } finally {
-    active = previous;
+    active2 = previous;
   }
 }
 var rememberRenderer = (renderer) => {
   lastRenderer = renderer;
 };
-var text3 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var text3 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
 var sessionState = (rt) => rt?.ctx.session.items;
 var MESSAGE_FALLBACKS = {
   "APEX.FEATURE.ACL.INFO.ALL_USERS": "All authenticated users can access this application; users in the access control list get their assigned roles.",
@@ -9597,7 +10796,7 @@ function format(template, values) {
     return value2 === void 0 ? whole : String(value2 ?? "");
   });
 }
-function since(value2) {
+function since2(value2) {
   if (value2 === null || value2 === void 0) return null;
   const date = new Date(String(value2).replace(" ", "T"));
   if (Number.isNaN(date.getTime())) return String(value2);
@@ -9717,8 +10916,8 @@ var STUBS = {
     params: p("p_table", "p_string"),
     fn: (args) => Array.isArray(args.p_table) ? args.p_table.join(String(args.p_string ?? ":")) : null
   },
-  "apex_util.get_since": { params: p("p_date"), fn: (args) => since(args.p_date), sql: true },
-  "apex_util.get_since_tswltz": { params: p("p_value"), fn: (args) => since(args.p_value), sql: true },
+  "apex_util.get_since": { params: p("p_date"), fn: (args) => since2(args.p_date), sql: true },
+  "apex_util.get_since_tswltz": { params: p("p_value"), fn: (args) => since2(args.p_value), sql: true },
   "apex_util.feedback_enabled": { params: [], fn: () => 0 },
   "apex_util.redirect_url": {
     params: p("p_url"),
@@ -9848,8 +11047,8 @@ var STUBS = {
   "apex_escape.js_literal": {
     params: p("p_string", "p_quote"),
     fn: (args) => {
-      const quote4 = String(args.p_quote ?? "'");
-      return `${quote4}${escapeJs(String(args.p_string ?? ""))}${quote4}`;
+      const quote5 = String(args.p_quote ?? "'");
+      return `${quote5}${escapeJs(String(args.p_string ?? ""))}${quote5}`;
     },
     sql: true
   },
@@ -10040,7 +11239,7 @@ function stubArgs(stub, positional, named2) {
 for (const [name, stub] of Object.entries(STUBS)) {
   if (!stub.sql) continue;
   registerOracleFunction(name, stub.params, (values) => {
-    const result = stub.fn(stubArgs(stub, values, {}), active);
+    const result = stub.fn(stubArgs(stub, values, {}), active2);
     return Array.isArray(result) ? JSON.stringify(result) : result;
   });
 }
@@ -10049,7 +11248,7 @@ function registerStubs(stubs) {
     STUBS[name] = stub;
     if (!stub.sql) continue;
     registerOracleFunction(name, stub.params, (values) => {
-      const result = stub.fn(stubArgs(stub, values, {}), active);
+      const result = stub.fn(stubArgs(stub, values, {}), active2);
       return Array.isArray(result) ? JSON.stringify(result) : result;
     });
   }
@@ -10070,8 +11269,8 @@ function lex(src) {
   let index = 0;
   let line = 1;
   let gapStart = 0;
-  const push = (kind, text8, value2, start, end) => {
-    tokens.push({ kind, text: text8, value: value2, pre: src.slice(gapStart, start), line });
+  const push = (kind, text9, value2, start, end) => {
+    tokens.push({ kind, text: text9, value: value2, pre: src.slice(gapStart, start), line });
     for (const char of src.slice(start, end)) if (char === "\n") line += 1;
     index = end;
     gapStart = end;
@@ -10102,9 +11301,9 @@ function lex(src) {
     }
     const start = index;
     if ((char === "q" || char === "Q") && next === "'") {
-      const open = src[index + 2] ?? "";
-      const close = Q_CLOSE[open] ?? open;
-      const end = src.indexOf(`${close}'`, index + 3);
+      const open2 = src[index + 2] ?? "";
+      const close2 = Q_CLOSE[open2] ?? open2;
+      const end = src.indexOf(`${close2}'`, index + 3);
       if (end < 0) throw new PlsqlSyntaxError("Unterminated q-quoted string", line);
       const value2 = src.slice(index + 3, end);
       push("string", `'${value2.replaceAll("'", "''")}'`, value2, start, end + 2);
@@ -10137,8 +11336,8 @@ function lex(src) {
     }
     if (/\d/u.test(char) || char === "." && /\d/u.test(next)) {
       const match = /^(?:\d+(?:\.(?!\.)\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFdD]?/u.exec(src.slice(index));
-      const text8 = match[0].replace(/[fFdD]$/u, "");
-      push("number", text8, text8, start, start + match[0].length);
+      const text9 = match[0].replace(/[fFdD]$/u, "");
+      push("number", text9, text9, start, start + match[0].length);
       continue;
     }
     if (char === ":" && /[A-Za-z]/u.test(next)) {
@@ -10181,16 +11380,16 @@ function parseArgs(tokens) {
     (part2) => part2[0]?.kind === "word" && isOp(part2[1], "=>") ? { name: part2[0].value, expr: part2.slice(2) } : { expr: part2 }
   );
 }
-function matchParen(tokens, open) {
+function matchParen(tokens, open2) {
   let depth = 0;
-  for (let index = open; index < tokens.length; index += 1) {
+  for (let index = open2; index < tokens.length; index += 1) {
     if (isOp(tokens[index], "(")) depth += 1;
     else if (isOp(tokens[index], ")")) {
       depth -= 1;
       if (depth === 0) return index;
     }
   }
-  throw new PlsqlSyntaxError("Unbalanced parentheses", tokens[open]?.line ?? 0);
+  throw new PlsqlSyntaxError("Unbalanced parentheses", tokens[open2]?.line ?? 0);
 }
 var Parser2 = class {
   tokens;
@@ -10333,9 +11532,9 @@ var Parser2 = class {
   params() {
     this.expectOp("(");
     const start = this.pos;
-    const close = matchParen(this.tokens, start - 1);
-    const inner = this.tokens.slice(start, close);
-    this.pos = close + 1;
+    const close2 = matchParen(this.tokens, start - 1);
+    const inner = this.tokens.slice(start, close2);
+    this.pos = close2 + 1;
     return splitTopLevel(inner).map((part2) => {
       let index = 1;
       let mode = "in";
@@ -10512,7 +11711,14 @@ var Parser2 = class {
           return this.dml(line);
         case "commit":
         case "rollback":
-        case "savepoint":
+        case "savepoint": {
+          this.pos += 1;
+          const words = this.untilSemicolon().filter((part2) => part2.kind === "word" || part2.kind === "qident").map((part2) => part2.value);
+          const op = token.value;
+          const to = words.indexOf("to");
+          const name = op === "savepoint" ? words[0] : op === "rollback" && to >= 0 ? words.slice(to + 1).find((word) => word !== "savepoint") : void 0;
+          return { k: "tx", op, ...name ? { savepoint: name } : {}, line };
+        }
         case "lock":
           this.untilSemicolon();
           return { k: "noop", line };
@@ -10545,9 +11751,9 @@ var Parser2 = class {
     const reverse = this.acceptWord("reverse");
     const tag = label ? { label } : {};
     if (isOp(this.peek(), "(") && isWord(this.peek(1), "select", "with")) {
-      const close = matchParen(this.tokens, this.pos);
-      const sql = this.tokens.slice(this.pos + 1, close);
-      this.pos = close + 1;
+      const close2 = matchParen(this.tokens, this.pos);
+      const sql = this.tokens.slice(this.pos + 1, close2);
+      this.pos = close2 + 1;
       this.expectWord("loop");
       const body5 = this.statements(/* @__PURE__ */ new Set(["end"]));
       this.endLoop();
@@ -10662,9 +11868,9 @@ var Parser2 = class {
       throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
     let args = [];
     if (isOp(tokens[index], "(")) {
-      const close = matchParen(tokens, index);
-      args = parseArgs(tokens.slice(index + 1, close));
-      index = close + 1;
+      const close2 = matchParen(tokens, index);
+      args = parseArgs(tokens.slice(index + 1, close2));
+      index = close2 + 1;
     }
     if (index < tokens.length)
       throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
@@ -10812,7 +12018,7 @@ function itemText(value2) {
   if (typeof value2 === "boolean") return value2 ? "true" : "false";
   if (value2 instanceof Collection) return value2.values().map(itemText).join(":");
   if (value2 instanceof RecordValue) return "";
-  return String(value2);
+  return typeof value2 === "number" ? oracleNumberText(value2) : String(value2);
 }
 function sameValue(left, right) {
   if (left === null || right === null) return false;
@@ -10873,6 +12079,11 @@ var Interpreter = class {
   // ------------------------------------------------------------ entry points
   run(code, mode) {
     const result = { ok: true, value: null, output: "", errors: this.errors };
+    if (/\bpragma\s+autonomous_transaction\b/iu.test(code))
+      this.note(
+        "info",
+        "PRAGMA AUTONOMOUS_TRANSACTION is not simulated; the block joins the page transaction, so its COMMIT also commits the page work done so far"
+      );
     try {
       withRuntime(this, () => {
         if (mode === "plsqlExpression" || mode === "sqlExpression") {
@@ -10906,6 +12117,19 @@ var Interpreter = class {
     result.output = this.output.join("");
     if (this.redirectURL) result.redirectURL = this.redirectURL;
     return result;
+  }
+  /** COMMIT, ROLLBACK [TO SAVEPOINT name] and SAVEPOINT name act on the page transaction. */
+  transactionControl(op, name) {
+    const db2 = this.renderer.db.db;
+    if (op === "commit") commitWork(db2);
+    else if (op === "savepoint") savepoint(db2, name ?? "");
+    else if (!rollbackWork(db2, name))
+      throw new PlsqlException(
+        "others",
+        -1086,
+        `ORA-01086: savepoint '${(name ?? "").toUpperCase()}' never established in this session or is invalid`,
+        "app"
+      );
   }
   // ------------------------------------------------------------ declarations
   declare(decls, scope2) {
@@ -10947,6 +12171,7 @@ var Interpreter = class {
       case "string":
         if (value2 === null || value2 === "") return null;
         if (value2 instanceof Collection || value2 instanceof RecordValue) return value2;
+        if (typeof value2 === "number") return oracleNumberText(value2);
         return typeof value2 === "boolean" ? value2 ? "TRUE" : "FALSE" : String(value2);
       case "boolean":
         return value2 === null ? null : truthy(value2);
@@ -11009,6 +12234,9 @@ var Interpreter = class {
     switch (statement.k) {
       case "null":
       case "noop":
+        return void 0;
+      case "tx":
+        this.transactionControl(statement.op, statement.savepoint);
         return void 0;
       case "unsupported":
         this.note("info", `${statement.what} are not simulated; skipped`);
@@ -11374,7 +12602,7 @@ var Interpreter = class {
   }
   /**
    * Turns PL/SQL expression tokens into SQLite text. Variables, record fields, collection
-   * elements and package calls become bind values; `||` becomes null-safe `concat()`.
+   * elements and package calls become bind values.
    */
   translate(tokens, scope2, mode) {
     const binds = {};
@@ -11492,7 +12720,6 @@ var Interpreter = class {
       bind(pre, this.call(names, callArgs, scope2, true));
       index = callOpen >= 0 ? callClose : end;
     }
-    concatPieces(pieces);
     const meaningful = pieces.filter((piece) => piece.text.trim() !== "");
     const sql = pieces.map((piece, index) => (index === 0 ? "" : piece.pre) + piece.text).join("").trim();
     return {
@@ -11515,91 +12742,6 @@ function targetOf(tokens) {
   if (first?.kind === "word") return { kind: "var", name: first.value };
   throw new PlsqlUnsupported("OUT argument must be a variable or bind", first?.line ?? 0);
 }
-function concatPieces(pieces) {
-  const isText = (piece, text8) => piece?.token?.kind !== "string" && piece?.text.toLowerCase() === text8;
-  const depthAt = () => {
-    const depths2 = [];
-    let depth = 0;
-    for (const piece of pieces) {
-      if (isText(piece, "(") || /\($/u.test(piece.text)) depth += 1;
-      depths2.push(depth);
-      if (isText(piece, ")")) depth -= 1;
-    }
-    return depths2;
-  };
-  const operandStart = (from) => {
-    let index = from;
-    if (isText(pieces[index], ")")) {
-      let depth = 0;
-      for (; index >= 0; index -= 1) {
-        if (isText(pieces[index], ")")) depth += 1;
-        else if (isText(pieces[index], "(") || /\($/u.test(pieces[index].text)) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-      if (isText(pieces[index], "(") && pieces[index - 1]?.token?.kind === "word") index -= 1;
-    } else if (isText(pieces[index], "end")) {
-      let depth = 0;
-      for (; index >= 0; index -= 1) {
-        if (isText(pieces[index], "end")) depth += 1;
-        else if (isText(pieces[index], "case")) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    }
-    while (isText(pieces[index - 1], ".") && pieces[index - 2]) index -= 2;
-    return Math.max(0, index);
-  };
-  const operandEnd = (from) => {
-    let index = from;
-    while (isText(pieces[index + 1], ".") && pieces[index + 2]) index += 2;
-    if (pieces[index]?.token?.kind === "word" && isText(pieces[index + 1], "(")) index += 1;
-    if (isText(pieces[index], "(") || /\($/u.test(pieces[index]?.text ?? "")) {
-      let depth = 0;
-      for (; index < pieces.length; index += 1) {
-        if (isText(pieces[index], "(") || /\($/u.test(pieces[index].text)) depth += 1;
-        else if (isText(pieces[index], ")")) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    } else if (isText(pieces[index], "case")) {
-      let depth = 0;
-      for (; index < pieces.length; index += 1) {
-        if (isText(pieces[index], "case")) depth += 1;
-        else if (isText(pieces[index], "end")) {
-          depth -= 1;
-          if (depth === 0) break;
-        }
-      }
-    }
-    return Math.min(index, pieces.length - 1);
-  };
-  const render = (from, to) => pieces.slice(from, to + 1).map((piece, index) => (index === 0 ? "" : piece.pre) + piece.text).join("");
-  for (let guard2 = 0; guard2 < 500; guard2 += 1) {
-    const depths2 = depthAt();
-    let target2 = -1;
-    for (let index = 0; index < pieces.length; index += 1) {
-      if (isText(pieces[index], "||") && (target2 < 0 || depths2[index] > depths2[target2])) target2 = index;
-    }
-    if (target2 < 0) return;
-    const start = operandStart(target2 - 1);
-    const operands = [render(start, target2 - 1)];
-    let cursor = target2;
-    let end = target2;
-    while (isText(pieces[cursor], "||")) {
-      end = operandEnd(cursor + 1);
-      operands.push(render(cursor + 1, end));
-      cursor = end + 1;
-    }
-    pieces.splice(start, end - start + 1, {
-      pre: pieces[start].pre,
-      text: `concat(${operands.join(", ")})`
-    });
-  }
-}
 function runPlsql(renderer, ctx, code, mode, owner2) {
   return new Interpreter(renderer, ctx, owner2).run(code, mode);
 }
@@ -11609,7 +12751,7 @@ import zlib2 from "node:zlib";
 
 // packages/core/src/preview/extensions/files/store.ts
 import { randomInt } from "node:crypto";
-import path6 from "node:path";
+import path7 from "node:path";
 registerDatabaseSetup((db2) => {
   db2.db.exec(`create table if not exists apex_application_temp_files (
     id integer primary key,
@@ -11679,7 +12821,7 @@ function mimeType(bytes2, filename = "", stored2) {
     if (head.startsWith("<svg") || head.startsWith("<?xml") && head.includes("<svg"))
       return "image/svg+xml";
   }
-  return MIME[path6.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
+  return MIME[path7.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
 }
 function tempName(filename) {
   return `${randomInt(1e9, 9e9)}${randomInt(1e5, 9e5)}/${filename}`;
@@ -11884,7 +13026,7 @@ var displayImage = (renderer, ctx, item2, name, value2) => {
     "settings.basedOn",
     str(item2.props, "source.column") ? "blobColItem" : "url"
   );
-  const alt = (text8) => renderer.substitute(ctx.session, text8, ctx.page, "RAW");
+  const alt = (text9) => renderer.substitute(ctx.session, text9, ctx.page, "RAW");
   let src = "";
   let altText = str(item2.props, "settings.altText") ? alt(str(item2.props, "settings.altText")) : "";
   if (basedOn === "url") src = value2;
@@ -11988,11 +13130,11 @@ var downloadBlobColumn = (renderer, ctx, region, column2, row) => {
   const inline = columnSetting(column2, "viewFileAs") === "inline";
   const url2 = columnLink(renderer, ctx, region, column2, row, inline);
   if (!url2) return "";
-  const text8 = (columnSetting(column2, "downloadText") || "Download").replace(
+  const text9 = (columnSetting(column2, "downloadText") || "Download").replace(
     /#([A-Z0-9_$]+)#/gu,
     (whole, key) => key in row ? String(row[key] ?? "") : whole
   );
-  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text8)}</a>`;
+  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text9)}</a>`;
 };
 function fileContext(renderer, session, pageKey, request = "") {
   const page = pageKey ? renderer.findPage(pageKey) : void 0;
@@ -12208,9 +13350,9 @@ function dynamicActionChild(ctx, key) {
 
 // packages/core/src/preview/extensions/files/parse.ts
 import { createHash } from "node:crypto";
-import path7 from "node:path";
+import path8 from "node:path";
 function formatOf(filename, bytes2) {
-  const extension = path7.extname(filename ?? "").toLowerCase();
+  const extension = path8.extname(filename ?? "").toLowerCase();
   if (extension === ".xlsx" || extension === ".xlsm") return "xlsx";
   if (extension === ".json") return "json";
   if (extension === ".xml") return "xml";
@@ -12223,16 +13365,16 @@ function formatOf(filename, bytes2) {
 }
 function decodeText(bytes2, encoding) {
   const label = (encoding ?? "utf-8").toLowerCase().replace(/^al32utf8$/u, "utf-8");
-  let text8;
+  let text9;
   try {
-    text8 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
+    text9 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
   } catch {
-    text8 = new TextDecoder("windows-1252").decode(bytes2);
+    text9 = new TextDecoder("windows-1252").decode(bytes2);
   }
-  return text8.replace(/^﻿/u, "");
+  return text9.replace(/^﻿/u, "");
 }
-function detectSeparator(text8, enclosedBy) {
-  const sample = text8.split(/\r?\n/u).slice(0, 10);
+function detectSeparator(text9, enclosedBy) {
+  const sample = text9.split(/\r?\n/u).slice(0, 10);
   let best = ",";
   let bestScore = -1;
   for (const candidate of [",", ";", "	", "|"]) {
@@ -12247,34 +13389,34 @@ function detectSeparator(text8, enclosedBy) {
   }
   return best;
 }
-function splitCsv(text8, separator2, enclosedBy = '"') {
+function splitCsv(text9, separator2, enclosedBy = '"') {
   const rows = [];
   let row = [];
   let cell = "";
   let quoted = false;
   let wasQuoted = false;
-  const quote4 = enclosedBy || "\0";
-  for (let index = 0; index < text8.length; index += 1) {
-    const char = text8[index];
+  const quote5 = enclosedBy || "\0";
+  for (let index = 0; index < text9.length; index += 1) {
+    const char = text9[index];
     if (quoted) {
-      if (char === quote4) {
-        if (text8[index + 1] === quote4) {
-          cell += quote4;
+      if (char === quote5) {
+        if (text9[index + 1] === quote5) {
+          cell += quote5;
           index += 1;
         } else quoted = false;
       } else cell += char;
       continue;
     }
-    if (char === quote4 && cell === "" && !wasQuoted) {
+    if (char === quote5 && cell === "" && !wasQuoted) {
       quoted = true;
       wasQuoted = true;
-    } else if (text8.startsWith(separator2, index)) {
+    } else if (text9.startsWith(separator2, index)) {
       row.push(cell);
       cell = "";
       wasQuoted = false;
       index += separator2.length - 1;
     } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && text8[index + 1] === "\n") index += 1;
+      if (char === "\r" && text9[index + 1] === "\n") index += 1;
       row.push(cell);
       rows.push(row);
       row = [];
@@ -12294,11 +13436,11 @@ var xmlDecode = (value2) => value2.replace(
   (whole, entity) => entity.startsWith("#x") || entity.startsWith("#X") ? String.fromCodePoint(Number.parseInt(entity.slice(2), 16)) : entity.startsWith("#") ? String.fromCodePoint(Number(entity.slice(1))) : ENTITIES[entity] ?? whole
 );
 var localName = (name) => name.replace(/^.*:/u, "");
-function parseXml(text8) {
+function parseXml(text9) {
   const root = { name: "#document", attributes: {}, children: [], text: "" };
   const stack = [root];
   const pattern = /<!\[CDATA\[([\s\S]*?)\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/gu;
-  for (const match of text8.matchAll(pattern)) {
+  for (const match of text9.matchAll(pattern)) {
     const current3 = stack.at(-1);
     if (match[1] !== void 0) current3.text += match[1];
     else if (match[6] !== void 0) current3.text += xmlDecode(match[6]);
@@ -12317,8 +13459,8 @@ function parseXml(text8) {
   }
   return root;
 }
-function xmlRows(text8, rowSelector) {
-  const document = parseXml(text8);
+function xmlRows(text9, rowSelector) {
+  const document = parseXml(text9);
   let rows = [];
   const steps = (rowSelector ?? "").replace(/^\/+/u, "").split("/").map((step) => localName(step.trim())).filter(Boolean);
   if (steps.length) {
@@ -12370,8 +13512,8 @@ function flattenJson(value2, prefix, out) {
   }
   out[prefix || "VALUE"] = value2 === null || value2 === void 0 ? "" : typeof value2 === "object" ? JSON.stringify(value2) : String(value2);
 }
-function jsonRows(text8, rowSelector) {
-  const selected = selectJson(JSON.parse(text8), rowSelector);
+function jsonRows(text9, rowSelector) {
+  const selected = selectJson(JSON.parse(text9), rowSelector);
   const array = Array.isArray(selected) ? selected : selected === void 0 ? [] : [selected];
   const columns = [];
   const records = array.map((entry) => {
@@ -12399,7 +13541,7 @@ function workbookSheets(zip2) {
     const name = xmlDecode(/\bname="([^"]*)"/u.exec(match[1])?.[1] ?? `Sheet${index + 1}`);
     const id = /\br:id="([^"]*)"/u.exec(match[1])?.[1] ?? "";
     const target2 = targets.get(id) ?? `worksheets/sheet${index + 1}.xml`;
-    return { sequence: index + 1, name, file: path7.posix.basename(target2), path: `xl/${target2}` };
+    return { sequence: index + 1, name, file: path8.posix.basename(target2), path: `xl/${target2}` };
   });
 }
 function xlsxWorksheets(bytes2) {
@@ -12489,31 +13631,31 @@ function xlsxRows(bytes2, sheet, maxRows = Infinity) {
 }
 var cache2 = /* @__PURE__ */ new Map();
 var columnName = (index) => `COL${String(index + 1).padStart(3, "0")}`;
-function parseFile(bytes2, filename, options2 = {}) {
-  const format2 = options2.format ?? formatOf(filename, bytes2);
-  const key = `${createHash("sha1").update(bytes2).digest("hex")}|${filename}|${JSON.stringify({ ...options2, format: format2 })}`;
-  const cached = cache2.get(key);
-  if (cached) return cached;
+function parseFile(bytes2, filename, options3 = {}) {
+  const format2 = options3.format ?? formatOf(filename, bytes2);
+  const key = `${createHash("sha1").update(bytes2).digest("hex")}|${filename}|${JSON.stringify({ ...options3, format: format2 })}`;
+  const cached2 = cache2.get(key);
+  if (cached2) return cached2;
   let result;
   if (format2 === "json" || format2 === "xml") {
-    const text8 = decodeText(bytes2, options2.encoding);
-    const { columns, records } = format2 === "json" ? jsonRows(text8, options2.rowSelector) : xmlRows(text8, options2.rowSelector);
+    const text9 = decodeText(bytes2, options3.encoding);
+    const { columns, records } = format2 === "json" ? jsonRows(text9, options3.rowSelector) : xmlRows(text9, options3.rowSelector);
     result = {
       format: format2,
       columns,
       rows: records.map((record) => columns.map((column2) => record[column2] ?? ""))
     };
   } else {
-    let rows = format2 === "xlsx" ? xlsxRows(bytes2, options2.sheet) : (() => {
-      const text8 = decodeText(bytes2, options2.encoding);
-      const enclosedBy = options2.enclosedBy ?? '"';
-      const separator2 = options2.separator === "\\t" ? "	" : options2.separator || detectSeparator(text8, enclosedBy);
-      return splitCsv(text8, separator2, enclosedBy);
+    let rows = format2 === "xlsx" ? xlsxRows(bytes2, options3.sheet) : (() => {
+      const text9 = decodeText(bytes2, options3.encoding);
+      const enclosedBy = options3.enclosedBy ?? '"';
+      const separator2 = options3.separator === "\\t" ? "	" : options3.separator || detectSeparator(text9, enclosedBy);
+      return splitCsv(text9, separator2, enclosedBy);
     })();
-    rows = rows.slice(options2.skipRows ?? 0);
+    rows = rows.slice(options3.skipRows ?? 0);
     const width = Math.max(0, ...rows.map((row) => row.length));
     rows = rows.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? ""));
-    const headers2 = options2.headers !== false && rows.length ? rows[0] : void 0;
+    const headers2 = options3.headers !== false && rows.length ? rows[0] : void 0;
     result = {
       format: format2,
       columns: Array.from(
@@ -12637,13 +13779,13 @@ function sourceIndex(columns, column2, position2) {
   );
 }
 function parserRows(bytes2, args) {
-  const options2 = profileOptions(args, bytes2);
+  const options3 = profileOptions(args, bytes2);
   const profile = args.profile;
-  const tabular = options2.format === "csv" || options2.format === "xlsx";
+  const tabular = options3.format === "csv" || options3.format === "xlsx";
   const headers2 = profile ? profile["headings-in-first-row"] !== false : false;
-  const table = parseFile(bytes2, args.fileName, { ...options2, headers: tabular ? headers2 : true });
+  const table = parseFile(bytes2, args.fileName, { ...options3, headers: tabular ? headers2 : true });
   const columns = profile?.columns.length ? profile.columns.map((column2, position2) => sourceIndex(table.columns, column2, position2)) : table.columns.map((_, index) => index);
-  const firstLine = (options2.skipRows ?? 0) + (tabular && headers2 ? 1 : 0);
+  const firstLine = (options3.skipRows ?? 0) + (tabular && headers2 ? 1 : 0);
   const headerLine = !tabular && !profile && args.addHeadersRow !== false;
   const out = [];
   if (headerLine) {
@@ -12665,15 +13807,15 @@ function parserRows(bytes2, args) {
   return out;
 }
 function discoverProfile(bytes2, args) {
-  const options2 = profileOptions(args, bytes2);
-  const table = parseFile(bytes2, args.fileName, { ...options2, headers: true });
+  const options3 = profileOptions(args, bytes2);
+  const table = parseFile(bytes2, args.fileName, { ...options3, headers: true });
   return {
-    "file-type": FILE_TYPES[options2.format],
+    "file-type": FILE_TYPES[options3.format],
     "file-encoding": "AL32UTF8",
-    "headings-in-first-row": options2.format === "csv" || options2.format === "xlsx",
-    ...options2.format === "csv" ? { "csv-col-delimiter": options2.separator ?? ",", "csv-enclosed": '"' } : {},
-    ...options2.sheet ? { "xlsx-worksheet": options2.sheet } : {},
-    ...options2.rowSelector ? { "row-selector": options2.rowSelector } : {},
+    "headings-in-first-row": options3.format === "csv" || options3.format === "xlsx",
+    ...options3.format === "csv" ? { "csv-col-delimiter": options3.separator ?? ",", "csv-enclosed": '"' } : {},
+    ...options3.sheet ? { "xlsx-worksheet": options3.sheet } : {},
+    ...options3.rowSelector ? { "row-selector": options3.rowSelector } : {},
     "parsed-rows": table.rows.length,
     columns: table.columns.map((name, index) => {
       const detected = detectType(table.rows.slice(0, 200).map((row) => row[index] ?? ""));
@@ -12732,9 +13874,9 @@ function transform(column2, value2) {
     case "nullIf":
       return value2 === str(column2.props, "transformation.value") ? "" : value2;
     case "regexpReplace":
-      return regexp ? value2.replace(new RegExp(regexp, "gu"), replace) : value2;
+      return regexp ? value2.replace(oracleRegExp(regexp, "", true), replace) : value2;
     case "regexpNullIf":
-      return regexp && new RegExp(regexp, "u").test(value2) ? "" : value2;
+      return regexp && oracleRegExp(regexp).test(value2) ? "" : value2;
     default:
       return value2;
   }
@@ -12789,10 +13931,10 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
   const method = str(definition.props, "target.loadingMethod", "append");
   const onError = str(definition.props, "errorHandling.whenOnError", "stop");
   const columns = definitionColumns(definition);
-  const options2 = profileOptions({ fileName, profile, sheet }, bytes2);
+  const options3 = profileOptions({ fileName, profile, sheet }, bytes2);
   const parsed2 = parseFile(bytes2, fileName, {
-    ...options2,
-    headers: options2.format === "csv" || options2.format === "xlsx" ? profile["headings-in-first-row"] !== false : true
+    ...options3,
+    headers: options3.format === "csv" || options3.format === "xlsx" ? profile["headings-in-first-row"] !== false : true
   });
   const indexes = profile.columns.map((column2, position2) => sourceIndex(parsed2.columns, column2, position2));
   if (!db2.tableExists(table)) {
@@ -12806,7 +13948,7 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
   }
   const existing = new Set(db2.tableColumns(table).map((column2) => column2.name));
   const keys = profile.columns.filter((column2) => column2["is-primary-key"] && existing.has(column2.name));
-  const firstLine = (options2.skipRows ?? 0) + (profile["headings-in-first-row"] !== false ? 1 : 0);
+  const firstLine = (options3.skipRows ?? 0) + (profile["headings-in-first-row"] !== false ? 1 : 0);
   const sessionBinds = renderer.binds(ctx.session, ctx.page);
   db2.db.exec("savepoint apex_local_load");
   try {
@@ -12934,8 +14076,8 @@ function dataLoadingProcess(renderer, ctx, process2) {
   let bytes2;
   let fileName = "";
   if (sourceType === "textareaItem") {
-    const text8 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
-    bytes2 = Buffer.from(text8, "utf8");
+    const text9 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
+    bytes2 = Buffer.from(text9, "utf8");
     fileName = `pasted.${str(definition.props, "dataProfile.format", "csv")}`;
   } else if (sourceType === "sqlQuery") {
     const sql = str(process2.props, "sourceData.sqlQuery");
@@ -13428,7 +14570,7 @@ var columnMappingRegion = (renderer, ctx, region) => {
     return '<div class="apex-local-unsupported">Upload a file first; the column mapping shows the parsed data of this session.</div>';
   const definition = upload.definition ? renderer.shared("legacyDataLoadDefinition", upload.definition) : legacyDefinition(renderer, void 0);
   const columns = targetColumns(renderer, definition);
-  const options2 = (header2, index) => {
+  const options3 = (header2, index) => {
     const chosen = upload.mapping?.[index] ?? columns.find((column2) => column2 === header2.toUpperCase().replace(/\W+/gu, "_")) ?? "";
     return [
       `<option value="">- Do not load -</option>`,
@@ -13438,7 +14580,7 @@ var columnMappingRegion = (renderer, ctx, region) => {
     ].join("");
   };
   const head = upload.headers.map(
-    (header2, index) => `<th class="t-Report-colHead"><label class="u-VisuallyHidden" for="${region.id}_map_${index}">${escapeHtml(header2)}</label><select class="selectlist apex-item-select" name="f01" id="${region.id}_map_${index}">${options2(header2, index)}</select><div>${escapeHtml(header2)}</div></th>`
+    (header2, index) => `<th class="t-Report-colHead"><label class="u-VisuallyHidden" for="${region.id}_map_${index}">${escapeHtml(header2)}</label><select class="selectlist apex-item-select" name="f01" id="${region.id}_map_${index}">${options3(header2, index)}</select><div>${escapeHtml(header2)}</div></th>`
   ).join("");
   const body4 = upload.rows.slice(0, 10).map(
     (row) => `<tr>${row.map((cell) => `<td class="t-Report-cell">${escapeHtml(cell)}</td>`).join("")}</tr>`
@@ -14669,10 +15811,10 @@ function ensureDictionary(renderer) {
     renderer.diagnose("warning", `APEX dictionary views could not be built: ${error.message}`);
   }
 }
-var quote = (value2) => `'${String(value2 ?? "").replaceAll("'", "''")}'`;
+var quote2 = (value2) => `'${String(value2 ?? "").replaceAll("'", "''")}'`;
 function stateViews(db2, base, renderer) {
-  const appName = quote(base.application_name);
-  const ws = quote(WORKSPACE);
+  const appName = quote2(base.application_name);
+  const ws = quote2(WORKSPACE);
   replaceView(
     db2,
     "APEX_ACTIVITY_LOG",
@@ -14805,7 +15947,7 @@ function seedUser(renderer, user) {
 
 // packages/core/src/preview/extensions/platform/admin.ts
 var appIdOf = (renderer) => Number(renderer.appId) || 0;
-var textOf = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var textOf2 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
 function runtime(rt) {
   if (rt) ensureDictionary(rt.renderer);
   return rt;
@@ -14838,13 +15980,13 @@ function logActivity(renderer, ctx, mode) {
 function roleIds(rt, args) {
   const db2 = raw(rt.renderer);
   const ids = [];
-  const add = (value2) => {
+  const add2 = (value2) => {
     if (value2 === null || value2 === void 0 || value2 === "") return;
-    if (Array.isArray(value2)) return value2.forEach(add);
+    if (Array.isArray(value2)) return value2.forEach(add2);
     ids.push(Number(value2));
   };
-  add(args.p_role_id);
-  add(args.p_role_ids);
+  add2(args.p_role_id);
+  add2(args.p_role_ids);
   const statics = [];
   const addStatic = (value2) => {
     if (value2 === null || value2 === void 0 || value2 === "") return;
@@ -14947,12 +16089,12 @@ function settingValue(rt, name) {
     appIdOf(rt.renderer),
     name
   );
-  if (override) return textOf(override.value);
+  if (override) return textOf2(override.value);
   const setting3 = sharedOf(rt.renderer, "appSetting").find(
     (component) => (str(component.props, "staticId") || component.id).toUpperCase() === name
   );
   if (!setting3) return null;
-  return textOf(str(setting3.props, "value.staticValue") || str(setting3.props, "staticValue"));
+  return textOf2(str(setting3.props, "value.staticValue") || str(setting3.props, "staticValue"));
 }
 var prefUser = (rt, args) => String(args.p_user ?? rt.ctx.session.user).toUpperCase();
 function getPreference(renderer, ctx, name) {
@@ -14964,7 +16106,7 @@ function getPreference(renderer, ctx, name) {
     ctx.session.user.toUpperCase(),
     name.toUpperCase()
   );
-  return row ? textOf(row.v) : null;
+  return row ? textOf2(row.v) : null;
 }
 function setPreference(renderer, ctx, name, value2, user) {
   ensureDictionary(renderer);
@@ -15027,8 +16169,8 @@ function submitFeedback(args, rt) {
     page_name: page ? str(page.props, "name", page.id) : null,
     session_id: rt.ctx.session.id,
     user_name: rt.ctx.session.user,
-    user_email: textOf(args.p_email),
-    feedback: textOf(args.p_comment),
+    user_email: textOf2(args.p_email),
+    feedback: textOf2(args.p_comment),
     feedback_type: Number(args.p_type ?? 1) || 1,
     feedback_rating: args.p_rating === null || args.p_rating === void 0 ? null : Number(args.p_rating),
     feedback_status: 0,
@@ -15039,8 +16181,8 @@ function submitFeedback(args, rt) {
   };
   for (let index = 1; index <= 8; index += 1) {
     const key = String(index).padStart(2, "0");
-    row[`attribute_${key}`] = textOf(args[`p_attribute_${key}`]);
-    row[`label_${key}`] = textOf(args[`p_label_${key}`]);
+    row[`attribute_${key}`] = textOf2(args[`p_attribute_${key}`]);
+    row[`label_${key}`] = textOf2(args[`p_label_${key}`]);
   }
   insertRow(db2, "apex_local_feedback", row);
   rt.note("info", `Feedback ${id} stored locally (APEX_TEAM_FEEDBACK)`);
@@ -15266,7 +16408,7 @@ var ADMIN_STUBS = {
       insertRow(db2, "apex_local_app_settings", {
         application_id: appIdOf(rt.renderer),
         name,
-        value: textOf(args.p_value),
+        value: textOf2(args.p_value),
         updated_on: now()
       });
       return null;
@@ -15281,7 +16423,7 @@ var ADMIN_STUBS = {
         rt.renderer,
         rt.ctx,
         String(args.p_preference ?? ""),
-        textOf(args.p_value),
+        textOf2(args.p_value),
         prefUser(rt, args)
       );
       return null;
@@ -15298,7 +16440,7 @@ var ADMIN_STUBS = {
         prefUser(rt, args),
         String(args.p_preference ?? "").toUpperCase()
       );
-      return row ? textOf(row.v) : null;
+      return row ? textOf2(row.v) : null;
     },
     sql: true
   },
@@ -15759,7 +16901,7 @@ function swap(current3, name, seq, direction) {
 }
 
 // packages/core/src/preview/extensions/platform/mail.ts
-var textOf2 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var textOf3 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
 function fillPlaceholders(template, values, html) {
   const upper4 = Object.fromEntries(Object.entries(values).map(([key, value2]) => [key.toUpperCase(), value2]));
   return template.replace(
@@ -15817,7 +16959,7 @@ function queueMail(renderer, ctx, mail) {
     body4 = rendered.text || null;
     bodyHtml = rendered.html || null;
   }
-  if (!textOf2(mail.to) && !textOf2(mail.cc) && !textOf2(mail.bcc))
+  if (!textOf3(mail.to) && !textOf3(mail.cc) && !textOf3(mail.bcc))
     throw new PlsqlException("ora-20001", -20001, "E-mail needs at least one recipient (p_to)", "app");
   const id = Number(one(db2, "select coalesce(max(id), 0) + 1 as id from apex_local_mail")?.id ?? 1);
   insertRow(db2, "apex_local_mail", {
@@ -15825,15 +16967,15 @@ function queueMail(renderer, ctx, mail) {
     application_id: Number(renderer.appId) || 0,
     session_id: ctx.session.id,
     user_name: ctx.session.user,
-    mail_to: textOf2(mail.to),
-    mail_from: textOf2(mail.from),
-    mail_replyto: textOf2(mail.replyTo),
-    mail_cc: textOf2(mail.cc),
-    mail_bcc: textOf2(mail.bcc),
-    mail_subj: textOf2(subject),
-    mail_body: textOf2(body4),
-    mail_body_html: textOf2(bodyHtml),
-    template_static_id: textOf2(mail.template),
+    mail_to: textOf3(mail.to),
+    mail_from: textOf3(mail.from),
+    mail_replyto: textOf3(mail.replyTo),
+    mail_cc: textOf3(mail.cc),
+    mail_bcc: textOf3(mail.bcc),
+    mail_subj: textOf3(subject),
+    mail_body: textOf3(body4),
+    mail_body_html: textOf3(bodyHtml),
+    template_static_id: textOf3(mail.template),
     placeholders: mail.placeholders && Object.keys(mail.placeholders).length ? JSON.stringify(mail.placeholders) : null,
     status: mail.immediate ? "SENT" : "QUEUED",
     created_on: now(),
@@ -15842,7 +16984,7 @@ function queueMail(renderer, ctx, mail) {
   });
   renderer.diagnose(
     "info",
-    `E-mail ${id} \u201C${textOf2(subject) ?? ""}\u201D to ${textOf2(mail.to) ?? ""} was written to the local outbox (${renderer.baseUrl}/__apex/x/outbox); nothing is sent`,
+    `E-mail ${id} \u201C${textOf3(subject) ?? ""}\u201D to ${textOf3(mail.to) ?? ""} was written to the local outbox (${renderer.baseUrl}/__apex/x/outbox); nothing is sent`,
     ctx.pageId
   );
   return id;
@@ -15867,15 +17009,15 @@ var sendParams = [
 function send(args, rt) {
   if (!rt) return null;
   return queueMail(rt.renderer, rt.ctx, {
-    to: textOf2(args.p_to),
-    from: textOf2(args.p_from),
-    cc: textOf2(args.p_cc),
-    bcc: textOf2(args.p_bcc),
-    replyTo: textOf2(args.p_replyto),
-    subject: textOf2(args.p_subj),
-    body: textOf2(args.p_body),
-    bodyHtml: textOf2(args.p_body_html),
-    template: textOf2(args.p_template_static_id),
+    to: textOf3(args.p_to),
+    from: textOf3(args.p_from),
+    cc: textOf3(args.p_cc),
+    bcc: textOf3(args.p_bcc),
+    replyTo: textOf3(args.p_replyto),
+    subject: textOf3(args.p_subj),
+    body: textOf3(args.p_body),
+    bodyHtml: textOf3(args.p_body_html),
+    template: textOf3(args.p_template_static_id),
     placeholders: parsePlaceholders(args.p_placeholders),
     source: "apex_mail.send"
   });
@@ -15900,8 +17042,8 @@ var MAIL_STUBS = {
           one(db2, "select coalesce(max(id), 0) + 1 as id from apex_local_mail_attachments")?.id ?? 1
         ),
         mail_id: Number(args.p_mail_id),
-        filename: textOf2(args.p_filename),
-        mime_type: textOf2(args.p_mime_type),
+        filename: textOf3(args.p_filename),
+        mime_type: textOf3(args.p_mime_type),
         size_bytes: args.p_attachment === null || args.p_attachment === void 0 ? 0 : String(args.p_attachment).length,
         created_on: now()
       });
@@ -15997,23 +17139,23 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs6 from "node:fs";
-import path8 from "node:path";
-var restDir = (renderer) => path8.join(renderer.app.root, ".apex-local", "rest");
+import fs7 from "node:fs";
+import path9 from "node:path";
+var restDir = (renderer) => path9.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
 function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
-    const file = path8.join(dir, `${safe(candidate)}.json`);
-    if (!fs6.existsSync(file)) continue;
-    const source = fs6.readFileSync(file, "utf8");
+    const file = path9.join(dir, `${safe(candidate)}.json`);
+    if (!fs7.existsSync(file)) continue;
+    const source = fs7.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
     } catch (error) {
       renderer.diagnose(
         "warning",
-        `REST fixture ${path8.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
+        `REST fixture ${path9.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
       );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
@@ -16040,7 +17182,7 @@ function logCall(renderer, ctx, entry) {
     source: entry.source,
     method: entry.method.toUpperCase(),
     url: entry.url,
-    fixture: entry.fixture ? path8.relative(renderer.app.root, entry.fixture.file) : null,
+    fixture: entry.fixture ? path9.relative(renderer.app.root, entry.fixture.file) : null,
     status_code: entry.fixture?.status ?? 404,
     request_body: entry.body ?? null,
     response_body: entry.fixture ? entry.fixture.text.slice(0, 4e3) : null,
@@ -16115,8 +17257,8 @@ function restRegionSql(renderer, ctx, region) {
   if (!sourceProps || str(sourceProps, "location") !== "restSource") return void 0;
   const cache3 = regionCache.get(ctx) ?? /* @__PURE__ */ new Map();
   regionCache.set(ctx, cache3);
-  const cached = cache3.get(region.id);
-  if (cached) return cached;
+  const cached2 = cache3.get(region.id);
+  if (cached2) return cached2;
   const sql = materialize(renderer, ctx, region, sourceProps);
   cache3.set(region.id, sql);
   return sql;
@@ -16480,12 +17622,12 @@ function startWorkflow(renderer, ctx, staticId, detailPk, parameters, initiator)
   );
   return id;
 }
-function createTask(renderer, ctx, staticId, options2) {
+function createTask(renderer, ctx, staticId, options3) {
   ensureDictionary(renderer);
   const definition = findShared(renderer, "taskDefinition", staticId);
   if (!definition) raise2(`Task definition ${staticId} is not defined in the APEXlang source`);
   const id = nextId(renderer, "apex_local_tasks", "task_id");
-  const subject = options2.subject || renderer.substitute(
+  const subject = options3.subject || renderer.substitute(
     ctx.session,
     str(definition.props, "subject") || str(definition.props, "settings.subject") || str(definition.props, "name", definition.id),
     ctx.page,
@@ -16497,13 +17639,13 @@ function createTask(renderer, ctx, staticId, options2) {
     task_def_static_id: staticIdOf(definition),
     task_def_name: str(definition.props, "name", definition.id),
     subject,
-    detail_pk: options2.detailPk ?? null,
-    initiator: (options2.initiator ?? ctx.session.user).toUpperCase(),
+    detail_pk: options3.detailPk ?? null,
+    initiator: (options3.initiator ?? ctx.session.user).toUpperCase(),
     actual_owner: null,
     potential_owners: ctx.session.user.toUpperCase(),
-    priority: options2.priority ?? (Number(str(definition.props, "settings.priority", "3")) || 3),
+    priority: options3.priority ?? (Number(str(definition.props, "settings.priority", "3")) || 3),
     state_code: "UNASSIGNED",
-    parameters: JSON.stringify(options2.parameters ?? {}),
+    parameters: JSON.stringify(options3.parameters ?? {}),
     created_on: now(),
     last_updated_by: ctx.session.user,
     last_updated_on: now()
@@ -16864,35 +18006,6 @@ function columnRef(component) {
 function findRegion2(renderer, ctx, id) {
   return renderer.pageComponents(ctx, "region").find((candidate) => renderer.regionDomId(candidate) === id || candidate.id === id);
 }
-function since2(value2, now2 = Date.now()) {
-  if (value2 === null || value2 === void 0 || value2 === "") return "";
-  const date = new Date(typeof value2 === "number" ? value2 : String(value2).replace(" ", "T"));
-  if (Number.isNaN(date.getTime())) return String(value2);
-  const seconds = Math.round((now2 - date.getTime()) / 1e3);
-  const future = seconds < 0;
-  const abs = Math.abs(seconds);
-  const units = [
-    [31536e3, "year"],
-    [2592e3, "month"],
-    [604800, "week"],
-    [86400, "day"],
-    [3600, "hour"],
-    [60, "minute"]
-  ];
-  for (const [size, unit] of units) {
-    const count = Math.floor(abs / size);
-    if (count >= 1) return `${count} ${unit}${count === 1 ? "" : "s"} ${future ? "from now" : "ago"}`;
-  }
-  return `${abs} second${abs === 1 ? "" : "s"} ${future ? "from now" : "ago"}`;
-}
-function formatValue2(raw2, mask2) {
-  if (raw2 === null || raw2 === void 0) return "";
-  if (!mask2) return String(raw2);
-  if (/^since(_short)?$/iu.test(mask2)) return since2(raw2);
-  if (/^pct_graph/iu.test(mask2)) return String(raw2);
-  return formatOracle(raw2, mask2) ?? "";
-}
-var SUPPORTED_MASK = /^(FM)?[L$]?[0-9GD,.]+$|9|^since(_short)?$|^[A-Z]{0,4}(YYYY|RR|YY|MON|MM|DD|HH|MI|SS|[ ./:-]|AM|PM|DS|DL|MONTH|FM)+$/iu;
 var Cells = class {
   #lovs = /* @__PURE__ */ new Map();
   renderer;
@@ -16943,15 +18056,21 @@ var Cells = class {
       bool(this.region.props, "security.escapeSpecialChars", true)
     );
   }
-  /** `#COLUMN#` substitutions inside templates use the escaped (or raw) column values. */
+  /**
+   * `#COLUMN#` substitutions inside templates use the escaped (or raw) column values; template
+   * directives (`{if/}`, `{case/}`, `{loop/}` ...) are evaluated over the row like APEX does for
+   * report HTML expressions. `&ITEM.` session state is substituted first.
+   */
   substituteRow(template, row, escape = true) {
-    const replaced = template.replace(/#([A-Za-z0-9_$]+)#/gu, (whole, key) => {
-      const name = key.toUpperCase();
-      if (!(name in row)) return whole;
-      const value2 = row[name] === null || row[name] === void 0 ? "" : String(row[name]);
-      return escape ? escapeHtml(value2) : value2;
+    if (!template) return "";
+    const values = {};
+    for (const [key, value2] of Object.entries(row))
+      values[key.toUpperCase()] = value2 === null || value2 === void 0 ? "" : String(value2);
+    const substituted = this.renderer.substitute(this.ctx.session, template, this.ctx.page, "HTML");
+    return applyTemplate(substituted, values, {
+      defaultEscape: escape ? "HTML" : false,
+      removeUnknown: false
     });
-    return this.renderer.substitute(this.ctx.session, replaced, this.ctx.page, "HTML");
   }
   /** Cell HTML. `trigger` is the JavaScript expression used as triggering element for dialog links. */
   html(column2, row, trigger) {
@@ -16964,7 +18083,7 @@ var Cells = class {
     if (expression) html = this.substituteRow(expression, row);
     const target2 = get(column2.props, "link.target");
     if (type === "link" || target2 !== void 0) {
-      const text8 = this.substituteRow(
+      const text9 = this.substituteRow(
         str(column2.props, "link.linkText", `#${column2.id.toUpperCase()}#`),
         row
       );
@@ -16975,7 +18094,7 @@ var Cells = class {
         row,
         trigger ?? `apex.jQuery('#${this.renderer.regionDomId(this.region)}')`
       );
-      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text8}</a>`;
+      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text9}</a>`;
     }
     if (type === "percentGraph" || /^pct_graph/iu.test(str(column2.props, "appearance.formatMask"))) {
       const percent = Math.max(0, Math.min(100, Number(row[column2.id.toUpperCase()]) || 0));
@@ -17089,7 +18208,7 @@ function inWindow(raw2, amount, unit, future, now2 = Date.now()) {
 function matches2(filter, raw2, display2) {
   const operator = normalizeOperator(filter.operator);
   const value2 = filter.value;
-  const text8 = display2.toLowerCase();
+  const text9 = display2.toLowerCase();
   const needle = value2.toLowerCase();
   const equalsEither = (candidate) => !isEmpty(raw2) && compareValues(raw2, candidate) === 0 && numeric2(raw2) !== void 0 || String(raw2 ?? "") === candidate || display2 === candidate;
   switch (operator) {
@@ -17106,11 +18225,11 @@ function matches2(filter, raw2, display2) {
     case "<=":
       return !isEmpty(raw2) && compareValues(raw2, value2) <= 0;
     case "contains":
-      return text8.includes(needle);
+      return text9.includes(needle);
     case "doesNotContain":
-      return !text8.includes(needle);
+      return !text9.includes(needle);
     case "startsWith":
-      return text8.startsWith(needle);
+      return text9.startsWith(needle);
     case "isNull":
       return isEmpty(raw2);
     case "isNotNull":
@@ -17269,8 +18388,8 @@ function diagnoseSavedReport(renderer, ctx, region, saved, support = {}) {
     );
 }
 function toCsv(headings2, rows, separator2 = ",", enclosure = '"') {
-  const quote4 = (value2) => enclosure && (value2.includes(separator2) || value2.includes(enclosure) || /[\r\n]/u.test(value2)) ? `${enclosure}${value2.replaceAll(enclosure, enclosure + enclosure)}${enclosure}` : value2;
-  return [headings2, ...rows].map((line) => line.map(quote4).join(separator2)).join("\r\n") + "\r\n";
+  const quote5 = (value2) => enclosure && (value2.includes(separator2) || value2.includes(enclosure) || /[\r\n]/u.test(value2)) ? `${enclosure}${value2.replaceAll(enclosure, enclosure + enclosure)}${enclosure}` : value2;
+  return [headings2, ...rows].map((line) => line.map(quote5).join(separator2)).join("\r\n") + "\r\n";
 }
 function stringList(values) {
   return values.map(
@@ -17295,6 +18414,8 @@ function classicState(ctx, region) {
   }));
 }
 var PAGINATION_TYPES = /* @__PURE__ */ new Set([
+  "showAll",
+  "externalPaginationButtons",
   "rowRangesXToY",
   "rowRangesXToYOfZ",
   "rowRangesXToYNoPagination",
@@ -17307,7 +18428,7 @@ var PAGINATION_TYPES = /* @__PURE__ */ new Set([
 ]);
 function pagination(template, type, pager) {
   const { domId, page, perPage, total, shown, align } = pager;
-  if (!shown) return "";
+  if (!shown || type === "showAll" || type === "externalPaginationButtons") return "";
   const first = (page - 1) * perPage + 1;
   const last = first + shown - 1;
   const pages2 = Math.max(1, Math.ceil(total / perPage));
@@ -17326,12 +18447,12 @@ function pagination(template, type, pager) {
   ) : "";
   if (type === "nextAndPreviousLinks") return `<tr><td colspan="99"${align}>${previous}${next}</td></tr>`;
   if (type === "setPaginationSelectList") {
-    const options2 = Array.from({ length: pages2 }, (_unused, index) => {
+    const options3 = Array.from({ length: pages2 }, (_unused, index) => {
       const from = index * perPage + 1;
       const to = Math.min(total, from + perPage - 1);
       return `<option value="${index + 1}"${index + 1 === page ? " selected" : ""}>${from} - ${to} of ${total}</option>`;
     }).join("");
-    return `<tr><td colspan="99"${align}>${previous}<select class="t-Report-paginationSelect apex-item-select" aria-label="Pagination" onchange="apexLocalReports.paginate('${escapeHtml(domId)}',this.value)">${options2}</select>${next}</td></tr>`;
+    return `<tr><td colspan="99"${align}>${previous}<select class="t-Report-paginationSelect apex-item-select" aria-label="Pagination" onchange="apexLocalReports.paginate('${escapeHtml(domId)}',this.value)">${options3}</select>${next}</td></tr>`;
   }
   if (type === "setPaginationLinks" || type === "setPaginationSearchEngine") {
     const links = Array.from({ length: pages2 }, (_unused, index) => {
@@ -17364,9 +18485,9 @@ function classicReport(renderer, ctx, region) {
   const columns = all2.filter(
     (column2) => !/^hidden/u.test(str(column2.props, "type")) && !isSpecialColumn(column2.id)
   );
-  const perPage = Math.max(1, num(region.props, "reportLayout.numberOfRows", 15));
   const type = str(region.props, "pagination.type", "rowRangesXToY");
-  const noPaging = /NoPagination$/u.test(type);
+  const perPage = type === "showAll" ? Math.max(1, rows.length) : Math.max(1, num(region.props, "reportLayout.numberOfRows", 15));
+  const noPaging = /NoPagination$/u.test(type) || type === "showAll";
   const key = stateKey(ctx.pageId, region.id);
   const pages2 = Math.max(1, Math.ceil(rows.length / perPage));
   const page = noPaging ? 1 : Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
@@ -18369,6 +19490,21 @@ window.apexLocalReports = (function ($) {
     apex.message.showErrors(messages);
   }
 
+  // Errors of a page submit that belong to grid rows (regionDomId, recordId, columnName) mark the
+  // cells too, as the Interactive Grid does with the errors of its region.
+  var baseShowErrors = apex.message.showErrors;
+  apex.message.showErrors = function (errors) {
+    (Array.isArray(errors) ? errors : errors ? [errors] : []).forEach(function (error) {
+      var ig = error && error.regionDomId && grids[error.regionDomId];
+      if (!ig || !error.recordId || !error.columnName) return;
+      var model = apex.model.get(ig.cfg.modelName);
+      if (!model) return;
+      if (model.getRecord(error.recordId)) model.setValidity("error", error.recordId, error.columnName, error.message);
+      apex.model.release(ig.cfg.modelName);
+    });
+    return baseShowErrors.apply(this, arguments);
+  };
+
   function saveGrid(ig) {
     var changes = gridChanges(ig);
     if (!changes.length) { apex.message.showPageSuccess("No changes to save"); return Promise.resolve(); }
@@ -18992,14 +20128,25 @@ var RESERVED = /* @__PURE__ */ new Set([
   "BETWEEN",
   "DATE"
 ]);
-function identifiers(columns) {
-  const id = (index) => {
+function identifiers(columns, others = []) {
+  const letters = (index) => {
     let name = "";
     for (let value2 = index + 1; value2 > 0; value2 = Math.floor((value2 - 1) / 26))
       name = String.fromCharCode(65 + (value2 - 1) % 26) + name;
     return name;
   };
-  return columns.map((column2, index) => ({ id: id(index), name: column2.id.toUpperCase() }));
+  const alias = (column2) => str(column2.props, "advanced.endUserAlias").trim().toUpperCase();
+  const used = new Set([...columns, ...others].map(alias).filter(Boolean));
+  let next = 0;
+  return columns.map((column2) => {
+    let id = alias(column2);
+    if (!id) {
+      while (used.has(letters(next))) next += 1;
+      id = letters(next);
+      used.add(id);
+    }
+    return { id, name: column2.id.toUpperCase() };
+  });
 }
 function computationSql(expression, ids, alias = "apex_local_q") {
   const byId = new Map(ids.map((entry) => [entry.id, entry.name]));
@@ -19833,7 +20980,7 @@ function interactiveGrid(renderer, ctx, region) {
   const data = grid.data;
   const order = state2.columns;
   const sortIndex = new Map(state2.sort.map((entry, index) => [entry.column, { ...entry, index }]));
-  const hasSelector2 = model.columns.some((column2) => column2.type === "rowSelector");
+  const hasSelector = model.columns.some((column2) => column2.type === "rowSelector");
   const hasActions = model.columns.some((column2) => column2.type === "actionsMenu");
   const editable = model.editable && (model.allowed.update || model.allowed.add || model.allowed.delete);
   const items = [];
@@ -19918,7 +21065,7 @@ function interactiveGrid(renderer, ctx, region) {
     columns: gridColumns,
     editable,
     allowed: model.allowed,
-    rowSelector: hasSelector2,
+    rowSelector: hasSelector,
     rowActions: hasActions,
     rowsPerPage: state2.rowsPerPage && state2.rowsPerPage > 0 ? state2.rowsPerPage : pagination2 === "page" ? 50 : 0,
     pagination: pagination2,
@@ -20000,14 +21147,14 @@ function saveGrid(renderer, ctx, region, changes) {
       if (!column2.databaseColumn || column2.primaryKey) continue;
       const value3 = change.values[column2.name];
       const props = column2.component.props;
-      const text8 = value3 === null || value3 === void 0 ? "" : String(value3);
+      const text9 = value3 === null || value3 === void 0 ? "" : String(value3);
       const location = { ...change.id ? { id: change.id } : {}, column: column2.name };
-      if (get(props, "validation.valueRequired") === true && text8 === "")
+      if (get(props, "validation.valueRequired") === true && text9 === "")
         errors.push({ ...location, message: `${label(column2)} must have some value.` });
       const max = num(props, "validation.maxLength", 0);
-      if (max && text8.length > max)
+      if (max && text9.length > max)
         errors.push({ ...location, message: `${label(column2)} must have at most ${max} characters.` });
-      if (column2.type === "numberField" && text8 !== "" && !Number.isFinite(Number(text8.replaceAll(",", ""))))
+      if (column2.type === "numberField" && text9 !== "" && !Number.isFinite(Number(text9.replaceAll(",", ""))))
         errors.push({ ...location, message: `${label(column2)} must be Numeric.` });
     }
   }
@@ -20027,10 +21174,10 @@ function saveGrid(renderer, ctx, region, changes) {
   const where2 = keyColumns.map((column2, index) => `${column2} = :K${index}`).join(" and ");
   const bindName = (column2) => `C_${column2.name.replace(/\W/gu, "_")}`;
   const value2 = (column2, raw2) => {
-    const text8 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-    if (text8 === "") return null;
-    if (column2.type === "numberField") return text8.replaceAll(",", "");
-    return text8;
+    const text9 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+    if (text9 === "") return null;
+    if (column2.type === "numberField") return text9.replaceAll(",", "");
+    return text9;
   };
   let saved = 0;
   renderer.db.execute("savepoint apex_local_ig");
@@ -20153,7 +21300,10 @@ function irModel(renderer, ctx, region) {
   const limit = rowLimit(region, 1e5);
   let result = sql ? renderer.query(ctx, region, sql, limit + 1) : { columns: [], rows: [], error: "no local source" };
   const base = regionColumns(region, result.columns);
-  const ids = identifiers(base.filter((column2) => !isSpecialColumn(column2.id)));
+  const ids = identifiers(
+    base.filter((column2) => !isSpecialColumn(column2.id)),
+    base.filter((column2) => isSpecialColumn(column2.id))
+  );
   let computed = [];
   if (sql && !result.error && views.computations.length) {
     const working = workingComputations(renderer, ctx, region, sql, views, ids);
@@ -20299,8 +21449,8 @@ function chipHtml(id, chip) {
   return `<li class="a-IRR-controls-item a-IRR-controls-item--${CHIP_CLASS[chip.kind] ?? chip.kind} a-Chip a-Chip--applied">${checkbox2}<div class="a-IRR-controls-cell a-Chip-label">${icon2(chip.icon)}</div><div class="a-IRR-controls-cell a-IRR-controls-cell--label a-Chip-text">${label}</div>${chip.removable ? `<div class="a-IRR-controls-cell a-IRR-controls-cell--remove"><button type="button" class="a-Button a-IRR-button a-IRR-button--remove a-Chip-remove" data-apex-local-ir-chip-remove="${control2}" title="Remove" aria-label="Remove ${escapeHtml(chip.label)}">${icon2("icon-remove")}</button></div>` : ""}</li>`;
 }
 var style = (value2) => value2 ? ` style="${escapeHtml(value2)}"` : "";
-function reportTable(options2) {
-  const { renderer, ctx, region, model, id, domId, visible, start, lastPage, link } = options2;
+function reportTable(options3) {
+  const { renderer, ctx, region, model, id, domId, visible, start, lastPage, link } = options3;
   const { state: state2, views, cells, displayed, breaks, byName } = model;
   const linkIcon = renderer.substitute(
     ctx.session,
@@ -20349,15 +21499,15 @@ function reportTable(options2) {
   }).join("")}</tr>`;
   const dataRow = (row, index) => {
     const highlight2 = views.highlights.length ? highlightRow(views.highlights, row, cells, byName) : { cells: /* @__PURE__ */ new Map() };
-    const rowStyle = "row" in highlight2 ? highlight2.row : void 0;
-    const linkCell = link === "custom" ? `<td class="a-IRR-linkCol u-tC"${style(rowStyle)}><a href="${escapeHtml(renderer.link(ctx, get(region.props, "link.target"), row, trigger))}">${linkIcon}</a></td>` : link === "single" ? `<td class="a-IRR-linkCol u-tC"${style(rowStyle)}><a href="#" class="apex-local-singleRowLink" data-apex-local-ir-single="${index}" title="Single Row View" aria-label="Single Row View">${linkIcon}</a></td>` : "";
+    const rowStyle2 = "row" in highlight2 ? highlight2.row : void 0;
+    const linkCell = link === "custom" ? `<td class="a-IRR-linkCol u-tC"${style(rowStyle2)}><a href="${escapeHtml(renderer.link(ctx, get(region.props, "link.target"), row, trigger))}">${linkIcon}</a></td>` : link === "single" ? `<td class="a-IRR-linkCol u-tC"${style(rowStyle2)}><a href="#" class="apex-local-singleRowLink" data-apex-local-ir-single="${index}" title="Single Row View" aria-label="Single Row View">${linkIcon}</a></td>` : "";
     return `<tr>${linkCell}${displayed.map((column2) => {
       const name = column2.id.toUpperCase();
       const classes2 = [
         renderer.alignment(column2, row[name]),
         ...stringList(list(column2.props, "appearance.cssClasses"))
       ].filter(Boolean).join(" ");
-      return `<td class="${escapeHtml(classes2)}" headers="${headerId(column2)}"${style(highlight2.cells.get(name) ?? rowStyle)}>${cells.html(column2, row, trigger)}</td>`;
+      return `<td class="${escapeHtml(classes2)}" headers="${headerId(column2)}"${style(highlight2.cells.get(name) ?? rowStyle2)}>${cells.html(column2, row, trigger)}</td>`;
     }).join("")}</tr>`;
   };
   let html = breaks.length ? "" : header2(true);
@@ -20496,8 +21646,8 @@ ${searchField ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--search"><div
   const available = ["groupBy", "pivot", "chart"].filter((view2) => views[view2]);
   const view = views.view !== "report" && views[views.view] ? views.view : "report";
   const tabs = available.length ? `<div class="a-IRR-viewTabs" id="${id}_view_tabs"><ul class="a-IRR-viewTabs-list" role="tablist" aria-label="Report Views">${["report", ...available].map((entry) => {
-    const active2 = entry === view;
-    return `<li class="a-IRR-viewTabs-item"><div class="a-IRR-viewTabs-tab${active2 ? " is-active" : ""}${entry === "report" ? "" : " a-IRR-viewTabs-tab--removable"}"><button type="button" role="tab" class="a-IRR-viewTabs-tabButton${active2 ? " is-active" : ""}" aria-selected="${active2}" tabindex="${active2 ? 0 : -1}" data-view="${entry}" data-apex-local-ir-view="${entry}">${icon2(VIEW_ICONS[entry])}<span class="a-IRR-viewTabs-label">${VIEW_LABELS[entry]}</span>${entry === "report" ? "" : `<span class="a-IRR-viewTabs-close" role="button" data-view-close="${entry}" data-apex-local-ir-close-view="${entry}" title="Remove ${VIEW_LABELS[entry]}" aria-label="Remove ${VIEW_LABELS[entry]}">${icon2("icon-remove")}</span>`}</button></div></li>`;
+    const active3 = entry === view;
+    return `<li class="a-IRR-viewTabs-item"><div class="a-IRR-viewTabs-tab${active3 ? " is-active" : ""}${entry === "report" ? "" : " a-IRR-viewTabs-tab--removable"}"><button type="button" role="tab" class="a-IRR-viewTabs-tabButton${active3 ? " is-active" : ""}" aria-selected="${active3}" tabindex="${active3 ? 0 : -1}" data-view="${entry}" data-apex-local-ir-view="${entry}">${icon2(VIEW_ICONS[entry])}<span class="a-IRR-viewTabs-label">${VIEW_LABELS[entry]}</span>${entry === "report" ? "" : `<span class="a-IRR-viewTabs-close" role="button" data-view-close="${entry}" data-apex-local-ir-close-view="${entry}" title="Remove ${VIEW_LABELS[entry]}" aria-label="Remove ${VIEW_LABELS[entry]}">${icon2("icon-remove")}</span>`}</button></div></li>`;
   }).join("")}</ul></div>` : "";
   const chips = [];
   if (currentReport && !currentReport.primary)
@@ -20708,6 +21858,104 @@ th,td{border:1px solid #c8c8c8;padding:4px 6px;text-align:left;vertical-align:to
 td.num,th.num{text-align:right}thead{display:table-header-group}tr{break-inside:avoid}
 @media print{.note{display:none}body{margin:0}}
 </style></head><body><p class="note"><strong>Local preview:</strong> PDF files are not generated without the database. This print-friendly page stands in for the PDF download; use your browser's Print \u2192 Save as PDF. <button type="button" onclick="window.print()">Print</button></p><h1>${escapeHtml(title)}</h1><table><thead><tr>${headings2.map((heading3, index) => `<th${align(index)}>${escapeHtml(heading3)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell, index) => `<td${align(index)}>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
+}
+
+// packages/core/src/preview/extensions/server/rows.ts
+var ROW_STATUS = { insert: "C", update: "U", delete: "D" };
+function regionValidations(renderer, ctx, region) {
+  return renderer.pageComponents(ctx, "validation").filter((validation) => ref(validation.props, "validation.editableRegion") === region.id).sort(
+    (a, b) => Number(str(a.props, "execution.sequence", "0")) - Number(str(b.props, "execution.sequence", "0"))
+  );
+}
+function asItemValidation(validation) {
+  const type = str(validation.props, "validation.type");
+  if (!/^column/u.test(type)) return validation;
+  const settings2 = validation.props.validation;
+  return {
+    ...validation,
+    props: {
+      ...validation.props,
+      validation: {
+        ...settings2,
+        type: type.replace(/^column/u, "item"),
+        item: str(validation.props, "validation.column")
+      }
+    }
+  };
+}
+function validateRows(renderer, ctx, region, changes) {
+  const validations = regionValidations(renderer, ctx, region);
+  if (!validations.length || !changes.length) return [];
+  const cells = new Cells(renderer, ctx, region);
+  const columns = region.children.filter((child) => child.type === "column");
+  const heading3 = (name) => {
+    const column2 = columns.find((candidate) => candidate.id.toUpperCase() === name);
+    return column2 ? cells.label(column2) : name;
+  };
+  const errors = [];
+  const items = ctx.session.items;
+  for (const change of changes) {
+    if (change.op === "delete") continue;
+    const saved = {};
+    const overlay = { ...change.values, APEX$ROW_STATUS: ROW_STATUS[change.op] };
+    for (const [name, value2] of Object.entries(overlay)) {
+      saved[name] = Object.hasOwn(items, name) ? items[name] : void 0;
+      items[name] = value2 ?? "";
+    }
+    try {
+      for (const validation of validations) {
+        if (!renderer.whenButton(ctx, validation.props) || !renderer.condition(ctx, validation.props))
+          continue;
+        const column2 = (str(validation.props, "error.associatedColumn") || str(validation.props, "validation.column")).toUpperCase();
+        const message = renderer.validationFailure(ctx, asItemValidation(validation), {
+          columnHeader: column2 ? heading3(column2) : ""
+        });
+        if (message === null) continue;
+        errors.push({
+          ...change.id ? { id: change.id } : {},
+          ...column2 ? { column: column2 } : {},
+          message
+        });
+      }
+    } finally {
+      for (const [name, value2] of Object.entries(saved)) {
+        if (value2 === void 0) delete items[name];
+        else items[name] = value2;
+      }
+    }
+  }
+  return errors;
+}
+function rowErrorsForPage(renderer, region, errors) {
+  const regionDomId = renderer.regionDomId(region);
+  return errors.map((error) => ({
+    type: "error",
+    location: ["page"],
+    regionDomId,
+    ...error.id ? { recordId: error.id } : {},
+    ...error.column ? { columnName: error.column } : {},
+    message: error.message,
+    unsafe: false
+  }));
+}
+function pageRowValidation(renderer, ctx) {
+  const regions = /* @__PURE__ */ new Map();
+  for (const validation of renderer.pageComponents(ctx, "validation")) {
+    const id = ref(validation.props, "validation.editableRegion");
+    if (!id || regions.has(id)) continue;
+    const region = renderer.pageComponents(ctx, "region").find((candidate) => candidate.id === id);
+    if (region) regions.set(id, region);
+  }
+  const errors = [];
+  for (const region of regions.values()) {
+    const state2 = peekState(ctx.session, stateKey(ctx.pageId, region.id));
+    const changes = state2?.pending?.changes ?? [];
+    const failures = validateRows(renderer, ctx, region, changes);
+    if (!failures.length) continue;
+    if (state2) state2.pending = void 0;
+    errors.push(...rowErrorsForPage(renderer, region, failures));
+  }
+  return errors;
 }
 
 // packages/core/src/preview/extensions/reports.ts
@@ -21182,7 +22430,10 @@ function saveRoute(renderer, session, request) {
       ]
     });
   }
-  return json4(saveGrid(renderer, found.ctx, found.region, changesOf(input)));
+  const changes = changesOf(input);
+  const rowErrors = validateRows(renderer, found.ctx, found.region, changes);
+  if (rowErrors.length) return json4({ ok: false, saved: 0, errors: rowErrors });
+  return json4(saveGrid(renderer, found.ctx, found.region, changes));
 }
 function stageRoute(renderer, session, request) {
   const input = body(request);
@@ -21260,6 +22511,15 @@ function report(renderer, ctx, who, result, consequence) {
   );
   return void 0;
 }
+function failureError(component, result, message) {
+  const custom = str(component.props, "error.errorMessage");
+  return {
+    type: "error",
+    location: ["page"],
+    message: custom ? custom.replaceAll("#SQLERRM#", result.failure.message).replaceAll("#SQLERRM_TEXT#", message) : message,
+    unsafe: false
+  };
+}
 function run(renderer, ctx, code, mode, who) {
   rememberRenderer(renderer);
   return runPlsql(renderer, ctx, code, mode, who);
@@ -21284,15 +22544,16 @@ function executeCode(renderer, ctx, process2, point) {
   const result = run(renderer, ctx, code, "block", who);
   const errors = [...result.errors];
   if (!result.ok) {
-    const message = report(renderer, ctx, who, result, "the process was skipped");
+    const unsupported2 = result.failure?.kind === "unsupported";
+    const message = report(
+      renderer,
+      ctx,
+      who,
+      result,
+      unsupported2 ? "the process was skipped" : "processing stopped with this error"
+    ) ?? (unsupported2 ? void 0 : result.failure.message);
     if (message === void 0) return { ran: false };
-    const custom = str(process2.props, "error.errorMessage");
-    errors.push({
-      type: "error",
-      location: ["page"],
-      message: custom ? custom.replaceAll("#SQLERRM#", result.failure.message).replaceAll("#SQLERRM_TEXT#", message) : message,
-      unsafe: false
-    });
+    errors.push(failureError(process2, result, message));
   }
   if (errors.length) {
     if (point === "beforeHeader") {
@@ -21361,8 +22622,8 @@ function errorTextValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "functionBody");
   if (!result) return void 0;
   if (!result.ok) return report(renderer, ctx, owner(validation), result, "treated as passed") ?? null;
-  const text8 = itemText(result.value);
-  return addedError(result) ?? (text8 ? text8 : null);
+  const text9 = itemText(result.value);
+  return addedError(result) ?? (text9 ? text9 : null);
 }
 function plsqlErrorValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "block");
@@ -21591,16 +22852,17 @@ registerExtension({
     if (!code.trim()) return true;
     const who = owner(component);
     const result = run(renderer, ctx, code, "block", who);
+    const errors = [...result.errors];
     if (!result.ok) {
-      const message = report(renderer, ctx, who, result, "skipped");
-      if (message !== void 0) {
-        ctx.session.errors = [
-          ...ctx.session.errors ?? [],
-          { type: "error", location: ["page"], message, unsafe: false }
-        ];
-      }
+      const unsupported2 = result.failure?.kind === "unsupported";
+      const message = report(renderer, ctx, who, result, unsupported2 ? "skipped" : "stopped with this error") ?? (unsupported2 ? void 0 : result.failure.message);
+      if (message !== void 0) errors.push(failureError(component, result, message));
     }
-    return result.ok;
+    if (errors.length) {
+      if (ctx.processErrors) ctx.processErrors.push(...errors);
+      else ctx.session.errors = [...ctx.session.errors ?? [], ...errors];
+    }
+    return result.ok && !errors.length;
   },
   expression: (renderer, ctx, expression, language) => {
     if (!expression.trim()) return void 0;
@@ -21652,7 +22914,7 @@ registerExtension({
     itemMatchesRegexp: itemCheck((value2, validation) => {
       if (value2 === "") return true;
       try {
-        return new RegExp(str(validation.props, "validation.regexp"), "u").test(value2);
+        return oracleRegExp(str(validation.props, "validation.regexp")).test(value2);
       } catch {
         return true;
       }
@@ -21750,6 +23012,7 @@ registerExtension({
     }
     return errors;
   },
+  rowValidation: (renderer, ctx) => pageRowValidation(renderer, ctx),
   page: (renderer) => rememberRenderer(renderer),
   authorize: (renderer, ctx, scheme) => enforcedAuthorization(renderer, ctx, scheme) === 1
 });
@@ -21943,32 +23206,32 @@ var STRUCTURE_JS = String.raw`
 var LITERAL = "";
 function mask(sql) {
   const literals = [];
-  const text8 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+  const text9 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
     literals.push(literal2);
     return `${LITERAL}${literals.length - 1}${LITERAL}`;
   });
-  return { text: text8, literals };
+  return { text: text9, literals };
 }
-function unmask2(text8, literals) {
-  return text8.replace(
+function unmask2(text9, literals) {
+  return text9.replace(
     new RegExp(`${LITERAL}(\\d+)${LITERAL}`, "gu"),
     (_whole, index) => String(literals[Number(index)])
   );
 }
-function depths(text8) {
+function depths(text9) {
   const result = [];
   let depth = 0;
-  for (const char of text8) {
+  for (const char of text9) {
     if (char === ")") depth -= 1;
     result.push(depth);
     if (char === "(") depth += 1;
   }
   return result;
 }
-function find(text8, level, pattern, depth) {
+function find(text9, level, pattern, depth) {
   const found = [];
   const regex = new RegExp(pattern.source, "giu");
-  for (let match = regex.exec(text8); match; match = regex.exec(text8)) {
+  for (let match = regex.exec(text9); match; match = regex.exec(text9)) {
     if (level[match.index] === depth) found.push({ index: match.index, end: match.index + match[0].length });
   }
   return found;
@@ -22000,10 +23263,10 @@ var CLAUSES = [
   ["group", /\bgroup\s+by\b/],
   ["set", /\b(?:union|intersect|minus|except)\b/]
 ];
-function rewriteSelect(text8, level, depth) {
+function rewriteSelect(text9, level, depth) {
   const marks = [];
   for (const [name, pattern] of CLAUSES) {
-    for (const hit of find(text8, level, pattern, depth)) marks.push({ name, ...hit });
+    for (const hit of find(text9, level, pattern, depth)) marks.push({ name, ...hit });
   }
   const siblings = marks.filter((mark) => mark.name === "siblings");
   const clauses = marks.filter(
@@ -22018,7 +23281,7 @@ function rewriteSelect(text8, level, depth) {
     if (index < 0) return void 0;
     const mark = clauses[index];
     const next = clauses[index + 1];
-    return text8.slice(mark.end, next ? next.index : text8.length).trim();
+    return text9.slice(mark.end, next ? next.index : text9.length).trim();
   };
   const selectList2 = body4("select");
   const fromClause = body4("from");
@@ -22100,36 +23363,36 @@ function requalify(expression, alias, to) {
 }
 function translateHierarchy(sql) {
   const masked = mask(sql);
-  let text8 = masked.text;
-  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text8)) return { sql };
+  let text9 = masked.text;
+  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text9)) return { sql };
   for (let guard2 = 0; guard2 < 8; guard2 += 1) {
-    const level = depths(text8);
-    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text8);
+    const level = depths(text9);
+    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text9);
     if (!match) break;
     const depth = level[match.index];
     let start = 0;
-    let end = text8.length;
+    let end = text9.length;
     if (depth > 0) {
       for (let index = match.index; index >= 0; index -= 1) {
-        if (text8[index] === "(" && level[index] === depth - 1) {
+        if (text9[index] === "(" && level[index] === depth - 1) {
           start = index + 1;
           break;
         }
       }
-      for (let index = match.index; index < text8.length; index += 1) {
-        if (text8[index] === ")" && level[index] === depth - 1) {
+      for (let index = match.index; index < text9.length; index += 1) {
+        if (text9[index] === ")" && level[index] === depth - 1) {
           end = index;
           break;
         }
       }
     }
-    const fragment = text8.slice(start, end);
+    const fragment = text9.slice(start, end);
     const fragmentLevel = level.slice(start, end);
     const rewritten = rewriteSelect(fragment, fragmentLevel, depth);
     if (typeof rewritten !== "string") return { sql, unsupported: rewritten.unsupported };
-    text8 = text8.slice(0, start) + rewritten + text8.slice(end);
+    text9 = text9.slice(0, start) + rewritten + text9.slice(end);
   }
-  return { sql: unmask2(text8, masked.literals) };
+  return { sql: unmask2(text9, masked.literals) };
 }
 
 // packages/core/src/preview/extensions/structure/legacy.ts
@@ -22165,10 +23428,10 @@ function columnSetting2(region, name, key) {
   return column2 ? str(column2.props, `settings.${key}`) : "";
 }
 function layoutClasses(region) {
-  const options2 = str(region.props, "settings.layoutOptions", "stripes:stroke").toLowerCase();
+  const options3 = str(region.props, "settings.layoutOptions", "stripes:stroke").toLowerCase();
   return [
-    /strip/u.test(options2) ? "apex-local-rwd--stripes" : "",
-    /stroke/u.test(options2) ? "apex-local-rwd--stroke" : "",
+    /strip/u.test(options3) ? "apex-local-rwd--stripes" : "",
+    /stroke/u.test(options3) ? "apex-local-rwd--stroke" : "",
     str(region.props, "settings.cssClasses")
   ].filter(Boolean).join(" ");
 }
@@ -22247,8 +23510,8 @@ function tabformTable(renderer, ctx, region) {
 }
 function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
   const type = column2 ? str(column2.props, "type", "plainText") : "plainText";
-  const text8 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-  const value2 = escapeHtml(text8);
+  const text9 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+  const value2 = escapeHtml(text9);
   const data = `data-tabform-col="${escapeHtml(name)}" data-orig="${value2}"`;
   const width = column2 ? num(column2.props, "appearance.width", 0) : 0;
   const label = escapeHtml(str(column2?.props ?? {}, "heading.heading", name));
@@ -22263,16 +23526,16 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
       return `<textarea class="textarea" ${data} rows="${num(column2.props, "appearance.height", 2)}" aria-label="${label}">${value2}</textarea>`;
     case "selectList":
     case "radioGroup": {
-      const options2 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
+      const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
       const nullOption = get(column2.props, "lov.displayNullValue") === true;
-      const known = options2.some((option) => option.r === text8);
-      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text8 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options2.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text8 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
+      const known = options3.some((option) => option.r === text9);
+      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text9 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options3.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text9 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
     }
     case "simpleCheckbox": {
       const [checkedValue = "Y", uncheckedValue = ""] = str(column2.props, "lov.checkboxValues", "Y").split(
         ","
       );
-      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text8 === checkedValue ? " checked" : ""} aria-label="${label}">`;
+      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text9 === checkedValue ? " checked" : ""} aria-label="${label}">`;
     }
     case "hiddenSavesState":
       return `<input type="hidden" ${data} value="${value2}">`;
@@ -22288,8 +23551,8 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
       return `<a href="${escapeHtml(renderer.link(ctx, isObject(target2) || typeof target2 === "string" ? target2 : void 0, row))}">${linkText}</a>`;
     }
     case "plainTextBasedOnLov": {
-      const options2 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
-      return escapeHtml(options2.find((option) => option.r === text8)?.d ?? text8);
+      const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
+      return escapeHtml(options3.find((option) => option.r === text9)?.d ?? text9);
     }
     default:
       return value2;
@@ -22395,7 +23658,7 @@ function tabformTarget(renderer, ctx, process2) {
   }
   return { region, table, pk };
 }
-var quote2 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
+var quote3 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
 function failure(renderer, ctx, process2, error) {
   const message = error.message;
   renderer.diagnose("error", `Tabular form process ${process2.id} failed: ${message}`, ctx.pageId, process2.id);
@@ -22421,15 +23684,15 @@ var tabformUpdate = (renderer, ctx, process2, point) => {
       if (row.key) {
         if (!row.changed || !values.length) continue;
         renderer.db.execute(
-          `update ${target2.table} set ${values.map(([name], index) => `${quote2(name)} = :APEX_LOCAL_V${index}`).join(", ")} where ${quote2(target2.pk)} = :APEX_LOCAL_KEY`,
+          `update ${target2.table} set ${values.map(([name], index) => `${quote3(name)} = :APEX_LOCAL_V${index}`).join(", ")} where ${quote3(target2.pk)} = :APEX_LOCAL_KEY`,
           { ...binds, APEX_LOCAL_KEY: row.key }
         );
         updated += 1;
       } else if (values.some(([, value2]) => value2 !== "")) {
         const provided = row.values[target2.pk];
-        const key = provided || String(renderer.db.scalar(`select coalesce(max(${quote2(target2.pk)}), 0) + 1 from ${target2.table}`));
+        const key = provided || String(renderer.db.scalar(`select coalesce(max(${quote3(target2.pk)}), 0) + 1 from ${target2.table}`));
         renderer.db.execute(
-          `insert into ${target2.table} (${[quote2(target2.pk), ...values.map(([name]) => quote2(name))].join(", ")}) values (:APEX_LOCAL_KEY${values.map((_value, index) => `, :APEX_LOCAL_V${index}`).join("")})`,
+          `insert into ${target2.table} (${[quote3(target2.pk), ...values.map(([name]) => quote3(name))].join(", ")}) values (:APEX_LOCAL_KEY${values.map((_value, index) => `, :APEX_LOCAL_V${index}`).join("")})`,
           { ...binds, APEX_LOCAL_KEY: key }
         );
         inserted += 1;
@@ -22449,7 +23712,7 @@ var tabformDelete = (renderer, ctx, process2, point) => {
   const keys = submittedRows(ctx, target2.region).filter((row) => row.selected && row.key).map((row) => row.key);
   try {
     for (const key of keys)
-      renderer.db.execute(`delete from ${target2.table} where ${quote2(target2.pk)} = :APEX_LOCAL_KEY`, {
+      renderer.db.execute(`delete from ${target2.table} where ${quote3(target2.pk)} = :APEX_LOCAL_KEY`, {
         APEX_LOCAL_KEY: key
       });
   } catch (error) {
@@ -22559,9 +23822,9 @@ function searchItem(renderer, ctx, region) {
   );
   return slotted ? slotted.id.toUpperCase() : "";
 }
-var quote3 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
-function highlight(text8, terms) {
-  let html = escapeHtml(text8);
+var quote4 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
+function highlight(text9, terms) {
+  let html = escapeHtml(text9);
   for (const term of terms) {
     const safe2 = escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     if (safe2)
@@ -22572,8 +23835,8 @@ function highlight(text8, terms) {
   }
   return html;
 }
-function initials2(text8) {
-  return text8.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
+function initials2(text9) {
+  return text9.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
 }
 function configRows(renderer, ctx, config, terms, limit) {
   const type = str(config.props, "type", "simple");
@@ -22609,7 +23872,7 @@ function configRows(renderer, ctx, config, terms, limit) {
   if (terms.length && columns.length) {
     const like = (term) => `'%${term.replaceAll("'", "''")}%'`;
     const conditions2 = terms.map(
-      (term) => `(${columns.map((column2) => `lower(${quote3(column2)}) like ${like(term)}`).join(" or ")})`
+      (term) => `(${columns.map((column2) => `lower(${quote4(column2)}) like ${like(term)}`).join(" or ")})`
     );
     sql = `select * from (${sql}) where ${conditions2.join(" and ")}`;
   }
@@ -22626,7 +23889,7 @@ function resultRow(renderer, ctx, region, source, config, row, terms) {
   const isList = str(config.props, "type") === "apexList";
   const title = isList ? String(row.TITLE ?? "") : column2("titleColumn");
   const description = isList ? String(row.DESCRIPTION ?? "") : column2("descriptionColumn");
-  const rowValues = (template, escape = true) => template.replace(/#([A-Z0-9_$]+)#/giu, (whole, name) => {
+  const rowValues2 = (template, escape = true) => template.replace(/#([A-Z0-9_$]+)#/giu, (whole, name) => {
     const key = name.toUpperCase();
     if (!(key in row)) return whole;
     const raw2 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
@@ -22637,19 +23900,19 @@ function resultRow(renderer, ctx, region, source, config, row, terms) {
   if (linkType === "redirectThisApp" || linkType === "redirectOtherApp")
     link = renderer.link(ctx, get(config.props, "link.target"), row);
   else if (linkType === "redirectUrl")
-    link = rowValues(
+    link = rowValues2(
       renderer.substitute(ctx.session, str(config.props, "link.targetUrl"), ctx.page, "RAW"),
       false
     );
   else if (linkType === "redirectUrlReturnedByFirstCol") link = String(Object.values(row)[0] ?? "");
   const custom = settingBool(region.props, "customLayout", false) && settingStr(region.props, "appearanceResultRowTemplate") || str(config.props, "columnFormatting.htmlExpression");
   if (custom)
-    return rowValues(
+    return rowValues2(
       custom.replaceAll("#SEARCH_TITLE#", escapeHtml(title)).replaceAll("#SEARCH_DESC#", escapeHtml(description)).replaceAll("#SEARCH_LINK#", escapeHtml(link))
     );
   const iconSource = str(config.props, "iconAndBadge.iconSource");
   const iconClass = str(source.props, "iconAndBadge.iconCssClasses") || (isList ? String(row.ICON ?? "") : "") || (iconSource === "iconClass" ? str(config.props, "iconAndBadge.iconCssClasses") : "") || (iconSource === "iconClassColumn" ? String(row[str(config.props, "iconAndBadge.iconColumn").toUpperCase()] ?? "") : "");
-  const imageUrl = iconSource === "imageUrl" ? rowValues(str(config.props, "iconAndBadge.imageUrl"), false) : "";
+  const imageUrl = iconSource === "imageUrl" ? rowValues2(str(config.props, "iconAndBadge.imageUrl"), false) : "";
   if (iconSource === "imageBlobColumn")
     renderer.diagnose(
       "info",
@@ -22808,8 +24071,8 @@ function rowText(template, row, escape) {
   return template.replace(/#([A-Z0-9_$]+)#/giu, (whole, name) => {
     const key = name.toUpperCase();
     if (!(key in row)) return whole;
-    const text8 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
-    return escape ? escapeHtml(text8) : text8;
+    const text9 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
+    return escape ? escapeHtml(text9) : text9;
   });
 }
 function treeModel(renderer, ctx, region) {
@@ -23013,8 +24276,8 @@ function treeRoute(renderer, session, params2, items) {
 
 // packages/core/src/preview/extensions/structure/wizard.ts
 function attribute2(props, key) {
-  for (const path12 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
-    const value2 = get(props, path12);
+  for (const path13 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
+    const value2 = get(props, path13);
     if (value2 !== void 0 && value2 !== null && !isObject(value2))
       return Array.isArray(value2) ? value2.map(String).join(",") : String(value2);
   }
@@ -23337,6 +24600,63 @@ ${STRUCTURE_JS}`,
   css: STRUCTURE_CSS
 });
 
+// packages/core/src/preview/extensions/server/lost-update.ts
+var LOST_UPDATE_MESSAGE = "Current version of data in database has changed since user initiated update process.";
+var snapshots = /* @__PURE__ */ new WeakMap();
+var slot = (pageId, region) => `${pageId}:${region.id}`;
+function rowVersionColumn(region) {
+  const type = str(region.props, "edit.lostUpdateType");
+  const column2 = str(region.props, "edit.rowVersionColumn");
+  return /version/iu.test(type) && column2 ? column2.toUpperCase() : void 0;
+}
+var text8 = (value2) => value2 === null || value2 === void 0 ? "" : String(value2);
+function checksum(region, row, columns) {
+  const version = rowVersionColumn(region);
+  if (version) return `v:${text8(row[version])}`;
+  return JSON.stringify([...new Set(columns)].sort().map((column2) => [column2, text8(row[column2])]));
+}
+function rememberRow(session, pageId, region, key, row, columns) {
+  let map = snapshots.get(session);
+  if (!map) snapshots.set(session, map = /* @__PURE__ */ new Map());
+  map.set(slot(pageId, region), { key, checksum: checksum(region, row, columns) });
+}
+function forgetRow(session, pageId, region) {
+  snapshots.get(session)?.delete(slot(pageId, region));
+}
+function rowChanged(session, pageId, region, key, current3, columns) {
+  const snapshot2 = snapshots.get(session)?.get(slot(pageId, region));
+  if (!snapshot2 || snapshot2.key !== key) return false;
+  return !current3 || checksum(region, current3, columns) !== snapshot2.checksum;
+}
+
+// packages/core/src/preview/grid.ts
+function layoutGridRow(columns, max) {
+  const result = [];
+  let position2 = 1;
+  let index = 0;
+  while (index < columns.length) {
+    let next = index + 1;
+    while (next < columns.length && !(columns[next].column > 0)) next += 1;
+    const requested = columns[index].column;
+    const start = requested > position2 && requested <= max ? requested : position2;
+    const followingStart = next < columns.length ? columns[next].column : 0;
+    const end = followingStart > start && followingStart <= max ? followingStart : max + 1;
+    const segment = columns.slice(index, next);
+    const explicit = segment.reduce((sum, column2) => sum + column2.span, 0);
+    const automatic = segment.filter((column2) => !column2.span).length;
+    const share = automatic ? Math.max(1, Math.floor((end - start - explicit) / automatic)) : 0;
+    let used = 0;
+    segment.forEach((column2, offset) => {
+      const span = Math.min(max, column2.span || share || max);
+      result.push({ gap: offset === 0 ? start - position2 : 0, span });
+      used += span;
+    });
+    position2 = start + used;
+    index = next;
+  }
+  return result;
+}
+
 // packages/core/src/preview/render.ts
 var LOCAL_PREFIX = "/__apex";
 var IMAGE_PREFIX = "/i/";
@@ -23464,14 +24784,14 @@ var ApexRenderer = class {
   options;
   #autoTables = /* @__PURE__ */ new Set();
   #diagnosticKeys = /* @__PURE__ */ new Set();
-  constructor(app, assets, db2, options2 = {}) {
+  constructor(app, assets, db2, options3 = {}) {
     this.app = app;
     this.assets = assets;
     this.db = db2;
     this.theme = indexTheme(assets.theme);
     this.alias = slug(app.app.id || "app").toLowerCase();
     this.appId = app.substitutions.APP_ID ?? "100";
-    this.options = { toolbar: options2.toolbar ?? true, sampleRows: options2.sampleRows ?? 8 };
+    this.options = { toolbar: options3.toolbar ?? true, sampleRows: options3.sampleRows ?? 8 };
   }
   get baseUrl() {
     return `/r/${this.alias}`;
@@ -23697,7 +25017,10 @@ var ApexRenderer = class {
     const rowValue = (value2) => value2.replace(
       /#([A-Z0-9_$]+)#/gu,
       (whole, name) => row && name in row ? String(row[name] ?? "") : whole
-    );
+    ).replace(/&([A-Za-z][\w$]*?)(?:!([A-Z]+))?\./gu, (whole, name, filter) => {
+      const key = name.toUpperCase();
+      return row && key in row ? applyEscape(String(row[key] ?? ""), filter ?? "RAW") : whole;
+    });
     if (str(target2, "type") === "url" || target2.url !== void 0) {
       const url2 = rowValue(str(target2, "url"));
       return { href: url2 === "separator" ? "separator" : this.substitute(ctx.session, url2, ctx.page, "RAW") };
@@ -23712,7 +25035,7 @@ var ApexRenderer = class {
         parameters.set(name.toLowerCase(), this.substitute(ctx.session, rowValue(raw2), ctx.page, "RAW"));
       }
     }
-    const clear = str(target2, "clearCache");
+    const clear = strings6(list(target2, "clearCache")).flatMap((value2) => value2.split(",")).map((value2) => value2.trim()).filter(Boolean).join(",");
     if (clear) parameters.set("clear", clear);
     const request = str(target2, "request");
     if (request) parameters.set("request", request);
@@ -23746,9 +25069,9 @@ var ApexRenderer = class {
   }
   dialogJs(page, url2, triggeringElement) {
     const template = this.theme.pages.get(this.pageTemplateId(page)) ?? this.theme.pages.get("modal-dialog");
-    const options2 = strings6(list(page.props, "appearance.templateOptions"));
-    const dialogClasses = options2.filter((option) => option.startsWith("js-dialog-class-")).map((option) => option.slice(16));
-    const pageClasses = options2.filter(
+    const options3 = strings6(list(page.props, "appearance.templateOptions"));
+    const dialogClasses = options3.filter((option) => option.startsWith("js-dialog-class-")).map((option) => option.slice(16));
+    const pageClasses = options3.filter(
       (option) => option !== "#DEFAULT#" && !option.startsWith("js-dialog-class-")
     );
     const attributes2 = [];
@@ -24208,10 +25531,37 @@ var ApexRenderer = class {
     const result = this.query(ctx, region, `select * from ${table} where ${where2}`, 1);
     const row = result.rows[0];
     if (!row) return;
+    const dates = this.formDateMasks(table, items);
+    rememberRow(
+      ctx.session,
+      ctx.pageId,
+      region,
+      keys.map((key) => ctx.session.items[key.id.toUpperCase()] ?? "").join("|"),
+      row,
+      items.map((item2) => str(item2.props, "source.column").toUpperCase())
+    );
     for (const item2 of items) {
       const value2 = row[str(item2.props, "source.column").toUpperCase()];
-      ctx.session.items[item2.id.toUpperCase()] = value2 === null || value2 === void 0 ? "" : String(value2);
+      const mask2 = dates.get(item2);
+      ctx.session.items[item2.id.toUpperCase()] = value2 === null || value2 === void 0 ? "" : mask2 ? formatOracle(value2, mask2) ?? "" : String(value2);
     }
+  }
+  /** Form items with a DATE/TIMESTAMP source, mapped to the format mask their text uses. */
+  formDateMasks(table, items) {
+    const types = new Map(this.db.tableColumns(table).map((column2) => [column2.name, column2.type]));
+    const dates = /* @__PURE__ */ new Map();
+    for (const item2 of items) {
+      const dataType = str(item2.props, "source.dataType").toLowerCase();
+      const columnType = types.get(str(item2.props, "source.column").toUpperCase()) ?? "";
+      const isDate2 = dataType ? /date|timestamp/u.test(dataType) : /DATE|TIMESTAMP/u.test(columnType) || /^datePicker/u.test(str(item2.props, "type"));
+      if (!isDate2) continue;
+      const timestamp = /timestamp/iu.test(dataType || columnType);
+      dates.set(
+        item2,
+        (str(item2.props, "appearance.formatMask") || (timestamp ? str(this.app.app.props, "globalization.timestampFormat") : "") || str(this.app.app.props, "globalization.dateFormat") || "DD-MON-YYYY").replace(/^FX/iu, "")
+      );
+    }
+    return dates;
   }
   clearPage(ctx) {
     for (const item2 of ctx.page.children.filter((child) => child.type === "pageItem"))
@@ -24267,7 +25617,9 @@ var ApexRenderer = class {
     const ctx = this.prepareSubmit(session, pageKey, request);
     const started2 = performance.now();
     for (const [name, value2] of Object.entries(values)) session.items[name.toUpperCase()] = value2;
+    const success = session.success;
     const result = this.acceptPage(ctx, values);
+    if (result.errors?.length) session.success = success;
     this.trace(ctx, {
       type: "end",
       name: result.errors?.length ? "Submit stopped" : "Submit done",
@@ -24297,6 +25649,7 @@ var ApexRenderer = class {
     if (processingErrors.length) return { errors: processingErrors };
     let closeDialog = false;
     let success = "";
+    const processErrors = ctx.processErrors = [];
     for (const process2 of bySequence3(this.pageComponents(ctx, "process"))) {
       const point = str(process2.props, "execution.point", "processing");
       if (point !== "processing" && point !== "afterSubmit" && point !== "onSubmitBeforeComputations")
@@ -24338,6 +25691,10 @@ var ApexRenderer = class {
           process2.id
         );
       }
+      if (processErrors.length) {
+        traced(`${type}: raised ${processErrors.map((error) => error.message).join("; ")}`);
+        return { errors: processErrors };
+      }
       traced(`${type}: ${ran ? "ran" : "not run"}`);
       const message = str(process2.props, "successMessage.successMessage") || str(process2.props, "successMessage") || str(process2.props, "messages.successMessage");
       if (ran && message) success = this.substitute(session, message, ctx.page, "RAW");
@@ -24359,6 +25716,7 @@ var ApexRenderer = class {
       const branchType = str(branch.props, "behavior.type");
       if (branchType === "plsqlProcedure") {
         runCodeExtensions(this, ctx, str(branch.props, "behavior.plsqlCode"), branch);
+        if (processErrors.length) return { errors: processErrors };
         continue;
       }
       if (branchType === "functionReturningPage" || branchType === "functionReturningUrl") {
@@ -24415,7 +25773,7 @@ var ApexRenderer = class {
   }
   validate(ctx) {
     const errors = [];
-    const add = (message, item2) => errors.push({
+    const add2 = (message, item2) => errors.push({
       type: "error",
       location: item2 ? ["inline", "page"] : ["page"],
       ...item2 ? { pageItem: item2 } : {},
@@ -24428,64 +25786,89 @@ var ApexRenderer = class {
       const value2 = ctx.session.items[name] ?? "";
       const label = this.label(item2);
       if (bool(item2.props, "validation.valueRequired", false) && value2 === "") {
-        add(`${label} must have some value.`, name);
+        add2(`${label} must have some value.`, name);
         this.trace(ctx, { type: "validation", name, detail: "failed: value required", level: "warning" });
       }
       const max = num(item2.props, "validation.maxLength", 0);
-      if (max && value2.length > max) add(`${label} exceeds the maximum length of ${max}.`, name);
+      if (max && value2.length > max) add2(`${label} exceeds the maximum length of ${max}.`, name);
       if (str(item2.props, "type") === "numberField" && value2 !== "" && // Number items submit their formatted text (format mask), as APEX does.
       !Number.isFinite(Number(value2.replace(/[,\s$€£¥%]/gu, ""))))
-        add(`${label} must be Numeric.`, name);
+        add2(`${label} must be Numeric.`, name);
     }
     for (const validation of bySequence3(this.pageComponents(ctx, "validation"))) {
+      if (ref(validation.props, "validation.editableRegion")) continue;
       if (!this.whenButton(ctx, validation.props) || !this.condition(ctx, validation.props)) continue;
-      const type = str(validation.props, "validation.type");
       const item2 = str(validation.props, "validation.item").toUpperCase();
-      const message = str(validation.props, "error.errorMessage", `${validation.id} failed`);
-      const value2 = ctx.session.items[item2] ?? "";
       const associated = str(validation.props, "error.associatedItem").toUpperCase() || item2 || void 0;
-      let failed2;
-      const started2 = performance.now();
-      const extension = validationHandler(type)?.(this, ctx, validation);
-      if (extension !== void 0) {
-        if (extension !== null) add(this.substitute(ctx.session, extension, ctx.page, "RAW"), associated);
-        this.trace(ctx, {
-          type: "validation",
-          name: validation.id,
-          detail: `${type}: ${extension === null ? "passed" : `failed \u2014 ${extension}`}`,
-          level: extension === null ? void 0 : "warning",
-          ms: performance.now() - started2
-        });
-        continue;
-      }
-      if (type === "itemIsNotNull" || type === "itemNotNull") failed2 = value2 === "";
-      else if (type === "itemIsNumeric") failed2 = value2 !== "" && !Number.isFinite(Number(value2));
-      else if (type === "itemIsADate") failed2 = value2 !== "" && Number.isNaN(new Date(value2).getTime());
-      else if (type === "rowsReturned" || type === "noRowsReturned" || type === "exists" || type === "notExists") {
-        try {
-          const found = this.db.query(str(validation.props, "validation.sqlQuery"), this.binds(ctx.session, ctx.page), 1).rows.length > 0;
-          failed2 = type === "rowsReturned" || type === "exists" ? !found : found;
-        } catch {
-          failed2 = void 0;
-        }
-      }
-      if (failed2 === void 0)
-        this.diagnose(
-          "info",
-          `Validation ${validation.id} (${type}) is not evaluated locally`,
-          ctx.pageId,
-          validation.id
-        );
-      else if (failed2) add(this.substitute(ctx.session, message, ctx.page, "RAW"), associated);
+      const message = this.validationFailure(ctx, validation, {
+        label: associated ? this.itemLabel(ctx, associated) : ""
+      });
+      if (message !== null) add2(message, associated);
+    }
+    errors.push(...runRowValidationExtensions(this, ctx));
+    return errors;
+  }
+  /** Label of a page item by name (its name when the page has no such item). */
+  itemLabel(ctx, name) {
+    const item2 = this.pageComponents(ctx, "pageItem").find(
+      (candidate) => candidate.id.toUpperCase() === name
+    );
+    return item2 ? this.label(item2) : name;
+  }
+  /**
+   * Runs one validation: its error message (#LABEL# / #COLUMN_HEADER# and substitutions
+   * replaced) or null when it passes or cannot be evaluated locally.
+   */
+  validationFailure(ctx, validation, names = {}) {
+    const type = str(validation.props, "validation.type");
+    const item2 = str(validation.props, "validation.item").toUpperCase();
+    const value2 = ctx.session.items[item2] ?? "";
+    const finish = (message2) => this.substitute(
+      ctx.session,
+      message2.replaceAll("#LABEL#", names.label ?? names.columnHeader ?? "").replaceAll("#COLUMN_HEADER#", names.columnHeader ?? names.label ?? ""),
+      ctx.page,
+      "RAW"
+    );
+    const message = str(validation.props, "error.errorMessage", `${validation.id} failed`);
+    let failed2;
+    const started2 = performance.now();
+    const extension = validationHandler(type)?.(this, ctx, validation);
+    if (extension !== void 0) {
       this.trace(ctx, {
         type: "validation",
         name: validation.id,
-        detail: `${type}: ${failed2 === void 0 ? "not evaluated" : failed2 ? `failed \u2014 ${message}` : "passed"}`,
-        level: failed2 ? "warning" : void 0,
+        detail: `${type}: ${extension === null ? "passed" : `failed \u2014 ${extension}`}`,
+        level: extension === null ? void 0 : "warning",
         ms: performance.now() - started2
       });
+      return extension === null ? null : finish(extension);
     }
-    return errors;
+    if (type === "itemIsNotNull" || type === "itemNotNull") failed2 = value2 === "";
+    else if (type === "itemIsNumeric") failed2 = value2 !== "" && !Number.isFinite(Number(value2));
+    else if (type === "itemIsADate") failed2 = value2 !== "" && Number.isNaN(new Date(value2).getTime());
+    else if (type === "rowsReturned" || type === "noRowsReturned" || type === "exists" || type === "notExists") {
+      try {
+        const found = this.db.query(str(validation.props, "validation.sqlQuery"), this.binds(ctx.session, ctx.page), 1).rows.length > 0;
+        failed2 = type === "rowsReturned" || type === "exists" ? !found : found;
+      } catch {
+        failed2 = void 0;
+      }
+    }
+    if (failed2 === void 0)
+      this.diagnose(
+        "info",
+        `Validation ${validation.id} (${type}) is not evaluated locally`,
+        ctx.pageId,
+        validation.id
+      );
+    this.trace(ctx, {
+      type: "validation",
+      name: validation.id,
+      detail: `${type}: ${failed2 === void 0 ? "not evaluated" : failed2 ? `failed \u2014 ${message}` : "passed"}`,
+      level: failed2 ? "warning" : void 0,
+      ms: performance.now() - started2
+    });
+    return failed2 ? finish(message) : null;
   }
   regionVisible(ctx, regionId) {
     if (!regionId) return true;
@@ -24512,26 +25895,69 @@ var ApexRenderer = class {
     const operation2 = action === "insert" || /^(CREATE|INSERT|ADD)$/u.test(request) ? "insert" : action === "update" || /^(SAVE|APPLY CHANGES|UPDATE)$/u.test(request) ? "update" : action === "delete" || /^(DELETE|REMOVE)$/u.test(request) ? "delete" : "";
     if (!operation2) return false;
     const binds = this.binds(ctx.session, ctx.page);
+    for (const [item2, mask2] of this.formDateMasks(table, items)) {
+      const name = item2.id.toUpperCase();
+      const value2 = binds[name];
+      if (typeof value2 === "string" && value2 !== "") binds[name] = canonicalDate(value2, mask2);
+    }
     const column2 = (item2) => str(item2.props, "source.column").toUpperCase();
     const where2 = keys.map((key) => `"${column2(key)}" = :${key.id.toUpperCase()}`).join(" and ");
+    const fail = (message) => {
+      const error = { type: "error", location: ["page"], message, unsafe: false };
+      if (ctx.processErrors) ctx.processErrors.push(error);
+      else ctx.session.errors = [...ctx.session.errors ?? [], error];
+      return false;
+    };
+    if (operation2 !== "insert" && where2) {
+      const key = keys.map((item2) => ctx.session.items[item2.id.toUpperCase()] ?? "").join("|");
+      const columnNames = this.formItems(ctx, regionId).map(column2);
+      const current3 = this.query(ctx, region, `select * from ${table} where ${where2}`, 1).rows[0];
+      if (rowChanged(ctx.session, ctx.pageId, region, key, current3, columnNames)) {
+        this.diagnose(
+          "info",
+          `Form ${regionId}: lost update detected (${rowVersionColumn(region) ? `row version column ${rowVersionColumn(region)}` : "row values"} changed since the row was fetched); ${operation2} refused`,
+          ctx.pageId,
+          regionId
+        );
+        return fail(LOST_UPDATE_MESSAGE);
+      }
+    }
     try {
       if (operation2 === "insert") {
         const values = items.filter(
           (item2) => columns.has(column2(item2)) && !(keys.includes(item2) && !ctx.session.items[item2.id.toUpperCase()])
         );
+        const defaulted = [];
         for (const key of keys) {
           const name = key.id.toUpperCase();
-          if (!ctx.session.items[name]) {
-            const next = this.db.scalar(`select coalesce(max("${column2(key)}"), 0) + 1 from ${table}`);
-            ctx.session.items[name] = String(next);
-            binds[name] = String(next);
-            values.push(key);
+          if (ctx.session.items[name]) continue;
+          const source = this.db.keySource(table, column2(key));
+          if (source === "default") {
+            defaulted.push(key);
+            continue;
           }
+          const next = this.db.scalar(`select coalesce(max("${column2(key)}"), 0) + 1 from ${table}`);
+          ctx.session.items[name] = String(next);
+          binds[name] = String(next);
+          values.push(key);
+          if (source === "none")
+            this.diagnose(
+              "warning",
+              `Form ${regionId}: ${table}.${column2(key)} has no identity, default or insert trigger locally; the preview generated ${column2(key)} = ${next} (max + 1). In Oracle the insert needs a key value from the page or the database.`,
+              ctx.pageId,
+              regionId
+            );
         }
-        this.db.execute(
-          `insert into ${table} (${values.map((item2) => `"${column2(item2)}"`).join(", ")}) values (${values.map((item2) => `:${item2.id.toUpperCase()}`).join(", ")})`,
+        const inserted = this.db.execute(
+          values.length ? `insert into ${table} (${values.map((item2) => `"${column2(item2)}"`).join(", ")}) values (${values.map((item2) => `:${item2.id.toUpperCase()}`).join(", ")})` : `insert into ${table} default values`,
           binds
         );
+        for (const key of defaulted) {
+          const value2 = this.db.scalar(`select "${column2(key)}" from ${table} where rowid = :ROWID`, {
+            ROWID: inserted.lastInsertRowid
+          });
+          ctx.session.items[key.id.toUpperCase()] = value2 === null ? "" : String(value2);
+        }
         ctx.session.success = "Action Processed.";
       } else if (operation2 === "update" && where2) {
         const values = items.filter((item2) => !keys.includes(item2) && columns.has(column2(item2)));
@@ -24545,20 +25971,22 @@ var ApexRenderer = class {
         this.db.execute(`delete from ${table} where ${where2}`, binds);
         ctx.session.success = "Action Processed.";
       }
+      forgetRow(ctx.session, ctx.pageId, region);
       return true;
     } catch (error) {
       this.diagnose(
-        "error",
-        `Automatic row processing on ${table} failed: ${error.message}`,
+        "warning",
+        `Automatic row processing on ${table} failed: ${error.message}; processing stopped with this error`,
         ctx.pageId,
         regionId
       );
-      return false;
+      return fail(error.message);
     }
   }
   /** Server half of the local "Execute Server-side Code" dynamic action. */
-  executeServerCode(session, pageKey, code, submitted, returnItems) {
+  executeServerCode(session, pageKey, code, submitted, returnItems, errors = []) {
     const ctx = this.prepareSubmit(session, pageKey, "");
+    ctx.processErrors = errors;
     for (const [name, value2] of Object.entries(submitted)) session.items[name.toUpperCase()] = value2;
     const pseudo = {
       type: "dynamicAction",
@@ -24581,14 +26009,14 @@ var ApexRenderer = class {
     if (!this.theme.pages.has(templateId))
       this.diagnose("warning", `Page template @/${templateId} not found; used Standard`, ctx.pageId);
     const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
-    const placeholder2 = (slot) => {
-      if (slots.has(slot)) return slots.get(slot);
-      if (PAGE_DEFAULT_SLOTS.has(slot)) return "BODY";
-      const lower2 = slot.toLowerCase();
+    const placeholder2 = (slot2) => {
+      if (slots.has(slot2)) return slots.get(slot2);
+      if (PAGE_DEFAULT_SLOTS.has(slot2)) return "BODY";
+      const lower2 = slot2.toLowerCase();
       for (const [name, value2] of slots) if (name.toLowerCase() === lower2) return value2;
       this.diagnose(
         "warning",
-        `Slot "${slot}" does not exist in page template ${templateId}; rendered in Body`,
+        `Slot "${slot2}" does not exist in page template ${templateId}; rendered in Body`,
         ctx.pageId
       );
       return "BODY";
@@ -24639,6 +26067,8 @@ var ApexRenderer = class {
       this.diagnose("info", `Theme style ${styleId} not found; used Vita`, ctx.pageId);
     const css = [
       `${IMAGE_PREFIX}app_ui/css/Core.min.css?v=${APEX_FULL_VERSION}`,
+      // APEX emits the standard app_ui style (switch, star rating, ... tokens) right after Core.
+      `${IMAGE_PREFIX}app_ui/css/Theme-Standard.min.css?v=${APEX_FULL_VERSION}`,
       `${IMAGE_PREFIX}libraries/font-apex/2.5.1/css/font-apex.min.css?v=${APEX_FULL_VERSION}`
     ];
     const themeCss = strings6(list(themeComponent?.props ?? {}, "css.fileUrls"));
@@ -24671,6 +26101,14 @@ var ApexRenderer = class {
     for (const action of ctx.denied ? [] : this.pageComponents(ctx, "dynamicAction")) {
       if (this.visible(ctx, action)) ctx.clientConfig.dynamicActions.push(this.dynamicAction(ctx, action));
     }
+    const regionItems = {};
+    for (const region of this.pageComponents(ctx, "region")) {
+      const names = this.regionItemsToSubmit(region);
+      if (!names.length) continue;
+      regionItems[this.regionDomId(region)] = names;
+      regionItems[region.id] = names;
+    }
+    if (Object.keys(regionItems).length) ctx.clientConfig.regionItems = regionItems;
     const pageTemplate = text(template, "id");
     ctx.messageTemplates[`${pageTemplate}_S`] = text(template, "success_message");
     ctx.messageTemplates[`${pageTemplate}_E`] = text(template, "notification_message");
@@ -24788,8 +26226,8 @@ ${onload2.join("\n")}
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs7.existsSync(
-      path9.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
+    const exists2 = fs8.existsSync(
+      path10.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
   }
@@ -24847,8 +26285,8 @@ ${onload2.join("\n")}
       );
       const fallback = position2 === "top" ? "top-navigation-menu" : "side-navigation-menu";
       const templateId = (ref(nav, "navigationMenu.listTemplate") ?? fallback).toLowerCase();
-      const options2 = strings6(list(nav, "navigationMenu.templateOptions"));
-      const html = this.renderList(ctx, menu, templateId, options2, "t_TreeNav");
+      const options3 = strings6(list(nav, "navigationMenu.templateOptions"));
+      const html = this.renderList(ctx, menu, templateId, options3, "t_TreeNav");
       if (templateId.includes("side") && box.includes("#SIDE_GLOBAL_NAVIGATION_LIST#"))
         values.SIDE_GLOBAL_NAVIGATION_LIST = html;
       else values.TOP_GLOBAL_NAVIGATION_LIST = html;
@@ -24865,41 +26303,70 @@ ${onload2.join("\n")}
       );
     }
   }
-  /** Fixed 12-column grid using the page template's container/row/column templates. */
+  /**
+   * Fixed 12-column grid using the page template's container/row/column templates, as APEX lays it out:
+   * Start New Row / New Column / Column / Column Span, empty leading columns before an explicit start
+   * column, and the column/row CSS classes and attributes. A cell's markup can depend on its column span
+   * (left-aligned label templates split the span between label and input).
+   */
   grid(template, cells) {
     if (!cells.length) return "";
     const rows = [];
     for (const cell of cells) {
-      const startNewRow = bool(cell.component.props, "layout.startNewRow", true) && bool(cell.component.props, "layout.newRow", true);
-      if (!rows.length || startNewRow) rows.push([cell]);
-      else rows.at(-1).push(cell);
+      const props = cell.component.props;
+      const startNewRow = bool(props, "layout.startNewRow", true) && bool(props, "layout.newRow", true);
+      if (!rows.length || startNewRow) rows.push([[cell]]);
+      else if (!bool(props, "layout.newColumn", true)) rows.at(-1).at(-1).push(cell);
+      else rows.at(-1).push([cell]);
     }
     const max = Number(text(template, "grid_max_columns")) || 12;
     const containerTemplate = text(template, "grid_template") || '<div class="container">#ROWS#</div>';
     const rowTemplate2 = text(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
     const columnTemplate = text(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
+    const emitLeading = text(template, "grid_emit_empty_leading_cols") !== "false";
     const html = rows.map((row) => {
-      const explicit = row.reduce(
-        (sum, cell) => sum + num(cell.component.props, "layout.columnSpan", 0),
-        0
+      const placed = layoutGridRow(
+        row.map((column2) => ({
+          column: num(column2[0].component.props, "layout.column", 0),
+          span: num(column2[0].component.props, "layout.columnSpan", 0)
+        })),
+        max
       );
-      const automatic = row.filter((cell) => !num(cell.component.props, "layout.columnSpan", 0)).length;
-      const share = automatic ? Math.max(1, Math.floor((max - explicit) / automatic)) : 0;
-      const columns = row.map((cell, index) => {
-        const span = num(cell.component.props, "layout.columnSpan", share) || max;
-        const firstLast = [
-          index === 0 ? text(template, "grid_first_column_attributes") : "",
-          index === row.length - 1 ? text(template, "grid_last_column_attributes") : ""
-        ].filter(Boolean).join(" ");
-        return fill(columnTemplate, {
-          COLUMN_SPAN_NUMBER: String(Math.min(max, span)),
-          CSS_CLASSES: num(cell.component.props, "layout.columnSpan", 0) ? "" : "apex-col-auto",
-          FIRST_LAST_COLUMN_ATTRIBUTES: firstLast,
-          ATTRIBUTES: "",
-          CONTENT: cell.html
+      const columns = [];
+      row.forEach((column2, index) => {
+        const { gap, span } = placed[index];
+        if (gap > 0 && emitLeading)
+          columns.push({
+            span: gap,
+            classes: "",
+            attributes: "",
+            content: '<span class="apex-grid-nbsp">&nbsp;</span>'
+          });
+        const props = column2[0].component.props;
+        columns.push({
+          span,
+          classes: [
+            num(props, "layout.columnSpan", 0) ? "" : "apex-col-auto",
+            ...strings6(list(props, "layout.columnCssClasses"))
+          ].filter(Boolean).join(" "),
+          attributes: str(props, "layout.columnAttributes"),
+          content: column2.map((cell) => typeof cell.html === "function" ? cell.html(span) : cell.html).join("\n")
         });
-      }).join("\n");
-      return fill(rowTemplate2, { CSS_CLASSES: "", COLUMNS: columns });
+      });
+      const markup2 = columns.map(
+        (column2, index) => fill(columnTemplate, {
+          COLUMN_SPAN_NUMBER: String(column2.span),
+          CSS_CLASSES: column2.classes,
+          FIRST_LAST_COLUMN_ATTRIBUTES: [
+            index === 0 ? text(template, "grid_first_column_attributes") : "",
+            index === columns.length - 1 ? text(template, "grid_last_column_attributes") : ""
+          ].filter(Boolean).join(" "),
+          ATTRIBUTES: column2.attributes,
+          CONTENT: column2.content
+        })
+      ).join("\n");
+      const rowClasses = strings6(list(row[0][0].component.props, "layout.rowCssClasses")).join(" ");
+      return fill(rowTemplate2, { CSS_CLASSES: rowClasses, COLUMNS: markup2 });
     }).join("\n");
     return fill(containerTemplate, { ROWS: html });
   }
@@ -24915,7 +26382,10 @@ ${onload2.join("\n")}
     return segments.map(
       (segment) => this.grid(
         template,
-        segment.map((item2) => ({ component: item2, html: this.renderItem(ctx, item2) }))
+        segment.map((item2) => ({
+          component: item2,
+          html: (span) => this.renderItem(ctx, item2, span)
+        }))
       )
     ).join("\n") + hidden2.map((item2) => this.renderItem(ctx, item2)).join("");
   }
@@ -24938,6 +26408,10 @@ ${onload2.join("\n")}
   regionDomId(region) {
     return str(region.props, "advanced.htmlDomId") || str(region.props, "advanced.staticId") || slug(region.id);
   }
+  /** Button DOM id: HTML DOM ID, then Static ID, then APEX's generated `B_<id>`. */
+  buttonDomId(button2) {
+    return str(button2.props, "advanced.htmlDomId") || str(button2.props, "advanced.staticId") || `B_${slug(button2.id)}`;
+  }
   renderRegion(ctx, region) {
     const templateId = this.regionTemplateId(region);
     const template = this.theme.regions.get(templateId) ?? this.theme.regions.get("standard");
@@ -24951,8 +26425,8 @@ ${onload2.join("\n")}
     const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
     const domId = this.regionDomId(region);
     const values = {};
-    const append = (slot, html) => {
-      const key = slots.get(slot) ?? (PAGE_DEFAULT_SLOTS.has(slot) ? "BODY" : slot.toUpperCase());
+    const append = (slot2, html) => {
+      const key = slots.get(slot2) ?? (PAGE_DEFAULT_SLOTS.has(slot2) ? "BODY" : slot2.toUpperCase());
       values[key] = (values[key] ?? "") + html;
     };
     for (const button2 of bySequence3(
@@ -24980,17 +26454,17 @@ ${onload2.join("\n")}
     if (children2.length) {
       const grouped = /* @__PURE__ */ new Map();
       for (const child of bySequence3(children2)) {
-        const slot = str(child.props, "layout.slot", "subRegions");
-        grouped.set(slot, [...grouped.get(slot) ?? [], child]);
+        const slot2 = str(child.props, "layout.slot", "subRegions");
+        grouped.set(slot2, [...grouped.get(slot2) ?? [], child]);
       }
-      for (const [slot, group2] of grouped) {
-        const key = slots.get(slot) ?? (slot === "regionBody" ? "SUB_REGIONS" : slot.toUpperCase());
+      for (const [slot2, group2] of grouped) {
+        const key = slots.get(slot2) ?? (slot2 === "regionBody" ? "SUB_REGIONS" : slot2.toUpperCase());
         const cells = group2.map((child) => ({ component: child, html: this.renderRegion(ctx, child) }));
         rendered.set(key, [...rendered.get(key) ?? [], ...cells]);
         values[key] = (values[key] ?? "") + this.grid(this.pageTemplate(ctx), cells);
       }
     }
-    const options2 = templateOptions(
+    const options3 = templateOptions(
       strings6(list(region.props, "appearance.templateOptions")),
       text(template, "default_template_options")
     );
@@ -25011,7 +26485,7 @@ ${onload2.join("\n")}
       DOM_ID: domId,
       REGION_STATIC_ID: domId,
       REGION_ID: domId,
-      REGION_CSS_CLASSES: [options2, str(region.props, "appearance.cssClasses")].filter(Boolean).join(" "),
+      REGION_CSS_CLASSES: [options3, str(region.props, "appearance.cssClasses")].filter(Boolean).join(" "),
       REGION_ATTRIBUTES: this.substitute(
         ctx.session,
         str(region.props, "advanced.customAttributes"),
@@ -25308,8 +26782,8 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const chain = [];
     for (let entry = current3; entry && !chain.includes(entry); entry = entries.find((candidate) => candidate.id === ref(entry.props, "layout.parentEntry")))
       chain.unshift(entry);
-    const options2 = templateOptions(strings6(list(region.props, "componentAppearance.templateOptions")), "");
-    return fill(text(template, "before_first"), { COMPONENT_CSS_CLASSES: options2 }) + chain.map(
+    const options3 = templateOptions(strings6(list(region.props, "componentAppearance.templateOptions")), "");
+    return fill(text(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
       (entry) => fill(
         entry === current3 ? text(template, "current_page_option") : text(template, "non_current_page_option"),
         {
@@ -25338,7 +26812,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       this.regionDomId(region)
     );
   }
-  renderList(ctx, listComponent, templateId, options2, listId, parentId = listId) {
+  renderList(ctx, listComponent, templateId, options3, listId, parentId = listId) {
     const template = this.theme.lists.get(templateId);
     if (!template) {
       this.diagnose("warning", `List template @/${templateId} not found`, ctx.pageId, listComponent.id);
@@ -25395,7 +26869,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const shared3 = {
       LIST_ID: listId,
       PARENT_STATIC_ID: parentId,
-      COMPONENT_CSS_CLASSES: templateOptions(options2, text(template, "default_template_options")),
+      COMPONENT_CSS_CLASSES: templateOptions(options3, text(template, "default_template_options")),
       APEX_CSP_NONCE_ATTRIBUTE: ""
     };
     if (text(template, "javascript_code_onload"))
@@ -25408,7 +26882,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const templateId = (ref(button2.props, "appearance.buttonTemplate") ?? ref(theme?.props ?? {}, "componentDefaults.button") ?? "text").toLowerCase();
     const template = this.theme.buttons.get(templateId) ?? this.theme.buttons.get("text");
     const hot = bool(button2.props, "appearance.hot", false);
-    const domId = str(button2.props, "advanced.staticId") || `B_${slug(button2.id)}`;
+    const domId = this.buttonDomId(button2);
     const name = str(button2.props, "buttonName", button2.id.toUpperCase());
     const action = str(button2.props, "behavior.action", "submit");
     let onclick = "";
@@ -25471,7 +26945,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       const href = this.link(ctx, target2, void 0, `apex.jQuery('#${domId}')`);
       onclick = href.startsWith("javascript:") ? href.slice(11) : `apex.navigation.redirect('${escapeJs(href)}');`;
     }
-    const options2 = templateOptions(
+    const options3 = templateOptions(
       strings6(list(button2.props, "appearance.templateOptions")),
       text(template, "default_template_options")
     );
@@ -25486,7 +26960,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
         this.substitute(ctx.session, str(button2.props, "label", heading2(button2.id)), ctx.page, "RAW")
       ),
       BUTTON_CSS_CLASSES: [
-        options2,
+        options3,
         str(button2.props, "appearance.cssClasses"),
         hot && !text(template, "hot_template") ? "t-Button--hot" : ""
       ].filter(Boolean).join(" "),
@@ -25503,7 +26977,8 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       MENU_ID: ""
     });
   }
-  renderItem(ctx, item2) {
+  /** `span` is the item's grid column span; omitted for slots without grid support (APEX emits col-null). */
+  renderItem(ctx, item2, span) {
     const name = item2.id.toUpperCase();
     const type = str(item2.props, "type", "textField");
     const value2 = ctx.session.items[name] ?? "";
@@ -25539,7 +27014,8 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       CURRENT_ITEM_HELP_LABEL: "Help",
       CURRENT_ITEM_INLINE_HELP_TEXT: escapeHtml(str(item2.props, "help.inlineHelpText")),
       ERROR_MESSAGE: error ? escapeHtml(error) : "",
-      IS_REQUIRED: required2 ? "Y" : ""
+      IS_REQUIRED: required2 ? "Y" : "",
+      ...this.labelColumns(ctx, item2, span)
     };
     for (const extension of extensions) extension.itemTemplate?.(this, ctx, item2, values);
     values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text(template, "item_pre_text"), values) : "";
@@ -25552,6 +27028,20 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const labelHtml = singleCheckbox ? "" : `${fill(text(template, "template_body1"), values)}${label}${fill(text(template, "template_body2"), values)}`;
     return `${fill(text(template, "before_item"), values)}${labelHtml}${fill(text(template, "before_element"), values)}${element}${fill(text(template, "after_element"), values)}${fill(text(template, "after_item"), values)}`;
   }
+  /** Label/input column spans of left-aligned label templates: the label takes Label Column Span
+   * (page template default 2) of the item's grid span and the input the rest. */
+  labelColumns(ctx, item2, span) {
+    if (span === void 0) return { LABEL_COLUMN_SPAN_NUMBER: "null", ITEM_COLUMN_SPAN_NUMBER: "null" };
+    const fallback = Number(text(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
+    const label = Math.max(
+      0,
+      Math.min(span, num(item2.props, "layout.labelColumnSpan", Number.isFinite(fallback) ? fallback : 2))
+    );
+    return {
+      LABEL_COLUMN_SPAN_NUMBER: String(label),
+      ITEM_COLUMN_SPAN_NUMBER: String(Math.max(1, span - label))
+    };
+  }
   element(ctx, item2, type, name, value2) {
     const extension = itemRenderer(type);
     if (extension) return extension(this, ctx, item2, name, value2);
@@ -25563,7 +27053,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const readonly = str(item2.props, "readOnly.type") === "always" ? " readonly" : "";
     const lov = () => this.lov(ctx, get(item2.props, "lov"), name);
     const nullDisplay = (fallback) => escapeHtml(str(item2.props, "lov.nullDisplayValue", fallback));
-    const options2 = (selected) => lov().map(
+    const options3 = (selected) => lov().map(
       (entry) => `<option value="${escapeHtml(entry.r)}"${selected.includes(entry.r) ? " selected" : ""}>${escapeHtml(entry.d)}</option>`
     ).join("");
     switch (type) {
@@ -25588,7 +27078,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       case "selectMany":
       case "combobox": {
         const showNull = bool(item2.props, "lov.displayNullValue", type === "selectList");
-        return `<select id="${name}" name="${name}" class="selectlist apex-item-select" data-native-menu="false" size="1"${required2}>${showNull ? `<option value="">${nullDisplay("- Select -")}</option>` : ""}${options2(value2.split(":"))}</select>`;
+        return `<select id="${name}" name="${name}" class="selectlist apex-item-select" data-native-menu="false" size="1"${required2}>${showNull ? `<option value="">${nullDisplay("- Select -")}</option>` : ""}${options3(value2.split(":"))}</select>`;
       }
       case "radioGroup":
       case "checkboxGroup": {
@@ -25629,7 +27119,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       case "button": {
         const id = ref(props, "button");
         const button2 = this.pageComponents(ctx, "button").find((candidate) => candidate.id === id);
-        return button2 ? `#${str(button2.props, "advanced.staticId") || `B_${slug(button2.id)}`}` : "";
+        return button2 ? `#${this.buttonDomId(button2)}` : "";
       }
       case "region": {
         const id = ref(props, "region");
@@ -25651,6 +27141,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
         this.diagnose("info", "Dynamic actions on interactive grid columns are not simulated", ctx.pageId);
         return "";
       case "triggeringElement":
+      case "eventSource":
         return "triggeringElement";
       default:
         return "document";
@@ -25704,6 +27195,13 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       actions
     };
   }
+  /** Page Items to Submit of a region (sent with its refresh and set in session state). */
+  regionItemsToSubmit(region) {
+    return strings6([
+      ...list(region.props, "source.pageItemsToSubmit"),
+      ...list(region.props, "pageItemsToSubmit")
+    ]).flatMap((value2) => value2.split(",")).map((value2) => value2.trim().toUpperCase()).filter(Boolean);
+  }
   /** HTML of a single region body for client-side refresh. */
   renderRegionFragment(session, pageKey, regionId) {
     const ctx = this.prepare(session, pageKey);
@@ -25718,23 +27216,34 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
   }
   /** Loads `.apex-local/*.sql` (or supporting-object scripts) into a fresh database. */
   static seed(db2, appRoot) {
-    const local = path9.join(appRoot, ".apex-local");
-    const scripts = fs7.existsSync(local) ? fs7.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path9.join(local, name)) : [];
+    const local = path10.join(appRoot, ".apex-local");
+    const scripts = fs8.existsSync(local) ? fs8.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(local, name)) : [];
     if (!scripts.length) {
-      const supporting = path9.join(appRoot, "supporting-objects");
-      if (fs7.existsSync(supporting)) {
+      const supporting = path10.join(appRoot, "supporting-objects");
+      if (fs8.existsSync(supporting)) {
         scripts.push(
-          ...fs7.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path9.join(supporting, name))
+          ...fs8.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path10.join(supporting, name))
         );
       }
     }
     return scripts.flatMap(
-      (script) => db2.runScript(fs7.readFileSync(script, "utf8"), path9.relative(appRoot, script))
+      (script) => db2.runScript(fs8.readFileSync(script, "utf8"), path10.relative(appRoot, script))
     );
   }
 };
 
 // packages/core/src/preview/server.ts
+var TRANSACTIONAL_ROUTES = /* @__PURE__ */ new Set(["ig-save", "set-value"]);
+function failedResponse(result) {
+  if ((result.status ?? 200) >= 400) return true;
+  if (result.type !== "json") return false;
+  try {
+    const parsed2 = JSON.parse(result.body);
+    return parsed2.ok === false || parsed2.error !== void 0;
+  } catch {
+    return false;
+  }
+}
 var TYPES = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -25758,11 +27267,11 @@ var TYPES = {
 function newestApx(root) {
   let newest = 0;
   const visit = (directory) => {
-    for (const entry of fs8.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs9.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
-      const full = path10.join(directory, entry.name);
+      const full = path11.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
-      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs8.statSync(full).mtimeMs);
+      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs9.statSync(full).mtimeMs);
     }
   };
   visit(root);
@@ -25794,13 +27303,13 @@ var PreviewServer = class {
   #sessions = /* @__PURE__ */ new Map();
   #loadedAt = 0;
   #loadError;
-  constructor(options2) {
-    this.options = { ...options2, sourceDir: path10.resolve(options2.sourceDir) };
-    this.assets = loadAssets(options2.assetsDir);
-    const file = options2.database ?? path10.join(this.options.sourceDir, ".apex-local", "preview.sqlite");
-    if (options2.reset && file !== ":memory:")
-      for (const suffix of ["", "-wal", "-shm"]) fs8.rmSync(file + suffix, { force: true });
-    const fresh = file === ":memory:" || !fs8.existsSync(file);
+  constructor(options3) {
+    this.options = { ...options3, sourceDir: path11.resolve(options3.sourceDir) };
+    this.assets = loadAssets(options3.assetsDir);
+    const file = options3.database ?? path11.join(this.options.sourceDir, ".apex-local", "preview.sqlite");
+    if (options3.reset && file !== ":memory:")
+      for (const suffix of ["", "-wal", "-shm"]) fs9.rmSync(file + suffix, { force: true });
+    const fresh = file === ":memory:" || !fs9.existsSync(file);
     this.db = new LocalDatabase(file);
     this.seedProblems = fresh ? ApexRenderer.seed(this.db, this.options.sourceDir) : [];
     this.renderer = this.#load();
@@ -25812,6 +27321,9 @@ var PreviewServer = class {
       ...this.options.sampleRows === void 0 ? {} : { sampleRows: this.options.sampleRows }
     });
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
+    for (const [id, page] of renderer.app.pages)
+      for (const finding of checkComponentProperties([page], id))
+        renderer.diagnose("warning", finding.message, finding.page, finding.component);
     return renderer;
   }
   /** Re-parses the APEXlang tree when any .apx file changed, so edits show on the next reload. */
@@ -25871,17 +27383,45 @@ var PreviewServer = class {
     response.setHeader("set-cookie", `APEX_LOCAL_SESSION=${id}; Path=/; HttpOnly; SameSite=Lax`);
     return session;
   }
+  /**
+   * Sets the session state of a region's Page Items to Submit before it is rendered or queried
+   * again (region refresh, calendar feed). Only the items the region declares are taken.
+   */
+  #submitRegionItems(session, pageKey, regionId, items) {
+    if (!items || !regionId) return;
+    let values = items;
+    if (typeof items === "string") {
+      try {
+        values = JSON.parse(items);
+      } catch {
+        return;
+      }
+    }
+    if (!values || typeof values !== "object") return;
+    const page = this.renderer.findPage(pageKey);
+    if (!page) return;
+    const region = [page, this.renderer.app.pages.get("0")].flatMap((candidate) => candidate?.children ?? []).find(
+      (child) => child.type === "region" && (child.id === regionId || this.renderer.regionDomId(child) === regionId)
+    );
+    if (!region) return;
+    const allowed = new Set(this.renderer.regionItemsToSubmit(region));
+    for (const [name, value2] of Object.entries(values)) {
+      const upper4 = name.toUpperCase();
+      if (!allowed.has(upper4)) continue;
+      session.items[upper4] = Array.isArray(value2) ? value2.join(":") : value2 === null || value2 === void 0 ? "" : String(value2);
+    }
+  }
   #static(response, root, relative, cache3) {
-    const target2 = path10.resolve(root, decodeURIComponent(relative));
-    if (!target2.startsWith(root + path10.sep) || !fs8.existsSync(target2) || !fs8.statSync(target2).isFile()) {
+    const target2 = path11.resolve(root, decodeURIComponent(relative));
+    if (!target2.startsWith(root + path11.sep) || !fs9.existsSync(target2) || !fs9.statSync(target2).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
     response.writeHead(200, {
-      "content-type": TYPES[path10.extname(target2).toLowerCase()] ?? "application/octet-stream",
+      "content-type": TYPES[path11.extname(target2).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs8.createReadStream(target2).pipe(response);
+    fs9.createReadStream(target2).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -25904,10 +27444,10 @@ var PreviewServer = class {
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
-      return this.#static(response, path10.resolve(this.assets.imagesDir), pathname.slice(3), true);
-    const marker2 = pathname.indexOf(`${LOCAL_PREFIX}/`);
-    if (marker2 >= 0) {
-      const name = pathname.slice(marker2 + LOCAL_PREFIX.length + 1);
+      return this.#static(response, path11.resolve(this.assets.imagesDir), pathname.slice(3), true);
+    const marker3 = pathname.indexOf(`${LOCAL_PREFIX}/`);
+    if (marker3 >= 0) {
+      const name = pathname.slice(marker3 + LOCAL_PREFIX.length + 1);
       if (name === "runtime.js")
         return this.#send(response, 200, TYPES[".js"], RUNTIME_JS + extensionClient());
       if (name === "runtime.css")
@@ -25948,14 +27488,14 @@ var PreviewServer = class {
     if (rest.startsWith("files/static/v1/"))
       return this.#static(
         response,
-        path10.join(this.options.sourceDir, "shared-components", "static-files"),
+        path11.join(this.options.sourceDir, "shared-components", "static-files"),
         rest.slice(16),
         false
       );
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
-        path10.join(this.options.sourceDir, "workspace-components", "static-files"),
+        path11.join(this.options.sourceDir, "workspace-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -25977,8 +27517,15 @@ var PreviewServer = class {
         items,
         values
       });
-      let result = renderer.isLoginPage(page2) ? renderer.login(session, values) : renderer.accept(session, page2, requestValue, values);
-      for (const step of finish) result = step(result);
+      const result = transaction(
+        renderer.db.db,
+        () => {
+          let accepted = renderer.isLoginPage(page2) ? renderer.login(session, values) : renderer.accept(session, page2, requestValue, values);
+          for (const step of finish) accepted = step(accepted);
+          return accepted;
+        },
+        (accepted) => Boolean(accepted.errors?.length)
+      );
       return this.#send(
         response,
         200,
@@ -25994,12 +27541,20 @@ var PreviewServer = class {
       const handler = routeHandler(rest.slice(LOCAL_PREFIX.length + 2));
       if (!handler) return this.#send(response, 404, "text/plain", "Unknown preview route");
       const posted = request.method === "POST" ? /^multipart\/form-data/iu.test(request.headers["content-type"] ?? "") ? await formBody(request) : { form: void 0, files: [], text: await body3(request) } : { form: void 0, files: [], text: "" };
-      const result = handler(renderer, session, {
+      this.#submitRegionItems(
+        session,
+        url2.searchParams.get("page") ?? "",
+        url2.searchParams.get("region") ?? "",
+        url2.searchParams.get("items")
+      );
+      const call = () => handler(renderer, session, {
         method: request.method ?? "GET",
         params: url2.searchParams,
         body: "text" in posted ? posted.text : posted.form?.toString() ?? "",
         files: posted.files
       });
+      const name = rest.slice(LOCAL_PREFIX.length + 2);
+      const result = TRANSACTIONAL_ROUTES.has(name) ? transaction(renderer.db.db, call, failedResponse) : call();
       return this.#respond(response, result);
     }
     if (rest === "__logout") {
@@ -26011,6 +27566,14 @@ var PreviewServer = class {
     if (rest === `${LOCAL_PREFIX.slice(1)}/region`) {
       const page2 = url2.searchParams.get("page") ?? "";
       const region = url2.searchParams.get("region") ?? "";
+      const posted = request.method === "POST" ? await body3(request) : "";
+      let items = url2.searchParams.get("items");
+      try {
+        if (posted) items = JSON.parse(posted).items ?? null;
+      } catch {
+        return this.#send(response, 400, "text/plain", "Region refresh expects JSON { items }");
+      }
+      this.#submitRegionItems(session, page2, region, items);
       const target2 = Number(url2.searchParams.get("pg"));
       if (target2 > 0) {
         const component = renderer.findPage(page2)?.children.find((child) => renderer.regionDomId(child) === region);
@@ -26020,14 +27583,25 @@ var PreviewServer = class {
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/server-code` && request.method === "POST") {
       const input = JSON.parse(await body3(request));
-      const values = renderer.executeServerCode(
-        session,
-        url2.searchParams.get("page") ?? "",
-        input.code ?? "",
-        input.items ?? {},
-        input.returnItems ?? []
+      const errors = [];
+      const values = transaction(
+        renderer.db.db,
+        () => renderer.executeServerCode(
+          session,
+          url2.searchParams.get("page") ?? "",
+          input.code ?? "",
+          input.items ?? {},
+          input.returnItems ?? [],
+          errors
+        ),
+        () => errors.length > 0
       );
-      return this.#send(response, 200, TYPES[".json"], JSON.stringify(values));
+      return this.#send(
+        response,
+        200,
+        TYPES[".json"],
+        JSON.stringify(errors.length ? { ...values, errors } : values)
+      );
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/close-dialog`) {
       const success = session.success;
@@ -26079,18 +27653,18 @@ var PreviewServer = class {
     return this.#send(response, 200, TYPES[".html"], renderer.renderPage(ctx));
   }
 };
-function checkApplication(options2) {
-  const preview = new PreviewServer({ ...options2, database: options2.database ?? ":memory:" });
+function checkApplication(options3) {
+  const preview = new PreviewServer({ ...options3, database: options3.database ?? ":memory:" });
   try {
     const renderer = preview.renderer;
-    const ids = options2.pages?.length ? options2.pages : [...renderer.app.pages.keys()].filter((id) => id !== "0");
+    const ids = options3.pages?.length ? options3.pages : [...renderer.app.pages.keys()].filter((id) => id !== "0");
     const pages2 = ids.map((id) => {
       const page = renderer.findPage(id);
       const name = str(page?.props ?? {}, "name", id);
       try {
         const session = {
           id: randomUUID(),
-          user: options2.user ?? "DEVELOPER",
+          user: options3.user ?? "DEVELOPER",
           items: {},
           pagination: {}
         };
@@ -26111,22 +27685,22 @@ function checkApplication(options2) {
 var running = /* @__PURE__ */ new Map();
 var DIAGNOSTICS_LIMIT = 60;
 async function resolveSource(root, explicit) {
-  let source = explicit ? path11.resolve(root, explicit) : void 0;
+  let source = explicit ? path12.resolve(root, explicit) : void 0;
   if (!source) {
     try {
       const ctx = await loadProject(root);
-      source = path11.resolve(ctx.root, ctx.config.application.sourceDir);
+      source = path12.resolve(ctx.root, ctx.config.application.sourceDir);
     } catch {
-      source = path11.resolve(root);
+      source = path12.resolve(root);
     }
   }
-  if (!fs9.existsSync(path11.join(source, "application.apx")))
+  if (!fs10.existsSync(path12.join(source, "application.apx")))
     throw new Fault(
       "PREVIEW_SOURCE_MISSING",
       `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
       2
     );
-  return fs9.realpathSync(source);
+  return fs10.realpathSync(source);
 }
 function summarize(diagnostics) {
   const count = (level) => diagnostics.filter((entry) => entry.level === level).length;
@@ -26216,7 +27790,7 @@ async function previewStop(root, input) {
 async function previewStatus() {
   return {
     assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs9.existsSync(path11.join(defaultAssetsDir(), "manifest.json")),
+    assetsInstalled: fs10.existsSync(path12.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
     running: [...running.values()].map((server) => ({
       url: server.url,
