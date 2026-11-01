@@ -32,7 +32,7 @@ import {
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
-import { formatOracle, LocalDatabase, splitScript, type Binds, type Row } from './database.ts';
+import { canonicalDate, formatOracle, LocalDatabase, splitScript, type Binds, type Row } from './database.ts';
 import {
   applyEscape,
   defaultStaticId,
@@ -1196,10 +1196,39 @@ export class ApexRenderer {
     const result = this.query(ctx, region, `select * from ${table} where ${where}`, 1);
     const row = result.rows[0];
     if (!row) return;
+    const dates = this.formDateMasks(table, items);
     for (const item of items) {
       const value = row[str(item.props, 'source.column').toUpperCase()];
-      ctx.session.items[item.id.toUpperCase()] = value === null || value === undefined ? '' : String(value);
+      const mask = dates.get(item);
+      // Session state holds date items as display text in their format mask, as in APEX.
+      ctx.session.items[item.id.toUpperCase()] =
+        value === null || value === undefined ? '' : mask ? (formatOracle(value, mask) ?? '') : String(value);
     }
+  }
+
+  /** Form items with a DATE/TIMESTAMP source, mapped to the format mask their text uses. */
+  formDateMasks(table: string, items: ApxComponent[]): Map<ApxComponent, string> {
+    const types = new Map(this.db.tableColumns(table).map((column) => [column.name, column.type]));
+    const dates = new Map<ApxComponent, string>();
+    for (const item of items) {
+      const dataType = str(item.props, 'source.dataType').toLowerCase();
+      const columnType = types.get(str(item.props, 'source.column').toUpperCase()) ?? '';
+      const isDate = dataType
+        ? /date|timestamp/u.test(dataType)
+        : /DATE|TIMESTAMP/u.test(columnType) || /^datePicker/u.test(str(item.props, 'type'));
+      if (!isDate) continue;
+      const timestamp = /timestamp/iu.test(dataType || columnType);
+      dates.set(
+        item,
+        (
+          str(item.props, 'appearance.formatMask') ||
+          (timestamp ? str(this.app.app.props, 'globalization.timestampFormat') : '') ||
+          str(this.app.app.props, 'globalization.dateFormat') ||
+          'DD-MON-YYYY'
+        ).replace(/^FX/iu, ''),
+      );
+    }
+    return dates;
   }
 
   clearPage(ctx: RenderContext): void {
@@ -1563,6 +1592,12 @@ export class ApexRenderer {
             : '';
     if (!operation) return false;
     const binds = this.binds(ctx.session, ctx.page);
+    // Date items submit display text; store the canonical date text the seed data uses.
+    for (const [item, mask] of this.formDateMasks(table, items)) {
+      const name = item.id.toUpperCase();
+      const value = binds[name];
+      if (typeof value === 'string' && value !== '') binds[name] = canonicalDate(value, mask);
+    }
     const column = (item: ApxComponent) => str(item.props, 'source.column').toUpperCase();
     const where = keys.map((key) => `"${column(key)}" = :${key.id.toUpperCase()}`).join(' and ');
     try {
@@ -1571,19 +1606,39 @@ export class ApexRenderer {
           (item) =>
             columns.has(column(item)) && !(keys.includes(item) && !ctx.session.items[item.id.toUpperCase()]),
         );
+        const defaulted: ApxComponent[] = [];
         for (const key of keys) {
           const name = key.id.toUpperCase();
-          if (!ctx.session.items[name]) {
-            const next = this.db.scalar(`select coalesce(max("${column(key)}"), 0) + 1 from ${table}`);
-            ctx.session.items[name] = String(next);
-            binds[name] = String(next);
-            values.push(key);
+          if (ctx.session.items[name]) continue;
+          const source = this.db.keySource(table, column(key));
+          if (source === 'default') {
+            defaulted.push(key);
+            continue;
           }
+          const next = this.db.scalar(`select coalesce(max("${column(key)}"), 0) + 1 from ${table}`);
+          ctx.session.items[name] = String(next);
+          binds[name] = String(next);
+          values.push(key);
+          if (source === 'none')
+            this.diagnose(
+              'warning',
+              `Form ${regionId}: ${table}.${column(key)} has no identity, default or insert trigger locally; the preview generated ${column(key)} = ${next} (max + 1). In Oracle the insert needs a key value from the page or the database.`,
+              ctx.pageId,
+              regionId,
+            );
         }
-        this.db.execute(
-          `insert into ${table} (${values.map((item) => `"${column(item)}"`).join(', ')}) values (${values.map((item) => `:${item.id.toUpperCase()}`).join(', ')})`,
+        const inserted = this.db.execute(
+          values.length
+            ? `insert into ${table} (${values.map((item) => `"${column(item)}"`).join(', ')}) values (${values.map((item) => `:${item.id.toUpperCase()}`).join(', ')})`
+            : `insert into ${table} default values`,
           binds,
         );
+        for (const key of defaulted) {
+          const value = this.db.scalar(`select "${column(key)}" from ${table} where rowid = :ROWID`, {
+            ROWID: inserted.lastInsertRowid,
+          });
+          ctx.session.items[key.id.toUpperCase()] = value === null ? '' : String(value);
+        }
         ctx.session.success = 'Action Processed.';
       } else if (operation === 'update' && where) {
         const values = items.filter((item) => !keys.includes(item) && columns.has(column(item)));

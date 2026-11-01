@@ -1,4 +1,5 @@
 import { get, isRef, ref, str, type ApxComponent, type ApxObject, type ApxValue } from '../apexlang.ts';
+import { oracleRegExp } from '../database.ts';
 import { registerExtension, type ProcessResult } from '../extensions.ts';
 import type { ApexError, ApexRenderer, RenderContext, Session } from '../render.ts';
 import { escapeHtml } from '../theme.ts';
@@ -589,7 +590,8 @@ registerExtension({
     itemMatchesRegexp: itemCheck((value, validation) => {
       if (value === '') return true;
       try {
-        return new RegExp(str(validation.props, 'validation.regexp'), 'u').test(value);
+        // APEX evaluates this validation with REGEXP_LIKE (POSIX classes, Oracle semantics)
+        return oracleRegExp(str(validation.props, 'validation.regexp')).test(value);
       } catch {
         return true;
       }

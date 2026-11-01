@@ -275,12 +275,306 @@ function formatNumber(value: unknown, upper: string): string {
   return upper.endsWith('S') && upper.startsWith('S') ? `+${text}` : text;
 }
 
+/**
+ * Oracle's default NUMBER → VARCHAR2 conversion (TO_CHAR without a mask, `||`, implicit
+ * conversion): no trailing zeros or ".0", no leading "0" before the decimal point (".5"), and
+ * binary floating-point noise rounded away at 15 significant digits (0.15 * 100 is "15").
+ */
+export function oracleNumberText(value: number): string {
+  if (Number.isNaN(value)) return 'NaN';
+  if (!Number.isFinite(value)) return value > 0 ? '~' : '-~';
+  if (Number.isInteger(value)) return Math.abs(value) < 1e21 ? String(value || 0) : BigInt(value).toString();
+  const rounded = Number(value.toPrecision(15));
+  if (Number.isInteger(rounded)) return String(rounded || 0);
+  let text = String(rounded);
+  if (/e/iu.test(text)) {
+    const exponent = Number(text.split(/e/iu)[1]);
+    text = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, '');
+  }
+  return text.replace(/^(-?)0\./u, '$1.');
+}
+
+/** Text of a SQL value as Oracle converts it implicitly; null stays null. */
+export function oracleText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return oracleNumberText(value);
+  if (typeof value === 'bigint') return value.toString();
+  return String(value);
+}
+
+/** A REAL from SQLite as the decimal NUMBER Oracle would hold (0.1 + 0.2 is 0.3). */
+export function decimalNumber(value: number): number {
+  return Number.isFinite(value) && !Number.isInteger(value) ? Number(value.toPrecision(15)) : value;
+}
+
+const DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
+
+function arithmeticNumber(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const number = Number(value.trim());
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function arithmeticDate(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || arithmeticNumber(value) !== undefined) return undefined;
+  const text = value.trim();
+  return DATE_TEXT.test(text) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text)
+    ? oracleDate(text)
+    : undefined;
+}
+
+const sqlNumber = (value: number) => (Number.isSafeInteger(value) ? BigInt(value) : decimalNumber(value));
+
+/**
+ * Oracle `+`/`-` with run-time typing: date ± days (fractions are hours/minutes), date - date in
+ * days, and plain arithmetic otherwise. Dates are the stored `YYYY-MM-DD[ HH24:MI:SS]` text; a
+ * result keeps the time part when the input had one or the result is not midnight.
+ */
+export function sqlArithmetic(
+  left: unknown,
+  operator: string,
+  right: unknown,
+): string | number | bigint | null {
+  if (left === null || left === undefined || right === null || right === undefined) return null;
+  const leftDate = arithmeticDate(left);
+  const rightDate = arithmeticDate(right);
+  if (leftDate && rightDate && operator === '-') {
+    const utc = (date: Date) =>
+      Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes(),
+        date.getSeconds(),
+      );
+    return sqlNumber((utc(leftDate) - utc(rightDate)) / 86_400_000);
+  }
+  const date = leftDate ?? (operator === '+' ? rightDate : undefined);
+  if (date) {
+    const days = arithmeticNumber(leftDate ? right : left);
+    if (days === undefined) return null;
+    const signed = operator === '-' ? -days : days;
+    const whole = Math.trunc(signed);
+    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
+    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
+    result.setTime(result.getTime() + Math.round((signed - whole) * 86_400) * 1000);
+    const source = String(leftDate ? left : right);
+    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
+    return isoDate(result, Boolean(timed));
+  }
+  const a = arithmeticNumber(left);
+  const b = arithmeticNumber(right);
+  if (a === undefined || b === undefined) return null;
+  return sqlNumber(operator === '-' ? a - b : a + b);
+}
+
+// ---------------------------------------------------------------- SQL/JSON
+
+type JsonStep =
+  | { kind: 'field'; name: string }
+  | { kind: 'any' }
+  | { kind: 'index'; indexes: (number | 'last' | [number | 'last', number | 'last'])[] }
+  | { kind: 'all' };
+
+function parseJsonPath(path: string): JsonStep[] | undefined {
+  const text = path.trim().replace(/^(?:lax|strict)\s+/iu, '');
+  if (!text.startsWith('$')) return undefined;
+  const steps: JsonStep[] = [];
+  let index = 1;
+  while (index < text.length) {
+    const rest = text.slice(index);
+    let match: RegExpExecArray | null;
+    if ((match = /^\.\*/u.exec(rest))) steps.push({ kind: 'any' });
+    else if ((match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest))) steps.push({ kind: 'field', name: match[1]! });
+    else if ((match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest)))
+      steps.push({ kind: 'field', name: match[1]!.replace(/\\(.)/gu, '$1') });
+    else if ((match = /^\[\s*\*\s*\]/u.exec(rest))) steps.push({ kind: 'all' });
+    else if ((match = /^\[([^\]]*)\]/u.exec(rest))) {
+      const position = (part: string) => (part.trim().toLowerCase() === 'last' ? 'last' : Number(part));
+      const indexes = match[1]!.split(',').map((part) => {
+        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part.trim());
+        return range
+          ? ([position(range[1]!), position(range[2]!)] as [number | 'last', number | 'last'])
+          : position(part);
+      });
+      if (indexes.some((entry) => typeof entry === 'number' && !Number.isInteger(entry))) return undefined;
+      steps.push({ kind: 'index', indexes });
+    } else return undefined;
+    index += match[0].length;
+  }
+  return steps;
+}
+
+/** Matches of an Oracle JSON path in lax mode; undefined when the document or path is invalid. */
+function jsonMatches(doc: unknown, pathText: unknown): unknown[] | undefined {
+  if (doc === null || doc === undefined || pathText === null || pathText === undefined) return undefined;
+  const steps = parseJsonPath(String(pathText));
+  if (!steps) return undefined;
+  let data: unknown;
+  try {
+    data = typeof doc === 'string' ? JSON.parse(doc) : doc;
+  } catch {
+    return undefined;
+  }
+  let current: unknown[] = [data];
+  for (const step of steps) {
+    const next: unknown[] = [];
+    for (const value of current) {
+      if (step.kind === 'field' || step.kind === 'any') {
+        // lax mode: a member step over an array applies to its elements
+        for (const target of Array.isArray(value) ? value : [value]) {
+          if (!target || typeof target !== 'object' || Array.isArray(target)) continue;
+          if (step.kind === 'any') next.push(...Object.values(target));
+          else if (Object.hasOwn(target, step.name))
+            next.push((target as Record<string, unknown>)[step.name]);
+        }
+      } else {
+        const array = Array.isArray(value) ? value : [value];
+        if (step.kind === 'all') {
+          next.push(...array);
+          continue;
+        }
+        const resolve = (entry: number | 'last') => (entry === 'last' ? array.length - 1 : entry);
+        for (const entry of step.indexes) {
+          if (Array.isArray(entry)) {
+            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
+              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
+          } else {
+            const at = resolve(entry);
+            if (at >= 0 && at < array.length) next.push(array[at]);
+          }
+        }
+      }
+    }
+    current = next;
+  }
+  return current;
+}
+
+function jsonValue(doc: unknown, pathText: unknown, returning: unknown): string | number | null {
+  const matches = jsonMatches(doc, pathText);
+  if (!matches || matches.length !== 1) return null;
+  const value = matches[0];
+  if (value === null || typeof value === 'object') return null;
+  if (
+    returning === 'number' ||
+    returning === 'integer' ||
+    returning === 'float' ||
+    returning === 'binary_double'
+  ) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  if (typeof value === 'number') return oracleNumberText(value);
+  return String(value);
+}
+
+function jsonQuery(doc: unknown, pathText: unknown, wrapper: boolean): string | null {
+  const matches = jsonMatches(doc, pathText);
+  if (!matches?.length) return null;
+  if (wrapper) return JSON.stringify(matches);
+  if (matches.length !== 1 || matches[0] === null || typeof matches[0] !== 'object') return null;
+  return JSON.stringify(matches[0]);
+}
+
+const POSIX_CLASSES: Record<string, string> = {
+  alpha: 'a-zA-Z',
+  digit: '0-9',
+  alnum: 'a-zA-Z0-9',
+  upper: 'A-Z',
+  lower: 'a-z',
+  space: '\\s',
+  blank: ' \\t',
+  punct: '!"#$%&\'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~',
+  xdigit: '0-9A-Fa-f',
+  cntrl: '\\x00-\\x1f\\x7f',
+  print: '\\x20-\\x7e',
+  graph: '\\x21-\\x7e',
+  word: '\\w',
+};
+
+/**
+ * An Oracle (POSIX ERE + Perl extensions) regular expression as a JavaScript RegExp: bracket
+ * classes such as `[[:space:]]` and the match parameter (`i`, `c`, `n`, `m`, `x`; the last of
+ * `i`/`c` wins) are translated. Patterns JavaScript's Unicode mode rejects are retried without it.
+ */
+export function oracleRegExp(pattern: string, matchParameter = '', global = false): RegExp {
+  let ignoreCase = false;
+  let dotAll = false;
+  let multiline = false;
+  let extended = false;
+  for (const flag of matchParameter) {
+    if (flag === 'i') ignoreCase = true;
+    else if (flag === 'c') ignoreCase = false;
+    else if (flag === 'n') dotAll = true;
+    else if (flag === 'm') multiline = true;
+    else if (flag === 'x') extended = true;
+  }
+  let source = '';
+  let inClass = false;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index]!;
+    if (char === '\\') {
+      source += pattern.slice(index, index + 2);
+      index += 1;
+      continue;
+    }
+    if (inClass) {
+      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
+      if (posix && POSIX_CLASSES[posix[1]!] !== undefined) {
+        source += POSIX_CLASSES[posix[1]!];
+        index += posix[0].length - 1;
+        continue;
+      }
+      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
+      if (equivalence) {
+        source += equivalence[1]!.replace(/[\\\]^-]/u, '\\$&');
+        index += equivalence[0].length - 1;
+        continue;
+      }
+      if (char === ']') inClass = false;
+      else if (char === '[') {
+        source += '\\[';
+        continue;
+      }
+      source += char;
+      continue;
+    }
+    if (char === '[') {
+      inClass = true;
+      source += char;
+      if (pattern[index + 1] === '^') {
+        source += '^';
+        index += 1;
+      }
+      // a leading `]` is a literal in POSIX brackets
+      if (pattern[index + 1] === ']') {
+        source += '\\]';
+        index += 1;
+      }
+      continue;
+    }
+    if (extended && /\s/u.test(char)) continue;
+    source += char;
+  }
+  const flags = `${global ? 'g' : ''}${ignoreCase ? 'i' : ''}${dotAll ? 's' : ''}${multiline ? 'm' : ''}`;
+  try {
+    return new RegExp(source, `${flags}u`);
+  } catch {
+    return new RegExp(source, flags);
+  }
+}
+
 /** Oracle TO_CHAR for datetime and number masks. */
 export function formatOracle(value: unknown, mask: string | undefined): string | null {
   if (value === null || value === undefined) return null;
-  if (!mask) return String(value);
+  if (!mask) return oracleText(value);
   const upper = mask.trim().toUpperCase();
-  if (upper === 'TM' || upper === 'TM9') return String(Number(value));
+  if (upper === 'TM' || upper === 'TM9' || upper === 'TME')
+    return value === '' ? null : oracleNumberText(Number(value));
   if (/[90X]/u.test(upper) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper))
     return formatNumber(value, upper);
   if (upper === 'DS' || upper === 'DL') {
@@ -380,6 +674,17 @@ export function parseOracleDate(value: unknown, mask?: string): Date | undefined
   const hour = parts.pm && parts.hour < 12 ? parts.hour + 12 : parts.hour;
   const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
   return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/**
+ * A date item value in the canonical stored form (`YYYY-MM-DD HH24:MI:SS`): display text is
+ * parsed with the item's format mask; values that are not dates are returned unchanged.
+ */
+export function canonicalDate(value: string, mask?: string): string {
+  const text = value.trim();
+  if (text === '') return value;
+  const date = DATE_TEXT.test(text) ? oracleDate(text) : parseOracleDate(text, mask);
+  return date ? isoDate(date) : value;
 }
 
 /** Oracle TRUNC(date, unit). */
@@ -697,6 +1002,375 @@ function rewriteConnectBy(text: string): string {
   return text;
 }
 
+// ---------------------------------------------------------------- expression-level rewrites
+
+interface SqlToken {
+  pre: string;
+  text: string;
+  kind: 'word' | 'number' | 'literal' | 'bind' | 'op' | 'atom';
+}
+
+const SQL_TOKEN =
+  /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
+
+function tokenizeSql(text: string): { tokens: SqlToken[]; tail: string } {
+  const tokens: SqlToken[] = [];
+  SQL_TOKEN.lastIndex = 0;
+  let position = 0;
+  for (let match = SQL_TOKEN.exec(text); match && match[2]; match = SQL_TOKEN.exec(text)) {
+    const value = match[2];
+    const kind: SqlToken['kind'] = value.startsWith('\u0000')
+      ? 'literal'
+      : /^[\d.]/u.test(value) && value !== '.'
+        ? 'number'
+        : /^:[\w]/u.test(value)
+          ? 'bind'
+          : /^[A-Za-z_"]/u.test(value)
+            ? 'word'
+            : 'op';
+    tokens.push({ pre: match[1]!, text: value, kind });
+    position = SQL_TOKEN.lastIndex;
+  }
+  return { tokens, tail: text.slice(position) };
+}
+
+const renderTokens = (tokens: SqlToken[]) =>
+  tokens.map((token, index) => (index === 0 ? '' : token.pre) + token.text).join('');
+
+/** Words that never start or end an operand. */
+const SQL_KEYWORDS = new Set(
+  (
+    'select from where and or not when then else end as on by group order having union all intersect ' +
+    'minus except in is like between escape asc desc nulls limit offset join left right inner outer ' +
+    'cross natural into values set distinct exists over within partition using with recursive ' +
+    'returning default collate glob regexp isnull notnull prior connect ' +
+    'interval return'
+  ).split(' '),
+);
+
+const isOpToken = (token: SqlToken | undefined, ...values: string[]) =>
+  token?.kind === 'op' && values.includes(token.text);
+const isWordToken = (token: SqlToken | undefined, ...values: string[]) =>
+  token?.kind === 'word' && values.includes(token.text.toLowerCase());
+
+function matchForward(tokens: SqlToken[], open: number): number {
+  let depth = 0;
+  for (let index = open; index < tokens.length; index += 1) {
+    if (isOpToken(tokens[index], '(')) depth += 1;
+    else if (isOpToken(tokens[index], ')')) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function matchBackward(tokens: SqlToken[], close: number): number {
+  let depth = 0;
+  for (let index = close; index >= 0; index -= 1) {
+    if (isOpToken(tokens[index], ')')) depth += 1;
+    else if (isOpToken(tokens[index], '(')) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+/** `over (...)`, `within group (...)`, `keep (...)`, `filter (...)` after an aggregate call. */
+function callSuffix(tokens: SqlToken[], end: number): number {
+  for (;;) {
+    const next = tokens[end + 1];
+    if (isWordToken(next, 'over', 'keep', 'filter') && isOpToken(tokens[end + 2], '(')) {
+      const close = matchForward(tokens, end + 2);
+      if (close < 0) return end;
+      end = close;
+    } else if (
+      isWordToken(next, 'within') &&
+      isWordToken(tokens[end + 2], 'group') &&
+      isOpToken(tokens[end + 3], '(')
+    ) {
+      const close = matchForward(tokens, end + 3);
+      if (close < 0) return end;
+      end = close;
+    } else return end;
+  }
+}
+
+/** Last token index of the operand starting at `index`, or -1. */
+function operandEnd(tokens: SqlToken[], index: number): number {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, '+', '-')) return operandEnd(tokens, index + 1);
+  if (isOpToken(token, '(')) {
+    const close = matchForward(tokens, index);
+    return close < 0 ? -1 : close;
+  }
+  if (token.kind === 'word') {
+    const lower = token.text.toLowerCase();
+    if (lower === 'case') {
+      let depth = 0;
+      for (let cursor = index; cursor < tokens.length; cursor += 1) {
+        if (isWordToken(tokens[cursor], 'case')) depth += 1;
+        else if (isWordToken(tokens[cursor], 'end')) {
+          depth -= 1;
+          if (depth === 0) return cursor;
+        }
+      }
+      return -1;
+    }
+    if (SQL_KEYWORDS.has(lower)) return -1;
+    let end = index;
+    while (isOpToken(tokens[end + 1], '.') && tokens[end + 2]?.kind === 'word') end += 2;
+    if (isOpToken(tokens[end + 1], '(')) {
+      const close = matchForward(tokens, end + 1);
+      if (close < 0) return -1;
+      end = callSuffix(tokens, close);
+    }
+    return end;
+  }
+  return token.kind === 'op' ? -1 : index;
+}
+
+/** First token index of the operand ending at `index`, or -1. */
+function operandStart(tokens: SqlToken[], index: number): number {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, ')')) {
+    let open = matchBackward(tokens, index);
+    if (open < 0) return -1;
+    if (isWordToken(tokens[open - 1], 'over', 'keep', 'filter')) return operandStart(tokens, open - 2);
+    if (isWordToken(tokens[open - 1], 'group') && isWordToken(tokens[open - 2], 'within'))
+      return operandStart(tokens, open - 3);
+    const name = tokens[open - 1];
+    if (name?.kind === 'word' && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
+      open -= 1;
+      while (isOpToken(tokens[open - 1], '.') && tokens[open - 2]?.kind === 'word') open -= 2;
+    }
+    return open;
+  }
+  if (isWordToken(token, 'end')) {
+    let depth = 0;
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      if (isWordToken(tokens[cursor], 'end')) depth += 1;
+      else if (isWordToken(tokens[cursor], 'case')) {
+        depth -= 1;
+        if (depth === 0) return cursor;
+      }
+    }
+    return -1;
+  }
+  if (token.kind === 'word') {
+    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
+    let start = index;
+    while (isOpToken(tokens[start - 1], '.') && tokens[start - 2]?.kind === 'word') start -= 2;
+    return start;
+  }
+  return token.kind === 'op' ? -1 : index;
+}
+
+/** Whether the operator at `index` is binary (it follows a complete operand). */
+function isBinaryAt(tokens: SqlToken[], index: number): boolean {
+  const previous = tokens[index - 1];
+  if (!previous) return false;
+  if (isOpToken(previous, ')')) return true;
+  if (previous.kind === 'word')
+    return isWordToken(previous, 'end') || !SQL_KEYWORDS.has(previous.text.toLowerCase());
+  return previous.kind !== 'op';
+}
+
+/** Start of the left operand of a `+ - ||` level operator: every earlier term at that level. */
+function leftOperand(tokens: SqlToken[], operator: number): number {
+  let start = operandStart(tokens, operator - 1);
+  while (start > 0) {
+    const previous = start - 1;
+    if (isOpToken(tokens[previous], '*', '/', '%', '+', '-') && isBinaryAt(tokens, previous)) {
+      const earlier = operandStart(tokens, previous - 1);
+      if (earlier < 0) break;
+      start = earlier;
+    } else if (isOpToken(tokens[previous], '+', '-')) {
+      start = previous;
+      break;
+    } else break;
+  }
+  return start;
+}
+
+/** End of the right operand of a `+ - ||` level operator: one multiplicative term. */
+function rightOperand(tokens: SqlToken[], operator: number): number {
+  let end = operandEnd(tokens, operator + 1);
+  while (end >= 0 && isOpToken(tokens[end + 1], '*', '/', '%')) {
+    const later = operandEnd(tokens, end + 2);
+    if (later < 0) break;
+    end = later;
+  }
+  return end;
+}
+
+/** `a || b || c` → `concat(a, b, c)`: Oracle precedence (same as `+ -`), NULL as '', numbers as text. */
+function rewriteConcatTokens(tokens: SqlToken[]): SqlToken[] {
+  const out = [...tokens];
+  for (let index = 0; index < out.length; index += 1) {
+    if (!isOpToken(out[index], '||')) continue;
+    const start = leftOperand(out, index);
+    if (start < 0) continue;
+    const operands = [renderTokens(out.slice(start, index))];
+    let cursor = index;
+    let end = index;
+    while (isOpToken(out[cursor], '||')) {
+      const last = rightOperand(out, cursor);
+      if (last < 0) break;
+      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
+      end = last;
+      cursor = last + 1;
+    }
+    if (end === index) continue;
+    out.splice(start, end - start + 1, {
+      pre: out[start]!.pre,
+      text: `concat(${operands.join(', ')})`,
+      kind: 'atom',
+    });
+    index = start;
+  }
+  return out;
+}
+
+/** Calls whose result may be a date: `+`/`-` on them is date arithmetic in Oracle. */
+const DATE_CAPABLE_CALLS = new Set([
+  'trunc',
+  'round',
+  'to_date',
+  'to_timestamp',
+  'last_day',
+  'next_day',
+  'add_months',
+  'datetime',
+  'date',
+  'nvl',
+  'coalesce',
+  'greatest',
+  'least',
+  'max',
+  'min',
+  'decode',
+  'nullif',
+  'new_time',
+  'from_tz',
+  'cast',
+  'apex_local_arith',
+]);
+
+function dateCapable(tokens: SqlToken[]): boolean {
+  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
+  const first = tokens[0]!;
+  if (first.kind === 'bind') return true;
+  if (first.kind === 'atom') return /^apex_local_arith\(/u.test(first.text);
+  if (isOpToken(first, '(')) return dateCapable(tokens.slice(1, -1));
+  if (first.kind !== 'word' || isWordToken(first, 'case', 'null')) return false;
+  const open = tokens.findIndex((token) => isOpToken(token, '('));
+  if (open < 0) return !isWordToken(tokens.at(-1), 'level', 'rownum');
+  return DATE_CAPABLE_CALLS.has(tokens[open - 1]!.text.toLowerCase());
+}
+
+/**
+ * `date ± number` and `date - date` for any operand that may be a date (columns, binds,
+ * trunc/to_date/... calls): the operation goes through `apex_local_arith`, which does day
+ * arithmetic on dates and plain arithmetic on numbers at run time.
+ */
+function rewriteDateArithmeticTokens(tokens: SqlToken[]): SqlToken[] {
+  const out = [...tokens];
+  for (let index = 1; index < out.length; index += 1) {
+    if (!isOpToken(out[index], '+', '-') || !isBinaryAt(out, index)) continue;
+    const start = leftOperand(out, index);
+    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
+    const end = rightOperand(out, index);
+    if (end < 0) continue;
+    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
+    out.splice(start, end - start + 1, {
+      pre: out[start]!.pre,
+      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index]!.text}', ${right})`,
+      kind: 'atom',
+    });
+    index = start;
+  }
+  return out;
+}
+
+function rewriteExpressions(text: string, rewrite: (tokens: SqlToken[]) => SqlToken[]): string {
+  const { tokens, tail } = tokenizeSql(text);
+  if (!tokens.length) return text;
+  const lead = tokens[0]!.pre;
+  return lead + renderTokens(rewrite(tokens)) + tail;
+}
+
+/** `listagg(expr, sep) within group (order by ...)` → `group_concat(expr, sep order by ...)`. */
+function rewriteListagg(text: string): string {
+  const pattern = /\blistagg\s*\(/giu;
+  let out = '';
+  let last = 0;
+  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+    const open = match.index + match[0].length - 1;
+    const close = closingParen(text, open);
+    if (close < 0) continue;
+    const within = /^\s*within\s+group\s*\(/iu.exec(text.slice(close + 1));
+    const orderOpen = within ? close + within[0].length : -1;
+    const orderClose = within ? closingParen(text, orderOpen) : -1;
+    let inner = rewriteListagg(text.slice(open + 1, close))
+      .replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, '')
+      .trim();
+    const distinct = /^distinct\s+/iu.exec(inner);
+    if (distinct) inner = inner.slice(distinct[0].length);
+    const [value = 'null', separator] = topLevelCommas(inner).map((part) => part.trim());
+    const order = orderClose > 0 ? text.slice(orderOpen + 1, orderClose).trim() : '';
+    const measure = `apex_local_text(${value})`;
+    out += text.slice(last, match.index);
+    out += distinct
+      ? `group_concat(distinct ${measure})`
+      : `group_concat(${measure}, ${separator || "''"}${order ? ` ${order}` : ''})`;
+    last = orderClose > 0 ? orderClose + 1 : close + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text.slice(last);
+}
+
+/** `json_value(doc, '$.a' returning number null on error)` → the local UDF's positional form. */
+function rewriteJsonFunctions(text: string): string {
+  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
+  let out = '';
+  let last = 0;
+  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+    const open = match.index + match[0].length - 1;
+    const close = closingParen(text, open);
+    if (close < 0) continue;
+    const args = topLevelCommas(rewriteJsonFunctions(text.slice(open + 1, close)));
+    if (args.length < 2) continue;
+    const doc = args[0]!.replace(/\s+format\s+json\s*$/iu, '').trim();
+    const rest = args.slice(1).join(',').trim();
+    const path = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path) continue;
+    const clauses = rest.slice(path.length);
+    const kind = match[1]!.toLowerCase();
+    const option =
+      kind === 'value'
+        ? (/\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu
+            .exec(clauses)?.[1]
+            ?.toLowerCase() ?? '')
+        : kind === 'query' && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses)
+          ? 'wrapper'
+          : '';
+    out += `${text.slice(last, match.index)}json_${kind}(${doc}, ${path}${option ? `, '${option}'` : ''})`;
+    last = close + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text.slice(last);
+}
+
+/** Left in local DDL where Oracle declares an identity column. */
+export const IDENTITY_MARKER = '/*apex_local_identity*/';
+
+/** DDL keeps plain expressions: SQLite rejects application functions in CHECK constraints and indexes. */
+const PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
+
 /** Rewrites the most common Oracle-only syntax into SQLite. Function differences are covered by UDFs. */
 export function translateOracleSql(sql: string): string {
   const trimmed = sql
@@ -704,17 +1378,29 @@ export function translateOracleSql(sql: string): string {
     .replace(/;\s*\/?\s*$/u, '')
     .replace(/\n\/\s*$/u, '');
   const masked = maskLiterals(trimmed);
-  let text = masked.text
+  const literal = (value: string) => {
+    masked.literals.push(value);
+    return `\u0000${masked.literals.length - 1}\u0000`;
+  };
+  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, ' ');
+  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
+  let text = uncommented
     .replace(/\bfrom\s+dual\b/giu, '')
+    // DEFAULT expressions must be parenthesized in SQLite; DEFAULT ON NULL is a plain default.
+    .replace(/\bdefault\s+on\s+null\b/giu, 'default')
+    .replace(
+      /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
+      "default (datetime('now','localtime'))",
+    )
+    .replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, 'default $1')
+    .replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, 'default ($1)')
+    // ANSI datetime literals
+    .replace(/\bdate\s+(\u0000\d+\u0000)/giu, 'to_date($1)')
+    .replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, 'to_timestamp($1)')
     .replace(
       /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
-      (_whole, sign: string, days: string) => `datetime('now','localtime','${sign}${days} days')`,
-    )
-    // sysdate - n/24, sysdate + (expr), sysdate - :BIND: day arithmetic with any simple operand.
-    .replace(
-      /\b(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\s*([+-])\s*(\(\s*[^()]*\)|:\w+|\d+(?:\.\d+)?(?:\s*[/*]\s*(?:\d+(?:\.\d+)?|:\w+))+)/giu,
-      (_whole, sign: string, operand: string) =>
-        `datetime('now','localtime', printf('%+.6f days', ${sign === '-' ? '-' : ''}(${operand.replace(/\//gu, '*1.0/')})))`,
+      (_whole, sign: string, days: string) =>
+        `datetime('now','localtime',${literal(`'${sign}${days} days'`)})`,
     )
     .replace(
       /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
@@ -725,13 +1411,6 @@ export function translateOracleSql(sql: string): string {
       'limit $2 offset $1',
     )
     .replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, 'limit $1')
-    .replace(
-      /\blistagg\s*\(\s*(distinct\s+)?([^(),]*(?:\([^()]*(?:\([^()]*\)[^()]*)*\)[^(),]*)*)\s*(?:,\s*([^(),]+?))?\s*(?:on\s+overflow\s+\w+(?:\s+\S+)?(?:\s+(?:with|without)\s+count)?)?\s*\)\s*within\s+group\s*\(\s*(order\s+by\s+[^()]*(?:\([^()]*\)[^()]*)*)\)/giu,
-      (_whole, distinct: string | undefined, value: string, separator: string | undefined, order: string) =>
-        distinct
-          ? `group_concat(distinct ${value})`
-          : `group_concat(${value}, ${separator ?? "''"} ${order})`,
-    )
     .replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ")
     // trim(both|leading|trailing 'x' from expr) -> trim/ltrim/rtrim(expr, 'x')
     .replace(
@@ -748,12 +1427,27 @@ export function translateOracleSql(sql: string): string {
       /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
       (_whole, name: string, kind: string) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`,
     )
-    // Oracle identity/sequence DDL
-    .replace(/\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu, '')
+    .replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, 'default ($1)')
+    // Oracle identity/sequence DDL; the marker tells form processing the key is generated.
+    .replace(
+      /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
+      IDENTITY_MARKER,
+    )
+    // an inline identity primary key becomes SQLite's auto-numbered INTEGER PRIMARY KEY
+    .replace(
+      /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
+      'integer$1',
+    )
     .replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, 'varchar2($1)')
     .replace(/\busing\s+index\b(?:\s+\w+)?/giu, '')
-    .replace(/\benable\b|\bnovalidate\b/giu, '');
-  text = rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text))));
+    .replace(/\benable\b|\bnovalidate\b/giu, '')
+    // Oracle `/` is always real division; SQLite truncates integer operands.
+    .replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, '* 1.0 /');
+  text = rewriteJsonFunctions(
+    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text))))),
+  );
+  if (!ddl)
+    text = rewriteExpressions(rewriteExpressions(text, rewriteConcatTokens), rewriteDateArithmeticTokens);
   return unmask(text, masked.literals);
 }
 
@@ -829,7 +1523,12 @@ export function splitScript(script: string): string[] {
   let plsql = false;
   for (const line of script.replace(/\r\n?/gu, '\n').split('\n')) {
     const trimmed = line.trim();
-    if (!current.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b)/iu.test(trimmed)) continue;
+    if (!current.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
+    // a comment line never ends a statement, even when it ends with `;`
+    if (!plsql && trimmed.startsWith('--')) {
+      current += `${line}\n`;
+      continue;
+    }
     if (
       !current.trim() &&
       /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
@@ -908,6 +1607,7 @@ export class LocalDatabase {
 
   #sqlValue(value: unknown): SQLInputValue {
     if (typeof value === 'bigint') return Number(value);
+    if (typeof value === 'number') return decimalNumber(value);
     if (value instanceof Uint8Array) return this.blobToken(value);
     return (value ?? null) as SQLInputValue;
   }
@@ -928,6 +1628,19 @@ export class LocalDatabase {
       return pairs.length % 2 === 1 ? (pairs.at(-1) ?? null) : null;
     });
     fn('to_char', (value, mask) => formatOracle(value, typeof mask === 'string' ? mask : undefined));
+    // Oracle `||` / CONCAT: NULL is '', numbers convert as TO_CHAR does (15, not 15.0).
+    fn('concat', (...args) => {
+      if (args.every((arg) => arg === null || arg === undefined)) return null;
+      return args.map((arg) => oracleText(arg) ?? '').join('');
+    });
+    fn('apex_local_text', (value) => oracleText(value));
+    fn('apex_local_arith', (left, operator, right) => sqlArithmetic(left, String(operator), right));
+    fn('json_value', (doc, pathText, returning) => jsonValue(doc, pathText, returning));
+    fn('json_query', (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === 'wrapper'));
+    fn('json_exists', (doc, pathText) => {
+      const matches = jsonMatches(doc, pathText);
+      return matches === undefined ? null : matches.length ? 1 : 0;
+    });
     fn('to_number', (value) => (value === null || value === '' ? null : Number(value)));
     fn('to_date', (value, mask) => {
       const date = parseOracleDate(value, typeof mask === 'string' ? mask : undefined);
@@ -986,18 +1699,21 @@ export class LocalDatabase {
     fn('least', (...args) =>
       args.some((arg) => arg === null) ? null : args.reduce((a, b) => ((a ?? 0) < (b ?? 0) ? a : b)),
     );
+    const flagText = (flags: SQLInputValue | undefined) => (typeof flags === 'string' ? flags : '');
     fn('regexp_like', (value, pattern, flags) =>
-      value !== null &&
-      new RegExp(String(pattern), String(flags ?? '').includes('i') ? 'iu' : 'u').test(String(value))
-        ? 1
-        : 0,
+      value === null || pattern === null || value === undefined || pattern === undefined
+        ? null
+        : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value)))
+          ? 1
+          : 0,
     );
     fn('regexp_replace', (value, pattern, replacement, position, occurrence, flags) => {
       if (value === null) return null;
       const text = String(value);
       const offset = Number(position ?? 1) - 1;
       const nth = Number(occurrence ?? 0);
-      const regex = new RegExp(String(pattern), `g${String(flags ?? '').includes('i') ? 'i' : ''}u`);
+      const regex = oracleRegExp(String(pattern ?? ''), flagText(flags), true);
+      const single = oracleRegExp(String(pattern ?? ''), flagText(flags));
       const replace = String(replacement ?? '').replace(/\\(\d)/gu, '$$$1');
       let count = 0;
       return (
@@ -1005,10 +1721,7 @@ export class LocalDatabase {
         text.slice(offset).replace(regex, (...match) => {
           count += 1;
           if (nth && count !== nth) return match[0] as string;
-          return (match[0] as string).replace(
-            new RegExp(String(pattern), `${String(flags ?? '').includes('i') ? 'i' : ''}u`),
-            replace,
-          );
+          return (match[0] as string).replace(single, replace);
         })
       );
     });
@@ -1022,7 +1735,10 @@ export class LocalDatabase {
               .split(String(search))
               .join(replacement === null || replacement === undefined ? '' : String(replacement)),
     );
-    fn('v', (name) => this.#binds[String(name).toUpperCase()] ?? null);
+    fn('v', (name) => {
+      const value = this.#binds[String(name).toUpperCase()];
+      return value === undefined || value === '' ? null : value;
+    });
     fn('nv', (name) => {
       const value = this.#binds[String(name).toUpperCase()];
       return value === null || value === undefined || value === '' ? null : Number(value);
@@ -1075,7 +1791,7 @@ export class LocalDatabase {
     });
     fn('regexp_substr', (value, pattern, position, occurrence, flags, group) => {
       if (value === null || pattern === null) return null;
-      const regex = new RegExp(String(pattern), `g${String(flags ?? '').includes('i') ? 'i' : ''}u`);
+      const regex = oracleRegExp(String(pattern), flagText(flags), true);
       const matches = [
         ...String(value)
           .slice(Number(position ?? 1) - 1)
@@ -1084,16 +1800,17 @@ export class LocalDatabase {
       const match = matches[Number(occurrence ?? 1) - 1];
       return match ? (match[Number(group ?? 0)] ?? null) : null;
     });
-    fn('regexp_instr', (value, pattern, position, occurrence) => {
+    fn('regexp_instr', (value, pattern, position, occurrence, returnOption, flags) => {
       if (value === null || pattern === null) return null;
       const offset = Number(position ?? 1) - 1;
       const matches = [
         ...String(value)
           .slice(offset)
-          .matchAll(new RegExp(String(pattern), 'gu')),
+          .matchAll(oracleRegExp(String(pattern), flagText(flags), true)),
       ];
       const match = matches[Number(occurrence ?? 1) - 1];
-      return match ? match.index + offset + 1 : 0;
+      if (!match) return 0;
+      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
     });
     fn('regexp_count', (value, pattern, position, flags) =>
       value === null || pattern === null
@@ -1101,7 +1818,7 @@ export class LocalDatabase {
         : [
             ...String(value)
               .slice(Number(position ?? 1) - 1)
-              .matchAll(new RegExp(String(pattern), `g${String(flags ?? '').includes('i') ? 'i' : ''}u`)),
+              .matchAll(oracleRegExp(String(pattern), flagText(flags), true)),
           ].length,
     );
     fn('last_day', (value) => {
@@ -1205,7 +1922,8 @@ export class LocalDatabase {
   }
 
   /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
-  #sequenceDdl(sql: string): boolean {
+  #sequenceDdl(statement: string): boolean {
+    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, '');
     const create =
       /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
     const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
@@ -1233,7 +1951,9 @@ export class LocalDatabase {
     if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
     const values: Record<string, SQLInputValue> = {};
     for (const name of bindNames(translated)) {
-      const value = this.#binds[name.toUpperCase()] ?? null;
+      const bound = this.#binds[name.toUpperCase()] ?? null;
+      // Oracle has no empty string: '' binds as NULL, so `:P1_X is null` holds for a cleared item.
+      const value = bound === '' ? null : bound;
       // node:sqlite binds JS numbers as REAL; keep integers INTEGER so `1 || ''` is '1', not '1.0'
       values[name] =
         typeof value === 'number' && Number.isSafeInteger(value)
@@ -1272,7 +1992,13 @@ export class LocalDatabase {
     const rows: (SqlValue | Uint8Array)[][] = [];
     for (const raw of statement.iterate(values) as Iterable<SQLInputValue[]>) {
       rows.push(
-        raw.map((value) => (typeof value === 'bigint' ? Number(value) : (value as SqlValue | Uint8Array))),
+        raw.map((value) =>
+          typeof value === 'bigint'
+            ? Number(value)
+            : typeof value === 'number'
+              ? decimalNumber(value)
+              : (value as SqlValue | Uint8Array),
+        ),
       );
       if (rows.length >= maxRows) break;
     }
@@ -1328,9 +2054,47 @@ export class LocalDatabase {
     }));
   }
 
+  /**
+   * How a missing primary key value is filled on insert: an identity column, a column default
+   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
+   */
+  keySource(table: string, column: string): 'identity' | 'default' | 'trigger' | 'none' {
+    const name = table.replaceAll('"', '').toUpperCase();
+    const ddl = (
+      this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name) as
+        { sql?: string } | undefined
+    )?.sql;
+    const definition = ddl
+      ? new RegExp(`[(,]\\s*"?${column.replace(/[^\w$#]/gu, '')}"?\\s[^,]*`, 'iu').exec(ddl)?.[0]
+      : undefined;
+    if (definition?.includes(IDENTITY_MARKER)) return 'identity';
+    const info = (
+      this.db.prepare(`pragma table_info("${name}")`).all() as { name: string; dflt_value: unknown }[]
+    ).find((entry) => entry.name.toUpperCase() === column.toUpperCase());
+    if (info && info.dflt_value !== null && info.dflt_value !== undefined) return 'default';
+    if (this.tableExists('apex_local_insert_triggers')) {
+      const trigger = this.db
+        .prepare('select 1 from apex_local_insert_triggers where table_name = ?')
+        .get(name.replace(/^.*\./u, ''));
+      if (trigger) return 'trigger';
+    }
+    return 'none';
+  }
+
   /** Runs a script statement by statement; failures are reported, not fatal. */
   runScript(script: string, source: string): string[] {
     const problems: string[] = [];
+    // Triggers do not run locally; remember which tables Oracle fills on insert.
+    const triggers = [
+      ...script.matchAll(
+        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu,
+      ),
+    ].map((match) => match[1]!.toUpperCase());
+    if (triggers.length) {
+      this.db.exec('create table if not exists apex_local_insert_triggers (table_name text primary key)');
+      const insert = this.db.prepare('insert or ignore into apex_local_insert_triggers values (?)');
+      for (const table of triggers) insert.run(table);
+    }
     for (const statement of splitScript(script)) {
       try {
         this.execute(statement);
