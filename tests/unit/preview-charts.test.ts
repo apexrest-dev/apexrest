@@ -255,6 +255,13 @@ test('chart regions render SVG for stacked bars, donut, line, gauge and bubble',
 
   const trend = region('trend');
   assert.match(trend, /class="ajc-line" d="M[\d.]+ [\d.]+L/);
+  const config = JSON.parse(/apexLocal\.init\((\{[\s\S]*?\})\);/u.exec(html)![1]!) as {
+    regions: { id: string; kind: string }[];
+  };
+  assert.ok(
+    config.regions.some((entry) => entry.id === 'trend' && entry.kind === 'chart'),
+    'unfiltered charts support apex.region(...).refresh()',
+  );
 
   const meter = region('meter');
   assert.match(meter, /class="ajc-gauge-track"/);
@@ -269,6 +276,107 @@ test('chart regions render SVG for stacked bars, donut, line, gauge and bubble',
   ).text();
   assert.match(redraw, /^<svg[^>]+viewBox="0 0 900 400"/);
   assert.equal((await fetch(`${server.url}/r/demo/__apex/x/chart?page=3&region=nope`)).status, 404);
+});
+
+test('chart Ajax refresh submits items from every series and retains them for width redraws', async (t) => {
+  const { app, assets } = await workspace(t, {
+    ...FILES,
+    'pages/p00003-charts.apx': `page 3 (
+    name: Charts
+    alias: CHARTS
+    pageItem P3_REGION (
+        type: textField
+        default {
+            type: static
+            staticValue: North
+        }
+    )
+    pageItem P3_MIN_COST (
+        type: numberField
+    )
+    pageItem P3_OTHER (
+        type: textField
+    )
+${chart(
+  'filtered',
+  10,
+  `        advanced {
+            htmlDomId: filtered_chart
+        }
+        chart {
+            type: bar
+        }
+        series amount (
+            name: Amount
+            source {
+                type: sqlQuery
+                pageItemsToSubmit: p3_region, P3_REGION
+                sqlQuery: select quarter, region, amount from sales where region = :P3_REGION
+            }
+            columnMapping {
+                label: QUARTER
+                value: AMOUNT
+                seriesName: REGION
+            }
+        )
+        series cost (
+            name: Cost
+            source {
+                type: sqlQuery
+                pageItemsToSubmit: [
+                    P3_REGION
+                    P3_MIN_COST
+                ]
+                sqlQuery: select quarter, region, cost from sales where region = :P3_REGION and cost >= nvl(:P3_MIN_COST, 0)
+            }
+            columnMapping {
+                label: QUARTER
+                value: COST
+                seriesName: REGION
+            }
+        )`,
+)}
+)
+`,
+  });
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const first = await fetch(`${server.url}/r/demo/charts`);
+  const cookie = first.headers.get('set-cookie')!.split(';')[0]!;
+  const html = await first.text();
+  const config = JSON.parse(/apexLocal\.init\((\{[\s\S]*?\})\);/u.exec(html)![1]!) as {
+    regionItems: Record<string, string[]>;
+  };
+  assert.deepEqual(config.regionItems.filtered_chart, ['P3_REGION', 'P3_MIN_COST']);
+  assert.deepEqual(config.regionItems.filtered, config.regionItems.filtered_chart);
+  assert.match(html, /data-series="North"/u);
+  const refresh = await fetch(`${server.url}/r/demo/__apex/region?page=3&region=filtered_chart`, {
+    method: 'POST',
+    headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ items: { P3_REGION: 'South', P3_MIN_COST: '45', P3_OTHER: 'ignored' } }),
+  });
+  assert.equal(refresh.status, 200);
+  const updated = await refresh.text();
+  assert.match(updated, /data-series="South"/u);
+  assert.doesNotMatch(updated, /data-series="North"/u);
+  assert.equal((updated.match(/class="ajc-bar"/gu) ?? []).length, 3);
+  assert.match(updated, /Value\t50/u);
+  assert.doesNotMatch(updated, /Value\t40/u);
+  const redraw = await fetch(`${server.url}/r/demo/__apex/x/chart?page=3&region=filtered&width=900`, {
+    headers: { cookie },
+  });
+  assert.match(await redraw.text(), /data-series="South"/u, 'width redraw retains the selected series');
+  const next = await fetch(
+    `${server.url}/r/demo/__apex/x/chart?page=3&region=filtered&width=600&items=${encodeURIComponent(JSON.stringify({ P3_REGION: 'North', P3_MIN_COST: '0' }))}`,
+    { headers: { cookie } },
+  );
+  assert.match(await next.text(), /data-series="North"/u, 'width redraw accepts declared series items');
+  assert.doesNotMatch(
+    await (await fetch(`${server.url}/r/demo/charts`, { headers: { cookie } })).text(),
+    /value="ignored"/u,
+    'refresh does not accept undeclared items',
+  );
 });
 
 test('calendar regions feed FullCalendar from SQL and maps draw offline', async (t) => {

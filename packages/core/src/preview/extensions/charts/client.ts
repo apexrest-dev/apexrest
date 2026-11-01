@@ -94,7 +94,7 @@ export const CHARTS_JS = String.raw`
     var drawn = Number(el.getAttribute("data-width"));
     if (Math.abs(width - drawn) < 6 || el.__apexLocalPending === width) return;
     el.__apexLocalPending = width;
-    var url = base + "/__apex/x/chart?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(el.getAttribute("data-chart-region")) + "&width=" + width;
+    var url = base + "/__apex/x/chart?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(el.getAttribute("data-chart-region")) + "&width=" + width + window.apexLocal.itemsQuery(el.getAttribute("data-chart-region"));
     fetch(url, { credentials: "same-origin" }).then(function (r) { return r.ok ? r.text() : null; }).then(function (html) {
       if (html && el.__apexLocalPending === width) { el.innerHTML = html; el.setAttribute("data-width", String(width)); }
       el.__apexLocalPending = null;

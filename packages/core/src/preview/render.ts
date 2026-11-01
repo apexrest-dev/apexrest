@@ -3280,13 +3280,18 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
 
   /** Page Items to Submit of a region (sent with its refresh and set in session state). */
   regionItemsToSubmit(region: ApxComponent): string[] {
-    return strings([
+    // Chart queries declare their submitted items on each series rather than on the region.
+    const series =
+      str(region.props, 'type') === 'chart' ? region.children.filter((child) => child.type === 'series') : [];
+    const names = strings([
       ...list(region.props, 'source.pageItemsToSubmit'),
       ...list(region.props, 'pageItemsToSubmit'),
+      ...series.flatMap((child) => list(child.props, 'source.pageItemsToSubmit')),
     ])
       .flatMap((value) => value.split(','))
       .map((value) => value.trim().toUpperCase())
       .filter(Boolean);
+    return [...new Set(names)];
   }
 
   /** HTML of a single region body for client-side refresh. */

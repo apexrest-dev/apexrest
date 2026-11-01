@@ -24,6 +24,7 @@ function chartBody(renderer: ApexRenderer, ctx: RenderContext, region: ApxCompon
 function renderChartRegion(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string {
   const type = str(region.props, 'chart.type', 'bar');
   const domId = renderer.regionDomId(region);
+  ctx.clientConfig.regions.push({ id: domId, kind: 'chart' });
   if (UNSUPPORTED_TYPES.has(type)) {
     renderer.diagnose(
       'warning',
