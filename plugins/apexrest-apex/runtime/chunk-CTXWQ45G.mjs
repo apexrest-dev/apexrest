@@ -13,7 +13,7 @@ import {
   syncDirectory,
   withLock,
   writeJson
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 export {
   LOCK_CORRUPT_AFTER_MS,
   atomicWrite,

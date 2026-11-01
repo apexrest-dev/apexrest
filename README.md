@@ -12,7 +12,7 @@
 
 [Oracle APEX](https://apex.oracle.com/) is a low-code platform for business web applications on Oracle Database. APEX 26.1 and 26.2 can express an application as **APEXlang**, a readable text source that a coding agent can edit like any other code.
 
-APEXREST lets that agent do the work well. One plugin installs into **Codex** (desktop app and CLI) and **Claude Code**. Its six skills and eleven MCP tools run on a shared runtime that drives Oracle SQLcl. The same operations are available as the `apexrest` CLI for scripts, CI and Codex Cloud.
+APEXREST lets that agent do the work well. One plugin installs into **Codex** (desktop app and CLI) and **Claude Code**. Its six skills and twelve MCP tools run on a shared runtime that drives Oracle SQLcl. The same operations are available as the `apexrest` CLI for scripts, CI and Codex Cloud.
 
 You ask for a change, such as "add an order status report". The agent then:
 

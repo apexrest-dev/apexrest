@@ -8,6 +8,27 @@ Optional `toolchain.profile` selects `26.1` or `26.2` authoring references. Exis
 
 Optional `decisionApi` configures component selection only: `enabled` (default false), `apiKeyEnv` (default `OPENAI_API_KEY`), optional project-relative `envFile`, and `timeoutMs` (default 3000, range 250–10000). The key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See [Decisions selection](component-catalog.md#optional-openai-decisions-selection) for configuration and CLI/MCP examples.
 
+Optional `peerReview` enables cross-vendor review of saved ship plans: `mode` (`off` default, `advisory`, `required`), `vendor` (`auto` default, `codex`, `claude`), optional `model` passed to the peer CLI, and `timeoutSeconds` (default 600, range 60–1800). See [Peer review](#cross-vendor-peer-review).
+
+## Cross-vendor peer review
+
+Claude Code and Codex can review each other's APEX changes. The host agent prepares a plan with `apexrest_ship mode:plan`, then calls `apexrest_peer_review action:review plan:<planPath>`. The runtime runs the other vendor's CLI in the project directory with the user's existing sign-in (ChatGPT or `OPENAI_API_KEY` for Codex; Claude subscription or `ANTHROPIC_API_KEY` for Claude Code). APEXREST never handles those credentials.
+
+| Host | Peer command (read-only) |
+| --- | --- |
+| Claude Code | `codex exec --sandbox read-only --ephemeral --output-schema …` |
+| Codex | `claude -p --restricted --tools Read,Grep,Glob --strict-mcp-config --json-schema …` |
+
+`vendor: auto` picks the opposite of the detected host (`APEXREST_HOST`, then the MCP client name sent at initialization, then the host's own environment); pass `vendor` explicitly when detection is unavailable. The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns `approve` or `changes_requested` with findings. The verdict is written to `.apexrest/reviews/<planDigest>.json`.
+
+Gate modes apply to `apexrest_ship mode:apply` (and the CLI `ship --mode apply`):
+
+- `off`: no review state is read.
+- `advisory`: apply proceeds and reports `peerReview` status (`approve`, `changes_requested` or `missing`).
+- `required`: apply fails with `PEER_REVIEW_REQUIRED` or `PEER_REVIEW_CHANGES_REQUESTED` unless an approving review of the exact plan digest exists. A fresh plan created by apply itself is never reviewed, so review the saved plan and apply that path.
+
+Interrupted-import recovery is not gated. The gate is a single-user workflow control, not a security boundary: the host agent can edit local files. `apexrest_peer_review action:status` (CLI `apexrest peer status`) reports which CLIs are installed and signed in. Peer runs use the other vendor's subscription limits or API billing; headless Claude usage (`claude -p`) is subject to Anthropic's current plan terms.
+
 ## Configure an environment
 
 Add an entry such as `environments.dev` to the generated `apexrest.json`:

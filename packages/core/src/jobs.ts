@@ -29,6 +29,7 @@ export const jobOperations = [
   'deploy.apply',
   'ship.apply',
   'ship',
+  'peer',
 ];
 export class JobService {
   constructor(private ctx: ProjectContext) {}

@@ -371,6 +371,25 @@ export const schemas = {
       .optional(),
     userRequest: z.string().min(10).max(2000),
   }),
+  'peer.status': z.strictObject(base),
+  'peer.review': z.strictObject({
+    ...base,
+    plan: relativePath.describe('Saved plan path from apexrest_ship mode:plan'),
+    vendor: z.enum(['codex', 'claude']).optional(),
+    focus: z.string().min(1).max(2000).optional(),
+  }),
+  peer: z
+    .strictObject({
+      ...base,
+      action: z.enum(['status', 'review']).default('review'),
+      plan: relativePath.optional().describe('review: saved ship plan path'),
+      vendor: z.enum(['codex', 'claude']).optional().describe('codex from Claude Code, claude from Codex'),
+      focus: z.string().min(1).max(2000).optional(),
+    })
+    .refine((value) => value.action !== 'review' || !!value.plan, {
+      path: ['plan'],
+      message: 'action review requires the saved plan path.',
+    }),
   job: z.strictObject({
     ...base,
     action: z.enum(['status', 'cancel']).default('status'),
@@ -390,7 +409,14 @@ export const schemas = {
 };
 export type Operation = keyof typeof schemas;
 /** Operations reachable only through the MCP catalog or the job worker; the CLI keeps granular commands. */
-export const internalOperations: Operation[] = ['project', 'reference', 'ship.apply', 'job', 'preview'];
+export const internalOperations: Operation[] = [
+  'project',
+  'reference',
+  'ship.apply',
+  'job',
+  'preview',
+  'peer',
+];
 export const toolCatalog: {
   name: string;
   operation: Operation;
@@ -472,6 +498,16 @@ export const toolCatalog: {
       'Local APEXlang preview without Oracle: Universal Theme 26.2 assets plus SQLite (.apex-local/*.sql or sample tables). setup once; start returns page URLs; check lists unsupported features. Design only, not Oracle evidence.',
     readOnly: false,
     destructive: false,
+    openWorld: true,
+  },
+  {
+    name: 'apexrest_peer_review',
+    operation: 'peer',
+    description:
+      'Other-vendor CLI (codex or claude) reviews a saved ship plan read-only; digest-bound verdict gates required apply. status: CLI and sign-in. Never deploys.',
+    readOnly: false,
+    destructive: false,
+    long: true,
     openWorld: true,
   },
   {

@@ -1277,6 +1277,141 @@
     ],
     "additionalProperties": false
   },
+  "preview.setup": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "zip": {
+        "description": "Local apex_26.2 zip; otherwise it is downloaded once",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "assetsDir": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[a-fA-F0-9]{64}$"
+      }
+    },
+    "additionalProperties": false
+  },
+  "preview.start": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sourceDir": {
+        "description": "APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "assetsDir": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sampleRows": {
+        "description": "Sample rows for auto-created missing tables",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 200
+      },
+      "port": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535
+      },
+      "reset": {
+        "default": false,
+        "type": "boolean"
+      },
+      "user": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "toolbar": {
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "preview.check": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sourceDir": {
+        "description": "APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "assetsDir": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sampleRows": {
+        "description": "Sample rows for auto-created missing tables",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 200
+      },
+      "pages": {
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "preview.stop": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sourceDir": {
+        "description": "APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "all": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "additionalProperties": false
+  },
+  "preview.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
   "sandbox.up": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1680,6 +1815,90 @@
     ],
     "additionalProperties": false
   },
+  "peer.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
+  "peer.review": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "plan": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024,
+        "description": "Saved plan path from apexrest_ship mode:plan"
+      },
+      "vendor": {
+        "type": "string",
+        "enum": [
+          "codex",
+          "claude"
+        ]
+      },
+      "focus": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "required": [
+      "plan"
+    ],
+    "additionalProperties": false
+  },
+  "peer": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "action": {
+        "default": "review",
+        "type": "string",
+        "enum": [
+          "status",
+          "review"
+        ]
+      },
+      "plan": {
+        "description": "review: saved ship plan path",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "vendor": {
+        "description": "codex from Claude Code, claude from Codex",
+        "type": "string",
+        "enum": [
+          "codex",
+          "claude"
+        ]
+      },
+      "focus": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "additionalProperties": false
+  },
   "job": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1732,6 +1951,59 @@
         ]
       }
     },
+    "additionalProperties": false
+  },
+  "preview": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "setup",
+          "start",
+          "check",
+          "stop",
+          "status"
+        ]
+      },
+      "sourceDir": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "zip": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "port": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535
+      },
+      "reset": {
+        "type": "boolean"
+      },
+      "pages": {
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "required": [
+      "action"
+    ],
     "additionalProperties": false
   }
 }

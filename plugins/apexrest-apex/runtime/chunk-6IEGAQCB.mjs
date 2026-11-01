@@ -8,11 +8,11 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-67FHD2T2.mjs";
-import "./chunk-RUBOECVN.mjs";
+} from "./chunk-QOT54WQM.mjs";
+import "./chunk-ZT2TJWQE.mjs";
 import {
   VERSION
-} from "./chunk-UBMKZ5PH.mjs";
+} from "./chunk-GQDQAOWR.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -41,21 +41,21 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-UGZLKEGQ.mjs";
+} from "./chunk-4S26F3JE.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-EMYWWRNE.mjs";
+} from "./chunk-ON46TMC5.mjs";
 import {
   external_exports
-} from "./chunk-HRX24FAR.mjs";
+} from "./chunk-75I6YHSV.mjs";
 import {
   Fault,
   failure,
   hash,
   sanitized,
   success
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
@@ -1016,12 +1016,22 @@ function listTools() {
     }
   }));
 }
+function hostFromClient(name) {
+  if (!name) return void 0;
+  if (/claude/i.test(name)) return "claude";
+  if (/codex/i.test(name)) return "codex";
+  return void 0;
+}
 function detachedJob(operation, _input) {
   const tool = toolCatalog.find((t) => t.operation === operation);
   return tool?.worker ?? false;
 }
 async function startMcp() {
   const server = new Server({ name: "apexrest-apex", version: VERSION }, { capabilities: { tools: {} } });
+  server.oninitialized = () => {
+    const host = hostFromClient(server.getClientVersion()?.name);
+    if (host && !process.env.APEXREST_HOST) process.env.APEXREST_HOST = host;
+  };
   let catalog;
   const runtime = path.join(path.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs");
   server.setRequestHandler(ListToolsRequestSchema, async () => catalog ??= { tools: listTools() });
@@ -1035,8 +1045,10 @@ async function startMcp() {
       project = typeof input.project === "string" ? input.project : void 0;
       const localSync = tool.operation === "apex.sync" && input.action === "status";
       const planOnly = tool.operation === "ship" && input.mode === "plan";
-      if (localSync || planOnly) delete input.waitSeconds;
-      if (tool.long && !localSync && !planOnly) {
+      const peerStatus = tool.operation === "peer" && input.action === "status";
+      const inProcess = localSync || planOnly || peerStatus;
+      if (inProcess) delete input.waitSeconds;
+      if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === "ship" && input.mode === "apply") {
           const { waitSeconds } = input;
@@ -1102,6 +1114,7 @@ async function startMcp() {
 }
 export {
   detachedJob,
+  hostFromClient,
   listTools,
   mcpSchemas,
   startMcp

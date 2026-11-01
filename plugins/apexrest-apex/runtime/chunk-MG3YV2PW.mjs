@@ -1,14 +1,14 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   browserPreferences
-} from "./chunk-RUBOECVN.mjs";
+} from "./chunk-ZT2TJWQE.mjs";
 import {
   environment
-} from "./chunk-EMYWWRNE.mjs";
-import "./chunk-HRX24FAR.mjs";
+} from "./chunk-ON46TMC5.mjs";
+import "./chunk-75I6YHSV.mjs";
 import {
   Fault
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 
 // packages/core/src/browser.ts
 function allowedOrigin(url, origins) {

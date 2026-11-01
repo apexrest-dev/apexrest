@@ -16,12 +16,13 @@ import { OracleAdapter, installSources } from './oracle.ts';
 import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
-import { DeploymentService } from './deploy.ts';
+import { DeploymentService, deployPlanSchema } from './deploy.ts';
 import { ArtifactService } from './artifacts.ts';
 import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
 import { sandboxAction } from './sandbox.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
+import { peerReview, peerReviewGate, peerStatus, type PeerVendor } from './peer-review.ts';
 import {
   fallbackCompilerDiagnostics,
   shipApply,
@@ -201,6 +202,16 @@ async function dispatchObserved(
         return { ...jobToolResult(job.operation, job), operation };
       return { ...result, operation };
     }
+    if (operation === 'peer') {
+      const result = await dispatch(
+        parsed.action === 'status' ? 'peer.status' : 'peer.review',
+        parsed.action === 'status'
+          ? { project: parsed.project }
+          : { project: parsed.project, plan: parsed.plan, vendor: parsed.vendor, focus: parsed.focus },
+        signal,
+      );
+      return { ...result, operation };
+    }
     if (operation === 'status') {
       const result = await dispatch(
         parsed.detail === 'doctor' ? 'doctor' : 'panel.status',
@@ -332,6 +343,9 @@ async function dispatchObserved(
       case 'sandbox.down':
         data = await sandboxAction(operation.split('.')[1]!);
         break;
+      case 'peer.status':
+        data = await peerStatus(parsed.project ? await loadProject(root) : undefined);
+        break;
       default: {
         const ctx = await loadProject(root);
         switch (operation) {
@@ -398,6 +412,17 @@ async function dispatchObserved(
             );
             break;
           }
+          case 'peer.review':
+            data = await peerReview(
+              ctx,
+              {
+                plan: text('plan'),
+                vendor: parsed.vendor as PeerVendor | undefined,
+                focus: parsed.focus as string | undefined,
+              },
+              signal,
+            );
+            break;
           case 'apex.validate':
             data = await validateApplication(
               oracle,
@@ -452,6 +477,7 @@ async function dispatchObserved(
               };
               break;
             }
+            const peer = await peerReviewGate(ctx, planned.plan);
             const applied = await shipApply(
               ctx,
               planned.plan,
@@ -466,20 +492,25 @@ async function dispatchObserved(
               ...applied,
               planPath: planned.planPath,
               phases: [...planned.phases, ...applied.phases],
+              ...(peer ? { peerReview: peer } : {}),
             };
             break;
           }
-          case 'ship.apply':
+          case 'ship.apply': {
+            const plan = parse(deployPlanSchema, await readJson(await contained(ctx.root, text('plan'))));
+            const peer = await peerReviewGate(ctx, plan);
             data = await shipApply(
               ctx,
-              await readJson(await contained(ctx.root, text('plan'))),
+              plan,
               text('userRequest'),
               deployment,
               signal,
               progress,
               parsed.confirmation as PlanConfirmation | undefined,
             );
+            if (peer) data = { ...(data as object), peerReview: peer };
             break;
+          }
           case 'apex.diff': {
             const env = environment(ctx, text('env'));
             const store = new SyncStore(ctx, env, text('env'));

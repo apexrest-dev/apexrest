@@ -2,12 +2,13 @@
 
 ## Source bundle 2.5.0
 
-The repository bundle supports Codex and Claude Code with six skills and eleven MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
+The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
 
 ## Changes in 2.5.0
 
+- Add [cross-vendor peer review](configuration.md#cross-vendor-peer-review): `apexrest_peer_review` / `apexrest peer review` asks the other agent CLI (Codex from Claude Code, Claude Code from Codex) for a read-only review of a saved ship plan under the user's own sign-in. The verdict is bound to the plan digest; optional `peerReview.mode` `advisory` reports it at apply and `required` blocks apply without an approving review. The MCP catalog grows to twelve tools; its byte budget rises to 14,700 bytes.
 - The [local preview](local-preview.md) follows Oracle semantics more closely: NULL for empty items, real division and Oracle number text, date arithmetic, ANSI date literals and `DEFAULT sysdate` in seed scripts, JSON functions, nested LISTAGG, POSIX regular expressions and ISO dates in form DML.
 - Page submits, server-side code and grid saves are transactional; an unhandled process error is shown to the user and rolls back the page's DML. Interactive grid row validations mark failing cells, validation messages substitute labels, forms detect lost updates and region refreshes submit their page items.
 - APEX 26.2 syntax for show-all pagination, card actions, `&COLUMN.` substitution, list views and calendar views is rendered; template components apply format masks; chart ticks no longer show spurious decimals.

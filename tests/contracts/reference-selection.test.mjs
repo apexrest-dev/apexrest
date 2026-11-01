@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { catalogFootprint } from '../../scripts/lib/mcp-footprint.mjs';
 
-test('packaged select has eleven-tool MCP/CLI parity, bounded output and explicit fallback', async (t) => {
+test('packaged select has twelve-tool MCP/CLI parity, bounded output and explicit fallback', async (t) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-selection-contract-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const project = {
@@ -39,7 +39,7 @@ test('packaged select has eleven-tool MCP/CLI parity, bounded output and explici
     }),
   );
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 11);
+  assert.equal(catalog.tools.length, 12);
   catalogFootprint(catalog);
   const reference = catalog.tools.find((tool) => tool.name === 'apexrest_reference');
   assert.equal(reference.annotations.readOnlyHint, true);

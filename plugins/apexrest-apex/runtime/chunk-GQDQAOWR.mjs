@@ -5,7 +5,7 @@ import {
   runPooledSqlcl,
   runProcess,
   runSqlclMcp
-} from "./chunk-UGZLKEGQ.mjs";
+} from "./chunk-4S26F3JE.mjs";
 import {
   isProductionTarget,
   managedHome,
@@ -13,10 +13,10 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-EMYWWRNE.mjs";
+} from "./chunk-ON46TMC5.mjs";
 import {
   external_exports
-} from "./chunk-HRX24FAR.mjs";
+} from "./chunk-75I6YHSV.mjs";
 import {
   Fault,
   __commonJS,
@@ -33,7 +33,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 
 // node_modules/pend/index.js
 var require_pend = __commonJS({
@@ -4266,7 +4266,7 @@ end;
       const stage = await this.stage();
       try {
         const input = path11.join(stage, "restore.sql");
-        await (await import("./chunk-R7O4ZEEA.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
+        await (await import("./chunk-CTXWQ45G.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);

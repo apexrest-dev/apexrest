@@ -1487,6 +1487,31 @@
       ],
       "budgetMs": null,
       "samples": 3
+    },
+    {
+      "id": "A261-070",
+      "title": "Cross-vendor peer review of a saved ship plan and the required apply gate",
+      "category": "quality",
+      "acceptance": ["PEER-01"],
+      "execution": "manual",
+      "surface": "CLI-and-stdio-MCP",
+      "authorization": "Local fixtures; real peer runs require the user's signed-in codex or claude CLI. Apply steps require the explicitly authorized DEV/QA/TEST target and plan.",
+      "steps": [
+        "Run the repository peer-review unit and MCP contract tests with fake codex/claude CLIs.",
+        "From a native Claude Code session, plan a 26.1 change, run apexrest_peer_review action:review with vendor codex and wait through apexrest_job; repeat from a native Codex session with vendor claude.",
+        "With peerReview.mode required, apply without a review, with a changes_requested review and with an approving review of the exact plan digest."
+      ],
+      "expected": [
+        "The peer CLI runs read-only with no MCP servers or database access; the verdict is schema-valid and stored under the exact plan digest.",
+        "required mode blocks apply before any grant or write until an approving review of that digest exists; advisory reports the review state; recovery is not gated."
+      ],
+      "evidence": [
+        "host, peer vendor, CLI version and sign-in method",
+        "per-run wall time, verdict and finding counts",
+        "apply outcome per gate state, with no grant recorded when blocked"
+      ],
+      "budgetMs": null,
+      "samples": 1
     }
   ],
   "metrics": "quality-performance.json"

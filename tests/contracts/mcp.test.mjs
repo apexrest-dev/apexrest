@@ -18,7 +18,7 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   const start = performance.now();
   await client.connect(transport);
   const catalog = await client.listTools();
-  assert.equal(catalog.tools.length, 11);
+  assert.equal(catalog.tools.length, 12);
   const jobSchema = catalog.tools.find((tool) => tool.name === 'apexrest_job').inputSchema;
   assert.equal(jobSchema.properties.waitSeconds.default, 0);
   assert.equal(jobSchema.properties.waitSeconds.maximum, 120);
@@ -198,6 +198,7 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     apexrest_apex_validate: {},
     apexrest_ship: { env: 'dev', mode: 'apply', userRequest: 'Deploy page ten to dev' },
     apexrest_job: { action: 'status', jobId: '12345678-1234-4123-8123-123456789abc' },
+    apexrest_peer_review: { action: 'review', plan: '.apexrest/plans/ship-fixture.json', vendor: 'codex' },
     apexrest_artifact_read: { id: '12345678-1234-4123-8123-123456789abc' },
     // Optional-project tools still reject relative paths.
     apexrest_project: { action: 'inspect' },

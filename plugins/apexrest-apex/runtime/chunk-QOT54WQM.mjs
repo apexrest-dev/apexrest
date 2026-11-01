@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-RUBOECVN.mjs";
+} from "./chunk-ZT2TJWQE.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -53,12 +53,12 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-UBMKZ5PH.mjs";
+} from "./chunk-GQDQAOWR.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-UGZLKEGQ.mjs";
+} from "./chunk-4S26F3JE.mjs";
 import {
   environment,
   identifier,
@@ -71,10 +71,10 @@ import {
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-EMYWWRNE.mjs";
+} from "./chunk-ON46TMC5.mjs";
 import {
   external_exports
-} from "./chunk-HRX24FAR.mjs";
+} from "./chunk-75I6YHSV.mjs";
 import {
   Fault,
   __commonJS,
@@ -95,7 +95,7 @@ import {
   verifiedVendorReferencePage,
   withLock,
   writeJson
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
@@ -174,17 +174,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path12) {
-      const ctrl = callVisitor(key, node2, visitor, path12);
+    function visit_(key, node2, visitor, path13) {
+      const ctrl = callVisitor(key, node2, visitor, path13);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path12, ctrl);
-        return visit_(key, ctrl, visitor, path12);
+        replaceNode(key, path13, ctrl);
+        return visit_(key, ctrl, visitor, path13);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path12 = Object.freeze(path12.concat(node2));
+          path13 = Object.freeze(path13.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path12);
+            const ci = visit_(i, node2.items[i], visitor, path13);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -195,13 +195,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path12 = Object.freeze(path12.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path12);
+          path13 = Object.freeze(path13.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path13);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path12);
+          const cv = visit_("value", node2.value, visitor, path13);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -222,17 +222,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path12) {
-      const ctrl = await callVisitor(key, node2, visitor, path12);
+    async function visitAsync_(key, node2, visitor, path13) {
+      const ctrl = await callVisitor(key, node2, visitor, path13);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path12, ctrl);
-        return visitAsync_(key, ctrl, visitor, path12);
+        replaceNode(key, path13, ctrl);
+        return visitAsync_(key, ctrl, visitor, path13);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path12 = Object.freeze(path12.concat(node2));
+          path13 = Object.freeze(path13.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path12);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path13);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -243,13 +243,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path12 = Object.freeze(path12.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path12);
+          path13 = Object.freeze(path13.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path13);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path12);
+          const cv = await visitAsync_("value", node2.value, visitor, path13);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -276,23 +276,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path12) {
+    function callVisitor(key, node2, visitor, path13) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path12);
+        return visitor(key, node2, path13);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path12);
+        return visitor.Map?.(key, node2, path13);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path12);
+        return visitor.Seq?.(key, node2, path13);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path12);
+        return visitor.Pair?.(key, node2, path13);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path12);
+        return visitor.Scalar?.(key, node2, path13);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path12);
+        return visitor.Alias?.(key, node2, path13);
       return void 0;
     }
-    function replaceNode(key, path12, node2) {
-      const parent = path12[path12.length - 1];
+    function replaceNode(key, path13, node2) {
+      const parent = path13[path13.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -904,10 +904,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path12, value) {
+    function collectionFromPath(schema, path13, value) {
       let v = value;
-      for (let i = path12.length - 1; i >= 0; --i) {
-        const k = path12[i];
+      for (let i = path13.length - 1; i >= 0; --i) {
+        const k = path13[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -926,7 +926,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path12) => path12 == null || typeof path12 === "object" && !!path12[Symbol.iterator]().next().done;
+    var isEmptyPath = (path13) => path13 == null || typeof path13 === "object" && !!path13[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -956,11 +956,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path12, value) {
-        if (isEmptyPath(path12))
+      addIn(path13, value) {
+        if (isEmptyPath(path13))
           this.add(value);
         else {
-          const [key, ...rest] = path12;
+          const [key, ...rest] = path13;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -974,8 +974,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path12) {
-        const [key, ...rest] = path12;
+      deleteIn(path13) {
+        const [key, ...rest] = path13;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -989,8 +989,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path12, keepScalar) {
-        const [key, ...rest] = path12;
+      getIn(path13, keepScalar) {
+        const [key, ...rest] = path13;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1008,8 +1008,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path12) {
-        const [key, ...rest] = path12;
+      hasIn(path13) {
+        const [key, ...rest] = path13;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1019,8 +1019,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path12, value) {
-        const [key, ...rest] = path12;
+      setIn(path13, value) {
+        const [key, ...rest] = path13;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3535,9 +3535,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path12, value) {
+      addIn(path13, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path12, value);
+          this.contents.addIn(path13, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3612,14 +3612,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path12) {
-        if (Collection.isEmptyPath(path12)) {
+      deleteIn(path13) {
+        if (Collection.isEmptyPath(path13)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path12) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path13) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3634,10 +3634,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path12, keepScalar) {
-        if (Collection.isEmptyPath(path12))
+      getIn(path13, keepScalar) {
+        if (Collection.isEmptyPath(path13))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path12, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path13, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3648,10 +3648,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path12) {
-        if (Collection.isEmptyPath(path12))
+      hasIn(path13) {
+        if (Collection.isEmptyPath(path13))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path12) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path13) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3668,13 +3668,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path12, value) {
-        if (Collection.isEmptyPath(path12)) {
+      setIn(path13, value) {
+        if (Collection.isEmptyPath(path13)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path12), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path13), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path12, value);
+          this.contents.setIn(path13, value);
         }
       }
       /**
@@ -5635,9 +5635,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path12) => {
+    visit.itemAtPath = (cst, path13) => {
       let item2 = cst;
-      for (const [field, index] of path12) {
+      for (const [field, index] of path13) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5646,23 +5646,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path12) => {
-      const parent = visit.itemAtPath(cst, path12.slice(0, -1));
-      const field = path12[path12.length - 1][0];
+    visit.parentCollection = (cst, path13) => {
+      const parent = visit.itemAtPath(cst, path13.slice(0, -1));
+      const field = path13[path13.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path12, item2, visitor) {
-      let ctrl = visitor(item2, path12);
+    function _visit(path13, item2, visitor) {
+      let ctrl = visitor(item2, path13);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path12.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path13.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5673,10 +5673,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path12);
+            ctrl = ctrl(item2, path13);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path12) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path13) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7443,7 +7443,8 @@ var jobOperations = [
   "deploy.plan",
   "deploy.apply",
   "ship.apply",
-  "ship"
+  "ship",
+  "peer"
 ];
 var JobService = class {
   constructor(ctx) {
@@ -7665,8 +7666,8 @@ var completedResultSchema = external_exports.object({
       type: external_exports.string().optional(),
       hint: external_exports.string().optional(),
       validValues: external_exports.array(external_exports.string()).optional()
-    }).transform(({ severity, code: code2, message, file, line, column, type, hint, validValues }) => ({
-      severity,
+    }).transform(({ severity: severity2, code: code2, message, file, line, column, type, hint, validValues }) => ({
+      severity: severity2,
       code: code2,
       message,
       ...file !== void 0 ? { file } : {},
@@ -8342,12 +8343,12 @@ async function safePath(root, relative) {
   if (path3.isAbsolute(relative) || relative.split(/[\\/]/).includes(".."))
     throw new Fault("COMPOSER_PATH_UNSAFE", "Expected a contained relative path.", 2);
   const file = await contained(root, relative);
-  let probe = await realpath(root);
-  for (const part of path3.relative(probe, file).split(path3.sep).filter(Boolean)) {
-    probe = path3.join(probe, part);
+  let probe2 = await realpath(root);
+  for (const part of path3.relative(probe2, file).split(path3.sep).filter(Boolean)) {
+    probe2 = path3.join(probe2, part);
     let info;
     try {
-      info = await lstat(probe);
+      info = await lstat(probe2);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
@@ -10614,7 +10615,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path12, reason, before, after }) => ({ path: path12, reason, before, after })),
+    operations: plan.operations.map(({ path: path13, reason, before, after }) => ({ path: path13, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -10928,6 +10929,23 @@ var schemas = {
     }).optional(),
     userRequest: external_exports.string().min(10).max(2e3)
   }),
+  "peer.status": external_exports.strictObject(base),
+  "peer.review": external_exports.strictObject({
+    ...base,
+    plan: relativePath.describe("Saved plan path from apexrest_ship mode:plan"),
+    vendor: external_exports.enum(["codex", "claude"]).optional(),
+    focus: external_exports.string().min(1).max(2e3).optional()
+  }),
+  peer: external_exports.strictObject({
+    ...base,
+    action: external_exports.enum(["status", "review"]).default("review"),
+    plan: relativePath.optional().describe("review: saved ship plan path"),
+    vendor: external_exports.enum(["codex", "claude"]).optional().describe("codex from Claude Code, claude from Codex"),
+    focus: external_exports.string().min(1).max(2e3).optional()
+  }).refine((value) => value.action !== "review" || !!value.plan, {
+    path: ["plan"],
+    message: "action review requires the saved plan path."
+  }),
   job: external_exports.strictObject({
     ...base,
     action: external_exports.enum(["status", "cancel"]).default("status"),
@@ -10945,7 +10963,14 @@ var schemas = {
     pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
   })
 };
-var internalOperations = ["project", "reference", "ship.apply", "job", "preview"];
+var internalOperations = [
+  "project",
+  "reference",
+  "ship.apply",
+  "job",
+  "preview",
+  "peer"
+];
 var toolCatalog = [
   {
     name: "apexrest_project",
@@ -11011,6 +11036,15 @@ var toolCatalog = [
     openWorld: true
   },
   {
+    name: "apexrest_peer_review",
+    operation: "peer",
+    description: "Other-vendor CLI (codex or claude) reviews a saved ship plan read-only; digest-bound verdict gates required apply. status: CLI and sign-in. Never deploys.",
+    readOnly: false,
+    destructive: false,
+    long: true,
+    openWorld: true
+  },
+  {
     name: "apexrest_job",
     operation: "job",
     description: "status: read a job (waitSeconds up to 120 waits for completion; phase shows progress). cancel: request cancellation; the database outcome may remain unknown. Reuse the jobId; never rerun work to fetch results.",
@@ -11032,7 +11066,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path11 from "node:path";
+import path12 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -14620,17 +14654,17 @@ prompt APEXREST_SCRIPT_COMPLETE`,
 // packages/core/src/sandbox.ts
 async function sandboxAction(action) {
   const engines = await Promise.all(
-    ["docker", "podman"].map(async (executable) => {
+    ["docker", "podman"].map(async (executable2) => {
       try {
         const r = await runProcess({
-          executable,
+          executable: executable2,
           args: ["info", "--format", "{{json .}}"],
           cwd: process.cwd(),
           timeoutMs: 1e4
         });
-        return { engine: executable, available: r.code === 0 };
+        return { engine: executable2, available: r.code === 0 };
       } catch {
-        return { engine: executable, available: false };
+        return { engine: executable2, available: false };
       }
     })
   );
@@ -14819,6 +14853,12 @@ var PanelService = class {
     });
   }
 };
+
+// packages/core/src/peer-review.ts
+import path11 from "node:path";
+import { randomUUID as randomUUID5 } from "node:crypto";
+import { mkdir as mkdir6, readFile as readFile10, rm as rm4 } from "node:fs/promises";
+import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/ship.ts
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
@@ -15130,6 +15170,361 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
   };
 }
 
+// packages/core/src/peer-review.ts
+var peerVendors = ["codex", "claude"];
+var severity = external_exports.enum(["critical", "major", "minor", "info"]);
+var peerVerdictSchema = external_exports.strictObject({
+  verdict: external_exports.enum(["approve", "changes_requested"]),
+  summary: external_exports.string().max(4e3),
+  findings: external_exports.array(
+    external_exports.strictObject({
+      severity,
+      title: external_exports.string().max(300),
+      detail: external_exports.string().max(4e3),
+      file: external_exports.string().max(1024).nullable(),
+      line: external_exports.number().int().min(0).nullable()
+    })
+  ).max(50)
+});
+var peerReviewRecordSchema = peerVerdictSchema.safeExtend({
+  schemaVersion: external_exports.literal(1),
+  planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
+  planId: external_exports.string(),
+  environment: external_exports.string(),
+  vendor: external_exports.enum(peerVendors),
+  cliVersion: external_exports.string().max(200),
+  reviewedAt: external_exports.iso.datetime(),
+  durationMs: external_exports.number().int().min(0)
+});
+var verdictJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["verdict", "summary", "findings"],
+  properties: {
+    verdict: { type: "string", enum: ["approve", "changes_requested"] },
+    summary: { type: "string" },
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["severity", "title", "detail", "file", "line"],
+        properties: {
+          severity: { type: "string", enum: severity.options },
+          title: { type: "string" },
+          detail: { type: "string" },
+          file: { type: ["string", "null"] },
+          line: { type: ["integer", "null"] }
+        }
+      }
+    }
+  }
+};
+var executable = (vendor) => (vendor === "codex" ? process.env.APEXREST_CODEX_BIN : process.env.APEXREST_CLAUDE_BIN) || vendor;
+function hostAgent(env2 = process.env) {
+  if (env2.APEXREST_HOST === "codex" || env2.APEXREST_HOST === "claude") return env2.APEXREST_HOST;
+  if (env2.CLAUDECODE === "1" || env2.CLAUDE_CODE_ENTRYPOINT) return "claude";
+  if (Object.keys(env2).some((key) => key.startsWith("CODEX_") && key !== "CODEX_HOME")) return "codex";
+  return void 0;
+}
+function resolvePeer(ctx, requested) {
+  if (requested) return requested;
+  const configured = ctx?.config.peerReview?.vendor;
+  if (configured && configured !== "auto") return configured;
+  const host = hostAgent();
+  if (host) return host === "claude" ? "codex" : "claude";
+  throw new Fault(
+    "PEER_VENDOR_REQUIRED",
+    "The host agent is unknown. Pass vendor codex or claude, or set peerReview.vendor in apexrest.json.",
+    2
+  );
+}
+var hostSessionKeys = [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_HOST_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_SDK_HAS_HOST_AUTH_REFRESH",
+  "CLAUDE_AGENT_SDK_VERSION",
+  "CLAUDE_PID"
+];
+function peerEnv() {
+  const env2 = { ...process.env };
+  for (const key of hostSessionKeys) delete env2[key];
+  return env2;
+}
+async function probe(vendor, cwd) {
+  const run = (args) => runProcess({ executable: executable(vendor), args, cwd, env: peerEnv(), timeoutMs: 15e3 }).catch(
+    () => void 0
+  );
+  const version2 = await run(["--version"]);
+  if (!version2 || version2.code !== 0) return { available: false, signedIn: false };
+  const login = await run(vendor === "codex" ? ["login", "status"] : ["auth", "status", "--json"]);
+  let signedIn = login?.code === 0, method;
+  if (vendor === "claude" && login?.code === 0) {
+    try {
+      const status = JSON.parse(login.stdout);
+      signedIn = status.loggedIn === true;
+      method = status.authMethod;
+    } catch {
+      signedIn = false;
+    }
+  } else if (signedIn) method = (login.stdout + login.stderr).trim().split("\n")[0];
+  return {
+    available: true,
+    version: version2.stdout.trim().split("\n")[0].slice(0, 200),
+    signedIn,
+    ...method ? { authMethod: method.slice(0, 200) } : {}
+  };
+}
+async function peerStatus(ctx) {
+  const cwd = ctx?.root ?? process.cwd();
+  const host = hostAgent();
+  let peer;
+  try {
+    peer = resolvePeer(ctx);
+  } catch {
+    peer = void 0;
+  }
+  const [codex, claude] = await Promise.all([probe("codex", cwd), probe("claude", cwd)]);
+  return {
+    host: host ?? "unknown",
+    peer: peer ?? "unresolved",
+    mode: ctx?.config.peerReview?.mode ?? "off",
+    vendors: { codex, claude },
+    nextActions: [
+      ...peer && !{ codex, claude }[peer].available ? [`Install the ${peer} CLI and sign in, then rerun apexrest_peer_review action:status.`] : [],
+      ...peer && { codex, claude }[peer].available && !{ codex, claude }[peer].signedIn ? [peer === "codex" ? "Run: codex login" : "Run: claude auth login"] : []
+    ]
+  };
+}
+var reviewPath = (digest3) => ".apexrest/reviews/" + digest3 + ".json";
+async function readPeerReview(ctx, digest3) {
+  const file = await contained(ctx.root, reviewPath(digest3));
+  if (!await exists(file)) return void 0;
+  const parsed = peerReviewRecordSchema.safeParse(await readJson(file).catch(() => void 0));
+  return parsed.success && parsed.data.planDigest === digest3 ? parsed.data : void 0;
+}
+async function sourceDiff(ctx, signal) {
+  const dirs = [
+    ctx.config.application.sourceDir,
+    ctx.config.database.migrationsDir,
+    ctx.config.database.packagesDir
+  ];
+  const result = await runProcess({
+    executable: "git",
+    args: ["diff", "--no-color", "--no-ext-diff", "HEAD", "--", ...dirs],
+    cwd: ctx.root,
+    timeoutMs: 15e3,
+    maxBytes: 2e5,
+    ...signal ? { signal } : {}
+  }).catch(() => void 0);
+  if (!result || result.code !== 0) return void 0;
+  const limit = 6e4;
+  return result.stdout.length > limit ? result.stdout.slice(0, limit) + "\n[diff truncated; read the listed files directly]\n" : result.stdout;
+}
+function peerPrompt(ctx, plan, planPath, diff, focus) {
+  const preview = planPreview(ctx, plan);
+  const files = plan.operations.map((o) => "file" in o && typeof o.file === "string" ? `${o.kind}: ${o.file}` : void 0).filter(Boolean);
+  return [
+    "You are the peer reviewer of an Oracle APEX change prepared by another coding agent.",
+    "Review only; do not modify files, run deployments, or contact any database.",
+    `Project root: ${ctx.root}. Application sources: ${ctx.config.application.sourceDir} (APEXlang .apx).`,
+    `Saved deployment plan: ${planPath} (digest ${plan.digest}).`,
+    "",
+    "Check, in priority order:",
+    "1. Correctness of the APEXlang change against the stated intent and the existing application.",
+    "2. Security: authorization schemes, session state protection, escaping/XSS, SQL and PL/SQL injection, exposed data.",
+    "3. Database migrations and packages: destructive or non-idempotent statements, data loss, missing grants.",
+    "4. Plan risks and import scope below: anything broader than the change needs.",
+    "5. Maintainability issues worth fixing now. Skip style nits.",
+    "Approve when nothing critical or major remains. Request changes otherwise, with file and line where possible.",
+    ...focus ? ["", "Requested focus: " + focus] : [],
+    "",
+    "Plan preview (JSON):",
+    JSON.stringify(preview, null, 2),
+    ...files.length ? ["", "Database operations:", ...files] : [],
+    "",
+    diff === void 0 ? "No Git diff is available; read the files named in the plan." : diff.trim() ? "Working-tree diff of deployable sources against HEAD:\n" + diff : "The deployable sources match HEAD; review the files named in the plan.",
+    "",
+    "Answer only with the JSON object required by the output schema."
+  ].join("\n");
+}
+function parseVerdict(text2) {
+  const value = JSON.parse(text2);
+  const parsed = peerVerdictSchema.safeParse(value);
+  if (!parsed.success)
+    throw new Fault(
+      "PEER_OUTPUT_INVALID",
+      "The peer reviewer returned output outside the verdict schema.",
+      1
+    );
+  return parsed.data;
+}
+async function runPeer(vendor, ctx, prompt, options) {
+  const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
+  await mkdir6(scratch, { recursive: true });
+  try {
+    const schemaFile = path11.join(scratch, "verdict.schema.json");
+    const lastFile = path11.join(scratch, "last-message.json");
+    await writeJson(schemaFile, verdictJsonSchema);
+    const args = vendor === "codex" ? [
+      "exec",
+      "--sandbox",
+      "read-only",
+      "--ephemeral",
+      "--skip-git-repo-check",
+      "--color",
+      "never",
+      "-C",
+      ctx.root,
+      "--output-schema",
+      schemaFile,
+      "-o",
+      lastFile,
+      ...options.model ? ["-m", options.model] : [],
+      "-"
+    ] : [
+      "-p",
+      "--output-format",
+      "json",
+      "--json-schema",
+      JSON.stringify(verdictJsonSchema),
+      "--tools",
+      "Read,Grep,Glob",
+      "--restricted",
+      "--strict-mcp-config",
+      "--no-session-persistence",
+      "--permission-prompts",
+      "none",
+      ...options.model ? ["--model", options.model] : []
+    ];
+    const result = await runProcess({
+      executable: executable(vendor),
+      args,
+      cwd: ctx.root,
+      input: prompt,
+      env: peerEnv(),
+      timeoutMs: options.timeoutMs,
+      maxBytes: 8 * 1024 * 1024,
+      ...options.signal ? { signal: options.signal } : {}
+    });
+    if (result.cancelled) throw new Fault("CANCELLED", "Peer review cancelled.", 6, "cancelled");
+    if (result.timedOut)
+      throw new Fault("PEER_TIMEOUT", `The ${vendor} reviewer did not finish within the timeout.`, 1);
+    if (result.code !== 0)
+      throw new Fault(
+        "PEER_FAILED",
+        `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
+        1
+      );
+    if (vendor === "codex") return parseVerdict(await readFile10(lastFile, "utf8"));
+    const envelope = JSON.parse(result.stdout);
+    if (envelope.is_error)
+      throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
+    return envelope.structured_output !== void 0 ? parseVerdict(JSON.stringify(envelope.structured_output)) : parseVerdict(envelope.result ?? "");
+  } catch (error) {
+    if (error instanceof SyntaxError)
+      throw new Fault("PEER_OUTPUT_INVALID", "The peer reviewer returned no parseable verdict.", 1);
+    if (error instanceof Fault && error.code === "DEPENDENCY_MISSING")
+      throw new Fault(
+        "PEER_UNAVAILABLE",
+        `The ${vendor} CLI is not installed or not on PATH.`,
+        3,
+        "dependency_missing"
+      );
+    throw error;
+  } finally {
+    await rm4(scratch, { recursive: true, force: true });
+  }
+}
+async function peerReview(ctx, input, signal) {
+  const plan = deployPlanSchema.parse(await readJson(await contained(ctx.root, input.plan)));
+  if (Date.parse(plan.expiresAt) <= Date.now())
+    throw new Fault(
+      "PLAN_EXPIRED",
+      "The saved plan has expired; create a new plan before review.",
+      4,
+      "blocked"
+    );
+  const vendor = resolvePeer(ctx, input.vendor);
+  const settings = ctx.config.peerReview;
+  const started = performance2.now();
+  const verdict = await runPeer(
+    vendor,
+    ctx,
+    peerPrompt(ctx, plan, input.plan, await sourceDiff(ctx, signal), input.focus),
+    {
+      model: settings?.model,
+      timeoutMs: (settings?.timeoutSeconds ?? 600) * 1e3,
+      signal
+    }
+  );
+  const version2 = await runProcess({
+    executable: executable(vendor),
+    args: ["--version"],
+    cwd: ctx.root,
+    env: peerEnv(),
+    timeoutMs: 15e3
+  }).catch(() => void 0);
+  const record = {
+    schemaVersion: 1,
+    planDigest: plan.digest,
+    planId: plan.id,
+    environment: plan.environment,
+    vendor,
+    cliVersion: version2?.stdout.trim().split("\n")[0]?.slice(0, 200) ?? "unknown",
+    reviewedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    durationMs: Math.round(performance2.now() - started),
+    ...verdict
+  };
+  const file = reviewPath(plan.digest);
+  await writeJson(await contained(ctx.root, file), record);
+  return {
+    ...record,
+    reviewPath: file,
+    gate: ctx.config.peerReview?.mode ?? "off",
+    nextActions: record.verdict === "approve" ? ["Apply this exact saved plan with apexrest_ship mode:apply plan:" + input.plan] : [
+      "Address the findings, rerun apexrest_ship mode:plan, then review the new plan. Report every finding to the user."
+    ]
+  };
+}
+async function peerReviewGate(ctx, plan) {
+  const mode = ctx.config.peerReview?.mode ?? "off";
+  if (mode === "off") return void 0;
+  const record = await readPeerReview(ctx, plan.digest);
+  if (mode === "required" && !record)
+    throw new Fault(
+      "PEER_REVIEW_REQUIRED",
+      "peerReview.mode is required and this exact plan has no peer review.",
+      4,
+      "blocked",
+      { planDigest: plan.digest }
+    );
+  if (mode === "required" && record.verdict !== "approve")
+    throw new Fault(
+      "PEER_REVIEW_CHANGES_REQUESTED",
+      `The ${record.vendor} peer review requested changes to this plan: ${record.summary.slice(0, 600)}`,
+      4,
+      "blocked",
+      { planDigest: plan.digest }
+    );
+  return {
+    mode,
+    status: record ? record.verdict : "missing",
+    ...record ? {
+      vendor: record.vendor,
+      reviewedAt: record.reviewedAt,
+      findings: record.findings.length,
+      blocking: record.findings.filter((f) => f.severity === "critical" || f.severity === "major").length
+    } : {}
+  };
+}
+
 // packages/core/src/service.ts
 var engine = oracle_exports;
 var parseDiagnostics = (output) => (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
@@ -15137,7 +15532,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-ZENM5HEP.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-HAENWPI3.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -15270,6 +15665,14 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         return { ...jobToolResult(job.operation, job), operation };
       return { ...result, operation };
     }
+    if (operation === "peer") {
+      const result = await dispatch(
+        parsed.action === "status" ? "peer.status" : "peer.review",
+        parsed.action === "status" ? { project: parsed.project } : { project: parsed.project, plan: parsed.plan, vendor: parsed.vendor, focus: parsed.focus },
+        signal
+      );
+      return { ...result, operation };
+    }
     if (operation === "status") {
       const result = await dispatch(
         parsed.detail === "doctor" ? "doctor" : "panel.status",
@@ -15279,7 +15682,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-HAI7Z3QU.mjs");
+      const { previewDispatch } = await import("./chunk-HS3L6GNM.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -15306,29 +15709,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-OV4T4OJJ.mjs");
+        const { ToolchainService } = await import("./chunk-F4MSWKZJ.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-C3ERA2IV.mjs");
+        const { uninstallTools } = await import("./chunk-2BM2L6ZT.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-MEOXMDPY.mjs");
+        const { setup: setup2 } = await import("./chunk-K2XCD6I4.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-MEOXMDPY.mjs");
+        const { validateNative } = await import("./chunk-K2XCD6I4.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-MEOXMDPY.mjs");
+        const { uninstallNative } = await import("./chunk-K2XCD6I4.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -15338,7 +15741,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path11.basename(path11.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path12.basename(path12.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "connection.add":
@@ -15396,6 +15799,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "sandbox.status":
       case "sandbox.down":
         data = await sandboxAction(operation.split(".")[1]);
+        break;
+      case "peer.status":
+        data = await peerStatus(parsed.project ? await loadProject(root) : void 0);
         break;
       default: {
         const ctx = await loadProject(root);
@@ -15463,6 +15869,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             );
             break;
           }
+          case "peer.review":
+            data = await peerReview(
+              ctx,
+              {
+                plan: text2("plan"),
+                vendor: parsed.vendor,
+                focus: parsed.focus
+              },
+              signal
+            );
+            break;
           case "apex.validate":
             data = await validateApplication(
               oracle,
@@ -15512,6 +15929,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
               };
               break;
             }
+            const peer = await peerReviewGate(ctx, planned.plan);
             const applied = await shipApply(
               ctx,
               planned.plan,
@@ -15525,21 +15943,26 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
               mode: "apply",
               ...applied,
               planPath: planned.planPath,
-              phases: [...planned.phases, ...applied.phases]
+              phases: [...planned.phases, ...applied.phases],
+              ...peer ? { peerReview: peer } : {}
             };
             break;
           }
-          case "ship.apply":
+          case "ship.apply": {
+            const plan = parse(deployPlanSchema, await readJson(await contained(ctx.root, text2("plan"))));
+            const peer = await peerReviewGate(ctx, plan);
             data = await shipApply(
               ctx,
-              await readJson(await contained(ctx.root, text2("plan"))),
+              plan,
               text2("userRequest"),
               deployment,
               signal,
               progress,
               parsed.confirmation
             );
+            if (peer) data = { ...data, peerReview: peer };
             break;
+          }
           case "apex.diff": {
             const env2 = environment(ctx, text2("env"));
             const store = new SyncStore(ctx, env2, text2("env"));
@@ -15597,7 +16020,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-GDDRVCBB.mjs");
+            const { openVerificationBrowser } = await import("./chunk-MG3YV2PW.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),

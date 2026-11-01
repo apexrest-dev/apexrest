@@ -71,6 +71,13 @@ export const faultNextActions: Record<string, string> = {
     'Deployment to production-marked targets is unsupported. Select an explicitly configured DEV, QA or TEST target; do not relabel production.',
   DATABASE_CONFIRMATION_REQUIRED:
     'Describe the exact database operations and consequences in this plan. After human confirmation, apply the same saved plan with confirmation bound to its digest.',
+  PEER_REVIEW_REQUIRED:
+    'Run apexrest_peer_review action:review with this saved plan path, report the verdict, then apply the same plan.',
+  PEER_REVIEW_CHANGES_REQUESTED:
+    'Report the peer findings to the user, fix them, rerun apexrest_ship mode:plan and review the new plan.',
+  PEER_UNAVAILABLE:
+    'Install the other vendor CLI (codex or claude), sign in with its own login command, then rerun apexrest_peer_review action:status.',
+  PEER_VENDOR_REQUIRED: 'Pass vendor: codex when the host is Claude Code, claude when the host is Codex.',
   RECOVERY_REVIEW_REQUIRED:
     'The plan changes authentication or authorization outside the application task. Obtain explicit scope for this exact change.',
   PROJECT_NOT_CONFIGURED:

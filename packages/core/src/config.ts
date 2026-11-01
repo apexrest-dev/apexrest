@@ -52,6 +52,18 @@ export const projectSchema = z.strictObject({
       timeoutMs: z.number().int().min(250).max(10000).default(3000),
     })
     .optional(),
+  // Cross-vendor review of saved ship plans by the other agent CLI (codex or claude).
+  peerReview: z
+    .strictObject({
+      mode: z.enum(['off', 'advisory', 'required']).default('off'),
+      vendor: z.enum(['auto', 'codex', 'claude']).default('auto'),
+      model: z
+        .string()
+        .regex(/^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,99}$/)
+        .optional(),
+      timeoutSeconds: z.number().int().min(60).max(1800).default(600),
+    })
+    .optional(),
   artifacts: z.strictObject({ directory: relativePath, retentionDays: z.number().int().min(1).max(365) }),
 });
 export type ProjectConfig = z.infer<typeof projectSchema>;

@@ -207,6 +207,45 @@
       ],
       "additionalProperties": false
     },
+    "peerReview": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "default": "off",
+          "type": "string",
+          "enum": [
+            "off",
+            "advisory",
+            "required"
+          ]
+        },
+        "vendor": {
+          "default": "auto",
+          "type": "string",
+          "enum": [
+            "auto",
+            "codex",
+            "claude"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:\\[\\]-]{0,99}$"
+        },
+        "timeoutSeconds": {
+          "default": 600,
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 1800
+        }
+      },
+      "required": [
+        "mode",
+        "vendor",
+        "timeoutSeconds"
+      ],
+      "additionalProperties": false
+    },
     "artifacts": {
       "type": "object",
       "properties": {

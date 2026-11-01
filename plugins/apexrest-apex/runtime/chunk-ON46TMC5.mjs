@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   external_exports
-} from "./chunk-HRX24FAR.mjs";
+} from "./chunk-75I6YHSV.mjs";
 import {
   Fault,
   canonical,
@@ -11,7 +11,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SSL73I4K.mjs";
+} from "./chunk-UQUM7OVR.mjs";
 
 // packages/core/src/config.ts
 import path from "node:path";
@@ -54,6 +54,13 @@ var projectSchema = external_exports.strictObject({
     apiKeyEnv: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).default("OPENAI_API_KEY"),
     envFile: relativePath.optional(),
     timeoutMs: external_exports.number().int().min(250).max(1e4).default(3e3)
+  }).optional(),
+  // Cross-vendor review of saved ship plans by the other agent CLI (codex or claude).
+  peerReview: external_exports.strictObject({
+    mode: external_exports.enum(["off", "advisory", "required"]).default("off"),
+    vendor: external_exports.enum(["auto", "codex", "claude"]).default("auto"),
+    model: external_exports.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,99}$/).optional(),
+    timeoutSeconds: external_exports.number().int().min(60).max(1800).default(600)
   }).optional(),
   artifacts: external_exports.strictObject({ directory: relativePath, retentionDays: external_exports.number().int().min(1).max(365) })
 });

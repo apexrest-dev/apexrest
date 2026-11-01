@@ -251,6 +251,10 @@
             "alias": {
               "type": "string",
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+            },
+            "format": {
+              "type": "string",
+              "const": "APEXLANG"
             }
           },
           "required": [
@@ -537,6 +541,10 @@
             "alias": {
               "type": "string",
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+            },
+            "format": {
+              "type": "string",
+              "const": "APEXLANG"
             }
           },
           "required": [
@@ -888,6 +896,10 @@
             "alias": {
               "type": "string",
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+            },
+            "format": {
+              "type": "string",
+              "const": "APEXLANG"
             }
           },
           "required": [
@@ -1281,6 +1293,10 @@
             "alias": {
               "type": "string",
               "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+            },
+            "format": {
+              "type": "string",
+              "const": "APEXLANG"
             }
           },
           "required": [
@@ -1524,6 +1540,13 @@
             "readbackPolicy": {
               "type": "string",
               "const": "apex262-selected-source-v1"
+            },
+            "exportScope": {
+              "type": "string",
+              "enum": [
+                "selected",
+                "full"
+              ]
             }
           },
           "required": [

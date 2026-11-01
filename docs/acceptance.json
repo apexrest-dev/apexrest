@@ -892,6 +892,19 @@
         "docs/evidence/decisions/page-ab/report.json"
       ],
       "blocker": "Four fixed selection scenarios have 20 successful warm samples each; 89/92 attempts used Decisions, with three HTTP fallbacks. A separate one-page API generation pilot completed three runs per flag at the same offline compiler/46-check threshold, retaining one timeout fallback and all repairs. Fixed two-template retrieval is not native-host authoring; broader semantic quality, cold-process/backend-cache distributions, connected Oracle and browser behavior remain unqualified. Timeout usage is unavailable."
+    },
+    {
+      "id": "PEER-01",
+      "criterion": "Cross-vendor peer review runs the other agent CLI read-only on a saved ship plan, records a digest-bound verdict and gates apply in required mode",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "tests/unit/peer-review.test.ts",
+        "tests/contracts/mcp.test.mjs",
+        "docs/configuration.md#cross-vendor-peer-review",
+        "docs/evidence/peer-review/real-cli-20261101.json"
+      ],
+      "blocker": "Fake-CLI unit tests and one real Codex 0.160.0 and Claude Code 2.1.296 fixture review on macOS passed. Native-host MCP sessions on a real saved plan, Windows CLI shims and current Anthropic terms for headless subscription use remain unverified."
     }
   ]
 }

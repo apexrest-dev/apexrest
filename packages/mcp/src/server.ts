@@ -77,6 +77,12 @@ export function listTools(): Tool[] {
     },
   }));
 }
+export function hostFromClient(name: string | undefined) {
+  if (!name) return undefined;
+  if (/claude/i.test(name)) return 'claude';
+  if (/codex/i.test(name)) return 'codex';
+  return undefined;
+}
 /** Database writes remain in a detached worker. */
 export function detachedJob(operation: Operation, _input: Record<string, unknown>) {
   const tool = toolCatalog.find((t) => t.operation === operation);
@@ -85,6 +91,12 @@ export function detachedJob(operation: Operation, _input: Record<string, unknown
 
 export async function startMcp() {
   const server = new Server({ name: 'apexrest-apex', version: VERSION }, { capabilities: { tools: {} } });
+  // MCP clients may pass a reduced environment; the initialize clientInfo names
+  // the host, so peer review can pick the other vendor without an explicit input.
+  server.oninitialized = () => {
+    const host = hostFromClient(server.getClientVersion()?.name);
+    if (host && !process.env.APEXREST_HOST) process.env.APEXREST_HOST = host;
+  };
   let catalog: { tools: Tool[] } | undefined;
   const runtime = path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs');
   server.setRequestHandler(ListToolsRequestSchema, async () => (catalog ??= { tools: listTools() }));
@@ -98,8 +110,10 @@ export async function startMcp() {
       project = typeof input.project === 'string' ? input.project : undefined;
       const localSync = tool.operation === 'apex.sync' && input.action === 'status';
       const planOnly = tool.operation === 'ship' && input.mode === 'plan';
-      if (localSync || planOnly) delete input.waitSeconds;
-      if (tool.long && !localSync && !planOnly) {
+      const peerStatus = tool.operation === 'peer' && input.action === 'status';
+      const inProcess = localSync || planOnly || peerStatus;
+      if (inProcess) delete input.waitSeconds;
+      if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === 'ship' && input.mode === 'apply') {
           // Validate and plan in-process (no writes); the apply phase runs in a
