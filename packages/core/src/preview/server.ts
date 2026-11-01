@@ -6,6 +6,7 @@ import path from 'node:path';
 import { loadApplication, str, type ApxComponent } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
+import { checkComponentProperties } from './properties.ts';
 import { LocalDatabase } from './database.ts';
 import {
   extensionClient,
@@ -149,6 +150,10 @@ export class PreviewServer {
       ...(this.options.sampleRows === undefined ? {} : { sampleRows: this.options.sampleRows }),
     });
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
+    // Unknown APEXlang properties and values would otherwise be ignored silently.
+    for (const [id, page] of renderer.app.pages)
+      for (const finding of checkComponentProperties([page], id))
+        renderer.diagnose('warning', finding.message, finding.page, finding.component);
     return renderer;
   }
 

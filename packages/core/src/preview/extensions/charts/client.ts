@@ -46,8 +46,6 @@ export const CHARTS_CSS = String.raw`
 .apex-local-map{display:grid;gap:8px}
 .apex-local-map-note{font-size:12px;color:rgba(22,21,19,.65)}
 .apex-local-map-canvas{display:block;border-radius:6px;border:1px solid rgba(22,21,19,.12)}
-.apex-local-map-bg{fill:#eef3f6}
-.apex-local-map-point{stroke:#fff;stroke-width:1.5}
 .apex-local-map-point:hover,.apex-local-map-shape:hover{opacity:.8}
 .apex-local-map-layers,.apex-local-map-features{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px}
 .apex-local-map-features{max-height:160px;overflow:auto}

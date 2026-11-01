@@ -53,6 +53,7 @@ import {
   type TemplateParams,
   type ThemeIndex,
 } from './theme.ts';
+import { layoutGridRow, type GridCell } from './grid.ts';
 
 export const LOCAL_PREFIX = '/__apex';
 export const IMAGE_PREFIX = '/i/';
@@ -1877,6 +1878,8 @@ export class ApexRenderer {
 
     const css = [
       `${IMAGE_PREFIX}app_ui/css/Core.min.css?v=${APEX_FULL_VERSION}`,
+      // APEX emits the standard app_ui style (switch, star rating, ... tokens) right after Core.
+      `${IMAGE_PREFIX}app_ui/css/Theme-Standard.min.css?v=${APEX_FULL_VERSION}`,
       `${IMAGE_PREFIX}libraries/font-apex/2.5.1/css/font-apex.min.css?v=${APEX_FULL_VERSION}`,
     ];
     const themeCss = strings(list(themeComponent?.props ?? {}, 'css.fileUrls'));
@@ -2135,16 +2138,21 @@ export class ApexRenderer {
     }
   }
 
-  /** Fixed 12-column grid using the page template's container/row/column templates. */
-  grid(template: TemplateParams, cells: { component: ApxComponent; html: string }[]): string {
+  /**
+   * Fixed 12-column grid using the page template's container/row/column templates, as APEX lays it out:
+   * Start New Row / New Column / Column / Column Span, empty leading columns before an explicit start
+   * column, and the column/row CSS classes and attributes. A cell's markup can depend on its column span
+   * (left-aligned label templates split the span between label and input).
+   */
+  grid(template: TemplateParams, cells: GridCell[]): string {
     if (!cells.length) return '';
-    const rows: { component: ApxComponent; html: string }[][] = [];
+    const rows: GridCell[][][] = [];
     for (const cell of cells) {
-      const startNewRow =
-        bool(cell.component.props, 'layout.startNewRow', true) &&
-        bool(cell.component.props, 'layout.newRow', true);
-      if (!rows.length || startNewRow) rows.push([cell]);
-      else rows.at(-1)!.push(cell);
+      const props = cell.component.props;
+      const startNewRow = bool(props, 'layout.startNewRow', true) && bool(props, 'layout.newRow', true);
+      if (!rows.length || startNewRow) rows.push([[cell]]);
+      else if (!bool(props, 'layout.newColumn', true)) rows.at(-1)!.at(-1)!.push(cell);
+      else rows.at(-1)!.push([cell]);
     }
     const max = Number(text(template, 'grid_max_columns')) || 12;
     const containerTemplate = text(template, 'grid_template') || '<div class="container">#ROWS#</div>';
@@ -2153,33 +2161,59 @@ export class ApexRenderer {
     const columnTemplate =
       text(template, 'grid_column_template') ||
       '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
+    const emitLeading = text(template, 'grid_emit_empty_leading_cols') !== 'false';
     const html = rows
       .map((row) => {
-        const explicit = row.reduce(
-          (sum, cell) => sum + num(cell.component.props, 'layout.columnSpan', 0),
-          0,
+        const placed = layoutGridRow(
+          row.map((column) => ({
+            column: num(column[0]!.component.props, 'layout.column', 0),
+            span: num(column[0]!.component.props, 'layout.columnSpan', 0),
+          })),
+          max,
         );
-        const automatic = row.filter((cell) => !num(cell.component.props, 'layout.columnSpan', 0)).length;
-        const share = automatic ? Math.max(1, Math.floor((max - explicit) / automatic)) : 0;
-        const columns = row
-          .map((cell, index) => {
-            const span = num(cell.component.props, 'layout.columnSpan', share) || max;
-            const firstLast = [
-              index === 0 ? text(template, 'grid_first_column_attributes') : '',
-              index === row.length - 1 ? text(template, 'grid_last_column_attributes') : '',
+        const columns: { span: number; classes: string; attributes: string; content: string }[] = [];
+        row.forEach((column, index) => {
+          const { gap, span } = placed[index]!;
+          if (gap > 0 && emitLeading)
+            columns.push({
+              span: gap,
+              classes: '',
+              attributes: '',
+              content: '<span class="apex-grid-nbsp">&nbsp;</span>',
+            });
+          const props = column[0]!.component.props;
+          columns.push({
+            span,
+            classes: [
+              num(props, 'layout.columnSpan', 0) ? '' : 'apex-col-auto',
+              ...strings(list(props, 'layout.columnCssClasses')),
             ]
               .filter(Boolean)
-              .join(' ');
-            return fill(columnTemplate, {
-              COLUMN_SPAN_NUMBER: String(Math.min(max, span)),
-              CSS_CLASSES: num(cell.component.props, 'layout.columnSpan', 0) ? '' : 'apex-col-auto',
-              FIRST_LAST_COLUMN_ATTRIBUTES: firstLast,
-              ATTRIBUTES: '',
-              CONTENT: cell.html,
-            });
-          })
+              .join(' '),
+            attributes: str(props, 'layout.columnAttributes'),
+            content: column
+              .map((cell) => (typeof cell.html === 'function' ? cell.html(span) : cell.html))
+              .join('\n'),
+          });
+        });
+        const markup = columns
+          .map((column, index) =>
+            fill(columnTemplate, {
+              COLUMN_SPAN_NUMBER: String(column.span),
+              CSS_CLASSES: column.classes,
+              FIRST_LAST_COLUMN_ATTRIBUTES: [
+                index === 0 ? text(template, 'grid_first_column_attributes') : '',
+                index === columns.length - 1 ? text(template, 'grid_last_column_attributes') : '',
+              ]
+                .filter(Boolean)
+                .join(' '),
+              ATTRIBUTES: column.attributes,
+              CONTENT: column.content,
+            }),
+          )
           .join('\n');
-        return fill(rowTemplate, { CSS_CLASSES: '', COLUMNS: columns });
+        const rowClasses = strings(list(row[0]![0]!.component.props, 'layout.rowCssClasses')).join(' ');
+        return fill(rowTemplate, { CSS_CLASSES: rowClasses, COLUMNS: markup });
       })
       .join('\n');
     return fill(containerTemplate, { ROWS: html });
@@ -2200,7 +2234,10 @@ export class ApexRenderer {
         .map((segment) =>
           this.grid(
             template,
-            segment.map((item) => ({ component: item, html: this.renderItem(ctx, item) })),
+            segment.map((item) => ({
+              component: item,
+              html: (span: number) => this.renderItem(ctx, item, span),
+            })),
           ),
         )
         .join('\n') + hidden.map((item) => this.renderItem(ctx, item)).join('')
@@ -2232,6 +2269,15 @@ export class ApexRenderer {
   regionDomId(region: ApxComponent): string {
     return (
       str(region.props, 'advanced.htmlDomId') || str(region.props, 'advanced.staticId') || slug(region.id)
+    );
+  }
+
+  /** Button DOM id: HTML DOM ID, then Static ID, then APEX's generated `B_<id>`. */
+  buttonDomId(button: ApxComponent): string {
+    return (
+      str(button.props, 'advanced.htmlDomId') ||
+      str(button.props, 'advanced.staticId') ||
+      `B_${slug(button.id)}`
     );
   }
 
@@ -2863,7 +2909,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     ).toLowerCase();
     const template = this.theme.buttons.get(templateId) ?? this.theme.buttons.get('text')!;
     const hot = bool(button.props, 'appearance.hot', false);
-    const domId = str(button.props, 'advanced.staticId') || `B_${slug(button.id)}`;
+    const domId = this.buttonDomId(button);
     const name = str(button.props, 'buttonName', button.id.toUpperCase());
     const action = str(button.props, 'behavior.action', 'submit');
     let onclick = '';
@@ -2972,7 +3018,8 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     });
   }
 
-  renderItem(ctx: RenderContext, item: ApxComponent): string {
+  /** `span` is the item's grid column span; omitted for slots without grid support (APEX emits col-null). */
+  renderItem(ctx: RenderContext, item: ApxComponent, span?: number): string {
     const name = item.id.toUpperCase();
     const type = str(item.props, 'type', 'textField');
     const value = ctx.session.items[name] ?? '';
@@ -3017,6 +3064,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       CURRENT_ITEM_INLINE_HELP_TEXT: escapeHtml(str(item.props, 'help.inlineHelpText')),
       ERROR_MESSAGE: error ? escapeHtml(error) : '',
       IS_REQUIRED: required ? 'Y' : '',
+      ...this.labelColumns(ctx, item, span),
     };
     for (const extension of extensions) extension.itemTemplate?.(this, ctx, item, values);
     values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text(template, 'item_pre_text'), values) : '';
@@ -3034,6 +3082,21 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       ? ''
       : `${fill(text(template, 'template_body1'), values)}${label}${fill(text(template, 'template_body2'), values)}`;
     return `${fill(text(template, 'before_item'), values)}${labelHtml}${fill(text(template, 'before_element'), values)}${element}${fill(text(template, 'after_element'), values)}${fill(text(template, 'after_item'), values)}`;
+  }
+
+  /** Label/input column spans of left-aligned label templates: the label takes Label Column Span
+   * (page template default 2) of the item's grid span and the input the rest. */
+  labelColumns(ctx: RenderContext, item: ApxComponent, span?: number): Record<string, string> {
+    if (span === undefined) return { LABEL_COLUMN_SPAN_NUMBER: 'null', ITEM_COLUMN_SPAN_NUMBER: 'null' };
+    const fallback = Number(text(this.pageTemplate(ctx), 'grid_default_label_col_span') || 2);
+    const label = Math.max(
+      0,
+      Math.min(span, num(item.props, 'layout.labelColumnSpan', Number.isFinite(fallback) ? fallback : 2)),
+    );
+    return {
+      LABEL_COLUMN_SPAN_NUMBER: String(label),
+      ITEM_COLUMN_SPAN_NUMBER: String(Math.max(1, span - label)),
+    };
   }
 
   element(ctx: RenderContext, item: ApxComponent, type: string, name: string, value: string): string {
@@ -3126,7 +3189,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       case 'button': {
         const id = ref(props, 'button');
         const button = this.pageComponents(ctx, 'button').find((candidate) => candidate.id === id);
-        return button ? `#${str(button.props, 'advanced.staticId') || `B_${slug(button.id)}`}` : '';
+        return button ? `#${this.buttonDomId(button)}` : '';
       }
       case 'region': {
         const id = ref(props, 'region');

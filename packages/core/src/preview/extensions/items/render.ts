@@ -1,5 +1,5 @@
 import { bool, get, num, str, type ApxComponent } from '../../apexlang.ts';
-import { formatOracle } from '../../database.ts';
+import { formatOracle, isoDate, parseOracleDate } from '../../database.ts';
 import type { ItemRenderer, ItemTemplateHook } from '../../extensions.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml, templateOptions, text } from '../../theme.ts';
@@ -278,13 +278,20 @@ const APPEARANCE: Record<string, string> = {
   yearPicker: 'change-year',
 };
 
+const DATE_DISPLAY: Record<string, string> = { inline: 'inline', nativeHtml: 'native', popup: 'popup' };
+
 const datePicker: ItemRenderer = (renderer, ctx, item, name, value) => {
   itemState.set(item, {});
   const mask = dateMask(renderer, item);
   const shown = dateValue(value, mask);
   if (isReadOnly(renderer, ctx, item)) return readOnlyMarkup(item, name, value, shown);
-  const displayAs = setting(renderer, item, 'displayAs', 'popup');
-  const behavior = new Set(setting(renderer, item, 'appearanceBehavior').split(':').filter(Boolean));
+  // APEXlang settings.displayAs: inline / nativeHtml / popup; the web component takes inline / native / popup.
+  const displayAs = DATE_DISPLAY[setting(renderer, item, 'displayAs', 'popup')] ?? 'popup';
+  const behavior = new Set(
+    setting(renderer, item, 'appearanceBehavior', 'monthPicker:yearPicker:showTodayButton')
+      .split(':')
+      .filter(Boolean),
+  );
   const limit = (kind: 'min' | 'max') => {
     const type = setting(renderer, item, `${kind}Date`, 'none');
     if (type === 'static') {
@@ -308,6 +315,14 @@ const datePicker: ItemRenderer = (renderer, ctx, item, name, value) => {
     ...(displayAs === 'native' ? ['date-picker-apex-native'] : []),
   ];
   const example = formatOracle(new Date().toISOString(), mask) ?? '';
+  // A native picker wraps <input type="date|datetime-local">: its value, min and max are ISO text.
+  const native = (text: string | undefined) => {
+    if (!text || displayAs !== 'native') return text;
+    const date = ISO_DATE.test(text) ? new Date(text.replace(' ', 'T')) : parseOracleDate(text, mask);
+    if (!date || Number.isNaN(date.getTime())) return text;
+    const iso = isoDate(date);
+    return showTime ? iso.slice(0, 16).replace(' ', 'T') : iso.slice(0, 10);
+  };
   // The web component creates its own input (`<id>_input`), the calendar button and the popup.
   return `<a-date-picker${attrs({
     id: name,
@@ -315,9 +330,9 @@ const datePicker: ItemRenderer = (renderer, ctx, item, name, value) => {
     'display-as': displayAs,
     format: mask,
     'valid-example': example,
-    value: shown,
-    min: limit('min'),
-    max: limit('max'),
+    value: native(shown),
+    min: native(limit('min')),
+    max: native(limit('max')),
     name,
     placeholder: placeholder(renderer, ctx, item) || undefined,
     required: required(item),
@@ -379,14 +394,15 @@ const selectList: ItemRenderer = (renderer, ctx, item, name, value) => {
   const extras = elementExtras(renderer, ctx, item);
   const cascade = cascadeInit(ctx, item, name);
   const action = setting(renderer, item, 'pageActionOnSelection', 'none');
-  if (cascade.ajaxIdentifier || action !== 'none')
-    ctx.onload.push(
-      `apex.widget.selectList(${json(`#${name}`)},${json({
-        ...cascade,
-        ...(nullShown ? { nullValue: str(item.props, 'lov.nullReturnValue') } : {}),
-        ...(multiple ? { storageType: 'SEPARATED', separator: separator(item) } : {}),
-      })});`,
-    );
+  // APEX always registers the select list widget: its hasDisplayValue (selected option text) drives the
+  // Universal Theme floating label, so a "- Select -" null display text keeps the label raised.
+  ctx.onload.push(
+    `apex.widget.selectList(${json(`#${name}`)},${json({
+      ...cascade,
+      ...(nullShown ? { nullValue: str(item.props, 'lov.nullReturnValue') } : {}),
+      ...(multiple ? { storageType: 'SEPARATED', separator: separator(item) } : {}),
+    })});`,
+  );
   return `<select${attrs({
     id: name,
     name,
@@ -629,7 +645,8 @@ const popupLov: ItemRenderer = (renderer, ctx, item, name, value) => {
     (entry) => lov.rows.find((row) => row[lov.returned] === entry)?.[lov.display] ?? entry,
   );
   if (isReadOnly(renderer, ctx, item)) return readOnlyMarkup(item, name, value, display.join(', '));
-  const isPopup = setting(renderer, item, 'displayAs', 'popup') !== 'dialog';
+  // settings.displayAs: inlinePopup (POPUP, the default) or modalDialog (DIALOG).
+  const isPopup = !['modalDialog', 'dialog'].includes(setting(renderer, item, 'displayAs', 'inlinePopup'));
   const columns = Object.fromEntries([
     ...lov.columns.map((column, index) => [
       column.name,
@@ -857,7 +874,8 @@ const colorPicker: ItemRenderer = (renderer, ctx, item, name, value) => {
     return `<span id="${name}_DISPLAY" class="display_only apex-item-display-only"><span aria-hidden="true" style="display:inline-block;inline-size:1em;block-size:1em;border-radius:50%;vertical-align:middle;background:${escapeHtml(value)}"></span> ${escapeHtml(value)}</span><input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value)}">`;
   }
   const displayAs = setting(renderer, item, 'displayAs', 'popup');
-  const preset = setting(renderer, item, 'colorPreset', 'none');
+  // Native defaults: colorPreset THEME_STYLE, mode FULL.
+  const preset = setting(renderer, item, 'colorPreset', 'themeStyle');
   const presetColors =
     preset === 'custom'
       ? setting(renderer, item, 'colors')
@@ -888,7 +906,7 @@ const colorPicker: ItemRenderer = (renderer, ctx, item, name, value) => {
           : displayAs === 'colorOnlyPopup'
             ? 'COLOR_ONLY'
             : 'POPUP',
-    'display-mode': setting(renderer, item, 'mode', 'simple').toUpperCase(),
+    'display-mode': setting(renderer, item, 'mode', 'full').toUpperCase(),
     'return-value-as': setting(renderer, item, 'returnValueAs', 'hex')
       .toUpperCase()
       .replace('ANYCSSVALUE', 'CSS'),
@@ -930,8 +948,10 @@ const richTextEditor: ItemRenderer = (renderer, ctx, item, name, value) => {
     Object.assign(state(item), { container: ['is-readonly'], wrapper: ['display-only'] });
     return `<div id="${name}_DISPLAY" class="display_only apex-item-display-only">${html}</div><input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value)}">`;
   }
-  const toolbar = setting(renderer, item, 'toolbar', 'simple');
-  const tools = toolbar === 'none' ? [] : toolbar === 'simple' ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
+  // settings.toolbar: basic / intermediate (default) / full.
+  const toolbar = setting(renderer, item, 'toolbar', 'intermediate');
+  const tools =
+    toolbar === 'none' ? [] : toolbar === 'basic' || toolbar === 'simple' ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
   ctx.onload.push(`apexLocal.items.richText(${json(name)});`);
   const height = num(item.props, 'settings.height', num(item.props, 'appearance.height', 5) * 24 + 48);
   return `<div class="apex-item-group apex-item-group--rich-text-editor apex-local-rte" id="${name}_CONTAINER_RTE">${
@@ -982,6 +1002,7 @@ const FILE_DISPLAY: Record<string, string> = {
   inlineFileBrowse: 'INLINE',
   inlineDropzone: 'DROPZONE_INLINE',
   blockDropzone: 'DROPZONE_BLOCK',
+  iconDropzone: 'DROPZONE_ICON',
   nativeFileBrowse: 'NATIVE',
 };
 
@@ -1001,10 +1022,11 @@ function fileUpload(kind: 'file' | 'image'): ItemRenderer {
   return (renderer, ctx, item, name, value) => {
     itemState.set(item, {});
     const readOnly = isReadOnly(renderer, ctx, item);
+    // Defaults per the native item types: File Upload INLINE, Image Upload DROPZONE_ICON.
     const displayAs = str(
       item.props,
       'display.displayAs',
-      kind === 'image' ? 'blockDropzone' : 'inlineDropzone',
+      kind === 'image' ? 'iconDropzone' : 'inlineFileBrowse',
     );
     ctx.jsFiles.add(apexScript('item.FileUpload'));
     state(item).wrapper = kind === 'image' ? ['image-upload'] : ['file'];
@@ -1013,7 +1035,7 @@ function fileUpload(kind: 'file' | 'image'): ItemRenderer {
       id: name,
       name,
       class: extras.classes.join(' ') || undefined,
-      'display-style': FILE_DISPLAY[displayAs] ?? 'DROPZONE_BLOCK',
+      'display-style': FILE_DISPLAY[displayAs] ?? (kind === 'image' ? 'DROPZONE_ICON' : 'INLINE'),
       'upload-type': kind === 'image' ? 'IMAGE' : 'FILE',
       label: str(item.props, 'display.dropzoneTitle') || undefined,
       description: str(item.props, 'display.dropzoneDesc') || undefined,
