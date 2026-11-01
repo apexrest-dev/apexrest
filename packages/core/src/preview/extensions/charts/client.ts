@@ -135,13 +135,13 @@ export const CHARTS_JS = String.raw`
     if (!window.FullCalendar) return fallbackCalendar(el, config);
     var hour12 = config.timeFormat !== "24Hour" && config.timeFormat !== "24";
     var timeFormat = { hour: "numeric", minute: "2-digit", omitZeroMinute: hour12, meridiem: "short", hour12: hour12 };
-    var right = ["dayGridMonth", "timeGridWeek", "timeGridDay"];
-    if (config.list) right.push("listMonth");
+    var right = config.views && config.views.length ? config.views.slice() : ["dayGridMonth", "timeGridWeek", "timeGridDay"];
+    if (!config.views && config.list) right.push("listMonth");
     var calendar = new FullCalendar.Calendar(el, {
       themeSystem: "standard",
-      initialView: "dayGridMonth",
+      initialView: right[0] || "dayGridMonth",
       initialDate: config.initialDate,
-      headerToolbar: { left: config.navigation ? "prev,next today" : "", center: "title", right: right.join(",") },
+      headerToolbar: { left: config.navigation ? "prev,next today" : "", center: "title", right: right.length > 1 ? right.join(",") : "" },
       buttonText: { today: "today", month: "month", week: "week", day: "day", list: "list" },
       firstDay: config.firstDay || 0,
       weekends: config.weekends !== false,

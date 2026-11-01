@@ -32,6 +32,7 @@ const SUPPORTED = new Set([
   'createLink',
   'supplementalInfo',
   'additionalCalendarViews',
+  'calendarViewsAndNavigation',
   'timeFormat',
   'firstHour',
   'showWeekend',
@@ -153,6 +154,41 @@ export function fullCalendarScript(renderer: ApexRenderer): string | undefined {
   }
 }
 
+const VIEW_NAMES: Record<string, string> = {
+  month: 'dayGridMonth',
+  week: 'timeGridWeek',
+  day: 'timeGridDay',
+  list: 'listMonth',
+};
+
+const options = (region: ApxComponent, key: string): string[] | undefined => {
+  if (get(region.props, `settings.${key}`) === undefined) return undefined;
+  return list(region.props, `settings.${key}`)
+    .flatMap((value) => String(value).split(/[\s:,]+/u))
+    .map((value) => value.toLowerCase())
+    .filter(Boolean);
+};
+
+/**
+ * FullCalendar views and the prev/next/today navigation, as APEX derives them: with `showTime`
+ * the `calendarViewsAndNavigation` checkboxes (default month, week, day, list, navigation),
+ * otherwise the month view plus `additionalCalendarViews` (default list, navigation). An explicit
+ * `calendarViewsAndNavigation` is honoured without `showTime` as well.
+ */
+export function calendarViews(region: ApxComponent): { views: string[]; navigation: boolean } {
+  const timed = bool(region.props, 'settings.showTime', false);
+  const combined = options(region, 'calendarViewsAndNavigation');
+  const additional = options(region, 'additionalCalendarViews');
+  const chosen =
+    timed || (combined && !additional)
+      ? (combined ?? ['month', 'week', 'day', 'list', 'navigation'])
+      : ['month', ...(additional ?? ['list', 'navigation'])];
+  const views = ['month', 'week', 'day', 'list']
+    .filter((view) => chosen.includes(view))
+    .map((view) => VIEW_NAMES[view]!);
+  return { views: views.length ? views : ['dayGridMonth'], navigation: chosen.includes('navigation') };
+}
+
 export function renderCalendar(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string {
   const domId = renderer.regionDomId(region);
   const settings = get(region.props, 'settings');
@@ -182,8 +218,7 @@ export function renderCalendar(renderer: ApexRenderer, ctx: RenderContext, regio
     );
   const { events, error } = calendarEvents(renderer, ctx, region);
   if (error) renderer.diagnose('warning', `Calendar ${region.id}: ${error}`, ctx.pageId, region.id);
-  const views = list(region.props, 'settings.additionalCalendarViews').map(String);
-  const additional = views.length ? views : ['list', 'navigation'];
+  const { views, navigation } = calendarViews(region);
   const create = get(region.props, 'settings.createLink');
   let createUrl: string | undefined;
   if (create !== undefined) {
@@ -194,8 +229,9 @@ export function renderCalendar(renderer: ApexRenderer, ctx: RenderContext, regio
   const config = {
     region: region.id,
     initialDate: initialDate(events),
-    navigation: additional.includes('navigation'),
-    list: additional.includes('list'),
+    navigation,
+    views,
+    list: views.includes('listMonth'),
     timeFormat: str(region.props, 'settings.timeFormat'),
     firstHour: num(region.props, 'settings.firstHour', 8),
     weekends: bool(region.props, 'settings.showWeekend', true),

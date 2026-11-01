@@ -91,6 +91,17 @@ export function formatValue(value: number | null | undefined, spec: ValueFormat 
   return `${new Intl.NumberFormat('en-US', options).format(scaled)}${suffix}`;
 }
 
+/** Decimals needed to print `value` exactly (0 for 1 or 2, 1 for 0.5 or 2.5, 2 for 0.25), at most 4. */
+export function decimalsOf(value: number): number {
+  const abs = Math.abs(value);
+  if (!Number.isFinite(abs) || abs === 0) return 0;
+  for (let digits = 0; digits < 4; digits += 1) {
+    const shifted = abs * 10 ** digits;
+    if (Math.abs(shifted - Math.round(shifted)) <= 1e-9 * Math.max(1, shifted)) return digits;
+  }
+  return 4;
+}
+
 /** Axis tick labels: JET scales large values automatically unless told otherwise. */
 export function formatTick(value: number, spec: ValueFormat, step: number): string {
   const scaling = spec.scaling ?? 'auto';
@@ -100,7 +111,7 @@ export function formatTick(value: number, spec: ValueFormat, step: number): stri
       ? SCALES.find(([, factor]) => magnitude >= factor)
       : SCALES.find(([name]) => name === scaling);
   const factor = entry?.[1] ?? 1;
-  const stepDigits = Math.max(0, Math.ceil(-Math.log10(Math.abs(step / factor) || 1) + 0.0001));
+  const stepDigits = decimalsOf(step / factor);
   // Never print fewer decimals than the step needs, or fractional ticks repeat (0, 0, 1, 1, 1).
   const digits = Math.min(4, Math.max(spec.decimalPlaces ?? 0, stepDigits));
   return formatValue(value, {
