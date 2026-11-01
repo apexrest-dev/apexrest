@@ -191,6 +191,7 @@ export type Stmt = { line: number } & (
   | { k: 'call'; name: string[]; args: Arg[] }
   | { k: 'block'; block: Block }
   | { k: 'noop' }
+  | { k: 'tx'; op: 'commit' | 'rollback' | 'savepoint'; savepoint?: string }
   | { k: 'unsupported'; what: string }
 );
 
@@ -577,7 +578,22 @@ export class Parser {
           return this.dml(line);
         case 'commit':
         case 'rollback':
-        case 'savepoint':
+        case 'savepoint': {
+          this.pos += 1;
+          const words = this.untilSemicolon()
+            .filter((part) => part.kind === 'word' || part.kind === 'qident')
+            .map((part) => part.value);
+          const op = token.value as 'commit' | 'rollback' | 'savepoint';
+          // SAVEPOINT name / ROLLBACK [WORK] TO [SAVEPOINT] name
+          const to = words.indexOf('to');
+          const name =
+            op === 'savepoint'
+              ? words[0]
+              : op === 'rollback' && to >= 0
+                ? words.slice(to + 1).find((word) => word !== 'savepoint')
+                : undefined;
+          return { k: 'tx', op, ...(name ? { savepoint: name } : {}), line };
+        }
         case 'lock':
           this.untilSemicolon();
           return { k: 'noop', line };

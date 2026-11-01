@@ -255,6 +255,11 @@ export interface PreviewExtension {
    */
   toolbar?: (renderer: ApexRenderer, ctx: RenderContext) => string;
   point?: PointHandler;
+  /**
+   * Validations of editable regions (interactive grids) for the rows a page submit changes;
+   * runs with the page validations, the errors are collected with theirs.
+   */
+  rowValidation?: (renderer: ApexRenderer, ctx: RenderContext) => ApexError[];
   submit?: SubmitHook;
   respond?: PageResponder;
   trace?: TraceHandler;
@@ -324,6 +329,10 @@ export function runPointExtensions(
   const errors: ApexError[] = [];
   for (const extension of extensions) errors.push(...(extension.point?.(renderer, ctx, point) ?? []));
   return errors;
+}
+
+export function runRowValidationExtensions(renderer: ApexRenderer, ctx: RenderContext): ApexError[] {
+  return extensions.flatMap((extension) => extension.rowValidation?.(renderer, ctx) ?? []);
 }
 
 export function traceExtensions(
