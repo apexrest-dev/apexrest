@@ -1,5 +1,5 @@
 import { bool, get, num, str, type ApxComponent } from '../../apexlang.ts';
-import { formatOracle } from '../../database.ts';
+import { formatOracle, isoDate, parseOracleDate } from '../../database.ts';
 import type { ItemRenderer, ItemTemplateHook } from '../../extensions.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml, templateOptions, text } from '../../theme.ts';
@@ -315,6 +315,14 @@ const datePicker: ItemRenderer = (renderer, ctx, item, name, value) => {
     ...(displayAs === 'native' ? ['date-picker-apex-native'] : []),
   ];
   const example = formatOracle(new Date().toISOString(), mask) ?? '';
+  // A native picker wraps <input type="date|datetime-local">: its value, min and max are ISO text.
+  const native = (text: string | undefined) => {
+    if (!text || displayAs !== 'native') return text;
+    const date = ISO_DATE.test(text) ? new Date(text.replace(' ', 'T')) : parseOracleDate(text, mask);
+    if (!date || Number.isNaN(date.getTime())) return text;
+    const iso = isoDate(date);
+    return showTime ? iso.slice(0, 16).replace(' ', 'T') : iso.slice(0, 10);
+  };
   // The web component creates its own input (`<id>_input`), the calendar button and the popup.
   return `<a-date-picker${attrs({
     id: name,
@@ -322,9 +330,9 @@ const datePicker: ItemRenderer = (renderer, ctx, item, name, value) => {
     'display-as': displayAs,
     format: mask,
     'valid-example': example,
-    value: shown,
-    min: limit('min'),
-    max: limit('max'),
+    value: native(shown),
+    min: native(limit('min')),
+    max: native(limit('max')),
     name,
     placeholder: placeholder(renderer, ctx, item) || undefined,
     required: required(item),

@@ -141,6 +141,15 @@ const FILES: Record<string, string> = {
         }
         settings {
             displayAs: nativeHtml
+            minDate: static
+            minStatic: 01-JAN-2026
+        }
+        appearance {
+            formatMask: DD-MON-YYYY
+        }
+        default {
+            type: static
+            staticValue: 15-MAR-2026
         }
     )
 
@@ -344,7 +353,10 @@ test('layout, label spans, item display modes, static ids and the theme style fo
   // Every select list registers the widget so its selected text drives the floating label.
   assert.match(html, /apex\.widget\.selectList\("#P11_STATUS",\{"nullValue":""\}\);/u);
   // settings.displayAs values map to the widget values.
-  assert.match(html, /<a-date-picker id="P11_DUE" class="apex-item-datepicker--native" display-as="native"/u);
+  assert.match(
+    html,
+    /<a-date-picker id="P11_DUE" class="apex-item-datepicker--native" display-as="native" format="DD-MON-YYYY" valid-example="[^"]+" value="2026-03-15" min="2026-01-01"/u,
+  );
   assert.match(html, /"itemId":"P11_OWNER"[^]*?"isPopup":false/u);
   assert.match(html, /"itemId":"P11_HELPER"[^]*?"isPopup":true/u);
   // Button HTML DOM ID.
