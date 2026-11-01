@@ -554,14 +554,14 @@ test('page items render the genuine APEX 26.2 markup per item family', async (t)
   assert.match(html, /apex\.widget\.starRating\("P3_RATING",\{"numStars":5/u);
   assert.match(
     html,
-    /<a-color-picker id="P3_COLOR" name="P3_COLOR" value="" display-as="POPUP" display-mode="SIMPLE" return-value-as="HEX"/u,
+    /<a-color-picker id="P3_COLOR" name="P3_COLOR" value="" display-as="POPUP" display-mode="FULL" return-value-as="HEX" preset-colors="[^"]+"/u,
   );
   assert.match(html, /<div class="apex-local-rte-content" id="P3_RTE_EDITOR" contenteditable="true"/u);
   assert.match(html, /apexLocal\.items\.richText\("P3_RTE"\);/u);
   assert.match(html, /apex\.widget\.markdown\("#P3_MD"/u);
   assert.match(
     html,
-    /<a-file-upload id="P3_FILE" name="P3_FILE" display-style="DROPZONE_INLINE" upload-type="FILE"[^>]*><input type="file" id="P3_FILE_input" name="P3_FILE"/u,
+    /<a-file-upload id="P3_FILE" name="P3_FILE" display-style="INLINE" upload-type="FILE"[^>]*><input type="file" id="P3_FILE_input" name="P3_FILE"/u,
   );
   assert.match(
     html,
