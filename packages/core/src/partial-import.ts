@@ -8,7 +8,8 @@ import { Fault } from './result.ts';
 import { APEXLANG_EQUIVALENCE_POLICY } from './apexlang-equivalence.ts';
 
 export interface ImportOptions {
-  importMode?: 'auto' | 'full' | 'files';
+  /** `none` deploys only migrations and changed package scripts; the application is not imported. */
+  importMode?: 'auto' | 'full' | 'files' | 'none';
   files?: string[];
 }
 export const importSelectionSchema = z.strictObject({
@@ -28,7 +29,8 @@ export function importOptions(value: ImportOptions = {}): Required<ImportOptions
   const mode = value.importMode ?? 'auto';
   if ((value.files?.length ?? 0) > 1000)
     throw new Fault('INVALID_INPUT', 'Select at most 1000 files in one import.', 2);
-  if (!['auto', 'full', 'files'].includes(mode)) throw new Fault('INVALID_INPUT', 'Unknown import mode.', 2);
+  if (!['auto', 'full', 'files', 'none'].includes(mode))
+    throw new Fault('INVALID_INPUT', 'Unknown import mode.', 2);
   if ((mode === 'files') !== !!value.files?.length)
     throw new Fault(
       'INVALID_INPUT',

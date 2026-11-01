@@ -863,7 +863,7 @@ export function saveGrid(
       ],
     };
   const table = model.table.toUpperCase();
-  const tableColumns = new Set(renderer.db.tableColumns(table).map((column) => column.name.toUpperCase()));
+  const tableColumns = new Set(renderer.data.tableColumns(table).map((column) => column.name.toUpperCase()));
   const label = (column: GridColumn) => model.cells.label(column.component);
   for (const change of changes) {
     const allowed =
@@ -917,11 +917,11 @@ export function saveGrid(
     return text;
   };
   let saved = 0;
-  renderer.db.execute('savepoint apex_local_ig');
+  renderer.data.execute('savepoint apex_local_ig');
   try {
     for (const change of changes) {
       if (change.op === 'delete') {
-        saved += renderer.db.execute(`delete from "${table}" where ${where}`, keyBinds(change)).changes;
+        saved += renderer.data.execute(`delete from "${table}" where ${where}`, keyBinds(change)).changes;
         continue;
       }
       const writable = model.columns.filter(
@@ -940,7 +940,7 @@ export function saveGrid(
         const binds = Object.fromEntries(
           insert.map((column) => [bindName(column), value(column, change.values[column.name])]),
         );
-        saved += renderer.db.execute(
+        saved += renderer.data.execute(
           insert.length
             ? `insert into "${table}" (${insert.map((column) => `"${column.databaseColumn}"`).join(', ')}) values (${insert.map((column) => `:${bindName(column)}`).join(', ')})`
             : `insert into "${table}" default values`,
@@ -949,7 +949,7 @@ export function saveGrid(
         continue;
       }
       if (!writable.length) continue;
-      saved += renderer.db.execute(
+      saved += renderer.data.execute(
         `update "${table}" set ${writable.map((column) => `"${column.databaseColumn}" = :${bindName(column)}`).join(', ')} where ${where}`,
         {
           ...Object.fromEntries(
@@ -959,10 +959,10 @@ export function saveGrid(
         },
       ).changes;
     }
-    renderer.db.execute('release savepoint apex_local_ig');
+    renderer.data.execute('release savepoint apex_local_ig');
   } catch (error) {
-    renderer.db.execute('rollback to savepoint apex_local_ig');
-    renderer.db.execute('release savepoint apex_local_ig');
+    renderer.data.execute('rollback to savepoint apex_local_ig');
+    renderer.data.execute('release savepoint apex_local_ig');
     renderer.diagnose(
       'error',
       `Interactive Grid save failed in ${region.id}: ${(error as Error).message}`,

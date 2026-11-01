@@ -88,7 +88,7 @@ export function resetData(renderer: ApexRenderer): string[] {
   for (const kind of ['trigger', 'view', 'table'])
     for (const object of objects.filter((entry) => entry.type === kind))
       renderer.db.db.exec(`drop ${kind} if exists "${object.name.replaceAll('"', '""')}"`);
-  const problems = Renderer.seed(renderer.db, renderer.app.root);
+  const problems = Renderer.seed(renderer.db, renderer.app.root, renderer.options.seedDirs);
   for (const problem of problems) renderer.diagnose('warning', `Seed script: ${problem}`);
   renderer.diagnose(
     'info',

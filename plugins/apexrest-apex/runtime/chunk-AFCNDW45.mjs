@@ -2,18 +2,22 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   canonicalHome,
   runtimeState
-} from "./chunk-GQDQAOWR.mjs";
-import "./chunk-4S26F3JE.mjs";
+} from "./chunk-M57SWOHE.mjs";
+import "./chunk-GJGXYFEZ.mjs";
 import {
   managedHome
-} from "./chunk-ON46TMC5.mjs";
-import "./chunk-75I6YHSV.mjs";
+} from "./chunk-RNEE4V2Z.mjs";
+import "./chunk-U46X3ZLW.mjs";
+import "./chunk-XYDSY3MB.mjs";
+import "./chunk-W7MSMS56.mjs";
 import {
-  Fault,
   exists,
   withLock,
   writeJson
-} from "./chunk-UQUM7OVR.mjs";
+} from "./chunk-7UXC37DJ.mjs";
+import {
+  Fault
+} from "./chunk-CCPOHUCO.mjs";
 
 // packages/installer/src/uninstall-tools.ts
 import path from "node:path";

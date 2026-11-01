@@ -11,6 +11,26 @@ export interface QueryResult {
   rows: Row[];
 }
 
+/**
+ * Application data: the SQLite simulation by default, or a real Oracle session in connected
+ * mode (oracle/app-data.ts). Preview-internal state always stays in LocalDatabase.
+ */
+export interface AppData {
+  readonly dialect: 'sqlite' | 'oracle';
+  query(sql: string, binds?: Binds, maxRows?: number): QueryResult;
+  rawQuery(
+    sql: string,
+    binds?: Binds,
+    maxRows?: number,
+  ): { columns: string[]; rows: (SqlValue | Uint8Array)[][] };
+  /** `lastInsertRowid` is a SQLite rowid number, or an Oracle ROWID text for single-row inserts. */
+  execute(sql: string, binds?: Binds): { changes: number; lastInsertRowid: number | string };
+  scalar(sql: string, binds?: Binds): string | number | null;
+  tableExists(table: string): boolean;
+  tableColumns(table: string): { name: string; pk: boolean; type: string }[];
+  keySource(table: string, column: string): 'identity' | 'default' | 'trigger' | 'none';
+}
+
 const MONTH_NAMES = [
   'January',
   'February',
@@ -1428,6 +1448,11 @@ export function translateOracleSql(sql: string): string {
       (_whole, name: string, kind: string) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`,
     )
     .replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, 'default ($1)')
+    // Any other function-call default, such as trunc(sysdate) or user, also needs parentheses.
+    .replace(
+      /\bdefault\s+(?!\()((?:[A-Za-z_][\w$#]*\.)?[A-Za-z_][\w$#]*\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))/giu,
+      'default ($1)',
+    )
     // Oracle identity/sequence DDL; the marker tells form processing the key is generated.
     .replace(
       /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
@@ -1557,7 +1582,8 @@ export function splitScript(script: string): string[] {
 const BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
 const BLOB_CACHE_BYTES = 128 * 1_048_576;
 
-export class LocalDatabase {
+export class LocalDatabase implements AppData {
+  readonly dialect = 'sqlite' as const;
   readonly db: DatabaseSync;
   readonly file: string;
   #binds: Binds = {};
@@ -1678,11 +1704,19 @@ export class LocalDatabase {
             .padEnd(Number(size), String(fill ?? ' '))
             .slice(0, Number(size)),
     );
+    // Oracle ADD_MONTHS keeps local wall-clock time, clamps to the target month's last day and
+    // maps a month-end date to the target month-end (31 Jan + 1 month = 28/29 Feb).
     fn('add_months', (value, months) => {
       const date = oracleDate(value);
       if (!date) return null;
-      date.setMonth(date.getMonth() + Number(months));
-      return date.toISOString().slice(0, 19).replace('T', ' ');
+      const lastDay = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+      const day = date.getDate();
+      const monthEnd = day === lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(1);
+      date.setMonth(date.getMonth() + Math.trunc(Number(months)));
+      const target = lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(monthEnd ? target : Math.min(day, target));
+      return isoDate(date);
     });
     fn('months_between', (left, right) => {
       const a = oracleDate(left);
@@ -2008,6 +2042,18 @@ export class LocalDatabase {
 
   execute(sql: string, binds: Binds = {}): { changes: number; lastInsertRowid: number } {
     if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
+    // SQLite has no CREATE OR REPLACE VIEW; Oracle's FORCE and EDITIONABLE do not apply locally.
+    const view =
+      /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view\s+((?:"?[\w$#]+"?\.)?"?[\w$#]+"?)/iu.exec(
+        sql,
+      );
+    if (view) {
+      this.db.exec(`drop view if exists ${view[1]!.replace(/^"?[\w$#]+"?\./u, '')}`);
+      sql = sql.replace(
+        /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view/iu,
+        'create view',
+      );
+    }
     if (/^\s*merge\s+into\b/iu.test(sql)) {
       const statements = translateMerge(sql);
       if (!statements) throw new Error('MERGE statement form is not supported locally');
@@ -2096,6 +2142,8 @@ export class LocalDatabase {
       for (const table of triggers) insert.run(table);
     }
     for (const statement of splitScript(script)) {
+      // Seed scripts written for Oracle end with COMMIT; the local seed is one implicit transaction.
+      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(statement)) continue;
       try {
         this.execute(statement);
       } catch (error) {

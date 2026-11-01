@@ -6,18 +6,21 @@ import {
   failQueuedJob,
   internalOperations,
   schemas
-} from "./chunk-RSD766E7.mjs";
-import "./chunk-ZT2TJWQE.mjs";
-import "./chunk-GQDQAOWR.mjs";
-import "./chunk-4S26F3JE.mjs";
+} from "./chunk-KRS73WOC.mjs";
+import "./chunk-KOASC6G4.mjs";
+import "./chunk-M57SWOHE.mjs";
+import "./chunk-GJGXYFEZ.mjs";
 import {
   loadProject
-} from "./chunk-ON46TMC5.mjs";
-import "./chunk-75I6YHSV.mjs";
+} from "./chunk-RNEE4V2Z.mjs";
+import "./chunk-U46X3ZLW.mjs";
+import "./chunk-XYDSY3MB.mjs";
+import "./chunk-W7MSMS56.mjs";
+import "./chunk-7UXC37DJ.mjs";
 import {
   Fault,
   failure
-} from "./chunk-UQUM7OVR.mjs";
+} from "./chunk-CCPOHUCO.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -119,8 +122,10 @@ function help() {
   if (key === "ship" || key === "deploy.plan")
     lines.push(
       "",
-      "--import-mode auto|full|files defaults to auto: select eligible changed APEXlang files, or review full-import reasons.",
+      "--import-mode auto|full|files|none defaults to auto: select eligible changed APEXlang files, or review full-import reasons.",
       "full forces whole-application import. files requires --files PATH1 PATH2; paths are relative to the application source directory.",
+      "none deploys only pending migrations and changed package scripts, without backup or application import.",
+      "Applied migrations and package scripts unchanged since their last successful run are not executed again.",
       "The plan records the exact import scope. Apply never expands a reviewed file selection to a full import."
     );
   if (key === "status")
@@ -194,7 +199,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-B4BOGYZM.mjs");
+    const { startMcp } = await import("./chunk-5YUPDADG.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

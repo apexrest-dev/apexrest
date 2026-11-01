@@ -27,7 +27,7 @@ const heading = (name: string) =>
 
 function queryTable(renderer: ApexRenderer, ctx: RenderContext, title: string, sql: string): PrintTable {
   try {
-    const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page), 5000);
+    const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page), 5000);
     return {
       title,
       headings: result.columns.map(heading),

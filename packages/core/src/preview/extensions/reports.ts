@@ -212,7 +212,7 @@ function irViewsAction(
       const model = irModel(renderer, found.ctx, found.region);
       const sql = renderer.regionSql(found.ctx, found.region);
       try {
-        renderer.db.query(
+        renderer.data.query(
           computedQuery(sql ?? 'select 1 from dual', [computation], model.identifiers),
           renderer.binds(session, found.ctx.page),
           1,

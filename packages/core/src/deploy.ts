@@ -63,13 +63,16 @@ const legacyPlanSchema = z.strictObject({
   target: z.record(z.string(), z.unknown()),
   fingerprint: digestSchema,
   migrationHistory: z.array(z.record(z.string(), z.unknown())),
+  // Package scripts already applied with these checksums are not re-run (absent in older plans).
+  packageHistory: z.record(z.string(), digestSchema).optional(),
   // Always the local durable store; the shape is kept so existing plan digests stay stable.
   coordination: z.strictObject({
     backend: z.literal('local'),
     scope: z.literal('managed-home-schema'),
     storeDigest: digestSchema,
   }),
-  scope: z.literal('full-application-import'),
+  // database-only plans run migrations and changed package scripts without an application import.
+  scope: z.enum(['full-application-import', 'database-only']),
   operations: z.array(
     z.strictObject({
       kind: z.enum(['migration', 'package', 'import', 'verify']),
@@ -195,7 +198,7 @@ const next: Record<DeployState, DeployState[]> = {
   planned: ['approved'],
   approved: ['backing_up'],
   backing_up: ['migrating'],
-  migrating: ['importing'],
+  migrating: ['importing', 'succeeded'],
   importing: ['verifying'],
   verifying: ['succeeded'],
   succeeded: [],
@@ -811,6 +814,7 @@ export class DeploymentService {
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
     if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
     const requested = importOptions(options);
+    if (requested.importMode === 'none') return this.databasePlan(ctx, name);
     const source = await contained(ctx.root, ctx.config.application.sourceDir);
     const release = await sourceRelease(source);
     if (release !== '26.2') {
@@ -865,6 +869,7 @@ export class DeploymentService {
     const plan: DeployPlan = {
       ...full,
       schemaVersion: 4,
+      scope: 'full-application-import',
       mode: full.schemaVersion === 1 ? 'full-export' : full.mode,
       backupStrategy: full.schemaVersion === 1 ? 'fresh-export' : full.backupStrategy,
       workingCopy: full.schemaVersion === 1 ? null : full.workingCopy,
@@ -1040,7 +1045,8 @@ export class DeploymentService {
         backupRequired: true,
         digest: '0'.repeat(64),
         importSelection: {
-          requestedMode: options.importMode,
+          // importMode none never reaches file selection (plan() returns a database plan first).
+          requestedMode: options.importMode as 'auto' | 'full' | 'files',
           resolvedMode: 'files',
           files: selected.files,
           reasons: exportScope === 'full' ? ['shared-components-require-full-apexlang-observation'] : [],
@@ -1057,6 +1063,23 @@ export class DeploymentService {
     } finally {
       await this.oracle.discardStage?.(current.exported?.stage);
     }
+  }
+  /**
+   * Migrations and changed package scripts only. The target is observed with a fresh export like a
+   * full plan, so identity, drift and history checks are unchanged; nothing is backed up or imported.
+   */
+  private async databasePlan(ctx: ProjectContext, name: string): Promise<DeployPlan> {
+    const full = await this.legacyPlan(ctx, name, false, true);
+    const operations = full.operations.filter((o) => o.kind === 'migration' || o.kind === 'package');
+    if (!operations.length)
+      throw new Fault(
+        'NO_DATABASE_CHANGES',
+        'No pending migrations or changed package scripts; nothing to deploy to the database.',
+        2,
+      );
+    const plan = { ...full, scope: 'database-only', operations, backupRequired: false } as DeployPlan;
+    plan.digest = planDigest(plan);
+    return plan;
   }
   private async legacyPlan(
     ctx: ProjectContext,
@@ -1120,6 +1143,7 @@ export class DeploymentService {
         5,
       );
     checkMigrations(ctx, sources, current.history);
+    const packageHistory = await new LocalDeploymentControl(env).packages(ctx.config.projectId);
     for (const [file, sha256] of Object.entries(sources)) {
       const migration = file.startsWith(ctx.config.database.migrationsDir + '/');
       const pkg = file.startsWith(ctx.config.database.packagesDir + '/');
@@ -1127,7 +1151,9 @@ export class DeploymentService {
       if (!file.endsWith('.sql'))
         throw new Fault('UNSUPPORTED_DB_SOURCE', 'Database execution directories accept .sql files only.', 3);
       const sql = await readFile(await contained(ctx.root, file), 'utf8');
-      risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
+      // Only scripts this plan runs carry risks: applied migrations and unchanged packages do not.
+      const runs = migration ? !history.has(path.basename(file)) : packageHistory[file] !== sha256;
+      if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
         const version = path.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version))
@@ -1144,7 +1170,7 @@ export class DeploymentService {
             5,
           );
         if (!previous) operations.push({ kind: 'migration', file, sha256 });
-      } else operations.push({ kind: 'package', file, sha256 });
+      } else if (runs) operations.push({ kind: 'package', file, sha256 });
     }
     if (current.exported) {
       try {
@@ -1186,6 +1212,7 @@ export class DeploymentService {
       target: current.target,
       fingerprint: current.fingerprint,
       migrationHistory: current.history,
+      packageHistory,
       coordination: coordination(env),
       scope: 'full-application-import',
       operations,
@@ -1283,8 +1310,11 @@ export class DeploymentService {
       plan.toolchainDigest !== hash(await readFile(await contained(ctx.root, ctx.config.toolchain.lockFile)))
     )
       throw new Fault('SOURCE_DRIFT', 'Sources, configuration or toolchain lock changed after review.', 5);
-    if (plan.backupRequired !== Boolean(plan.target.application))
+    const databaseOnly = plan.scope === 'database-only';
+    if (plan.backupRequired !== (!databaseOnly && Boolean(plan.target.application)))
       throw new Fault('PLAN_TAMPERED', 'Backup requirement does not match reviewed target.', 5);
+    if (databaseOnly && plan.restore)
+      throw new Fault('PLAN_TAMPERED', 'A restore always imports the application.', 5);
     if (canonical(plan.coordination) !== canonical(coordination(env)))
       throw new Fault(
         'CONTROL_STORE_CHANGED',
@@ -1311,7 +1341,9 @@ export class DeploymentService {
           (previous.checksum !== sha256 || previous.status !== 'succeeded')
         )
           throw new Fault('MIGRATION_HISTORY_CONFLICT', 'Migration requires reconciliation.', 5);
-        if (kind !== 'migration' || !previous) expected.push({ kind, file, sha256 });
+        const runs = kind === 'migration' ? !previous : plan.packageHistory?.[file] !== sha256;
+        if (!runs) continue;
+        expected.push({ kind, file, sha256 });
         const risks = migrationRisk(await readFile(await contained(ctx.root, file), 'utf8')).map(
           (r) => `${r}:${file}`,
         );
@@ -1320,7 +1352,9 @@ export class DeploymentService {
       }
       expected.sort(operationOrder);
     }
-    expected.push({ kind: 'import' }, { kind: 'verify' });
+    if (!databaseOnly) expected.push({ kind: 'import' }, { kind: 'verify' });
+    if (databaseOnly && !expected.length)
+      throw new Fault('PLAN_TAMPERED', 'A database-only plan must run at least one script.', 5);
     if (canonical(expected) !== canonical(plan.operations))
       throw new Fault(
         'PLAN_TAMPERED',
@@ -1555,7 +1589,8 @@ export class DeploymentService {
       await record('backing_up');
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if ((plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
+      const databaseOnly = plan.scope === 'database-only';
+      if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
         const backup = backupSource ?? (await this.oracle.exportApplication(env, readConnection, 'APEXLANG'));
         try {
           const backupId = randomUUID(),
@@ -1630,7 +1665,7 @@ export class DeploymentService {
       }
       if (controller.signal.aborted)
         throw new Fault('CANCELLED', 'Deployment cancelled before writes.', 6, 'cancelled');
-      if (working) {
+      if (working && !databaseOnly) {
         await syncStore.lock(async () => {
           await this.checkWorkingPlan(ctx, plan);
           await syncStore.write({ ...working!, status: 'importing', importingRunId: runId });
@@ -1710,6 +1745,13 @@ export class DeploymentService {
           'text',
           SCRIPT_RESTRICT_LEVEL,
         );
+        if (operation.kind === 'package')
+          await new LocalDeploymentControl(env).packageApplied(
+            runId,
+            ctx.config.projectId,
+            operation.file!,
+            operation.sha256!,
+          );
         if (operation.kind === 'migration') {
           await new LocalDeploymentControl(env).migration(
             runId,
@@ -1724,6 +1766,12 @@ export class DeploymentService {
             run_id: runId,
           });
         }
+      }
+      if (databaseOnly) {
+        // The application was not imported, so its working copy and sync state stay as they were.
+        await this.oracle.verifyTarget(env, readConnection);
+        await record('succeeded');
+        return { runId, state, directory: runDir };
       }
       await record('importing');
       await this.lease(env, runId, false);

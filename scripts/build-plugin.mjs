@@ -47,7 +47,12 @@ await cp('resources', 'dist/resources', { recursive: true });
 await mkdir('dist/resources/policy', { recursive: true });
 await cp('docs/deployment-safety.md', 'dist/resources/policy/deployment-safety.md');
 await build({
-  entryPoints: { apexrest: 'packages/cli/src/main.ts', mcp: 'packages/mcp/src/main.ts' },
+  entryPoints: {
+    apexrest: 'packages/cli/src/main.ts',
+    mcp: 'packages/mcp/src/main.ts',
+    // Worker thread of the connected preview (preview/oracle/bridge.ts resolves it beside the chunks).
+    'preview-oracle-worker': 'packages/core/src/preview/oracle/worker.ts',
+  },
   outdir: 'dist/runtime',
   outExtension: { '.js': '.mjs' },
   // Keep chunks beside the entrypoints: resource and job paths use import.meta.url.

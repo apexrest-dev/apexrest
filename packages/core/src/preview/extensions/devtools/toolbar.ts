@@ -45,6 +45,12 @@ function sessionPanel(renderer: ApexRenderer, ctx: RenderContext): string {
     ['Request', ctx.request || '(none)'],
     ['Theme style', session.themeStyle ?? 'application default'],
     ['View as', viewAsLabel(renderer, session.viewAs)],
+    [
+      'Data',
+      renderer.oracle
+        ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) · every request rolled back`
+        : 'Local SQLite simulation',
+    ],
   ]
     .map(([name, value]) => `<tr><th scope="row">${name}</th><td>${escapeHtml(value!)}</td></tr>`)
     .join('');

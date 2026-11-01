@@ -363,3 +363,20 @@ test('public safety reference states current production and task authorization r
   assert.match(page.content, /exact-plan human confirmation/);
   assert.doesNotMatch(page.content, /external approval boundary/);
 });
+
+test('foreign key ON DELETE clauses and FOR UPDATE locks are not business-data mutations', () => {
+  const operations = inspectSql(`create table lines (
+    id number primary key,
+    doc_id number references docs (id) on delete cascade,
+    other_id number,
+    constraint lines_other_fk foreign key (other_id) references others (id) on delete set null
+);
+select id from docs where id = 1 for update;
+delete from lines where id = 2;`);
+  assert.deepEqual(
+    operations
+      .filter((operation) => operation.dangerous)
+      .map((operation) => `${operation.action}:${operation.object}`),
+    ['delete:LINES'],
+  );
+});

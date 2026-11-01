@@ -387,7 +387,7 @@ export const tabformUpdate: ProcessHandler = (renderer, ctx, process, point) => 
   const target = tabformTarget(renderer, ctx, process);
   if (!target) return { ran: false };
   const columns = new Set(
-    renderer.db.tableColumns(target.table.replaceAll('"', '')).map((entry) => entry.name),
+    renderer.data.tableColumns(target.table.replaceAll('"', '')).map((entry) => entry.name),
   );
   let updated = 0;
   let inserted = 0;
@@ -401,7 +401,7 @@ export const tabformUpdate: ProcessHandler = (renderer, ctx, process, point) => 
       );
       if (row.key) {
         if (!row.changed || !values.length) continue;
-        renderer.db.execute(
+        renderer.data.execute(
           `update ${target.table} set ${values.map(([name], index) => `${quote(name)} = :APEX_LOCAL_V${index}`).join(', ')} where ${quote(target.pk)} = :APEX_LOCAL_KEY`,
           { ...binds, APEX_LOCAL_KEY: row.key },
         );
@@ -410,8 +410,10 @@ export const tabformUpdate: ProcessHandler = (renderer, ctx, process, point) => 
         const provided = row.values[target.pk];
         const key =
           provided ||
-          String(renderer.db.scalar(`select coalesce(max(${quote(target.pk)}), 0) + 1 from ${target.table}`));
-        renderer.db.execute(
+          String(
+            renderer.data.scalar(`select coalesce(max(${quote(target.pk)}), 0) + 1 from ${target.table}`),
+          );
+        renderer.data.execute(
           `insert into ${target.table} (${[quote(target.pk), ...values.map(([name]) => quote(name))].join(', ')}) values (:APEX_LOCAL_KEY${values.map((_value, index) => `, :APEX_LOCAL_V${index}`).join('')})`,
           { ...binds, APEX_LOCAL_KEY: key },
         );
@@ -435,7 +437,7 @@ export const tabformDelete: ProcessHandler = (renderer, ctx, process, point) => 
     .map((row) => row.key);
   try {
     for (const key of keys)
-      renderer.db.execute(`delete from ${target.table} where ${quote(target.pk)} = :APEX_LOCAL_KEY`, {
+      renderer.data.execute(`delete from ${target.table} where ${quote(target.pk)} = :APEX_LOCAL_KEY`, {
         APEX_LOCAL_KEY: key,
       });
   } catch (error) {

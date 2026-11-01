@@ -1,13 +1,19 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   ToolchainService,
-  VERSION,
   canonicalHome,
   renameWithRetry,
-  resourceRoot,
   runCommand,
   runtimeState
-} from "./chunk-GQDQAOWR.mjs";
+} from "./chunk-M57SWOHE.mjs";
+import {
+  VERSION,
+  resourceRoot
+} from "./chunk-GJGXYFEZ.mjs";
+import {
+  managedHome
+} from "./chunk-RNEE4V2Z.mjs";
+import "./chunk-U46X3ZLW.mjs";
 import {
   Client,
   ReadBuffer,
@@ -28,16 +34,9 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-4S26F3JE.mjs";
+} from "./chunk-XYDSY3MB.mjs";
+import "./chunk-W7MSMS56.mjs";
 import {
-  managedHome
-} from "./chunk-ON46TMC5.mjs";
-import "./chunk-75I6YHSV.mjs";
-import {
-  Fault,
-  __commonJS,
-  __require,
-  __toESM,
   atomicWrite,
   canonical,
   contained,
@@ -48,7 +47,13 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-UQUM7OVR.mjs";
+} from "./chunk-7UXC37DJ.mjs";
+import {
+  Fault,
+  __commonJS,
+  __require,
+  __toESM
+} from "./chunk-CCPOHUCO.mjs";
 
 // node_modules/isexe/windows.js
 var require_windows = __commonJS({

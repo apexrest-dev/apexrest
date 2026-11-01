@@ -80,7 +80,7 @@ export const autoRowFetch: ProcessHandler = (renderer, ctx, process) => {
   ]);
   const runtime = attribute(process.props, 'runtimeWhereClause');
   try {
-    const result = renderer.db.query(
+    const result = renderer.data.query(
       `select * from ${table} where ${key.where}${runtime ? ` and (${runtime})` : ''}`,
       renderer.binds(ctx.session, ctx.page),
       1,
@@ -139,7 +139,7 @@ export const autoRowProcessing: ProcessHandler = (renderer, ctx, process, point,
     { name: pkColumn, type: 'number', pk: true },
     ...items.map((entry) => ({ name: entry.column, type: 'varchar2' })),
   ]);
-  const existing = new Set(renderer.db.tableColumns(table.replaceAll('"', '')).map((entry) => entry.name));
+  const existing = new Set(renderer.data.tableColumns(table.replaceAll('"', '')).map((entry) => entry.name));
   const values = items.filter(
     (entry) => existing.has(upper(entry.column)) && upper(entry.column) !== upper(pkColumn),
   );
@@ -147,7 +147,7 @@ export const autoRowProcessing: ProcessHandler = (renderer, ctx, process, point,
   try {
     if (operation === 'insert') {
       if (!ctx.session.items[pkItem] && pkColumn.toUpperCase() !== 'ROWID') {
-        const next = renderer.db.scalar(`select coalesce(max(${column(pkColumn)}), 0) + 1 from ${table}`);
+        const next = renderer.data.scalar(`select coalesce(max(${column(pkColumn)}), 0) + 1 from ${table}`);
         ctx.session.items[pkItem] = String(next);
         binds[pkItem] = String(next);
       }
@@ -155,7 +155,7 @@ export const autoRowProcessing: ProcessHandler = (renderer, ctx, process, point,
         ...(pkColumn.toUpperCase() === 'ROWID' ? [] : [{ item: pkItem, column: pkColumn }]),
         ...values,
       ];
-      renderer.db.execute(
+      renderer.data.execute(
         `insert into ${table} (${names.map((entry) => column(entry.column)).join(', ')}) values (${names.map((entry) => `:${entry.item}`).join(', ')})`,
         binds,
       );
@@ -163,13 +163,13 @@ export const autoRowProcessing: ProcessHandler = (renderer, ctx, process, point,
       if (returnItem) ctx.session.items[returnItem] = ctx.session.items[pkItem] ?? '';
     } else if (operation === 'update') {
       if (key.items.some((item) => !ctx.session.items[item]) || !values.length) return { ran: false };
-      renderer.db.execute(
+      renderer.data.execute(
         `update ${table} set ${values.map((entry) => `${column(entry.column)} = :${entry.item}`).join(', ')} where ${key.where}`,
         binds,
       );
     } else {
       if (key.items.some((item) => !ctx.session.items[item])) return { ran: false };
-      renderer.db.execute(`delete from ${table} where ${key.where}`, binds);
+      renderer.data.execute(`delete from ${table} where ${key.where}`, binds);
     }
     ctx.session.success ??= 'Action Processed.';
     return { ran: true };
@@ -228,7 +228,7 @@ export const formPagination: ProcessHandler = (renderer, ctx, process) => {
     .map(column);
   const runtime = attribute(process.props, 'runtimeWhereClause');
   try {
-    const result = renderer.db.query(
+    const result = renderer.data.query(
       `select ${key} as "APEX_LOCAL_KEY" from ${table}${runtime ? ` where ${runtime}` : ''} order by ${[...order, key].join(', ')}`,
       renderer.binds(ctx.session, ctx.page),
       100_000,

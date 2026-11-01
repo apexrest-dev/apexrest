@@ -33,7 +33,7 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
   assert.equal(ship.inputSchema.properties.waitSeconds.maximum, 120);
   assert.ok(ship.inputSchema.required.includes('userRequest'));
   assert.equal(ship.inputSchema.properties.importMode.default, 'auto');
-  assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files']);
+  assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files', 'none']);
   assert.equal(ship.inputSchema.properties.files.type, 'array');
   assert.equal(ship.annotations.destructiveHint, true);
   const validate = catalog.tools.find((tool) => tool.name === 'apexrest_apex_validate');

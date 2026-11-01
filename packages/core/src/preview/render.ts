@@ -33,7 +33,16 @@ import {
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
-import { canonicalDate, formatOracle, LocalDatabase, splitScript, type Binds, type Row } from './database.ts';
+import {
+  canonicalDate,
+  formatOracle,
+  LocalDatabase,
+  splitScript,
+  type AppData,
+  type Binds,
+  type Row,
+} from './database.ts';
+import type { ConnectedOracle } from './oracle/app-data.ts';
 import {
   forgetRow,
   LOST_UPDATE_MESSAGE,
@@ -149,6 +158,10 @@ export interface RenderOptions {
   /** Developer toolbar with diagnostics; disable for pixel comparisons. */
   toolbar?: boolean;
   sampleRows?: number;
+  /** Seed script folders in load order; empty means `<sourceDir>/.apex-local` or supporting objects. */
+  seedDirs?: string[];
+  /** Connected mode: application data and PL/SQL run in this Oracle session (oracle/connect.ts). */
+  oracle?: ConnectedOracle;
 }
 
 type Lov = { d: string; r: string }[];
@@ -290,11 +303,15 @@ export class ApexRenderer {
   readonly app: ApxApplication;
   readonly assets: ApexAssets;
   readonly theme: ThemeIndex;
+  /** Preview-internal state: session tables, dictionary views, files, mail. Always SQLite. */
   readonly db: LocalDatabase;
+  /** Application tables and SQL: `db` itself, or the connected Oracle session. */
+  readonly data: AppData;
+  readonly oracle: ConnectedOracle | undefined;
   readonly alias: string;
   readonly appId: string;
   readonly diagnostics: Diagnostic[] = [];
-  readonly options: Required<RenderOptions>;
+  readonly options: Required<Omit<RenderOptions, 'oracle'>>;
   #autoTables = new Set<string>();
   #diagnosticKeys = new Set<string>();
 
@@ -302,10 +319,16 @@ export class ApexRenderer {
     this.app = app;
     this.assets = assets;
     this.db = db;
+    this.oracle = options.oracle;
+    this.data = options.oracle?.data ?? db;
     this.theme = indexTheme(assets.theme);
     this.alias = slug(app.app.id || 'app').toLowerCase();
     this.appId = app.substitutions.APP_ID ?? '100';
-    this.options = { toolbar: options.toolbar ?? true, sampleRows: options.sampleRows ?? 8 };
+    this.options = {
+      toolbar: options.toolbar ?? true,
+      sampleRows: options.sampleRows ?? 8,
+      seedDirs: options.seedDirs ?? [],
+    };
   }
 
   get baseUrl(): string {
@@ -486,7 +509,7 @@ export class ApexRenderer {
     const runQuery = () => {
       const sql = str(condition, 'sqlQuery');
       try {
-        return this.db.query(sql, this.binds(ctx.session, ctx.page), 1).rows.length > 0;
+        return this.data.query(sql, this.binds(ctx.session, ctx.page), 1).rows.length > 0;
       } catch (error) {
         this.diagnose(
           'warning',
@@ -734,7 +757,7 @@ export class ApexRenderer {
     owner: string,
   ): Lov {
     try {
-      const result = this.db.query(sql, this.binds(ctx.session, ctx.page), 5_000);
+      const result = this.data.query(sql, this.binds(ctx.session, ctx.page), 5_000);
       const displayColumn = display?.toUpperCase() ?? result.columns[0]!;
       const returnColumn = returned?.toUpperCase() ?? result.columns[1] ?? displayColumn;
       return result.rows.map((row) => ({
@@ -775,6 +798,8 @@ export class ApexRenderer {
 
   /** Creates an empty-but-plausible table so a design can be previewed before real DDL exists. */
   ensureTable(ctx: RenderContext, table: string, columns: Column[]): boolean {
+    // DDL would commit in Oracle; a missing table there is a real error to report.
+    if (this.data.dialect === 'oracle') return false;
     const name = table.replaceAll('"', '');
     if (this.db.tableExists(name)) return false;
     const unique = new Map<string, Column>();
@@ -942,7 +967,7 @@ export class ApexRenderer {
   ): { columns: string[]; rows: Row[]; error?: string } {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return this.db.query(sql, this.binds(ctx.session, ctx.page), maxRows);
+        return this.data.query(sql, this.binds(ctx.session, ctx.page), maxRows);
       } catch (error) {
         const message = (error as Error).message;
         if (attempt < 25 && this.repairSchema(ctx, region, sql, message)) continue;
@@ -972,6 +997,7 @@ export class ApexRenderer {
    * missing tables are created and missing columns are added with sample values.
    */
   repairSchema(ctx: RenderContext, region: ApxComponent, sql: string, message: string): boolean {
+    if (this.data.dialect === 'oracle') return false;
     const missingTable = /no such table: (?:main\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
     if (missingTable) {
       if (/^APEX_/iu.test(missingTable)) {
@@ -1075,8 +1101,12 @@ export class ApexRenderer {
         if (sql) {
           try {
             session.items[name] = String(
-              this.db.scalar(sql.startsWith('select') ? sql : `select ${sql}`, this.binds(session, page)) ??
-                '',
+              this.data.scalar(
+                sql.startsWith('select')
+                  ? sql
+                  : `select ${sql}${this.data.dialect === 'oracle' ? ' from dual' : ''}`,
+                this.binds(session, page),
+              ) ?? '',
             );
           } catch {
             this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
@@ -1161,7 +1191,7 @@ export class ApexRenderer {
             : 'plsqlExpression';
       if (type === 'sqlQueryMultipleValues') {
         try {
-          const result = this.db.query(
+          const result = this.data.query(
             str(computation.props, 'computation.sqlQuery'),
             this.binds(ctx.session, ctx.page),
           );
@@ -1188,7 +1218,7 @@ export class ApexRenderer {
       ctx.session.items[item] = this.substitute(ctx.session, value, ctx.page, 'RAW');
     else if (sql) {
       try {
-        ctx.session.items[item] = String(this.db.scalar(sql, this.binds(ctx.session, ctx.page)) ?? '');
+        ctx.session.items[item] = String(this.data.scalar(sql, this.binds(ctx.session, ctx.page)) ?? '');
       } catch (error) {
         this.diagnose(
           'warning',
@@ -1245,7 +1275,7 @@ export class ApexRenderer {
 
   /** Form items with a DATE/TIMESTAMP source, mapped to the format mask their text uses. */
   formDateMasks(table: string, items: ApxComponent[]): Map<ApxComponent, string> {
-    const types = new Map(this.db.tableColumns(table).map((column) => [column.name, column.type]));
+    const types = new Map(this.data.tableColumns(table).map((column) => [column.name, column.type]));
     const dates = new Map<ApxComponent, string>();
     for (const item of items) {
       const dataType = str(item.props, 'source.dataType').toLowerCase();
@@ -1303,7 +1333,7 @@ export class ApexRenderer {
       return false;
     }
     try {
-      for (const statement of statements) this.db.execute(statement, this.binds(ctx.session, ctx.page));
+      for (const statement of statements) this.data.execute(statement, this.binds(ctx.session, ctx.page));
       return true;
     } catch (error) {
       this.diagnose(
@@ -1616,7 +1646,7 @@ export class ApexRenderer {
     ) {
       try {
         const found =
-          this.db.query(str(validation.props, 'validation.sqlQuery'), this.binds(ctx.session, ctx.page), 1)
+          this.data.query(str(validation.props, 'validation.sqlQuery'), this.binds(ctx.session, ctx.page), 1)
             .rows.length > 0;
         failed = type === 'rowsReturned' || type === 'exists' ? !found : found;
       } catch {
@@ -1660,7 +1690,7 @@ export class ApexRenderer {
       (item) => !bool(item.props, 'source.queryOnly', false) || bool(item.props, 'source.primaryKey', false),
     );
     const keys = items.filter((item) => bool(item.props, 'source.primaryKey', false));
-    const columns = new Set(this.db.tableColumns(table).map((column) => column.name));
+    const columns = new Set(this.data.tableColumns(table).map((column) => column.name));
     const action = pressed ? str(pressed.props, 'behavior.databaseAction') : '';
     const request = ctx.request;
     const operation =
@@ -1711,12 +1741,13 @@ export class ApexRenderer {
         for (const key of keys) {
           const name = key.id.toUpperCase();
           if (ctx.session.items[name]) continue;
-          const source = this.db.keySource(table, column(key));
-          if (source === 'default') {
-            defaulted.push(key);
+          const source = this.data.keySource(table, column(key));
+          // Oracle fills the key itself or rejects the insert, as it would in APEX.
+          if (source === 'default' || this.data.dialect === 'oracle') {
+            if (source === 'default') defaulted.push(key);
             continue;
           }
-          const next = this.db.scalar(`select coalesce(max("${column(key)}"), 0) + 1 from ${table}`);
+          const next = this.data.scalar(`select coalesce(max("${column(key)}"), 0) + 1 from ${table}`);
           ctx.session.items[name] = String(next);
           binds[name] = String(next);
           values.push(key);
@@ -1728,29 +1759,33 @@ export class ApexRenderer {
               regionId,
             );
         }
-        const inserted = this.db.execute(
+        const inserted = this.data.execute(
           values.length
             ? `insert into ${table} (${values.map((item) => `"${column(item)}"`).join(', ')}) values (${values.map((item) => `:${item.id.toUpperCase()}`).join(', ')})`
             : `insert into ${table} default values`,
           binds,
         );
         for (const key of defaulted) {
-          const value = this.db.scalar(`select "${column(key)}" from ${table} where rowid = :ROWID`, {
-            ROWID: inserted.lastInsertRowid,
-          });
+          const value = this.data.scalar(
+            `select "${column(key)}" from ${table} where rowid = :APEX_LOCAL_ROWID`,
+            {
+              // ROWID is a reserved word in Oracle and cannot name a bind (ORA-01745).
+              APEX_LOCAL_ROWID: inserted.lastInsertRowid,
+            },
+          );
           ctx.session.items[key.id.toUpperCase()] = value === null ? '' : String(value);
         }
         ctx.session.success = 'Action Processed.';
       } else if (operation === 'update' && where) {
         const values = items.filter((item) => !keys.includes(item) && columns.has(column(item)));
         if (values.length)
-          this.db.execute(
+          this.data.execute(
             `update ${table} set ${values.map((item) => `"${column(item)}" = :${item.id.toUpperCase()}`).join(', ')} where ${where}`,
             binds,
           );
         ctx.session.success = 'Action Processed.';
       } else if (operation === 'delete' && where) {
-        this.db.execute(`delete from ${table} where ${where}`, binds);
+        this.data.execute(`delete from ${table} where ${where}`, binds);
         ctx.session.success = 'Action Processed.';
       }
       forgetRow(ctx.session, ctx.pageId, region);
@@ -3307,8 +3342,27 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     return html;
   }
 
-  /** Loads `.apex-local/*.sql` (or supporting-object scripts) into a fresh database. */
-  static seed(db: LocalDatabase, appRoot: string): string[] {
+  /**
+   * Loads seed scripts into a fresh database: the given folders in order (a project's migrations,
+   * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
+   */
+  static seed(db: LocalDatabase, appRoot: string, seedDirs: string[] = []): string[] {
+    const sqlFiles = (dir: string) =>
+      fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith('.sql'))
+        .sort()
+        .map((name) => path.join(dir, name));
+    if (seedDirs.length)
+      return seedDirs
+        .filter((dir) => fs.existsSync(dir))
+        .flatMap(sqlFiles)
+        .flatMap((script) =>
+          db.runScript(
+            fs.readFileSync(script, 'utf8'),
+            path.basename(path.dirname(script)) + '/' + path.basename(script),
+          ),
+        );
     const local = path.join(appRoot, '.apex-local');
     const scripts = fs.existsSync(local)
       ? fs

@@ -72,7 +72,7 @@ test('both host manifests launch the same scoped ship contract, references and m
   assert.deepEqual(catalogs[0], catalogs[1]);
   const ship = catalogs[0].tools.find((tool) => tool.name === 'apexrest_ship');
   assert.equal(ship.inputSchema.properties.importMode.default, 'auto');
-  assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files']);
+  assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files', 'none']);
   const call = async (client, name, args) =>
     JSON.parse((await client.callTool({ name, arguments: args })).content[0].text);
   const added = await call(clients[0], 'apexrest_project', {

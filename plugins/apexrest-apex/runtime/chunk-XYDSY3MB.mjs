@@ -19,15 +19,13 @@ import {
   string,
   union,
   unknown
-} from "./chunk-75I6YHSV.mjs";
+} from "./chunk-W7MSMS56.mjs";
 import {
   Fault,
   __commonJS,
   __toESM,
-  canonical,
-  hash,
   redact
-} from "./chunk-UQUM7OVR.mjs";
+} from "./chunk-CCPOHUCO.mjs";
 
 // node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
@@ -1057,10 +1055,10 @@ var require_util = __commonJS({
     var codegen_1 = require_codegen();
     var code_1 = require_code();
     function toHash(arr) {
-      const hash2 = {};
+      const hash = {};
       for (const item of arr)
-        hash2[item] = true;
-      return hash2;
+        hash[item] = true;
+      return hash;
     }
     exports.toHash = toHash;
     function alwaysValidSchema(it, schema) {
@@ -7195,9 +7193,6 @@ var require_dist = __commonJS({
   }
 });
 
-// packages/core/src/sqlcl-session.ts
-import { performance as performance4 } from "node:perf_hooks";
-
 // packages/core/src/sqlcl-timings.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { performance } from "node:perf_hooks";
@@ -7263,70 +7258,126 @@ function recordStatementTimings(label, durations) {
   if (record2) record2.statementMs = [...durations];
 }
 
-// packages/core/src/sqlcl-mcp.ts
-import { performance as performance3 } from "node:perf_hooks";
-
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
-function isZ4Schema(s) {
-  const schema = s;
-  return !!schema._zod;
+// packages/core/src/process.ts
+import { spawn } from "node:child_process";
+import { performance as performance2 } from "node:perf_hooks";
+import { StringDecoder } from "node:string_decoder";
+var DRAIN_AFTER_EXIT_MS = 3e3;
+var groupKills = process.platform !== "win32";
+function spawnTree(executable, args, options) {
+  return spawn(executable, args, { ...options, ...groupKills ? { detached: true } : {} });
 }
-function safeParse2(schema, data) {
-  if (isZ4Schema(schema)) {
-    const result2 = safeParse(schema, data);
-    return result2;
-  }
-  const v3Schema = schema;
-  const result = v3Schema.safeParse(data);
-  return result;
-}
-function getObjectShape(schema) {
-  if (!schema)
-    return void 0;
-  let rawShape;
-  if (isZ4Schema(schema)) {
-    const v4Schema = schema;
-    rawShape = v4Schema._zod?.def?.shape;
-  } else {
-    const v3Schema = schema;
-    rawShape = v3Schema.shape;
-  }
-  if (!rawShape)
-    return void 0;
-  if (typeof rawShape === "function") {
+function killTree(child, signal) {
+  if (child.pid === void 0) return;
+  if (!groupKills) {
+    if (child.exitCode !== null || child.signalCode !== null) return;
     try {
-      return rawShape();
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill()).unref();
     } catch {
-      return void 0;
+      child.kill();
+    }
+    return;
+  }
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    try {
+      child.kill(signal);
+    } catch {
     }
   }
-  return rawShape;
 }
-function getLiteralValue(schema) {
-  if (isZ4Schema(schema)) {
-    const v4Schema = schema;
-    const def2 = v4Schema._zod?.def;
-    if (def2) {
-      if (def2.value !== void 0)
-        return def2.value;
-      if (Array.isArray(def2.values) && def2.values.length > 0) {
-        return def2.values[0];
+var stopping = /* @__PURE__ */ new WeakSet();
+function stopTree(child) {
+  if (stopping.has(child)) return;
+  stopping.add(child);
+  killTree(child, "SIGTERM");
+  const hard = setTimeout(() => killTree(child, "SIGKILL"), 1500);
+  hard.unref();
+  child.once("close", () => clearTimeout(hard));
+}
+async function runProcess(r) {
+  if (r.signal?.aborted)
+    return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
+  const started = performance2.now();
+  const timing = executionTiming("cli", r.mutation, r.sqlclConnected);
+  return new Promise((resolve, reject) => {
+    const child = spawnTree(r.executable, r.args, {
+      cwd: r.cwd,
+      env: r.env ?? process.env,
+      shell: false,
+      stdio: "pipe",
+      windowsHide: true,
+      ...r.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}
+    });
+    child.once("spawn", () => {
+      timing.spawnMs = performance2.now() - started;
+    });
+    let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false, settled = false;
+    const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
+    const max = r.maxBytes ?? 1024 * 1024;
+    const stop = () => stopTree(child);
+    const collect = (isError) => (data) => {
+      const room = Math.max(0, max - bytes);
+      bytes += data.length;
+      const s = decoders[isError ? 1 : 0].write(data.subarray(0, room));
+      if (isError) stderr += s;
+      else stdout += s;
+      if (bytes > max) {
+        truncated = true;
+        stop();
       }
-    }
-  }
-  const v3Schema = schema;
-  const def = v3Schema._def;
-  if (def) {
-    if (def.value !== void 0)
-      return def.value;
-    if (Array.isArray(def.values) && def.values.length > 0) {
-      return def.values[0];
-    }
-  }
-  const directValue = schema.value;
-  if (directValue !== void 0)
-    return directValue;
-  return void 0;
+    };
+    child.stdout.on("data", collect(false));
+    child.stderr.on("data", collect(true));
+    child.stdin.on("error", () => {
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      stop();
+    }, r.timeoutMs ?? 3e4);
+    const abort = () => {
+      cancelled = true;
+      stop();
+    };
+    r.signal?.addEventListener("abort", abort, { once: true });
+    if (r.signal?.aborted) abort();
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      r.signal?.removeEventListener("abort", abort);
+      timing.executeMs = performance2.now() - started - (timing.spawnMs ?? 0);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
+      resolve({
+        code,
+        stdout: stdout + (truncated ? "" : decoders[0].end()),
+        stderr: redact(stderr + (truncated ? "" : decoders[1].end())),
+        timedOut,
+        cancelled,
+        truncated
+      });
+    };
+    child.on("error", (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      r.signal?.removeEventListener("abort", abort);
+      emitSqlclTiming(r.onSqlclTiming, timing, started);
+      reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
+    });
+    child.on("close", (code) => finish(code));
+    child.on("exit", (code) => {
+      const drain = setTimeout(() => {
+        killTree(child, "SIGKILL");
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        finish(code);
+      }, DRAIN_AFTER_EXIT_MS);
+      drain.unref();
+    });
+    child.stdin.end(r.input ?? "");
+  });
 }
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
@@ -8847,6 +8898,69 @@ var UrlElicitationRequiredError = class extends McpError {
     return this.data?.elicitations ?? [];
   }
 };
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+function isZ4Schema(s) {
+  const schema = s;
+  return !!schema._zod;
+}
+function safeParse2(schema, data) {
+  if (isZ4Schema(schema)) {
+    const result2 = safeParse(schema, data);
+    return result2;
+  }
+  const v3Schema = schema;
+  const result = v3Schema.safeParse(data);
+  return result;
+}
+function getObjectShape(schema) {
+  if (!schema)
+    return void 0;
+  let rawShape;
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    rawShape = v4Schema._zod?.def?.shape;
+  } else {
+    const v3Schema = schema;
+    rawShape = v3Schema.shape;
+  }
+  if (!rawShape)
+    return void 0;
+  if (typeof rawShape === "function") {
+    try {
+      return rawShape();
+    } catch {
+      return void 0;
+    }
+  }
+  return rawShape;
+}
+function getLiteralValue(schema) {
+  if (isZ4Schema(schema)) {
+    const v4Schema = schema;
+    const def2 = v4Schema._zod?.def;
+    if (def2) {
+      if (def2.value !== void 0)
+        return def2.value;
+      if (Array.isArray(def2.values) && def2.values.length > 0) {
+        return def2.values[0];
+      }
+    }
+  }
+  const v3Schema = schema;
+  const def = v3Schema._def;
+  if (def) {
+    if (def.value !== void 0)
+      return def.value;
+    if (Array.isArray(def.values) && def.values.length > 0) {
+      return def.values[0];
+    }
+  }
+  const directValue = schema.value;
+  if (directValue !== void 0)
+    return directValue;
+  return void 0;
+}
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 function isTerminal(status) {
@@ -10599,6 +10713,9 @@ var Client = class extends Protocol {
   }
 };
 
+// packages/core/src/sqlcl-mcp.ts
+import { performance as performance3 } from "node:perf_hooks";
+
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 var STDIO_DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 var ReadBuffer = class {
@@ -10638,130 +10755,6 @@ function serializeMessage(message) {
 
 // packages/core/src/sqlcl-mcp.ts
 import { setTimeout as delay } from "node:timers/promises";
-
-// packages/core/src/process.ts
-import { spawn } from "node:child_process";
-import { performance as performance2 } from "node:perf_hooks";
-import { StringDecoder } from "node:string_decoder";
-var DRAIN_AFTER_EXIT_MS = 3e3;
-var groupKills = process.platform !== "win32";
-function spawnTree(executable, args, options) {
-  return spawn(executable, args, { ...options, ...groupKills ? { detached: true } : {} });
-}
-function killTree(child, signal) {
-  if (child.pid === void 0) return;
-  if (!groupKills) {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    try {
-      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill()).unref();
-    } catch {
-      child.kill();
-    }
-    return;
-  }
-  try {
-    process.kill(-child.pid, signal);
-  } catch {
-    try {
-      child.kill(signal);
-    } catch {
-    }
-  }
-}
-var stopping = /* @__PURE__ */ new WeakSet();
-function stopTree(child) {
-  if (stopping.has(child)) return;
-  stopping.add(child);
-  killTree(child, "SIGTERM");
-  const hard = setTimeout(() => killTree(child, "SIGKILL"), 1500);
-  hard.unref();
-  child.once("close", () => clearTimeout(hard));
-}
-async function runProcess(r) {
-  if (r.signal?.aborted)
-    return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
-  const started = performance2.now();
-  const timing = executionTiming("cli", r.mutation, r.sqlclConnected);
-  return new Promise((resolve, reject) => {
-    const child = spawnTree(r.executable, r.args, {
-      cwd: r.cwd,
-      env: r.env ?? process.env,
-      shell: false,
-      stdio: "pipe",
-      windowsHide: true,
-      ...r.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}
-    });
-    child.once("spawn", () => {
-      timing.spawnMs = performance2.now() - started;
-    });
-    let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false, settled = false;
-    const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
-    const max = r.maxBytes ?? 1024 * 1024;
-    const stop = () => stopTree(child);
-    const collect = (isError) => (data) => {
-      const room = Math.max(0, max - bytes);
-      bytes += data.length;
-      const s = decoders[isError ? 1 : 0].write(data.subarray(0, room));
-      if (isError) stderr += s;
-      else stdout += s;
-      if (bytes > max) {
-        truncated = true;
-        stop();
-      }
-    };
-    child.stdout.on("data", collect(false));
-    child.stderr.on("data", collect(true));
-    child.stdin.on("error", () => {
-    });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      stop();
-    }, r.timeoutMs ?? 3e4);
-    const abort = () => {
-      cancelled = true;
-      stop();
-    };
-    r.signal?.addEventListener("abort", abort, { once: true });
-    if (r.signal?.aborted) abort();
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      r.signal?.removeEventListener("abort", abort);
-      timing.executeMs = performance2.now() - started - (timing.spawnMs ?? 0);
-      emitSqlclTiming(r.onSqlclTiming, timing, started);
-      resolve({
-        code,
-        stdout: stdout + (truncated ? "" : decoders[0].end()),
-        stderr: redact(stderr + (truncated ? "" : decoders[1].end())),
-        timedOut,
-        cancelled,
-        truncated
-      });
-    };
-    child.on("error", (e) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      r.signal?.removeEventListener("abort", abort);
-      emitSqlclTiming(r.onSqlclTiming, timing, started);
-      reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
-    });
-    child.on("close", (code) => finish(code));
-    child.on("exit", (code) => {
-      const drain = setTimeout(() => {
-        killTree(child, "SIGKILL");
-        child.stdout?.destroy();
-        child.stderr?.destroy();
-        finish(code);
-      }, DRAIN_AFTER_EXIT_MS);
-      drain.unref();
-    });
-    child.stdin.end(r.input ?? "");
-  });
-}
-
-// packages/core/src/sqlcl-mcp.ts
 var SqlclStdioTransport = class {
   constructor(request) {
     this.request = request;
@@ -11016,218 +11009,12 @@ async function runSqlclMcp(request) {
   }
 }
 
-// packages/core/src/sqlcl-session.ts
-var IDLE_MS = 10 * 60 * 1e3;
-var PROBE_AFTER_MS = 30 * 1e3;
-var PooledSession = class {
-  constructor(key, request) {
-    this.key = key;
-    this.client = new SqlclMcpClient(request);
-  }
-  key;
-  busy = true;
-  dead = false;
-  lastUsed = Date.now();
-  idleTimer;
-  client;
-  get alive() {
-    return !this.dead && this.client.alive;
-  }
-  kill() {
-    this.dead = true;
-    clearTimeout(this.idleTimer);
-    void this.client.close();
-  }
-};
-var pools = /* @__PURE__ */ new Map();
-var exitHook = false;
-var shutdownGeneration = 0;
-function sqlclSessionKey(request) {
-  return hash(
-    canonical({
-      executable: request.executable,
-      javaHome: request.env?.JAVA_HOME ?? null,
-      args: request.args,
-      connectionName: request.connectionName ?? null,
-      cwd: request.cwd
-    })
-  );
-}
-function pool(key) {
-  let p = pools.get(key);
-  if (!p) pools.set(key, p = { sessions: [], waiters: [] });
-  return p;
-}
-function release(session) {
-  const p = pool(session.key);
-  session.busy = false;
-  if (session.alive) session.lastUsed = Date.now();
-  if (session.alive) {
-    session.client.transport.setActive(false);
-    clearTimeout(session.idleTimer);
-    session.idleTimer = setTimeout(() => {
-      if (!session.busy) discard(session);
-    }, IDLE_MS);
-    session.idleTimer.unref();
-  } else discard(session);
-  const waiter = p.waiters.shift();
-  waiter?.();
-}
-function discard(session) {
-  session.kill();
-  const p = pool(session.key);
-  p.sessions = p.sessions.filter((s) => s !== session);
-  if (!p.sessions.length && !p.waiters.length) pools.delete(session.key);
-}
-async function acquire(request, key) {
-  const generation = shutdownGeneration;
-  const limit = request.limit ?? (request.connectionName ? 1 : 2);
-  for (; ; ) {
-    if (generation !== shutdownGeneration) throw new Fault("CANCELLED", "SQLcl pool closed.", 6, "cancelled");
-    if (request.signal?.aborted) throw new Fault("CANCELLED", "SQLcl session cancelled.", 6, "cancelled");
-    const p = pool(key);
-    const idle = p.sessions.find((s) => !s.busy && s.alive);
-    if (idle) {
-      idle.busy = true;
-      clearTimeout(idle.idleTimer);
-      idle.client.transport.setActive(true);
-      return idle;
-    }
-    if (p.sessions.filter((s) => s.alive).length < limit) {
-      const session = new PooledSession(key, request);
-      p.sessions.push(session);
-      installExitHook();
-      return session;
-    }
-    await new Promise((resolve) => {
-      const wake = () => {
-        request.signal?.removeEventListener("abort", wake);
-        p.waiters = p.waiters.filter((w) => w !== wake);
-        resolve();
-      };
-      p.waiters.push(wake);
-      request.signal?.addEventListener("abort", wake, { once: true });
-    });
-  }
-}
-function installExitHook() {
-  if (exitHook) return;
-  exitHook = true;
-  process.on("exit", () => {
-    for (const p of pools.values()) for (const session of p.sessions) session.kill();
-  });
-}
-async function prepare(session, request, options, timing) {
-  const fresh = !session.client.alive;
-  if (fresh) {
-    const spawnStarted = performance4.now();
-    await session.client.open(options()());
-    timing.spawnMs = (timing.spawnMs ?? 0) + performance4.now() - spawnStarted;
-    if (request.connectionName) {
-      const connectStarted = performance4.now();
-      const connected = await session.client.connect(request.connectionName, options());
-      timing.connectMs = (timing.connectMs ?? 0) + performance4.now() - connectStarted;
-      if (connected.isError) return mcpResult(connected, session.client.text(connected));
-    }
-    return;
-  }
-  if (request.connectionName && Date.now() - session.lastUsed > PROBE_AFTER_MS) {
-    const probe = await session.client.execute(
-      "select 1 as apexrest_probe from dual;",
-      options(),
-      () => false
-    );
-    if (probe.isError || !/apexrest_probe/i.test(session.client.text(probe)))
-      throw new Error("SQLcl session lost its database connection.");
-  }
-  return;
-}
-async function runPooledSqlcl(request) {
-  if (request.signal?.aborted)
-    return { code: null, stdout: "", stderr: "", timedOut: false, cancelled: true, truncated: false };
-  const started = performance4.now();
-  const timing = executionTiming(
-    "mcp-pool",
-    request.mutation,
-    !!request.connectionName || !!request.sqlclConnected
-  );
-  const key = sqlclSessionKey(request);
-  let session = await acquire(request, key);
-  if (request.mutation && session.client.alive) {
-    session.kill();
-    release(session);
-    session = await acquire(request, key);
-  }
-  timing.queueMs = performance4.now() - started;
-  timing.reused = session.client.alive;
-  const deadline = Date.now() + (request.timeoutMs ?? 18e4);
-  const options = () => mcpCallOptions(request, deadline);
-  let submitted = false;
-  let executeStarted;
-  try {
-    let failed;
-    try {
-      failed = await prepare(session, request, options, timing);
-    } catch (error) {
-      if (!session.client.alive || request.signal?.aborted || Date.now() >= deadline) throw error;
-      session.kill();
-      release(session);
-      session = await acquire(request, key);
-      failed = await prepare(session, request, options, timing);
-    }
-    if (failed) {
-      session.kill();
-      return failed;
-    }
-    submitted = true;
-    executeStarted = performance4.now();
-    const result = await session.client.execute(request.input ?? "", options(), () => request.mutation);
-    timing.executeMs = performance4.now() - executeStarted;
-    const output = session.client.text(result, request.mutation);
-    if (request.connectionName || request.mutation || result.isError || /(?:ORA-|SP2-|PLS-)\d+/i.test(output) || request.completionMarker && !output.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
-      session.kill();
-    return mcpResult(result, output);
-  } catch (error) {
-    session.kill();
-    if (error instanceof Fault) throw error;
-    const interrupted = request.signal?.aborted ? "cancelled" : Date.now() >= deadline ? "timedOut" : void 0;
-    if (interrupted)
-      return {
-        code: null,
-        stdout: "",
-        stderr: "",
-        timedOut: interrupted === "timedOut",
-        cancelled: interrupted === "cancelled",
-        truncated: false
-      };
-    throw mcpFailure(error, request, submitted);
-  } finally {
-    if (executeStarted !== void 0) timing.executeMs = performance4.now() - executeStarted;
-    release(session);
-    emitSqlclTiming(request.onSqlclTiming, timing, started);
-  }
-}
-async function closeSqlclSessions() {
-  shutdownGeneration++;
-  for (const p of pools.values()) for (const wake of [...p.waiters]) wake();
-  const sessions = [...pools.values()].flatMap((p) => p.sessions);
-  pools.clear();
-  await Promise.all(sessions.map((session) => session.client.close()));
-  for (const session of sessions) session.kill();
-}
-function sqlclSessionStats() {
-  return [...pools.entries()].map(([key, p]) => ({
-    key,
-    sessions: p.sessions.filter((s) => s.alive).length,
-    busy: p.sessions.filter((s) => s.busy).length,
-    waiting: p.waiters.length
-  }));
-}
-
 export {
   withSqlclTimings,
   sqlclTimings,
   recordSqlclTiming,
+  executionTiming,
+  emitSqlclTiming,
   recordStatementTimings,
   runProcess,
   safeParse2 as safeParse,
@@ -11274,11 +11061,9 @@ export {
   Client,
   ReadBuffer,
   serializeMessage,
-  runSqlclMcp,
-  IDLE_MS,
-  PROBE_AFTER_MS,
-  sqlclSessionKey,
-  runPooledSqlcl,
-  closeSqlclSessions,
-  sqlclSessionStats
+  SqlclMcpClient,
+  mcpCallOptions,
+  mcpFailure,
+  mcpResult,
+  runSqlclMcp
 };

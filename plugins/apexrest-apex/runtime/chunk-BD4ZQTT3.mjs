@@ -1,15 +1,48 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  DBMS_OUTPUT_BLOCK,
+  HTP_BIND,
+  HTP_INIT_BLOCK,
+  HTP_READ_BLOCK,
+  OUTPUT_BIND,
+  OracleError,
+  RESULT_BIND,
+  ROWID_BIND,
+  ROWS_BIND,
+  batch,
+  bindName,
+  declareBinds,
+  dmlBlock,
+  jsonRows,
+  plsqlSegment,
+  querySegment,
+  referencedBinds,
+  segmentError,
+  segments,
+  selectBindsSegment,
+  sqlText
+} from "./chunk-N33AM7OK.mjs";
+import {
+  OracleAdapter,
+  resolveConnection,
+  targetIdentitySql
+} from "./chunk-GJGXYFEZ.mjs";
+import {
+  environment,
+  isProductionTarget,
   loadProject,
   managedHome
-} from "./chunk-ON46TMC5.mjs";
-import "./chunk-75I6YHSV.mjs";
+} from "./chunk-RNEE4V2Z.mjs";
+import "./chunk-U46X3ZLW.mjs";
+import "./chunk-XYDSY3MB.mjs";
+import "./chunk-W7MSMS56.mjs";
+import "./chunk-7UXC37DJ.mjs";
 import {
   Fault
-} from "./chunk-UQUM7OVR.mjs";
+} from "./chunk-CCPOHUCO.mjs";
 
 // packages/core/src/preview/service.ts
-import fs10 from "node:fs";
+import fs11 from "node:fs";
 import path12 from "node:path";
 
 // packages/core/src/preview/assets.ts
@@ -30,8 +63,8 @@ var FUNCTIONS = {
 var Parser = class {
   #text;
   #index = 0;
-  constructor(text9) {
-    this.#text = text9;
+  constructor(text10) {
+    this.#text = text10;
   }
   get done() {
     return this.#index >= this.#text.length;
@@ -180,8 +213,8 @@ var IMAGE_PREFIXES = [
   "css/"
 ];
 var THEME_SQL = `apex/core/themes/f8842.${APEX_VERSION.replace(".", "")}.sql`;
-function defaultAssetsDir(environment = process.env) {
-  const configured2 = environment[APEX_ASSETS_ENV];
+function defaultAssetsDir(environment2 = process.env) {
+  const configured2 = environment2[APEX_ASSETS_ENV];
   return configured2 ? path.resolve(configured2) : path.join(managedHome(), "preview", APEX_VERSION);
 }
 var ZipReader = class {
@@ -358,15 +391,2132 @@ function loadAssets(assetsDir = defaultAssetsDir()) {
   };
 }
 
+// packages/core/src/preview/database.ts
+import crypto2 from "node:crypto";
+import fs2 from "node:fs";
+import path2 from "node:path";
+import { DatabaseSync } from "node:sqlite";
+var MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+var DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function oracleDate(value2) {
+  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
+  if (typeof value2 === "number") {
+    const date2 = new Date(value2);
+    return Number.isNaN(date2.getTime()) ? void 0 : date2;
+  }
+  const raw2 = String(value2).trim();
+  const oracle = /^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u.exec(raw2);
+  if (oracle) {
+    const month = MONTH_NAMES.findIndex(
+      (name) => name.slice(0, 3).toUpperCase() === oracle[2].toUpperCase()
+    );
+    const year = Number(oracle[3].length === 2 ? `20${oracle[3]}` : oracle[3]);
+    if (month >= 0)
+      return new Date(
+        year,
+        month,
+        Number(oracle[1]),
+        Number(oracle[4] ?? 0),
+        Number(oracle[5] ?? 0),
+        Number(oracle[6] ?? 0)
+      );
+  }
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/u.test(raw2) ? `${raw2}T00:00:00` : raw2.replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? void 0 : date;
+}
+var pad = (value2, size = 2) => String(value2).padStart(size, "0");
+function isoDate(date, time = true) {
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return time ? `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` : day;
+}
+var DATE_TOKENS = [
+  "SSSSS",
+  "SYYYY",
+  "MONTH",
+  "A.M.",
+  "P.M.",
+  "HH24",
+  "HH12",
+  "RRRR",
+  "YYYY",
+  "IYYY",
+  "YYY",
+  "DDD",
+  "DAY",
+  "MON",
+  "TZR",
+  "TZH",
+  "TZM",
+  "FF1",
+  "FF2",
+  "FF3",
+  "FF4",
+  "FF5",
+  "FF6",
+  "FF7",
+  "FF8",
+  "FF9",
+  "FF",
+  "YY",
+  "RR",
+  "MM",
+  "DD",
+  "DY",
+  "HH",
+  "MI",
+  "SS",
+  "AM",
+  "PM",
+  "FM",
+  "WW",
+  "IW",
+  "Y",
+  "D",
+  "Q",
+  "W",
+  "J"
+];
+function isoWeek(date) {
+  const target2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = (target2.getDay() + 6) % 7;
+  target2.setDate(target2.getDate() - day + 3);
+  const first = new Date(target2.getFullYear(), 0, 4);
+  return 1 + Math.round(((target2.getTime() - first.getTime()) / 864e5 - 3 + (first.getDay() + 6) % 7) / 7);
+}
+var dayOfYear = (date) => Math.floor(
+  (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 1)) / 864e5
+) + 1;
+function formatDate(date, mask2) {
+  let out = "";
+  let fm = false;
+  for (let index = 0; index < mask2.length; ) {
+    if (mask2[index] === '"') {
+      const end = mask2.indexOf('"', index + 1);
+      out += mask2.slice(index + 1, end < 0 ? mask2.length : end);
+      index = end < 0 ? mask2.length : end + 1;
+      continue;
+    }
+    const token = DATE_TOKENS.find(
+      (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
+    );
+    if (!token) {
+      out += mask2[index];
+      index += 1;
+      continue;
+    }
+    const raw2 = mask2.slice(index, index + token.length);
+    index += token.length;
+    const number2 = (value2, width) => fm ? String(value2) : pad(value2, width);
+    const cased = (word) => raw2 === raw2.toUpperCase() ? word.toUpperCase() : raw2[0] === raw2[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
+    const hours12 = date.getHours() % 12 || 12;
+    switch (token) {
+      case "FM":
+        fm = !fm;
+        break;
+      case "YYYY":
+      case "SYYYY":
+      case "RRRR":
+      case "IYYY":
+        out += String(date.getFullYear());
+        break;
+      case "YYY":
+        out += pad(date.getFullYear() % 1e3, 3);
+        break;
+      case "YY":
+      case "RR":
+        out += pad(date.getFullYear() % 100);
+        break;
+      case "Y":
+        out += String(date.getFullYear() % 10);
+        break;
+      case "MONTH":
+        out += cased(MONTH_NAMES[date.getMonth()]);
+        break;
+      case "MON":
+        out += cased(MONTH_NAMES[date.getMonth()].slice(0, 3));
+        break;
+      case "MM":
+        out += number2(date.getMonth() + 1, 2);
+        break;
+      case "DDD":
+        out += number2(dayOfYear(date), 3);
+        break;
+      case "DD":
+        out += number2(date.getDate(), 2);
+        break;
+      case "DAY":
+        out += cased(DAY_NAMES[date.getDay()]);
+        break;
+      case "DY":
+        out += cased(DAY_NAMES[date.getDay()].slice(0, 3));
+        break;
+      case "D":
+        out += String(date.getDay() + 1);
+        break;
+      case "HH24":
+        out += number2(date.getHours(), 2);
+        break;
+      case "HH12":
+      case "HH":
+        out += number2(hours12, 2);
+        break;
+      case "MI":
+        out += number2(date.getMinutes(), 2);
+        break;
+      case "SS":
+        out += number2(date.getSeconds(), 2);
+        break;
+      case "SSSSS":
+        out += String(date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds());
+        break;
+      case "AM":
+      case "PM":
+        out += cased(date.getHours() < 12 ? "AM" : "PM");
+        break;
+      case "A.M.":
+      case "P.M.":
+        out += cased(date.getHours() < 12 ? "A.M." : "P.M.");
+        break;
+      case "Q":
+        out += String(Math.floor(date.getMonth() / 3) + 1);
+        break;
+      case "WW":
+        out += number2(Math.floor((dayOfYear(date) - 1) / 7) + 1, 2);
+        break;
+      case "IW":
+        out += number2(isoWeek(date), 2);
+        break;
+      case "W":
+        out += String(Math.floor((date.getDate() - 1) / 7) + 1);
+        break;
+      case "J":
+        out += String(Math.floor(date.getTime() / 864e5 + 24405875e-1));
+        break;
+      case "TZR":
+      case "TZH":
+      case "TZM":
+        break;
+      default:
+        out += pad(date.getMilliseconds(), 3).padEnd(9, "0").slice(0, Number(token.slice(2) || 6));
+    }
+  }
+  return out;
+}
+function formatNumber(value2, upper4) {
+  const number2 = Number(value2);
+  if (!Number.isFinite(number2)) return String(value2);
+  if (/X/u.test(upper4))
+    return Math.round(number2).toString(16)[upper4.includes("x") ? "toLowerCase" : "toUpperCase"]();
+  const body4 = upper4.replace(/^FM/u, "").replace(/^[L$S]/u, "").replace(/(MI|PR|S)$/u, "");
+  const [whole = "", fraction = ""] = body4.split(/[D.]/u);
+  const decimals = fraction.replace(/[^09]/gu, "").length;
+  const zeros = whole.includes("0") ? whole.slice(whole.indexOf("0")).replace(/[^09]/gu, "").length : 0;
+  let text10 = Math.abs(number2).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    minimumIntegerDigits: Math.max(1, zeros),
+    useGrouping: /[G,]/u.test(whole)
+  });
+  if (!zeros && !decimals && text10 === "0" && whole && !whole.includes("0")) text10 = "0";
+  if (!zeros && text10.startsWith("0.") && !whole.includes("0") && whole) text10 = text10.slice(1);
+  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text10 = `$${text10}`;
+  if (number2 < 0) return upper4.endsWith("MI") ? `${text10}-` : upper4.endsWith("PR") ? `<${text10}>` : `-${text10}`;
+  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text10}` : text10;
+}
+function oracleNumberText(value2) {
+  if (Number.isNaN(value2)) return "NaN";
+  if (!Number.isFinite(value2)) return value2 > 0 ? "~" : "-~";
+  if (Number.isInteger(value2)) return Math.abs(value2) < 1e21 ? String(value2 || 0) : BigInt(value2).toString();
+  const rounded = Number(value2.toPrecision(15));
+  if (Number.isInteger(rounded)) return String(rounded || 0);
+  let text10 = String(rounded);
+  if (/e/iu.test(text10)) {
+    const exponent = Number(text10.split(/e/iu)[1]);
+    text10 = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, "");
+  }
+  return text10.replace(/^(-?)0\./u, "$1.");
+}
+function oracleText(value2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  if (typeof value2 === "bigint") return value2.toString();
+  return String(value2);
+}
+function decimalNumber(value2) {
+  return Number.isFinite(value2) && !Number.isInteger(value2) ? Number(value2.toPrecision(15)) : value2;
+}
+var DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
+function arithmeticNumber(value2) {
+  if (typeof value2 === "number") return value2;
+  if (typeof value2 === "bigint") return Number(value2);
+  if (typeof value2 !== "string" || value2.trim() === "") return void 0;
+  const number2 = Number(value2.trim());
+  return Number.isFinite(number2) ? number2 : void 0;
+}
+function arithmeticDate(value2) {
+  if (typeof value2 !== "string" || arithmeticNumber(value2) !== void 0) return void 0;
+  const text10 = value2.trim();
+  return DATE_TEXT.test(text10) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text10) ? oracleDate(text10) : void 0;
+}
+var sqlNumber = (value2) => Number.isSafeInteger(value2) ? BigInt(value2) : decimalNumber(value2);
+function sqlArithmetic(left, operator, right) {
+  if (left === null || left === void 0 || right === null || right === void 0) return null;
+  const leftDate = arithmeticDate(left);
+  const rightDate = arithmeticDate(right);
+  if (leftDate && rightDate && operator === "-") {
+    const utc = (date2) => Date.UTC(
+      date2.getFullYear(),
+      date2.getMonth(),
+      date2.getDate(),
+      date2.getHours(),
+      date2.getMinutes(),
+      date2.getSeconds()
+    );
+    return sqlNumber((utc(leftDate) - utc(rightDate)) / 864e5);
+  }
+  const date = leftDate ?? (operator === "+" ? rightDate : void 0);
+  if (date) {
+    const days = arithmeticNumber(leftDate ? right : left);
+    if (days === void 0) return null;
+    const signed = operator === "-" ? -days : days;
+    const whole = Math.trunc(signed);
+    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
+    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
+    result.setTime(result.getTime() + Math.round((signed - whole) * 86400) * 1e3);
+    const source = String(leftDate ? left : right);
+    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
+    return isoDate(result, Boolean(timed));
+  }
+  const a = arithmeticNumber(left);
+  const b = arithmeticNumber(right);
+  if (a === void 0 || b === void 0) return null;
+  return sqlNumber(operator === "-" ? a - b : a + b);
+}
+function parseJsonPath(path13) {
+  const text10 = path13.trim().replace(/^(?:lax|strict)\s+/iu, "");
+  if (!text10.startsWith("$")) return void 0;
+  const steps = [];
+  let index = 1;
+  while (index < text10.length) {
+    const rest = text10.slice(index);
+    let match;
+    if (match = /^\.\*/u.exec(rest)) steps.push({ kind: "any" });
+    else if (match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest)) steps.push({ kind: "field", name: match[1] });
+    else if (match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest))
+      steps.push({ kind: "field", name: match[1].replace(/\\(.)/gu, "$1") });
+    else if (match = /^\[\s*\*\s*\]/u.exec(rest)) steps.push({ kind: "all" });
+    else if (match = /^\[([^\]]*)\]/u.exec(rest)) {
+      const position2 = (part2) => part2.trim().toLowerCase() === "last" ? "last" : Number(part2);
+      const indexes = match[1].split(",").map((part2) => {
+        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part2.trim());
+        return range ? [position2(range[1]), position2(range[2])] : position2(part2);
+      });
+      if (indexes.some((entry) => typeof entry === "number" && !Number.isInteger(entry))) return void 0;
+      steps.push({ kind: "index", indexes });
+    } else return void 0;
+    index += match[0].length;
+  }
+  return steps;
+}
+function jsonMatches(doc, pathText) {
+  if (doc === null || doc === void 0 || pathText === null || pathText === void 0) return void 0;
+  const steps = parseJsonPath(String(pathText));
+  if (!steps) return void 0;
+  let data;
+  try {
+    data = typeof doc === "string" ? JSON.parse(doc) : doc;
+  } catch {
+    return void 0;
+  }
+  let current3 = [data];
+  for (const step of steps) {
+    const next = [];
+    for (const value2 of current3) {
+      if (step.kind === "field" || step.kind === "any") {
+        for (const target2 of Array.isArray(value2) ? value2 : [value2]) {
+          if (!target2 || typeof target2 !== "object" || Array.isArray(target2)) continue;
+          if (step.kind === "any") next.push(...Object.values(target2));
+          else if (Object.hasOwn(target2, step.name))
+            next.push(target2[step.name]);
+        }
+      } else {
+        const array = Array.isArray(value2) ? value2 : [value2];
+        if (step.kind === "all") {
+          next.push(...array);
+          continue;
+        }
+        const resolve = (entry) => entry === "last" ? array.length - 1 : entry;
+        for (const entry of step.indexes) {
+          if (Array.isArray(entry)) {
+            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
+              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
+          } else {
+            const at = resolve(entry);
+            if (at >= 0 && at < array.length) next.push(array[at]);
+          }
+        }
+      }
+    }
+    current3 = next;
+  }
+  return current3;
+}
+function jsonValue(doc, pathText, returning) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3 || matches3.length !== 1) return null;
+  const value2 = matches3[0];
+  if (value2 === null || typeof value2 === "object") return null;
+  if (returning === "number" || returning === "integer" || returning === "float" || returning === "binary_double") {
+    const number2 = Number(value2);
+    return Number.isFinite(number2) ? number2 : null;
+  }
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  return String(value2);
+}
+function jsonQuery(doc, pathText, wrapper) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3?.length) return null;
+  if (wrapper) return JSON.stringify(matches3);
+  if (matches3.length !== 1 || matches3[0] === null || typeof matches3[0] !== "object") return null;
+  return JSON.stringify(matches3[0]);
+}
+var POSIX_CLASSES = {
+  alpha: "a-zA-Z",
+  digit: "0-9",
+  alnum: "a-zA-Z0-9",
+  upper: "A-Z",
+  lower: "a-z",
+  space: "\\s",
+  blank: " \\t",
+  punct: "!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~",
+  xdigit: "0-9A-Fa-f",
+  cntrl: "\\x00-\\x1f\\x7f",
+  print: "\\x20-\\x7e",
+  graph: "\\x21-\\x7e",
+  word: "\\w"
+};
+function oracleRegExp(pattern, matchParameter = "", global = false) {
+  let ignoreCase = false;
+  let dotAll = false;
+  let multiline = false;
+  let extended = false;
+  for (const flag3 of matchParameter) {
+    if (flag3 === "i") ignoreCase = true;
+    else if (flag3 === "c") ignoreCase = false;
+    else if (flag3 === "n") dotAll = true;
+    else if (flag3 === "m") multiline = true;
+    else if (flag3 === "x") extended = true;
+  }
+  let source = "";
+  let inClass = false;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === "\\") {
+      source += pattern.slice(index, index + 2);
+      index += 1;
+      continue;
+    }
+    if (inClass) {
+      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
+      if (posix && POSIX_CLASSES[posix[1]] !== void 0) {
+        source += POSIX_CLASSES[posix[1]];
+        index += posix[0].length - 1;
+        continue;
+      }
+      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
+      if (equivalence) {
+        source += equivalence[1].replace(/[\\\]^-]/u, "\\$&");
+        index += equivalence[0].length - 1;
+        continue;
+      }
+      if (char === "]") inClass = false;
+      else if (char === "[") {
+        source += "\\[";
+        continue;
+      }
+      source += char;
+      continue;
+    }
+    if (char === "[") {
+      inClass = true;
+      source += char;
+      if (pattern[index + 1] === "^") {
+        source += "^";
+        index += 1;
+      }
+      if (pattern[index + 1] === "]") {
+        source += "\\]";
+        index += 1;
+      }
+      continue;
+    }
+    if (extended && /\s/u.test(char)) continue;
+    source += char;
+  }
+  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}${dotAll ? "s" : ""}${multiline ? "m" : ""}`;
+  try {
+    return new RegExp(source, `${flags}u`);
+  } catch {
+    return new RegExp(source, flags);
+  }
+}
+function formatOracle(value2, mask2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (!mask2) return oracleText(value2);
+  const upper4 = mask2.trim().toUpperCase();
+  if (upper4 === "TM" || upper4 === "TM9" || upper4 === "TME")
+    return value2 === "" ? null : oracleNumberText(Number(value2));
+  if (/[90X]/u.test(upper4) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper4))
+    return formatNumber(value2, upper4);
+  if (upper4 === "DS" || upper4 === "DL") {
+    const date2 = oracleDate(value2);
+    if (!date2) return String(value2);
+    return upper4 === "DS" ? date2.toLocaleDateString("en-US") : date2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  }
+  const date = oracleDate(value2);
+  return date ? formatDate(date, mask2) : String(value2);
+}
+function parseOracleDate(value2, mask2) {
+  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
+  if (!mask2) return oracleDate(value2);
+  const source = String(value2).trim();
+  const parts = {
+    year: (/* @__PURE__ */ new Date()).getFullYear(),
+    month: 0,
+    day: 1,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    pm: false
+  };
+  let position2 = 0;
+  const digits = (max) => {
+    const match = new RegExp(`^\\d{1,${max}}`, "u").exec(source.slice(position2));
+    if (!match) throw new Error("mismatch");
+    position2 += match[0].length;
+    return Number(match[0]);
+  };
+  try {
+    for (let index = 0; index < mask2.length; ) {
+      const token = DATE_TOKENS.find(
+        (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
+      );
+      if (!token) {
+        index += 1;
+        if (/[^\w]/u.test(source[position2] ?? "")) position2 += 1;
+        continue;
+      }
+      index += token.length;
+      switch (token) {
+        case "YYYY":
+        case "RRRR":
+        case "SYYYY":
+          parts.year = digits(4);
+          break;
+        case "YY":
+        case "RR": {
+          const year = digits(2);
+          parts.year = year < 50 ? 2e3 + year : 1900 + year;
+          break;
+        }
+        case "MM":
+          parts.month = digits(2) - 1;
+          break;
+        case "MON":
+        case "MONTH": {
+          const word = /^[A-Za-z]+/u.exec(source.slice(position2))?.[0] ?? "";
+          position2 += word.length;
+          parts.month = MONTH_NAMES.findIndex(
+            (name) => name.slice(0, 3).toUpperCase() === word.slice(0, 3).toUpperCase()
+          );
+          if (parts.month < 0) throw new Error("mismatch");
+          break;
+        }
+        case "DD":
+          parts.day = digits(2);
+          break;
+        case "HH24":
+        case "HH":
+        case "HH12":
+          parts.hour = digits(2);
+          break;
+        case "MI":
+          parts.minute = digits(2);
+          break;
+        case "SS":
+          parts.second = digits(2);
+          break;
+        case "AM":
+        case "PM":
+          parts.pm = /^p/iu.test(source.slice(position2));
+          position2 += 2;
+          break;
+        default:
+          break;
+      }
+    }
+  } catch {
+    return oracleDate(value2);
+  }
+  const hour = parts.pm && parts.hour < 12 ? parts.hour + 12 : parts.hour;
+  const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
+  return Number.isNaN(date.getTime()) ? void 0 : date;
+}
+function canonicalDate(value2, mask2) {
+  const text10 = value2.trim();
+  if (text10 === "") return value2;
+  const date = DATE_TEXT.test(text10) ? oracleDate(text10) : parseOracleDate(text10, mask2);
+  return date ? isoDate(date) : value2;
+}
+function truncDate(date, unit = "DD") {
+  const upper4 = unit.toUpperCase();
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (["YYYY", "YEAR", "SYYYY", "YYY", "YY", "Y", "RRRR", "RR", "IYYY"].includes(upper4))
+    result.setMonth(0, 1);
+  else if (["MM", "MON", "MONTH", "RM"].includes(upper4)) result.setDate(1);
+  else if (upper4 === "Q") result.setMonth(Math.floor(date.getMonth() / 3) * 3, 1);
+  else if (upper4 === "IW") result.setDate(result.getDate() - (result.getDay() + 6) % 7);
+  else if (["DAY", "DY", "D"].includes(upper4)) result.setDate(result.getDate() - result.getDay());
+  else if (["HH", "HH24", "HH12"].includes(upper4)) {
+    result.setHours(date.getHours());
+    return isoDate(result);
+  } else if (upper4 === "MI") {
+    result.setHours(date.getHours(), date.getMinutes());
+    return isoDate(result);
+  }
+  return isoDate(result, false);
+}
+var oracleFunctions = /* @__PURE__ */ new Map();
+function registerOracleFunction(name, params2, impl, options3) {
+  const key = name.toLowerCase();
+  oracleFunctions.set(key, {
+    sqlName: key.replaceAll(".", "__"),
+    params: params2,
+    impl,
+    blobs: options3?.blobs ?? false
+  });
+}
+var tableFunctions = /* @__PURE__ */ new Map();
+function registerTableFunction(name, params2, columns, impl) {
+  const key = name.toLowerCase();
+  const upper4 = columns.map((column2) => column2.toUpperCase());
+  registerOracleFunction(
+    name,
+    params2,
+    (args) => JSON.stringify(impl(args).map((row) => upper4.map((column2) => row[column2] ?? null))),
+    { blobs: true }
+  );
+  tableFunctions.set(key.replaceAll(".", "__"), { columns: upper4 });
+}
+var databaseSetups = [];
+function registerDatabaseSetup(setup) {
+  databaseSetups.push(setup);
+}
+var MASK = /\u0000(\d+)\u0000/gu;
+function maskLiterals(sql) {
+  const literals = [];
+  const text10 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+    literals.push(literal2);
+    return `\0${literals.length - 1}\0`;
+  });
+  return { text: text10, literals };
+}
+var unmask = (text10, literals) => text10.replace(MASK, (_match, index) => literals[Number(index)]);
+function closingParen(text10, open2) {
+  let depth = 0;
+  for (let index = open2; index < text10.length; index += 1) {
+    if (text10[index] === "(") depth += 1;
+    else if (text10[index] === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function topLevelCommas(text10) {
+  const parts = [];
+  let depth = 0;
+  let current3 = "";
+  for (const char of text10) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(current3);
+      current3 = "";
+    } else current3 += char;
+  }
+  if (current3.trim() || parts.length) parts.push(current3);
+  return parts;
+}
+function rewritePackageCalls(text10) {
+  const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
+    const fn = oracleFunctions.get(`${match[1].toLowerCase()}.${match[2].toLowerCase()}`);
+    if (!fn) continue;
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text10, open2);
+    if (close2 < 0) continue;
+    const args = topLevelCommas(rewritePackageCalls(text10.slice(open2 + 1, close2)));
+    const positional = [];
+    for (const arg of args) {
+      const named2 = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
+      if (!named2) positional.push(arg.trim());
+      else {
+        const index = fn.params.indexOf(named2[1].toLowerCase());
+        if (index >= 0) positional[index] = named2[2].trim();
+      }
+    }
+    out += `${text10.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
+    last = close2 + 1;
+    pattern.lastIndex = close2 + 1;
+  }
+  return out + text10.slice(last);
+}
+var TABLE_FUNCTIONS = {
+  "apex_util.get_timeframe_lov_data": [
+    ["Last 15 Minutes", 900],
+    ["Last Hour", 3600],
+    ["Last 2 Hours", 7200],
+    ["Last 4 Hours", 14400],
+    ["Last 8 Hours", 28800],
+    ["Last 16 Hours", 57600],
+    ["Last Day", 86400],
+    ["Last 2 Days", 172800],
+    ["Last 3 Days", 259200],
+    ["Last 4 Days", 345600],
+    ["Last 5 Days", 432e3],
+    ["Last Week", 604800],
+    ["Last 2 Weeks", 1209600],
+    ["Last 4 Weeks", 2419200]
+  ].map(([disp, val], index) => `select '${disp}' as disp, ${val} as val, ${index + 1} as insert_order`).join(" union all ")
+};
+function rewriteTableCollections(text10) {
+  const pattern = /\btable\s*\(/giu;
+  const lateral = [];
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text10, open2);
+    if (close2 < 0) continue;
+    const inner = text10.slice(open2 + 1, close2).trim();
+    const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, "")];
+    const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? "");
+    if (registered) {
+      const alias = /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
+        text10.slice(close2 + 1)
+      );
+      const columns = registered.columns.map((column2, index) => `json_extract(value, '$[${index}]') as ${column2.toLowerCase()}`).join(", ");
+      const args = inner.slice(inner.indexOf("(") + 1, -1);
+      if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
+        out += `${text10.slice(last, match.index)}json_each(${inner})`;
+        last = close2 + 1;
+        lateral.push({ alias: alias[1], columns: registered.columns });
+      } else {
+        out += `${text10.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
+        last = close2 + 1;
+      }
+      pattern.lastIndex = close2 + 1;
+      continue;
+    }
+    out += builtin ? `${text10.slice(last, match.index)}(${builtin})` : `${text10.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
+    last = close2 + 1;
+    pattern.lastIndex = close2 + 1;
+  }
+  out += text10.slice(last);
+  for (const { alias, columns } of lateral) {
+    out = out.replace(
+      new RegExp(
+        `(\\bselect\\s+(?:distinct\\s+)?|,\\s*)(${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*))(?=\\s*(?:,|\\bfrom\\b))`,
+        "giu"
+      ),
+      (whole, lead, reference, column2) => columns.includes(column2.toUpperCase()) ? `${lead}${reference} as ${column2}` : whole
+    );
+    out = out.replace(
+      new RegExp(`\\b${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*)\\b`, "giu"),
+      (whole, column2) => {
+        const index = columns.indexOf(column2.toUpperCase());
+        return index < 0 ? whole : `json_extract(${alias}.value, '$[${index}]')`;
+      }
+    );
+  }
+  return out;
+}
+function rewriteRownum(text10) {
+  if (!/\brownum\b/iu.test(text10)) return text10;
+  const predicate2 = /\b(where|and)\s+rownum\s*(<=|<|=)\s*(\d+|:\w+)\s*(and\b)?/giu;
+  for (const match of [...text10.matchAll(predicate2)].reverse()) {
+    let depth = 0;
+    let scopeEnd = text10.length;
+    for (let index = match.index + match[0].length; index < text10.length; index += 1) {
+      if (text10[index] === "(") depth += 1;
+      else if (text10[index] === ")") {
+        if (depth === 0) {
+          scopeEnd = index;
+          break;
+        }
+        depth -= 1;
+      }
+    }
+    const tail = text10.slice(match.index + match[0].length, scopeEnd);
+    if (/\blimit\b/iu.test(tail)) continue;
+    const [, keyword, op, bound, trailingAnd] = match;
+    const limit = op === "<" ? /^\d+$/u.test(bound) ? String(Number(bound) - 1) : `${bound} - 1` : op === "=" ? "1" : bound;
+    const replacement = keyword.toLowerCase() === "where" ? trailingAnd ? "where " : "" : trailingAnd ? "and " : "";
+    text10 = `${text10.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text10.slice(scopeEnd)}`;
+  }
+  return text10.replace(/\brownum\b/giu, "row_number() over ()");
+}
+function rewriteConnectBy(text10) {
+  const pattern = /(\bfrom\s+[\w$#.]+(?:\s+(?!connect\b)[\w$#]+)?\s+)?\bconnect\s+by\s+(?:level|rownum)\s*(<=|<)\s*/giu;
+  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
+    let depth = 0;
+    let end = match.index + match[0].length;
+    for (; end < text10.length; end += 1) {
+      const char = text10[end];
+      if (char === "(") depth += 1;
+      else if (char === ")") {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text10.slice(end, end + 12)))
+        break;
+    }
+    const bound = text10.slice(match.index + match[0].length, end).trim();
+    const generator = `(with recursive apex_local_levels(level) as (select 1 union all select level + 1 from apex_local_levels where level < (${bound})${match[2] === "<" ? " - 1" : ""}) select level from apex_local_levels)`;
+    const replacement = match[1] ? `${match[1].trimEnd()}, ${generator} ` : `from ${generator} `;
+    text10 = text10.slice(0, match.index) + replacement + text10.slice(end);
+    pattern.lastIndex = match.index + replacement.length;
+  }
+  return text10;
+}
+var SQL_TOKEN = /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
+function tokenizeSql(text10) {
+  const tokens = [];
+  SQL_TOKEN.lastIndex = 0;
+  let position2 = 0;
+  for (let match = SQL_TOKEN.exec(text10); match && match[2]; match = SQL_TOKEN.exec(text10)) {
+    const value2 = match[2];
+    const kind = value2.startsWith("\0") ? "literal" : /^[\d.]/u.test(value2) && value2 !== "." ? "number" : /^:[\w]/u.test(value2) ? "bind" : /^[A-Za-z_"]/u.test(value2) ? "word" : "op";
+    tokens.push({ pre: match[1], text: value2, kind });
+    position2 = SQL_TOKEN.lastIndex;
+  }
+  return { tokens, tail: text10.slice(position2) };
+}
+var renderTokens = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("");
+var SQL_KEYWORDS = new Set(
+  "select from where and or not when then else end as on by group order having union all intersect minus except in is like between escape asc desc nulls limit offset join left right inner outer cross natural into values set distinct exists over within partition using with recursive returning default collate glob regexp isnull notnull prior connect interval return".split(" ")
+);
+var isOpToken = (token, ...values) => token?.kind === "op" && values.includes(token.text);
+var isWordToken = (token, ...values) => token?.kind === "word" && values.includes(token.text.toLowerCase());
+function matchForward(tokens, open2) {
+  let depth = 0;
+  for (let index = open2; index < tokens.length; index += 1) {
+    if (isOpToken(tokens[index], "(")) depth += 1;
+    else if (isOpToken(tokens[index], ")")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function matchBackward(tokens, close2) {
+  let depth = 0;
+  for (let index = close2; index >= 0; index -= 1) {
+    if (isOpToken(tokens[index], ")")) depth += 1;
+    else if (isOpToken(tokens[index], "(")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function callSuffix(tokens, end) {
+  for (; ; ) {
+    const next = tokens[end + 1];
+    if (isWordToken(next, "over", "keep", "filter") && isOpToken(tokens[end + 2], "(")) {
+      const close2 = matchForward(tokens, end + 2);
+      if (close2 < 0) return end;
+      end = close2;
+    } else if (isWordToken(next, "within") && isWordToken(tokens[end + 2], "group") && isOpToken(tokens[end + 3], "(")) {
+      const close2 = matchForward(tokens, end + 3);
+      if (close2 < 0) return end;
+      end = close2;
+    } else return end;
+  }
+}
+function operandEnd(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, "+", "-")) return operandEnd(tokens, index + 1);
+  if (isOpToken(token, "(")) {
+    const close2 = matchForward(tokens, index);
+    return close2 < 0 ? -1 : close2;
+  }
+  if (token.kind === "word") {
+    const lower2 = token.text.toLowerCase();
+    if (lower2 === "case") {
+      let depth = 0;
+      for (let cursor = index; cursor < tokens.length; cursor += 1) {
+        if (isWordToken(tokens[cursor], "case")) depth += 1;
+        else if (isWordToken(tokens[cursor], "end")) {
+          depth -= 1;
+          if (depth === 0) return cursor;
+        }
+      }
+      return -1;
+    }
+    if (SQL_KEYWORDS.has(lower2)) return -1;
+    let end = index;
+    while (isOpToken(tokens[end + 1], ".") && tokens[end + 2]?.kind === "word") end += 2;
+    if (isOpToken(tokens[end + 1], "(")) {
+      const close2 = matchForward(tokens, end + 1);
+      if (close2 < 0) return -1;
+      end = callSuffix(tokens, close2);
+    }
+    return end;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function operandStart(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, ")")) {
+    let open2 = matchBackward(tokens, index);
+    if (open2 < 0) return -1;
+    if (isWordToken(tokens[open2 - 1], "over", "keep", "filter")) return operandStart(tokens, open2 - 2);
+    if (isWordToken(tokens[open2 - 1], "group") && isWordToken(tokens[open2 - 2], "within"))
+      return operandStart(tokens, open2 - 3);
+    const name = tokens[open2 - 1];
+    if (name?.kind === "word" && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
+      open2 -= 1;
+      while (isOpToken(tokens[open2 - 1], ".") && tokens[open2 - 2]?.kind === "word") open2 -= 2;
+    }
+    return open2;
+  }
+  if (isWordToken(token, "end")) {
+    let depth = 0;
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      if (isWordToken(tokens[cursor], "end")) depth += 1;
+      else if (isWordToken(tokens[cursor], "case")) {
+        depth -= 1;
+        if (depth === 0) return cursor;
+      }
+    }
+    return -1;
+  }
+  if (token.kind === "word") {
+    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
+    let start = index;
+    while (isOpToken(tokens[start - 1], ".") && tokens[start - 2]?.kind === "word") start -= 2;
+    return start;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function isBinaryAt(tokens, index) {
+  const previous = tokens[index - 1];
+  if (!previous) return false;
+  if (isOpToken(previous, ")")) return true;
+  if (previous.kind === "word")
+    return isWordToken(previous, "end") || !SQL_KEYWORDS.has(previous.text.toLowerCase());
+  return previous.kind !== "op";
+}
+function leftOperand(tokens, operator) {
+  let start = operandStart(tokens, operator - 1);
+  while (start > 0) {
+    const previous = start - 1;
+    if (isOpToken(tokens[previous], "*", "/", "%", "+", "-") && isBinaryAt(tokens, previous)) {
+      const earlier = operandStart(tokens, previous - 1);
+      if (earlier < 0) break;
+      start = earlier;
+    } else if (isOpToken(tokens[previous], "+", "-")) {
+      start = previous;
+      break;
+    } else break;
+  }
+  return start;
+}
+function rightOperand(tokens, operator) {
+  let end = operandEnd(tokens, operator + 1);
+  while (end >= 0 && isOpToken(tokens[end + 1], "*", "/", "%")) {
+    const later = operandEnd(tokens, end + 2);
+    if (later < 0) break;
+    end = later;
+  }
+  return end;
+}
+function rewriteConcatTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 0; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "||")) continue;
+    const start = leftOperand(out, index);
+    if (start < 0) continue;
+    const operands = [renderTokens(out.slice(start, index))];
+    let cursor = index;
+    let end = index;
+    while (isOpToken(out[cursor], "||")) {
+      const last = rightOperand(out, cursor);
+      if (last < 0) break;
+      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
+      end = last;
+      cursor = last + 1;
+    }
+    if (end === index) continue;
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `concat(${operands.join(", ")})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+var DATE_CAPABLE_CALLS = /* @__PURE__ */ new Set([
+  "trunc",
+  "round",
+  "to_date",
+  "to_timestamp",
+  "last_day",
+  "next_day",
+  "add_months",
+  "datetime",
+  "date",
+  "nvl",
+  "coalesce",
+  "greatest",
+  "least",
+  "max",
+  "min",
+  "decode",
+  "nullif",
+  "new_time",
+  "from_tz",
+  "cast",
+  "apex_local_arith"
+]);
+function dateCapable(tokens) {
+  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
+  const first = tokens[0];
+  if (first.kind === "bind") return true;
+  if (first.kind === "atom") return /^apex_local_arith\(/u.test(first.text);
+  if (isOpToken(first, "(")) return dateCapable(tokens.slice(1, -1));
+  if (first.kind !== "word" || isWordToken(first, "case", "null")) return false;
+  const open2 = tokens.findIndex((token) => isOpToken(token, "("));
+  if (open2 < 0) return !isWordToken(tokens.at(-1), "level", "rownum");
+  return DATE_CAPABLE_CALLS.has(tokens[open2 - 1].text.toLowerCase());
+}
+function rewriteDateArithmeticTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 1; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "+", "-") || !isBinaryAt(out, index)) continue;
+    const start = leftOperand(out, index);
+    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
+    const end = rightOperand(out, index);
+    if (end < 0) continue;
+    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index].text}', ${right})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+function rewriteExpressions(text10, rewrite) {
+  const { tokens, tail } = tokenizeSql(text10);
+  if (!tokens.length) return text10;
+  const lead = tokens[0].pre;
+  return lead + renderTokens(rewrite(tokens)) + tail;
+}
+function rewriteListagg(text10) {
+  const pattern = /\blistagg\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text10, open2);
+    if (close2 < 0) continue;
+    const within = /^\s*within\s+group\s*\(/iu.exec(text10.slice(close2 + 1));
+    const orderOpen = within ? close2 + within[0].length : -1;
+    const orderClose = within ? closingParen(text10, orderOpen) : -1;
+    let inner = rewriteListagg(text10.slice(open2 + 1, close2)).replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, "").trim();
+    const distinct = /^distinct\s+/iu.exec(inner);
+    if (distinct) inner = inner.slice(distinct[0].length);
+    const [value2 = "null", separator2] = topLevelCommas(inner).map((part2) => part2.trim());
+    const order = orderClose > 0 ? text10.slice(orderOpen + 1, orderClose).trim() : "";
+    const measure = `apex_local_text(${value2})`;
+    out += text10.slice(last, match.index);
+    out += distinct ? `group_concat(distinct ${measure})` : `group_concat(${measure}, ${separator2 || "''"}${order ? ` ${order}` : ""})`;
+    last = orderClose > 0 ? orderClose + 1 : close2 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text10.slice(last);
+}
+function rewriteJsonFunctions(text10) {
+  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
+    const open2 = match.index + match[0].length - 1;
+    const close2 = closingParen(text10, open2);
+    if (close2 < 0) continue;
+    const args = topLevelCommas(rewriteJsonFunctions(text10.slice(open2 + 1, close2)));
+    if (args.length < 2) continue;
+    const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
+    const rest = args.slice(1).join(",").trim();
+    const path13 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path13) continue;
+    const clauses = rest.slice(path13.length);
+    const kind = match[1].toLowerCase();
+    const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
+    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path13}${option ? `, '${option}'` : ""})`;
+    last = close2 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text10.slice(last);
+}
+var IDENTITY_MARKER = "/*apex_local_identity*/";
+var PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
+function translateOracleSql(sql) {
+  const trimmed = sql.trim().replace(/;\s*\/?\s*$/u, "").replace(/\n\/\s*$/u, "");
+  const masked = maskLiterals(trimmed);
+  const literal2 = (value2) => {
+    masked.literals.push(value2);
+    return `\0${masked.literals.length - 1}\0`;
+  };
+  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
+  let text10 = uncommented.replace(/\bfrom\s+dual\b/giu, "").replace(/\bdefault\s+on\s+null\b/giu, "default").replace(
+    /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
+    "default (datetime('now','localtime'))"
+  ).replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, "default $1").replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, "default ($1)").replace(/\bdate\s+(\u0000\d+\u0000)/giu, "to_date($1)").replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, "to_timestamp($1)").replace(
+    /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
+    (_whole, sign, days) => `datetime('now','localtime',${literal2(`'${sign}${days} days'`)})`
+  ).replace(
+    /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
+    "datetime('now','localtime')"
+  ).replace(
+    /\boffset\s+(\d+|:\w+)\s+rows?\s+fetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu,
+    "limit $2 offset $1"
+  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
+    /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
+    (_whole, side, chars, value2) => `${{ both: "trim", leading: "ltrim", trailing: "rtrim" }[side.toLowerCase()]}(${value2.trim()}, ${chars})`
+  ).replace(
+    /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
+    "($1)"
+  ).replace(/\s+at\s+(?:local\b|time\s+zone\s+(?:\u0000\d+\u0000|[\w$#.:+-]+))/giu, "").replace(
+    /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
+    (_whole, name, kind) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`
+  ).replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, "default ($1)").replace(
+    /\bdefault\s+(?!\()((?:[A-Za-z_][\w$#]*\.)?[A-Za-z_][\w$#]*\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))/giu,
+    "default ($1)"
+  ).replace(
+    /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
+    IDENTITY_MARKER
+  ).replace(
+    /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
+    "integer$1"
+  ).replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "").replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, "* 1.0 /");
+  text10 = rewriteJsonFunctions(
+    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text10)))))
+  );
+  if (!ddl)
+    text10 = rewriteExpressions(rewriteExpressions(text10, rewriteConcatTokens), rewriteDateArithmeticTokens);
+  return unmask(text10, masked.literals);
+}
+function translateMerge(sql) {
+  const masked = maskLiterals(translateOracleSql(sql));
+  const text10 = masked.text;
+  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text10);
+  if (!head) return void 0;
+  const table = head[1];
+  const alias = head[2] ?? table;
+  let position2 = head[0].length;
+  let source;
+  if (text10[position2] === "(") {
+    const close3 = closingParen(text10, position2);
+    if (close3 < 0) return void 0;
+    source = text10.slice(position2 + 1, close3);
+    position2 = close3 + 1;
+  } else {
+    const name = /^[\w$#."]+/u.exec(text10.slice(position2))[0];
+    source = name.toLowerCase() === "dual" ? "select 1 as dummy" : `select * from ${name}`;
+    position2 += name.length;
+  }
+  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text10.slice(position2));
+  const sAlias = sourceAlias ? sourceAlias[1] : "apex_local_src";
+  if (sourceAlias) position2 += sourceAlias[0].length;
+  const on = /^\s*on\s*\(/iu.exec(text10.slice(position2));
+  if (!on) return void 0;
+  const open2 = position2 + on[0].length - 1;
+  const close2 = closingParen(text10, open2);
+  const condition = text10.slice(open2 + 1, close2);
+  const rest = text10.slice(close2 + 1);
+  const from = `from (${source}) as ${sAlias}`;
+  const statements = [];
+  const matched = /\bwhen\s+matched\s+then\s+update\s+set\s+([\s\S]*?)(?=\bwhen\s+not\s+matched\b|$)/iu.exec(
+    rest
+  );
+  if (matched) {
+    const [assignments, where2] = matched[1].split(/\bwhere\b/iu);
+    const sets = topLevelCommas(assignments.replace(/\bdelete\s+where[\s\S]*$/iu, "")).map((assignment) => {
+      const [column2, ...value2] = assignment.split("=");
+      const name = column2.trim().replace(/^[\w$#]+\./u, "");
+      return `${name} = (select ${value2.join("=").trim()} ${from} where ${condition})`;
+    });
+    statements.push(
+      `update ${table} as ${alias} set ${sets.join(", ")} where exists (select 1 ${from} where ${condition}${where2 ? ` and (${where2})` : ""})`
+    );
+  }
+  const insert = /\bwhen\s+not\s+matched\s+then\s+insert\s*(\([^)]*\))?\s*values\s*\(([\s\S]*)\)\s*(?:where\s+([\s\S]*))?$/iu.exec(
+    rest.replace(/\bwhen\s+matched\s+then\s+update[\s\S]*?(?=\bwhen\s+not\s+matched\b)/iu, "")
+  );
+  if (insert) {
+    statements.push(
+      `insert into ${table} ${insert[1] ?? ""} select ${insert[2]} ${from} where not exists (select 1 from ${table} as ${alias} where ${condition})${insert[3] ? ` and (${insert[3]})` : ""}`
+    );
+  }
+  return statements.length ? statements.map((statement) => unmask(statement, masked.literals)) : void 0;
+}
+function bindNames(sql) {
+  const names = /* @__PURE__ */ new Set();
+  const stripped = sql.replace(/'(?:[^']|'')*'|"[^"]*"|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  for (const match of stripped.matchAll(/(?<![:\w]):([A-Za-z][\w$#]*)/gu)) names.add(match[1]);
+  return [...names];
+}
+function splitScript(script) {
+  const statements = [];
+  let current3 = "";
+  let plsql = false;
+  for (const line of script.replace(/\r\n?/gu, "\n").split("\n")) {
+    const trimmed = line.trim();
+    if (!current3.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
+    if (!plsql && trimmed.startsWith("--")) {
+      current3 += `${line}
+`;
+      continue;
+    }
+    if (!current3.trim() && /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
+      trimmed
+    )) {
+      plsql = true;
+    }
+    if (trimmed === "/") {
+      if (!plsql && current3.trim()) statements.push(current3);
+      current3 = "";
+      plsql = false;
+      continue;
+    }
+    current3 += `${line}
+`;
+    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) {
+      statements.push(current3);
+      current3 = "";
+    }
+  }
+  if (current3.trim() && !plsql) statements.push(current3);
+  return statements.map((statement) => statement.trim().replace(/;\s*$/u, "")).filter(Boolean);
+}
+var BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
+var BLOB_CACHE_BYTES = 128 * 1048576;
+var LocalDatabase = class {
+  dialect = "sqlite";
+  db;
+  file;
+  #binds = {};
+  #blobs = /* @__PURE__ */ new Map();
+  #blobBytes = 0;
+  #functions = /* @__PURE__ */ new Set();
+  #sequences = /* @__PURE__ */ new Map();
+  #dirtySequences = /* @__PURE__ */ new Set();
+  constructor(file) {
+    this.file = file;
+    if (file !== ":memory:") fs2.mkdirSync(path2.dirname(file), { recursive: true });
+    this.db = new DatabaseSync(file);
+    this.#registerOracleFunctions();
+    for (const setup of databaseSetups) setup(this);
+  }
+  /**
+   * Query results carry BLOBs as tokens (`[blob N bytes #hash]`) so they fit session state,
+   * PL/SQL variables and bind values; binding a token, or passing it to a blob-aware function,
+   * restores the bytes. Recently seen BLOBs are kept in memory for that.
+   */
+  blobToken(bytes2) {
+    const key = crypto2.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
+    const token = `[blob ${bytes2.length} bytes #${key}]`;
+    if (this.#blobs.has(token)) this.#blobs.delete(token);
+    else this.#blobBytes += bytes2.length;
+    this.#blobs.set(token, bytes2);
+    for (const [oldest, value2] of this.#blobs) {
+      if (this.#blobBytes <= BLOB_CACHE_BYTES || oldest === token) break;
+      this.#blobs.delete(oldest);
+      this.#blobBytes -= value2.length;
+    }
+    return token;
+  }
+  /** Bytes of a BLOB value or token; undefined for anything else. */
+  blob(value2) {
+    if (value2 instanceof Uint8Array) return value2;
+    if (typeof value2 !== "string" || !BLOB_TOKEN.test(value2)) return void 0;
+    return this.#blobs.get(value2);
+  }
+  static isBlobToken(value2) {
+    return typeof value2 === "string" && BLOB_TOKEN.test(value2);
+  }
+  #sqlValue(value2) {
+    if (typeof value2 === "bigint") return Number(value2);
+    if (typeof value2 === "number") return decimalNumber(value2);
+    if (value2 instanceof Uint8Array) return this.blobToken(value2);
+    return value2 ?? null;
+  }
+  #registerOracleFunctions() {
+    const fn = (name, implementation, varargs = true) => this.db.function(name, { varargs, deterministic: false }, implementation);
+    fn("nvl", (value2, fallback) => value2 ?? fallback ?? null);
+    fn(
+      "nvl2",
+      (value2, whenSet, whenNull) => value2 !== null && value2 !== void 0 ? whenSet ?? null : whenNull ?? null
+    );
+    fn("decode", (...args) => {
+      const [expression, ...pairs] = args;
+      for (let index = 0; index + 1 < pairs.length; index += 2) {
+        if (pairs[index] === expression || pairs[index] === null && expression === null)
+          return pairs[index + 1] ?? null;
+      }
+      return pairs.length % 2 === 1 ? pairs.at(-1) ?? null : null;
+    });
+    fn("to_char", (value2, mask2) => formatOracle(value2, typeof mask2 === "string" ? mask2 : void 0));
+    fn("concat", (...args) => {
+      if (args.every((arg) => arg === null || arg === void 0)) return null;
+      return args.map((arg) => oracleText(arg) ?? "").join("");
+    });
+    fn("apex_local_text", (value2) => oracleText(value2));
+    fn("apex_local_arith", (left, operator, right) => sqlArithmetic(left, String(operator), right));
+    fn("json_value", (doc, pathText, returning) => jsonValue(doc, pathText, returning));
+    fn("json_query", (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === "wrapper"));
+    fn("json_exists", (doc, pathText) => {
+      const matches3 = jsonMatches(doc, pathText);
+      return matches3 === void 0 ? null : matches3.length ? 1 : 0;
+    });
+    fn("to_number", (value2) => value2 === null || value2 === "" ? null : Number(value2));
+    fn("to_date", (value2, mask2) => {
+      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
+      return date ? isoDate(date) : null;
+    });
+    fn("to_timestamp", (value2, mask2) => {
+      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
+      return date ? isoDate(date) : null;
+    });
+    fn("trunc", (value2, unit) => {
+      if (typeof value2 === "number")
+        return Math.trunc(value2 * 10 ** Number(unit ?? 0)) / 10 ** Number(unit ?? 0);
+      if (typeof value2 === "string" && /^\s*-?\d+(\.\d+)?\s*$/u.test(value2)) return Math.trunc(Number(value2));
+      const date = oracleDate(value2);
+      return date ? truncDate(date, typeof unit === "string" ? unit : "DD") : value2 ?? null;
+    });
+    fn(
+      "initcap",
+      (value2) => value2 === null ? null : String(value2).toLowerCase().replace(/\b\w/gu, (char) => char.toUpperCase())
+    );
+    fn(
+      "lpad",
+      (value2, size, fill2) => value2 === null ? null : String(value2).padStart(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
+    );
+    fn(
+      "rpad",
+      (value2, size, fill2) => value2 === null ? null : String(value2).padEnd(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
+    );
+    fn("add_months", (value2, months) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      const lastDay = (year, month) => new Date(year, month + 1, 0).getDate();
+      const day = date.getDate();
+      const monthEnd = day === lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(1);
+      date.setMonth(date.getMonth() + Math.trunc(Number(months)));
+      const target2 = lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(monthEnd ? target2 : Math.min(day, target2));
+      return isoDate(date);
+    });
+    fn("months_between", (left, right) => {
+      const a = oracleDate(left);
+      const b = oracleDate(right);
+      return a && b ? (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth()) + (a.getDate() - b.getDate()) / 31 : null;
+    });
+    fn(
+      "greatest",
+      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) > (b ?? 0) ? a : b)
+    );
+    fn(
+      "least",
+      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) < (b ?? 0) ? a : b)
+    );
+    const flagText = (flags) => typeof flags === "string" ? flags : "";
+    fn(
+      "regexp_like",
+      (value2, pattern, flags) => value2 === null || pattern === null || value2 === void 0 || pattern === void 0 ? null : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value2))) ? 1 : 0
+    );
+    fn("regexp_replace", (value2, pattern, replacement, position2, occurrence, flags) => {
+      if (value2 === null) return null;
+      const text10 = String(value2);
+      const offset = Number(position2 ?? 1) - 1;
+      const nth = Number(occurrence ?? 0);
+      const regex = oracleRegExp(String(pattern ?? ""), flagText(flags), true);
+      const single = oracleRegExp(String(pattern ?? ""), flagText(flags));
+      const replace = String(replacement ?? "").replace(/\\(\d)/gu, "$$$1");
+      let count = 0;
+      return text10.slice(0, offset) + text10.slice(offset).replace(regex, (...match) => {
+        count += 1;
+        if (nth && count !== nth) return match[0];
+        return match[0].replace(single, replace);
+      });
+    });
+    fn(
+      "replace",
+      (value2, search, replacement) => value2 === null || value2 === void 0 ? null : search === null || search === void 0 || search === "" ? String(value2) : String(value2).split(String(search)).join(replacement === null || replacement === void 0 ? "" : String(replacement))
+    );
+    fn("v", (name) => {
+      const value2 = this.#binds[String(name).toUpperCase()];
+      return value2 === void 0 || value2 === "" ? null : value2;
+    });
+    fn("nv", (name) => {
+      const value2 = this.#binds[String(name).toUpperCase()];
+      return value2 === null || value2 === void 0 || value2 === "" ? null : Number(value2);
+    });
+    fn("sys_context", (namespace, parameter2) => {
+      const key = String(parameter2 ?? "").toUpperCase();
+      if (String(namespace).toUpperCase() === "APEX$SESSION")
+        return this.#binds[key === "APP_SESSION" ? "APP_SESSION" : key] ?? null;
+      if (key === "SESSION_USER" || key === "CURRENT_USER" || key === "CURRENT_SCHEMA") return "APEX_LOCAL";
+      if (key === "LANG" || key === "LANGUAGE") return "US";
+      return null;
+    });
+    fn("instr", (value2, search, start, occurrence) => {
+      if (value2 === null || search === null) return null;
+      const text10 = String(value2);
+      const needle = String(search);
+      let from = Number(start ?? 1);
+      let count = Number(occurrence ?? 1);
+      if (from > 0) {
+        let index2 = from - 2;
+        while (count > 0) {
+          index2 = text10.indexOf(needle, index2 + 1);
+          if (index2 < 0) return 0;
+          count -= 1;
+        }
+        return index2 + 1;
+      }
+      let index = text10.length + from + 1;
+      while (count > 0) {
+        index = text10.lastIndexOf(needle, index - 1);
+        if (index < 0) return 0;
+        count -= 1;
+      }
+      from = index + 1;
+      return from;
+    });
+    fn("chr", (code) => code === null ? null : String.fromCharCode(Number(code)));
+    fn("ascii", (value2) => value2 === null || value2 === "" ? null : String(value2).charCodeAt(0));
+    fn("bitand", (left, right) => left === null || right === null ? null : Number(left) & Number(right));
+    fn("translate", (value2, from, to) => {
+      if (value2 === null || from === null) return null;
+      const source = String(from);
+      const target2 = String(to ?? "");
+      return [...String(value2)].map((char) => {
+        const index = source.indexOf(char);
+        return index < 0 ? char : target2[index] ?? "";
+      }).join("");
+    });
+    fn("regexp_substr", (value2, pattern, position2, occurrence, flags, group2) => {
+      if (value2 === null || pattern === null) return null;
+      const regex = oracleRegExp(String(pattern), flagText(flags), true);
+      const matches3 = [
+        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(regex)
+      ];
+      const match = matches3[Number(occurrence ?? 1) - 1];
+      return match ? match[Number(group2 ?? 0)] ?? null : null;
+    });
+    fn("regexp_instr", (value2, pattern, position2, occurrence, returnOption, flags) => {
+      if (value2 === null || pattern === null) return null;
+      const offset = Number(position2 ?? 1) - 1;
+      const matches3 = [
+        ...String(value2).slice(offset).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
+      ];
+      const match = matches3[Number(occurrence ?? 1) - 1];
+      if (!match) return 0;
+      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
+    });
+    fn(
+      "regexp_count",
+      (value2, pattern, position2, flags) => value2 === null || pattern === null ? null : [
+        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
+      ].length
+    );
+    fn("last_day", (value2) => {
+      const date = oracleDate(value2);
+      return date ? isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0), false) : null;
+    });
+    fn("next_day", (value2, day) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      const target2 = DAY_NAMES.findIndex(
+        (name) => name.slice(0, 3).toUpperCase() === String(day).slice(0, 3).toUpperCase()
+      );
+      const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+      while (target2 >= 0 && result.getDay() !== target2) result.setDate(result.getDate() + 1);
+      return isoDate(result, false);
+    });
+    fn("to_clob", (value2) => value2 ?? null);
+    fn("from_tz", (value2) => value2 ?? null);
+    fn("to_nchar", (value2) => value2 === null || value2 === void 0 ? null : String(value2));
+    fn("empty_clob", () => null);
+    fn("empty_blob", () => new Uint8Array());
+    fn("to_blob", (value2) => typeof value2 === "string" ? this.blob(value2) ?? value2 : value2 ?? null);
+    fn("apex_local_num", (value2) => {
+      if (typeof value2 !== "string") return value2 ?? null;
+      const trimmed = value2.trim();
+      return trimmed !== "" && Number.isFinite(Number(trimmed)) ? Number(trimmed) : value2;
+    });
+    fn("apex_local_extract", (unit, value2) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      switch (String(unit).toLowerCase()) {
+        case "year":
+          return date.getFullYear();
+        case "month":
+          return date.getMonth() + 1;
+        case "day":
+          return date.getDate();
+        case "hour":
+          return date.getHours();
+        case "minute":
+          return date.getMinutes();
+        default:
+          return date.getSeconds();
+      }
+    });
+    fn("apex_local_nextval", (name) => this.#nextval(String(name)));
+    fn("apex_local_currval", (name) => this.#sequences.get(String(name))?.value ?? null);
+    fn("sys_guid", () => crypto2.randomUUID().replaceAll("-", "").toUpperCase());
+  }
+  /** Package functions registered after this database was opened. */
+  #syncFunctions() {
+    if (this.#functions.size === oracleFunctions.size) return;
+    for (const [name, fn] of oracleFunctions) {
+      if (this.#functions.has(name)) continue;
+      this.#functions.add(name);
+      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) => {
+        if (!fn.blobs) return fn.impl(args.map((arg) => this.#sqlValue(arg)));
+        const values = args.map(
+          (arg) => typeof arg === "bigint" ? Number(arg) : this.blob(arg) ?? arg ?? null
+        );
+        return fn.impl(values);
+      });
+    }
+  }
+  #loadSequences() {
+    this.db.exec(
+      "create table if not exists apex_local_sequences (name text primary key, value integer, increment integer, start integer)"
+    );
+    for (const row of this.db.prepare("select name, value, increment, start from apex_local_sequences").all())
+      if (!this.#dirtySequences.has(row.name))
+        this.#sequences.set(row.name, { value: row.value, increment: row.increment, start: row.start });
+  }
+  #nextval(name) {
+    const sequence4 = this.#sequences.get(name) ?? { value: null, increment: 1, start: 1 };
+    sequence4.value = sequence4.value === null ? sequence4.start : sequence4.value + sequence4.increment;
+    this.#sequences.set(name, sequence4);
+    this.#dirtySequences.add(name);
+    return sequence4.value;
+  }
+  #flushSequences() {
+    if (!this.#dirtySequences.size) return;
+    const upsert = this.db.prepare(
+      "insert into apex_local_sequences (name, value, increment, start) values (?, ?, ?, ?) on conflict(name) do update set value = excluded.value"
+    );
+    for (const name of this.#dirtySequences) {
+      const sequence4 = this.#sequences.get(name);
+      upsert.run(name, sequence4.value, sequence4.increment, sequence4.start);
+    }
+    this.#dirtySequences.clear();
+  }
+  /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
+  #sequenceDdl(statement) {
+    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, "");
+    const create2 = /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
+    const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
+    if (!create2 && !drop) return false;
+    this.#loadSequences();
+    const name = (create2 ?? drop)[1].toUpperCase();
+    if (drop) {
+      this.#sequences.delete(name);
+      this.db.prepare("delete from apex_local_sequences where name = ?").run(name);
+      return true;
+    }
+    const options3 = create2[2] ?? "";
+    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
+    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
+    this.#sequences.set(name, { value: null, increment, start });
+    this.#dirtySequences.add(name);
+    this.#flushSequences();
+    return true;
+  }
+  #prepare(sql, binds) {
+    this.#binds = Object.fromEntries(Object.entries(binds).map(([key, value2]) => [key.toUpperCase(), value2]));
+    this.#syncFunctions();
+    const translated = translateOracleSql(sql);
+    if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
+    const values = {};
+    for (const name of bindNames(translated)) {
+      const bound = this.#binds[name.toUpperCase()] ?? null;
+      const value2 = bound === "" ? null : bound;
+      values[name] = typeof value2 === "number" && Number.isSafeInteger(value2) ? BigInt(value2) : this.blob(value2) ?? value2;
+    }
+    const statement = this.db.prepare(translated);
+    statement.setAllowUnknownNamedParameters(true);
+    return { statement, values };
+  }
+  query(sql, binds = {}, maxRows = 1e4) {
+    const { statement, values } = this.#prepare(sql, binds);
+    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
+    const rows = [];
+    for (const raw2 of statement.iterate(values)) {
+      const row = {};
+      for (const [key, value2] of Object.entries(raw2))
+        row[key.toUpperCase()] = this.#sqlValue(value2);
+      rows.push(row);
+      if (rows.length >= maxRows) break;
+    }
+    this.#flushSequences();
+    return { columns, rows };
+  }
+  /** Like query, with BLOB columns as bytes and columns in select order. */
+  rawQuery(sql, binds = {}, maxRows = 1e4) {
+    const { statement, values } = this.#prepare(sql, binds);
+    statement.setReturnArrays(true);
+    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
+    const rows = [];
+    for (const raw2 of statement.iterate(values)) {
+      rows.push(
+        raw2.map(
+          (value2) => typeof value2 === "bigint" ? Number(value2) : typeof value2 === "number" ? decimalNumber(value2) : value2
+        )
+      );
+      if (rows.length >= maxRows) break;
+    }
+    this.#flushSequences();
+    return { columns, rows };
+  }
+  execute(sql, binds = {}) {
+    if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
+    const view = /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view\s+((?:"?[\w$#]+"?\.)?"?[\w$#]+"?)/iu.exec(
+      sql
+    );
+    if (view) {
+      this.db.exec(`drop view if exists ${view[1].replace(/^"?[\w$#]+"?\./u, "")}`);
+      sql = sql.replace(
+        /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view/iu,
+        "create view"
+      );
+    }
+    if (/^\s*merge\s+into\b/iu.test(sql)) {
+      const statements = translateMerge(sql);
+      if (!statements) throw new Error("MERGE statement form is not supported locally");
+      let changes = 0;
+      let lastInsertRowid = 0;
+      for (const statement2 of statements) {
+        const result2 = this.execute(statement2, binds);
+        changes += result2.changes;
+        lastInsertRowid = result2.lastInsertRowid || lastInsertRowid;
+      }
+      return { changes, lastInsertRowid };
+    }
+    const { statement, values } = this.#prepare(sql, binds);
+    const result = statement.run(values);
+    this.#flushSequences();
+    return { changes: Number(result.changes), lastInsertRowid: Number(result.lastInsertRowid) };
+  }
+  scalar(sql, binds = {}) {
+    const result = this.query(sql, binds, 1);
+    const row = result.rows[0];
+    return row ? row[result.columns[0]] ?? null : null;
+  }
+  tableExists(table) {
+    return this.db.prepare("select 1 from sqlite_master where type in ('table','view') and upper(name) = upper(?)").get(table) !== void 0;
+  }
+  tableColumns(table) {
+    return this.db.prepare(`pragma table_info("${table.replaceAll('"', "")}")`).all().map((column2) => ({
+      name: column2.name.toUpperCase(),
+      pk: column2.pk > 0,
+      type: column2.type.toUpperCase()
+    }));
+  }
+  /**
+   * How a missing primary key value is filled on insert: an identity column, a column default
+   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
+   */
+  keySource(table, column2) {
+    const name = table.replaceAll('"', "").toUpperCase();
+    const ddl = this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name)?.sql;
+    const definition = ddl ? new RegExp(`[(,]\\s*"?${column2.replace(/[^\w$#]/gu, "")}"?\\s[^,]*`, "iu").exec(ddl)?.[0] : void 0;
+    if (definition?.includes(IDENTITY_MARKER)) return "identity";
+    const info = this.db.prepare(`pragma table_info("${name}")`).all().find((entry) => entry.name.toUpperCase() === column2.toUpperCase());
+    if (info && info.dflt_value !== null && info.dflt_value !== void 0) return "default";
+    if (this.tableExists("apex_local_insert_triggers")) {
+      const trigger = this.db.prepare("select 1 from apex_local_insert_triggers where table_name = ?").get(name.replace(/^.*\./u, ""));
+      if (trigger) return "trigger";
+    }
+    return "none";
+  }
+  /** Runs a script statement by statement; failures are reported, not fatal. */
+  runScript(script, source) {
+    const problems = [];
+    const triggers = [
+      ...script.matchAll(
+        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu
+      )
+    ].map((match) => match[1].toUpperCase());
+    if (triggers.length) {
+      this.db.exec("create table if not exists apex_local_insert_triggers (table_name text primary key)");
+      const insert = this.db.prepare("insert or ignore into apex_local_insert_triggers values (?)");
+      for (const table of triggers) insert.run(table);
+    }
+    for (const statement of splitScript(script)) {
+      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(statement)) continue;
+      try {
+        this.execute(statement);
+      } catch (error) {
+        problems.push(
+          `${source}: ${error.message} \u2014 ${statement.replace(/\s+/gu, " ").slice(0, 140)}`
+        );
+      }
+    }
+    return problems;
+  }
+  close() {
+    if (this.db.isOpen) this.db.close();
+  }
+};
+
+// packages/core/src/preview/oracle/app-data.ts
+var TX_BEFORE = "APEXREST_TX_BEFORE";
+var TX_AFTER = "APEXREST_TX_AFTER";
+var DDL = /^\s*(create|alter|drop|truncate|rename|comment|grant|revoke|flashback|purge|analyze)\b/iu;
+function text(value2) {
+  return value2 === null || value2 === void 0 ? null : String(value2);
+}
+var OracleAppData = class {
+  dialect = "oracle";
+  link;
+  schema;
+  #columns = /* @__PURE__ */ new Map();
+  #keys = /* @__PURE__ */ new Map();
+  #dirty = false;
+  constructor(link, schema) {
+    this.link = link;
+    this.schema = schema.toUpperCase();
+  }
+  /** Runs segments; the failing segment's error is returned, transport failures throw. */
+  #run(parts, dirty = true) {
+    if (dirty) this.#dirty = true;
+    const { text: input, markers } = batch(parts);
+    const texts = segments(this.link.run(input), markers);
+    return { texts, errors: texts.map(segmentError) };
+  }
+  #binds(sql, binds) {
+    return referencedBinds(bindNames(sql), binds);
+  }
+  query(sql, binds = {}, maxRows = 1e4) {
+    const values = this.#binds(sql, binds);
+    const parts = [declareBinds(values), querySegment(sql, maxRows)];
+    const { texts, errors } = this.#run(parts);
+    const error = errors[0] ?? errors[1];
+    if (error) throw error;
+    return jsonRows(texts[1]);
+  }
+  rawQuery(sql, binds = {}, maxRows = 1e4) {
+    const result = this.query(sql, binds, maxRows);
+    return {
+      columns: result.columns,
+      rows: result.rows.map((row) => result.columns.map((column2) => row[column2] ?? null))
+    };
+  }
+  scalar(sql, binds = {}) {
+    const result = this.query(sql, binds, 1);
+    const row = result.rows[0];
+    return row ? row[result.columns[0]] ?? null : null;
+  }
+  execute(sql, binds = {}) {
+    if (DDL.test(sql))
+      throw new OracleError(-20996, "DDL is not run in the connected preview because Oracle commits it");
+    if (/^\s*release\s+savepoint\b/iu.test(sql)) return { changes: 0, lastInsertRowid: 0 };
+    const control2 = /^\s*(savepoint\s+[\w$#]+|rollback\s+to\s+(?:savepoint\s+)?[\w$#]+)\s*;?\s*$/iu.exec(sql);
+    const values = { ...this.#binds(sql, binds), [ROWS_BIND]: null, [ROWID_BIND]: null };
+    const block = control2 ? `begin
+${control2[1]};
+end;` : dmlBlock(sql, true);
+    const { texts, errors } = this.#run([
+      declareBinds(values),
+      plsqlSegment(block),
+      selectBindsSegment([ROWS_BIND, ROWID_BIND])
+    ]);
+    const error = errors[0] ?? errors[1] ?? errors[2];
+    if (error) throw error;
+    const row = jsonRows(texts[2]).rows[0] ?? {};
+    return { changes: Number(row[ROWS_BIND] ?? 0), lastInsertRowid: text(row[ROWID_BIND]) ?? 0 };
+  }
+  #owned(table) {
+    const parts = table.replaceAll('"', "").toUpperCase().split(".");
+    return parts.length > 1 ? { owner: parts[0], name: parts[1] } : { owner: this.schema, name: parts[0] };
+  }
+  tableColumns(table) {
+    const { owner: owner2, name } = this.#owned(table);
+    const key = `${owner2}.${name}`;
+    let columns = this.#columns.get(key);
+    if (!columns) {
+      const own = owner2 === this.schema;
+      const dictionary = (view) => own ? `user_${view}` : `all_${view}`;
+      const ownedBy = (alias) => own ? "" : ` and ${alias}.owner = :APEXREST_OWNER`;
+      const result = this.query(
+        `select c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk
+           from ${dictionary("tab_columns")} c
+           left join (select kc.column_name
+                        from ${dictionary("constraints")} k
+                        join ${dictionary("cons_columns")} kc on kc.constraint_name = k.constraint_name${own ? "" : " and kc.owner = k.owner"}
+                       where k.table_name = :APEXREST_TABLE and k.constraint_type = 'P'${ownedBy("k")}) p
+             on p.column_name = c.column_name
+          where c.table_name = :APEXREST_TABLE${ownedBy("c")}
+          order by c.column_id`,
+        { APEXREST_OWNER: owner2, APEXREST_TABLE: name }
+      );
+      columns = result.rows.map((row) => ({
+        name: String(row.COLUMN_NAME),
+        pk: row.IS_PK === "Y",
+        type: String(row.DATA_TYPE)
+      }));
+      this.#columns.set(key, columns);
+    }
+    return columns;
+  }
+  tableExists(table) {
+    return this.tableColumns(table).length > 0;
+  }
+  /** Oracle fills a key from an identity column, a default or an insert trigger; never max + 1. */
+  keySource(table, column2) {
+    const { owner: owner2, name } = this.#owned(table);
+    const key = `${owner2}.${name}.${column2.toUpperCase()}`;
+    let source = this.#keys.get(key);
+    if (!source) {
+      const own = owner2 === this.schema;
+      const found = this.scalar(
+        `select count(*) from ${own ? "user_tab_columns" : "all_tab_columns"}
+          where table_name = :APEXREST_TABLE and column_name = :APEXREST_COLUMN${own ? "" : " and owner = :APEXREST_OWNER"}
+            and (identity_column = 'YES' or default_length > 0)
+         union all
+         select count(*) from ${own ? "user_triggers" : "all_triggers"}
+          where table_name = :APEXREST_TABLE${own ? "" : " and table_owner = :APEXREST_OWNER"}
+            and triggering_event like '%INSERT%' and status = 'ENABLED'
+         order by 1 desc`,
+        { APEXREST_OWNER: owner2, APEXREST_TABLE: name, APEXREST_COLUMN: column2.toUpperCase() }
+      );
+      source = Number(found) > 0 ? "default" : "none";
+      this.#keys.set(key, source);
+    }
+    return source;
+  }
+  /** One PL/SQL unit with IN OUT binds, optional APEX session context and HTP capture. */
+  plsql(call) {
+    const after = call.after ?? {};
+    const declared = {
+      ...Object.fromEntries(Object.keys(after).map((name) => [name, null])),
+      ...call.binds,
+      [OUTPUT_BIND]: null,
+      ...call.htp ? { [HTP_BIND]: null } : {}
+    };
+    const parts = [declareBinds({ ...declared, [TX_BEFORE]: null, [TX_AFTER]: null })];
+    if (call.apex) parts.push(plsqlSegment(apexContextBlock(call.apex, call.binds)));
+    if (call.htp) parts.push(plsqlSegment(HTP_INIT_BLOCK));
+    parts.push(plsqlSegment(`begin
+  :${TX_BEFORE} := dbms_transaction.local_transaction_id(true);
+end;`));
+    const unit = parts.push(plsqlSegment(call.block)) - 1;
+    parts.push(plsqlSegment(`begin
+  :${TX_AFTER} := dbms_transaction.local_transaction_id;
+end;`));
+    if (Object.keys(after).length)
+      parts.push(
+        plsqlSegment(
+          `begin
+${Object.entries(after).map(([name, expression]) => `  :${bindName(name)} := ${expression};`).join("\n")}
+end;`
+        )
+      );
+    parts.push(plsqlSegment(DBMS_OUTPUT_BLOCK));
+    if (call.htp) parts.push(plsqlSegment(HTP_READ_BLOCK));
+    const names = [...Object.keys(declared), TX_BEFORE, TX_AFTER].map(bindName);
+    parts.push(selectBindsSegment(names));
+    const { texts, errors } = this.#run(parts);
+    const setup = errors.slice(0, unit).find(Boolean);
+    if (setup) throw setup;
+    const read = errors.at(-1);
+    if (read) throw read;
+    const row = jsonRows(texts.at(-1)).rows[0] ?? {};
+    const values = Object.fromEntries(names.map((name) => [name, text(row[name])]));
+    const ended = values[TX_BEFORE] !== values[TX_AFTER];
+    delete values[TX_BEFORE];
+    delete values[TX_AFTER];
+    const error = ended ? new OracleError(
+      -20997,
+      "The code ended the Oracle transaction (COMMIT, ROLLBACK or DDL); work done before that point may be committed"
+    ) : errors[unit];
+    return {
+      ...error ? { error } : {},
+      values,
+      output: values[OUTPUT_BIND] ?? "",
+      // owa.get_page starts with the CGI header block; dynamic content needs only the body.
+      htp: (values[HTP_BIND] ?? "").replace(/^(?:[\w-]+:[^\n]*\n)+\n/u, "")
+    };
+  }
+  /** Ends the preview request: everything it changed in Oracle is rolled back. */
+  endRequest() {
+    if (!this.#dirty) return;
+    this.#dirty = false;
+    const { errors } = this.#run(["rollback;"], false);
+    if (errors[0]) throw errors[0];
+  }
+  close() {
+    try {
+      this.endRequest();
+    } finally {
+      this.link.close();
+    }
+  }
+};
+function apexContextBlock(apex, binds) {
+  const items = Object.entries(binds).filter(([name]) => apex.items.has(name.toUpperCase())).map(([name]) => `  apex_util.set_session_state(${sqlText(name.toUpperCase())}, :${bindName(name)});`);
+  return `begin
+  apex_session.create_session(p_app_id => ${apex.applicationId}, p_page_id => ${apex.pageId}, p_username => ${sqlText(apex.user)});
+${items.join("\n")}
+end;`;
+}
+
+// packages/core/src/preview/oracle/bridge.ts
+import fs3 from "node:fs";
+import { fileURLToPath } from "node:url";
+import { MessageChannel, Worker, receiveMessageOnPort } from "node:worker_threads";
+function defaultWorker() {
+  const source = new URL("./worker.ts", import.meta.url);
+  if (fs3.existsSync(fileURLToPath(source))) return source;
+  return new URL("./preview-oracle-worker.mjs", import.meta.url);
+}
+var WorkerBridge = class {
+  #options;
+  #worker;
+  #port;
+  #flag = new Int32Array(new SharedArrayBuffer(4));
+  #id = 0;
+  constructor(options3) {
+    this.#options = options3;
+  }
+  #start() {
+    if (this.#worker && this.#port) return { worker: this.#worker, port: this.#port };
+    const channel = new MessageChannel();
+    const entry = this.#options.worker ?? defaultWorker();
+    const data = { settings: this.#options.settings, flag: this.#flag.buffer, port: channel.port2 };
+    const worker = entry instanceof URL ? new Worker(entry, { workerData: data, transferList: [channel.port2] }) : new Worker(entry.source, { eval: true, workerData: data, transferList: [channel.port2] });
+    worker.unref();
+    worker.on("error", () => this.#reset());
+    this.#worker = worker;
+    this.#port = channel.port1;
+    return { worker, port: channel.port1 };
+  }
+  #reset() {
+    void this.#worker?.terminate();
+    this.#port?.close();
+    this.#worker = void 0;
+    this.#port = void 0;
+  }
+  #call(request) {
+    const timeoutMs = this.#options.timeoutMs ?? 3e4;
+    const { worker, port } = this.#start();
+    const id = ++this.#id;
+    Atomics.store(this.#flag, 0, 0);
+    worker.postMessage({ id, input: request.input, timeoutMs, ...request.close ? { close: true } : {} });
+    const deadline = Date.now() + timeoutMs + (this.#options.graceMs ?? 15e3);
+    for (; ; ) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0 || Atomics.wait(this.#flag, 0, 0, remaining) === "timed-out") {
+        this.#reset();
+        throw new OracleError(
+          -20994,
+          `Oracle did not answer within ${Math.round(timeoutMs / 1e3)} s; the session was reset and its work rolled back`
+        );
+      }
+      let reply2 = receiveMessageOnPort(port)?.message;
+      while (reply2 && reply2.id !== id) reply2 = receiveMessageOnPort(port)?.message;
+      if (!reply2) {
+        Atomics.store(this.#flag, 0, 0);
+        continue;
+      }
+      if (!reply2.ok)
+        throw new OracleError(-20995, `Oracle session failed: ${reply2.error ?? "unknown error"}`);
+      return reply2.output ?? "";
+    }
+  }
+  run(input) {
+    return this.#call({ input });
+  }
+  close() {
+    if (!this.#worker) return;
+    try {
+      this.#call({ input: "", close: true });
+    } catch {
+    }
+    this.#reset();
+  }
+};
+
+// packages/core/src/preview/oracle/connect.ts
+async function workerSettings(connectionName) {
+  const adapter = new OracleAdapter();
+  const settings2 = await adapter.settings();
+  const env = {};
+  for (const [key, value2] of Object.entries({
+    ...process.env,
+    SQLPATH: "",
+    ORACLE_PATH: "",
+    JAVA_HOME: settings2.javaHome
+  }))
+    if (value2 !== void 0 && !["NODE_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"].includes(key))
+      env[key] = value2;
+  return {
+    executable: settings2.executable,
+    args: settings2.mode === "mcp" && settings2.mcpRestrictLevel === "4" ? ["-mcp"] : ["-R", "1", "-mcp"],
+    cwd: await adapter.sessionHome(),
+    env,
+    connectionName
+  };
+}
+async function connectOracle(root, name, link) {
+  const ctx = await loadProject(root);
+  const env = environment(ctx, name);
+  if (await isProductionTarget(env))
+    throw new Fault(
+      "PREVIEW_PRODUCTION_REFUSED",
+      `Environment ${name} is production; the connected preview runs only against DEV, QA or TEST targets.`,
+      4,
+      "blocked"
+    );
+  const connection = await resolveConnection(env.readConnectionRef);
+  if (!connection.name)
+    throw new Fault(
+      "PREVIEW_SQLCL_CONNECTION_REQUIRED",
+      `Connection ${env.readConnectionRef} has no SQLcl saved connection. The connected preview needs one session that holds a transaction; ORDS-only connections are not supported.`,
+      3,
+      "blocked"
+    );
+  const settings2 = await workerSettings(connection.name);
+  const data = new OracleAppData(link ? link(settings2) : new WorkerBridge({ settings: settings2 }), env.parsingSchema);
+  try {
+    const rows = data.query(targetIdentitySql, {
+      P_WORKSPACE: env.workspace,
+      P_APP_ID: env.applicationId
+    }).rows;
+    const identity = rows.filter((row) => row.TARGET_RECORD === "identity");
+    if (identity.length !== 1 || identity[0].DB_UNIQUE_NAME !== env.databaseIdentity.dbUniqueName || identity[0].SERVICE_NAME !== env.databaseIdentity.serviceName || identity[0].PARSING_SCHEMA !== env.parsingSchema)
+      throw new Fault(
+        "TARGET_MISMATCH",
+        `Connection ${env.readConnectionRef} does not match the database, service and parsing schema configured for ${name}.`,
+        5,
+        "conflict"
+      );
+    if (rows.filter((row) => row.TARGET_RECORD === "workspace").length !== 1)
+      throw new Fault(
+        "WORKSPACE_UNCONFIRMED",
+        `Workspace ${env.workspace} is absent or inaccessible.`,
+        4,
+        "blocked"
+      );
+    const application = rows.find(
+      (row) => row.TARGET_RECORD === "application" && row.WORKSPACE === env.workspace
+    );
+    const warnings = [];
+    let apex;
+    if (application) {
+      const items = data.query(
+        `select item_name from apex_application_page_items where application_id = :P_APP_ID
+         union
+         select item_name from apex_application_items where application_id = :P_APP_ID`,
+        { P_APP_ID: env.applicationId },
+        2e4
+      );
+      const pages2 = data.query(
+        "select page_id from apex_application_pages where application_id = :P_APP_ID order by page_id",
+        { P_APP_ID: env.applicationId },
+        2e4
+      );
+      apex = {
+        applicationId: env.applicationId,
+        items: new Set(items.rows.map((row) => String(row.ITEM_NAME).toUpperCase())),
+        pages: pages2.rows.map((row) => Number(row.PAGE_ID))
+      };
+    } else
+      warnings.push(
+        `Application ${env.applicationId} is not installed in workspace ${env.workspace}; database code runs without an APEX session, so v() returns NULL`
+      );
+    const autonomous = data.query(
+      `select distinct type || ' ' || name unit from all_source
+        where owner = :APEXREST_OWNER and upper(text) like '%AUTONOMOUS\\_TRANSACTION%' escape '\\'`,
+      { APEXREST_OWNER: env.parsingSchema },
+      200
+    );
+    if (autonomous.rows.length)
+      warnings.push(
+        `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(", ")}`
+      );
+    warnings.push(
+      "Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback"
+    );
+    data.endRequest();
+    return {
+      data,
+      environment: name,
+      target: `${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}`,
+      ...apex ? { apex } : {},
+      warnings
+    };
+  } catch (error) {
+    try {
+      data.close();
+    } catch {
+    }
+    throw error;
+  }
+}
+
 // packages/core/src/preview/server.ts
 import { randomUUID } from "node:crypto";
-import fs9 from "node:fs";
+import fs10 from "node:fs";
 import http from "node:http";
 import path11 from "node:path";
 
 // packages/core/src/preview/apexlang.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
+import fs4 from "node:fs";
+import path3 from "node:path";
 var ApexLangError = class extends Error {
   file;
   line;
@@ -396,18 +2546,18 @@ function unquote(raw2) {
   return raw2;
 }
 function scalar(raw2) {
-  const text9 = raw2.trim();
-  if (text9 === "true") return true;
-  if (text9 === "false") return false;
-  if (text9.startsWith('"') && text9.endsWith('"') && text9.length >= 2) return unquote(text9);
-  if (text9.length >= 2 && text9.startsWith("\\") && text9.endsWith("\\")) return text9.slice(1, -1);
-  if (/^@\S+$/u.test(text9) && !text9.endsWith("@")) {
-    return text9.startsWith("@/") ? { ref: text9.slice(2), global: true } : { ref: text9.slice(1), global: false };
+  const text10 = raw2.trim();
+  if (text10 === "true") return true;
+  if (text10 === "false") return false;
+  if (text10.startsWith('"') && text10.endsWith('"') && text10.length >= 2) return unquote(text10);
+  if (text10.length >= 2 && text10.startsWith("\\") && text10.endsWith("\\")) return text10.slice(1, -1);
+  if (/^@\S+$/u.test(text10) && !text10.endsWith("@")) {
+    return text10.startsWith("@/") ? { ref: text10.slice(2), global: true } : { ref: text10.slice(1), global: false };
   }
-  return text9;
+  return text10;
 }
-function inlineArray(text9) {
-  const body4 = text9.slice(1, -1).trim();
+function inlineArray(text10) {
+  const body4 = text10.slice(1, -1).trim();
   if (!body4) return [];
   const values = [];
   for (const match of body4.matchAll(/"(?:[^"\\]|\\.)*"|\S+/gu)) values.push(scalar(match[0]));
@@ -466,60 +2616,60 @@ function parseApexLang(source, file = "<memory>") {
     return body4.join("\n");
   };
   const readValue = (raw2) => {
-    const text9 = (raw2 ?? "").trim();
-    if (text9 === "") {
+    const text10 = (raw2 ?? "").trim();
+    if (text10 === "") {
       const next = (lines[index] ?? "").trim();
       if (next.startsWith("```")) return readFence();
       return "";
     }
-    if (text9 === "{") return readBlock("}");
-    if (text9 === "[") return readArray();
-    if (text9.startsWith("[") && text9.endsWith("]")) return inlineArray(text9);
-    if (text9.startsWith("```") && text9.endsWith("```") && text9.length >= 6) return text9.slice(3, -3);
-    return scalar(text9);
+    if (text10 === "{") return readBlock("}");
+    if (text10 === "[") return readArray();
+    if (text10.startsWith("[") && text10.endsWith("]")) return inlineArray(text10);
+    if (text10.startsWith("```") && text10.endsWith("```") && text10.length >= 6) return text10.slice(3, -3);
+    return scalar(text10);
   };
   const readArray = () => {
     const values = [];
     while (index < lines.length) {
-      const text9 = (lines[index] ?? "").trim();
+      const text10 = (lines[index] ?? "").trim();
       index += 1;
-      if (!text9) continue;
-      if (text9 === "]") return values;
-      if (text9 === "{") values.push(readBlock("}"));
-      else if (text9.startsWith("```")) {
+      if (!text10) continue;
+      if (text10 === "]") return values;
+      if (text10 === "{") values.push(readBlock("}"));
+      else if (text10.startsWith("```")) {
         index -= 1;
         values.push(readFence());
-      } else values.push(scalar(text9));
+      } else values.push(scalar(text10));
     }
     return fail("unterminated array");
   };
   function readBlock(close2, children2) {
     const props = {};
     while (index < lines.length) {
-      const text9 = (lines[index] ?? "").trim();
+      const text10 = (lines[index] ?? "").trim();
       const lineNumber = index + 1;
       index += 1;
-      if (!text9) continue;
-      if (text9 === close2) return props;
-      const property = PROPERTY.exec(text9);
+      if (!text10) continue;
+      if (text10 === close2) return props;
+      const property = PROPERTY.exec(text10);
       if (property) {
         props[unquote(property[1])] = readValue(property[2]);
         continue;
       }
-      const group2 = GROUP.exec(text9);
+      const group2 = GROUP.exec(text10);
       if (group2) {
         const nested = readBlock("}", children2);
         const existing = props[group2[1]];
         props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
         continue;
       }
-      const component = COMPONENT.exec(text9);
+      const component = COMPONENT.exec(text10);
       if (component && children2) {
         children2.push(readComponent(component[1], component[2] ?? "", lineNumber));
         continue;
       }
       index -= 1;
-      fail(`unexpected line: ${text9.slice(0, 120)}`);
+      fail(`unexpected line: ${text10.slice(0, 120)}`);
     }
     if (close2 === "") return props;
     return fail(`missing closing "${close2}"`);
@@ -531,14 +2681,14 @@ function parseApexLang(source, file = "<memory>") {
   }
   const components = [];
   while (index < lines.length) {
-    const text9 = (lines[index] ?? "").trim();
+    const text10 = (lines[index] ?? "").trim();
     const lineNumber = index + 1;
     index += 1;
-    if (!text9) continue;
-    const component = COMPONENT.exec(text9);
+    if (!text10) continue;
+    const component = COMPONENT.exec(text10);
     if (!component) {
       index -= 1;
-      fail(`expected a component declaration, found: ${text9.slice(0, 120)}`);
+      fail(`expected a component declaration, found: ${text10.slice(0, 120)}`);
     }
     components.push(readComponent(component[1], component[2] ?? "", lineNumber));
   }
@@ -578,16 +2728,16 @@ function list(props, dotted) {
   return value2 === void 0 || value2 === "" ? [] : [value2];
 }
 function walk(directory) {
-  if (!fs2.existsSync(directory)) return [];
-  return fs2.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const full = path2.join(directory, entry.name);
+  if (!fs4.existsSync(directory)) return [];
+  return fs4.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const full = path3.join(directory, entry.name);
     if (entry.isDirectory()) return entry.name === "static-files" ? [] : walk(full);
     return entry.name.endsWith(".apx") ? [full] : [];
   });
 }
 function deploymentSubstitutions(root, deployment) {
-  const file = path2.join(root, "deployments", `${deployment}.json`);
-  if (!fs2.existsSync(file)) return {};
+  const file = path3.join(root, "deployments", `${deployment}.json`);
+  if (!fs4.existsSync(file)) return {};
   const values = {};
   const collect = (value2) => {
     if (!value2 || typeof value2 !== "object") return;
@@ -598,27 +2748,27 @@ function deploymentSubstitutions(root, deployment) {
     }
   };
   try {
-    collect(JSON.parse(fs2.readFileSync(file, "utf8")));
+    collect(JSON.parse(fs4.readFileSync(file, "utf8")));
   } catch {
     return {};
   }
   return values;
 }
 function loadApplication(root, deployment = "default") {
-  const appFile = path2.join(root, "application.apx");
-  if (!fs2.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
+  const appFile = path3.join(root, "application.apx");
+  if (!fs4.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
   const substitutions = deploymentSubstitutions(root, deployment);
   const files = walk(root).sort();
   const pages2 = /* @__PURE__ */ new Map();
   const shared3 = [];
   let app;
   for (const file of files) {
-    const relative = path2.relative(root, file);
-    const text9 = fs2.readFileSync(file, "utf8").replace(
+    const relative = path3.relative(root, file);
+    const text10 = fs4.readFileSync(file, "utf8").replace(
       /@([A-Z][A-Z0-9_]*)@/gu,
-      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path2.basename(root).toLowerCase() : name === "APP_NAME" ? path2.basename(root) : whole)
+      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path3.basename(root).toLowerCase() : name === "APP_NAME" ? path3.basename(root) : whole)
     );
-    for (const component of parseApexLang(text9, relative)) {
+    for (const component of parseApexLang(text10, relative)) {
       if (component.type === "app") app = component;
       else if (component.type === "page") pages2.set(component.id, component);
       else shared3.push(component);
@@ -1010,9 +3160,9 @@ window.apexLocal = (function ($) {
 `;
 
 // packages/core/src/preview/properties.ts
-import fs3 from "node:fs";
-import path3 from "node:path";
-import { fileURLToPath } from "node:url";
+import fs5 from "node:fs";
+import path4 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 var CHECKED = /* @__PURE__ */ new Set([
   "page",
   "region",
@@ -1050,15 +3200,15 @@ var STRUCTURED_TYPES = /* @__PURE__ */ new Set([
 var ENUMERATED_TYPES = /* @__PURE__ */ new Set(["SELECT LIST", "PILL BUTTONS", "CHECKBOXES", "selectList", "checkboxes"]);
 var cached;
 function catalogFile() {
-  const here = path3.dirname(fileURLToPath(import.meta.url));
+  const here = path4.dirname(fileURLToPath2(import.meta.url));
   const candidates = [
     process.env.APEXREST_RESOURCES,
-    path3.resolve(here, "../resources"),
-    path3.resolve(here, "../../../../resources")
+    path4.resolve(here, "../resources"),
+    path4.resolve(here, "../../../../resources")
   ].filter((entry) => Boolean(entry));
   for (const root of candidates) {
-    const file = path3.join(root, "components", "source", "parameters.json");
-    if (fs3.existsSync(file)) return file;
+    const file = path4.join(root, "components", "source", "parameters.json");
+    if (fs5.existsSync(file)) return file;
   }
   return void 0;
 }
@@ -1120,7 +3270,7 @@ function loadCatalog() {
   if (cached !== void 0) return cached;
   const file = catalogFile();
   try {
-    cached = file ? buildCatalog(JSON.parse(fs3.readFileSync(file, "utf8"))) : null;
+    cached = file ? buildCatalog(JSON.parse(fs5.readFileSync(file, "utf8"))) : null;
   } catch {
     cached = null;
   }
@@ -1204,1706 +3354,6 @@ function checkValue(context, dotted, value2, entry, type, report2) {
     }
   }
 }
-
-// packages/core/src/preview/database.ts
-import crypto2 from "node:crypto";
-import fs4 from "node:fs";
-import path4 from "node:path";
-import { DatabaseSync } from "node:sqlite";
-var MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December"
-];
-var DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-function oracleDate(value2) {
-  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
-  if (typeof value2 === "number") {
-    const date2 = new Date(value2);
-    return Number.isNaN(date2.getTime()) ? void 0 : date2;
-  }
-  const raw2 = String(value2).trim();
-  const oracle = /^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u.exec(raw2);
-  if (oracle) {
-    const month = MONTH_NAMES.findIndex(
-      (name) => name.slice(0, 3).toUpperCase() === oracle[2].toUpperCase()
-    );
-    const year = Number(oracle[3].length === 2 ? `20${oracle[3]}` : oracle[3]);
-    if (month >= 0)
-      return new Date(
-        year,
-        month,
-        Number(oracle[1]),
-        Number(oracle[4] ?? 0),
-        Number(oracle[5] ?? 0),
-        Number(oracle[6] ?? 0)
-      );
-  }
-  const date = new Date(/^\d{4}-\d{2}-\d{2}$/u.test(raw2) ? `${raw2}T00:00:00` : raw2.replace(" ", "T"));
-  return Number.isNaN(date.getTime()) ? void 0 : date;
-}
-var pad = (value2, size = 2) => String(value2).padStart(size, "0");
-function isoDate(date, time = true) {
-  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return time ? `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` : day;
-}
-var DATE_TOKENS = [
-  "SSSSS",
-  "SYYYY",
-  "MONTH",
-  "A.M.",
-  "P.M.",
-  "HH24",
-  "HH12",
-  "RRRR",
-  "YYYY",
-  "IYYY",
-  "YYY",
-  "DDD",
-  "DAY",
-  "MON",
-  "TZR",
-  "TZH",
-  "TZM",
-  "FF1",
-  "FF2",
-  "FF3",
-  "FF4",
-  "FF5",
-  "FF6",
-  "FF7",
-  "FF8",
-  "FF9",
-  "FF",
-  "YY",
-  "RR",
-  "MM",
-  "DD",
-  "DY",
-  "HH",
-  "MI",
-  "SS",
-  "AM",
-  "PM",
-  "FM",
-  "WW",
-  "IW",
-  "Y",
-  "D",
-  "Q",
-  "W",
-  "J"
-];
-function isoWeek(date) {
-  const target2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = (target2.getDay() + 6) % 7;
-  target2.setDate(target2.getDate() - day + 3);
-  const first = new Date(target2.getFullYear(), 0, 4);
-  return 1 + Math.round(((target2.getTime() - first.getTime()) / 864e5 - 3 + (first.getDay() + 6) % 7) / 7);
-}
-var dayOfYear = (date) => Math.floor(
-  (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 1)) / 864e5
-) + 1;
-function formatDate(date, mask2) {
-  let out = "";
-  let fm = false;
-  for (let index = 0; index < mask2.length; ) {
-    if (mask2[index] === '"') {
-      const end = mask2.indexOf('"', index + 1);
-      out += mask2.slice(index + 1, end < 0 ? mask2.length : end);
-      index = end < 0 ? mask2.length : end + 1;
-      continue;
-    }
-    const token = DATE_TOKENS.find(
-      (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
-    );
-    if (!token) {
-      out += mask2[index];
-      index += 1;
-      continue;
-    }
-    const raw2 = mask2.slice(index, index + token.length);
-    index += token.length;
-    const number2 = (value2, width) => fm ? String(value2) : pad(value2, width);
-    const cased = (word) => raw2 === raw2.toUpperCase() ? word.toUpperCase() : raw2[0] === raw2[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
-    const hours12 = date.getHours() % 12 || 12;
-    switch (token) {
-      case "FM":
-        fm = !fm;
-        break;
-      case "YYYY":
-      case "SYYYY":
-      case "RRRR":
-      case "IYYY":
-        out += String(date.getFullYear());
-        break;
-      case "YYY":
-        out += pad(date.getFullYear() % 1e3, 3);
-        break;
-      case "YY":
-      case "RR":
-        out += pad(date.getFullYear() % 100);
-        break;
-      case "Y":
-        out += String(date.getFullYear() % 10);
-        break;
-      case "MONTH":
-        out += cased(MONTH_NAMES[date.getMonth()]);
-        break;
-      case "MON":
-        out += cased(MONTH_NAMES[date.getMonth()].slice(0, 3));
-        break;
-      case "MM":
-        out += number2(date.getMonth() + 1, 2);
-        break;
-      case "DDD":
-        out += number2(dayOfYear(date), 3);
-        break;
-      case "DD":
-        out += number2(date.getDate(), 2);
-        break;
-      case "DAY":
-        out += cased(DAY_NAMES[date.getDay()]);
-        break;
-      case "DY":
-        out += cased(DAY_NAMES[date.getDay()].slice(0, 3));
-        break;
-      case "D":
-        out += String(date.getDay() + 1);
-        break;
-      case "HH24":
-        out += number2(date.getHours(), 2);
-        break;
-      case "HH12":
-      case "HH":
-        out += number2(hours12, 2);
-        break;
-      case "MI":
-        out += number2(date.getMinutes(), 2);
-        break;
-      case "SS":
-        out += number2(date.getSeconds(), 2);
-        break;
-      case "SSSSS":
-        out += String(date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds());
-        break;
-      case "AM":
-      case "PM":
-        out += cased(date.getHours() < 12 ? "AM" : "PM");
-        break;
-      case "A.M.":
-      case "P.M.":
-        out += cased(date.getHours() < 12 ? "A.M." : "P.M.");
-        break;
-      case "Q":
-        out += String(Math.floor(date.getMonth() / 3) + 1);
-        break;
-      case "WW":
-        out += number2(Math.floor((dayOfYear(date) - 1) / 7) + 1, 2);
-        break;
-      case "IW":
-        out += number2(isoWeek(date), 2);
-        break;
-      case "W":
-        out += String(Math.floor((date.getDate() - 1) / 7) + 1);
-        break;
-      case "J":
-        out += String(Math.floor(date.getTime() / 864e5 + 24405875e-1));
-        break;
-      case "TZR":
-      case "TZH":
-      case "TZM":
-        break;
-      default:
-        out += pad(date.getMilliseconds(), 3).padEnd(9, "0").slice(0, Number(token.slice(2) || 6));
-    }
-  }
-  return out;
-}
-function formatNumber(value2, upper4) {
-  const number2 = Number(value2);
-  if (!Number.isFinite(number2)) return String(value2);
-  if (/X/u.test(upper4))
-    return Math.round(number2).toString(16)[upper4.includes("x") ? "toLowerCase" : "toUpperCase"]();
-  const body4 = upper4.replace(/^FM/u, "").replace(/^[L$S]/u, "").replace(/(MI|PR|S)$/u, "");
-  const [whole = "", fraction = ""] = body4.split(/[D.]/u);
-  const decimals = fraction.replace(/[^09]/gu, "").length;
-  const zeros = whole.includes("0") ? whole.slice(whole.indexOf("0")).replace(/[^09]/gu, "").length : 0;
-  let text9 = Math.abs(number2).toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-    minimumIntegerDigits: Math.max(1, zeros),
-    useGrouping: /[G,]/u.test(whole)
-  });
-  if (!zeros && !decimals && text9 === "0" && whole && !whole.includes("0")) text9 = "0";
-  if (!zeros && text9.startsWith("0.") && !whole.includes("0") && whole) text9 = text9.slice(1);
-  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text9 = `$${text9}`;
-  if (number2 < 0) return upper4.endsWith("MI") ? `${text9}-` : upper4.endsWith("PR") ? `<${text9}>` : `-${text9}`;
-  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text9}` : text9;
-}
-function oracleNumberText(value2) {
-  if (Number.isNaN(value2)) return "NaN";
-  if (!Number.isFinite(value2)) return value2 > 0 ? "~" : "-~";
-  if (Number.isInteger(value2)) return Math.abs(value2) < 1e21 ? String(value2 || 0) : BigInt(value2).toString();
-  const rounded = Number(value2.toPrecision(15));
-  if (Number.isInteger(rounded)) return String(rounded || 0);
-  let text9 = String(rounded);
-  if (/e/iu.test(text9)) {
-    const exponent = Number(text9.split(/e/iu)[1]);
-    text9 = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, "");
-  }
-  return text9.replace(/^(-?)0\./u, "$1.");
-}
-function oracleText(value2) {
-  if (value2 === null || value2 === void 0) return null;
-  if (typeof value2 === "number") return oracleNumberText(value2);
-  if (typeof value2 === "bigint") return value2.toString();
-  return String(value2);
-}
-function decimalNumber(value2) {
-  return Number.isFinite(value2) && !Number.isInteger(value2) ? Number(value2.toPrecision(15)) : value2;
-}
-var DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
-function arithmeticNumber(value2) {
-  if (typeof value2 === "number") return value2;
-  if (typeof value2 === "bigint") return Number(value2);
-  if (typeof value2 !== "string" || value2.trim() === "") return void 0;
-  const number2 = Number(value2.trim());
-  return Number.isFinite(number2) ? number2 : void 0;
-}
-function arithmeticDate(value2) {
-  if (typeof value2 !== "string" || arithmeticNumber(value2) !== void 0) return void 0;
-  const text9 = value2.trim();
-  return DATE_TEXT.test(text9) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text9) ? oracleDate(text9) : void 0;
-}
-var sqlNumber = (value2) => Number.isSafeInteger(value2) ? BigInt(value2) : decimalNumber(value2);
-function sqlArithmetic(left, operator, right) {
-  if (left === null || left === void 0 || right === null || right === void 0) return null;
-  const leftDate = arithmeticDate(left);
-  const rightDate = arithmeticDate(right);
-  if (leftDate && rightDate && operator === "-") {
-    const utc = (date2) => Date.UTC(
-      date2.getFullYear(),
-      date2.getMonth(),
-      date2.getDate(),
-      date2.getHours(),
-      date2.getMinutes(),
-      date2.getSeconds()
-    );
-    return sqlNumber((utc(leftDate) - utc(rightDate)) / 864e5);
-  }
-  const date = leftDate ?? (operator === "+" ? rightDate : void 0);
-  if (date) {
-    const days = arithmeticNumber(leftDate ? right : left);
-    if (days === void 0) return null;
-    const signed = operator === "-" ? -days : days;
-    const whole = Math.trunc(signed);
-    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
-    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
-    result.setTime(result.getTime() + Math.round((signed - whole) * 86400) * 1e3);
-    const source = String(leftDate ? left : right);
-    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
-    return isoDate(result, Boolean(timed));
-  }
-  const a = arithmeticNumber(left);
-  const b = arithmeticNumber(right);
-  if (a === void 0 || b === void 0) return null;
-  return sqlNumber(operator === "-" ? a - b : a + b);
-}
-function parseJsonPath(path13) {
-  const text9 = path13.trim().replace(/^(?:lax|strict)\s+/iu, "");
-  if (!text9.startsWith("$")) return void 0;
-  const steps = [];
-  let index = 1;
-  while (index < text9.length) {
-    const rest = text9.slice(index);
-    let match;
-    if (match = /^\.\*/u.exec(rest)) steps.push({ kind: "any" });
-    else if (match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest)) steps.push({ kind: "field", name: match[1] });
-    else if (match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest))
-      steps.push({ kind: "field", name: match[1].replace(/\\(.)/gu, "$1") });
-    else if (match = /^\[\s*\*\s*\]/u.exec(rest)) steps.push({ kind: "all" });
-    else if (match = /^\[([^\]]*)\]/u.exec(rest)) {
-      const position2 = (part2) => part2.trim().toLowerCase() === "last" ? "last" : Number(part2);
-      const indexes = match[1].split(",").map((part2) => {
-        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part2.trim());
-        return range ? [position2(range[1]), position2(range[2])] : position2(part2);
-      });
-      if (indexes.some((entry) => typeof entry === "number" && !Number.isInteger(entry))) return void 0;
-      steps.push({ kind: "index", indexes });
-    } else return void 0;
-    index += match[0].length;
-  }
-  return steps;
-}
-function jsonMatches(doc, pathText) {
-  if (doc === null || doc === void 0 || pathText === null || pathText === void 0) return void 0;
-  const steps = parseJsonPath(String(pathText));
-  if (!steps) return void 0;
-  let data;
-  try {
-    data = typeof doc === "string" ? JSON.parse(doc) : doc;
-  } catch {
-    return void 0;
-  }
-  let current3 = [data];
-  for (const step of steps) {
-    const next = [];
-    for (const value2 of current3) {
-      if (step.kind === "field" || step.kind === "any") {
-        for (const target2 of Array.isArray(value2) ? value2 : [value2]) {
-          if (!target2 || typeof target2 !== "object" || Array.isArray(target2)) continue;
-          if (step.kind === "any") next.push(...Object.values(target2));
-          else if (Object.hasOwn(target2, step.name))
-            next.push(target2[step.name]);
-        }
-      } else {
-        const array = Array.isArray(value2) ? value2 : [value2];
-        if (step.kind === "all") {
-          next.push(...array);
-          continue;
-        }
-        const resolve = (entry) => entry === "last" ? array.length - 1 : entry;
-        for (const entry of step.indexes) {
-          if (Array.isArray(entry)) {
-            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
-              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
-          } else {
-            const at = resolve(entry);
-            if (at >= 0 && at < array.length) next.push(array[at]);
-          }
-        }
-      }
-    }
-    current3 = next;
-  }
-  return current3;
-}
-function jsonValue(doc, pathText, returning) {
-  const matches3 = jsonMatches(doc, pathText);
-  if (!matches3 || matches3.length !== 1) return null;
-  const value2 = matches3[0];
-  if (value2 === null || typeof value2 === "object") return null;
-  if (returning === "number" || returning === "integer" || returning === "float" || returning === "binary_double") {
-    const number2 = Number(value2);
-    return Number.isFinite(number2) ? number2 : null;
-  }
-  if (typeof value2 === "number") return oracleNumberText(value2);
-  return String(value2);
-}
-function jsonQuery(doc, pathText, wrapper) {
-  const matches3 = jsonMatches(doc, pathText);
-  if (!matches3?.length) return null;
-  if (wrapper) return JSON.stringify(matches3);
-  if (matches3.length !== 1 || matches3[0] === null || typeof matches3[0] !== "object") return null;
-  return JSON.stringify(matches3[0]);
-}
-var POSIX_CLASSES = {
-  alpha: "a-zA-Z",
-  digit: "0-9",
-  alnum: "a-zA-Z0-9",
-  upper: "A-Z",
-  lower: "a-z",
-  space: "\\s",
-  blank: " \\t",
-  punct: "!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~",
-  xdigit: "0-9A-Fa-f",
-  cntrl: "\\x00-\\x1f\\x7f",
-  print: "\\x20-\\x7e",
-  graph: "\\x21-\\x7e",
-  word: "\\w"
-};
-function oracleRegExp(pattern, matchParameter = "", global = false) {
-  let ignoreCase = false;
-  let dotAll = false;
-  let multiline = false;
-  let extended = false;
-  for (const flag3 of matchParameter) {
-    if (flag3 === "i") ignoreCase = true;
-    else if (flag3 === "c") ignoreCase = false;
-    else if (flag3 === "n") dotAll = true;
-    else if (flag3 === "m") multiline = true;
-    else if (flag3 === "x") extended = true;
-  }
-  let source = "";
-  let inClass = false;
-  for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index];
-    if (char === "\\") {
-      source += pattern.slice(index, index + 2);
-      index += 1;
-      continue;
-    }
-    if (inClass) {
-      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
-      if (posix && POSIX_CLASSES[posix[1]] !== void 0) {
-        source += POSIX_CLASSES[posix[1]];
-        index += posix[0].length - 1;
-        continue;
-      }
-      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
-      if (equivalence) {
-        source += equivalence[1].replace(/[\\\]^-]/u, "\\$&");
-        index += equivalence[0].length - 1;
-        continue;
-      }
-      if (char === "]") inClass = false;
-      else if (char === "[") {
-        source += "\\[";
-        continue;
-      }
-      source += char;
-      continue;
-    }
-    if (char === "[") {
-      inClass = true;
-      source += char;
-      if (pattern[index + 1] === "^") {
-        source += "^";
-        index += 1;
-      }
-      if (pattern[index + 1] === "]") {
-        source += "\\]";
-        index += 1;
-      }
-      continue;
-    }
-    if (extended && /\s/u.test(char)) continue;
-    source += char;
-  }
-  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}${dotAll ? "s" : ""}${multiline ? "m" : ""}`;
-  try {
-    return new RegExp(source, `${flags}u`);
-  } catch {
-    return new RegExp(source, flags);
-  }
-}
-function formatOracle(value2, mask2) {
-  if (value2 === null || value2 === void 0) return null;
-  if (!mask2) return oracleText(value2);
-  const upper4 = mask2.trim().toUpperCase();
-  if (upper4 === "TM" || upper4 === "TM9" || upper4 === "TME")
-    return value2 === "" ? null : oracleNumberText(Number(value2));
-  if (/[90X]/u.test(upper4) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper4))
-    return formatNumber(value2, upper4);
-  if (upper4 === "DS" || upper4 === "DL") {
-    const date2 = oracleDate(value2);
-    if (!date2) return String(value2);
-    return upper4 === "DS" ? date2.toLocaleDateString("en-US") : date2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  }
-  const date = oracleDate(value2);
-  return date ? formatDate(date, mask2) : String(value2);
-}
-function parseOracleDate(value2, mask2) {
-  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
-  if (!mask2) return oracleDate(value2);
-  const source = String(value2).trim();
-  const parts = {
-    year: (/* @__PURE__ */ new Date()).getFullYear(),
-    month: 0,
-    day: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    pm: false
-  };
-  let position2 = 0;
-  const digits = (max) => {
-    const match = new RegExp(`^\\d{1,${max}}`, "u").exec(source.slice(position2));
-    if (!match) throw new Error("mismatch");
-    position2 += match[0].length;
-    return Number(match[0]);
-  };
-  try {
-    for (let index = 0; index < mask2.length; ) {
-      const token = DATE_TOKENS.find(
-        (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
-      );
-      if (!token) {
-        index += 1;
-        if (/[^\w]/u.test(source[position2] ?? "")) position2 += 1;
-        continue;
-      }
-      index += token.length;
-      switch (token) {
-        case "YYYY":
-        case "RRRR":
-        case "SYYYY":
-          parts.year = digits(4);
-          break;
-        case "YY":
-        case "RR": {
-          const year = digits(2);
-          parts.year = year < 50 ? 2e3 + year : 1900 + year;
-          break;
-        }
-        case "MM":
-          parts.month = digits(2) - 1;
-          break;
-        case "MON":
-        case "MONTH": {
-          const word = /^[A-Za-z]+/u.exec(source.slice(position2))?.[0] ?? "";
-          position2 += word.length;
-          parts.month = MONTH_NAMES.findIndex(
-            (name) => name.slice(0, 3).toUpperCase() === word.slice(0, 3).toUpperCase()
-          );
-          if (parts.month < 0) throw new Error("mismatch");
-          break;
-        }
-        case "DD":
-          parts.day = digits(2);
-          break;
-        case "HH24":
-        case "HH":
-        case "HH12":
-          parts.hour = digits(2);
-          break;
-        case "MI":
-          parts.minute = digits(2);
-          break;
-        case "SS":
-          parts.second = digits(2);
-          break;
-        case "AM":
-        case "PM":
-          parts.pm = /^p/iu.test(source.slice(position2));
-          position2 += 2;
-          break;
-        default:
-          break;
-      }
-    }
-  } catch {
-    return oracleDate(value2);
-  }
-  const hour = parts.pm && parts.hour < 12 ? parts.hour + 12 : parts.hour;
-  const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
-  return Number.isNaN(date.getTime()) ? void 0 : date;
-}
-function canonicalDate(value2, mask2) {
-  const text9 = value2.trim();
-  if (text9 === "") return value2;
-  const date = DATE_TEXT.test(text9) ? oracleDate(text9) : parseOracleDate(text9, mask2);
-  return date ? isoDate(date) : value2;
-}
-function truncDate(date, unit = "DD") {
-  const upper4 = unit.toUpperCase();
-  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  if (["YYYY", "YEAR", "SYYYY", "YYY", "YY", "Y", "RRRR", "RR", "IYYY"].includes(upper4))
-    result.setMonth(0, 1);
-  else if (["MM", "MON", "MONTH", "RM"].includes(upper4)) result.setDate(1);
-  else if (upper4 === "Q") result.setMonth(Math.floor(date.getMonth() / 3) * 3, 1);
-  else if (upper4 === "IW") result.setDate(result.getDate() - (result.getDay() + 6) % 7);
-  else if (["DAY", "DY", "D"].includes(upper4)) result.setDate(result.getDate() - result.getDay());
-  else if (["HH", "HH24", "HH12"].includes(upper4)) {
-    result.setHours(date.getHours());
-    return isoDate(result);
-  } else if (upper4 === "MI") {
-    result.setHours(date.getHours(), date.getMinutes());
-    return isoDate(result);
-  }
-  return isoDate(result, false);
-}
-var oracleFunctions = /* @__PURE__ */ new Map();
-function registerOracleFunction(name, params2, impl, options3) {
-  const key = name.toLowerCase();
-  oracleFunctions.set(key, {
-    sqlName: key.replaceAll(".", "__"),
-    params: params2,
-    impl,
-    blobs: options3?.blobs ?? false
-  });
-}
-var tableFunctions = /* @__PURE__ */ new Map();
-function registerTableFunction(name, params2, columns, impl) {
-  const key = name.toLowerCase();
-  const upper4 = columns.map((column2) => column2.toUpperCase());
-  registerOracleFunction(
-    name,
-    params2,
-    (args) => JSON.stringify(impl(args).map((row) => upper4.map((column2) => row[column2] ?? null))),
-    { blobs: true }
-  );
-  tableFunctions.set(key.replaceAll(".", "__"), { columns: upper4 });
-}
-var databaseSetups = [];
-function registerDatabaseSetup(setup) {
-  databaseSetups.push(setup);
-}
-var MASK = /\u0000(\d+)\u0000/gu;
-function maskLiterals(sql) {
-  const literals = [];
-  const text9 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
-    literals.push(literal2);
-    return `\0${literals.length - 1}\0`;
-  });
-  return { text: text9, literals };
-}
-var unmask = (text9, literals) => text9.replace(MASK, (_match, index) => literals[Number(index)]);
-function closingParen(text9, open2) {
-  let depth = 0;
-  for (let index = open2; index < text9.length; index += 1) {
-    if (text9[index] === "(") depth += 1;
-    else if (text9[index] === ")") {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function topLevelCommas(text9) {
-  const parts = [];
-  let depth = 0;
-  let current3 = "";
-  for (const char of text9) {
-    if (char === "(") depth += 1;
-    if (char === ")") depth -= 1;
-    if (char === "," && depth === 0) {
-      parts.push(current3);
-      current3 = "";
-    } else current3 += char;
-  }
-  if (current3.trim() || parts.length) parts.push(current3);
-  return parts;
-}
-function rewritePackageCalls(text9) {
-  const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
-    const fn = oracleFunctions.get(`${match[1].toLowerCase()}.${match[2].toLowerCase()}`);
-    if (!fn) continue;
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text9, open2);
-    if (close2 < 0) continue;
-    const args = topLevelCommas(rewritePackageCalls(text9.slice(open2 + 1, close2)));
-    const positional = [];
-    for (const arg of args) {
-      const named2 = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
-      if (!named2) positional.push(arg.trim());
-      else {
-        const index = fn.params.indexOf(named2[1].toLowerCase());
-        if (index >= 0) positional[index] = named2[2].trim();
-      }
-    }
-    out += `${text9.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
-    last = close2 + 1;
-    pattern.lastIndex = close2 + 1;
-  }
-  return out + text9.slice(last);
-}
-var TABLE_FUNCTIONS = {
-  "apex_util.get_timeframe_lov_data": [
-    ["Last 15 Minutes", 900],
-    ["Last Hour", 3600],
-    ["Last 2 Hours", 7200],
-    ["Last 4 Hours", 14400],
-    ["Last 8 Hours", 28800],
-    ["Last 16 Hours", 57600],
-    ["Last Day", 86400],
-    ["Last 2 Days", 172800],
-    ["Last 3 Days", 259200],
-    ["Last 4 Days", 345600],
-    ["Last 5 Days", 432e3],
-    ["Last Week", 604800],
-    ["Last 2 Weeks", 1209600],
-    ["Last 4 Weeks", 2419200]
-  ].map(([disp, val], index) => `select '${disp}' as disp, ${val} as val, ${index + 1} as insert_order`).join(" union all ")
-};
-function rewriteTableCollections(text9) {
-  const pattern = /\btable\s*\(/giu;
-  const lateral = [];
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text9, open2);
-    if (close2 < 0) continue;
-    const inner = text9.slice(open2 + 1, close2).trim();
-    const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, "")];
-    const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? "");
-    if (registered) {
-      const alias = /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
-        text9.slice(close2 + 1)
-      );
-      const columns = registered.columns.map((column2, index) => `json_extract(value, '$[${index}]') as ${column2.toLowerCase()}`).join(", ");
-      const args = inner.slice(inner.indexOf("(") + 1, -1);
-      if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
-        out += `${text9.slice(last, match.index)}json_each(${inner})`;
-        last = close2 + 1;
-        lateral.push({ alias: alias[1], columns: registered.columns });
-      } else {
-        out += `${text9.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
-        last = close2 + 1;
-      }
-      pattern.lastIndex = close2 + 1;
-      continue;
-    }
-    out += builtin ? `${text9.slice(last, match.index)}(${builtin})` : `${text9.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
-    last = close2 + 1;
-    pattern.lastIndex = close2 + 1;
-  }
-  out += text9.slice(last);
-  for (const { alias, columns } of lateral) {
-    out = out.replace(
-      new RegExp(
-        `(\\bselect\\s+(?:distinct\\s+)?|,\\s*)(${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*))(?=\\s*(?:,|\\bfrom\\b))`,
-        "giu"
-      ),
-      (whole, lead, reference, column2) => columns.includes(column2.toUpperCase()) ? `${lead}${reference} as ${column2}` : whole
-    );
-    out = out.replace(
-      new RegExp(`\\b${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*)\\b`, "giu"),
-      (whole, column2) => {
-        const index = columns.indexOf(column2.toUpperCase());
-        return index < 0 ? whole : `json_extract(${alias}.value, '$[${index}]')`;
-      }
-    );
-  }
-  return out;
-}
-function rewriteRownum(text9) {
-  if (!/\brownum\b/iu.test(text9)) return text9;
-  const predicate2 = /\b(where|and)\s+rownum\s*(<=|<|=)\s*(\d+|:\w+)\s*(and\b)?/giu;
-  for (const match of [...text9.matchAll(predicate2)].reverse()) {
-    let depth = 0;
-    let scopeEnd = text9.length;
-    for (let index = match.index + match[0].length; index < text9.length; index += 1) {
-      if (text9[index] === "(") depth += 1;
-      else if (text9[index] === ")") {
-        if (depth === 0) {
-          scopeEnd = index;
-          break;
-        }
-        depth -= 1;
-      }
-    }
-    const tail = text9.slice(match.index + match[0].length, scopeEnd);
-    if (/\blimit\b/iu.test(tail)) continue;
-    const [, keyword, op, bound, trailingAnd] = match;
-    const limit = op === "<" ? /^\d+$/u.test(bound) ? String(Number(bound) - 1) : `${bound} - 1` : op === "=" ? "1" : bound;
-    const replacement = keyword.toLowerCase() === "where" ? trailingAnd ? "where " : "" : trailingAnd ? "and " : "";
-    text9 = `${text9.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text9.slice(scopeEnd)}`;
-  }
-  return text9.replace(/\brownum\b/giu, "row_number() over ()");
-}
-function rewriteConnectBy(text9) {
-  const pattern = /(\bfrom\s+[\w$#.]+(?:\s+(?!connect\b)[\w$#]+)?\s+)?\bconnect\s+by\s+(?:level|rownum)\s*(<=|<)\s*/giu;
-  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
-    let depth = 0;
-    let end = match.index + match[0].length;
-    for (; end < text9.length; end += 1) {
-      const char = text9[end];
-      if (char === "(") depth += 1;
-      else if (char === ")") {
-        if (depth === 0) break;
-        depth -= 1;
-      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text9.slice(end, end + 12)))
-        break;
-    }
-    const bound = text9.slice(match.index + match[0].length, end).trim();
-    const generator = `(with recursive apex_local_levels(level) as (select 1 union all select level + 1 from apex_local_levels where level < (${bound})${match[2] === "<" ? " - 1" : ""}) select level from apex_local_levels)`;
-    const replacement = match[1] ? `${match[1].trimEnd()}, ${generator} ` : `from ${generator} `;
-    text9 = text9.slice(0, match.index) + replacement + text9.slice(end);
-    pattern.lastIndex = match.index + replacement.length;
-  }
-  return text9;
-}
-var SQL_TOKEN = /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
-function tokenizeSql(text9) {
-  const tokens = [];
-  SQL_TOKEN.lastIndex = 0;
-  let position2 = 0;
-  for (let match = SQL_TOKEN.exec(text9); match && match[2]; match = SQL_TOKEN.exec(text9)) {
-    const value2 = match[2];
-    const kind = value2.startsWith("\0") ? "literal" : /^[\d.]/u.test(value2) && value2 !== "." ? "number" : /^:[\w]/u.test(value2) ? "bind" : /^[A-Za-z_"]/u.test(value2) ? "word" : "op";
-    tokens.push({ pre: match[1], text: value2, kind });
-    position2 = SQL_TOKEN.lastIndex;
-  }
-  return { tokens, tail: text9.slice(position2) };
-}
-var renderTokens = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("");
-var SQL_KEYWORDS = new Set(
-  "select from where and or not when then else end as on by group order having union all intersect minus except in is like between escape asc desc nulls limit offset join left right inner outer cross natural into values set distinct exists over within partition using with recursive returning default collate glob regexp isnull notnull prior connect interval return".split(" ")
-);
-var isOpToken = (token, ...values) => token?.kind === "op" && values.includes(token.text);
-var isWordToken = (token, ...values) => token?.kind === "word" && values.includes(token.text.toLowerCase());
-function matchForward(tokens, open2) {
-  let depth = 0;
-  for (let index = open2; index < tokens.length; index += 1) {
-    if (isOpToken(tokens[index], "(")) depth += 1;
-    else if (isOpToken(tokens[index], ")")) {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function matchBackward(tokens, close2) {
-  let depth = 0;
-  for (let index = close2; index >= 0; index -= 1) {
-    if (isOpToken(tokens[index], ")")) depth += 1;
-    else if (isOpToken(tokens[index], "(")) {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function callSuffix(tokens, end) {
-  for (; ; ) {
-    const next = tokens[end + 1];
-    if (isWordToken(next, "over", "keep", "filter") && isOpToken(tokens[end + 2], "(")) {
-      const close2 = matchForward(tokens, end + 2);
-      if (close2 < 0) return end;
-      end = close2;
-    } else if (isWordToken(next, "within") && isWordToken(tokens[end + 2], "group") && isOpToken(tokens[end + 3], "(")) {
-      const close2 = matchForward(tokens, end + 3);
-      if (close2 < 0) return end;
-      end = close2;
-    } else return end;
-  }
-}
-function operandEnd(tokens, index) {
-  const token = tokens[index];
-  if (!token) return -1;
-  if (isOpToken(token, "+", "-")) return operandEnd(tokens, index + 1);
-  if (isOpToken(token, "(")) {
-    const close2 = matchForward(tokens, index);
-    return close2 < 0 ? -1 : close2;
-  }
-  if (token.kind === "word") {
-    const lower2 = token.text.toLowerCase();
-    if (lower2 === "case") {
-      let depth = 0;
-      for (let cursor = index; cursor < tokens.length; cursor += 1) {
-        if (isWordToken(tokens[cursor], "case")) depth += 1;
-        else if (isWordToken(tokens[cursor], "end")) {
-          depth -= 1;
-          if (depth === 0) return cursor;
-        }
-      }
-      return -1;
-    }
-    if (SQL_KEYWORDS.has(lower2)) return -1;
-    let end = index;
-    while (isOpToken(tokens[end + 1], ".") && tokens[end + 2]?.kind === "word") end += 2;
-    if (isOpToken(tokens[end + 1], "(")) {
-      const close2 = matchForward(tokens, end + 1);
-      if (close2 < 0) return -1;
-      end = callSuffix(tokens, close2);
-    }
-    return end;
-  }
-  return token.kind === "op" ? -1 : index;
-}
-function operandStart(tokens, index) {
-  const token = tokens[index];
-  if (!token) return -1;
-  if (isOpToken(token, ")")) {
-    let open2 = matchBackward(tokens, index);
-    if (open2 < 0) return -1;
-    if (isWordToken(tokens[open2 - 1], "over", "keep", "filter")) return operandStart(tokens, open2 - 2);
-    if (isWordToken(tokens[open2 - 1], "group") && isWordToken(tokens[open2 - 2], "within"))
-      return operandStart(tokens, open2 - 3);
-    const name = tokens[open2 - 1];
-    if (name?.kind === "word" && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
-      open2 -= 1;
-      while (isOpToken(tokens[open2 - 1], ".") && tokens[open2 - 2]?.kind === "word") open2 -= 2;
-    }
-    return open2;
-  }
-  if (isWordToken(token, "end")) {
-    let depth = 0;
-    for (let cursor = index; cursor >= 0; cursor -= 1) {
-      if (isWordToken(tokens[cursor], "end")) depth += 1;
-      else if (isWordToken(tokens[cursor], "case")) {
-        depth -= 1;
-        if (depth === 0) return cursor;
-      }
-    }
-    return -1;
-  }
-  if (token.kind === "word") {
-    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
-    let start = index;
-    while (isOpToken(tokens[start - 1], ".") && tokens[start - 2]?.kind === "word") start -= 2;
-    return start;
-  }
-  return token.kind === "op" ? -1 : index;
-}
-function isBinaryAt(tokens, index) {
-  const previous = tokens[index - 1];
-  if (!previous) return false;
-  if (isOpToken(previous, ")")) return true;
-  if (previous.kind === "word")
-    return isWordToken(previous, "end") || !SQL_KEYWORDS.has(previous.text.toLowerCase());
-  return previous.kind !== "op";
-}
-function leftOperand(tokens, operator) {
-  let start = operandStart(tokens, operator - 1);
-  while (start > 0) {
-    const previous = start - 1;
-    if (isOpToken(tokens[previous], "*", "/", "%", "+", "-") && isBinaryAt(tokens, previous)) {
-      const earlier = operandStart(tokens, previous - 1);
-      if (earlier < 0) break;
-      start = earlier;
-    } else if (isOpToken(tokens[previous], "+", "-")) {
-      start = previous;
-      break;
-    } else break;
-  }
-  return start;
-}
-function rightOperand(tokens, operator) {
-  let end = operandEnd(tokens, operator + 1);
-  while (end >= 0 && isOpToken(tokens[end + 1], "*", "/", "%")) {
-    const later = operandEnd(tokens, end + 2);
-    if (later < 0) break;
-    end = later;
-  }
-  return end;
-}
-function rewriteConcatTokens(tokens) {
-  const out = [...tokens];
-  for (let index = 0; index < out.length; index += 1) {
-    if (!isOpToken(out[index], "||")) continue;
-    const start = leftOperand(out, index);
-    if (start < 0) continue;
-    const operands = [renderTokens(out.slice(start, index))];
-    let cursor = index;
-    let end = index;
-    while (isOpToken(out[cursor], "||")) {
-      const last = rightOperand(out, cursor);
-      if (last < 0) break;
-      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
-      end = last;
-      cursor = last + 1;
-    }
-    if (end === index) continue;
-    out.splice(start, end - start + 1, {
-      pre: out[start].pre,
-      text: `concat(${operands.join(", ")})`,
-      kind: "atom"
-    });
-    index = start;
-  }
-  return out;
-}
-var DATE_CAPABLE_CALLS = /* @__PURE__ */ new Set([
-  "trunc",
-  "round",
-  "to_date",
-  "to_timestamp",
-  "last_day",
-  "next_day",
-  "add_months",
-  "datetime",
-  "date",
-  "nvl",
-  "coalesce",
-  "greatest",
-  "least",
-  "max",
-  "min",
-  "decode",
-  "nullif",
-  "new_time",
-  "from_tz",
-  "cast",
-  "apex_local_arith"
-]);
-function dateCapable(tokens) {
-  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
-  const first = tokens[0];
-  if (first.kind === "bind") return true;
-  if (first.kind === "atom") return /^apex_local_arith\(/u.test(first.text);
-  if (isOpToken(first, "(")) return dateCapable(tokens.slice(1, -1));
-  if (first.kind !== "word" || isWordToken(first, "case", "null")) return false;
-  const open2 = tokens.findIndex((token) => isOpToken(token, "("));
-  if (open2 < 0) return !isWordToken(tokens.at(-1), "level", "rownum");
-  return DATE_CAPABLE_CALLS.has(tokens[open2 - 1].text.toLowerCase());
-}
-function rewriteDateArithmeticTokens(tokens) {
-  const out = [...tokens];
-  for (let index = 1; index < out.length; index += 1) {
-    if (!isOpToken(out[index], "+", "-") || !isBinaryAt(out, index)) continue;
-    const start = leftOperand(out, index);
-    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
-    const end = rightOperand(out, index);
-    if (end < 0) continue;
-    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
-    out.splice(start, end - start + 1, {
-      pre: out[start].pre,
-      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index].text}', ${right})`,
-      kind: "atom"
-    });
-    index = start;
-  }
-  return out;
-}
-function rewriteExpressions(text9, rewrite) {
-  const { tokens, tail } = tokenizeSql(text9);
-  if (!tokens.length) return text9;
-  const lead = tokens[0].pre;
-  return lead + renderTokens(rewrite(tokens)) + tail;
-}
-function rewriteListagg(text9) {
-  const pattern = /\blistagg\s*\(/giu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text9, open2);
-    if (close2 < 0) continue;
-    const within = /^\s*within\s+group\s*\(/iu.exec(text9.slice(close2 + 1));
-    const orderOpen = within ? close2 + within[0].length : -1;
-    const orderClose = within ? closingParen(text9, orderOpen) : -1;
-    let inner = rewriteListagg(text9.slice(open2 + 1, close2)).replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, "").trim();
-    const distinct = /^distinct\s+/iu.exec(inner);
-    if (distinct) inner = inner.slice(distinct[0].length);
-    const [value2 = "null", separator2] = topLevelCommas(inner).map((part2) => part2.trim());
-    const order = orderClose > 0 ? text9.slice(orderOpen + 1, orderClose).trim() : "";
-    const measure = `apex_local_text(${value2})`;
-    out += text9.slice(last, match.index);
-    out += distinct ? `group_concat(distinct ${measure})` : `group_concat(${measure}, ${separator2 || "''"}${order ? ` ${order}` : ""})`;
-    last = orderClose > 0 ? orderClose + 1 : close2 + 1;
-    pattern.lastIndex = last;
-  }
-  return out + text9.slice(last);
-}
-function rewriteJsonFunctions(text9) {
-  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text9); match; match = pattern.exec(text9)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text9, open2);
-    if (close2 < 0) continue;
-    const args = topLevelCommas(rewriteJsonFunctions(text9.slice(open2 + 1, close2)));
-    if (args.length < 2) continue;
-    const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
-    const rest = args.slice(1).join(",").trim();
-    const path13 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
-    if (!path13) continue;
-    const clauses = rest.slice(path13.length);
-    const kind = match[1].toLowerCase();
-    const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
-    out += `${text9.slice(last, match.index)}json_${kind}(${doc}, ${path13}${option ? `, '${option}'` : ""})`;
-    last = close2 + 1;
-    pattern.lastIndex = last;
-  }
-  return out + text9.slice(last);
-}
-var IDENTITY_MARKER = "/*apex_local_identity*/";
-var PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
-function translateOracleSql(sql) {
-  const trimmed = sql.trim().replace(/;\s*\/?\s*$/u, "").replace(/\n\/\s*$/u, "");
-  const masked = maskLiterals(trimmed);
-  const literal2 = (value2) => {
-    masked.literals.push(value2);
-    return `\0${masked.literals.length - 1}\0`;
-  };
-  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
-  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
-  let text9 = uncommented.replace(/\bfrom\s+dual\b/giu, "").replace(/\bdefault\s+on\s+null\b/giu, "default").replace(
-    /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
-    "default (datetime('now','localtime'))"
-  ).replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, "default $1").replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, "default ($1)").replace(/\bdate\s+(\u0000\d+\u0000)/giu, "to_date($1)").replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, "to_timestamp($1)").replace(
-    /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
-    (_whole, sign, days) => `datetime('now','localtime',${literal2(`'${sign}${days} days'`)})`
-  ).replace(
-    /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
-    "datetime('now','localtime')"
-  ).replace(
-    /\boffset\s+(\d+|:\w+)\s+rows?\s+fetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu,
-    "limit $2 offset $1"
-  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
-    /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
-    (_whole, side, chars, value2) => `${{ both: "trim", leading: "ltrim", trailing: "rtrim" }[side.toLowerCase()]}(${value2.trim()}, ${chars})`
-  ).replace(
-    /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
-    "($1)"
-  ).replace(/\s+at\s+(?:local\b|time\s+zone\s+(?:\u0000\d+\u0000|[\w$#.:+-]+))/giu, "").replace(
-    /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
-    (_whole, name, kind) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`
-  ).replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, "default ($1)").replace(
-    /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
-    IDENTITY_MARKER
-  ).replace(
-    /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
-    "integer$1"
-  ).replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "").replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, "* 1.0 /");
-  text9 = rewriteJsonFunctions(
-    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text9)))))
-  );
-  if (!ddl)
-    text9 = rewriteExpressions(rewriteExpressions(text9, rewriteConcatTokens), rewriteDateArithmeticTokens);
-  return unmask(text9, masked.literals);
-}
-function translateMerge(sql) {
-  const masked = maskLiterals(translateOracleSql(sql));
-  const text9 = masked.text;
-  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text9);
-  if (!head) return void 0;
-  const table = head[1];
-  const alias = head[2] ?? table;
-  let position2 = head[0].length;
-  let source;
-  if (text9[position2] === "(") {
-    const close3 = closingParen(text9, position2);
-    if (close3 < 0) return void 0;
-    source = text9.slice(position2 + 1, close3);
-    position2 = close3 + 1;
-  } else {
-    const name = /^[\w$#."]+/u.exec(text9.slice(position2))[0];
-    source = name.toLowerCase() === "dual" ? "select 1 as dummy" : `select * from ${name}`;
-    position2 += name.length;
-  }
-  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text9.slice(position2));
-  const sAlias = sourceAlias ? sourceAlias[1] : "apex_local_src";
-  if (sourceAlias) position2 += sourceAlias[0].length;
-  const on = /^\s*on\s*\(/iu.exec(text9.slice(position2));
-  if (!on) return void 0;
-  const open2 = position2 + on[0].length - 1;
-  const close2 = closingParen(text9, open2);
-  const condition = text9.slice(open2 + 1, close2);
-  const rest = text9.slice(close2 + 1);
-  const from = `from (${source}) as ${sAlias}`;
-  const statements = [];
-  const matched = /\bwhen\s+matched\s+then\s+update\s+set\s+([\s\S]*?)(?=\bwhen\s+not\s+matched\b|$)/iu.exec(
-    rest
-  );
-  if (matched) {
-    const [assignments, where2] = matched[1].split(/\bwhere\b/iu);
-    const sets = topLevelCommas(assignments.replace(/\bdelete\s+where[\s\S]*$/iu, "")).map((assignment) => {
-      const [column2, ...value2] = assignment.split("=");
-      const name = column2.trim().replace(/^[\w$#]+\./u, "");
-      return `${name} = (select ${value2.join("=").trim()} ${from} where ${condition})`;
-    });
-    statements.push(
-      `update ${table} as ${alias} set ${sets.join(", ")} where exists (select 1 ${from} where ${condition}${where2 ? ` and (${where2})` : ""})`
-    );
-  }
-  const insert = /\bwhen\s+not\s+matched\s+then\s+insert\s*(\([^)]*\))?\s*values\s*\(([\s\S]*)\)\s*(?:where\s+([\s\S]*))?$/iu.exec(
-    rest.replace(/\bwhen\s+matched\s+then\s+update[\s\S]*?(?=\bwhen\s+not\s+matched\b)/iu, "")
-  );
-  if (insert) {
-    statements.push(
-      `insert into ${table} ${insert[1] ?? ""} select ${insert[2]} ${from} where not exists (select 1 from ${table} as ${alias} where ${condition})${insert[3] ? ` and (${insert[3]})` : ""}`
-    );
-  }
-  return statements.length ? statements.map((statement) => unmask(statement, masked.literals)) : void 0;
-}
-function bindNames(sql) {
-  const names = /* @__PURE__ */ new Set();
-  const stripped = sql.replace(/'(?:[^']|'')*'|"[^"]*"|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
-  for (const match of stripped.matchAll(/(?<![:\w]):([A-Za-z][\w$#]*)/gu)) names.add(match[1]);
-  return [...names];
-}
-function splitScript(script) {
-  const statements = [];
-  let current3 = "";
-  let plsql = false;
-  for (const line of script.replace(/\r\n?/gu, "\n").split("\n")) {
-    const trimmed = line.trim();
-    if (!current3.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
-    if (!plsql && trimmed.startsWith("--")) {
-      current3 += `${line}
-`;
-      continue;
-    }
-    if (!current3.trim() && /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
-      trimmed
-    )) {
-      plsql = true;
-    }
-    if (trimmed === "/") {
-      if (!plsql && current3.trim()) statements.push(current3);
-      current3 = "";
-      plsql = false;
-      continue;
-    }
-    current3 += `${line}
-`;
-    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) {
-      statements.push(current3);
-      current3 = "";
-    }
-  }
-  if (current3.trim() && !plsql) statements.push(current3);
-  return statements.map((statement) => statement.trim().replace(/;\s*$/u, "")).filter(Boolean);
-}
-var BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
-var BLOB_CACHE_BYTES = 128 * 1048576;
-var LocalDatabase = class {
-  db;
-  file;
-  #binds = {};
-  #blobs = /* @__PURE__ */ new Map();
-  #blobBytes = 0;
-  #functions = /* @__PURE__ */ new Set();
-  #sequences = /* @__PURE__ */ new Map();
-  #dirtySequences = /* @__PURE__ */ new Set();
-  constructor(file) {
-    this.file = file;
-    if (file !== ":memory:") fs4.mkdirSync(path4.dirname(file), { recursive: true });
-    this.db = new DatabaseSync(file);
-    this.#registerOracleFunctions();
-    for (const setup of databaseSetups) setup(this);
-  }
-  /**
-   * Query results carry BLOBs as tokens (`[blob N bytes #hash]`) so they fit session state,
-   * PL/SQL variables and bind values; binding a token, or passing it to a blob-aware function,
-   * restores the bytes. Recently seen BLOBs are kept in memory for that.
-   */
-  blobToken(bytes2) {
-    const key = crypto2.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
-    const token = `[blob ${bytes2.length} bytes #${key}]`;
-    if (this.#blobs.has(token)) this.#blobs.delete(token);
-    else this.#blobBytes += bytes2.length;
-    this.#blobs.set(token, bytes2);
-    for (const [oldest, value2] of this.#blobs) {
-      if (this.#blobBytes <= BLOB_CACHE_BYTES || oldest === token) break;
-      this.#blobs.delete(oldest);
-      this.#blobBytes -= value2.length;
-    }
-    return token;
-  }
-  /** Bytes of a BLOB value or token; undefined for anything else. */
-  blob(value2) {
-    if (value2 instanceof Uint8Array) return value2;
-    if (typeof value2 !== "string" || !BLOB_TOKEN.test(value2)) return void 0;
-    return this.#blobs.get(value2);
-  }
-  static isBlobToken(value2) {
-    return typeof value2 === "string" && BLOB_TOKEN.test(value2);
-  }
-  #sqlValue(value2) {
-    if (typeof value2 === "bigint") return Number(value2);
-    if (typeof value2 === "number") return decimalNumber(value2);
-    if (value2 instanceof Uint8Array) return this.blobToken(value2);
-    return value2 ?? null;
-  }
-  #registerOracleFunctions() {
-    const fn = (name, implementation, varargs = true) => this.db.function(name, { varargs, deterministic: false }, implementation);
-    fn("nvl", (value2, fallback) => value2 ?? fallback ?? null);
-    fn(
-      "nvl2",
-      (value2, whenSet, whenNull) => value2 !== null && value2 !== void 0 ? whenSet ?? null : whenNull ?? null
-    );
-    fn("decode", (...args) => {
-      const [expression, ...pairs] = args;
-      for (let index = 0; index + 1 < pairs.length; index += 2) {
-        if (pairs[index] === expression || pairs[index] === null && expression === null)
-          return pairs[index + 1] ?? null;
-      }
-      return pairs.length % 2 === 1 ? pairs.at(-1) ?? null : null;
-    });
-    fn("to_char", (value2, mask2) => formatOracle(value2, typeof mask2 === "string" ? mask2 : void 0));
-    fn("concat", (...args) => {
-      if (args.every((arg) => arg === null || arg === void 0)) return null;
-      return args.map((arg) => oracleText(arg) ?? "").join("");
-    });
-    fn("apex_local_text", (value2) => oracleText(value2));
-    fn("apex_local_arith", (left, operator, right) => sqlArithmetic(left, String(operator), right));
-    fn("json_value", (doc, pathText, returning) => jsonValue(doc, pathText, returning));
-    fn("json_query", (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === "wrapper"));
-    fn("json_exists", (doc, pathText) => {
-      const matches3 = jsonMatches(doc, pathText);
-      return matches3 === void 0 ? null : matches3.length ? 1 : 0;
-    });
-    fn("to_number", (value2) => value2 === null || value2 === "" ? null : Number(value2));
-    fn("to_date", (value2, mask2) => {
-      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
-      return date ? isoDate(date) : null;
-    });
-    fn("to_timestamp", (value2, mask2) => {
-      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
-      return date ? isoDate(date) : null;
-    });
-    fn("trunc", (value2, unit) => {
-      if (typeof value2 === "number")
-        return Math.trunc(value2 * 10 ** Number(unit ?? 0)) / 10 ** Number(unit ?? 0);
-      if (typeof value2 === "string" && /^\s*-?\d+(\.\d+)?\s*$/u.test(value2)) return Math.trunc(Number(value2));
-      const date = oracleDate(value2);
-      return date ? truncDate(date, typeof unit === "string" ? unit : "DD") : value2 ?? null;
-    });
-    fn(
-      "initcap",
-      (value2) => value2 === null ? null : String(value2).toLowerCase().replace(/\b\w/gu, (char) => char.toUpperCase())
-    );
-    fn(
-      "lpad",
-      (value2, size, fill2) => value2 === null ? null : String(value2).padStart(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
-    );
-    fn(
-      "rpad",
-      (value2, size, fill2) => value2 === null ? null : String(value2).padEnd(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
-    );
-    fn("add_months", (value2, months) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      date.setMonth(date.getMonth() + Number(months));
-      return date.toISOString().slice(0, 19).replace("T", " ");
-    });
-    fn("months_between", (left, right) => {
-      const a = oracleDate(left);
-      const b = oracleDate(right);
-      return a && b ? (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth()) + (a.getDate() - b.getDate()) / 31 : null;
-    });
-    fn(
-      "greatest",
-      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) > (b ?? 0) ? a : b)
-    );
-    fn(
-      "least",
-      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) < (b ?? 0) ? a : b)
-    );
-    const flagText = (flags) => typeof flags === "string" ? flags : "";
-    fn(
-      "regexp_like",
-      (value2, pattern, flags) => value2 === null || pattern === null || value2 === void 0 || pattern === void 0 ? null : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value2))) ? 1 : 0
-    );
-    fn("regexp_replace", (value2, pattern, replacement, position2, occurrence, flags) => {
-      if (value2 === null) return null;
-      const text9 = String(value2);
-      const offset = Number(position2 ?? 1) - 1;
-      const nth = Number(occurrence ?? 0);
-      const regex = oracleRegExp(String(pattern ?? ""), flagText(flags), true);
-      const single = oracleRegExp(String(pattern ?? ""), flagText(flags));
-      const replace = String(replacement ?? "").replace(/\\(\d)/gu, "$$$1");
-      let count = 0;
-      return text9.slice(0, offset) + text9.slice(offset).replace(regex, (...match) => {
-        count += 1;
-        if (nth && count !== nth) return match[0];
-        return match[0].replace(single, replace);
-      });
-    });
-    fn(
-      "replace",
-      (value2, search, replacement) => value2 === null || value2 === void 0 ? null : search === null || search === void 0 || search === "" ? String(value2) : String(value2).split(String(search)).join(replacement === null || replacement === void 0 ? "" : String(replacement))
-    );
-    fn("v", (name) => {
-      const value2 = this.#binds[String(name).toUpperCase()];
-      return value2 === void 0 || value2 === "" ? null : value2;
-    });
-    fn("nv", (name) => {
-      const value2 = this.#binds[String(name).toUpperCase()];
-      return value2 === null || value2 === void 0 || value2 === "" ? null : Number(value2);
-    });
-    fn("sys_context", (namespace, parameter2) => {
-      const key = String(parameter2 ?? "").toUpperCase();
-      if (String(namespace).toUpperCase() === "APEX$SESSION")
-        return this.#binds[key === "APP_SESSION" ? "APP_SESSION" : key] ?? null;
-      if (key === "SESSION_USER" || key === "CURRENT_USER" || key === "CURRENT_SCHEMA") return "APEX_LOCAL";
-      if (key === "LANG" || key === "LANGUAGE") return "US";
-      return null;
-    });
-    fn("instr", (value2, search, start, occurrence) => {
-      if (value2 === null || search === null) return null;
-      const text9 = String(value2);
-      const needle = String(search);
-      let from = Number(start ?? 1);
-      let count = Number(occurrence ?? 1);
-      if (from > 0) {
-        let index2 = from - 2;
-        while (count > 0) {
-          index2 = text9.indexOf(needle, index2 + 1);
-          if (index2 < 0) return 0;
-          count -= 1;
-        }
-        return index2 + 1;
-      }
-      let index = text9.length + from + 1;
-      while (count > 0) {
-        index = text9.lastIndexOf(needle, index - 1);
-        if (index < 0) return 0;
-        count -= 1;
-      }
-      from = index + 1;
-      return from;
-    });
-    fn("chr", (code) => code === null ? null : String.fromCharCode(Number(code)));
-    fn("ascii", (value2) => value2 === null || value2 === "" ? null : String(value2).charCodeAt(0));
-    fn("bitand", (left, right) => left === null || right === null ? null : Number(left) & Number(right));
-    fn("translate", (value2, from, to) => {
-      if (value2 === null || from === null) return null;
-      const source = String(from);
-      const target2 = String(to ?? "");
-      return [...String(value2)].map((char) => {
-        const index = source.indexOf(char);
-        return index < 0 ? char : target2[index] ?? "";
-      }).join("");
-    });
-    fn("regexp_substr", (value2, pattern, position2, occurrence, flags, group2) => {
-      if (value2 === null || pattern === null) return null;
-      const regex = oracleRegExp(String(pattern), flagText(flags), true);
-      const matches3 = [
-        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(regex)
-      ];
-      const match = matches3[Number(occurrence ?? 1) - 1];
-      return match ? match[Number(group2 ?? 0)] ?? null : null;
-    });
-    fn("regexp_instr", (value2, pattern, position2, occurrence, returnOption, flags) => {
-      if (value2 === null || pattern === null) return null;
-      const offset = Number(position2 ?? 1) - 1;
-      const matches3 = [
-        ...String(value2).slice(offset).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
-      ];
-      const match = matches3[Number(occurrence ?? 1) - 1];
-      if (!match) return 0;
-      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
-    });
-    fn(
-      "regexp_count",
-      (value2, pattern, position2, flags) => value2 === null || pattern === null ? null : [
-        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
-      ].length
-    );
-    fn("last_day", (value2) => {
-      const date = oracleDate(value2);
-      return date ? isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0), false) : null;
-    });
-    fn("next_day", (value2, day) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      const target2 = DAY_NAMES.findIndex(
-        (name) => name.slice(0, 3).toUpperCase() === String(day).slice(0, 3).toUpperCase()
-      );
-      const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-      while (target2 >= 0 && result.getDay() !== target2) result.setDate(result.getDate() + 1);
-      return isoDate(result, false);
-    });
-    fn("to_clob", (value2) => value2 ?? null);
-    fn("from_tz", (value2) => value2 ?? null);
-    fn("to_nchar", (value2) => value2 === null || value2 === void 0 ? null : String(value2));
-    fn("empty_clob", () => null);
-    fn("empty_blob", () => new Uint8Array());
-    fn("to_blob", (value2) => typeof value2 === "string" ? this.blob(value2) ?? value2 : value2 ?? null);
-    fn("apex_local_num", (value2) => {
-      if (typeof value2 !== "string") return value2 ?? null;
-      const trimmed = value2.trim();
-      return trimmed !== "" && Number.isFinite(Number(trimmed)) ? Number(trimmed) : value2;
-    });
-    fn("apex_local_extract", (unit, value2) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      switch (String(unit).toLowerCase()) {
-        case "year":
-          return date.getFullYear();
-        case "month":
-          return date.getMonth() + 1;
-        case "day":
-          return date.getDate();
-        case "hour":
-          return date.getHours();
-        case "minute":
-          return date.getMinutes();
-        default:
-          return date.getSeconds();
-      }
-    });
-    fn("apex_local_nextval", (name) => this.#nextval(String(name)));
-    fn("apex_local_currval", (name) => this.#sequences.get(String(name))?.value ?? null);
-    fn("sys_guid", () => crypto2.randomUUID().replaceAll("-", "").toUpperCase());
-  }
-  /** Package functions registered after this database was opened. */
-  #syncFunctions() {
-    if (this.#functions.size === oracleFunctions.size) return;
-    for (const [name, fn] of oracleFunctions) {
-      if (this.#functions.has(name)) continue;
-      this.#functions.add(name);
-      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) => {
-        if (!fn.blobs) return fn.impl(args.map((arg) => this.#sqlValue(arg)));
-        const values = args.map(
-          (arg) => typeof arg === "bigint" ? Number(arg) : this.blob(arg) ?? arg ?? null
-        );
-        return fn.impl(values);
-      });
-    }
-  }
-  #loadSequences() {
-    this.db.exec(
-      "create table if not exists apex_local_sequences (name text primary key, value integer, increment integer, start integer)"
-    );
-    for (const row of this.db.prepare("select name, value, increment, start from apex_local_sequences").all())
-      if (!this.#dirtySequences.has(row.name))
-        this.#sequences.set(row.name, { value: row.value, increment: row.increment, start: row.start });
-  }
-  #nextval(name) {
-    const sequence4 = this.#sequences.get(name) ?? { value: null, increment: 1, start: 1 };
-    sequence4.value = sequence4.value === null ? sequence4.start : sequence4.value + sequence4.increment;
-    this.#sequences.set(name, sequence4);
-    this.#dirtySequences.add(name);
-    return sequence4.value;
-  }
-  #flushSequences() {
-    if (!this.#dirtySequences.size) return;
-    const upsert = this.db.prepare(
-      "insert into apex_local_sequences (name, value, increment, start) values (?, ?, ?, ?) on conflict(name) do update set value = excluded.value"
-    );
-    for (const name of this.#dirtySequences) {
-      const sequence4 = this.#sequences.get(name);
-      upsert.run(name, sequence4.value, sequence4.increment, sequence4.start);
-    }
-    this.#dirtySequences.clear();
-  }
-  /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
-  #sequenceDdl(statement) {
-    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, "");
-    const create2 = /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
-    const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
-    if (!create2 && !drop) return false;
-    this.#loadSequences();
-    const name = (create2 ?? drop)[1].toUpperCase();
-    if (drop) {
-      this.#sequences.delete(name);
-      this.db.prepare("delete from apex_local_sequences where name = ?").run(name);
-      return true;
-    }
-    const options3 = create2[2] ?? "";
-    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
-    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
-    this.#sequences.set(name, { value: null, increment, start });
-    this.#dirtySequences.add(name);
-    this.#flushSequences();
-    return true;
-  }
-  #prepare(sql, binds) {
-    this.#binds = Object.fromEntries(Object.entries(binds).map(([key, value2]) => [key.toUpperCase(), value2]));
-    this.#syncFunctions();
-    const translated = translateOracleSql(sql);
-    if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
-    const values = {};
-    for (const name of bindNames(translated)) {
-      const bound = this.#binds[name.toUpperCase()] ?? null;
-      const value2 = bound === "" ? null : bound;
-      values[name] = typeof value2 === "number" && Number.isSafeInteger(value2) ? BigInt(value2) : this.blob(value2) ?? value2;
-    }
-    const statement = this.db.prepare(translated);
-    statement.setAllowUnknownNamedParameters(true);
-    return { statement, values };
-  }
-  query(sql, binds = {}, maxRows = 1e4) {
-    const { statement, values } = this.#prepare(sql, binds);
-    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
-    const rows = [];
-    for (const raw2 of statement.iterate(values)) {
-      const row = {};
-      for (const [key, value2] of Object.entries(raw2))
-        row[key.toUpperCase()] = this.#sqlValue(value2);
-      rows.push(row);
-      if (rows.length >= maxRows) break;
-    }
-    this.#flushSequences();
-    return { columns, rows };
-  }
-  /** Like query, with BLOB columns as bytes and columns in select order. */
-  rawQuery(sql, binds = {}, maxRows = 1e4) {
-    const { statement, values } = this.#prepare(sql, binds);
-    statement.setReturnArrays(true);
-    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
-    const rows = [];
-    for (const raw2 of statement.iterate(values)) {
-      rows.push(
-        raw2.map(
-          (value2) => typeof value2 === "bigint" ? Number(value2) : typeof value2 === "number" ? decimalNumber(value2) : value2
-        )
-      );
-      if (rows.length >= maxRows) break;
-    }
-    this.#flushSequences();
-    return { columns, rows };
-  }
-  execute(sql, binds = {}) {
-    if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
-    if (/^\s*merge\s+into\b/iu.test(sql)) {
-      const statements = translateMerge(sql);
-      if (!statements) throw new Error("MERGE statement form is not supported locally");
-      let changes = 0;
-      let lastInsertRowid = 0;
-      for (const statement2 of statements) {
-        const result2 = this.execute(statement2, binds);
-        changes += result2.changes;
-        lastInsertRowid = result2.lastInsertRowid || lastInsertRowid;
-      }
-      return { changes, lastInsertRowid };
-    }
-    const { statement, values } = this.#prepare(sql, binds);
-    const result = statement.run(values);
-    this.#flushSequences();
-    return { changes: Number(result.changes), lastInsertRowid: Number(result.lastInsertRowid) };
-  }
-  scalar(sql, binds = {}) {
-    const result = this.query(sql, binds, 1);
-    const row = result.rows[0];
-    return row ? row[result.columns[0]] ?? null : null;
-  }
-  tableExists(table) {
-    return this.db.prepare("select 1 from sqlite_master where type in ('table','view') and upper(name) = upper(?)").get(table) !== void 0;
-  }
-  tableColumns(table) {
-    return this.db.prepare(`pragma table_info("${table.replaceAll('"', "")}")`).all().map((column2) => ({
-      name: column2.name.toUpperCase(),
-      pk: column2.pk > 0,
-      type: column2.type.toUpperCase()
-    }));
-  }
-  /**
-   * How a missing primary key value is filled on insert: an identity column, a column default
-   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
-   */
-  keySource(table, column2) {
-    const name = table.replaceAll('"', "").toUpperCase();
-    const ddl = this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name)?.sql;
-    const definition = ddl ? new RegExp(`[(,]\\s*"?${column2.replace(/[^\w$#]/gu, "")}"?\\s[^,]*`, "iu").exec(ddl)?.[0] : void 0;
-    if (definition?.includes(IDENTITY_MARKER)) return "identity";
-    const info = this.db.prepare(`pragma table_info("${name}")`).all().find((entry) => entry.name.toUpperCase() === column2.toUpperCase());
-    if (info && info.dflt_value !== null && info.dflt_value !== void 0) return "default";
-    if (this.tableExists("apex_local_insert_triggers")) {
-      const trigger = this.db.prepare("select 1 from apex_local_insert_triggers where table_name = ?").get(name.replace(/^.*\./u, ""));
-      if (trigger) return "trigger";
-    }
-    return "none";
-  }
-  /** Runs a script statement by statement; failures are reported, not fatal. */
-  runScript(script, source) {
-    const problems = [];
-    const triggers = [
-      ...script.matchAll(
-        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu
-      )
-    ].map((match) => match[1].toUpperCase());
-    if (triggers.length) {
-      this.db.exec("create table if not exists apex_local_insert_triggers (table_name text primary key)");
-      const insert = this.db.prepare("insert or ignore into apex_local_insert_triggers values (?)");
-      for (const table of triggers) insert.run(table);
-    }
-    for (const statement of splitScript(script)) {
-      try {
-        this.execute(statement);
-      } catch (error) {
-        problems.push(
-          `${source}: ${error.message} \u2014 ${statement.replace(/\s+/gu, " ").slice(0, 140)}`
-        );
-      }
-    }
-    return problems;
-  }
-  close() {
-    if (this.db.isOpen) this.db.close();
-  }
-};
 
 // packages/core/src/preview/extensions.ts
 var extensions = [];
@@ -3108,7 +3558,7 @@ function savepoint(db2, name) {
 }
 
 // packages/core/src/preview/render.ts
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import path10 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
@@ -3248,9 +3698,9 @@ var Engine = class _Engine {
     if (this.#options.defaultEscape === false || this.#options.placeholders === false) return value2;
     return escapeValue(value2, this.#options.escapes?.[name] ?? this.#options.defaultEscape ?? "HTML");
   }
-  #text(text9) {
-    if (!this.#scope.loop.length) return text9;
-    return text9.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
+  #text(text10) {
+    if (!this.#scope.loop.length) return text10;
+    return text10.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
       const value2 = this.#lookup(name);
       if (value2 === void 0) return whole;
       if (filter) return escapeValue(value2, filter);
@@ -3262,8 +3712,8 @@ var Engine = class _Engine {
     const token = this.#tokens[index];
     const next = index + 1;
     if (token.type === "text") {
-      const text9 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
-      this.#output += this.#text(text9);
+      const text10 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
+      this.#output += this.#text(text10);
       this.#lastDirective = false;
       return next;
     }
@@ -3480,17 +3930,17 @@ var Engine = class _Engine {
       const escape = formal.escape ?? definition.defaultEscape;
       if (escape && escape !== "RAW") argEscapes[formal.name] = escape;
     }
-    for (const [argument, text9] of argumentText) {
+    for (const [argument, text10] of argumentText) {
       const escaped2 = Object.hasOwn(argEscapes, argument);
-      args[argument] = /[#&{]|\/\}/u.test(text9) ? new _Engine(
-        text9,
+      args[argument] = /[#&{]|\/\}/u.test(text10) ? new _Engine(
+        text10,
         {
           ...this.#options,
           placeholders: true,
           ...escaped2 ? { defaultEscape: false } : {}
         },
         { ...this.#scope, argEscapes: void 0, loop: [...this.#scope.loop] }
-      ).run() : text9;
+      ).run() : text10;
     }
     return new _Engine(
       definition.template,
@@ -3556,7 +4006,7 @@ function indexTheme(calls) {
   }
   return index;
 }
-function text(params2, key) {
+function text2(params2, key) {
   const value2 = params2?.[key];
   return typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
 }
@@ -3608,7 +4058,7 @@ function templateOptions(options3, defaults) {
 }
 
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs5 from "node:fs";
+import fs6 from "node:fs";
 import path5 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
@@ -3667,17 +4117,17 @@ function formatValue(value2, spec = {}) {
     return `${new Intl.NumberFormat("en-US", { ...options3, style: "percent" }).format(scaled)}${suffix}`;
   }
   if (format2 === "currency") {
-    let text9;
+    let text10;
     try {
-      text9 = new Intl.NumberFormat("en-US", {
+      text10 = new Intl.NumberFormat("en-US", {
         ...options3,
         style: "currency",
         currency: /^[A-Z]{3}$/u.test(currency ?? "") ? currency : "USD"
       }).format(scaled);
     } catch {
-      text9 = `$${new Intl.NumberFormat("en-US", options3).format(scaled)}`;
+      text10 = `$${new Intl.NumberFormat("en-US", options3).format(scaled)}`;
     }
-    return `${text9}${suffix}`;
+    return `${text10}${suffix}`;
   }
   return `${new Intl.NumberFormat("en-US", options3).format(scaled)}${suffix}`;
 }
@@ -4085,9 +4535,9 @@ function heightOption(props) {
 function labelText(value2, model) {
   if (value2 === null || value2 === void 0) return "";
   if (typeof value2 === "number") return String(value2);
-  const text9 = String(value2);
-  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text9)) return `${text9} 00:00:00`;
-  return text9;
+  const text10 = String(value2);
+  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text10)) return `${text10} 00:00:00`;
+  return text10;
 }
 function referenceLines(series) {
   const values = str(series.props, "referenceLines.values").split(/[,:]/u).map((value2) => value2.trim()).filter(Boolean).map(Number).filter(Number.isFinite);
@@ -4220,7 +4670,7 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
 function fullCalendarScript(renderer) {
   const root = path5.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs5.readdirSync(root).filter((entry) => fs5.existsSync(path5.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs6.readdirSync(root).filter((entry) => fs6.existsSync(path5.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
@@ -4392,7 +4842,7 @@ var CHARTS_JS = String.raw`
     var drawn = Number(el.getAttribute("data-width"));
     if (Math.abs(width - drawn) < 6 || el.__apexLocalPending === width) return;
     el.__apexLocalPending = width;
-    var url = base + "/__apex/x/chart?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(el.getAttribute("data-chart-region")) + "&width=" + width;
+    var url = base + "/__apex/x/chart?page=" + encodeURIComponent(apex.env.APP_PAGE_ID) + "&region=" + encodeURIComponent(el.getAttribute("data-chart-region")) + "&width=" + width + window.apexLocal.itemsQuery(el.getAttribute("data-chart-region"));
     fetch(url, { credentials: "same-origin" }).then(function (r) { return r.ok ? r.text() : null; }).then(function (html) {
       if (html && el.__apexLocalPending === width) { el.innerHTML = html; el.setAttribute("data-width", String(width)); }
       el.__apexLocalPending = null;
@@ -4910,15 +5360,15 @@ function cartesian(model, outer) {
         });
       }
       if (series.label.show && series.label.position !== "none") {
-        const text9 = dataLabel(series, point, formatted, model);
-        const inside = horizontal ? rect.w > textWidth(text9, 11) + 8 : rect.h > 16 && rect.w > textWidth(text9, 11) * 0.6;
+        const text10 = dataLabel(series, point, formatted, model);
+        const inside = horizontal ? rect.w > textWidth(text10, 11) + 8 : rect.h > 16 && rect.w > textWidth(text10, 11) * 0.6;
         const outsidePosition = series.label.position === "outsideBarEdge" || !inside;
         const negative = to < from;
         if (horizontal) {
           const x = outsidePosition ? negative ? rect.x - 4 : rect.x + rect.w + 4 : series.label.position === "insideBarEdge" ? negative ? rect.x + 4 : rect.x + rect.w - 4 : rect.x + rect.w / 2;
           const anchor = outsidePosition ? negative ? "end" : "start" : series.label.position === "insideBarEdge" ? negative ? "start" : "end" : "middle";
           labels.push(
-            textEl(x, rect.y + rect.h / 2, text9, {
+            textEl(x, rect.y + rect.h / 2, text10, {
               anchor,
               cls: "ajc-value",
               size: 11,
@@ -4928,7 +5378,7 @@ function cartesian(model, outer) {
         } else {
           const y = outsidePosition ? negative ? rect.y + rect.h + 8 : rect.y - 8 : series.label.position === "insideBarEdge" ? negative ? rect.y + rect.h - 9 : rect.y + 9 : rect.y + rect.h / 2;
           labels.push(
-            textEl(rect.x + rect.w / 2, y, text9, {
+            textEl(rect.x + rect.w / 2, y, text10, {
               anchor: "middle",
               cls: "ajc-value",
               size: 11,
@@ -4941,9 +5391,9 @@ function cartesian(model, outer) {
     out.push(`<g class="ajc-series" data-series="${esc(series.name)}">${bars.join("")}</g>`);
   }
   for (const total of stackTotals.values()) {
-    const text9 = formatValue(total.value, model.axes.y.format);
+    const text10 = formatValue(total.value, model.axes.y.format);
     labels.push(
-      horizontal ? textEl(total.pos + 4, total.center, text9, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text9, {
+      horizontal ? textEl(total.pos + 4, total.center, text10, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text10, {
         anchor: "middle",
         cls: "ajc-value ajc-stack-label",
         size: 11
@@ -4975,13 +5425,13 @@ function cartesian(model, outer) {
       const basePos = valuePos(scale, Math.min(Math.max(base, scale.min), scale.max));
       coordinates[index] = horizontal ? { x: pos, y: center, base: basePos, point, value: value2 } : { x: center, y: pos, base: basePos, point, value: value2 };
     }
-    const segments = [[]];
+    const segments2 = [[]];
     for (const coordinate of coordinates) {
-      if (coordinate) segments.at(-1).push(coordinate);
-      else if (segments.at(-1).length) segments.push([]);
+      if (coordinate) segments2.at(-1).push(coordinate);
+      else if (segments2.at(-1).length) segments2.push([]);
     }
     const parts = [];
-    for (const segment of segments) {
+    for (const segment of segments2) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
       const path13 = linePath(
@@ -5022,10 +5472,10 @@ function cartesian(model, outer) {
         )
       );
       if (series.label.show && series.label.position !== "none") {
-        const text9 = dataLabel(series, entry.point, formatted, model);
+        const text10 = dataLabel(series, entry.point, formatted, model);
         const below = series.label.position === "belowMarker";
         labels.push(
-          textEl(entry.x, entry.y + (below ? 14 : -12), text9, {
+          textEl(entry.x, entry.y + (below ? 14 : -12), text10, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11
@@ -5200,15 +5650,15 @@ function pie(model, outer) {
       )
     );
     if (labelled && slice.series.label.show && slice.series.label.position !== "none") {
-      const text9 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
+      const text10 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
       const mid = angle + sweep / 2;
       const ring = r - inner;
-      const fitsInside = sweep * (inner + ring / 2) > textWidth(text9, 11) * 0.9 && ring > 18;
+      const fitsInside = sweep * (inner + ring / 2) > textWidth(text10, 11) * 0.9 && ring > 18;
       const position2 = slice.series.label.position;
       if (position2 === "center" || position2 === "auto" && fitsInside || position2 === "inside" && fitsInside) {
         const [lx, ly] = polar(cx, cy, inner ? (r + inner) / 2 : r * 0.62, mid);
         labels.push(
-          textEl(lx, ly, text9, {
+          textEl(lx, ly, text10, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11,
@@ -5225,7 +5675,7 @@ function pie(model, outer) {
           textEl(
             ex + (rightSide ? 3 : -3),
             by,
-            truncate(text9, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
+            truncate(text10, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
             {
               anchor: rightSide ? "start" : "end",
               cls: "ajc-value",
@@ -5279,10 +5729,10 @@ function funnel(model, outer) {
         slice.point.link
       )
     );
-    const text9 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
-    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text9, 11) + 8)
+    const text10 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
+    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text10, 11) + 8)
       parts.push(
-        textEl(cx, y + height / 2, text9, {
+        textEl(cx, y + height / 2, text10, {
           anchor: "middle",
           cls: "ajc-value",
           size: 11,
@@ -5722,14 +6172,14 @@ function renderMap(renderer, ctx, region) {
       );
     for (const row of result.rows) {
       if (assignColumn && String(row[assignColumn] ?? "") !== assignValue) continue;
-      const shapes = dataType === "longitudeLatitude" ? Number.isFinite(Number(row[lon])) && Number.isFinite(Number(row[lat])) && row[lon] !== null && row[lat] !== null && row[lon] !== void 0 && row[lat] !== void 0 ? [{ kind: "point", parts: [[[Number(row[lon]), Number(row[lat])]]] }] : [] : geometry(row[geometryColumn]);
-      if (!shapes.length) continue;
+      const shapes2 = dataType === "longitudeLatitude" ? Number.isFinite(Number(row[lon])) && Number.isFinite(Number(row[lat])) && row[lon] !== null && row[lat] !== null && row[lon] !== void 0 && row[lat] !== void 0 ? [{ kind: "point", parts: [[[Number(row[lon]), Number(row[lat])]]] }] : [] : geometry(row[geometryColumn]);
+      if (!shapes2.length) continue;
       const label = tooltipHtml && textOf(htmlSubstitute(tooltipHtml, row)) || tooltipColumn && String(row[tooltipColumn] ?? "") || titleColumn && String(row[titleColumn] ?? "") || labelColumn && rowSubstitute(labelColumn.includes("&") ? labelColumn : `&${labelColumn}.`, row) || "";
       const info = infoHtml ? htmlSubstitute(infoHtml, row) : titleColumn || bodyColumn ? `${titleColumn ? `<h4>${esc2(String(row[titleColumn] ?? ""))}</h4>` : ""}${bodyColumn ? `<p>${esc2(String(row[bodyColumn] ?? ""))}</p>` : ""}` : "";
       const link = target2 === void 0 ? void 0 : renderer.link(ctx, substituteDeep(target2, row), row);
       const style2 = rowStyle(props, row, layer, type);
       const weight = valueColumn && Number.isFinite(Number(row[valueColumn])) ? Number(row[valueColumn]) : void 0;
-      for (const shape of shapes) features.push({ layer: index, ...shape, label, info, link, style: style2, weight });
+      for (const shape of shapes2) features.push({ layer: index, ...shape, label, info, link, style: style2, weight });
       layer.count += 1;
     }
   }
@@ -5828,7 +6278,7 @@ function mapHtml(region, domId, layers, features, height) {
     const values = features.filter((feature) => feature.layer === index && feature.weight !== void 0).map((feature) => feature.weight);
     if (values.length) weights.set(index, { min: Math.min(...values), max: Math.max(...values) });
   });
-  const shapes = features.map((feature) => {
+  const shapes2 = features.map((feature) => {
     const layer = layers[feature.layer];
     const style2 = feature.style;
     const tip = feature.label ? ` data-tip="${esc2(`${layer.name}	${feature.label}`)}"` : ` data-tip="${esc2(layer.name)}"`;
@@ -5861,11 +6311,11 @@ function mapHtml(region, domId, layers, features, height) {
   const items = labelled.slice(0, 40).map((feature) => {
     const layer = layers[feature.layer];
     const [lon, lat] = feature.parts[0][0];
-    const text9 = esc2(feature.label);
-    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text9}</a>` : text9} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
+    const text10 = esc2(feature.label);
+    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text10}</a>` : text10} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
   }).join("");
   const more = labelled.length - Math.min(labelled.length, 40);
-  return `<div class="apex-local-map" id="${esc2(domId)}_map" data-map-region="${esc2(region.id)}">${note2}<div class="apex-local-map-frame"><svg xmlns="http://www.w3.org/2000/svg" class="apex-local-map-canvas" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="height:${height}px" role="img" aria-label="${esc2(str(region.props, "name", region.id))}">${gradients.length ? `<defs>${gradients.join("")}</defs>` : ""}${grid.join("")}${shapes}</svg></div><ul class="apex-local-map-layers">${summary}</ul>${items ? `<ul class="apex-local-map-features">${items}${more > 0 ? `<li class="apex-local-map-count">\u2026 ${more} more</li>` : ""}</ul>` : ""}</div>`;
+  return `<div class="apex-local-map" id="${esc2(domId)}_map" data-map-region="${esc2(region.id)}">${note2}<div class="apex-local-map-frame"><svg xmlns="http://www.w3.org/2000/svg" class="apex-local-map-canvas" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="height:${height}px" role="img" aria-label="${esc2(str(region.props, "name", region.id))}">${gradients.length ? `<defs>${gradients.join("")}</defs>` : ""}${grid.join("")}${shapes2}</svg></div><ul class="apex-local-map-layers">${summary}</ul>${items ? `<ul class="apex-local-map-features">${items}${more > 0 ? `<li class="apex-local-map-count">\u2026 ${more} more</li>` : ""}</ul>` : ""}</div>`;
 }
 var MAP_JS = String.raw`
 (function ($) {
@@ -5910,6 +6360,7 @@ function chartBody(renderer, ctx, region, width) {
 function renderChartRegion(renderer, ctx, region) {
   const type = str(region.props, "chart.type", "bar");
   const domId = renderer.regionDomId(region);
+  ctx.clientConfig.regions.push({ id: domId, kind: "chart" });
   if (UNSUPPORTED_TYPES.has(type)) {
     renderer.diagnose(
       "warning",
@@ -6006,9 +6457,9 @@ registerExtension({
 });
 
 // packages/core/src/preview/extensions/components/plugins.ts
-var text2 = (value2) => typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
+var text3 = (value2) => typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
 var escapeMode = (value2, fallback) => {
-  const mode = text2(value2).toUpperCase();
+  const mode = text3(value2).toUpperCase();
   return ["HTML", "ATTR", "RAW", "STRIPHTML", "JS", "URL"].find((entry) => entry === mode) ?? fallback;
 };
 var cache = /* @__PURE__ */ new WeakMap();
@@ -6020,20 +6471,20 @@ function componentIndex(calls) {
   const groups = /* @__PURE__ */ new Map();
   const attributes2 = /* @__PURE__ */ new Map();
   for (const { kind, params: params2 } of calls) {
-    if (kind === "plugin" && text2(params2.plugin_type) === "TEMPLATE COMPONENT") {
-      const name = text2(params2.name);
+    if (kind === "plugin" && text3(params2.plugin_type) === "TEMPLATE COMPONENT") {
+      const name = text3(params2.name);
       const component = {
-        id: text2(params2.id),
+        id: text3(params2.id),
         name,
         applyName: name.replace(/^THEME_\d+\$/u, "THEME$"),
-        apexlangName: text2(params2.apexlang_name) || name.replace(/^THEME_\d+\$/u, "").toLowerCase(),
-        displayName: text2(params2.display_name) || name,
-        supports: new Set(text2(params2.supported_component_types).split(":").filter(Boolean)),
-        standardAttributes: new Set(text2(params2.standard_attributes).split(":").filter(Boolean)),
-        partial: text2(params2.partial_template),
-        reportBody: text2(params2.report_body_template),
-        reportRow: text2(params2.report_row_template),
-        reportGroup: text2(params2.report_group_template),
+        apexlangName: text3(params2.apexlang_name) || name.replace(/^THEME_\d+\$/u, "").toLowerCase(),
+        displayName: text3(params2.display_name) || name,
+        supports: new Set(text3(params2.supported_component_types).split(":").filter(Boolean)),
+        standardAttributes: new Set(text3(params2.standard_attributes).split(":").filter(Boolean)),
+        partial: text3(params2.partial_template),
+        reportBody: text3(params2.report_body_template),
+        reportRow: text3(params2.report_row_template),
+        reportGroup: text3(params2.report_group_template),
         defaultEscape: escapeMode(params2.default_escape_mode, "HTML"),
         attributes: [],
         positions: [],
@@ -6041,51 +6492,51 @@ function componentIndex(calls) {
         slots: []
       };
       plugins.set(component.id, component);
-    } else if (kind === "plugin_attr_group") groups.set(text2(params2.id), text2(params2.apexlang_name));
+    } else if (kind === "plugin_attr_group") groups.set(text3(params2.id), text3(params2.apexlang_name));
   }
   for (const { kind, params: params2 } of calls) {
-    const plugin = plugins.get(text2(params2.plugin_id));
+    const plugin = plugins.get(text3(params2.plugin_id));
     if (kind === "plugin_attribute" && plugin) {
       const attribute3 = {
-        id: text2(params2.id),
-        staticId: text2(params2.static_id).toUpperCase(),
-        apexlangName: text2(params2.apexlang_name),
-        scope: text2(params2.attribute_scope) || "COMPONENT",
-        type: text2(params2.attribute_type),
-        group: groups.get(text2(params2.attribute_group_id)) || void 0,
-        defaultValue: params2.default_value === void 0 ? void 0 : text2(params2.default_value),
+        id: text3(params2.id),
+        staticId: text3(params2.static_id).toUpperCase(),
+        apexlangName: text3(params2.apexlang_name),
+        scope: text3(params2.attribute_scope) || "COMPONENT",
+        type: text3(params2.attribute_type),
+        group: groups.get(text3(params2.attribute_group_id)) || void 0,
+        defaultValue: params2.default_value === void 0 ? void 0 : text3(params2.default_value),
         escape: escapeMode(params2.escape_mode, plugin.defaultEscape),
         values: /* @__PURE__ */ new Map(),
-        dependsOn: text2(params2.depending_on_attribute_id) || void 0,
-        dependsCondition: text2(params2.depending_on_condition_type) || void 0,
-        dependsExpression: params2.depending_on_expression === void 0 ? void 0 : text2(params2.depending_on_expression),
-        columnTypes: text2(params2.column_data_types) || void 0
+        dependsOn: text3(params2.depending_on_attribute_id) || void 0,
+        dependsCondition: text3(params2.depending_on_condition_type) || void 0,
+        dependsExpression: params2.depending_on_expression === void 0 ? void 0 : text3(params2.depending_on_expression),
+        columnTypes: text3(params2.column_data_types) || void 0
       };
       plugin.attributes.push(attribute3);
       attributes2.set(attribute3.id, attribute3);
     } else if (kind === "plugin_act_position" && plugin)
       plugin.positions.push({
-        staticId: text2(params2.static_id).toUpperCase(),
-        apexlangName: text2(params2.apexlang_name),
-        type: text2(params2.type),
-        templateId: text2(params2.template_id) || void 0
+        staticId: text3(params2.static_id).toUpperCase(),
+        apexlangName: text3(params2.apexlang_name),
+        type: text3(params2.type),
+        templateId: text3(params2.template_id) || void 0
       });
     else if (kind === "plugin_act_template" && plugin)
       plugin.actionTemplates.push({
-        id: text2(params2.id),
-        apexlangName: text2(params2.apexlang_name),
-        type: text2(params2.type),
-        template: text2(params2.template)
+        id: text3(params2.id),
+        apexlangName: text3(params2.apexlang_name),
+        type: text3(params2.type),
+        template: text3(params2.template)
       });
     else if (kind === "plugin_slot" && plugin)
-      plugin.slots.push({ placeholder: text2(params2.placeholder), apexlangName: text2(params2.apexlang_name) });
+      plugin.slots.push({ placeholder: text3(params2.placeholder), apexlangName: text3(params2.apexlang_name) });
   }
   for (const { kind, params: params2 } of calls) {
-    const attribute3 = kind === "plugin_attr_value" ? attributes2.get(text2(params2.plugin_attribute_id)) : void 0;
+    const attribute3 = kind === "plugin_attr_value" ? attributes2.get(text3(params2.plugin_attribute_id)) : void 0;
     if (attribute3)
       attribute3.values.set(
-        text2(params2.apexlang_name) || text2(params2.return_value),
-        text2(params2.return_value)
+        text3(params2.apexlang_name) || text3(params2.return_value),
+        text3(params2.return_value)
       );
   }
   for (const component of plugins.values()) {
@@ -6724,9 +7175,9 @@ var hasStandardSelector = (renderer, ctx) => renderer.pageComponents(ctx, "regio
 function wrapRegion(renderer, ctx, region, parts) {
   const { template, values, children: children2 } = parts;
   registerNamedTemplates(componentIndex(renderer.assets.theme).named);
-  for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
+  for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
     ctx.jsFiles.add(file);
-  for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+  for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
   const type = str(region.props, "type");
   if (type.startsWith("themeTemplateComponent/")) {
     const html = wrapRegionOnly(renderer, ctx, region, values, children2);
@@ -6738,7 +7189,7 @@ function wrapRegion(renderer, ctx, region, parts) {
   const advancedImage = substitute("advanced.regionImage", "RAW");
   if (!values.REGION_IMAGE_URL && advancedImage) {
     values.REGION_IMAGE_URL = escapeHtml(advancedImage);
-    values.REGION_IMAGE = fill(text(template, "image_template"), {
+    values.REGION_IMAGE = fill(text2(template, "image_template"), {
       REGION_IMAGE_URL: values.REGION_IMAGE_URL
     });
   }
@@ -6749,7 +7200,7 @@ function wrapRegion(renderer, ctx, region, parts) {
   const body4 = bodies.get(region);
   if (body4 && str(region.props, "appearance.renderComponents") === "aboveContent" && values.BODY?.startsWith(body4))
     values.BODY = values.BODY.slice(body4.length) + body4;
-  const sub = text(template, "sub_plug_template");
+  const sub = text2(template, "sub_plug_template");
   const own = children2.get("SUB_REGIONS");
   if (sub && children2.get("BODY")?.length)
     renderer.diagnose(
@@ -6771,7 +7222,7 @@ function wrapRegion(renderer, ctx, region, parts) {
       SUB_REGION: html
     })
   ).join("\n");
-  return fill(text(template, "template"), values);
+  return fill(text2(template, "template"), values);
 }
 var CLIENT = String.raw`
 (function ($) {
@@ -7239,7 +7690,7 @@ function inputValue(renderer, ctx, process2) {
   if (type === "sqlQuery") {
     try {
       return String(
-        renderer.db.scalar(str(props, "inputValue.sqlQuery"), renderer.binds(ctx.session, ctx.page)) ?? ""
+        renderer.data.scalar(str(props, "inputValue.sqlQuery"), renderer.binds(ctx.session, ctx.page)) ?? ""
       );
     } catch (error) {
       renderer.diagnose(
@@ -7270,15 +7721,15 @@ function generateTextProcess(renderer, ctx, process2) {
   const target2 = str(process2.props, "useResponse.item").toUpperCase();
   const prompt = [str(process2.props, "genAI.systemPrompt"), inputValue(renderer, ctx, process2)].filter(Boolean).join(" ");
   const agent = ref(process2.props, "genAI.agent") ?? "";
-  const text9 = aiPlaceholder(prompt, agent);
-  if (target2) ctx.session.items[target2] = text9;
+  const text10 = aiPlaceholder(prompt, agent);
+  if (target2) ctx.session.items[target2] = text10;
   renderer.diagnose(
     "info",
     `Process ${process2.id} (generateTextWithAi) returns placeholder text${target2 ? ` into ${target2}` : ""}; no AI service is called locally`,
     ctx.pageId,
     process2.id
   );
-  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text9 });
+  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text10 });
   return { ran: true };
 }
 function pushNotificationProcess(renderer, ctx, process2) {
@@ -7500,7 +7951,11 @@ function sessionPanel(renderer, ctx) {
     ["Page", `${ctx.pageId} \xB7 ${str(ctx.page.props, "name")}`],
     ["Request", ctx.request || "(none)"],
     ["Theme style", session.themeStyle ?? "application default"],
-    ["View as", viewAsLabel(renderer, session.viewAs)]
+    ["View as", viewAsLabel(renderer, session.viewAs)],
+    [
+      "Data",
+      renderer.oracle ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) \xB7 every request rolled back` : "Local SQLite simulation"
+    ]
   ].map(([name, value2]) => `<tr><th scope="row">${name}</th><td>${escapeHtml(value2)}</td></tr>`).join("");
   const body4 = `<form class="apex-local-session" data-apex-local-session><table class="apex-local-table">${info}</table>
 <h3>Page items</h3><table class="apex-local-table">${itemRows(pageItems)}</table>
@@ -7644,7 +8099,7 @@ function resetData(renderer) {
   for (const kind of ["trigger", "view", "table"])
     for (const object of objects2.filter((entry) => entry.type === kind))
       renderer.db.db.exec(`drop ${kind} if exists "${object.name.replaceAll('"', '""')}"`);
-  const problems = ApexRenderer.seed(renderer.db, renderer.app.root);
+  const problems = ApexRenderer.seed(renderer.db, renderer.app.root, renderer.options.seedDirs);
   for (const problem of problems) renderer.diagnose("warning", `Seed script: ${problem}`);
   renderer.diagnose(
     "info",
@@ -7899,7 +8354,7 @@ function inputPredicate(column2, facet, raw2) {
     value2 = prefix[2];
   }
   if (value2 === "") return "";
-  const text9 = `upper(${column2})`;
+  const text10 = `upper(${column2})`;
   const needle = `upper(${quoteText(value2)})`;
   switch (operator) {
     case "NEQ":
@@ -7913,13 +8368,13 @@ function inputPredicate(column2, facet, raw2) {
     case "GTE":
       return `${column2} >= ${literal(value2, facet.number)}`;
     case "STARTS":
-      return `instr(${text9}, ${needle}) = 1`;
+      return `instr(${text10}, ${needle}) = 1`;
     case "NSTARTS":
-      return `coalesce(instr(${text9}, ${needle}), 0) <> 1`;
+      return `coalesce(instr(${text10}, ${needle}), 0) <> 1`;
     case "C":
-      return `instr(${text9}, ${needle}) > 0`;
+      return `instr(${text10}, ${needle}) > 0`;
     case "NC":
-      return `coalesce(instr(${text9}, ${needle}), 0) = 0`;
+      return `coalesce(instr(${text10}, ${needle}), 0) = 0`;
     default:
       return inList(column2, [value2]);
   }
@@ -8575,7 +9030,7 @@ function renderListView(renderer, ctx, region) {
   const setting3 = (key) => str(region.props, `settings.${key}`);
   const column2 = (...keys) => (keys.map((key) => setting3(key)).find(Boolean) ?? "").toUpperCase();
   const html = (template, row) => rowTemplate(renderer, ctx, template, row, true);
-  const text9 = column2("textColumn") || result.columns[0] || "";
+  const text10 = column2("textColumn") || result.columns[0] || "";
   const target2 = get(region.props, "settings.linkTarget") ?? get(region.props, "link.target");
   const info = column2("supplementalInfoColumn", "supplementalInformationColumn");
   const counter = column2("counterColumn");
@@ -8585,7 +9040,7 @@ function renderListView(renderer, ctx, region) {
   const dividerColumn = options3.has("showListDivider") ? column2("listDividerColumn") : "";
   let divider;
   const items = result.rows.map((row) => {
-    const label = advanced && setting3("textFormatting") ? html(setting3("textFormatting"), row) : escapeHtml(row[text9] ?? "");
+    const label = advanced && setting3("textFormatting") ? html(setting3("textFormatting"), row) : escapeHtml(row[text10] ?? "");
     const supplemental = advanced && setting3("supplementalInfoFormatting") ? html(setting3("supplementalInfoFormatting"), row) : info && row[info] !== null && row[info] !== void 0 ? escapeHtml(row[info]) : "";
     let image = "";
     if (options3.has("showImage") && /Url$/u.test(imageType) && imageUrl && row[imageUrl]) {
@@ -9146,7 +9601,7 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs6 from "node:fs";
+import fs7 from "node:fs";
 import path6 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
@@ -9156,7 +9611,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs6.readdirSync(path6.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs7.readdirSync(path6.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -9322,7 +9777,7 @@ function lovRows(renderer, ctx, item2) {
   ))
     return { ...fallback(), rows: [] };
   try {
-    const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page), 5e3);
+    const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page), 5e3);
     const displayColumn = display2?.toUpperCase() ?? result.columns[0];
     const returnColumn = returned?.toUpperCase() ?? result.columns[1] ?? displayColumn;
     const columns = declared.length ? declared : [{ name: displayColumn, heading: renderer.label(item2), searchable: true }];
@@ -9571,8 +10026,8 @@ var Matrix = class {
     return score;
   }
 };
-function qrMatrix(text9, ecc = "M") {
-  const bytes2 = [...Buffer.from(text9, "utf8")];
+function qrMatrix(text10, ecc = "M") {
+  const bytes2 = [...Buffer.from(text10, "utf8")];
   let version = 1;
   for (; version <= 40; version += 1) {
     const countBits = version <= 9 ? 8 : 16;
@@ -9610,8 +10065,8 @@ function qrMatrix(text9, ecc = "M") {
   }
   return best.modules;
 }
-function qrSvg(text9, options3 = {}) {
-  const modules = qrMatrix(text9);
+function qrSvg(text10, options3 = {}) {
+  const modules = qrMatrix(text10);
   const border = 4;
   const dimension = modules.length + border * 2;
   const path13 = [];
@@ -9855,10 +10310,10 @@ var datePicker = (renderer, ctx, item2, name, value2) => {
     ...displayAs === "native" ? ["date-picker-apex-native"] : []
   ];
   const example = formatOracle((/* @__PURE__ */ new Date()).toISOString(), mask2) ?? "";
-  const native = (text9) => {
-    if (!text9 || displayAs !== "native") return text9;
-    const date = ISO_DATE.test(text9) ? new Date(text9.replace(" ", "T")) : parseOracleDate(text9, mask2);
-    if (!date || Number.isNaN(date.getTime())) return text9;
+  const native = (text10) => {
+    if (!text10 || displayAs !== "native") return text10;
+    const date = ISO_DATE.test(text10) ? new Date(text10.replace(" ", "T")) : parseOracleDate(text10, mask2);
+    if (!date || Number.isNaN(date.getTime())) return text10;
     const iso = isoDate(date);
     return showTime ? iso.slice(0, 16).replace(" ", "T") : iso.slice(0, 10);
   };
@@ -10566,7 +11021,7 @@ var itemTemplate = (renderer, ctx, item2, values) => {
   const optionsList = strings4(get(item2.props, "appearance.templateOptions"));
   const options3 = optionsList.length ? templateOptions(
     optionsList.flatMap((option) => option === "#DEFAULT#" ? [option] : option.split(/\s+/u)),
-    text(field, "default_template_options")
+    text2(field, "default_template_options")
   ) : "";
   const containerClasses = strings4(get(item2.props, "appearance.cssClasses"));
   const value2 = ctx.session.items[name] ?? "";
@@ -10617,8 +11072,8 @@ function pluginRequest(renderer, session, body4) {
   return { ctx, item: item2, name, form, json: json5 };
 }
 var escaped = (entries) => entries.map((entry) => ({ r: escapeHtml(entry.r), d: escapeHtml(entry.d) }));
-function matches(text9, search) {
-  return text9.toLowerCase().includes(search.toLowerCase());
+function matches(text10, search) {
+  return text10.toLowerCase().includes(search.toLowerCase());
 }
 function popupLovResponse(renderer, request) {
   const { ctx, item: item2, name, form, json: json5 } = request;
@@ -10725,11 +11180,11 @@ var help = (renderer, session, request) => {
   if (!renderer.findPage(pageId)) return reply({ error: `Page ${pageId} not found` }, 404);
   const ctx = renderer.prepareSubmit(session, pageId, "");
   const item2 = renderer.pageComponents(ctx, "pageItem").find((candidate) => candidate.id.toUpperCase() === name);
-  const text9 = item2 ? str(item2.props, "help.helpText") : "";
-  if (!item2 || !text9) return reply({ error: `No help for ${name}` }, 404);
+  const text10 = item2 ? str(item2.props, "help.helpText") : "";
+  if (!item2 || !text10) return reply({ error: `No help for ${name}` }, 404);
   return reply({
     title: escapeHtml(renderer.substitute(session, renderer.label(item2), ctx.page, "RAW")),
-    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text9, ctx.page, "HTML")}</div>`
+    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text10, ctx.page, "HTML")}</div>`
   });
 };
 var IGNORED = [
@@ -10781,7 +11236,7 @@ function withRuntime(rt, run2) {
 var rememberRenderer = (renderer) => {
   lastRenderer = renderer;
 };
-var text3 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
+var text4 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
 var sessionState = (rt) => rt?.ctx.session.items;
 var MESSAGE_FALLBACKS = {
   "APEX.FEATURE.ACL.INFO.ALL_USERS": "All authenticated users can access this application; users in the access control list get their assigned roles.",
@@ -10819,29 +11274,29 @@ function since2(value2) {
   return "Now";
 }
 function split(value2, separator2) {
-  const source = text3(value2);
+  const source = text4(value2);
   if (source === null) return [];
   const sep = separator2 === null || separator2 === void 0 ? "\n" : String(separator2);
   return sep === "" ? [...source] : source.split(sep);
 }
 function pageUrl(rt, args) {
   const renderer = rt?.renderer ?? lastRenderer;
-  const pageKey = text3(args.p_page) ?? rt?.ctx.pageId ?? "";
+  const pageKey = text4(args.p_page) ?? rt?.ctx.pageId ?? "";
   const page = renderer?.findPage(pageKey);
   const base = renderer ? page ? renderer.pagePath(page) : `${renderer.baseUrl}/${pageKey}` : `f?p=${pageKey}`;
   const params2 = new URLSearchParams();
   const names = split(args.p_items, ",");
   const values = split(args.p_values, ",");
   names.forEach((name, index) => params2.set(name.trim().toLowerCase(), values[index] ?? ""));
-  if (text3(args.p_clear_cache)) params2.set("clear", String(args.p_clear_cache));
-  if (text3(args.p_request)) params2.set("request", String(args.p_request));
+  if (text4(args.p_clear_cache)) params2.set("clear", String(args.p_clear_cache));
+  if (text4(args.p_request)) params2.set("request", String(args.p_request));
   const query = params2.toString();
   return `${base}${query ? `?${query}` : ""}`;
 }
 function addError(args, rt) {
   if (!rt) return null;
   const location = String(args.p_display_location ?? "INLINE_IN_NOTIFICATION").toUpperCase();
-  const item2 = text3(args.p_page_item_name)?.toUpperCase();
+  const item2 = text4(args.p_page_item_name)?.toUpperCase();
   rt.errors.push({
     type: "error",
     location: location === "INLINE_WITH_FIELD" ? ["inline"] : location === "INLINE_WITH_FIELD_AND_NOTIFICATION" ? ["inline", "page"] : ["page"],
@@ -10876,18 +11331,18 @@ var STUBS = {
     params: p("p_name", "p_value", "p_commit"),
     fn: (args, rt) => {
       const items = sessionState(rt);
-      if (items) items[String(args.p_name ?? "").toUpperCase()] = text3(args.p_value) ?? "";
+      if (items) items[String(args.p_name ?? "").toUpperCase()] = text4(args.p_value) ?? "";
       return null;
     }
   },
   "apex_util.get_session_state": {
     params: p("p_item"),
-    fn: (args, rt) => text3(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
+    fn: (args, rt) => text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
   },
   "apex_util.get_numeric_session_state": {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text3(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
+      const value2 = text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
       return value2 === null ? null : Number(value2);
     }
   },
@@ -10902,10 +11357,10 @@ var STUBS = {
   },
   "apex_util.clear_app_cache": { params: p("p_app_id"), fn: noop },
   "apex_util.clear_user_cache": { params: [], fn: noop },
-  "apex_util.prepare_url": { params: p("p_url"), fn: (args) => text3(args.p_url), sql: true },
+  "apex_util.prepare_url": { params: p("p_url"), fn: (args) => text4(args.p_url), sql: true },
   "apex_util.url_encode": {
     params: p("p_url"),
-    fn: (args) => text3(args.p_url) === null ? null : encodeURIComponent(String(args.p_url)),
+    fn: (args) => text4(args.p_url) === null ? null : encodeURIComponent(String(args.p_url)),
     sql: true
   },
   "apex_util.string_to_table": {
@@ -10922,7 +11377,7 @@ var STUBS = {
   "apex_util.redirect_url": {
     params: p("p_url"),
     fn: (args, rt) => {
-      if (rt && text3(args.p_url)) rt.redirectURL = String(args.p_url);
+      if (rt && text4(args.p_url)) rt.redirectURL = String(args.p_url);
       return null;
     }
   },
@@ -10932,16 +11387,16 @@ var STUBS = {
   },
   "apex_util.public_check_authorization": {
     params: p("p_security_scheme"),
-    fn: (args, rt) => authorize(rt, text3(args.p_security_scheme))
+    fn: (args, rt) => authorize(rt, text4(args.p_security_scheme))
   },
   "apex_authorization.is_authorized": {
     params: p("p_authorization_name"),
-    fn: (args, rt) => authorize(rt, text3(args.p_authorization_name))
+    fn: (args, rt) => authorize(rt, text4(args.p_authorization_name))
   },
   // Permissive unless the developer toolbar's "view as" chose roles (devtools/view-as.ts).
   "apex_acl.has_user_role": {
     params: p("p_application_id", "p_user_name", "p_role_static_id"),
-    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session, text3(args.p_role_static_id) ?? "")
+    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session, text4(args.p_role_static_id) ?? "")
   },
   "apex_acl.has_user_any_roles": {
     params: p("p_application_id", "p_user_name"),
@@ -10950,18 +11405,18 @@ var STUBS = {
   "owa_util.redirect_url": {
     params: p("curl"),
     fn: (args, rt) => {
-      if (rt && text3(args.curl)) rt.redirectURL = String(args.curl);
+      if (rt && text4(args.curl)) rt.redirectURL = String(args.curl);
       return null;
     }
   },
   v: {
     params: p("p_item"),
-    fn: (args, rt) => text3(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
+    fn: (args, rt) => text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
   },
   nv: {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text3(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
+      const value2 = text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
       return value2 === null ? null : Number(value2);
     }
   },
@@ -10969,12 +11424,12 @@ var STUBS = {
   "apex_application.g_flow_id": { params: [], fn: (_args, rt) => rt?.renderer.appId ?? null },
   "apex_application.g_flow_step_id": { params: [], fn: (_args, rt) => rt?.ctx.pageId ?? null },
   "apex_application.g_user": { params: [], fn: (_args, rt) => rt?.ctx.session.user ?? null },
-  "apex_application.g_request": { params: [], fn: (_args, rt) => text3(rt?.ctx.request) },
+  "apex_application.g_request": { params: [], fn: (_args, rt) => text4(rt?.ctx.request) },
   "apex_application.g_instance": { params: [], fn: (_args, rt) => rt?.ctx.session.id ?? null },
   "apex_application.g_debug": { params: [], fn: () => 0 },
   "apex_application.g_print_success_message": {
     params: [],
-    fn: (_args, rt) => text3(rt?.ctx.session.success)
+    fn: (_args, rt) => text4(rt?.ctx.session.success)
   },
   "apex_application.lf": { params: [], fn: () => "\n" },
   "apex_application.crlf": { params: [], fn: () => "\r\n" },
@@ -11019,7 +11474,7 @@ var STUBS = {
   },
   "apex_string.join": {
     params: p("p_table", "p_sep"),
-    fn: (args) => Array.isArray(args.p_table) ? args.p_table.join(String(args.p_sep ?? "\n")) : text3(args.p_table)
+    fn: (args) => Array.isArray(args.p_table) ? args.p_table.join(String(args.p_sep ?? "\n")) : text4(args.p_table)
   },
   "apex_string.format": {
     params: p("p_message", "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"),
@@ -11031,17 +11486,17 @@ var STUBS = {
   },
   "apex_string.get_initials": {
     params: p("p_str", "p_cnt"),
-    fn: (args) => text3(args.p_str) === null ? null : String(args.p_str).split(/\s+/u).filter(Boolean).map((word) => word[0].toUpperCase()).slice(0, Number(args.p_cnt ?? 2)).join(""),
+    fn: (args) => text4(args.p_str) === null ? null : String(args.p_str).split(/\s+/u).filter(Boolean).map((word) => word[0].toUpperCase()).slice(0, Number(args.p_cnt ?? 2)).join(""),
     sql: true
   },
   "apex_escape.html": {
     params: p("p_string"),
-    fn: (args) => text3(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
+    fn: (args) => text4(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
     sql: true
   },
   "apex_escape.html_attribute": {
     params: p("p_string"),
-    fn: (args) => text3(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
+    fn: (args) => text4(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
     sql: true
   },
   "apex_escape.js_literal": {
@@ -11054,12 +11509,12 @@ var STUBS = {
   },
   "apex_escape.striphtml": {
     params: p("p_string"),
-    fn: (args) => text3(args.p_string) === null ? null : String(args.p_string).replace(/<[^>]*>/gu, ""),
+    fn: (args) => text4(args.p_string) === null ? null : String(args.p_string).replace(/<[^>]*>/gu, ""),
     sql: true
   },
   "htf.escape_sc": {
     params: p("ctext"),
-    fn: (args) => text3(args.ctext) === null ? null : escapeHtml(String(args.ctext)),
+    fn: (args) => text4(args.ctext) === null ? null : escapeHtml(String(args.ctext)),
     sql: true
   },
   "apex_lang.message": {
@@ -11093,7 +11548,7 @@ var STUBS = {
   },
   "apex_lang.lang": {
     params: p("p_primary_text_string"),
-    fn: (args) => text3(args.p_primary_text_string),
+    fn: (args) => text4(args.p_primary_text_string),
     sql: true
   },
   // output
@@ -11118,7 +11573,7 @@ var STUBS = {
   "apex_app_setting.set_value": {
     params: p("p_name", "p_value", "p_raise_error"),
     fn: (args, rt) => {
-      settings(rt)?.set(String(args.p_name ?? "").toUpperCase(), text3(args.p_value));
+      settings(rt)?.set(String(args.p_name ?? "").toUpperCase(), text4(args.p_value));
       return null;
     }
   },
@@ -11188,7 +11643,7 @@ var STUBS = {
   "apex_authentication.login": {
     params: p("p_username", "p_password"),
     fn: (args, rt) => {
-      if (rt && text3(args.p_username)) rt.ctx.session.user = String(args.p_username).toUpperCase();
+      if (rt && text4(args.p_username)) rt.ctx.session.user = String(args.p_username).toUpperCase();
       return null;
     }
   },
@@ -11212,7 +11667,7 @@ var NOOP_PACKAGES = /* @__PURE__ */ new Set([
 ]);
 var attr2 = (value2) => escapeHtml(value2 === null || value2 === void 0 ? "" : String(value2));
 var fname = (index) => `f${String(Number(index ?? 1)).padStart(2, "0")}`;
-var idAttr = (id) => text3(id) === null ? "" : ` id="${attr2(id)}"`;
+var idAttr = (id) => text4(id) === null ? "" : ` id="${attr2(id)}"`;
 function print(rt, value2, end) {
   rt?.output.push(`${value2 === null || value2 === void 0 ? "" : String(value2)}${end}`);
   return null;
@@ -11269,8 +11724,8 @@ function lex(src) {
   let index = 0;
   let line = 1;
   let gapStart = 0;
-  const push = (kind, text9, value2, start, end) => {
-    tokens.push({ kind, text: text9, value: value2, pre: src.slice(gapStart, start), line });
+  const push = (kind, text10, value2, start, end) => {
+    tokens.push({ kind, text: text10, value: value2, pre: src.slice(gapStart, start), line });
     for (const char of src.slice(start, end)) if (char === "\n") line += 1;
     index = end;
     gapStart = end;
@@ -11336,8 +11791,8 @@ function lex(src) {
     }
     if (/\d/u.test(char) || char === "." && /\d/u.test(next)) {
       const match = /^(?:\d+(?:\.(?!\.)\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFdD]?/u.exec(src.slice(index));
-      const text9 = match[0].replace(/[fFdD]$/u, "");
-      push("number", text9, text9, start, start + match[0].length);
+      const text10 = match[0].replace(/[fFdD]$/u, "");
+      push("number", text10, text10, start, start + match[0].length);
       continue;
     }
     if (char === ":" && /[A-Za-z]/u.test(next)) {
@@ -13026,7 +13481,7 @@ var displayImage = (renderer, ctx, item2, name, value2) => {
     "settings.basedOn",
     str(item2.props, "source.column") ? "blobColItem" : "url"
   );
-  const alt = (text9) => renderer.substitute(ctx.session, text9, ctx.page, "RAW");
+  const alt = (text10) => renderer.substitute(ctx.session, text10, ctx.page, "RAW");
   let src = "";
   let altText = str(item2.props, "settings.altText") ? alt(str(item2.props, "settings.altText")) : "";
   if (basedOn === "url") src = value2;
@@ -13130,11 +13585,11 @@ var downloadBlobColumn = (renderer, ctx, region, column2, row) => {
   const inline = columnSetting(column2, "viewFileAs") === "inline";
   const url2 = columnLink(renderer, ctx, region, column2, row, inline);
   if (!url2) return "";
-  const text9 = (columnSetting(column2, "downloadText") || "Download").replace(
+  const text10 = (columnSetting(column2, "downloadText") || "Download").replace(
     /#([A-Z0-9_$]+)#/gu,
     (whole, key) => key in row ? String(row[key] ?? "") : whole
   );
-  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text9)}</a>`;
+  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text10)}</a>`;
 };
 function fileContext(renderer, session, pageKey, request = "") {
   const page = pageKey ? renderer.findPage(pageKey) : void 0;
@@ -13365,16 +13820,16 @@ function formatOf(filename, bytes2) {
 }
 function decodeText(bytes2, encoding) {
   const label = (encoding ?? "utf-8").toLowerCase().replace(/^al32utf8$/u, "utf-8");
-  let text9;
+  let text10;
   try {
-    text9 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
+    text10 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
   } catch {
-    text9 = new TextDecoder("windows-1252").decode(bytes2);
+    text10 = new TextDecoder("windows-1252").decode(bytes2);
   }
-  return text9.replace(/^﻿/u, "");
+  return text10.replace(/^﻿/u, "");
 }
-function detectSeparator(text9, enclosedBy) {
-  const sample = text9.split(/\r?\n/u).slice(0, 10);
+function detectSeparator(text10, enclosedBy) {
+  const sample = text10.split(/\r?\n/u).slice(0, 10);
   let best = ",";
   let bestScore = -1;
   for (const candidate of [",", ";", "	", "|"]) {
@@ -13389,18 +13844,18 @@ function detectSeparator(text9, enclosedBy) {
   }
   return best;
 }
-function splitCsv(text9, separator2, enclosedBy = '"') {
+function splitCsv(text10, separator2, enclosedBy = '"') {
   const rows = [];
   let row = [];
   let cell = "";
   let quoted = false;
   let wasQuoted = false;
   const quote5 = enclosedBy || "\0";
-  for (let index = 0; index < text9.length; index += 1) {
-    const char = text9[index];
+  for (let index = 0; index < text10.length; index += 1) {
+    const char = text10[index];
     if (quoted) {
       if (char === quote5) {
-        if (text9[index + 1] === quote5) {
+        if (text10[index + 1] === quote5) {
           cell += quote5;
           index += 1;
         } else quoted = false;
@@ -13410,13 +13865,13 @@ function splitCsv(text9, separator2, enclosedBy = '"') {
     if (char === quote5 && cell === "" && !wasQuoted) {
       quoted = true;
       wasQuoted = true;
-    } else if (text9.startsWith(separator2, index)) {
+    } else if (text10.startsWith(separator2, index)) {
       row.push(cell);
       cell = "";
       wasQuoted = false;
       index += separator2.length - 1;
     } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && text9[index + 1] === "\n") index += 1;
+      if (char === "\r" && text10[index + 1] === "\n") index += 1;
       row.push(cell);
       rows.push(row);
       row = [];
@@ -13436,11 +13891,11 @@ var xmlDecode = (value2) => value2.replace(
   (whole, entity) => entity.startsWith("#x") || entity.startsWith("#X") ? String.fromCodePoint(Number.parseInt(entity.slice(2), 16)) : entity.startsWith("#") ? String.fromCodePoint(Number(entity.slice(1))) : ENTITIES[entity] ?? whole
 );
 var localName = (name) => name.replace(/^.*:/u, "");
-function parseXml(text9) {
+function parseXml(text10) {
   const root = { name: "#document", attributes: {}, children: [], text: "" };
   const stack = [root];
   const pattern = /<!\[CDATA\[([\s\S]*?)\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/gu;
-  for (const match of text9.matchAll(pattern)) {
+  for (const match of text10.matchAll(pattern)) {
     const current3 = stack.at(-1);
     if (match[1] !== void 0) current3.text += match[1];
     else if (match[6] !== void 0) current3.text += xmlDecode(match[6]);
@@ -13459,8 +13914,8 @@ function parseXml(text9) {
   }
   return root;
 }
-function xmlRows(text9, rowSelector) {
-  const document = parseXml(text9);
+function xmlRows(text10, rowSelector) {
+  const document = parseXml(text10);
   let rows = [];
   const steps = (rowSelector ?? "").replace(/^\/+/u, "").split("/").map((step) => localName(step.trim())).filter(Boolean);
   if (steps.length) {
@@ -13512,8 +13967,8 @@ function flattenJson(value2, prefix, out) {
   }
   out[prefix || "VALUE"] = value2 === null || value2 === void 0 ? "" : typeof value2 === "object" ? JSON.stringify(value2) : String(value2);
 }
-function jsonRows(text9, rowSelector) {
-  const selected = selectJson(JSON.parse(text9), rowSelector);
+function jsonRows2(text10, rowSelector) {
+  const selected = selectJson(JSON.parse(text10), rowSelector);
   const array = Array.isArray(selected) ? selected : selected === void 0 ? [] : [selected];
   const columns = [];
   const records = array.map((entry) => {
@@ -13638,8 +14093,8 @@ function parseFile(bytes2, filename, options3 = {}) {
   if (cached2) return cached2;
   let result;
   if (format2 === "json" || format2 === "xml") {
-    const text9 = decodeText(bytes2, options3.encoding);
-    const { columns, records } = format2 === "json" ? jsonRows(text9, options3.rowSelector) : xmlRows(text9, options3.rowSelector);
+    const text10 = decodeText(bytes2, options3.encoding);
+    const { columns, records } = format2 === "json" ? jsonRows2(text10, options3.rowSelector) : xmlRows(text10, options3.rowSelector);
     result = {
       format: format2,
       columns,
@@ -13647,10 +14102,10 @@ function parseFile(bytes2, filename, options3 = {}) {
     };
   } else {
     let rows = format2 === "xlsx" ? xlsxRows(bytes2, options3.sheet) : (() => {
-      const text9 = decodeText(bytes2, options3.encoding);
+      const text10 = decodeText(bytes2, options3.encoding);
       const enclosedBy = options3.enclosedBy ?? '"';
-      const separator2 = options3.separator === "\\t" ? "	" : options3.separator || detectSeparator(text9, enclosedBy);
-      return splitCsv(text9, separator2, enclosedBy);
+      const separator2 = options3.separator === "\\t" ? "	" : options3.separator || detectSeparator(text10, enclosedBy);
+      return splitCsv(text10, separator2, enclosedBy);
     })();
     rows = rows.slice(options3.skipRows ?? 0);
     const width = Math.max(0, ...rows.map((row) => row.length));
@@ -14005,13 +14460,13 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
           }
         }
         const names = Object.keys(values).filter((name) => existing.has(name));
-        const bindName = (name) => `C_${name.replace(/\W/gu, "_")}`;
-        const binds = Object.fromEntries(names.map((name) => [bindName(name), values[name]]));
+        const bindName2 = (name) => `C_${name.replace(/\W/gu, "_")}`;
+        const binds = Object.fromEntries(names.map((name) => [bindName2(name), values[name]]));
         if (method === "merge" && keys.length) {
-          const where2 = keys.map((key) => `"${key.name}" = :${bindName(key.name)}`).join(" and ");
+          const where2 = keys.map((key) => `"${key.name}" = :${bindName2(key.name)}`).join(" and ");
           const others = names.filter((name) => !keys.some((key) => key.name === name));
           const changed2 = others.length ? db2.execute(
-            `update "${table}" set ${others.map((name) => `"${name}" = :${bindName(name)}`).join(", ")} where ${where2}`,
+            `update "${table}" set ${others.map((name) => `"${name}" = :${bindName2(name)}`).join(", ")} where ${where2}`,
             binds
           ).changes : Number(db2.scalar(`select count(*) from "${table}" where ${where2}`, binds));
           if (changed2) {
@@ -14020,7 +14475,7 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
           }
         }
         db2.execute(
-          `insert into "${table}" (${names.map((name) => `"${name}"`).join(", ")}) values (${names.map((name) => `:${bindName(name)}`).join(", ")})`,
+          `insert into "${table}" (${names.map((name) => `"${name}"`).join(", ")}) values (${names.map((name) => `:${bindName2(name)}`).join(", ")})`,
           binds
         );
         result.inserted += 1;
@@ -14076,8 +14531,8 @@ function dataLoadingProcess(renderer, ctx, process2) {
   let bytes2;
   let fileName = "";
   if (sourceType === "textareaItem") {
-    const text9 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
-    bytes2 = Buffer.from(text9, "utf8");
+    const text10 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
+    bytes2 = Buffer.from(text10, "utf8");
     fileName = `pasted.${str(definition.props, "dataProfile.format", "csv")}`;
   } else if (sourceType === "sqlQuery") {
     const sql = str(process2.props, "sourceData.sqlQuery");
@@ -14155,7 +14610,7 @@ var setCurrentRenderer = (renderer) => {
 };
 var rendererOf = (rt) => rt?.renderer ?? activeRuntime()?.renderer ?? current2;
 var dbOf = (rt) => rendererOf(rt)?.db;
-var text4 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? void 0 : String(value2);
+var text5 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? void 0 : String(value2);
 var number = (value2) => {
   const parsed2 = Number(value2);
   return value2 === null || value2 === void 0 || value2 === "" || !Number.isFinite(parsed2) ? void 0 : parsed2;
@@ -14188,17 +14643,17 @@ var PARSE_PARAMS = [
 ];
 function parserArgs(args) {
   return {
-    fileName: text4(args.p_file_name),
+    fileName: text5(args.p_file_name),
     fileType: number(args.p_file_type),
     profile: readProfile(args.p_file_profile),
-    sheet: text4(args.p_xlsx_sheet_name),
-    rowSelector: text4(args.p_row_selector),
-    separator: text4(args.p_csv_col_delimiter),
-    enclosedBy: text4(args.p_csv_enclosed),
+    sheet: text5(args.p_xlsx_sheet_name),
+    rowSelector: text5(args.p_row_selector),
+    separator: text5(args.p_csv_col_delimiter),
+    enclosedBy: text5(args.p_csv_enclosed),
     skipRows: number(args.p_skip_rows),
     addHeadersRow: args.p_add_headers_row === void 0 || args.p_add_headers_row === null ? void 0 : flag2(args.p_add_headers_row),
     maxRows: number(args.p_max_rows) ?? number(args.p_return_rows),
-    encoding: text4(args.p_file_charset)
+    encoding: text5(args.p_file_charset)
   };
 }
 var named = (params2, values) => Object.fromEntries(params2.map((param, index) => [param, values[index]]));
@@ -14302,12 +14757,12 @@ api(
 api(
   "apex_data_parser.get_file_type",
   ["p_file_name"],
-  (args) => FILE_TYPES[formatOf(text4(args.p_file_name))],
+  (args) => FILE_TYPES[formatOf(text5(args.p_file_name))],
   true
 );
 api("apex_data_parser.assert_file_type", ["p_file_name", "p_file_type"], (args) => {
   const wanted = number(args.p_file_type);
-  const name = text4(args.p_file_name) ?? "";
+  const name = text5(args.p_file_name) ?? "";
   const extension = name.toLowerCase().split(".").pop() ?? "";
   const known = { xlsx: 1, csv: 2, txt: 2, tsv: 2, xml: 3, json: 4 };
   return wanted === void 0 ? extension in known : known[extension] === wanted;
@@ -14319,7 +14774,7 @@ api(
   ["p_application_id", "p_static_id"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const definition = renderer ? findDefinition(renderer, text4(args.p_static_id) ?? "") : void 0;
+    const definition = renderer ? findDefinition(renderer, text5(args.p_static_id) ?? "") : void 0;
     return definition ? JSON.stringify(definitionProfile(definition)) : null;
   },
   true
@@ -14329,12 +14784,12 @@ api(
   ["p_application_id", "p_static_id", "p_data_to_load", "p_xlsx_sheet_name", "p_skip_validation"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const definition = renderer ? findDefinition(renderer, text4(args.p_static_id) ?? "") : void 0;
+    const definition = renderer ? findDefinition(renderer, text5(args.p_static_id) ?? "") : void 0;
     const bytes2 = bytesOf(args.p_data_to_load, renderer?.db);
     if (!renderer || !rt || !definition || !bytes2) {
       rt?.note(
         "warning",
-        `apex_data_loading.load_data: data load definition ${text4(args.p_static_id) ?? ""} not found`
+        `apex_data_loading.load_data: data load definition ${text5(args.p_static_id) ?? ""} not found`
       );
       return new RecordValue({ processed_rows: 0, error_rows: 0 });
     }
@@ -14345,7 +14800,7 @@ api(
       definition,
       bytes2,
       `data.${format2}`,
-      text4(args.p_xlsx_sheet_name)
+      text5(args.p_xlsx_sheet_name)
     );
     return new RecordValue({ processed_rows: result.processed, error_rows: result.errors });
   }
@@ -14355,13 +14810,13 @@ api(
   ["p_item_name", "p_v1", "p_v2", "p_content_disposition"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const item2 = text4(args.p_item_name);
+    const item2 = text5(args.p_item_name);
     if (!renderer || !item2) return null;
     return route(renderer, "files.item", {
       page: rt?.ctx.pageId && renderer.findPage(rt.ctx.pageId)?.children.some((child) => child.id.toUpperCase() === item2.toUpperCase()) ? rt.ctx.pageId : itemPage(renderer, item2)?.id,
       item: item2.toUpperCase(),
-      v1: text4(args.p_v1),
-      v2: text4(args.p_v2),
+      v1: text5(args.p_v1),
+      v2: text5(args.p_v2),
       inline: String(args.p_content_disposition ?? "").toLowerCase() === "inline" ? "Y" : void 0
     });
   },
@@ -14409,7 +14864,7 @@ api(
   "utl_raw.cast_to_raw",
   ["c"],
   (args, rt) => {
-    const value2 = text4(args.c);
+    const value2 = text5(args.c);
     return value2 === void 0 ? null : dbOf(rt)?.blobToken(Buffer.from(value2, "utf8")) ?? value2;
   },
   true
@@ -14436,7 +14891,7 @@ api(
   "apex_util.clob_to_blob",
   ["p_clob", "p_charset", "p_include_bom"],
   (args, rt) => {
-    const value2 = text4(args.p_clob);
+    const value2 = text5(args.p_clob);
     return value2 === void 0 ? null : dbOf(rt)?.blobToken(Buffer.from(value2, "utf8")) ?? value2;
   },
   true
@@ -14467,7 +14922,7 @@ api("owa_util.mime_header", ["ccontent_type", "bclose_header", "ccharset"], (arg
   if (rt)
     headers.set(rt.ctx.session, {
       ...headers.get(rt.ctx.session),
-      ...text4(args.ccontent_type) ? { mime: text4(args.ccontent_type) } : {}
+      ...text5(args.ccontent_type) ? { mime: text5(args.ccontent_type) } : {}
     });
   return null;
 });
@@ -14481,7 +14936,7 @@ api("wpg_docload.download_file", ["p_blob"], (args, rt) => {
   const db2 = dbOf(rt);
   const bytes2 = value2 instanceof Uint8Array ? value2 : db2?.blob(value2);
   if (bytes2) return download2(rt, bytes2);
-  const name = text4(value2);
+  const name = text5(value2);
   const row = name ? db2?.db.prepare("select blob_content, mime_type, filename from apex_application_files where name = ?").get(name) : void 0;
   return row ? download2(rt, row.blob_content, row.mime_type, row.filename) : download2(rt, bytesOf(value2, db2));
 });
@@ -14491,8 +14946,8 @@ api(
   (args, rt) => download2(
     rt,
     bytesOf(args.p_blob ?? args.p_clob, dbOf(rt)),
-    text4(args.p_content_type),
-    text4(args.p_filename),
+    text5(args.p_content_type),
+    text5(args.p_filename),
     flag2(args.p_is_inline)
   )
 );
@@ -14688,7 +15143,7 @@ function loadUploadedData(renderer, ctx, process2) {
 var heading = (name) => name.toLowerCase().split("_").filter(Boolean).map((part2) => part2[0].toUpperCase() + part2.slice(1)).join(" ");
 function queryTable(renderer, ctx, title, sql) {
   try {
-    const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page), 5e3);
+    const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page), 5e3);
     return {
       title,
       headings: result.columns.map(heading),
@@ -15392,7 +15847,7 @@ function themeStyles(renderer) {
   return [...renderer.theme.styles.entries()].map(([key, style2]) => ({
     id: key,
     key,
-    name: text(style2, "name") || key,
+    name: text2(style2, "name") || key,
     isPublic: true
   }));
 }
@@ -16539,13 +16994,13 @@ function remove(scope2, name) {
   for (const table of ["apex_local_collection_members", "apex_local_collections"])
     db(scope2).prepare(`delete from ${table} where session_id = ? and collection_name = ?`).run(scope2.session, name);
 }
-var text5 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : typeof value2 === "number" ? value2 : String(value2);
+var text6 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : typeof value2 === "number" ? value2 : String(value2);
 var md5 = (values) => createHash2("md5").update(values.map((value2) => value2 === null || value2 === void 0 ? "" : String(value2)).join("|")).digest("hex");
 function attributes(args) {
   const values = {};
   for (const attribute3 of ATTRIBUTES) {
     const value2 = args[`p_${attribute3}`];
-    if (value2 !== void 0) values[attribute3] = text5(value2);
+    if (value2 !== void 0) values[attribute3] = text6(value2);
   }
   return values;
 }
@@ -16605,8 +17060,8 @@ function fromQuery(rt, args, numericFirst) {
     if (numericFirst) {
       cells.slice(0, 5).forEach((cell, index) => mapped[N[index]] = cell ?? null);
       cells.slice(5, 10).forEach((cell, index) => mapped[D[index]] = cell ?? null);
-      cells.slice(10).forEach((cell, index) => mapped[C[index]] = text5(cell));
-    } else cells.slice(0, 50).forEach((cell, index) => mapped[C[index]] = text5(cell));
+      cells.slice(10).forEach((cell, index) => mapped[C[index]] = text6(cell));
+    } else cells.slice(0, 50).forEach((cell, index) => mapped[C[index]] = text6(cell));
     addMember(target2, name, mapped, /^y/iu.test(String(args.p_generate_md5 ?? "NO")));
   }
   return result.rows.length;
@@ -16705,7 +17160,7 @@ var COLLECTION_STUBS = {
         addMember(
           current3,
           nameOf(args),
-          Object.fromEntries(lists.map(([attribute3, values]) => [attribute3, text5(values[index])])),
+          Object.fromEntries(lists.map(([attribute3, values]) => [attribute3, text6(values[index])])),
           /^y/iu.test(String(args.p_generate_md5 ?? "NO"))
         );
       return null;
@@ -16758,7 +17213,7 @@ var COLLECTION_STUBS = {
       if (!column2) raise(-20103, `Invalid attribute number ${position2}`);
       db(current3).prepare(
         `update apex_local_collection_members set ${column2} = ? where session_id = ? and collection_name = ? and seq_id = ?`
-      ).run(text5(value2), current3.session, name, seq);
+      ).run(text6(value2), current3.session, name, seq);
       changed(current3, name);
       return null;
     })
@@ -16782,7 +17237,7 @@ var COLLECTION_STUBS = {
       requireCollection(current3, name);
       const column2 = C[Number(args.p_attr_number ?? 1) - 1];
       if (!column2) raise(-20103, `Invalid attribute number ${String(args.p_attr_number)}`);
-      const value2 = text5(args.p_attr_value);
+      const value2 = text6(args.p_attr_value);
       db(current3).prepare(
         `delete from apex_local_collection_members where session_id = ? and collection_name = ? and ${value2 === null ? `${column2} is null` : `${column2} = ?`}`
       ).run(current3.session, name, ...value2 === null ? [] : [value2]);
@@ -17139,7 +17594,7 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs7 from "node:fs";
+import fs8 from "node:fs";
 import path9 from "node:path";
 var restDir = (renderer) => path9.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
@@ -17147,8 +17602,8 @@ function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
     const file = path9.join(dir, `${safe(candidate)}.json`);
-    if (!fs7.existsSync(file)) continue;
-    const source = fs7.readFileSync(file, "utf8");
+    if (!fs8.existsSync(file)) continue;
+    const source = fs8.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
@@ -17442,9 +17897,9 @@ function urlCandidates(url2, method) {
   } catch {
     pathname = url2.split("?")[0] ?? url2;
   }
-  const segments = pathname.split("/").filter(Boolean);
-  const joined = segments.join("_");
-  const last = segments.at(-1) ?? "";
+  const segments2 = pathname.split("/").filter(Boolean);
+  const joined = segments2.join("_");
+  const last = segments2.at(-1) ?? "";
   const lower2 = method.toLowerCase();
   return [`${lower2}.${joined}`, joined, `${lower2}.${last}`, last];
 }
@@ -17779,7 +18234,7 @@ function failed(renderer, ctx, process2, error) {
     ]
   };
 }
-var text6 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var text7 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
 function params(value2) {
   if (Array.isArray(value2))
     return Object.fromEntries(value2.map((entry, index) => [String(index + 1), String(entry ?? "")]));
@@ -17805,18 +18260,18 @@ var taskCreate = {
   ],
   fn: withRt(
     (rt, args) => createTask(rt.renderer, rt.ctx, String(args.p_task_def_static_id ?? ""), {
-      subject: text6(args.p_subject),
-      detailPk: text6(args.p_detail_pk),
+      subject: text7(args.p_subject),
+      detailPk: text7(args.p_detail_pk),
       priority: args.p_priority === void 0 || args.p_priority === null ? null : Number(args.p_priority),
       parameters: params(args.p_parameters),
-      initiator: text6(args.p_initiator)
+      initiator: text7(args.p_initiator)
     })
   )
 };
 var taskOperation = (operation2) => ({
   params: ["p_task_id", "p_outcome", "p_autoclaim"],
   fn: withRt((rt, args) => {
-    manageTask(rt.renderer, rt.ctx, Number(args.p_task_id), operation2, text6(args.p_outcome));
+    manageTask(rt.renderer, rt.ctx, Number(args.p_task_id), operation2, text7(args.p_outcome));
     return null;
   })
 });
@@ -17841,7 +18296,7 @@ var SERVICE_STUBS = {
       insertRow(raw(rt.renderer), "apex_local_task_comments", {
         id: nextId(rt.renderer, "apex_local_task_comments", "id"),
         task_id: Number(args.p_task_id),
-        text: text6(args.p_text),
+        text: text7(args.p_text),
         created_by: rt.ctx.session.user,
         created_on: now()
       });
@@ -17855,9 +18310,9 @@ var SERVICE_STUBS = {
         rt.renderer,
         rt.ctx,
         String(args.p_static_id ?? ""),
-        text6(args.p_detail_pk),
+        text7(args.p_detail_pk),
         params(args.p_parameters),
-        text6(args.p_initiator) ?? void 0
+        text7(args.p_initiator) ?? void 0
       )
     )
   },
@@ -18083,7 +18538,7 @@ var Cells = class {
     if (expression) html = this.substituteRow(expression, row);
     const target2 = get(column2.props, "link.target");
     if (type === "link" || target2 !== void 0) {
-      const text9 = this.substituteRow(
+      const text10 = this.substituteRow(
         str(column2.props, "link.linkText", `#${column2.id.toUpperCase()}#`),
         row
       );
@@ -18094,7 +18549,7 @@ var Cells = class {
         row,
         trigger ?? `apex.jQuery('#${this.renderer.regionDomId(this.region)}')`
       );
-      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text9}</a>`;
+      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text10}</a>`;
     }
     if (type === "percentGraph" || /^pct_graph/iu.test(str(column2.props, "appearance.formatMask"))) {
       const percent = Math.max(0, Math.min(100, Number(row[column2.id.toUpperCase()]) || 0));
@@ -18208,7 +18663,7 @@ function inWindow(raw2, amount, unit, future, now2 = Date.now()) {
 function matches2(filter, raw2, display2) {
   const operator = normalizeOperator(filter.operator);
   const value2 = filter.value;
-  const text9 = display2.toLowerCase();
+  const text10 = display2.toLowerCase();
   const needle = value2.toLowerCase();
   const equalsEither = (candidate) => !isEmpty(raw2) && compareValues(raw2, candidate) === 0 && numeric2(raw2) !== void 0 || String(raw2 ?? "") === candidate || display2 === candidate;
   switch (operator) {
@@ -18225,11 +18680,11 @@ function matches2(filter, raw2, display2) {
     case "<=":
       return !isEmpty(raw2) && compareValues(raw2, value2) <= 0;
     case "contains":
-      return text9.includes(needle);
+      return text10.includes(needle);
     case "doesNotContain":
-      return !text9.includes(needle);
+      return !text10.includes(needle);
     case "startsWith":
-      return text9.startsWith(needle);
+      return text10.startsWith(needle);
     case "isNull":
       return isEmpty(raw2);
     case "isNotNull":
@@ -18433,16 +18888,16 @@ function pagination(template, type, pager) {
   const last = first + shown - 1;
   const pages2 = Math.max(1, Math.ceil(total / perPage));
   const link = (target2) => `javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${target2})`;
-  const textTemplate = text(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
+  const textTemplate = text2(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
   const ofTotal = /OfZ/u.test(type) ? ` of ${total}` : "";
   const range = fill(textTemplate, { TEXT: `${first} - ${last}${ofTotal}` });
   if (/NoPagination$/u.test(type)) return `<tr><td colspan="99"${align}>${range}</td></tr>`;
   const previous = page > 1 ? fill(
-    text(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
+    text2(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
     { LINK: link(page - 1), PAGINATION_PREVIOUS: "Previous" }
   ) : "";
   const next = last < total ? fill(
-    text(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
+    text2(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
     { LINK: link(page + 1), PAGINATION_NEXT: "Next" }
   ) : "";
   if (type === "nextAndPreviousLinks") return `<tr><td colspan="99"${align}>${previous}${next}</td></tr>`;
@@ -18516,7 +18971,7 @@ function classicReport(renderer, ctx, region) {
     );
   const cssClasses = templateOptions(
     stringList(list(region.props, "componentAppearance.templateOptions")),
-    text(template, "preset_template_options").replaceAll(":", " ")
+    text2(template, "preset_template_options").replaceAll(":", " ")
   );
   const pager = pagination(template, type, {
     domId,
@@ -18565,16 +19020,16 @@ function classicReport(renderer, ctx, region) {
     const column2 = byName.get(name);
     return column2 ? display2(column2, row, index) : escapeHtml(row[name] ?? "");
   });
-  if (text(template, "row_template_type") === "NAMED_COLUMNS") {
+  if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
     const rowHtml = visible.map(
-      (row, index) => fill(positional(text(template, "row_template1"), row, index), {
+      (row, index) => fill(positional(text2(template, "row_template1"), row, index), {
         ...Object.fromEntries(Object.keys(row).map((name) => [name, escapeHtml(row[name] ?? "")])),
         ...Object.fromEntries(all2.map((column2) => [column2.id.toUpperCase(), display2(column2, row, index)])),
         ROWNUM: String((page - 1) * perPage + index + 1),
         COLCOUNT: String(columns.length)
       })
     ).join("\n");
-    return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
+    return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
   }
   const sorted2 = new Map(state2.sort.slice(0, 1).map((entry) => [entry.column, entry.direction]));
   const showHeadings = str(region.props, "heading.type") !== "none";
@@ -18585,7 +19040,7 @@ function classicReport(renderer, ctx, region) {
     const direction = sorted2.get(name);
     const header2 = sortable ? `<a class="u-Report-sort" href="#" data-apex-local-sort="${escapeHtml(name)}" data-region="${escapeHtml(domId)}" title="Sort by this column"><span class="u-Report-sortHeading">${label}</span>${direction ? `<span class="u-Report-sortIcon a-Icon icon-rpt-sort-${direction}" aria-hidden="true"></span>` : ""}</a>` : label;
     const alignment = headingAlignment(renderer, column2, visible[0]?.[name]);
-    return fill(text(template, "column_heading_template"), {
+    return fill(text2(template, "column_heading_template"), {
       COLUMN_HEADER: header2,
       COLUMN_HEADER_NAME: escapeHtml(name),
       ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
@@ -18595,20 +19050,20 @@ function classicReport(renderer, ctx, region) {
     });
   }).join("") : "";
   const body4 = visible.map(
-    (row, index) => fill(positional(text(template, "row_template_before_first"), row, index), {
+    (row, index) => fill(positional(text2(template, "row_template_before_first"), row, index), {
       ROWNUM: String(index + 1)
     }) + columns.map((column2) => {
       const alignment = renderer.alignment(column2, row[column2.id.toUpperCase()]);
-      return fill(text(template, "row_template1"), {
+      return fill(text2(template, "row_template1"), {
         COLUMN_VALUE: display2(column2, row, index),
         ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
         ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`,
         COLUMN_HEADER: cells.heading(column2),
         COLUMN_NUM: String(columns.indexOf(column2) + 1)
       });
-    }).join("") + positional(text(template, "row_template_after_last"), row, index)
+    }).join("") + positional(text2(template, "row_template_after_last"), row, index)
   ).join("\n");
-  return fill(text(template, "row_template_before_rows"), shared3) + (showHeadings ? text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") : "<tbody>") + body4 + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
+  return fill(text2(template, "row_template_before_rows"), shared3) + (showHeadings ? text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") : "<tbody>") + body4 + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
 }
 function diagnoseClassic(renderer, ctx, region) {
   const note2 = (message) => renderer.diagnose("info", message, ctx.pageId, region.id);
@@ -21133,7 +21588,7 @@ function saveGrid(renderer, ctx, region, changes) {
       ]
     };
   const table = model.table.toUpperCase();
-  const tableColumns = new Set(renderer.db.tableColumns(table).map((column2) => column2.name.toUpperCase()));
+  const tableColumns = new Set(renderer.data.tableColumns(table).map((column2) => column2.name.toUpperCase()));
   const label = (column2) => model.cells.label(column2.component);
   for (const change of changes) {
     const allowed = change.op === "insert" ? model.allowed.add : change.op === "update" ? model.allowed.update : model.allowed.delete;
@@ -21147,14 +21602,14 @@ function saveGrid(renderer, ctx, region, changes) {
       if (!column2.databaseColumn || column2.primaryKey) continue;
       const value3 = change.values[column2.name];
       const props = column2.component.props;
-      const text9 = value3 === null || value3 === void 0 ? "" : String(value3);
+      const text10 = value3 === null || value3 === void 0 ? "" : String(value3);
       const location = { ...change.id ? { id: change.id } : {}, column: column2.name };
-      if (get(props, "validation.valueRequired") === true && text9 === "")
+      if (get(props, "validation.valueRequired") === true && text10 === "")
         errors.push({ ...location, message: `${label(column2)} must have some value.` });
       const max = num(props, "validation.maxLength", 0);
-      if (max && text9.length > max)
+      if (max && text10.length > max)
         errors.push({ ...location, message: `${label(column2)} must have at most ${max} characters.` });
-      if (column2.type === "numberField" && text9 !== "" && !Number.isFinite(Number(text9.replaceAll(",", ""))))
+      if (column2.type === "numberField" && text10 !== "" && !Number.isFinite(Number(text10.replaceAll(",", ""))))
         errors.push({ ...location, message: `${label(column2)} must be Numeric.` });
     }
   }
@@ -21172,19 +21627,19 @@ function saveGrid(renderer, ctx, region, changes) {
     );
   };
   const where2 = keyColumns.map((column2, index) => `${column2} = :K${index}`).join(" and ");
-  const bindName = (column2) => `C_${column2.name.replace(/\W/gu, "_")}`;
+  const bindName2 = (column2) => `C_${column2.name.replace(/\W/gu, "_")}`;
   const value2 = (column2, raw2) => {
-    const text9 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-    if (text9 === "") return null;
-    if (column2.type === "numberField") return text9.replaceAll(",", "");
-    return text9;
+    const text10 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+    if (text10 === "") return null;
+    if (column2.type === "numberField") return text10.replaceAll(",", "");
+    return text10;
   };
   let saved = 0;
-  renderer.db.execute("savepoint apex_local_ig");
+  renderer.data.execute("savepoint apex_local_ig");
   try {
     for (const change of changes) {
       if (change.op === "delete") {
-        saved += renderer.db.execute(`delete from "${table}" where ${where2}`, keyBinds(change)).changes;
+        saved += renderer.data.execute(`delete from "${table}" where ${where2}`, keyBinds(change)).changes;
         continue;
       }
       const writable = model.columns.filter(
@@ -21196,29 +21651,29 @@ function saveGrid(renderer, ctx, region, changes) {
           return !(column2.primaryKey && (raw2 === "" || raw2 === null || /^t\d+$/u.test(String(raw2 ?? ""))));
         });
         const binds = Object.fromEntries(
-          insert.map((column2) => [bindName(column2), value2(column2, change.values[column2.name])])
+          insert.map((column2) => [bindName2(column2), value2(column2, change.values[column2.name])])
         );
-        saved += renderer.db.execute(
-          insert.length ? `insert into "${table}" (${insert.map((column2) => `"${column2.databaseColumn}"`).join(", ")}) values (${insert.map((column2) => `:${bindName(column2)}`).join(", ")})` : `insert into "${table}" default values`,
+        saved += renderer.data.execute(
+          insert.length ? `insert into "${table}" (${insert.map((column2) => `"${column2.databaseColumn}"`).join(", ")}) values (${insert.map((column2) => `:${bindName2(column2)}`).join(", ")})` : `insert into "${table}" default values`,
           binds
         ).changes;
         continue;
       }
       if (!writable.length) continue;
-      saved += renderer.db.execute(
-        `update "${table}" set ${writable.map((column2) => `"${column2.databaseColumn}" = :${bindName(column2)}`).join(", ")} where ${where2}`,
+      saved += renderer.data.execute(
+        `update "${table}" set ${writable.map((column2) => `"${column2.databaseColumn}" = :${bindName2(column2)}`).join(", ")} where ${where2}`,
         {
           ...Object.fromEntries(
-            writable.map((column2) => [bindName(column2), value2(column2, change.values[column2.name])])
+            writable.map((column2) => [bindName2(column2), value2(column2, change.values[column2.name])])
           ),
           ...keyBinds(change)
         }
       ).changes;
     }
-    renderer.db.execute("release savepoint apex_local_ig");
+    renderer.data.execute("release savepoint apex_local_ig");
   } catch (error) {
-    renderer.db.execute("rollback to savepoint apex_local_ig");
-    renderer.db.execute("release savepoint apex_local_ig");
+    renderer.data.execute("rollback to savepoint apex_local_ig");
+    renderer.data.execute("release savepoint apex_local_ig");
     renderer.diagnose(
       "error",
       `Interactive Grid save failed in ${region.id}: ${error.message}`,
@@ -21279,7 +21734,7 @@ function workingComputations(renderer, ctx, region, sql, views, ids) {
   const binds = renderer.binds(ctx.session, ctx.page);
   return views.computations.filter((computation) => {
     try {
-      renderer.db.query(computedQuery(sql, [computation], ids), binds, 1);
+      renderer.data.query(computedQuery(sql, [computation], ids), binds, 1);
       return true;
     } catch (error) {
       renderer.diagnose(
@@ -21309,7 +21764,7 @@ function irModel(renderer, ctx, region) {
     const working = workingComputations(renderer, ctx, region, sql, views, ids);
     if (working.length) {
       try {
-        result = renderer.db.query(
+        result = renderer.data.query(
           computedQuery(sql, working, ids),
           renderer.binds(ctx.session, ctx.page),
           limit + 1
@@ -21986,7 +22441,7 @@ function body(request) {
     return {};
   }
 }
-var text7 = (value2) => value2 === void 0 || value2 === null ? "" : String(value2);
+var text8 = (value2) => value2 === void 0 || value2 === null ? "" : String(value2);
 function displayedColumns(renderer, found) {
   if (found.type === "interactiveReport")
     return irModel(renderer, found.ctx, found.region).displayed.map((column2) => column2.id.toUpperCase());
@@ -21995,16 +22450,16 @@ function displayedColumns(renderer, found) {
   return found.state.columns?.filter((name) => visible.includes(name) || /^APEX\$/u.test(name)) ?? visible;
 }
 var objects = (value2) => Array.isArray(value2) ? value2.filter((entry) => entry && typeof entry === "object") : [];
-var upperText = (value2) => text7(value2).trim().toUpperCase();
+var upperText = (value2) => text8(value2).trim().toUpperCase();
 function functionsOf2(value2) {
   return objects(value2).map((entry) => {
-    const fn = text7(entry.fn) || "sum";
+    const fn = text8(entry.fn) || "sum";
     const column2 = upperText(entry.column);
     return {
       fn,
       column: column2,
-      label: text7(entry.label).trim() || `${AGGREGATE_LABELS[fn] ?? fn} ${column2}`.trim(),
-      formatMask: text7(entry.formatMask),
+      label: text8(entry.label).trim() || `${AGGREGATE_LABELS[fn] ?? fn} ${column2}`.trim(),
+      formatMask: text8(entry.formatMask),
       sum: entry.sum === true
     };
   }).filter((entry) => AGGREGATE_LABELS[entry.fn] && (entry.column || entry.fn === "count"));
@@ -22017,14 +22472,14 @@ function sortsOf2(value2) {
 }
 function irViewsAction(renderer, session, found, input) {
   const gridActions = /* @__PURE__ */ new Set(["controlBreak", "highlight", "aggregate", "toggle", "remove"]);
-  if (found.type !== "interactiveReport" && !(found.type === "interactiveGrid" && gridActions.has(text7(input.action))))
+  if (found.type !== "interactiveReport" && !(found.type === "interactiveGrid" && gridActions.has(text8(input.action))))
     return void 0;
   const { state: state2 } = found;
   const views = state2.views ??= emptyViews();
   const selection = reportSelection(session, found.key);
   const index = Number(input.index);
-  const kind = text7(input.kind);
-  switch (text7(input.action)) {
+  const kind = text8(input.kind);
+  switch (text8(input.action)) {
     case "controlBreak":
       views.breaks = objects(input.breaks).map((entry) => ({ column: upperText(entry.column), enabled: entry.enabled !== false })).filter(
         (entry, position2, all2) => entry.column && all2.findIndex((other) => other.column === entry.column) === position2
@@ -22033,17 +22488,17 @@ function irViewsAction(renderer, session, found, input) {
       return null;
     case "highlight": {
       const raw2 = input.highlight ?? {};
-      const operator = normalizeOperator(text7(raw2.operator) || "=");
+      const operator = normalizeOperator(text8(raw2.operator) || "=");
       const highlight2 = {
-        name: text7(raw2.name).trim() || "Highlight",
+        name: text8(raw2.name).trim() || "Highlight",
         type: raw2.type === "cell" ? "cell" : "row",
         column: upperText(raw2.column),
         operator,
-        value: text7(raw2.value),
-        value2: text7(raw2.value2) || void 0,
-        unit: text7(raw2.unit) || void 0,
-        background: text7(raw2.background),
-        text: text7(raw2.text),
+        value: text8(raw2.value),
+        value2: text8(raw2.value2) || void 0,
+        unit: text8(raw2.unit) || void 0,
+        background: text8(raw2.background),
+        text: text8(raw2.text),
         enabled: raw2.enabled !== false,
         sequence: Number(raw2.sequence) || (views.highlights.length + 1) * 10
       };
@@ -22057,21 +22512,21 @@ function irViewsAction(renderer, session, found, input) {
     }
     case "compute": {
       const raw2 = input.computation ?? {};
-      const expression = text7(raw2.expression).trim();
+      const expression = text8(raw2.expression).trim();
       if (!expression) return json4({ error: "Enter a computation expression." });
       const replace = Number(input.replace);
       const existing = Number.isInteger(replace) ? views.computations[replace] : void 0;
       const name = existing?.name ?? nextComputationName(views);
       const computation = {
         name,
-        label: text7(raw2.label).trim() || name,
+        label: text8(raw2.label).trim() || name,
         expression,
-        formatMask: text7(raw2.formatMask).trim()
+        formatMask: text8(raw2.formatMask).trim()
       };
       const model = irModel(renderer, found.ctx, found.region);
       const sql = renderer.regionSql(found.ctx, found.region);
       try {
-        renderer.db.query(
+        renderer.data.query(
           computedQuery(sql ?? "select 1 from dual", [computation], model.identifiers),
           renderer.binds(session, found.ctx.page),
           1
@@ -22087,7 +22542,7 @@ function irViewsAction(renderer, session, found, input) {
       return null;
     }
     case "aggregate": {
-      const fn = text7(input.fn);
+      const fn = text8(input.fn);
       const column2 = upperText(input.column);
       if (!column2 || !["sum", "average", "count", "countDistinct", "min", "max", "median"].includes(fn))
         return json4({ error: "Select an aggregation and a column." });
@@ -22116,16 +22571,16 @@ function irViewsAction(renderer, session, found, input) {
     }
     case "chart": {
       const raw2 = input.chart ?? {};
-      const fn = text7(raw2.fn) || "sum";
+      const fn = text8(raw2.fn) || "sum";
       const chart = {
-        type: CHART_TYPES.has(text7(raw2.type)) ? text7(raw2.type) : "bar",
+        type: CHART_TYPES.has(text8(raw2.type)) ? text8(raw2.type) : "bar",
         label: upperText(raw2.label),
         value: upperText(raw2.value),
         fn,
         orientation: raw2.orientation === "horizontal" ? "horizontal" : "vertical",
-        sort: text7(raw2.sort) || "default",
-        labelTitle: text7(raw2.labelTitle),
-        valueTitle: text7(raw2.valueTitle)
+        sort: text8(raw2.sort) || "default",
+        labelTitle: text8(raw2.labelTitle),
+        valueTitle: text8(raw2.valueTitle)
       };
       if (!chart.label || !chart.value && fn !== "count")
         return json4({ error: "Select a label column and a value column." });
@@ -22134,7 +22589,7 @@ function irViewsAction(renderer, session, found, input) {
       return null;
     }
     case "view": {
-      const view = text7(input.view);
+      const view = text8(input.view);
       views.view = view === "groupBy" || view === "pivot" || view === "chart" ? view : "report";
       views.single = void 0;
       return null;
@@ -22163,24 +22618,24 @@ function irViewsAction(renderer, session, found, input) {
       views.single = Number.isInteger(index) && index >= 0 ? index : void 0;
       return json4({ ok: true });
     case "saveReport": {
-      const name = text7(input.name).trim();
+      const name = text8(input.name).trim();
       if (!name) return json4({ error: "Enter a name for the report." });
       const existing = selection.privates.find((report2) => report2.name.toLowerCase() === name.toLowerCase());
       const copy = snapshot(state2);
       if (copy.views) copy.views.single = void 0;
       if (existing) {
         existing.state = copy;
-        existing.description = text7(input.description);
+        existing.description = text8(input.description);
         selection.current = existing.id;
       } else {
         const id = `p:${selection.next++}`;
-        selection.privates.push({ id, name, description: text7(input.description), state: copy });
+        selection.privates.push({ id, name, description: text8(input.description), state: copy });
         selection.current = id;
       }
       return json4({ ok: true, report: selection.current });
     }
     case "selectReport": {
-      const id = text7(input.id);
+      const id = text8(input.id);
       const report2 = reportList(found.region, selection).find((entry) => entry.id === id);
       if (!report2) return json4({ error: `Saved report ${id} not found` });
       selection.current = report2.primary ? "" : report2.id;
@@ -22201,26 +22656,26 @@ function irViewsAction(renderer, session, found, input) {
 }
 function reportRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text7(input.page), text7(input.region));
+  const found = target(renderer, session, text8(input.page), text8(input.region));
   if (typeof found === "string") return json4({ error: found }, 404);
   const { state: state2 } = found;
-  const column2 = text7(input.column).toUpperCase();
-  switch (text7(input.action)) {
+  const column2 = text8(input.column).toUpperCase();
+  switch (text8(input.action)) {
     case "search": {
-      const value2 = text7(input.text).trim();
+      const value2 = text8(input.text).trim();
       if (value2) state2.filters.push({ column: column2, operator: "contains", value: value2, enabled: true });
       break;
     }
     case "filter": {
-      const operator = normalizeOperator(text7(input.operator) || "=");
+      const operator = normalizeOperator(text8(input.operator) || "=");
       if (!column2 || !SUPPORTED_OPERATORS.has(operator))
         return json4({ error: `Unsupported filter ${operator}` });
       const filter = {
         column: column2,
         operator,
-        value: text7(input.value),
-        ...operator === "between" || operator === "notBetween" ? { value2: text7(input.value2) } : {},
-        ...text7(input.unit) ? { unit: text7(input.unit) } : {},
+        value: text8(input.value),
+        ...operator === "between" || operator === "notBetween" ? { value2: text8(input.value2) } : {},
+        ...text8(input.unit) ? { unit: text8(input.unit) } : {},
         enabled: true
       };
       const replace = Number(input.replace);
@@ -22239,7 +22694,7 @@ function reportRoute(renderer, session, request) {
     case "sort": {
       const sort = Array.isArray(input.sort) ? input.sort : [];
       state2.sort = sort.filter((entry) => entry && entry.column).map((entry) => ({
-        column: text7(entry.column).toUpperCase(),
+        column: text8(entry.column).toUpperCase(),
         direction: entry.direction === "desc" ? "desc" : "asc"
       }));
       break;
@@ -22256,7 +22711,7 @@ function reportRoute(renderer, session, request) {
       break;
     case "columns":
       state2.columns = (Array.isArray(input.columns) ? input.columns : []).map(
-        (name) => text7(name).toUpperCase()
+        (name) => text8(name).toUpperCase()
       );
       break;
     case "rowsPerPage": {
@@ -22265,14 +22720,14 @@ function reportRoute(renderer, session, request) {
       break;
     }
     case "select":
-      state2.selected = text7(input.id);
+      state2.selected = text8(input.id);
       return json4({ ok: true });
     case "reset":
       resetState(session, found.key);
       break;
     default: {
       const handled = irViewsAction(renderer, session, found, input);
-      if (handled === void 0) return json4({ error: `Unknown report action ${text7(input.action)}` }, 400);
+      if (handled === void 0) return json4({ error: `Unknown report action ${text8(input.action)}` }, 400);
       if (handled) return handled;
     }
   }
@@ -22393,9 +22848,9 @@ function chartRoute(renderer, session, request) {
 }
 function changesOf(input) {
   if (!Array.isArray(input.changes)) return [];
-  return input.changes.filter((change) => change && /^(insert|update|delete)$/u.test(text7(change.op))).map((change) => ({
-    op: text7(change.op),
-    ...change.id !== void 0 ? { id: text7(change.id) } : {},
+  return input.changes.filter((change) => change && /^(insert|update|delete)$/u.test(text8(change.op))).map((change) => ({
+    op: text8(change.op),
+    ...change.id !== void 0 ? { id: text8(change.id) } : {},
     values: Object.fromEntries(
       Object.entries(change.values ?? {}).map(([name, value2]) => [
         name.toUpperCase(),
@@ -22411,7 +22866,7 @@ function rowProcess(renderer, ctx, region) {
 }
 function saveRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text7(input.page), text7(input.region));
+  const found = target(renderer, session, text8(input.page), text8(input.region));
   if (typeof found === "string") return json4({ ok: false, errors: [{ message: found }] }, 404);
   if (!rowProcess(renderer, found.ctx, found.region)) {
     renderer.diagnose(
@@ -22437,7 +22892,7 @@ function saveRoute(renderer, session, request) {
 }
 function stageRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text7(input.page), text7(input.region));
+  const found = target(renderer, session, text8(input.page), text8(input.region));
   if (typeof found === "string") return json4({ error: found }, 404);
   found.state.pending = { changes: changesOf(input) };
   return json4({ ok: true, staged: found.state.pending.changes.length });
@@ -22486,6 +22941,168 @@ apex.jQuery(function () { apexLocalReports.init(); });`,
   css: REPORTS_CSS
 });
 
+// packages/core/src/preview/oracle/plsql.ts
+var shapes = /* @__PURE__ */ new Map();
+var BOOLEAN_RESULT = `:${RESULT_BIND} := case when l_result then 'Y' when not l_result then 'N' end;`;
+function oracleBlock(code, mode, shape) {
+  const body4 = code.trim().replace(/;\s*$/u, mode === "block" || mode === "functionBody" ? ";" : "");
+  switch (mode) {
+    case "block":
+      return `begin
+${body4}
+end;`;
+    case "functionBody":
+      return shape === "boolean" ? `declare
+  l_result boolean;
+  function apexrest_fn return boolean is
+  begin
+${body4}
+  end;
+begin
+  l_result := apexrest_fn;
+  ${BOOLEAN_RESULT}
+end;` : `declare
+  function apexrest_fn return varchar2 is
+  begin
+${body4}
+  end;
+begin
+  :${RESULT_BIND} := apexrest_fn;
+end;`;
+    case "plsqlExpression":
+      return shape === "boolean" ? `declare
+  l_result boolean;
+begin
+  l_result := (${body4});
+  ${BOOLEAN_RESULT}
+end;` : `begin
+  :${RESULT_BIND} := (${body4});
+end;`;
+    case "sqlExpression":
+      return shape === "boolean" ? `begin
+  select case when (${body4}) then 'Y' else 'N' end into :${RESULT_BIND} from dual;
+end;` : `begin
+  select (${body4}) into :${RESULT_BIND} from dual;
+end;`;
+  }
+}
+function transactionRisk(code) {
+  const bare = code.replace(/q'([[{(<])[\s\S]*?[\]})>]'|q'(.)[\s\S]*?\2'/giu, " ").replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  if (/\bcommit\b/iu.test(bare)) return "COMMIT";
+  if (/\brollback\b(?!\s+to\b)/iu.test(bare)) return "ROLLBACK";
+  if (/\bexecute\s+immediate\b/iu.test(bare)) return "EXECUTE IMMEDIATE";
+  if (/\bdbms_sql\s*\./iu.test(bare)) return "DBMS_SQL";
+  if (/\bpragma\s+autonomous_transaction\b/iu.test(bare)) return "PRAGMA AUTONOMOUS_TRANSACTION";
+  return void 0;
+}
+function apexPage(installed, page) {
+  return installed.includes(page) ? page : installed.find((id) => id > 0) ?? installed[0] ?? page;
+}
+function wrongShape(error, mode) {
+  if (mode === "block") return false;
+  if (/PLS-00382|PLS-00306/u.test(error.message)) return true;
+  return mode === "sqlExpression" && /ORA-00(?:905|907|920|923|933|936)\b/u.test(error.message);
+}
+function failure(error) {
+  const first = error.message.split("\n")[0] ?? error.message;
+  if (error.code === -20997) return { message: error.message, kind: "engine" };
+  if (error.code === -34)
+    return {
+      message: `${first} (the connected preview disables COMMIT; every request is rolled back)`,
+      kind: "engine"
+    };
+  if (error.code <= -2e4 && error.code >= -20999) return { message: first, kind: "app" };
+  return { message: error.message, kind: "engine" };
+}
+function runOraclePlsql(renderer, ctx, oracle, code, mode, owner2) {
+  const result = { ok: true, value: null, output: "", errors: [] };
+  const risk = transactionRisk(code);
+  if (risk) {
+    result.ok = false;
+    result.failure = {
+      message: `${risk} is not sent to Oracle by the connected preview because it could commit; the unit was skipped`,
+      kind: "unsupported"
+    };
+    return result;
+  }
+  const builtins = renderer.builtin(ctx.session, ctx.page);
+  const all2 = {
+    ...renderer.binds(ctx.session, ctx.page),
+    REQUEST: ctx.request
+  };
+  const names = bindNames(code).map((name) => name.toUpperCase());
+  const binds = Object.fromEntries(
+    [...names, RESULT_BIND].map((name) => [name, all2[name] === "" ? null : all2[name] ?? null])
+  );
+  const apex = oracle.apex && !oracle.apexError ? oracle.apex : void 0;
+  const after = apex ? Object.fromEntries(
+    renderer.pageComponents(ctx, "pageItem").map((item2) => item2.id.toUpperCase()).filter((name) => apex.items.has(name) && !names.includes(name)).map((name) => [name, `v('${name}')`])
+  ) : {};
+  for (const name of Object.keys(after)) binds[name] = ctx.session.items[name] || null;
+  const key = `${mode}
+${code}`;
+  let shape = shapes.get(key) ?? "text";
+  try {
+    for (let attempt = 0; ; attempt += 1) {
+      let reply2;
+      try {
+        reply2 = oracle.data.plsql({
+          block: oracleBlock(code, mode, shape),
+          binds,
+          after,
+          apex: apex ? {
+            ...apex,
+            pageId: apexPage(apex.pages, Number(ctx.pageId)),
+            user: ctx.session.user || "APEXREST_PREVIEW"
+          } : void 0,
+          htp: mode === "block" || mode === "functionBody"
+        });
+      } catch (error) {
+        if (!apex || !(error instanceof OracleError) || error.code === -20994 || error.code === -20995)
+          throw error;
+        oracle.apexError = error.message.split("\n")[0] ?? error.message;
+        renderer.diagnose(
+          "warning",
+          `Connected preview: APEX session context is unavailable (${oracle.apexError}); v() returns NULL in database code`
+        );
+        return runOraclePlsql(renderer, ctx, oracle, code, mode, owner2);
+      }
+      if (reply2.error && attempt === 0 && shape === "text" && wrongShape(reply2.error, mode)) {
+        shape = "boolean";
+        continue;
+      }
+      shapes.set(key, shape);
+      if (reply2.error?.code === -20997)
+        renderer.diagnose("error", `${owner2.label}: ${reply2.error.message}`, ctx.pageId, owner2.component);
+      if (reply2.output.trim())
+        renderer.diagnose(
+          "info",
+          `${owner2.label}: DBMS_OUTPUT ${reply2.output.trim().slice(0, 500)}`,
+          ctx.pageId,
+          owner2.component
+        );
+      result.output = reply2.htp;
+      if (reply2.error) {
+        result.ok = false;
+        result.failure = failure(reply2.error);
+        return result;
+      }
+      const value2 = reply2.values[RESULT_BIND] ?? null;
+      result.value = shape === "boolean" ? value2 === "Y" : value2;
+      for (const name of [...names, ...Object.keys(after)]) {
+        if (name in builtins || name === "REQUEST") continue;
+        const next = reply2.values[name] ?? "";
+        if (next !== (ctx.session.items[name] ?? "")) ctx.session.items[name] = next;
+      }
+      return result;
+    }
+  } catch (error) {
+    result.ok = false;
+    result.failure = error instanceof OracleError ? failure(error) : { message: error.message ?? String(error), kind: "engine" };
+    return result;
+  }
+}
+
 // packages/core/src/preview/extensions/server.ts
 var owner = (component) => ({
   label: `${component.type} ${component.id}`,
@@ -22496,16 +23113,16 @@ function sorted(components) {
   return [...components].sort((a, b) => sequence4(a) - sequence4(b));
 }
 function report(renderer, ctx, who, result, consequence) {
-  const failure2 = result.failure;
-  if (!failure2) return void 0;
-  const where2 = failure2.line ? ` (line ${failure2.line})` : "";
-  if (failure2.kind === "app") {
-    renderer.diagnose("info", `${who.label} raised: ${failure2.message}${where2}`, ctx.pageId, who.component);
-    return failure2.message.replace(/^ORA-20\d{3}:\s*/u, "");
+  const failure3 = result.failure;
+  if (!failure3) return void 0;
+  const where2 = failure3.line ? ` (line ${failure3.line})` : "";
+  if (failure3.kind === "app") {
+    renderer.diagnose("info", `${who.label} raised: ${failure3.message}${where2}`, ctx.pageId, who.component);
+    return failure3.message.replace(/^ORA-20\d{3}:\s*/u, "");
   }
   renderer.diagnose(
-    failure2.kind === "unsupported" ? "info" : "warning",
-    `${who.label}: ${failure2.kind === "unsupported" ? "PL/SQL not interpreted locally" : "PL/SQL failed"} \u2014 ${failure2.message}${where2}; ${consequence}`,
+    failure3.kind === "unsupported" ? "info" : "warning",
+    `${who.label}: ${failure3.kind === "unsupported" ? renderer.oracle ? "PL/SQL not run" : "PL/SQL not interpreted locally" : "PL/SQL failed"} \u2014 ${failure3.message}${where2}; ${consequence}`,
     ctx.pageId,
     who.component
   );
@@ -22522,6 +23139,7 @@ function failureError(component, result, message) {
 }
 function run(renderer, ctx, code, mode, who) {
   rememberRenderer(renderer);
+  if (renderer.oracle) return runOraclePlsql(renderer, ctx, renderer.oracle, code, mode, who);
   return runPlsql(renderer, ctx, code, mode, who);
 }
 function processCode(process2) {
@@ -22622,8 +23240,8 @@ function errorTextValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "functionBody");
   if (!result) return void 0;
   if (!result.ok) return report(renderer, ctx, owner(validation), result, "treated as passed") ?? null;
-  const text9 = itemText(result.value);
-  return addedError(result) ?? (text9 ? text9 : null);
+  const text10 = itemText(result.value);
+  return addedError(result) ?? (text10 ? text10 : null);
 }
 function plsqlErrorValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "block");
@@ -22645,7 +23263,7 @@ function queryValidation(found) {
     for (const [key, value2] of Object.entries(binds)) if (value2 === "") binds[key] = null;
     binds.REQUEST = ctx.request || null;
     try {
-      const rows = renderer.db.query(sql, binds, 1).rows.length > 0;
+      const rows = renderer.data.query(sql, binds, 1).rows.length > 0;
       return rows === found ? null : validationMessage(validation);
     } catch (error) {
       renderer.diagnose(
@@ -22826,7 +23444,7 @@ function itemSources(renderer, ctx) {
       const code = type === "functionBody" ? body4 : sql ? type === "sqlQueryMultipleValues" ? `(select group_concat(v, ':') from (select (${sql}) as v))` : `(${sql})` : str(item2.props, "source.sqlExpression") || str(item2.props, "source.plsqlExpression");
       if (type === "sqlQueryMultipleValues") {
         try {
-          const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page));
+          const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page));
           value2 = result.rows.map((row) => String(row[result.columns[0]] ?? "")).join(":");
         } catch (error) {
           renderer.diagnose(
@@ -23206,32 +23824,32 @@ var STRUCTURE_JS = String.raw`
 var LITERAL = "";
 function mask(sql) {
   const literals = [];
-  const text9 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+  const text10 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
     literals.push(literal2);
     return `${LITERAL}${literals.length - 1}${LITERAL}`;
   });
-  return { text: text9, literals };
+  return { text: text10, literals };
 }
-function unmask2(text9, literals) {
-  return text9.replace(
+function unmask2(text10, literals) {
+  return text10.replace(
     new RegExp(`${LITERAL}(\\d+)${LITERAL}`, "gu"),
     (_whole, index) => String(literals[Number(index)])
   );
 }
-function depths(text9) {
+function depths(text10) {
   const result = [];
   let depth = 0;
-  for (const char of text9) {
+  for (const char of text10) {
     if (char === ")") depth -= 1;
     result.push(depth);
     if (char === "(") depth += 1;
   }
   return result;
 }
-function find(text9, level, pattern, depth) {
+function find(text10, level, pattern, depth) {
   const found = [];
   const regex = new RegExp(pattern.source, "giu");
-  for (let match = regex.exec(text9); match; match = regex.exec(text9)) {
+  for (let match = regex.exec(text10); match; match = regex.exec(text10)) {
     if (level[match.index] === depth) found.push({ index: match.index, end: match.index + match[0].length });
   }
   return found;
@@ -23263,10 +23881,10 @@ var CLAUSES = [
   ["group", /\bgroup\s+by\b/],
   ["set", /\b(?:union|intersect|minus|except)\b/]
 ];
-function rewriteSelect(text9, level, depth) {
+function rewriteSelect(text10, level, depth) {
   const marks = [];
   for (const [name, pattern] of CLAUSES) {
-    for (const hit of find(text9, level, pattern, depth)) marks.push({ name, ...hit });
+    for (const hit of find(text10, level, pattern, depth)) marks.push({ name, ...hit });
   }
   const siblings = marks.filter((mark) => mark.name === "siblings");
   const clauses = marks.filter(
@@ -23281,7 +23899,7 @@ function rewriteSelect(text9, level, depth) {
     if (index < 0) return void 0;
     const mark = clauses[index];
     const next = clauses[index + 1];
-    return text9.slice(mark.end, next ? next.index : text9.length).trim();
+    return text10.slice(mark.end, next ? next.index : text10.length).trim();
   };
   const selectList2 = body4("select");
   const fromClause = body4("from");
@@ -23363,36 +23981,36 @@ function requalify(expression, alias, to) {
 }
 function translateHierarchy(sql) {
   const masked = mask(sql);
-  let text9 = masked.text;
-  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text9)) return { sql };
+  let text10 = masked.text;
+  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text10)) return { sql };
   for (let guard2 = 0; guard2 < 8; guard2 += 1) {
-    const level = depths(text9);
-    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text9);
+    const level = depths(text10);
+    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text10);
     if (!match) break;
     const depth = level[match.index];
     let start = 0;
-    let end = text9.length;
+    let end = text10.length;
     if (depth > 0) {
       for (let index = match.index; index >= 0; index -= 1) {
-        if (text9[index] === "(" && level[index] === depth - 1) {
+        if (text10[index] === "(" && level[index] === depth - 1) {
           start = index + 1;
           break;
         }
       }
-      for (let index = match.index; index < text9.length; index += 1) {
-        if (text9[index] === ")" && level[index] === depth - 1) {
+      for (let index = match.index; index < text10.length; index += 1) {
+        if (text10[index] === ")" && level[index] === depth - 1) {
           end = index;
           break;
         }
       }
     }
-    const fragment = text9.slice(start, end);
+    const fragment = text10.slice(start, end);
     const fragmentLevel = level.slice(start, end);
     const rewritten = rewriteSelect(fragment, fragmentLevel, depth);
     if (typeof rewritten !== "string") return { sql, unsupported: rewritten.unsupported };
-    text9 = text9.slice(0, start) + rewritten + text9.slice(end);
+    text10 = text10.slice(0, start) + rewritten + text10.slice(end);
   }
-  return { sql: unmask2(text9, masked.literals) };
+  return { sql: unmask2(text10, masked.literals) };
 }
 
 // packages/core/src/preview/extensions/structure/legacy.ts
@@ -23510,8 +24128,8 @@ function tabformTable(renderer, ctx, region) {
 }
 function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
   const type = column2 ? str(column2.props, "type", "plainText") : "plainText";
-  const text9 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-  const value2 = escapeHtml(text9);
+  const text10 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+  const value2 = escapeHtml(text10);
   const data = `data-tabform-col="${escapeHtml(name)}" data-orig="${value2}"`;
   const width = column2 ? num(column2.props, "appearance.width", 0) : 0;
   const label = escapeHtml(str(column2?.props ?? {}, "heading.heading", name));
@@ -23528,14 +24146,14 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
     case "radioGroup": {
       const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
       const nullOption = get(column2.props, "lov.displayNullValue") === true;
-      const known = options3.some((option) => option.r === text9);
-      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text9 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options3.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text9 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
+      const known = options3.some((option) => option.r === text10);
+      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text10 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options3.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text10 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
     }
     case "simpleCheckbox": {
       const [checkedValue = "Y", uncheckedValue = ""] = str(column2.props, "lov.checkboxValues", "Y").split(
         ","
       );
-      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text9 === checkedValue ? " checked" : ""} aria-label="${label}">`;
+      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text10 === checkedValue ? " checked" : ""} aria-label="${label}">`;
     }
     case "hiddenSavesState":
       return `<input type="hidden" ${data} value="${value2}">`;
@@ -23552,7 +24170,7 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
     }
     case "plainTextBasedOnLov": {
       const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
-      return escapeHtml(options3.find((option) => option.r === text9)?.d ?? text9);
+      return escapeHtml(options3.find((option) => option.r === text10)?.d ?? text10);
     }
     default:
       return value2;
@@ -23659,7 +24277,7 @@ function tabformTarget(renderer, ctx, process2) {
   return { region, table, pk };
 }
 var quote3 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
-function failure(renderer, ctx, process2, error) {
+function failure2(renderer, ctx, process2, error) {
   const message = error.message;
   renderer.diagnose("error", `Tabular form process ${process2.id} failed: ${message}`, ctx.pageId, process2.id);
   return { ran: false, errors: [{ type: "error", location: ["page"], message, unsafe: false }] };
@@ -23669,7 +24287,7 @@ var tabformUpdate = (renderer, ctx, process2, point) => {
   const target2 = tabformTarget(renderer, ctx, process2);
   if (!target2) return { ran: false };
   const columns = new Set(
-    renderer.db.tableColumns(target2.table.replaceAll('"', "")).map((entry) => entry.name)
+    renderer.data.tableColumns(target2.table.replaceAll('"', "")).map((entry) => entry.name)
   );
   let updated = 0;
   let inserted = 0;
@@ -23683,15 +24301,17 @@ var tabformUpdate = (renderer, ctx, process2, point) => {
       );
       if (row.key) {
         if (!row.changed || !values.length) continue;
-        renderer.db.execute(
+        renderer.data.execute(
           `update ${target2.table} set ${values.map(([name], index) => `${quote3(name)} = :APEX_LOCAL_V${index}`).join(", ")} where ${quote3(target2.pk)} = :APEX_LOCAL_KEY`,
           { ...binds, APEX_LOCAL_KEY: row.key }
         );
         updated += 1;
       } else if (values.some(([, value2]) => value2 !== "")) {
         const provided = row.values[target2.pk];
-        const key = provided || String(renderer.db.scalar(`select coalesce(max(${quote3(target2.pk)}), 0) + 1 from ${target2.table}`));
-        renderer.db.execute(
+        const key = provided || String(
+          renderer.data.scalar(`select coalesce(max(${quote3(target2.pk)}), 0) + 1 from ${target2.table}`)
+        );
+        renderer.data.execute(
           `insert into ${target2.table} (${[quote3(target2.pk), ...values.map(([name]) => quote3(name))].join(", ")}) values (:APEX_LOCAL_KEY${values.map((_value, index) => `, :APEX_LOCAL_V${index}`).join("")})`,
           { ...binds, APEX_LOCAL_KEY: key }
         );
@@ -23699,7 +24319,7 @@ var tabformUpdate = (renderer, ctx, process2, point) => {
       }
     }
   } catch (error) {
-    return failure(renderer, ctx, process2, error);
+    return failure2(renderer, ctx, process2, error);
   }
   delete ctx.session.pagination[addKey(ctx.pageId, target2.region)];
   if (updated || inserted) ctx.session.success ??= `${updated} row(s) updated, ${inserted} row(s) inserted.`;
@@ -23712,11 +24332,11 @@ var tabformDelete = (renderer, ctx, process2, point) => {
   const keys = submittedRows(ctx, target2.region).filter((row) => row.selected && row.key).map((row) => row.key);
   try {
     for (const key of keys)
-      renderer.db.execute(`delete from ${target2.table} where ${quote3(target2.pk)} = :APEX_LOCAL_KEY`, {
+      renderer.data.execute(`delete from ${target2.table} where ${quote3(target2.pk)} = :APEX_LOCAL_KEY`, {
         APEX_LOCAL_KEY: key
       });
   } catch (error) {
-    return failure(renderer, ctx, process2, error);
+    return failure2(renderer, ctx, process2, error);
   }
   if (keys.length) ctx.session.success ??= `${keys.length} row(s) deleted.`;
   return { ran: keys.length > 0 };
@@ -23823,8 +24443,8 @@ function searchItem(renderer, ctx, region) {
   return slotted ? slotted.id.toUpperCase() : "";
 }
 var quote4 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
-function highlight(text9, terms) {
-  let html = escapeHtml(text9);
+function highlight(text10, terms) {
+  let html = escapeHtml(text10);
   for (const term of terms) {
     const safe2 = escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     if (safe2)
@@ -23835,8 +24455,8 @@ function highlight(text9, terms) {
   }
   return html;
 }
-function initials2(text9) {
-  return text9.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
+function initials2(text10) {
+  return text10.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
 }
 function configRows(renderer, ctx, config, terms, limit) {
   const type = str(config.props, "type", "simple");
@@ -24071,8 +24691,8 @@ function rowText(template, row, escape) {
   return template.replace(/#([A-Z0-9_$]+)#/giu, (whole, name) => {
     const key = name.toUpperCase();
     if (!(key in row)) return whole;
-    const text9 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
-    return escape ? escapeHtml(text9) : text9;
+    const text10 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
+    return escape ? escapeHtml(text10) : text10;
   });
 }
 function treeModel(renderer, ctx, region) {
@@ -24148,7 +24768,7 @@ function treeModel(renderer, ctx, region) {
       startValues = [ctx.session.items[upper2(settings2("item"))] ?? ""];
     else if (start === "basedOnSqlQuery") {
       try {
-        const rows2 = renderer.db.query(settings2("sqlQuery"), renderer.binds(ctx.session, ctx.page), 1e3);
+        const rows2 = renderer.data.query(settings2("sqlQuery"), renderer.binds(ctx.session, ctx.page), 1e3);
         startValues = rows2.rows.map((row) => String(row[rows2.columns[0]] ?? ""));
       } catch (error) {
         renderer.diagnose(
@@ -24332,7 +24952,7 @@ var autoRowFetch = (renderer, ctx, process2) => {
   ]);
   const runtime2 = attribute2(process2.props, "runtimeWhereClause");
   try {
-    const result = renderer.db.query(
+    const result = renderer.data.query(
       `select * from ${table} where ${key.where}${runtime2 ? ` and (${runtime2})` : ""}`,
       renderer.binds(ctx.session, ctx.page),
       1
@@ -24380,7 +25000,7 @@ var autoRowProcessing = (renderer, ctx, process2, point, pressed) => {
     { name: pkColumn, type: "number", pk: true },
     ...items.map((entry) => ({ name: entry.column, type: "varchar2" }))
   ]);
-  const existing = new Set(renderer.db.tableColumns(table.replaceAll('"', "")).map((entry) => entry.name));
+  const existing = new Set(renderer.data.tableColumns(table.replaceAll('"', "")).map((entry) => entry.name));
   const values = items.filter(
     (entry) => existing.has(upper3(entry.column)) && upper3(entry.column) !== upper3(pkColumn)
   );
@@ -24388,7 +25008,7 @@ var autoRowProcessing = (renderer, ctx, process2, point, pressed) => {
   try {
     if (operation2 === "insert") {
       if (!ctx.session.items[pkItem] && pkColumn.toUpperCase() !== "ROWID") {
-        const next = renderer.db.scalar(`select coalesce(max(${column(pkColumn)}), 0) + 1 from ${table}`);
+        const next = renderer.data.scalar(`select coalesce(max(${column(pkColumn)}), 0) + 1 from ${table}`);
         ctx.session.items[pkItem] = String(next);
         binds[pkItem] = String(next);
       }
@@ -24396,7 +25016,7 @@ var autoRowProcessing = (renderer, ctx, process2, point, pressed) => {
         ...pkColumn.toUpperCase() === "ROWID" ? [] : [{ item: pkItem, column: pkColumn }],
         ...values
       ];
-      renderer.db.execute(
+      renderer.data.execute(
         `insert into ${table} (${names.map((entry) => column(entry.column)).join(", ")}) values (${names.map((entry) => `:${entry.item}`).join(", ")})`,
         binds
       );
@@ -24404,13 +25024,13 @@ var autoRowProcessing = (renderer, ctx, process2, point, pressed) => {
       if (returnItem) ctx.session.items[returnItem] = ctx.session.items[pkItem] ?? "";
     } else if (operation2 === "update") {
       if (key.items.some((item2) => !ctx.session.items[item2]) || !values.length) return { ran: false };
-      renderer.db.execute(
+      renderer.data.execute(
         `update ${table} set ${values.map((entry) => `${column(entry.column)} = :${entry.item}`).join(", ")} where ${key.where}`,
         binds
       );
     } else {
       if (key.items.some((item2) => !ctx.session.items[item2])) return { ran: false };
-      renderer.db.execute(`delete from ${table} where ${key.where}`, binds);
+      renderer.data.execute(`delete from ${table} where ${key.where}`, binds);
     }
     ctx.session.success ??= "Action Processed.";
     return { ran: true };
@@ -24465,7 +25085,7 @@ var formPagination = (renderer, ctx, process2) => {
   ].filter(Boolean).map(column);
   const runtime2 = attribute2(process2.props, "runtimeWhereClause");
   try {
-    const result = renderer.db.query(
+    const result = renderer.data.query(
       `select ${key} as "APEX_LOCAL_KEY" from ${table}${runtime2 ? ` where ${runtime2}` : ""} order by ${[...order, key].join(", ")}`,
       renderer.binds(ctx.session, ctx.page),
       1e5
@@ -24569,6 +25189,7 @@ registerExtension({
   },
   processes: { ...LEGACY_PROCESSES, tabformUpdate, tabformDelete, tabformAddRows },
   regionSql: (renderer, ctx, region, sql) => {
+    if (renderer.data.dialect === "oracle") return void 0;
     const result = translateHierarchy(sql);
     if (result.unsupported)
       renderer.diagnose(
@@ -24609,11 +25230,11 @@ function rowVersionColumn(region) {
   const column2 = str(region.props, "edit.rowVersionColumn");
   return /version/iu.test(type) && column2 ? column2.toUpperCase() : void 0;
 }
-var text8 = (value2) => value2 === null || value2 === void 0 ? "" : String(value2);
+var text9 = (value2) => value2 === null || value2 === void 0 ? "" : String(value2);
 function checksum(region, row, columns) {
   const version = rowVersionColumn(region);
-  if (version) return `v:${text8(row[version])}`;
-  return JSON.stringify([...new Set(columns)].sort().map((column2) => [column2, text8(row[column2])]));
+  if (version) return `v:${text9(row[version])}`;
+  return JSON.stringify([...new Set(columns)].sort().map((column2) => [column2, text9(row[column2])]));
 }
 function rememberRow(session, pageId, region, key, row, columns) {
   let map = snapshots.get(session);
@@ -24777,7 +25398,11 @@ var ApexRenderer = class {
   app;
   assets;
   theme;
+  /** Preview-internal state: session tables, dictionary views, files, mail. Always SQLite. */
   db;
+  /** Application tables and SQL: `db` itself, or the connected Oracle session. */
+  data;
+  oracle;
   alias;
   appId;
   diagnostics = [];
@@ -24788,10 +25413,16 @@ var ApexRenderer = class {
     this.app = app;
     this.assets = assets;
     this.db = db2;
+    this.oracle = options3.oracle;
+    this.data = options3.oracle?.data ?? db2;
     this.theme = indexTheme(assets.theme);
     this.alias = slug(app.app.id || "app").toLowerCase();
     this.appId = app.substitutions.APP_ID ?? "100";
-    this.options = { toolbar: options3.toolbar ?? true, sampleRows: options3.sampleRows ?? 8 };
+    this.options = {
+      toolbar: options3.toolbar ?? true,
+      sampleRows: options3.sampleRows ?? 8,
+      seedDirs: options3.seedDirs ?? []
+    };
   }
   get baseUrl() {
     return `/r/${this.alias}`;
@@ -24928,7 +25559,7 @@ var ApexRenderer = class {
     const runQuery = () => {
       const sql = str(condition, "sqlQuery");
       try {
-        return this.db.query(sql, this.binds(ctx.session, ctx.page), 1).rows.length > 0;
+        return this.data.query(sql, this.binds(ctx.session, ctx.page), 1).rows.length > 0;
       } catch (error) {
         this.diagnose(
           "warning",
@@ -25080,14 +25711,14 @@ var ApexRenderer = class {
     if (get(page.props, "dialog.chained") !== void 0)
       attributes2.push(`chained:${bool(page.props, "dialog.chained", true)}`);
     const literal2 = (value2) => `'${escapeJs(value2)}'`;
-    const code = text(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
+    const code = text2(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
     return fill(code, {
       PAGE_URL: literal2(url2),
       TITLE: literal2(str(page.props, "title", str(page.props, "name"))),
-      DIALOG_HEIGHT: literal2(str(page.props, "dialog.height", text(template, "dialog_height") || "auto")),
-      DIALOG_WIDTH: literal2(str(page.props, "dialog.width", text(template, "dialog_width") || "720")),
+      DIALOG_HEIGHT: literal2(str(page.props, "dialog.height", text2(template, "dialog_height") || "auto")),
+      DIALOG_WIDTH: literal2(str(page.props, "dialog.width", text2(template, "dialog_width") || "720")),
       DIALOG_MAX_WIDTH: literal2(
-        str(page.props, "dialog.maxWidth", text(template, "dialog_max_width") || "960")
+        str(page.props, "dialog.maxWidth", text2(template, "dialog_max_width") || "960")
       ),
       IS_MODAL: String(str(page.props, "appearance.pageMode") !== "nonModalDialog"),
       DIALOG: "null",
@@ -25125,7 +25756,7 @@ var ApexRenderer = class {
   }
   queryLov(ctx, sql, display2, returned, owner2) {
     try {
-      const result = this.db.query(sql, this.binds(ctx.session, ctx.page), 5e3);
+      const result = this.data.query(sql, this.binds(ctx.session, ctx.page), 5e3);
       const displayColumn = display2?.toUpperCase() ?? result.columns[0];
       const returnColumn = returned?.toUpperCase() ?? result.columns[1] ?? displayColumn;
       return result.rows.map((row) => ({
@@ -25161,6 +25792,7 @@ var ApexRenderer = class {
   // ---------------------------------------------------------------- data
   /** Creates an empty-but-plausible table so a design can be previewed before real DDL exists. */
   ensureTable(ctx, table, columns) {
+    if (this.data.dialect === "oracle") return false;
     const name = table.replaceAll('"', "");
     if (this.db.tableExists(name)) return false;
     const unique = /* @__PURE__ */ new Map();
@@ -25293,7 +25925,7 @@ var ApexRenderer = class {
   query(ctx, region, sql, maxRows = 1e4) {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return this.db.query(sql, this.binds(ctx.session, ctx.page), maxRows);
+        return this.data.query(sql, this.binds(ctx.session, ctx.page), maxRows);
       } catch (error) {
         const message = error.message;
         if (attempt < 25 && this.repairSchema(ctx, region, sql, message)) continue;
@@ -25322,6 +25954,7 @@ var ApexRenderer = class {
    * missing tables are created and missing columns are added with sample values.
    */
   repairSchema(ctx, region, sql, message) {
+    if (this.data.dialect === "oracle") return false;
     const missingTable = /no such table: (?:main\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
     if (missingTable) {
       if (/^APEX_/iu.test(missingTable)) {
@@ -25410,7 +26043,10 @@ var ApexRenderer = class {
         if (sql) {
           try {
             session.items[name] = String(
-              this.db.scalar(sql.startsWith("select") ? sql : `select ${sql}`, this.binds(session, page)) ?? ""
+              this.data.scalar(
+                sql.startsWith("select") ? sql : `select ${sql}${this.data.dialect === "oracle" ? " from dual" : ""}`,
+                this.binds(session, page)
+              ) ?? ""
             );
           } catch {
             this.diagnose("info", `Default for ${name} not evaluated`, page.id, name);
@@ -25473,7 +26109,7 @@ var ApexRenderer = class {
       const language = type === "functionBody" ? "plsqlFunctionBody" : str(computation.props, "computation.sqlExpression") ? "sqlExpression" : "plsqlExpression";
       if (type === "sqlQueryMultipleValues") {
         try {
-          const result2 = this.db.query(
+          const result2 = this.data.query(
             str(computation.props, "computation.sqlQuery"),
             this.binds(ctx.session, ctx.page)
           );
@@ -25499,7 +26135,7 @@ var ApexRenderer = class {
       ctx.session.items[item2] = this.substitute(ctx.session, value2, ctx.page, "RAW");
     else if (sql) {
       try {
-        ctx.session.items[item2] = String(this.db.scalar(sql, this.binds(ctx.session, ctx.page)) ?? "");
+        ctx.session.items[item2] = String(this.data.scalar(sql, this.binds(ctx.session, ctx.page)) ?? "");
       } catch (error) {
         this.diagnose(
           "warning",
@@ -25548,7 +26184,7 @@ var ApexRenderer = class {
   }
   /** Form items with a DATE/TIMESTAMP source, mapped to the format mask their text uses. */
   formDateMasks(table, items) {
-    const types = new Map(this.db.tableColumns(table).map((column2) => [column2.name, column2.type]));
+    const types = new Map(this.data.tableColumns(table).map((column2) => [column2.name, column2.type]));
     const dates = /* @__PURE__ */ new Map();
     for (const item2 of items) {
       const dataType = str(item2.props, "source.dataType").toLowerCase();
@@ -25586,7 +26222,7 @@ var ApexRenderer = class {
       return false;
     }
     try {
-      for (const statement of statements) this.db.execute(statement, this.binds(ctx.session, ctx.page));
+      for (const statement of statements) this.data.execute(statement, this.binds(ctx.session, ctx.page));
       return true;
     } catch (error) {
       this.diagnose(
@@ -25848,7 +26484,7 @@ var ApexRenderer = class {
     else if (type === "itemIsADate") failed2 = value2 !== "" && Number.isNaN(new Date(value2).getTime());
     else if (type === "rowsReturned" || type === "noRowsReturned" || type === "exists" || type === "notExists") {
       try {
-        const found = this.db.query(str(validation.props, "validation.sqlQuery"), this.binds(ctx.session, ctx.page), 1).rows.length > 0;
+        const found = this.data.query(str(validation.props, "validation.sqlQuery"), this.binds(ctx.session, ctx.page), 1).rows.length > 0;
         failed2 = type === "rowsReturned" || type === "exists" ? !found : found;
       } catch {
         failed2 = void 0;
@@ -25889,7 +26525,7 @@ var ApexRenderer = class {
       (item2) => !bool(item2.props, "source.queryOnly", false) || bool(item2.props, "source.primaryKey", false)
     );
     const keys = items.filter((item2) => bool(item2.props, "source.primaryKey", false));
-    const columns = new Set(this.db.tableColumns(table).map((column3) => column3.name));
+    const columns = new Set(this.data.tableColumns(table).map((column3) => column3.name));
     const action = pressed ? str(pressed.props, "behavior.databaseAction") : "";
     const request = ctx.request;
     const operation2 = action === "insert" || /^(CREATE|INSERT|ADD)$/u.test(request) ? "insert" : action === "update" || /^(SAVE|APPLY CHANGES|UPDATE)$/u.test(request) ? "update" : action === "delete" || /^(DELETE|REMOVE)$/u.test(request) ? "delete" : "";
@@ -25931,12 +26567,12 @@ var ApexRenderer = class {
         for (const key of keys) {
           const name = key.id.toUpperCase();
           if (ctx.session.items[name]) continue;
-          const source = this.db.keySource(table, column2(key));
-          if (source === "default") {
-            defaulted.push(key);
+          const source = this.data.keySource(table, column2(key));
+          if (source === "default" || this.data.dialect === "oracle") {
+            if (source === "default") defaulted.push(key);
             continue;
           }
-          const next = this.db.scalar(`select coalesce(max("${column2(key)}"), 0) + 1 from ${table}`);
+          const next = this.data.scalar(`select coalesce(max("${column2(key)}"), 0) + 1 from ${table}`);
           ctx.session.items[name] = String(next);
           binds[name] = String(next);
           values.push(key);
@@ -25948,27 +26584,31 @@ var ApexRenderer = class {
               regionId
             );
         }
-        const inserted = this.db.execute(
+        const inserted = this.data.execute(
           values.length ? `insert into ${table} (${values.map((item2) => `"${column2(item2)}"`).join(", ")}) values (${values.map((item2) => `:${item2.id.toUpperCase()}`).join(", ")})` : `insert into ${table} default values`,
           binds
         );
         for (const key of defaulted) {
-          const value2 = this.db.scalar(`select "${column2(key)}" from ${table} where rowid = :ROWID`, {
-            ROWID: inserted.lastInsertRowid
-          });
+          const value2 = this.data.scalar(
+            `select "${column2(key)}" from ${table} where rowid = :APEX_LOCAL_ROWID`,
+            {
+              // ROWID is a reserved word in Oracle and cannot name a bind (ORA-01745).
+              APEX_LOCAL_ROWID: inserted.lastInsertRowid
+            }
+          );
           ctx.session.items[key.id.toUpperCase()] = value2 === null ? "" : String(value2);
         }
         ctx.session.success = "Action Processed.";
       } else if (operation2 === "update" && where2) {
         const values = items.filter((item2) => !keys.includes(item2) && columns.has(column2(item2)));
         if (values.length)
-          this.db.execute(
+          this.data.execute(
             `update ${table} set ${values.map((item2) => `"${column2(item2)}" = :${item2.id.toUpperCase()}`).join(", ")} where ${where2}`,
             binds
           );
         ctx.session.success = "Action Processed.";
       } else if (operation2 === "delete" && where2) {
-        this.db.execute(`delete from ${table} where ${where2}`, binds);
+        this.data.execute(`delete from ${table} where ${where2}`, binds);
         ctx.session.success = "Action Processed.";
       }
       forgetRow(ctx.session, ctx.pageId, region);
@@ -26008,7 +26648,7 @@ var ApexRenderer = class {
     const template = this.theme.pages.get(templateId) ?? this.theme.pages.get("standard");
     if (!this.theme.pages.has(templateId))
       this.diagnose("warning", `Page template @/${templateId} not found; used Standard`, ctx.pageId);
-    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
+    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
     const placeholder2 = (slot2) => {
       if (slots.has(slot2)) return slots.get(slot2);
       if (PAGE_DEFAULT_SLOTS.has(slot2)) return "BODY";
@@ -26036,7 +26676,7 @@ var ApexRenderer = class {
     );
     const gridless = new Set(
       this.assets.theme.filter(
-        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
+        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text2(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
       ).map((call) => String(call.params.placeholder))
     );
     const values = {};
@@ -26058,7 +26698,7 @@ var ApexRenderer = class {
     if (pageItems.length) values.BODY = (values.BODY ?? "") + this.itemsGrid(ctx, template, pageItems);
     const pageOptions = templateOptions(
       strings6(list(page.props, "appearance.templateOptions")),
-      text(template, "default_template_options")
+      text2(template, "default_template_options")
     );
     const themeComponent = this.themeComponent();
     const styleId = (ctx.session.themeStyle ?? ref(themeComponent?.props ?? {}, "style.currentThemeStyle") ?? defaultStaticId(this.theme, "current_theme_style_id", "vita")).toLowerCase();
@@ -26072,16 +26712,16 @@ var ApexRenderer = class {
       `${IMAGE_PREFIX}libraries/font-apex/2.5.1/css/font-apex.min.css?v=${APEX_FULL_VERSION}`
     ];
     const themeCss = strings6(list(themeComponent?.props ?? {}, "css.fileUrls"));
-    const themeFiles = themeCss.length ? themeCss : text(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
+    const themeFiles = themeCss.length ? themeCss : text2(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
     const styleCss = [
-      ...text(style2, "css_file_urls").split("\n"),
-      text(style2, "theme_roller_output_file_url")
+      ...text2(style2, "css_file_urls").split("\n"),
+      text2(style2, "theme_roller_output_file_url")
     ].filter(Boolean);
     const appCss = strings6(list(this.app.app.props, "css.fileUrls"));
     const pageCss = strings6(list(page.props, "css.fileUrls"));
     const inlineCss = [str(this.app.app.props, "css.inline"), str(page.props, "css.inline")].filter(Boolean);
     const themeJs = strings6(list(themeComponent?.props ?? {}, "javaScript.fileUrls"));
-    const themeJsFiles = themeJs.length ? themeJs : text(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
+    const themeJsFiles = themeJs.length ? themeJs : text2(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
     const appJs = strings6(list(this.app.app.props, "javaScript.fileUrls"));
     const pageJs = strings6(list(page.props, "javaScript.fileUrls"));
     this.navigation(ctx, values, template);
@@ -26109,12 +26749,12 @@ var ApexRenderer = class {
       regionItems[region.id] = names;
     }
     if (Object.keys(regionItems).length) ctx.clientConfig.regionItems = regionItems;
-    const pageTemplate = text(template, "id");
-    ctx.messageTemplates[`${pageTemplate}_S`] = text(template, "success_message");
-    ctx.messageTemplates[`${pageTemplate}_E`] = text(template, "notification_message");
+    const pageTemplate = text2(template, "id");
+    ctx.messageTemplates[`${pageTemplate}_S`] = text2(template, "success_message");
+    ctx.messageTemplates[`${pageTemplate}_E`] = text2(template, "notification_message");
     const onload2 = [
       `apex.message.registerTemplates(${JSON.stringify(Object.fromEntries(Object.entries(ctx.messageTemplates).map(([id, markup2]) => [id, this.substitute(ctx.session, markup2, page, "HTML")]))).replaceAll("<", "\\u003c")});`,
-      text(template, "javascript_code_onload"),
+      text2(template, "javascript_code_onload"),
       ...ctx.onload,
       `apexLocal.init(${JSON.stringify(ctx.clientConfig).replaceAll("<", "\\u003c")});`,
       this.substitute(ctx.session, str(this.app.app.props, "javaScript.executeWhenPageLoads"), page, "RAW"),
@@ -26198,12 +26838,12 @@ ${onload2.join("\n")}
 });
 </script>`,
       // apex.message finds these placeholders and the registered sub-templates by ID.
-      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text(template, "success_message"), {
+      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text2(template, "success_message"), {
         SUCCESS_MESSAGE: escapeHtml(success),
         SUCCESS_MESSAGE_HEADING: "Success",
         CLOSE_NOTIFICATION: "Close"
       }) : ""}</span>`,
-      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text(template, "notification_message"), {
+      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text2(template, "notification_message"), {
         MESSAGE: errors.map((error) => escapeHtml(error.message)).join("<br>"),
         ERROR_MESSAGE_HEADING: "Error",
         CLOSE_NOTIFICATION: "Close"
@@ -26218,7 +26858,7 @@ ${onload2.join("\n")}
       ...values
     };
     const html = fill(
-      `${text(template, "header_template")}${text(template, "box")}${text(template, "footer_template")}`,
+      `${text2(template, "header_template")}${text2(template, "box")}${text2(template, "footer_template")}`,
       builtins
     );
     this.trace(ctx, { type: "end", name: ctx.denied ? "Access denied" : "Page rendered" });
@@ -26226,7 +26866,7 @@ ${onload2.join("\n")}
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs8.existsSync(
+    const exists2 = fs9.existsSync(
       path10.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
@@ -26255,7 +26895,7 @@ ${onload2.join("\n")}
     ).join("");
     const current3 = (ctx.session.themeStyle ?? "").toLowerCase();
     const styles = [...this.theme.styles.entries()].map(
-      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text(style2, "name") || id)}</option>`
+      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text2(style2, "name") || id)}</option>`
     ).join("");
     const picker = `<label class="apex-local-style" title="Theme style"><span class="fa fa-paint-brush" aria-hidden="true"></span><span class="apex-local-tb-label">Theme style</span> <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
     const tools = extensions.map((extension) => extension.toolbar?.(this, ctx) ?? "").join("");
@@ -26269,7 +26909,7 @@ ${onload2.join("\n")}
   }
   navigation(ctx, values, template) {
     const app = this.app.app.props;
-    const box = `${text(template, "header_template")}${text(template, "box")}`;
+    const box = `${text2(template, "header_template")}${text2(template, "box")}`;
     const nav = bool(ctx.page.props, "navigationMenu.overrideUserInterfaceLevel", false) ? ctx.page.props : app;
     const menu = this.shared("list", ref(nav, "navigationMenu.list"));
     if (menu && (box.includes("#SIDE_GLOBAL_NAVIGATION_LIST#") || box.includes("#TOP_GLOBAL_NAVIGATION_LIST#"))) {
@@ -26319,11 +26959,11 @@ ${onload2.join("\n")}
       else if (!bool(props, "layout.newColumn", true)) rows.at(-1).at(-1).push(cell);
       else rows.at(-1).push([cell]);
     }
-    const max = Number(text(template, "grid_max_columns")) || 12;
-    const containerTemplate = text(template, "grid_template") || '<div class="container">#ROWS#</div>';
-    const rowTemplate2 = text(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
-    const columnTemplate = text(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
-    const emitLeading = text(template, "grid_emit_empty_leading_cols") !== "false";
+    const max = Number(text2(template, "grid_max_columns")) || 12;
+    const containerTemplate = text2(template, "grid_template") || '<div class="container">#ROWS#</div>';
+    const rowTemplate2 = text2(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
+    const columnTemplate = text2(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
+    const emitLeading = text2(template, "grid_emit_empty_leading_cols") !== "false";
     const html = rows.map((row) => {
       const placed = layoutGridRow(
         row.map((column2) => ({
@@ -26358,8 +26998,8 @@ ${onload2.join("\n")}
           COLUMN_SPAN_NUMBER: String(column2.span),
           CSS_CLASSES: column2.classes,
           FIRST_LAST_COLUMN_ATTRIBUTES: [
-            index === 0 ? text(template, "grid_first_column_attributes") : "",
-            index === columns.length - 1 ? text(template, "grid_last_column_attributes") : ""
+            index === 0 ? text2(template, "grid_first_column_attributes") : "",
+            index === columns.length - 1 ? text2(template, "grid_last_column_attributes") : ""
           ].filter(Boolean).join(" "),
           ATTRIBUTES: column2.attributes,
           CONTENT: column2.content
@@ -26374,12 +27014,12 @@ ${onload2.join("\n")}
     const visible = bySequence3(items).filter((item2) => this.visible(ctx, item2));
     const hidden2 = visible.filter((item2) => str(item2.props, "type") === "hidden");
     const shown = visible.filter((item2) => str(item2.props, "type") !== "hidden");
-    const segments = [[]];
+    const segments2 = [[]];
     for (const item2 of shown) {
-      if (str(item2.props, "type") === "stopAndStartGridLayout") segments.push([]);
-      else segments.at(-1).push(item2);
+      if (str(item2.props, "type") === "stopAndStartGridLayout") segments2.push([]);
+      else segments2.at(-1).push(item2);
     }
-    return segments.map(
+    return segments2.map(
       (segment) => this.grid(
         template,
         segment.map((item2) => ({
@@ -26422,7 +27062,7 @@ ${onload2.join("\n")}
         ctx.pageId,
         region.id
       );
-    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
+    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
     const domId = this.regionDomId(region);
     const values = {};
     const append = (slot2, html) => {
@@ -26466,7 +27106,7 @@ ${onload2.join("\n")}
     }
     const options3 = templateOptions(
       strings6(list(region.props, "appearance.templateOptions")),
-      text(template, "default_template_options")
+      text2(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(region.props, "appearance.icon") || str(region.props, "icon.iconCssClasses")
@@ -26494,7 +27134,7 @@ ${onload2.join("\n")}
       ),
       REGION_LANDMARK_ATTRIBUTES: `role="region" aria-labelledby="${domId}_heading"`,
       ICON_CSS_CLASSES: icon3,
-      REGION_IMAGE: image ? fill(text(template, "image_template"), {
+      REGION_IMAGE: image ? fill(text2(template, "image_template"), {
         REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
       }) : "",
       REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
@@ -26507,7 +27147,7 @@ ${onload2.join("\n")}
       });
       if (html !== void 0) return html;
     }
-    return fill(text(template, "template"), filled);
+    return fill(text2(template, "template"), filled);
   }
   regionBody(ctx, region, slots) {
     const type = str(region.props, "type", "staticContent");
@@ -26675,7 +27315,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const template = this.theme.reports.get(templateId) ?? this.theme.reports.get("standard");
     const cssClasses = templateOptions(
       strings6(list(region.props, "componentAppearance.templateOptions")),
-      text(template, "preset_template_options").replaceAll(":", " ")
+      text2(template, "preset_template_options").replaceAll(":", " ")
     );
     const shared3 = {
       DOM_ID: domId,
@@ -26686,9 +27326,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       PAGINATION: pagination2
     };
     if (!rows.length) return `<div class="t-Report-wrap"><span class="nodatafound">${noData}</span></div>`;
-    if (text(template, "row_template_type") === "NAMED_COLUMNS") {
+    if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
       const rowHtml = rows.map(
-        (row, index) => fill(text(template, "row_template1"), {
+        (row, index) => fill(text2(template, "row_template1"), {
           ...Object.fromEntries(Object.keys(row).map((key) => [key, escapeHtml(row[key] ?? "")])),
           ...Object.fromEntries(
             columns.map((column2) => [column2.id.toUpperCase(), this.cell(ctx, region, column2, row)])
@@ -26696,10 +27336,10 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           ROWNUM: String(index + 1)
         })
       ).join("\n");
-      return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3);
+      return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3);
     }
     const headings2 = columns.map(
-      (column2) => fill(text(template, "column_heading_template"), {
+      (column2) => fill(text2(template, "column_heading_template"), {
         COLUMN_HEADER: this.substitute(
           ctx.session,
           str(column2.props, "heading.heading", heading2(column2.id)),
@@ -26713,15 +27353,15 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       })
     ).join("");
     const body4 = rows.map(
-      (row) => text(template, "row_template_before_first") + columns.map(
-        (column2) => fill(text(template, "row_template1"), {
+      (row) => text2(template, "row_template_before_first") + columns.map(
+        (column2) => fill(text2(template, "row_template1"), {
           COLUMN_VALUE: this.cell(ctx, region, column2, row),
           ALIGNMENT: `align="${this.alignment(column2, row[column2.id.toUpperCase()]) === "u-tR" ? "right" : "left"}"`,
           ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`
         })
-      ).join("") + text(template, "row_template_after_last")
+      ).join("") + text2(template, "row_template_after_last")
     ).join("\n");
-    return fill(text(template, "row_template_before_rows"), shared3) + text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") + body4 + fill(text(template, "row_template_after_rows"), shared3);
+    return fill(text2(template, "row_template_before_rows"), shared3) + text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") + body4 + fill(text2(template, "row_template_after_rows"), shared3);
   }
   cards(ctx, region) {
     const sql = this.regionSql(ctx, region);
@@ -26783,9 +27423,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     for (let entry = current3; entry && !chain.includes(entry); entry = entries.find((candidate) => candidate.id === ref(entry.props, "layout.parentEntry")))
       chain.unshift(entry);
     const options3 = templateOptions(strings6(list(region.props, "componentAppearance.templateOptions")), "");
-    return fill(text(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
+    return fill(text2(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
       (entry) => fill(
-        entry === current3 ? text(template, "current_page_option") : text(template, "non_current_page_option"),
+        entry === current3 ? text2(template, "current_page_option") : text2(template, "non_current_page_option"),
         {
           NAME: escapeHtml(
             this.substitute(ctx.session, str(entry.props, "name", entry.id), ctx.page, "RAW")
@@ -26793,7 +27433,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           LINK: escapeHtml(this.link(ctx, get(entry.props, "link.target")))
         }
       )
-    ).join("") + text(template, "after_last");
+    ).join("") + text2(template, "after_last");
   }
   listRegion(ctx, region) {
     const listComponent = this.shared("list", ref(region.props, "source.list"));
@@ -26818,9 +27458,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       this.diagnose("warning", `List template @/${templateId} not found`, ctx.pageId, listComponent.id);
       return "";
     }
-    for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
+    for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
       ctx.jsFiles.add(file);
-    for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+    for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
     const entries = listComponent.children.filter(
       (child) => child.type === "entry" && this.visible(ctx, child)
     );
@@ -26858,23 +27498,23 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       const sub = level > 1;
       const field = kids.length ? sub ? current3 ? "sub_templ_curr_w_child" : "sub_templ_noncurr_w_child" : current3 ? "item_templ_curr_w_child" : "item_templ_noncurr_w_child" : sub ? current3 ? "sub_list_item_current" : "sub_list_item_noncurrent" : current3 ? "list_template_current" : "list_template_noncurrent";
       let html = fill(
-        text(template, field) || text(template, current3 ? "list_template_current" : "list_template_noncurrent"),
+        text2(template, field) || text2(template, current3 ? "list_template_current" : "list_template_noncurrent"),
         values
       );
       if (kids.length) {
-        html += fill(text(template, "before_sub_list"), values) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text(template, "after_sub_list"), values);
+        html += fill(text2(template, "before_sub_list"), values) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text2(template, "after_sub_list"), values);
       }
       return html;
     };
     const shared3 = {
       LIST_ID: listId,
       PARENT_STATIC_ID: parentId,
-      COMPONENT_CSS_CLASSES: templateOptions(options3, text(template, "default_template_options")),
+      COMPONENT_CSS_CLASSES: templateOptions(options3, text2(template, "default_template_options")),
       APEX_CSP_NONCE_ATTRIBUTE: ""
     };
-    if (text(template, "javascript_code_onload"))
-      ctx.onload.push(fill(text(template, "javascript_code_onload"), shared3, false));
-    return fill(text(template, "list_template_before_rows"), shared3) + childrenOf(void 0).map((entry) => render(entry, 1)).join("") + fill(text(template, "list_template_after_rows"), shared3);
+    if (text2(template, "javascript_code_onload"))
+      ctx.onload.push(fill(text2(template, "javascript_code_onload"), shared3, false));
+    return fill(text2(template, "list_template_before_rows"), shared3) + childrenOf(void 0).map((entry) => render(entry, 1)).join("") + fill(text2(template, "list_template_after_rows"), shared3);
   }
   // ---------------------------------------------------------------- buttons & items
   renderButton(ctx, button2) {
@@ -26947,12 +27587,12 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     }
     const options3 = templateOptions(
       strings6(list(button2.props, "appearance.templateOptions")),
-      text(template, "default_template_options")
+      text2(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(button2.props, "appearance.icon") || str(button2.props, "icon.iconCssClasses")
     );
-    return fill(text(template, hot && text(template, "hot_template") ? "hot_template" : "template"), {
+    return fill(text2(template, hot && text2(template, "hot_template") ? "hot_template" : "template"), {
       DOM_ID: domId,
       BUTTON_ID: domId,
       BUTTON_NAME: name,
@@ -26962,7 +27602,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       BUTTON_CSS_CLASSES: [
         options3,
         str(button2.props, "appearance.cssClasses"),
-        hot && !text(template, "hot_template") ? "t-Button--hot" : ""
+        hot && !text2(template, "hot_template") ? "t-Button--hot" : ""
       ].filter(Boolean).join(" "),
       ICON_CSS_CLASSES: icon3,
       BUTTON_ATTRIBUTES: this.substitute(
@@ -27018,21 +27658,21 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       ...this.labelColumns(ctx, item2, span)
     };
     for (const extension of extensions) extension.itemTemplate?.(this, ctx, item2, values);
-    values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text(template, "item_pre_text"), values) : "";
-    values.ITEM_POST_TEXT = values.CURRENT_ITEM_POST_TEXT ? fill(text(template, "item_post_text"), values) : "";
-    values.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text(template, "help_link"), values) : "";
-    values.INLINE_HELP_TEMPLATE = values.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text(template, "inline_help_text"), values) : "";
-    const errorTemplate = `${text(template, "id")}_ET`;
-    ctx.messageTemplates[errorTemplate] = text(template, "error_template");
-    values.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text(template, "error_template"), values) : ""}</span>`;
-    const labelHtml = singleCheckbox ? "" : `${fill(text(template, "template_body1"), values)}${label}${fill(text(template, "template_body2"), values)}`;
-    return `${fill(text(template, "before_item"), values)}${labelHtml}${fill(text(template, "before_element"), values)}${element}${fill(text(template, "after_element"), values)}${fill(text(template, "after_item"), values)}`;
+    values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text2(template, "item_pre_text"), values) : "";
+    values.ITEM_POST_TEXT = values.CURRENT_ITEM_POST_TEXT ? fill(text2(template, "item_post_text"), values) : "";
+    values.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text2(template, "help_link"), values) : "";
+    values.INLINE_HELP_TEMPLATE = values.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text2(template, "inline_help_text"), values) : "";
+    const errorTemplate = `${text2(template, "id")}_ET`;
+    ctx.messageTemplates[errorTemplate] = text2(template, "error_template");
+    values.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text2(template, "error_template"), values) : ""}</span>`;
+    const labelHtml = singleCheckbox ? "" : `${fill(text2(template, "template_body1"), values)}${label}${fill(text2(template, "template_body2"), values)}`;
+    return `${fill(text2(template, "before_item"), values)}${labelHtml}${fill(text2(template, "before_element"), values)}${element}${fill(text2(template, "after_element"), values)}${fill(text2(template, "after_item"), values)}`;
   }
   /** Label/input column spans of left-aligned label templates: the label takes Label Column Span
    * (page template default 2) of the item's grid span and the input the rest. */
   labelColumns(ctx, item2, span) {
     if (span === void 0) return { LABEL_COLUMN_SPAN_NUMBER: "null", ITEM_COLUMN_SPAN_NUMBER: "null" };
-    const fallback = Number(text(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
+    const fallback = Number(text2(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
     const label = Math.max(
       0,
       Math.min(span, num(item2.props, "layout.labelColumnSpan", Number.isFinite(fallback) ? fallback : 2))
@@ -27197,10 +27837,13 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
   }
   /** Page Items to Submit of a region (sent with its refresh and set in session state). */
   regionItemsToSubmit(region) {
-    return strings6([
+    const series = str(region.props, "type") === "chart" ? region.children.filter((child) => child.type === "series") : [];
+    const names = strings6([
       ...list(region.props, "source.pageItemsToSubmit"),
-      ...list(region.props, "pageItemsToSubmit")
+      ...list(region.props, "pageItemsToSubmit"),
+      ...series.flatMap((child) => list(child.props, "source.pageItemsToSubmit"))
     ]).flatMap((value2) => value2.split(",")).map((value2) => value2.trim().toUpperCase()).filter(Boolean);
+    return [...new Set(names)];
   }
   /** HTML of a single region body for client-side refresh. */
   renderRegionFragment(session, pageKey, regionId) {
@@ -27214,20 +27857,31 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     this.trace(ctx, { type: "end", name: `Region ${region.id} refreshed`, ms: performance.now() - started2 });
     return html;
   }
-  /** Loads `.apex-local/*.sql` (or supporting-object scripts) into a fresh database. */
-  static seed(db2, appRoot) {
+  /**
+   * Loads seed scripts into a fresh database: the given folders in order (a project's migrations,
+   * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
+   */
+  static seed(db2, appRoot, seedDirs = []) {
+    const sqlFiles = (dir) => fs9.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(dir, name));
+    if (seedDirs.length)
+      return seedDirs.filter((dir) => fs9.existsSync(dir)).flatMap(sqlFiles).flatMap(
+        (script) => db2.runScript(
+          fs9.readFileSync(script, "utf8"),
+          path10.basename(path10.dirname(script)) + "/" + path10.basename(script)
+        )
+      );
     const local = path10.join(appRoot, ".apex-local");
-    const scripts = fs8.existsSync(local) ? fs8.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(local, name)) : [];
+    const scripts = fs9.existsSync(local) ? fs9.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(local, name)) : [];
     if (!scripts.length) {
       const supporting = path10.join(appRoot, "supporting-objects");
-      if (fs8.existsSync(supporting)) {
+      if (fs9.existsSync(supporting)) {
         scripts.push(
-          ...fs8.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path10.join(supporting, name))
+          ...fs9.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path10.join(supporting, name))
         );
       }
     }
     return scripts.flatMap(
-      (script) => db2.runScript(fs8.readFileSync(script, "utf8"), path10.relative(appRoot, script))
+      (script) => db2.runScript(fs9.readFileSync(script, "utf8"), path10.relative(appRoot, script))
     );
   }
 };
@@ -27267,11 +27921,11 @@ var TYPES = {
 function newestApx(root) {
   let newest = 0;
   const visit = (directory) => {
-    for (const entry of fs9.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs10.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
       const full = path11.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
-      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs9.statSync(full).mtimeMs);
+      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs10.statSync(full).mtimeMs);
     }
   };
   visit(root);
@@ -27306,21 +27960,25 @@ var PreviewServer = class {
   constructor(options3) {
     this.options = { ...options3, sourceDir: path11.resolve(options3.sourceDir) };
     this.assets = loadAssets(options3.assetsDir);
-    const file = options3.database ?? path11.join(this.options.sourceDir, ".apex-local", "preview.sqlite");
+    const file = options3.database ?? (options3.oracle ? ":memory:" : path11.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
     if (options3.reset && file !== ":memory:")
-      for (const suffix of ["", "-wal", "-shm"]) fs9.rmSync(file + suffix, { force: true });
-    const fresh = file === ":memory:" || !fs9.existsSync(file);
+      for (const suffix of ["", "-wal", "-shm"]) fs10.rmSync(file + suffix, { force: true });
+    const fresh = file === ":memory:" || !fs10.existsSync(file);
     this.db = new LocalDatabase(file);
-    this.seedProblems = fresh ? ApexRenderer.seed(this.db, this.options.sourceDir) : [];
+    this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
     this.renderer = this.#load();
   }
   #load() {
     this.#loadedAt = newestApx(this.options.sourceDir);
     const renderer = new ApexRenderer(loadApplication(this.options.sourceDir), this.assets, this.db, {
       ...this.options.toolbar === void 0 ? {} : { toolbar: this.options.toolbar },
-      ...this.options.sampleRows === void 0 ? {} : { sampleRows: this.options.sampleRows }
+      ...this.options.sampleRows === void 0 ? {} : { sampleRows: this.options.sampleRows },
+      ...this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {},
+      ...this.options.oracle ? { oracle: this.options.oracle } : {}
     });
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
+    for (const warning of this.options.oracle?.warnings ?? [])
+      renderer.diagnose("warning", `Connected preview: ${warning}`);
     for (const [id, page] of renderer.app.pages)
       for (const finding of checkComponentProperties([page], id))
         renderer.diagnose("warning", finding.message, finding.page, finding.component);
@@ -27358,7 +28016,7 @@ var PreviewServer = class {
       this.#handle(request, response).catch((error) => {
         if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
         response.end(`APEX preview error: ${error.message}`);
-      });
+      }).finally(() => this.#endRequest());
     });
     await new Promise((resolve, reject) => {
       this.#server.once("error", reject);
@@ -27372,6 +28030,22 @@ var PreviewServer = class {
     if (server) await new Promise((resolve) => server.close(() => resolve()));
     server?.closeAllConnections();
     this.db.close();
+    try {
+      this.options.oracle?.data.close();
+    } catch {
+    }
+  }
+  /** Connected mode: nothing a request did in Oracle survives it. */
+  #endRequest() {
+    try {
+      this.options.oracle?.data.endRequest();
+    } catch (error) {
+      this.renderer.diagnose(
+        "error",
+        `Connected preview: rollback failed (${error.message}); the Oracle session was reset`
+      );
+      this.options.oracle?.data.link.close();
+    }
   }
   session(request, response) {
     const cookie = /(?:^|;\s*)APEX_LOCAL_SESSION=([\w-]+)/u.exec(request.headers.cookie ?? "")?.[1];
@@ -27413,7 +28087,7 @@ var PreviewServer = class {
   }
   #static(response, root, relative, cache3) {
     const target2 = path11.resolve(root, decodeURIComponent(relative));
-    if (!target2.startsWith(root + path11.sep) || !fs9.existsSync(target2) || !fs9.statSync(target2).isFile()) {
+    if (!target2.startsWith(root + path11.sep) || !fs10.existsSync(target2) || !fs10.statSync(target2).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
@@ -27421,7 +28095,7 @@ var PreviewServer = class {
       "content-type": TYPES[path11.extname(target2).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs9.createReadStream(target2).pipe(response);
+    fs10.createReadStream(target2).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -27673,11 +28347,14 @@ function checkApplication(options3) {
       } catch (error) {
         renderer.diagnose("error", error.message, id);
         return { id, name, bytes: 0, error: error.message };
+      } finally {
+        options3.oracle?.data.endRequest();
       }
     });
     return { pages: pages2, diagnostics: preview.diagnostics() };
   } finally {
     preview.db.close();
+    options3.oracle?.data.close();
   }
 }
 
@@ -27694,13 +28371,28 @@ async function resolveSource(root, explicit) {
       source = path12.resolve(root);
     }
   }
-  if (!fs10.existsSync(path12.join(source, "application.apx")))
+  if (!fs11.existsSync(path12.join(source, "application.apx")))
     throw new Fault(
       "PREVIEW_SOURCE_MISSING",
       `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
       2
     );
-  return fs10.realpathSync(source);
+  return fs11.realpathSync(source);
+}
+async function projectData(root, sourceDir) {
+  if (fs11.existsSync(path12.join(sourceDir, ".apex-local"))) return {};
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return {};
+  }
+  const appDir = path12.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs11.existsSync(appDir) || fs11.realpathSync(appDir) !== sourceDir) return {};
+  return {
+    database: path12.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
+    seedDirs: [path12.resolve(ctx.root, ctx.config.database.migrationsDir), path12.join(ctx.root, ".apex-local")]
+  };
 }
 function summarize(diagnostics) {
   const count = (level) => diagnostics.filter((entry) => entry.level === level).length;
@@ -27745,12 +28437,18 @@ async function previewStart(root, input) {
   const sourceDir = await resolveSource(root, input.sourceDir);
   assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
-  if (previous && !input.reset && input.port === void 0) return describe(previous, true);
+  if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env)
+    return describe(previous, true);
   if (previous) {
     await previous.stop();
     running.delete(sourceDir);
   }
+  const oracle = input.env ? await connectOracle(root, input.env) : void 0;
+  const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
+    ...oracle ? { oracle } : {},
+    ...data.seedDirs ? { seedDirs: data.seedDirs } : {},
+    ...data.database && !oracle ? { database: data.database } : {},
     sourceDir,
     ...input.assetsDir ? { assetsDir: input.assetsDir } : {},
     ...input.port === void 0 ? {} : { port: input.port },
@@ -27771,7 +28469,12 @@ function describe(server, reused) {
     database: server.db.file,
     apexVersion: APEX_FULL_VERSION,
     pages: server.pages(),
-    note: "Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond plain DML is skipped.",
+    note: server.options.oracle ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); every request is rolled back. Rendering is still simulated; not import or browser evidence.` : "Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.",
+    data: server.options.oracle ? {
+      mode: "oracle",
+      environment: server.options.oracle.environment,
+      target: server.options.oracle.target
+    } : { mode: "sqlite" },
     ...summarize(server.diagnostics())
   };
 }
@@ -27790,7 +28493,7 @@ async function previewStop(root, input) {
 async function previewStatus() {
   return {
     assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs10.existsSync(path12.join(defaultAssetsDir(), "manifest.json")),
+    assetsInstalled: fs11.existsSync(path12.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
     running: [...running.values()].map((server) => ({
       url: server.url,
@@ -27802,8 +28505,12 @@ async function previewStatus() {
 async function previewCheck(root, input) {
   const sourceDir = await resolveSource(root, input.sourceDir);
   assetsReady(input.assetsDir);
+  const oracle = input.env ? await connectOracle(root, input.env) : void 0;
+  const { seedDirs } = await projectData(root, sourceDir);
   const result = checkApplication({
     sourceDir,
+    ...oracle ? { oracle } : {},
+    ...seedDirs ? { seedDirs } : {},
     ...input.assetsDir ? { assetsDir: input.assetsDir } : {},
     ...input.pages ? { pages: input.pages } : {},
     ...input.sampleRows === void 0 ? {} : { sampleRows: input.sampleRows },

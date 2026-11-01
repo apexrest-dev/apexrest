@@ -114,8 +114,10 @@ function help() {
   if (key === 'ship' || key === 'deploy.plan')
     lines.push(
       '',
-      '--import-mode auto|full|files defaults to auto: select eligible changed APEXlang files, or review full-import reasons.',
+      '--import-mode auto|full|files|none defaults to auto: select eligible changed APEXlang files, or review full-import reasons.',
       'full forces whole-application import. files requires --files PATH1 PATH2; paths are relative to the application source directory.',
+      'none deploys only pending migrations and changed package scripts, without backup or application import.',
+      'Applied migrations and package scripts unchanged since their last successful run are not executed again.',
       'The plan records the exact import scope. Apply never expands a reviewed file selection to a full import.',
     );
   if (key === 'status')

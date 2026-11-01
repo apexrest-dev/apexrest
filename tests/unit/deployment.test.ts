@@ -253,6 +253,67 @@ test('local migration history persists across service instances and rejects chan
   await assert.rejects(service.plan(ctx, 'dev'), { code: 'MIGRATION_HISTORY_CONFLICT' });
 });
 
+test('applied migrations and unchanged packages are neither re-run nor reported as risks', async () => {
+  const { ctx, service } = await prepared();
+  await atomicWrite(
+    path.join(ctx.root, ctx.config.database.migrationsDir, '0001__fixture.sql'),
+    'create table fixture_rows (id number);\ndelete from fixture_rows;\n',
+  );
+  const pkg = path.join(ctx.root, ctx.config.database.packagesDir, '0010__api.sql');
+  await atomicWrite(pkg, 'create or replace procedure fixture_api is begin null; end;\n/\n');
+  const first = await service.plan(ctx, 'dev');
+  assert.deepEqual(
+    first.operations.filter((o) => o.file).map((o) => o.kind),
+    ['migration', 'package'],
+  );
+  assert.ok(first.risks.length > 0);
+  await service.apply(ctx, first);
+  const repeated = await service.plan(ctx, 'dev');
+  assert.deepEqual(
+    repeated.operations.map((o) => o.kind),
+    ['import', 'verify'],
+    'nothing in the database runs again',
+  );
+  assert.deepEqual(repeated.risks, [], 'an application-only change needs no database confirmation');
+  assert.equal(repeated.packageHistory?.['src/db/packages/0010__api.sql'], hash(await readFile(pkg)));
+  await atomicWrite(pkg, 'create or replace procedure fixture_api is begin null; null; end;\n/\n');
+  const changed = await service.plan(ctx, 'dev');
+  assert.deepEqual(
+    changed.operations.filter((o) => o.file).map((o) => o.file),
+    ['src/db/packages/0010__api.sql'],
+  );
+  await service.apply(ctx, changed);
+});
+
+test('a database-only plan runs scripts without backup or import and keeps every check', async () => {
+  const { ctx, service, calls } = await prepared(true);
+  await assert.rejects(service.plan(ctx, 'dev', { importMode: 'none' }), { code: 'NO_DATABASE_CHANGES' });
+  await atomicWrite(
+    path.join(ctx.root, ctx.config.database.migrationsDir, '0001__fixture.sql'),
+    'create table fixture_rows (id number);\n',
+  );
+  const plan = await service.plan(ctx, 'dev', { importMode: 'none' });
+  assert.equal(plan.scope, 'database-only');
+  assert.equal(plan.backupRequired, false);
+  assert.deepEqual(
+    plan.operations.map((o) => o.kind),
+    ['migration'],
+  );
+  const forged = { ...plan, operations: [...plan.operations, { kind: 'import' as const }] };
+  forged.digest = planDigest(forged);
+  await assert.rejects(service.apply(ctx, forged), { code: 'PLAN_TAMPERED' });
+  calls.length = 0;
+  const result = await service.apply(ctx, plan);
+  assert.equal(result.state, 'succeeded');
+  assert.ok(
+    calls.some((call) => call.startsWith('@')),
+    'the migration ran',
+  );
+  assert.ok(!calls.includes('import') && !calls.includes('backup'), 'no backup and no import');
+  const rows = await new LocalDeploymentControl(ctx.config.environments.dev!).history();
+  assert.equal(rows[0]!.status, 'succeeded');
+});
+
 test('local interrupted migration retains writing ownership and started journal without blind retry', async () => {
   const { ctx, service, fake } = await prepared();
   await atomicWrite(

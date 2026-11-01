@@ -28,6 +28,7 @@ const ownerSchema = z.strictObject({
   phase: z.enum(['preparing', 'writing']),
   createdAt: z.string(),
 });
+const packagesSchema = z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/));
 const historySchema = z.array(
   z.strictObject({
     version: z.string(),
@@ -51,6 +52,29 @@ export class LocalDeploymentControl {
   async history() {
     const file = this.file('history.json');
     return (await exists(file)) ? parse(historySchema, await readJson(file)) : [];
+  }
+  /**
+   * Checksum of each package script last applied successfully, by project-relative file. Package
+   * scripts are re-runnable, so a plan only re-applies the ones that changed since then.
+   */
+  async packages(projectId: string): Promise<Record<string, string>> {
+    const file = this.file('packages.json');
+    const all = (await exists(file)) ? parse(packagesSchema, await readJson(file)) : {};
+    const prefix = projectId + ':';
+    return Object.fromEntries(
+      Object.entries(all)
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, sha]) => [key.slice(prefix.length), sha]),
+    );
+  }
+  async packageApplied(runId: string, projectId: string, file: string, checksum: string) {
+    await withLock(this.file('control.lock'), async () => {
+      await this.assertOwner(runId);
+      const target = this.file('packages.json');
+      const all = (await exists(target)) ? parse(packagesSchema, await readJson(target)) : {};
+      all[projectId + ':' + file] = checksum;
+      await writeJson(target, Object.fromEntries(Object.entries(all).sort(([a], [b]) => a.localeCompare(b))));
+    });
   }
   async owner() {
     const file = this.file('active.json');

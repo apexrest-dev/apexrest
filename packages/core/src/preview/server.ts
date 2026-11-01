@@ -8,6 +8,7 @@ import { loadAssets, type ApexAssets } from './assets.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { checkComponentProperties } from './properties.ts';
 import { LocalDatabase } from './database.ts';
+import type { ConnectedOracle } from './oracle/app-data.ts';
 import {
   extensionClient,
   extensionCss,
@@ -46,7 +47,7 @@ export interface PreviewOptions {
   /** Folder that contains application.apx. */
   sourceDir: string;
   assetsDir?: string;
-  /** SQLite file; defaults to <sourceDir>/.apex-local/preview.sqlite. */
+  /** SQLite file; defaults to <sourceDir>/.apex-local/preview.sqlite (service.ts passes a project path). */
   database?: string;
   /** Delete the database and seed it again from .apex-local/*.sql. */
   reset?: boolean;
@@ -55,6 +56,10 @@ export interface PreviewOptions {
   user?: string;
   toolbar?: boolean;
   sampleRows?: number;
+  /** Seed script folders in load order (see ApexRenderer.seed). */
+  seedDirs?: string[];
+  /** Connected mode: application data and PL/SQL come from this Oracle session; each request is rolled back. */
+  oracle?: ConnectedOracle;
 }
 
 export interface PreviewPage {
@@ -134,12 +139,16 @@ export class PreviewServer {
   constructor(options: PreviewOptions) {
     this.options = { ...options, sourceDir: path.resolve(options.sourceDir) };
     this.assets = loadAssets(options.assetsDir);
-    const file = options.database ?? path.join(this.options.sourceDir, '.apex-local', 'preview.sqlite');
+    // Connected mode keeps only preview-internal state in SQLite, so it starts empty and unseeded.
+    const file =
+      options.database ??
+      (options.oracle ? ':memory:' : path.join(this.options.sourceDir, '.apex-local', 'preview.sqlite'));
     if (options.reset && file !== ':memory:')
       for (const suffix of ['', '-wal', '-shm']) fs.rmSync(file + suffix, { force: true });
     const fresh = file === ':memory:' || !fs.existsSync(file);
     this.db = new LocalDatabase(file);
-    this.seedProblems = fresh ? ApexRenderer.seed(this.db, this.options.sourceDir) : [];
+    this.seedProblems =
+      fresh && !options.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options.seedDirs) : [];
     this.renderer = this.#load();
   }
 
@@ -148,8 +157,12 @@ export class PreviewServer {
     const renderer = new ApexRenderer(loadApplication(this.options.sourceDir), this.assets, this.db, {
       ...(this.options.toolbar === undefined ? {} : { toolbar: this.options.toolbar }),
       ...(this.options.sampleRows === undefined ? {} : { sampleRows: this.options.sampleRows }),
+      ...(this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {}),
+      ...(this.options.oracle ? { oracle: this.options.oracle } : {}),
     });
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
+    for (const warning of this.options.oracle?.warnings ?? [])
+      renderer.diagnose('warning', `Connected preview: ${warning}`);
     // Unknown APEXlang properties and values would otherwise be ignored silently.
     for (const [id, page] of renderer.app.pages)
       for (const finding of checkComponentProperties([page], id))
@@ -193,10 +206,12 @@ export class PreviewServer {
 
   async start(): Promise<string> {
     this.#server = http.createServer((request, response) => {
-      this.#handle(request, response).catch((error: unknown) => {
-        if (!response.headersSent) response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
-        response.end(`APEX preview error: ${(error as Error).message}`);
-      });
+      this.#handle(request, response)
+        .catch((error: unknown) => {
+          if (!response.headersSent) response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+          response.end(`APEX preview error: ${(error as Error).message}`);
+        })
+        .finally(() => this.#endRequest());
     });
     await new Promise<void>((resolve, reject) => {
       this.#server!.once('error', reject);
@@ -211,6 +226,25 @@ export class PreviewServer {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
     server?.closeAllConnections();
     this.db.close();
+    try {
+      this.options.oracle?.data.close();
+    } catch {
+      // Closing the SQLcl server ends the session, which rolls back.
+    }
+  }
+
+  /** Connected mode: nothing a request did in Oracle survives it. */
+  #endRequest(): void {
+    try {
+      this.options.oracle?.data.endRequest();
+    } catch (error) {
+      // A rollback that cannot be confirmed resets the session; Oracle rolls back a closed session.
+      this.renderer.diagnose(
+        'error',
+        `Connected preview: rollback failed (${(error as Error).message}); the Oracle session was reset`,
+      );
+      this.options.oracle?.data.link.close();
+    }
   }
 
   session(request: http.IncomingMessage, response: http.ServerResponse): Session {
@@ -575,10 +609,13 @@ export function checkApplication(options: PreviewOptions & { pages?: string[] })
       } catch (error) {
         renderer.diagnose('error', (error as Error).message, id);
         return { id, name, bytes: 0, error: (error as Error).message };
+      } finally {
+        options.oracle?.data.endRequest();
       }
     });
     return { pages, diagnostics: preview.diagnostics() };
   } finally {
     preview.db.close();
+    options.oracle?.data.close();
   }
 }

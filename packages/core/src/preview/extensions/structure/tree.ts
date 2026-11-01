@@ -131,7 +131,7 @@ export function treeModel(renderer: ApexRenderer, ctx: RenderContext, region: Ap
       startValues = [ctx.session.items[upper(settings('item'))] ?? ''];
     else if (start === 'basedOnSqlQuery') {
       try {
-        const rows = renderer.db.query(settings('sqlQuery'), renderer.binds(ctx.session, ctx.page), 1000);
+        const rows = renderer.data.query(settings('sqlQuery'), renderer.binds(ctx.session, ctx.page), 1000);
         startValues = rows.rows.map((row) => String(row[rows.columns[0]!] ?? ''));
       } catch (error) {
         renderer.diagnose(

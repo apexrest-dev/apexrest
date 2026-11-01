@@ -1,6 +1,6 @@
 # Local APEXlang preview
 
-`apexrest preview` runs an APEXlang application on Node.js without an Oracle database. It exists for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them. It is a simulation. It never replaces `apexrest_apex_validate`, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.
+`apexrest preview` runs an APEXlang application on Node.js without an Oracle database, or, with `--env`, against the application's own DEV/QA/TEST Oracle database ([connected mode](#connected-oracle-mode)). It exists for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them. It is a simulation. It never replaces `apexrest_apex_validate`, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.
 
 [Watch the explainer video (MP4, 1:37)](assets/apexrest-local-preview.mp4) · [Captions](assets/apexrest-local-preview.srt): live screens of Oracle's HR demo app running in the preview, from report and modal form to validation, save and hot reload.
 
@@ -9,7 +9,10 @@
 - **Assets.** `preview setup` downloads the official APEX 26.2 distribution (`apex_26.2_en.zip`, about 255 MB) once, or uses a local copy passed with `--zip`. It extracts only the browser runtime (about 70 MB: `libraries/apex`, jQuery, Font APEX, Oracle fonts, FullCalendar, marked, Cropper.js, JointJS+, the carousel plug-in, `themes/theme_42/26.2`, `app_ui`; Oracle JET is not extracted) and evaluates the Universal Theme export `core/themes/f8842.262.sql` into page, region, label, button, list, report and breadcrumb templates. Nothing from the distribution is stored in this repository. The cache lives in `~/.apexrest/preview/26.2`, or in `APEXREST_PREVIEW_ASSETS` when set.
 - **Rendering.** Pages are rendered with the genuine 26.2 templates, display points (`slot` → `#PLACEHOLDER#`), template options, the 12-column grid and theme style. The genuine `desktop_all.min.js` and `theme42.min.js` run in the browser, so modal dialogs, side navigation and messages use Oracle's own client code.
 - **Submit protocol.** The server implements `wwv_flow.accept` for `apex.page.submit` (`p_json`, `{ redirectURL }` or `{ errors }`), so validation errors appear inline and in the page notification exactly as `apex.message` shows them.
-- **Data.** SQLite (`node:sqlite`) stands in for Oracle. On first start the database `<sourceDir>/.apex-local/preview.sqlite` is seeded from `.apex-local/*.sql` in name order, or best effort from `supporting-objects/*.sql`. Common Oracle syntax is translated or provided as functions: `nvl`, `nvl2`, `decode`, `to_char`, `to_date`, `to_number`, `trunc`, `initcap`, `lpad`/`rpad`, `add_months`, `months_between`, `regexp_like`, `listagg`, `sysdate`, `from dual`, `fetch first … rows only`, identity columns and `v('ITEM')`. Bind variables use session state.
+- **Data.** SQLite (`node:sqlite`) stands in for Oracle.
+  - **Project application.** When the preview runs a project's own application (`apexrest.json`), nothing is written into the deployed source tree. The database is `<project>/.apexrest/preview/preview.sqlite`. On first start it is seeded from the project migrations (schema; PL/SQL units are skipped) followed by `<project>/.apex-local/*.sql` (data).
+  - **Folder without a project, or a legacy `<sourceDir>/.apex-local`.** The database is `<sourceDir>/.apex-local/preview.sqlite`, seeded from `.apex-local/*.sql` in name order, or best effort from `supporting-objects/*.sql`.
+  - **Translation.** Common Oracle syntax is translated or provided as functions: `nvl`, `nvl2`, `decode`, `to_char`, `to_date`, `to_number`, `trunc`, `initcap`, `lpad`/`rpad`, `add_months`, `months_between`, `regexp_like`, `listagg`, `sysdate`, `from dual`, `fetch first … rows only`, identity columns and `v('ITEM')`. Bind variables use session state.
 - **Sample tables.** A table that a page uses but the database lacks is created automatically with sample rows. Column types, keys and lengths come from form items anywhere in the application; columns referenced later are added on demand. Each such action is reported. Put real DDL and data in `.apex-local/*.sql` (add `.apex-local/` to `.gitignore` if the data is private).
 - **Extensions.** Feature modules under `packages/core/src/preview/extensions/` register region, item, column, process, condition, validation and code handlers, server routes and browser code with the renderer; see `extensions.ts`.
 - **Hot reload.** `.apx` changes are picked up on the next request; no restart is needed. Use `--reset` to rebuild the database.
@@ -21,11 +24,31 @@ apexrest preview setup                      # once; or: --zip /path/apex_26.2_en
 apexrest preview check --project /abs/app   # render every page; list unsupported features
 apexrest preview start --project /abs/app   # serve on 127.0.0.1 and print page URLs (Ctrl+C stops)
 apexrest preview start --source-dir src --port 8765 --reset
+apexrest preview start --project /abs/app --env dev   # connected mode: data and PL/SQL from Oracle
 ```
 
 `--source-dir` overrides `application.sourceDir` from `apexrest.json`; a folder that directly contains `application.apx` also works without a project file. In MCP hosts the same actions are available as `apexrest_preview action:setup|start|check|stop|status`; the started server lives as long as the MCP process and only listens on the loopback interface.
 
 The developer toolbar at the bottom of every page follows APEX's runtime developer toolbar. It shows the page diagnostics, and it lets you view and edit session state and read a debug log of recent requests (computations, processes, validations, branches, authorization checks and timings). You can also open any page, preview the page at tablet or phone size, reset the local database from its seed scripts, open the local e-mail outbox, and pick a theme style (for example Vita, Vita - Dark or Redwood Light). "View as" is off by default, so every authorization scheme allows access; when you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden. `GET /__apex/diagnostics` returns all diagnostics as JSON. Legacy `f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES` links redirect to the friendly page URLs.
+
+## Connected Oracle mode
+
+Without a database the preview simulates data in SQLite and interprets a subset of PL/SQL. When the project has an Oracle DEV/QA/TEST environment with a SQLcl saved connection, `--env <name>` (MCP: `env`) on `start` or `check` runs the application's data and server logic in that database instead. Rendering stays in Node.js. Choose this when a page depends on project packages, procedures, functions, views or real rows.
+
+- **Target guard.** The environment comes from `apexrest.json` and uses its `readConnectionRef`. Production is refused: either `kind: production` or a target registered in `production-trust.json` (see [deployment safety](deployment-safety.md)). The connection must be a SQLcl saved connection; ORDS-only connections cannot hold one transaction and are refused. On connect the database unique name, service, parsing schema and workspace must match the environment exactly, as for deployment.
+- **Session.** The preview opens one SQLcl MCP server in a worker thread and keeps its session for the life of the preview. The renderer waits synchronously for each batch. The session starts with `exitcommit` and `autocommit` off and `ALTER SESSION DISABLE COMMIT IN PROCEDURE`.
+- **Every request is rolled back.** Each HTTP request ends with `ROLLBACK`, whatever it changed. Because nothing persists, a row inserted by a form is gone on the next page.
+- **What cannot commit.** Oracle blocks COMMIT only inside stored code, not in anonymous blocks or dynamic SQL. Page code that contains `COMMIT`, `ROLLBACK` (other than `ROLLBACK TO SAVEPOINT`), `EXECUTE IMMEDIATE`, `DBMS_SQL` or `PRAGMA AUTONOMOUS_TRANSACTION` is therefore never sent; it is skipped with a diagnostic. DDL from the preview itself (sample tables, schema repair, seeding, data-load targets) is never sent either.
+- **Tripwire.** Every unit records `DBMS_TRANSACTION.LOCAL_TRANSACTION_ID` before and after it runs. If a package still ends the transaction, the unit fails with an error diagnostic that says earlier work may have been committed.
+- **Not undone.** Autonomous transactions in stored code (they are listed as a warning at start), sequence numbers and side effects outside the database (mail, HTTP calls, jobs).
+- **Data.** Region, LOV, report, grid, chart, card, facet, tree and form SQL runs in Oracle untranslated, with page items as binds. Forms let Oracle fill keys (identity, default or trigger) instead of the local max + 1. Preview-internal state stays in an in-memory SQLite database: session tables, collections, files, mail outbox and the generated `APEX_APPLICATION_*` views. File, BLOB and data-load features therefore remain local and do not reach Oracle tables.
+- **PL/SQL.** Processes, validations, conditions, computations, item sources, authorization schemes and dynamic content run as whole anonymous blocks in Oracle. They are not interpreted locally. Referenced binds are IN OUT session state, so assignments to `:P1_X` come back to the page.
+  - Function bodies and expressions are first wrapped as values. When Oracle reports the wrong type, the preview retries once as a boolean condition and remembers the result.
+  - When the application ID is installed in the target workspace, each request also creates an APEX session (`apex_session.create_session`) and copies installed item values into it, so `v()` and `apex_util` work inside packages. Page items are read back afterwards. Without an installed application, or if the session cannot be created, database code runs with binds only and `v()` returns NULL.
+  - `htp` output is captured for dynamic content. `DBMS_OUTPUT` lines go to the diagnostics. `raise_application_error` messages appear as APEX errors.
+- **Not covered.** `apex_error.add_error` inline errors raised inside Oracle code, REST-enabled SQL processes, BLOB columns, LOB values larger than 32 KB and binds longer than 32,767 bytes are not supported in connected mode.
+
+The toolbar's Session panel and the `start` result name the environment and target. Connected results come from a real database, but rendering, session handling and transaction scope are still the preview's. They are not compiler, import or browser evidence.
 
 ## Supported locally
 
@@ -55,7 +78,7 @@ Template components (`themeTemplateComponent/…`, such as Content Row, Media Li
 
 ### Charts, calendars and maps
 
-Charts are drawn by a local SVG renderer styled after Oracle JET's Redwood theme: bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, status meter gauge, radar and polar charts, with legends, axis titles, value labels, links and hover tooltips, redrawn at the region's real width. Calendar regions use the genuine FullCalendar shipped with APEX (month, week, day and list views), fed from the region SQL. Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. None of this is Oracle JET.
+Charts are drawn by a local SVG renderer styled after Oracle JET's Redwood theme: bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, status meter gauge, radar and polar charts, with legends, axis titles, value labels, links and hover tooltips, redrawn at the region's real width. A Refresh dynamic action updates a chart without reloading the page; `source.pageItemsToSubmit` from every series is combined with region declarations and used for both refresh and width redraws. Calendar regions use the genuine FullCalendar shipped with APEX (month, week, day and list views), fed from the region SQL. Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. None of this is Oracle JET.
 
 ### Page items
 
@@ -91,4 +114,10 @@ Authentication (any login succeeds and sets `APP_USER`), session state protectio
 
 ## Verification boundary
 
-Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications: every page of all three renders with no errors or warnings, 43 pages of the HR demo load in Chrome without console errors, and report, grid, facet, form, dialog, upload, data-load and administration flows were checked in Chrome. That is local evidence only. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.
+Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications: every page of all three renders with no errors or warnings, 43 pages of the HR demo load in Chrome without console errors, and report, grid, facet, form, dialog, upload, data-load and administration flows were checked in Chrome. That is local evidence only. Connected mode was run on 2026-11-01 against a TEST Autonomous Database (APEX 26.1.6, application 102), both from a probe script and in the built-in browser:
+
+- **Data and binds.** Data types and IN OUT binds were correct, region SQL ran in Oracle, and the `v()` values came from a real APEX session.
+- **Rollback.** A form insert showed its success message and was absent on the next page; an independent session confirmed that no row persisted.
+- **COMMIT.** That run also showed that Oracle does not block COMMIT in anonymous blocks, which led to the skip rule and the tripwire above.
+
+COMMIT and DDL inside stored code, autonomous transactions and ORDS were not exercised. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.

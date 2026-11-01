@@ -2,6 +2,7 @@ import { get, isRef, ref, str, type ApxComponent, type ApxObject, type ApxValue 
 import { oracleRegExp } from '../database.ts';
 import { registerExtension, type ProcessResult } from '../extensions.ts';
 import type { ApexError, ApexRenderer, RenderContext, Session } from '../render.ts';
+import { runOraclePlsql } from '../oracle/plsql.ts';
 import { escapeHtml } from '../theme.ts';
 import { enforcing, hasRole } from './devtools/view-as.ts';
 import { rememberRenderer, setAuthorizer, type Runtime } from './server/apex-api.ts';
@@ -45,7 +46,7 @@ function report(
   }
   renderer.diagnose(
     failure.kind === 'unsupported' ? 'info' : 'warning',
-    `${who.label}: ${failure.kind === 'unsupported' ? 'PL/SQL not interpreted locally' : 'PL/SQL failed'} — ${failure.message}${where}; ${consequence}`,
+    `${who.label}: ${failure.kind === 'unsupported' ? (renderer.oracle ? 'PL/SQL not run' : 'PL/SQL not interpreted locally') : 'PL/SQL failed'} — ${failure.message}${where}; ${consequence}`,
     ctx.pageId,
     who.component,
   );
@@ -73,6 +74,8 @@ function run(
   who: PlsqlOwner,
 ): ExecResult {
   rememberRenderer(renderer);
+  // Connected mode: the whole unit runs in Oracle, with project packages and real data.
+  if (renderer.oracle) return runOraclePlsql(renderer, ctx, renderer.oracle, code, mode, who);
   return runPlsql(renderer, ctx, code, mode, who);
 }
 
@@ -260,7 +263,7 @@ function queryValidation(found: boolean) {
     for (const [key, value] of Object.entries(binds)) if (value === '') binds[key] = null;
     binds.REQUEST = ctx.request || null;
     try {
-      const rows = renderer.db.query(sql, binds, 1).rows.length > 0;
+      const rows = renderer.data.query(sql, binds, 1).rows.length > 0;
       return rows === found ? null : validationMessage(validation);
     } catch (error) {
       renderer.diagnose(
@@ -500,7 +503,7 @@ function itemSources(renderer: ApexRenderer, ctx: RenderContext): void {
             : str(item.props, 'source.sqlExpression') || str(item.props, 'source.plsqlExpression');
       if (type === 'sqlQueryMultipleValues') {
         try {
-          const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page));
+          const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page));
           value = result.rows.map((row) => String(row[result.columns[0]!] ?? '')).join(':');
         } catch (error) {
           renderer.diagnose(

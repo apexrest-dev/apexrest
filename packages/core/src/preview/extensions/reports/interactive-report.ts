@@ -113,7 +113,7 @@ function workingComputations(
   const binds = renderer.binds(ctx.session, ctx.page);
   return views.computations.filter((computation) => {
     try {
-      renderer.db.query(computedQuery(sql, [computation], ids), binds, 1);
+      renderer.data.query(computedQuery(sql, [computation], ids), binds, 1);
       return true;
     } catch (error) {
       renderer.diagnose(
@@ -147,7 +147,7 @@ export function irModel(renderer: ApexRenderer, ctx: RenderContext, region: ApxC
     const working = workingComputations(renderer, ctx, region, sql, views, ids);
     if (working.length) {
       try {
-        result = renderer.db.query(
+        result = renderer.data.query(
           computedQuery(sql, working, ids),
           renderer.binds(ctx.session, ctx.page),
           limit + 1,

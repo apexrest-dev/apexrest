@@ -266,7 +266,12 @@ export function inspectSql(sql: string, depth = 0): DatabaseOperation[] {
           true,
           'Renames an object; dependent references require review.',
         );
-    } else if (['INSERT', 'UPDATE', 'DELETE', 'MERGE'].includes(word)) {
+    } else if (
+      ['INSERT', 'UPDATE', 'DELETE', 'MERGE'].includes(word) &&
+      // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
+      !(at(i - 1) === 'ON' && word === 'DELETE') &&
+      !(at(i - 1) === 'FOR' && word === 'UPDATE')
+    ) {
       const cursor = ['INTO', 'FROM'].includes(at(i + 1)) ? i + 2 : i + 1;
       add(
         word.toLowerCase(),

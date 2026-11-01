@@ -61,7 +61,7 @@ test('MCP schema retains cross-field selection checks and the twelve-tool surfac
   const ship = tools.find((tool) => tool.name === 'apexrest_ship')!;
   const properties = ship.inputSchema.properties as Record<string, Record<string, unknown>>;
   assert.equal(properties.importMode!.default, 'auto');
-  assert.deepEqual(properties.importMode!.enum, ['auto', 'full', 'files']);
+  assert.deepEqual(properties.importMode!.enum, ['auto', 'full', 'files', 'none']);
 });
 
 test('project profile is optional for legacy projects and accepts only the two supported releases', async (t) => {

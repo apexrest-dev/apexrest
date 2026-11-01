@@ -4,6 +4,7 @@ import { loadProject } from '../config.ts';
 import { Fault } from '../result.ts';
 import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, setupAssets } from './assets.ts';
 import type { Diagnostic } from './render.ts';
+import { connectOracle } from './oracle/connect.ts';
 import { checkApplication, PreviewServer } from './server.ts';
 
 const running = new Map<string, PreviewServer>();
@@ -27,6 +28,30 @@ async function resolveSource(root: string, explicit: string | undefined): Promis
       2,
     );
   return fs.realpathSync(source);
+}
+
+/**
+ * Preview data for a project's own application: the SQLite file under `.apexrest/preview/` and seeds
+ * from the migrations (schema; PL/SQL units are skipped) followed by `<project>/.apex-local/*.sql`.
+ * Nothing is written inside the deployed source tree. A legacy `<sourceDir>/.apex-local` keeps priority.
+ */
+async function projectData(
+  root: string,
+  sourceDir: string,
+): Promise<{ database?: string; seedDirs?: string[] }> {
+  if (fs.existsSync(path.join(sourceDir, '.apex-local'))) return {};
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return {};
+  }
+  const appDir = path.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs.existsSync(appDir) || fs.realpathSync(appDir) !== sourceDir) return {};
+  return {
+    database: path.join(ctx.root, '.apexrest', 'preview', 'preview.sqlite'),
+    seedDirs: [path.resolve(ctx.root, ctx.config.database.migrationsDir), path.join(ctx.root, '.apex-local')],
+  };
 }
 
 function summarize(diagnostics: Diagnostic[]) {
@@ -84,17 +109,29 @@ export async function previewStart(
     sampleRows?: number | undefined;
     user?: string | undefined;
     toolbar?: boolean | undefined;
+    env?: string | undefined;
   },
 ) {
   const sourceDir = await resolveSource(root, input.sourceDir);
   assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
-  if (previous && !input.reset && input.port === undefined) return describe(previous, true);
+  if (
+    previous &&
+    !input.reset &&
+    input.port === undefined &&
+    (previous.options.oracle?.environment ?? undefined) === input.env
+  )
+    return describe(previous, true);
   if (previous) {
     await previous.stop();
     running.delete(sourceDir);
   }
+  const oracle = input.env ? await connectOracle(root, input.env) : undefined;
+  const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
+    ...(oracle ? { oracle } : {}),
+    ...(data.seedDirs ? { seedDirs: data.seedDirs } : {}),
+    ...(data.database && !oracle ? { database: data.database } : {}),
     sourceDir,
     ...(input.assetsDir ? { assetsDir: input.assetsDir } : {}),
     ...(input.port === undefined ? {} : { port: input.port }),
@@ -116,7 +153,16 @@ function describe(server: PreviewServer, reused: boolean) {
     database: server.db.file,
     apexVersion: APEX_FULL_VERSION,
     pages: server.pages(),
-    note: 'Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond plain DML is skipped.',
+    note: server.options.oracle
+      ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); every request is rolled back. Rendering is still simulated; not import or browser evidence.`
+      : 'Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.',
+    data: server.options.oracle
+      ? {
+          mode: 'oracle',
+          environment: server.options.oracle.environment,
+          target: server.options.oracle.target,
+        }
+      : { mode: 'sqlite' },
     ...summarize(server.diagnostics()),
   };
 }
@@ -154,12 +200,17 @@ export async function previewCheck(
     assetsDir?: string | undefined;
     pages?: string[] | undefined;
     sampleRows?: number | undefined;
+    env?: string | undefined;
   },
 ) {
   const sourceDir = await resolveSource(root, input.sourceDir);
   assetsReady(input.assetsDir);
+  const oracle = input.env ? await connectOracle(root, input.env) : undefined;
+  const { seedDirs } = await projectData(root, sourceDir);
   const result = checkApplication({
     sourceDir,
+    ...(oracle ? { oracle } : {}),
+    ...(seedDirs ? { seedDirs } : {}),
     ...(input.assetsDir ? { assetsDir: input.assetsDir } : {}),
     ...(input.pages ? { pages: input.pages } : {}),
     ...(input.sampleRows === undefined ? {} : { sampleRows: input.sampleRows }),

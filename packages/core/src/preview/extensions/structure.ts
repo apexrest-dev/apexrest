@@ -52,6 +52,8 @@ registerExtension({
   },
   processes: { ...LEGACY_PROCESSES, tabformUpdate, tabformDelete, tabformAddRows },
   regionSql: (renderer, ctx, region, sql) => {
+    // Oracle runs CONNECT BY itself.
+    if (renderer.data.dialect === 'oracle') return undefined;
     const result = translateHierarchy(sql);
     if (result.unsupported)
       renderer.diagnose(

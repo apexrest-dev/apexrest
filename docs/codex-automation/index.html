@@ -80,6 +80,10 @@
 <td><code>importMode: &quot;full&quot;</code></td>
 <td>Plan a complete application import.</td>
 </tr>
+<tr>
+<td><code>importMode: &quot;none&quot;</code></td>
+<td>Deploy only pending migrations and changed package scripts; the application is not backed up or imported.</td>
+</tr>
 </tbody></table>
 </div>
 <p>The model reviews <code>importSelection.requestedMode</code>, <code>resolvedMode</code>, <code>files</code>, <code>dependencies</code> and <code>reasons</code>; the saved plan holds the complete lists if the preview is truncated. The program compares checkpoint/local/fresh-server inventories, preserves remote-only edits and blocks unequal edits to the same component before fallback. It validates the effective tree, so selected pages must have their required components on the server or included explicitly. <code>files</code> never adds dependencies or becomes <code>full</code>; observed remote changes must be reconciled before an automatic full fallback. Partial apply retains a scoped APEXlang backup and verifies selected sources while leaving unselected local edits dirty. Pages use native selected export; shared files disclose full APEXlang observation. Unselected server freshness is not established by scoped readback. Browser verification remains a separate host action. See <a href="/apexrest/deployment/#apex-262-partial-imports">deployment safeguards</a>.</p>

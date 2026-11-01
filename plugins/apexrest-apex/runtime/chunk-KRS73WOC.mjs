@@ -2,7 +2,10 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-ZT2TJWQE.mjs";
+} from "./chunk-KOASC6G4.mjs";
+import {
+  runtimeState
+} from "./chunk-M57SWOHE.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -40,7 +43,6 @@ import {
   rebaseAfterImport,
   resolveConnection,
   resourceRoot,
-  runtimeState,
   savedConnectionName,
   scopedExportFile,
   selectImport,
@@ -53,12 +55,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-GQDQAOWR.mjs";
-import {
-  runProcess,
-  sqlclTimings,
-  withSqlclTimings
-} from "./chunk-4S26F3JE.mjs";
+} from "./chunk-GJGXYFEZ.mjs";
 import {
   environment,
   identifier,
@@ -71,31 +68,38 @@ import {
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-ON46TMC5.mjs";
+} from "./chunk-RNEE4V2Z.mjs";
+import {
+  runProcess,
+  sqlclTimings,
+  withSqlclTimings
+} from "./chunk-XYDSY3MB.mjs";
 import {
   external_exports
-} from "./chunk-75I6YHSV.mjs";
+} from "./chunk-W7MSMS56.mjs";
+import {
+  atomicWrite,
+  canonical,
+  contained,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  withLock,
+  writeJson
+} from "./chunk-7UXC37DJ.mjs";
 import {
   Fault,
   __commonJS,
   __require,
   __toESM,
   artifactPage,
-  atomicWrite,
-  canonical,
-  contained,
-  exists,
   failure,
-  hash,
-  inventory,
-  readJson,
   redact,
   sanitized,
   success,
-  verifiedVendorReferencePage,
-  withLock,
-  writeJson
-} from "./chunk-UQUM7OVR.mjs";
+  verifiedVendorReferencePage
+} from "./chunk-CCPOHUCO.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
@@ -10650,7 +10654,7 @@ var selectedImportPath = relativePath.refine(
   "Use normalized application-relative paths without globs or command flags"
 );
 var importOptions2 = {
-  importMode: external_exports.enum(["auto", "full", "files"]).default("auto"),
+  importMode: external_exports.enum(["auto", "full", "files", "none"]).default("auto"),
   files: external_exports.array(selectedImportPath).min(1).max(1e3).optional().describe("files mode: explicit file paths relative to the application source directory")
 };
 function checkImportOptions(value, ctx) {
@@ -10678,6 +10682,9 @@ var previewSource = {
 };
 var previewRun = {
   assetsDir: external_exports.string().min(1).max(4096).optional(),
+  env: env.optional().describe(
+    "DEV/QA/TEST environment of apexrest.json: application data and PL/SQL run in its Oracle database through the SQLcl saved connection; every request is rolled back"
+  ),
   sampleRows: external_exports.number().int().min(0).max(200).optional().describe("Sample rows for auto-created missing tables")
 };
 var setup = {
@@ -10954,6 +10961,7 @@ var schemas = {
     project,
     action: external_exports.enum(["setup", "start", "check", "stop", "status"]),
     sourceDir: external_exports.string().min(1).max(4096).optional(),
+    env: env.optional(),
     zip: external_exports.string().min(1).max(4096).optional(),
     port: external_exports.number().int().min(0).max(65535).optional(),
     reset: external_exports.boolean().optional(),
@@ -11027,7 +11035,7 @@ var toolCatalog = [
   {
     name: "apexrest_preview",
     operation: "preview",
-    description: "Local APEXlang preview without Oracle: Universal Theme 26.2 assets plus SQLite (.apex-local/*.sql or sample tables). setup once; start returns page URLs; check lists unsupported features. Design only, not Oracle evidence.",
+    description: "APEXlang preview (UT 26.2): SQLite, or env (DEV/QA/TEST) for rolled-back Oracle data/PL/SQL. setup; start: URLs; check: gaps. Not evidence.",
     readOnly: false,
     destructive: false,
     openWorld: true
@@ -12624,7 +12632,8 @@ function inspectSql(sql, depth = 0) {
           true,
           "Renames an object; dependent references require review."
         );
-    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word)) {
+    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word) && // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
+    !(at(i - 1) === "ON" && word === "DELETE") && !(at(i - 1) === "FOR" && word === "UPDATE")) {
       const cursor = ["INTO", "FROM"].includes(at(i + 1)) ? i + 2 : i + 1;
       add(
         word.toLowerCase(),
@@ -12764,13 +12773,16 @@ var legacyPlanSchema = external_exports.strictObject({
   target: external_exports.record(external_exports.string(), external_exports.unknown()),
   fingerprint: digestSchema,
   migrationHistory: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())),
+  // Package scripts already applied with these checksums are not re-run (absent in older plans).
+  packageHistory: external_exports.record(external_exports.string(), digestSchema).optional(),
   // Always the local durable store; the shape is kept so existing plan digests stay stable.
   coordination: external_exports.strictObject({
     backend: external_exports.literal("local"),
     scope: external_exports.literal("managed-home-schema"),
     storeDigest: digestSchema
   }),
-  scope: external_exports.literal("full-application-import"),
+  // database-only plans run migrations and changed package scripts without an application import.
+  scope: external_exports.enum(["full-application-import", "database-only"]),
   operations: external_exports.array(
     external_exports.strictObject({
       kind: external_exports.enum(["migration", "package", "import", "verify"]),
@@ -12855,7 +12867,7 @@ var next = {
   planned: ["approved"],
   approved: ["backing_up"],
   backing_up: ["migrating"],
-  migrating: ["importing"],
+  migrating: ["importing", "succeeded"],
   importing: ["verifying"],
   verifying: ["succeeded"],
   succeeded: [],
@@ -13347,6 +13359,7 @@ var DeploymentService = class {
   async plan(ctx, name2, options = {}) {
     if (typeof options === "boolean") return this.legacyPlan(ctx, name2, options);
     const requested = importOptions(options);
+    if (requested.importMode === "none") return this.databasePlan(ctx, name2);
     const source2 = await contained(ctx.root, ctx.config.application.sourceDir);
     const release = await sourceRelease(source2);
     if (release !== "26.2") {
@@ -13390,6 +13403,7 @@ var DeploymentService = class {
     const plan = {
       ...full,
       schemaVersion: 4,
+      scope: "full-application-import",
       mode: full.schemaVersion === 1 ? "full-export" : full.mode,
       backupStrategy: full.schemaVersion === 1 ? "fresh-export" : full.backupStrategy,
       workingCopy: full.schemaVersion === 1 ? null : full.workingCopy,
@@ -13546,6 +13560,7 @@ var DeploymentService = class {
         backupRequired: true,
         digest: "0".repeat(64),
         importSelection: {
+          // importMode none never reaches file selection (plan() returns a database plan first).
           requestedMode: options.importMode,
           resolvedMode: "files",
           files: selected.files,
@@ -13563,6 +13578,23 @@ var DeploymentService = class {
     } finally {
       await this.oracle.discardStage?.(current.exported?.stage);
     }
+  }
+  /**
+   * Migrations and changed package scripts only. The target is observed with a fresh export like a
+   * full plan, so identity, drift and history checks are unchanged; nothing is backed up or imported.
+   */
+  async databasePlan(ctx, name2) {
+    const full = await this.legacyPlan(ctx, name2, false, true);
+    const operations = full.operations.filter((o) => o.kind === "migration" || o.kind === "package");
+    if (!operations.length)
+      throw new Fault(
+        "NO_DATABASE_CHANGES",
+        "No pending migrations or changed package scripts; nothing to deploy to the database.",
+        2
+      );
+    const plan = { ...full, scope: "database-only", operations, backupRequired: false };
+    plan.digest = planDigest2(plan);
+    return plan;
   }
   async legacyPlan(ctx, name2, restore = false, fresh = false) {
     const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
@@ -13613,6 +13645,7 @@ var DeploymentService = class {
         5
       );
     checkMigrations(ctx, sources, current.history);
+    const packageHistory = await new LocalDeploymentControl(env2).packages(ctx.config.projectId);
     for (const [file, sha256] of Object.entries(sources)) {
       const migration = file.startsWith(ctx.config.database.migrationsDir + "/");
       const pkg = file.startsWith(ctx.config.database.packagesDir + "/");
@@ -13620,7 +13653,8 @@ var DeploymentService = class {
       if (!file.endsWith(".sql"))
         throw new Fault("UNSUPPORTED_DB_SOURCE", "Database execution directories accept .sql files only.", 3);
       const sql = await readFile9(await contained(ctx.root, file), "utf8");
-      risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
+      const runs = migration ? !history.has(path9.basename(file)) : packageHistory[file] !== sha256;
+      if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
         const version2 = path9.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version2))
@@ -13637,7 +13671,7 @@ var DeploymentService = class {
             5
           );
         if (!previous) operations.push({ kind: "migration", file, sha256 });
-      } else operations.push({ kind: "package", file, sha256 });
+      } else if (runs) operations.push({ kind: "package", file, sha256 });
     }
     if (current.exported) {
       try {
@@ -13677,6 +13711,7 @@ var DeploymentService = class {
       target: current.target,
       fingerprint: current.fingerprint,
       migrationHistory: current.history,
+      packageHistory,
       coordination: coordination(env2),
       scope: "full-application-import",
       operations,
@@ -13748,8 +13783,11 @@ var DeploymentService = class {
       throw new Fault("PLAN_TAMPERED", "Plan lifetime exceeds the reviewed plan limit.", 5);
     if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile9(await contained(ctx.root, ctx.config.toolchain.lockFile))))
       throw new Fault("SOURCE_DRIFT", "Sources, configuration or toolchain lock changed after review.", 5);
-    if (plan.backupRequired !== Boolean(plan.target.application))
+    const databaseOnly = plan.scope === "database-only";
+    if (plan.backupRequired !== (!databaseOnly && Boolean(plan.target.application)))
       throw new Fault("PLAN_TAMPERED", "Backup requirement does not match reviewed target.", 5);
+    if (databaseOnly && plan.restore)
+      throw new Fault("PLAN_TAMPERED", "A restore always imports the application.", 5);
     if (canonical(plan.coordination) !== canonical(coordination(env2)))
       throw new Fault(
         "CONTROL_STORE_CHANGED",
@@ -13768,7 +13806,9 @@ var DeploymentService = class {
         const previous = history.get(path9.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
-        if (kind !== "migration" || !previous) expected.push({ kind, file, sha256 });
+        const runs = kind === "migration" ? !previous : plan.packageHistory?.[file] !== sha256;
+        if (!runs) continue;
+        expected.push({ kind, file, sha256 });
         const risks = migrationRisk(await readFile9(await contained(ctx.root, file), "utf8")).map(
           (r) => `${r}:${file}`
         );
@@ -13777,7 +13817,9 @@ var DeploymentService = class {
       }
       expected.sort(operationOrder);
     }
-    expected.push({ kind: "import" }, { kind: "verify" });
+    if (!databaseOnly) expected.push({ kind: "import" }, { kind: "verify" });
+    if (databaseOnly && !expected.length)
+      throw new Fault("PLAN_TAMPERED", "A database-only plan must run at least one script.", 5);
     if (canonical(expected) !== canonical(plan.operations))
       throw new Fault(
         "PLAN_TAMPERED",
@@ -13947,7 +13989,8 @@ var DeploymentService = class {
       await record("backing_up");
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
-      if ((plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
+      const databaseOnly = plan.scope === "database-only";
+      if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
         const backup = backupSource ?? await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
         try {
           const backupId = randomUUID4(), directory = path9.join(ctx.root, ".apexrest/backups", backupId);
@@ -14011,7 +14054,7 @@ var DeploymentService = class {
       }
       if (controller.signal.aborted)
         throw new Fault("CANCELLED", "Deployment cancelled before writes.", 6, "cancelled");
-      if (working) {
+      if (working && !databaseOnly) {
         await syncStore.lock(async () => {
           await this.checkWorkingPlan(ctx, plan);
           await syncStore.write({ ...working, status: "importing", importingRunId: runId });
@@ -14079,6 +14122,13 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           "text",
           SCRIPT_RESTRICT_LEVEL
         );
+        if (operation.kind === "package")
+          await new LocalDeploymentControl(env2).packageApplied(
+            runId,
+            ctx.config.projectId,
+            operation.file,
+            operation.sha256
+          );
         if (operation.kind === "migration") {
           await new LocalDeploymentControl(env2).migration(
             runId,
@@ -14093,6 +14143,11 @@ prompt APEXREST_SCRIPT_COMPLETE`,
             run_id: runId
           });
         }
+      }
+      if (databaseOnly) {
+        await this.oracle.verifyTarget(env2, readConnection);
+        await record("succeeded");
+        return { runId, state, directory: runDir };
       }
       await record("importing");
       await this.lease(env2, runId, false);
@@ -15540,7 +15595,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-HAENWPI3.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-7GPOH4UW.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -15690,7 +15745,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-HS3L6GNM.mjs");
+      const { previewDispatch } = await import("./chunk-BD4ZQTT3.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -15717,29 +15772,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-F4MSWKZJ.mjs");
+        const { ToolchainService } = await import("./chunk-PGCMMM63.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-2BM2L6ZT.mjs");
+        const { uninstallTools } = await import("./chunk-AFCNDW45.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-K2XCD6I4.mjs");
+        const { setup: setup2 } = await import("./chunk-C4TU2NL4.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-K2XCD6I4.mjs");
+        const { validateNative } = await import("./chunk-C4TU2NL4.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-K2XCD6I4.mjs");
+        const { uninstallNative } = await import("./chunk-C4TU2NL4.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -16028,7 +16083,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-MG3YV2PW.mjs");
+            const { openVerificationBrowser } = await import("./chunk-L6M57FQF.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),

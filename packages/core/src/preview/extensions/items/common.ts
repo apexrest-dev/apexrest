@@ -282,7 +282,7 @@ export function lovRows(renderer: ApexRenderer, ctx: RenderContext, item: ApxCom
   )
     return { ...fallback(), rows: [] };
   try {
-    const result = renderer.db.query(sql, renderer.binds(ctx.session, ctx.page), 5_000);
+    const result = renderer.data.query(sql, renderer.binds(ctx.session, ctx.page), 5_000);
     const displayColumn = display?.toUpperCase() ?? result.columns[0]!;
     const returnColumn = returned?.toUpperCase() ?? result.columns[1] ?? displayColumn;
     // Item-level SQL LOVs are display/return pairs; only shared LOVs define extra columns.

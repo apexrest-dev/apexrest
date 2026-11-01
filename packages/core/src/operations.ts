@@ -18,7 +18,7 @@ const selectedImportPath = relativePath.refine(
   'Use normalized application-relative paths without globs or command flags',
 );
 const importOptions = {
-  importMode: z.enum(['auto', 'full', 'files']).default('auto'),
+  importMode: z.enum(['auto', 'full', 'files', 'none']).default('auto'),
   files: z
     .array(selectedImportPath)
     .min(1)
@@ -63,6 +63,11 @@ const previewSource = {
 };
 const previewRun = {
   assetsDir: z.string().min(1).max(4096).optional(),
+  env: env
+    .optional()
+    .describe(
+      'DEV/QA/TEST environment of apexrest.json: application data and PL/SQL run in its Oracle database through the SQLcl saved connection; every request is rolled back',
+    ),
   sampleRows: z
     .number()
     .int()
@@ -396,6 +401,7 @@ export const schemas = {
     project,
     action: z.enum(['setup', 'start', 'check', 'stop', 'status']),
     sourceDir: z.string().min(1).max(4096).optional(),
+    env: env.optional(),
     zip: z.string().min(1).max(4096).optional(),
     port: z.number().int().min(0).max(65535).optional(),
     reset: z.boolean().optional(),
@@ -490,7 +496,7 @@ export const toolCatalog: {
     name: 'apexrest_preview',
     operation: 'preview',
     description:
-      'Local APEXlang preview without Oracle: Universal Theme 26.2 assets plus SQLite (.apex-local/*.sql or sample tables). setup once; start returns page URLs; check lists unsupported features. Design only, not Oracle evidence.',
+      'APEXlang preview (UT 26.2): SQLite, or env (DEV/QA/TEST) for rolled-back Oracle data/PL/SQL. setup; start: URLs; check: gaps. Not evidence.',
     readOnly: false,
     destructive: false,
     openWorld: true,

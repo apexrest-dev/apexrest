@@ -31,7 +31,7 @@ function inputValue(renderer: ApexRenderer, ctx: RenderContext, process: ApxComp
   if (type === 'sqlQuery') {
     try {
       return String(
-        renderer.db.scalar(str(props, 'inputValue.sqlQuery'), renderer.binds(ctx.session, ctx.page)) ?? '',
+        renderer.data.scalar(str(props, 'inputValue.sqlQuery'), renderer.binds(ctx.session, ctx.page)) ?? '',
       );
     } catch (error) {
       renderer.diagnose(
