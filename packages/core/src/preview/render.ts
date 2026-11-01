@@ -567,10 +567,16 @@ export class ApexRenderer {
   ): { href: string; page?: ApxComponent } {
     if (typeof target === 'string') return { href: this.substitute(ctx.session, target, ctx.page, 'RAW') };
     if (!isObject(target)) return { href: '#' };
+    // `#COLUMN#` and `&COLUMN.` (`&COLUMN!FILTER.`) take the row value before session state.
     const rowValue = (value: string) =>
-      value.replace(/#([A-Z0-9_$]+)#/gu, (whole, name: string) =>
-        row && name in row ? String(row[name] ?? '') : whole,
-      );
+      value
+        .replace(/#([A-Z0-9_$]+)#/gu, (whole, name: string) =>
+          row && name in row ? String(row[name] ?? '') : whole,
+        )
+        .replace(/&([A-Za-z][\w$]*?)(?:!([A-Z]+))?\./gu, (whole, name: string, filter?: string) => {
+          const key = name.toUpperCase();
+          return row && key in row ? applyEscape(String(row[key] ?? ''), filter ?? 'RAW') : whole;
+        });
     if (str(target, 'type') === 'url' || target.url !== undefined) {
       const url = rowValue(str(target, 'url'));
       return { href: url === 'separator' ? 'separator' : this.substitute(ctx.session, url, ctx.page, 'RAW') };

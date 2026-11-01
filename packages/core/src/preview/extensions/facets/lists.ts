@@ -1,24 +1,35 @@
 import { bool, get, num, ref, str, type ApxComponent } from '../../apexlang.ts';
 import type { Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
-import { applyEscape, escapeHtml } from '../../theme.ts';
+import { escapeHtml } from '../../theme.ts';
+import { rowTemplate } from '../components/row-template.ts';
 import { strings } from './model.ts';
 
-/** `&COLUMN.` / `&COLUMN!FILTER.` from the row first, then session state and built-ins. */
-function rowSubstitute(renderer: ApexRenderer, ctx: RenderContext, template: string, row: Row): string {
-  const upper = Object.fromEntries(Object.entries(row).map(([key, value]) => [key.toUpperCase(), value]));
-  const replaced = template.replace(
-    /&([A-Za-z][\w$#]*?)(?:!([A-Z]+))?\./gu,
-    (whole, name: string, filter?: string) => {
-      const key = name.toUpperCase();
-      return key in upper ? applyEscape(String(upper[key] ?? ''), filter ?? 'HTML') : whole;
-    },
-  );
-  return renderer.substitute(ctx.session, replaced, ctx.page, 'HTML');
-}
+/**
+ * `settings.features` as APEXlang names (`enableSearch`, `insetList`, `showListDivider`,
+ * `advancedFormatting`, `showImage`, ...); stored return values and the older short names are
+ * accepted as aliases.
+ */
+const FEATURE_ALIASES: Record<string, string> = {
+  search: 'enableSearch',
+  inset: 'insetList',
+  divider: 'showListDivider',
+  listDivider: 'showListDivider',
+  image: 'showImage',
+  advanced: 'advancedFormatting',
+  advanced_formatting: 'advancedFormatting',
+  split_button: 'hasSplitButton',
+  nested: 'isNestedListView',
+};
 
-const features = (region: ApxComponent) =>
-  strings(region.props, 'settings.features').flatMap((value) => value.split(/[\s,:]+/u));
+export function listViewFeatures(region: ApxComponent): Set<string> {
+  return new Set(
+    strings(region.props, 'settings.features')
+      .flatMap((value) => value.split(/[\s,:]+/u))
+      .filter(Boolean)
+      .map((value) => FEATURE_ALIASES[value] ?? FEATURE_ALIASES[value.toLowerCase()] ?? value),
+  );
+}
 
 /** List View region (the jQuery Mobile-free `a-ListView` markup), with an optional search bar. */
 export function renderListView(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string {
@@ -37,39 +48,71 @@ export function renderListView(renderer: ApexRenderer, ctx: RenderContext, regio
   );
   if (result.error)
     return `<div class="t-Alert t-Alert--danger t-Alert--wizard"><div class="t-Alert-body">${escapeHtml(result.error)}</div></div>`;
-  const options = new Set(features(region));
-  const column = (key: string) => str(region.props, `settings.${key}`).toUpperCase();
+  const options = listViewFeatures(region);
+  const advanced = options.has('advancedFormatting');
+  const setting = (key: string) => str(region.props, `settings.${key}`);
+  const column = (...keys: string[]) => (keys.map((key) => setting(key)).find(Boolean) ?? '').toUpperCase();
+  const html = (template: string, row: Row) => rowTemplate(renderer, ctx, template, row, true);
   const text = column('textColumn') || result.columns[0] || '';
-  const format = str(region.props, 'settings.textFormatting');
   const target = get(region.props, 'settings.linkTarget') ?? get(region.props, 'link.target');
-  let divider = '';
+  const info = column('supplementalInfoColumn', 'supplementalInformationColumn');
+  const counter = column('counterColumn');
+  const icon = column('iconClassColumn');
+  const imageType = setting('imageType');
+  const imageUrl = column('imageUrlColumn');
+  const dividerColumn = options.has('showListDivider') ? column('listDividerColumn') : '';
+  let divider: string | undefined;
   const items = result.rows
     .map((row) => {
       const label =
-        options.has('advancedFormatting') && format
-          ? rowSubstitute(renderer, ctx, format, row)
+        advanced && setting('textFormatting')
+          ? html(setting('textFormatting'), row)
           : escapeHtml(row[text] ?? '');
-      const info = column('supplementalInformationColumn');
-      const counter = column('counterColumn');
-      const icon = column('iconClassColumn');
-      const body = `${icon && row[icon] ? `<span class="ui-li-icon fa ${escapeHtml(row[icon])}" aria-hidden="true"></span>` : ''}${label}${info && row[info] !== null ? `<p class="ui-li-aside">${escapeHtml(row[info])}</p>` : ''}${counter && row[counter] !== null ? `<span class="ui-li-count">${escapeHtml(row[counter])}</span>` : ''}`;
-      const dividerColumn = column('listDividerColumn');
+      const supplemental =
+        advanced && setting('supplementalInfoFormatting')
+          ? html(setting('supplementalInfoFormatting'), row)
+          : info && row[info] !== null && row[info] !== undefined
+            ? escapeHtml(row[info])
+            : '';
+      let image = '';
+      if (options.has('showImage') && /Url$/u.test(imageType) && imageUrl && row[imageUrl]) {
+        const kind = imageType === 'iconUrl' ? 'ui-li-icon' : 'ui-li-thumb';
+        image = `<img class="${kind}" src="${escapeHtml(row[imageUrl])}" alt="">`;
+      } else if (icon && row[icon])
+        image = `<span class="ui-li-icon fa ${escapeHtml(row[icon])}" aria-hidden="true"></span>`;
+      const body = `${image}${label}${supplemental ? `<p class="ui-li-aside">${supplemental}</p>` : ''}${counter && row[counter] !== null ? `<span class="ui-li-count">${escapeHtml(row[counter])}</span>` : ''}`;
       let heading = '';
       if (dividerColumn && String(row[dividerColumn] ?? '') !== divider) {
         divider = String(row[dividerColumn] ?? '');
-        heading = `<li class="a-ListView-divider" role="heading">${escapeHtml(divider)}</li>`;
+        const dividerHtml =
+          advanced && setting('listDividerFormatting')
+            ? html(setting('listDividerFormatting'), row)
+            : escapeHtml(divider);
+        heading = `<li class="a-ListView-divider" role="heading">${dividerHtml}</li>`;
       }
       const href = target ? renderer.link(ctx, target, row, `apex.jQuery('#${domId}')`) : '';
-      return `${heading}<li class="a-ListView-item${icon ? ' has-icon' : ''}${counter ? ' has-count' : ''}">${href ? `<a class="ui-btn" href="${escapeHtml(href)}">${body}</a>` : body}</li>`;
+      const entryAttributes =
+        advanced && setting('listEntryAttrs') ? ` ${html(setting('listEntryAttrs'), row)}` : '';
+      return `${heading}<li class="a-ListView-item${image ? ' has-icon' : ''}${counter ? ' has-count' : ''}"${entryAttributes}>${href ? `<a class="ui-btn" href="${escapeHtml(href)}">${body}</a>` : body}</li>`;
     })
     .join('');
-  const search = options.has('search')
-    ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="Search..." aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>`
+  const placeholder = renderer.substitute(
+    ctx.session,
+    setting('searchBoxPlaceholder') || 'Search...',
+    ctx.page,
+    'HTML',
+  );
+  const search = options.has('enableSearch')
+    ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="${placeholder}" aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>`
     : '';
   const empty = result.rows.length
     ? ''
     : `<span class="nodatafound">${renderer.substitute(ctx.session, str(region.props, 'messages.whenNoDataFound', 'No data found.'), ctx.page, 'HTML')}</span>`;
-  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options.has('inset') ? ' a-ListView--inset' : ''}" id="${escapeHtml(domId)}_listview" data-role="listview">${items}</ul>${empty}</div>`;
+  const listAttributes =
+    advanced && setting('listAttrs')
+      ? ` ${renderer.substitute(ctx.session, setting('listAttrs'), ctx.page, 'HTML')}`
+      : '';
+  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options.has('insetList') ? ' a-ListView--inset' : ''}" id="${escapeHtml(domId)}_listview" data-role="listview"${listAttributes}>${items}</ul>${empty}</div>`;
 }
 
 /** Region Display Selector: the genuine apexTabs widget over the regions flagged for it. */

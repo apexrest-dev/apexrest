@@ -1,7 +1,8 @@
 import { bool, get, isObject, num, str, type ApxComponent, type ApxObject } from '../../apexlang.ts';
 import type { Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
-import { applyDirectives, applyEscape, escapeHtml } from '../../theme.ts';
+import { escapeHtml } from '../../theme.ts';
+import { rowTemplate } from '../components/row-template.ts';
 import { strings } from './model.ts';
 
 /**
@@ -36,26 +37,7 @@ const KNOWN_GROUPS = new Set([
   'type',
 ]);
 
-/** `#COLUMN#` placeholders (with `!RAW`/`!HTML`/... filters) and `{if/}` directives over a row. */
-export function rowTemplate(
-  renderer: ApexRenderer,
-  ctx: RenderContext,
-  template: string,
-  row: Row,
-  escape: boolean,
-): string {
-  const values: Record<string, string> = {};
-  for (const [key, value] of Object.entries(row)) values[key.toUpperCase()] = String(value ?? '');
-  const substituted = renderer.substitute(ctx.session, template, ctx.page, 'HTML');
-  return applyDirectives(substituted, values).replace(
-    /#([A-Z][A-Z0-9_$]*)(?:!([A-Z]+))?#/gu,
-    (whole, name: string, filter?: string) => {
-      if (!(name in values)) return whole;
-      if (filter) return applyEscape(values[name]!, filter);
-      return escape ? escapeHtml(values[name]) : values[name]!;
-    },
-  );
-}
+export { rowTemplate };
 
 /** Two-letter initials the way APEX computes them for card icons. */
 export function initials(value: string): string {
@@ -77,6 +59,19 @@ interface CardAction {
 /** Action positions by their normalized APEXlang name. */
 function position(value: string): string {
   return value.replace(/[^a-z]/giu, '').toLowerCase();
+}
+
+/**
+ * Where a card action goes: `type: button` (the default) uses `layout.position` (primary by
+ * default) or secondary; `fullCard`, `title`, `subtitle` and `media` link that card part. A
+ * legacy top-level `position` is still honoured.
+ */
+export function actionPosition(action: ApxComponent): string {
+  const legacy = str(action.props, 'position');
+  if (legacy) return position(legacy);
+  const type = position(str(action.props, 'type', 'button'));
+  if (type === 'button') return position(str(action.props, 'layout.position', 'primary'));
+  return type;
 }
 
 export function renderCards(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): string {
@@ -118,7 +113,7 @@ export function renderCards(renderer: ApexRenderer, ctx: RenderContext, region: 
     .sort((a, b) => num(a.props, 'layout.sequence', 0) - num(b.props, 'layout.sequence', 0))
     .map((component) => ({
       component,
-      position: position(str(component.props, 'position')),
+      position: actionPosition(component),
       label: str(component.props, 'label'),
     }));
   for (const action of actions)
@@ -281,7 +276,13 @@ function renderCard(
   let badge = '';
   if (badgeColumn && row[badgeColumn] !== null && row[badgeColumn] !== undefined && row[badgeColumn] !== '') {
     const badgeLabel = rowTemplate(renderer, ctx, str(props, 'iconAndBadge.badgeLabel'), row, true);
-    const badgeCss = strings(props, 'iconAndBadge.badgeCssClasses').join(' ');
+    const badgeCss = rowTemplate(
+      renderer,
+      ctx,
+      strings(props, 'iconAndBadge.badgeCssClasses').join(' '),
+      row,
+      false,
+    );
     badge = `<div class="a-CardView-badge${badgeCss ? ` ${escapeHtml(badgeCss)}` : ''}">${badgeLabel ? `<span class="a-CardView-badgeLabel">${badgeLabel}</span>` : ''}<span class="a-CardView-badgeValue">${escapeOrNot(row[badgeColumn], escape)}</span></div>`;
     classes.push('has-badge');
   }
@@ -390,7 +391,7 @@ function renderCard(
     )
       renderer.diagnose(
         'info',
-        `Cards ${region.id}: action position ${str(action.component.props, 'position')} is not simulated`,
+        `Cards ${region.id}: action position ${str(action.component.props, 'position', str(action.component.props, 'type'))} is not simulated`,
         ctx.pageId,
         region.id,
       );
