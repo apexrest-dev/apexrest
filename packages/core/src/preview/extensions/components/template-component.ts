@@ -13,6 +13,7 @@ import {
 import type { Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { templateOptions } from '../../theme.ts';
+import { formatValue } from '../reports/masks.ts';
 import { applyTemplate, escapeValue, type EscapeMode } from './directives.ts';
 import { componentIndex, type PluginAttribute, type TemplateComponent } from './plugins.ts';
 
@@ -34,9 +35,21 @@ export function findComponent(renderer: ApexRenderer, name: string): TemplateCom
 }
 
 /** The APEXlang value of an attribute: `settings.<name>` or `plugin-<group>.<name>`. */
-function configured(owner: ApxComponent, attribute: PluginAttribute): ApxValue | undefined {
+function configured(
+  owner: ApxComponent,
+  attribute: PluginAttribute,
+  component?: TemplateComponent,
+): ApxValue | undefined {
+  // A grouped attribute (e.g. the nested avatar's `description`) only falls back to `settings.<name>`
+  // when no ungrouped attribute of the component owns that name (Timeline's own `description`).
+  const shadowed = component?.attributes.some(
+    (other) => !other.group && other.apexlangName === attribute.apexlangName,
+  );
   const paths = attribute.group
-    ? [`plugin-${attribute.group}.${attribute.apexlangName}`, `settings.${attribute.apexlangName}`]
+    ? [
+        `plugin-${attribute.group}.${attribute.apexlangName}`,
+        ...(shadowed ? [] : [`settings.${attribute.apexlangName}`]),
+      ]
     : [`settings.${attribute.apexlangName}`];
   for (const path of paths) {
     const value = get(owner.props, path);
@@ -67,8 +80,11 @@ export class ComponentRenderer {
   readonly owner: ApxComponent;
   readonly component: TemplateComponent;
   readonly domId: string;
+  /** Columns whose format masks apply besides the owner's own (the report of a column component). */
+  readonly maskColumns: ApxComponent[];
   #byId = new Map<string, PluginAttribute>();
   #menuCount = 0;
+  #masks: Map<string, string> | undefined;
 
   constructor(
     renderer: ApexRenderer,
@@ -76,12 +92,14 @@ export class ComponentRenderer {
     owner: ApxComponent,
     component: TemplateComponent,
     domId: string,
+    maskColumns: ApxComponent[] = [],
   ) {
     this.renderer = renderer;
     this.ctx = ctx;
     this.owner = owner;
     this.component = component;
     this.domId = domId;
+    this.maskColumns = maskColumns;
     for (const attribute of component.attributes) this.#byId.set(attribute.id, attribute);
   }
 
@@ -124,18 +142,36 @@ export class ComponentRenderer {
         if (!holds) return '';
       }
     }
-    const value = configured(this.owner, attribute);
+    const value = configured(this.owner, attribute, this.component);
     if (value === undefined) return attribute.defaultValue ?? '';
     return stored(attribute, value);
+  }
+
+  /** `appearance.formatMask` by upper-case column name, from the region's (or report's) columns. */
+  get masks(): Map<string, string> {
+    if (!this.#masks) {
+      this.#masks = new Map();
+      for (const child of [...this.maskColumns, ...this.owner.children])
+        if (child.type === 'column' && str(child.props, 'appearance.formatMask'))
+          this.#masks.set(child.id.toUpperCase(), str(child.props, 'appearance.formatMask'));
+    }
+    return this.#masks;
+  }
+
+  /** A row value as APEX substitutes it: formatted with the column's format mask. */
+  columnValue(row: Row | undefined, name: string): string | undefined {
+    const key = name.toUpperCase();
+    if (!row || !(key in row)) return undefined;
+    const value = row[key];
+    if (value === null || value === undefined) return '';
+    const mask = this.masks.get(key);
+    return mask ? formatValue(value, mask) : String(value);
   }
 
   /** Substitutes `&COLUMN.` (and `#COLUMN#`) row values and session state into an attribute value. */
   resolve(attribute: PluginAttribute, raw: string, row: Row | undefined): string {
     if (!raw) return '';
-    const columnValue = (name: string) => {
-      const key = name.toUpperCase();
-      return row && key in row ? String(row[key] ?? '') : undefined;
-    };
+    const columnValue = (name: string) => this.columnValue(row, name);
     if (SOURCE_TYPES.has(attribute.type) && /^[A-Za-z][\w$#]*$/u.test(raw)) {
       const value = columnValue(raw);
       if (value !== undefined) return value;
@@ -171,10 +207,7 @@ export class ComponentRenderer {
       if (attribute.scope !== scope) continue;
       const value = this.resolve(attribute, this.setting(attribute), row);
       // Font APEX icons need the base class next to the fa-* name, as APEX adds it for icon attributes.
-      values[attribute.staticId] =
-        attribute.type === 'ICON' && /(^|\s)fa-/u.test(value) && !/(^|\s)fa(\s|$)/u.test(value)
-          ? `fa ${value}`
-          : value;
+      values[attribute.staticId] = attribute.type === 'ICON' ? faIcon(value) : value;
       escapes[attribute.staticId] = attribute.escape;
     }
     return { values, escapes };
@@ -231,7 +264,7 @@ export class ComponentRenderer {
             'HTML',
           );
           const icon = str(entry.props, 'appearance.icon');
-          const iconHtml = icon ? `<span class="${escapeValue(icon, 'ATTR')}"></span>` : '';
+          const iconHtml = icon ? `<span class="${escapeValue(faIcon(icon), 'ATTR')}"></span>` : '';
           if (type === 'subMenu')
             return `<li>${iconHtml}<span>${label}</span><ul>${render(entry.id)}</ul></li>`;
           return `<li><a href="${escapeValue(this.target(entry, row), 'ATTR')}" ${this.resolve({ ...TEXT_ATTRIBUTE }, str(entry.props, 'behavior.linkAttributes'), row)}>${iconHtml}${label}</a></li>`;
@@ -284,7 +317,7 @@ export class ComponentRenderer {
             LABEL: this.resolve({ ...TEXT_ATTRIBUTE }, str(action.props, 'label', action.id), row),
             LINK_URL: isMenu ? '' : this.target(action, row),
             LINK_ATTR: this.resolve({ ...TEXT_ATTRIBUTE }, str(action.props, 'behavior.linkAttributes'), row),
-            ICON_CLASSES: displayType === 'text' ? '' : str(action.props, 'appearance.icon'),
+            ICON_CLASSES: displayType === 'text' ? '' : faIcon(str(action.props, 'appearance.icon')),
             CSS_CLASSES: strings(list(action.props, 'appearance.cssClasses')).join(' '),
             IS_HOT: bool(action.props, 'appearance.hot', false) ? 'Y' : 'N',
             IS_ICON_ONLY: displayType === 'icon' ? 'Y' : 'N',
@@ -368,11 +401,13 @@ export class ComponentRenderer {
       .map((child) => child.id.toUpperCase());
     const rowHtml = (row: Row, index: number) => {
       const id = this.rowId(row);
+      // Report attributes used by the row template (Comments `alignment: &DIRECTION.`) see the row.
+      const perRow = this.attributes('REPORT', row);
       return this.apply(
         this.component.reportRow || '<li #APEX$ROW_IDENTIFICATION#>#APEX$PARTIAL#</li>',
         {
           ...this.builtins(),
-          ...report.values,
+          ...perRow.values,
           APEX$ROW_IDENTIFICATION: `data-id="${escapeValue(id || String(index + 1), 'ATTR')}"`,
           APEX$PARTIAL: this.partial(row, {}, `_${index + 1}`),
         },
@@ -419,6 +454,10 @@ export class ComponentRenderer {
     );
   }
 }
+
+/** Font APEX icons need the base `fa` class next to a `fa-*` name, as APEX adds it for icons. */
+export const faIcon = (value: string) =>
+  /(^|\s)fa-/u.test(value) && !/(^|\s)fa(\s|$)/u.test(value) ? `fa ${value}` : value;
 
 const TEXT_ATTRIBUTE: PluginAttribute = {
   id: '',
@@ -582,5 +621,5 @@ export function renderTemplateComponentColumn(
     return escapeValue(value === null || value === undefined ? '' : String(value), 'HTML');
   }
   const domId = `${renderer.regionDomId(region)}_${column.id.toLowerCase()}`;
-  return new ComponentRenderer(renderer, ctx, column, component, domId).partial(row);
+  return new ComponentRenderer(renderer, ctx, column, component, domId, region.children).partial(row);
 }
