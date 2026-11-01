@@ -1,0 +1,136 @@
+1
+00:00:00,450 --> 00:00:04,748
+What if you could run an Oracle APEX app without an Oracle database?
+
+2
+00:00:05,008 --> 00:00:08,745
+No instance, no workspace, no import. Just your laptop.
+
+3
+00:00:09,895 --> 00:00:14,245
+APEXREST runs APEXlang sources locally, on Node.js.
+
+4
+00:00:14,505 --> 00:00:21,455
+Pages use the genuine Universal Theme 26.2 templates and Oracle's own JavaScript.
+
+5
+00:00:21,715 --> 00:00:26,064
+SQLite stands in for the database, with Oracle SQL shims.
+
+6
+00:00:27,214 --> 00:00:30,864
+To put it to the test, we built a 22-page showcase app.
+
+7
+00:00:31,124 --> 00:00:34,485
+Every page targets one family of APEX components.
+
+8
+00:00:35,635 --> 00:00:40,107
+Classic reports with sorting, pagination and alternative templates.
+
+9
+00:00:40,367 --> 00:00:44,989
+Interactive reports with saved reports, Group By, Pivot and Chart views.
+
+10
+00:00:45,249 --> 00:00:49,787
+Editable interactive grids that save through Automatic Row Processing.
+
+11
+00:00:50,937 --> 00:00:54,042
+Modal forms open in a real APEX dialog.
+
+12
+00:00:54,302 --> 00:00:59,061
+The server validates the submit and errors appear inline, just like in APEX.
+
+13
+00:01:00,211 --> 00:01:04,015
+The item gallery puts 57 page items on one page.
+
+14
+00:01:04,275 --> 00:01:09,597
+Date pickers, popup LOVs, shuttles, switches, star ratings, uploads and more.
+
+15
+00:01:10,747 --> 00:01:13,695
+Faceted search filters cards with live counts.
+
+16
+00:01:13,955 --> 00:01:18,555
+Smart filters, list views and template components work over the same data.
+
+17
+00:01:19,705 --> 00:01:24,178
+The dashboard has sixteen charts, drawn by a local SVG renderer.
+
+18
+00:01:24,438 --> 00:01:28,123
+Bars, lines, donuts, bubbles, funnels, radar and gauges.
+
+19
+00:01:29,273 --> 00:01:32,126
+Calendars with month, week, day and list views.
+
+20
+00:01:32,386 --> 00:01:37,792
+Trees from CONNECT BY queries, and maps with points, lines, polygons and heat layers.
+
+21
+00:01:38,942 --> 00:01:42,380
+Dynamic actions react in the browser and call the server.
+
+22
+00:01:42,640 --> 00:01:48,430
+Processes and validations run in a PL/SQL interpreter, with rollback on error.
+
+23
+00:01:48,690 --> 00:01:51,771
+Collections, mail and REST calls are answered locally.
+
+24
+00:01:52,921 --> 00:01:56,125
+Multi-step wizards, file upload and download,
+
+25
+00:01:56,385 --> 00:02:02,132
+and the Universal Theme gallery: alerts, tabs, carousels, buttons and inline dialogs.
+
+26
+00:02:03,282 --> 00:02:08,132
+preview check renders all 22 pages: zero errors, zero warnings.
+
+27
+00:02:08,392 --> 00:02:12,650
+Whatever it cannot simulate is listed in diagnostics, never hidden.
+
+28
+00:02:13,800 --> 00:02:16,539
+So what does running APEXlang locally give you?
+
+29
+00:02:16,799 --> 00:02:19,813
+Design feedback in seconds, not after an import.
+
+30
+00:02:20,073 --> 00:02:24,974
+No database or shared workspace: it runs on a laptop, even offline.
+
+31
+00:02:25,234 --> 00:02:30,188
+Safe experiments: data lives in local SQLite and resets anytime.
+
+32
+00:02:30,448 --> 00:02:34,065
+And AI agents can open and click the pages they write.
+
+33
+00:02:35,215 --> 00:02:41,394
+It is a design aid, not Oracle evidence: you still validate and import on real APEX.
+
+34
+00:02:41,654 --> 00:02:45,476
+APEXREST is open source. Try the local preview today.
+
