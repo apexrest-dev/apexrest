@@ -648,30 +648,34 @@ registerExtension({
     dynamicContent,
   },
   routes: {
-    /** Dynamic action Set Value from SQL or PL/SQL: `{ type, sqlQuery|plsqlExpression|plsqlFunctionBody, items }`. */
+    /**
+     * Dynamic action Set Value from SQL or PL/SQL: `{ ref, items }`. The code is the one the
+     * session's page rendered under `ref`; a request never supplies it.
+     */
     'set-value': (renderer, session, request) => {
       try {
-        const input = JSON.parse(request.body || '{}') as {
-          type?: string;
-          sqlQuery?: string;
-          sqlStatement?: string;
-          plsqlExpression?: string;
-          plsqlFunctionBody?: string;
-          items?: Record<string, string>;
-        };
-        const ctx = renderer.prepareSubmit(session, request.params.get('page') ?? '', '');
+        const input = JSON.parse(request.body || '{}') as { ref?: string; items?: Record<string, string> };
+        const action = renderer.serverAction(session, input.ref, 'value');
+        if (!action)
+          return {
+            status: 400,
+            type: 'json',
+            body: JSON.stringify({ error: 'Unknown Set Value reference; reload the page' }),
+          };
+        const ctx = renderer.prepareSubmit(session, action.pageId, '');
+        const submit = new Set(action.submit);
         for (const [name, value] of Object.entries(input.items ?? {}))
-          session.items[name.toUpperCase()] = Array.isArray(value) ? value.join(':') : String(value ?? '');
-        const type = input.type ?? '';
-        const who = { label: `Set Value (${type || 'server'})` };
+          if (submit.has(name.toUpperCase()))
+            session.items[name.toUpperCase()] = Array.isArray(value) ? value.join(':') : String(value ?? '');
+        const type = action.type;
+        const who = { label: `Set Value (${type})` };
         let result: ExecResult;
-        if (/^sql/iu.test(type)) {
-          const sql = input.sqlQuery ?? input.sqlStatement ?? '';
-          result = run(renderer, ctx, `(${sql.trim().replace(/;\s*$/u, '')})`, 'sqlExpression', who);
-        } else if (/function/iu.test(type) || (input.plsqlFunctionBody && !input.plsqlExpression)) {
-          result = run(renderer, ctx, input.plsqlFunctionBody ?? '', 'functionBody', who);
+        if (type === 'sqlQuery') {
+          result = run(renderer, ctx, `(${action.code.trim().replace(/;\s*$/u, '')})`, 'sqlExpression', who);
+        } else if (type === 'plsqlFunctionBody') {
+          result = run(renderer, ctx, action.code, 'functionBody', who);
         } else {
-          result = run(renderer, ctx, input.plsqlExpression ?? '', 'plsqlExpression', who);
+          result = run(renderer, ctx, action.code, 'plsqlExpression', who);
         }
         if (!result.ok) {
           const message = report(renderer, ctx, who, result, 'the value was not set');

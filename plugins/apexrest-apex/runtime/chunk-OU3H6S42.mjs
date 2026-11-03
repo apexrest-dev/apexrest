@@ -2860,7 +2860,7 @@ window.apexLocal = (function ($) {
     var returnItems = String(settings.itemsToReturn || "").split(",").map(function (name) { return name.trim(); }).filter(Boolean);
     return fetch(base + "/__apex/server-code?page=" + encodeURIComponent(apex.env.APP_PAGE_ID), {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify({ code: settings.plsqlCode || settings.code || "", items: items, returnItems: returnItems })
+      body: JSON.stringify({ ref: settings.serverRef, items: items, returnItems: returnItems })
     }).then(function (response) { return response.json(); }).then(function (values) {
       var errors = values && Array.isArray(values.errors) ? values.errors : null;
       Object.keys(values || {}).forEach(function (name) { if (name !== "errors") apex.item(name).setValue(values[name]); });
@@ -2881,8 +2881,7 @@ window.apexLocal = (function ($) {
     });
     return fetch(base + "/__apex/x/set-value?page=" + encodeURIComponent(apex.env.APP_PAGE_ID), {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify({ type: settings.type, sqlQuery: settings.sqlQuery, plsqlExpression: settings.plsqlExpression,
-        plsqlFunctionBody: settings.plsqlFunctionBody, items: items })
+      body: JSON.stringify({ ref: settings.serverRef, items: items })
     }).then(function (response) { return response.ok ? response.json() : { error: "HTTP " + response.status }; })
       .then(function (result) {
         if (result && result.error !== undefined) { console.warn("[apex-local] set value:", result.error); return undefined; }
@@ -3559,6 +3558,7 @@ function savepoint(db2, name) {
 }
 
 // packages/core/src/preview/render.ts
+import { createHash as createHash3 } from "node:crypto";
 import fs9 from "node:fs";
 import path10 from "node:path";
 
@@ -23639,23 +23639,34 @@ registerExtension({
     dynamicContent
   },
   routes: {
-    /** Dynamic action Set Value from SQL or PL/SQL: `{ type, sqlQuery|plsqlExpression|plsqlFunctionBody, items }`. */
+    /**
+     * Dynamic action Set Value from SQL or PL/SQL: `{ ref, items }`. The code is the one the
+     * session's page rendered under `ref`; a request never supplies it.
+     */
     "set-value": (renderer, session, request) => {
       try {
         const input = JSON.parse(request.body || "{}");
-        const ctx = renderer.prepareSubmit(session, request.params.get("page") ?? "", "");
+        const action = renderer.serverAction(session, input.ref, "value");
+        if (!action)
+          return {
+            status: 400,
+            type: "json",
+            body: JSON.stringify({ error: "Unknown Set Value reference; reload the page" })
+          };
+        const ctx = renderer.prepareSubmit(session, action.pageId, "");
+        const submit = new Set(action.submit);
         for (const [name, value2] of Object.entries(input.items ?? {}))
-          session.items[name.toUpperCase()] = Array.isArray(value2) ? value2.join(":") : String(value2 ?? "");
-        const type = input.type ?? "";
-        const who = { label: `Set Value (${type || "server"})` };
+          if (submit.has(name.toUpperCase()))
+            session.items[name.toUpperCase()] = Array.isArray(value2) ? value2.join(":") : String(value2 ?? "");
+        const type = action.type;
+        const who = { label: `Set Value (${type})` };
         let result;
-        if (/^sql/iu.test(type)) {
-          const sql = input.sqlQuery ?? input.sqlStatement ?? "";
-          result = run(renderer, ctx, `(${sql.trim().replace(/;\s*$/u, "")})`, "sqlExpression", who);
-        } else if (/function/iu.test(type) || input.plsqlFunctionBody && !input.plsqlExpression) {
-          result = run(renderer, ctx, input.plsqlFunctionBody ?? "", "functionBody", who);
+        if (type === "sqlQuery") {
+          result = run(renderer, ctx, `(${action.code.trim().replace(/;\s*$/u, "")})`, "sqlExpression", who);
+        } else if (type === "plsqlFunctionBody") {
+          result = run(renderer, ctx, action.code, "functionBody", who);
         } else {
-          result = run(renderer, ctx, input.plsqlExpression ?? "", "plsqlExpression", who);
+          result = run(renderer, ctx, action.code, "plsqlExpression", who);
         }
         if (!result.ok) {
           const message = report(renderer, ctx, who, result, "the value was not set");
@@ -25374,6 +25385,12 @@ var RESERVED_BUILTINS = /* @__PURE__ */ new Set([
   "DEBUG",
   "REQUEST"
 ]);
+var SERVER_ACTION_LIMIT = 1e3;
+var SERVER_VALUE_TYPES = /* @__PURE__ */ new Set(["sqlQuery", "plsqlExpression", "plsqlFunctionBody"]);
+function itemNames(value2) {
+  const names = Array.isArray(value2) ? value2.map(String) : String(value2 ?? "").split(/[\s,]+/u);
+  return names.map((name) => name.trim().toUpperCase()).filter(Boolean);
+}
 var DYNAMIC_ACTION_GROUPS = [
   "genAI",
   "inputValue",
@@ -27883,11 +27900,55 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
         return "document";
     }
   }
+  /**
+   * Registers the server code of a dynamic action in the session and returns its reference.
+   * The code is the application source as written: like APEX, PL/SQL and SQL code takes
+   * values through bind variables, not `&ITEM.` substitution.
+   */
+  registerServerAction(ctx, actionType, settings2) {
+    const text10 = (key) => typeof settings2[key] === "string" ? settings2[key] : "";
+    let entry;
+    if (actionType === "executeServerSideCode") {
+      entry = {
+        kind: "code",
+        pageId: ctx.pageId,
+        type: "",
+        code: text10("plsqlCode") || text10("code"),
+        submit: itemNames(settings2.itemsToSubmit),
+        returns: itemNames(settings2.itemsToReturn)
+      };
+    } else if (actionType === "setValue") {
+      const type = text10("type") || text10("setType");
+      if (!SERVER_VALUE_TYPES.has(type)) return void 0;
+      const code = type === "sqlQuery" ? text10("sqlQuery") || text10("sqlStatement") : type === "plsqlFunctionBody" ? text10("plsqlFunctionBody") : text10("plsqlExpression");
+      entry = {
+        kind: "value",
+        pageId: ctx.pageId,
+        type,
+        code,
+        submit: itemNames(settings2.itemsToSubmit),
+        returns: []
+      };
+    } else return void 0;
+    const ref2 = createHash3("sha256").update(JSON.stringify(entry)).digest("hex").slice(0, 32);
+    const registry2 = ctx.session.serverActions ??= /* @__PURE__ */ new Map();
+    registry2.delete(ref2);
+    registry2.set(ref2, entry);
+    while (registry2.size > SERVER_ACTION_LIMIT) registry2.delete(registry2.keys().next().value);
+    return ref2;
+  }
+  /** The registered server code for a reference, if this session rendered it. */
+  serverAction(session, ref2, kind) {
+    const entry = typeof ref2 === "string" ? session.serverActions?.get(ref2) : void 0;
+    return entry?.kind === kind ? entry : void 0;
+  }
   dynamicAction(ctx, action) {
     const when = action.props.when;
     const actions = bySequence3(action.children.filter((child) => child.type === "action")).map((child) => {
       const settings2 = isObject(child.props.settings) ? child.props.settings : {};
+      const serverRef = this.registerServerAction(ctx, str(child.props, "action"), settings2);
       return {
+        id: child.id,
         action: str(child.props, "action"),
         selector: this.selector(ctx, child.props.affectedElements),
         fireOnInit: bool(child.props, "execution.fireOnInit", false),
@@ -27901,12 +27962,15 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
             child.props[key]
           ])
         ),
-        settings: Object.fromEntries(
-          Object.entries(settings2).map(([key, value2]) => [
-            key,
-            typeof value2 === "string" ? this.substitute(ctx.session, value2, ctx.page, "RAW") : isRef(value2) ? value2.ref : value2
-          ])
-        )
+        settings: {
+          ...Object.fromEntries(
+            Object.entries(settings2).map(([key, value2]) => [
+              key,
+              typeof value2 === "string" ? this.substitute(ctx.session, value2, ctx.page, "RAW") : isRef(value2) ? value2.ref : value2
+            ])
+          ),
+          ...serverRef ? { serverRef } : {}
+        }
       };
     });
     const condition = action.props.clientSideCondition;
@@ -28379,17 +28443,34 @@ var PreviewServer = class {
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/server-code` && request.method === "POST") {
       const input = JSON.parse(await body3(request));
+      const action = renderer.serverAction(session, input.ref, "code");
+      if (!action)
+        return this.#send(
+          response,
+          400,
+          TYPES[".json"],
+          JSON.stringify({
+            errors: [
+              {
+                type: "error",
+                location: ["page"],
+                message: "Unknown server-side code reference; reload the page",
+                unsafe: false
+              }
+            ]
+          })
+        );
+      const submit = new Set(action.submit);
+      const items = Object.fromEntries(
+        Object.entries(input.items ?? {}).filter(([name]) => submit.has(name.toUpperCase()))
+      );
+      const returns = (input.returnItems ?? []).filter(
+        (name) => action.returns.includes(String(name).toUpperCase())
+      );
       const errors = [];
       const values = transaction(
         renderer.db.db,
-        () => renderer.executeServerCode(
-          session,
-          url2.searchParams.get("page") ?? "",
-          input.code ?? "",
-          input.items ?? {},
-          input.returnItems ?? [],
-          errors
-        ),
+        () => renderer.executeServerCode(session, action.pageId, action.code, items, returns, errors),
         () => errors.length > 0
       );
       return this.#send(

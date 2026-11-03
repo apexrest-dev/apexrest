@@ -544,22 +544,39 @@ export class PreviewServer {
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/server-code` && request.method === 'POST') {
       const input = JSON.parse(await body(request)) as {
-        code?: string;
+        ref?: string;
         items?: Record<string, string>;
         returnItems?: string[];
       };
+      // Only code this session's pages rendered runs; a request never supplies code.
+      const action = renderer.serverAction(session, input.ref, 'code');
+      if (!action)
+        return this.#send(
+          response,
+          400,
+          TYPES['.json']!,
+          JSON.stringify({
+            errors: [
+              {
+                type: 'error',
+                location: ['page'],
+                message: 'Unknown server-side code reference; reload the page',
+                unsafe: false,
+              },
+            ],
+          }),
+        );
+      const submit = new Set(action.submit);
+      const items = Object.fromEntries(
+        Object.entries(input.items ?? {}).filter(([name]) => submit.has(name.toUpperCase())),
+      );
+      const returns = (input.returnItems ?? []).filter((name) =>
+        action.returns.includes(String(name).toUpperCase()),
+      );
       const errors: ApexError[] = [];
       const values = transaction(
         renderer.db.db,
-        () =>
-          renderer.executeServerCode(
-            session,
-            url.searchParams.get('page') ?? '',
-            input.code ?? '',
-            input.items ?? {},
-            input.returnItems ?? [],
-            errors,
-          ),
+        () => renderer.executeServerCode(session, action.pageId, action.code, items, returns, errors),
         () => errors.length > 0,
       );
       // An unhandled error is shown like apex.server errors and stops the following actions.

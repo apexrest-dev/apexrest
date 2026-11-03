@@ -81,7 +81,7 @@ window.apexLocal = (function ($) {
     var returnItems = String(settings.itemsToReturn || "").split(",").map(function (name) { return name.trim(); }).filter(Boolean);
     return fetch(base + "/__apex/server-code?page=" + encodeURIComponent(apex.env.APP_PAGE_ID), {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify({ code: settings.plsqlCode || settings.code || "", items: items, returnItems: returnItems })
+      body: JSON.stringify({ ref: settings.serverRef, items: items, returnItems: returnItems })
     }).then(function (response) { return response.json(); }).then(function (values) {
       var errors = values && Array.isArray(values.errors) ? values.errors : null;
       Object.keys(values || {}).forEach(function (name) { if (name !== "errors") apex.item(name).setValue(values[name]); });
@@ -102,8 +102,7 @@ window.apexLocal = (function ($) {
     });
     return fetch(base + "/__apex/x/set-value?page=" + encodeURIComponent(apex.env.APP_PAGE_ID), {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify({ type: settings.type, sqlQuery: settings.sqlQuery, plsqlExpression: settings.plsqlExpression,
-        plsqlFunctionBody: settings.plsqlFunctionBody, items: items })
+      body: JSON.stringify({ ref: settings.serverRef, items: items })
     }).then(function (response) { return response.ok ? response.json() : { error: "HTTP " + response.status }; })
       .then(function (result) {
         if (result && result.error !== undefined) { console.warn("[apex-local] set value:", result.error); return undefined; }

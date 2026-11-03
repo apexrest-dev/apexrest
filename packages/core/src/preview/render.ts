@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -134,6 +135,30 @@ export interface Session {
    * enforced for these role static IDs, and the listed schemes always deny. Unset is permissive.
    */
   viewAs?: { roles: string[]; deny: string[] } | undefined;
+  /**
+   * Server-side dynamic action code rendered for this session, by reference. The browser
+   * sends only the reference; the code itself never comes from a request.
+   */
+  serverActions?: Map<string, ServerAction> | undefined;
+}
+
+/** Server code of an Execute Server-side Code or server Set Value action, as rendered. */
+export interface ServerAction {
+  kind: 'code' | 'value';
+  pageId: string;
+  /** Set Value type (sqlQuery, plsqlExpression, plsqlFunctionBody); empty for code. */
+  type: string;
+  code: string;
+  submit: string[];
+  returns: string[];
+}
+
+const SERVER_ACTION_LIMIT = 1000;
+const SERVER_VALUE_TYPES = new Set(['sqlQuery', 'plsqlExpression', 'plsqlFunctionBody']);
+
+function itemNames(value: unknown): string[] {
+  const names = Array.isArray(value) ? value.map(String) : String(value ?? '').split(/[\s,]+/u);
+  return names.map((name) => name.trim().toUpperCase()).filter(Boolean);
 }
 
 /** One entry of the per-request debug trace (see ApexRenderer.trace). */
@@ -3285,11 +3310,62 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     }
   }
 
+  /**
+   * Registers the server code of a dynamic action in the session and returns its reference.
+   * The code is the application source as written: like APEX, PL/SQL and SQL code takes
+   * values through bind variables, not `&ITEM.` substitution.
+   */
+  registerServerAction(ctx: RenderContext, actionType: string, settings: ApxObject): string | undefined {
+    const text = (key: string) => (typeof settings[key] === 'string' ? (settings[key] as string) : '');
+    let entry: ServerAction;
+    if (actionType === 'executeServerSideCode') {
+      entry = {
+        kind: 'code',
+        pageId: ctx.pageId,
+        type: '',
+        code: text('plsqlCode') || text('code'),
+        submit: itemNames(settings.itemsToSubmit),
+        returns: itemNames(settings.itemsToReturn),
+      };
+    } else if (actionType === 'setValue') {
+      const type = text('type') || text('setType');
+      if (!SERVER_VALUE_TYPES.has(type)) return undefined;
+      const code =
+        type === 'sqlQuery'
+          ? text('sqlQuery') || text('sqlStatement')
+          : type === 'plsqlFunctionBody'
+            ? text('plsqlFunctionBody')
+            : text('plsqlExpression');
+      entry = {
+        kind: 'value',
+        pageId: ctx.pageId,
+        type,
+        code,
+        submit: itemNames(settings.itemsToSubmit),
+        returns: [],
+      };
+    } else return undefined;
+    const ref = createHash('sha256').update(JSON.stringify(entry)).digest('hex').slice(0, 32);
+    const registry = (ctx.session.serverActions ??= new Map());
+    registry.delete(ref);
+    registry.set(ref, entry);
+    while (registry.size > SERVER_ACTION_LIMIT) registry.delete(registry.keys().next().value!);
+    return ref;
+  }
+
+  /** The registered server code for a reference, if this session rendered it. */
+  serverAction(session: Session, ref: unknown, kind: ServerAction['kind']): ServerAction | undefined {
+    const entry = typeof ref === 'string' ? session.serverActions?.get(ref) : undefined;
+    return entry?.kind === kind ? entry : undefined;
+  }
+
   dynamicAction(ctx: RenderContext, action: ApxComponent): unknown {
     const when = action.props.when;
     const actions = bySequence(action.children.filter((child) => child.type === 'action')).map((child) => {
       const settings = isObject(child.props.settings) ? child.props.settings : {};
+      const serverRef = this.registerServerAction(ctx, str(child.props, 'action'), settings);
       return {
+        id: child.id,
         action: str(child.props, 'action'),
         selector: this.selector(ctx, child.props.affectedElements),
         fireOnInit: bool(child.props, 'execution.fireOnInit', false),
@@ -3305,16 +3381,19 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
             child.props[key],
           ]),
         ),
-        settings: Object.fromEntries(
-          Object.entries(settings).map(([key, value]) => [
-            key,
-            typeof value === 'string'
-              ? this.substitute(ctx.session, value, ctx.page, 'RAW')
-              : isRef(value)
-                ? value.ref
-                : value,
-          ]),
-        ),
+        settings: {
+          ...Object.fromEntries(
+            Object.entries(settings).map(([key, value]) => [
+              key,
+              typeof value === 'string'
+                ? this.substitute(ctx.session, value, ctx.page, 'RAW')
+                : isRef(value)
+                  ? value.ref
+                  : value,
+            ]),
+          ),
+          ...(serverRef ? { serverRef } : {}),
+        },
       };
     });
     const condition = action.props.clientSideCondition;

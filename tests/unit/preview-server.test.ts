@@ -5,7 +5,7 @@ import type { Session } from '../../packages/core/src/preview/render.ts';
 import http from 'node:http';
 import { PreviewServer, previewRequestRefusal } from '../../packages/core/src/preview/server.ts';
 import { runPlsql } from '../../packages/core/src/preview/extensions/server/plsql.ts';
-import { workspace } from '../fixtures/preview.ts';
+import { serverRefs, withActions, workspace } from '../fixtures/preview.ts';
 
 const SCHEMA = `create table tasks (
   task_id integer primary key,
@@ -418,9 +418,51 @@ const SUBMIT_PAGE = `page 3 (
 )
 `;
 
+const SERVER_ACTIONS = `
+    dynamicAction server-calls (
+        name: Server calls
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jQuerySelector: '#never'
+        }
+        action count-like (
+            action: setValue
+            settings {
+                type: sqlQuery
+                itemsToSubmit: P3_TITLE
+                sqlQuery: select count(*) from tasks where title like :P3_TITLE
+            }
+            execution {
+                sequence: 10
+            }
+        )
+        action greet (
+            action: setValue
+            settings {
+                type: plsqlFunctionBody
+                plsqlFunctionBody: return 'Hi ' || :BANNER;
+            }
+            execution {
+                sequence: 20
+            }
+        )
+        action count-code (
+            action: executeServerSideCode
+            settings {
+                itemsToSubmit: P3_TITLE
+                itemsToReturn: P3_ID
+                plsqlCode: select count(*) into :P3_ID from tasks where title like :P3_TITLE || '%';
+            }
+            execution {
+                sequence: 30
+            }
+        )
+    )`;
+
 test('submit runs PL/SQL validations, computations, processes and computed branches', async (t) => {
   const server = await preview(t, {
-    'pages/p00003-edit.apx': SUBMIT_PAGE,
+    'pages/p00003-edit.apx': withActions(SUBMIT_PAGE, SERVER_ACTIONS),
     'shared-components/app-processes.apx': `appProcess set-banner (
     name: Set Banner
     type: executeCode
@@ -482,31 +524,25 @@ test('submit runs PL/SQL validations, computations, processes and computed branc
   const home = await (await fetch(`${server.url}/r/demo/home`, { headers: { cookie } })).text();
   assert.match(home, /Task 100 \(write-the-docs\) saved\./);
 
+  const refs = serverRefs(html);
+  assert.deepEqual(Object.keys(refs).sort(), ['count-code', 'count-like', 'greet']);
   const value = await fetch(`${server.url}/r/demo/__apex/x/set-value?page=3`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      type: 'sqlQuery',
-      sqlQuery: 'select count(*) from tasks where title like :P3_TITLE',
-      items: { P3_TITLE: 'S%' },
-    }),
+    body: JSON.stringify({ ref: refs['count-like'], items: { P3_TITLE: 'S%' } }),
   });
   assert.deepEqual(await value.json(), { value: '1' });
   const plsql = await fetch(`${server.url}/r/demo/__apex/x/set-value?page=3`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({ type: 'plsqlFunctionBody', plsqlFunctionBody: "return 'Hi ' || :BANNER;" }),
+    body: JSON.stringify({ ref: refs.greet }),
   });
   assert.deepEqual(await plsql.json(), { value: 'Hi Welcome DEVELOPER' });
 
   const serverCode = await fetch(`${server.url}/r/demo/__apex/server-code?page=3`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      code: "select count(*) into :P3_ID from tasks where title like :P3_TITLE || '%';",
-      items: { P3_TITLE: 'Write' },
-      returnItems: ['P3_ID'],
-    }),
+    body: JSON.stringify({ ref: refs['count-code'], items: { P3_TITLE: 'Write' }, returnItems: ['P3_ID'] }),
   });
   assert.deepEqual(await serverCode.json(), { P3_ID: '1' });
 
@@ -591,17 +627,16 @@ test('a forged Host or cross-origin POST never reaches server-side code executio
   assert.equal(csrf.status, 403);
   assert.equal(server.db.scalar('select count(*) from tasks'), before);
   assert.ok(Number(before) > 0);
-  // The same request from the preview's own origin is still served.
-  const same = await send(
-    {
-      host: `127.0.0.1:${port}`,
-      origin: `http://127.0.0.1:${port}`,
-      'sec-fetch-site': 'same-origin',
-      'content-type': 'application/json',
-    },
-    'null;',
-  );
-  assert.equal(same.status, 200, same.body);
+  // The preview's own origin passes the guard, but code in a request body is still never run.
+  const same = await send({
+    host: `127.0.0.1:${port}`,
+    origin: `http://127.0.0.1:${port}`,
+    'sec-fetch-site': 'same-origin',
+    'content-type': 'application/json',
+  });
+  assert.equal(same.status, 400, same.body);
+  assert.match(same.body, /Unknown server-side code reference/u);
+  assert.equal(server.db.scalar('select count(*) from tasks'), before);
 });
 
 test('URL parameters and session state cannot override APEX built-ins such as APP_USER', async (t) => {
@@ -649,4 +684,77 @@ end;`);
       .diagnostics()
       .some((entry) => entry.level === 'warning' && /URL parameter APP_USER ignored/u.test(entry.message)),
   );
+});
+
+test('server-side code runs only as rendered: no request-supplied code, foreign items or other sessions', async (t) => {
+  const server = await preview(t, {
+    'pages/p00003-edit.apx': withActions(SUBMIT_PAGE, SERVER_ACTIONS),
+  });
+  await server.start();
+  t.after(() => server.stop());
+  const open = async () => {
+    const response = await fetch(`${server.url}/r/demo/edit`);
+    return {
+      cookie: response.headers.get('set-cookie')!.split(';')[0]!,
+      refs: serverRefs(await response.text()),
+    };
+  };
+  const mine = await open();
+  const other = await open();
+  const before = server.db.scalar('select count(*) from tasks');
+  const call = (route: string, cookie: string, payload: unknown) =>
+    fetch(`${server.url}/r/demo/__apex/${route}?page=3`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(async (response) => ({
+      status: response.status,
+      body: (await response.json()) as Record<string, unknown>,
+    }));
+
+  // Code, SQL or a type sent by the browser is ignored; without a rendered reference nothing runs.
+  for (const payload of [
+    { code: 'delete from tasks;' },
+    { ref: 'not-rendered', code: 'delete from tasks;' },
+    { ref: mine.refs['count-like'], code: 'delete from tasks;' },
+  ]) {
+    const result = await call('server-code', mine.cookie, payload);
+    assert.equal(result.status, 400, JSON.stringify(result.body));
+    assert.match(JSON.stringify(result.body.errors), /Unknown server-side code reference/u);
+  }
+  const forged = await call('x/set-value', mine.cookie, {
+    type: 'sqlQuery',
+    sqlQuery: 'select count(*) from (select 1 from tasks where 1 = (select count(*) from tasks))',
+  });
+  assert.equal(forged.status, 400);
+  const swapped = await call('x/set-value', mine.cookie, {
+    ref: mine.refs['count-like'],
+    type: 'plsqlFunctionBody',
+    plsqlFunctionBody: "delete from tasks; return 'x';",
+    items: { P3_TITLE: '%' },
+  });
+  assert.equal(swapped.status, 200);
+  assert.deepEqual(swapped.body, { value: String(before) }, 'the rendered SQL ran, not the request body');
+  assert.equal(server.db.scalar('select count(*) from tasks'), before);
+
+  // A reference is known only to sessions whose pages rendered it (a fresh session has none).
+  assert.equal((await call('server-code', other.cookie, { ref: mine.refs['count-code'] })).status, 200);
+  const stranger = await fetch(`${server.url}/r/demo/__apex/server-code?page=3`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ref: mine.refs['count-code'] }),
+  });
+  assert.equal(stranger.status, 400);
+
+  // Only declared Items to Submit are set and only declared Items to Return come back.
+  const result = await call('server-code', mine.cookie, {
+    ref: mine.refs['count-code'],
+    items: { P3_TITLE: 'Ship', P3_OTHER: 'smuggled' },
+    returnItems: ['P3_ID', 'P3_TITLE', 'APP_USER'],
+  });
+  assert.deepEqual(result.body, { P3_ID: '1' });
+  const state = await (
+    await fetch(`${server.url}/r/demo/__apex/x/session-state`, { headers: { cookie: mine.cookie } })
+  ).json();
+  assert.equal(JSON.stringify(state).includes('smuggled'), false);
 });

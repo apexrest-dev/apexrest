@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { RUNTIME_JS } from '../../packages/core/src/preview/client.ts';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
-import { workspace } from '../fixtures/preview.ts';
+import { serverRefs, withActions, workspace } from '../fixtures/preview.ts';
 
 const SCHEMA = `create table tasks (
   task_id integer primary key,
@@ -463,10 +463,39 @@ ${button('save', 'SAVE', 10)}
 )
 `;
 
+const LAB_ACTIONS = `
+    dynamicAction lab-code (
+        name: Lab code
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jQuerySelector: '#never'
+        }
+        action fail-and-set (
+            action: executeServerSideCode
+            settings {
+                itemsToReturn: P3_OTHER
+                plsqlCode: begin insert into tasks (task_id, title) values (20, 'x'); :P3_OTHER := 'set'; raise_application_error(-20001, 'Nope.'); end;
+            }
+            execution {
+                sequence: 10
+            }
+        )
+        action insert-ok (
+            action: executeServerSideCode
+            settings {
+                plsqlCode: begin insert into tasks (task_id, title) values (21, 'y'); end;
+            }
+            execution {
+                sequence: 20
+            }
+        )
+    )`;
+
 async function start(t: import('node:test').TestContext) {
   const { app, assets } = await workspace(t, {
     '.apex-local/01-schema.sql': SCHEMA,
-    'pages/p00003-lab.apx': LAB,
+    'pages/p00003-lab.apx': withActions(LAB, LAB_ACTIONS),
     'pages/p00004-task.apx': FORM,
     'pages/p00005-grid.apx': GRID,
   });
@@ -559,19 +588,16 @@ test('an unhandled PL/SQL error stops page processing, is shown and rolls the su
 });
 
 test('Execute Server-side Code reports its error and rolls back', async (t) => {
-  const { post, count } = await start(t);
+  const { post, count, html } = await start(t);
+  const refs = serverRefs(html);
   const failed = await post('server-code?page=3', {
-    code: "begin insert into tasks (task_id, title) values (20, 'x'); :P3_OTHER := 'set'; raise_application_error(-20001, 'Nope.'); end;",
+    ref: refs['fail-and-set'],
     items: {},
     returnItems: ['P3_OTHER'],
   });
   assert.deepEqual(failed.errors, [{ type: 'error', location: ['page'], message: 'Nope.', unsafe: false }]);
   assert.equal(count('task_id = 20'), 0);
-  const ok = await post('server-code?page=3', {
-    code: "begin insert into tasks (task_id, title) values (21, 'y'); end;",
-    items: {},
-    returnItems: [],
-  });
+  const ok = await post('server-code?page=3', { ref: refs['insert-ok'], items: {}, returnItems: [] });
   assert.deepEqual(ok, {});
   assert.equal(count('task_id = 21'), 1);
 });

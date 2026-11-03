@@ -229,3 +229,21 @@ export async function workspace(
   await setupAssets({ assetsDir: assets, zipPath: zip });
   return { root, app, assets, zip };
 }
+
+/** Server code references (`settings.serverRef`) of a rendered page, by dynamic action action id. */
+export function serverRefs(html: string): Record<string, string> {
+  const config = JSON.parse(/apexLocal\.init\((.*?)\);\n/u.exec(html)![1]!) as {
+    dynamicActions: { actions: { id: string; settings: { serverRef?: string } }[] }[];
+  };
+  return Object.fromEntries(
+    config.dynamicActions
+      .flatMap((da) => da.actions)
+      .filter((action) => action.settings.serverRef)
+      .map((action) => [action.id, action.settings.serverRef!]),
+  );
+}
+
+/** Adds dynamic action source to the end of a page definition. */
+export function withActions(page: string, actions: string): string {
+  return page.replace(/\)\s*$/u, `${actions}\n)\n`);
+}
