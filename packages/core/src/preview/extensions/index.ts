@@ -6,6 +6,7 @@ import './devtools.ts';
 import './facets.ts';
 import './files.ts';
 import './items.ts';
+import './live.ts';
 import './platform.ts';
 import './reports.ts';
 import './server.ts';

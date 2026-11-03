@@ -3,9 +3,12 @@ import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import type { Duplex } from 'node:stream';
 import { loadApplication, str, type ApxComponent } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
+import { rejectUpgrade } from './websocket.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
+import { LiveHub } from './live.ts';
 import { checkComponentProperties } from './properties.ts';
 import { LocalDatabase } from './database.ts';
 import type { ConnectedOracle } from './oracle/app-data.ts';
@@ -170,6 +173,8 @@ export class PreviewServer {
   readonly assets: ApexAssets;
   readonly db: LocalDatabase;
   readonly seedProblems: string[];
+  /** WebSocket pages: data changes, source reloads and presence (live.ts). */
+  readonly live: LiveHub;
   renderer: ApexRenderer;
   #server?: http.Server | undefined;
   #sessions = new Map<string, Session>();
@@ -190,6 +195,15 @@ export class PreviewServer {
     this.seedProblems =
       fresh && !options.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options.seedDirs) : [];
     this.renderer = this.#load();
+    // Connected mode rolls every request back, so only source reloads are pushed there.
+    this.live = new LiveHub({
+      sourceDir: this.options.sourceDir,
+      data: !options.oracle && this.db.trackWrites(),
+      onSource: () => {
+        this.#refresh();
+        return this.#loadError;
+      },
+    });
   }
 
   #load(): ApexRenderer {
@@ -251,7 +265,16 @@ export class PreviewServer {
           if (!response.headersSent) response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
           response.end(`APEX preview error: ${(error as Error).message}`);
         })
-        .finally(() => this.#endRequest());
+        .finally(() => {
+          this.#endRequest();
+          this.#publishWrites(request);
+        });
+    });
+    this.#server.on('upgrade', (request: http.IncomingMessage, socket: Duplex, head: Buffer) => {
+      const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+      if (pathname !== `${this.renderer.baseUrl}${LOCAL_PREFIX}/live`)
+        return rejectUpgrade(socket, 404, 'Not Found');
+      this.live.upgrade(request, socket, head, this.#existingSession(request));
     });
     await new Promise<void>((resolve, reject) => {
       this.#server!.once('error', reject);
@@ -263,6 +286,7 @@ export class PreviewServer {
   async stop(): Promise<void> {
     const server = this.#server;
     this.#server = undefined;
+    this.live.close();
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
     server?.closeAllConnections();
     this.db.close();
@@ -287,9 +311,35 @@ export class PreviewServer {
     }
   }
 
-  session(request: http.IncomingMessage, response: http.ServerResponse): Session {
+  /**
+   * Pushes the tables a request wrote to the live pages. Region refreshes and Ajax reads are left
+   * out: a region that writes while it renders would otherwise make two pages refresh each other.
+   */
+  #publishWrites(request: http.IncomingMessage): void {
+    const tables = this.db.takeWrites();
+    if (!tables.length || !this.live.size) return;
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    if (url.pathname.endsWith(`${LOCAL_PREFIX}/region`)) return;
+    if (request.method === 'GET' && url.pathname.includes(`${LOCAL_PREFIX}/x/`)) return;
+    const session = this.#existingSession(request);
+    this.live.changed({
+      tables,
+      user: session?.user ?? this.options.user ?? 'DEVELOPER',
+      session: session?.id,
+      tab:
+        typeof request.headers['x-apex-local-tab'] === 'string'
+          ? request.headers['x-apex-local-tab']
+          : undefined,
+    });
+  }
+
+  #existingSession(request: http.IncomingMessage): Session | undefined {
     const cookie = /(?:^|;\s*)APEX_LOCAL_SESSION=([\w-]+)/u.exec(request.headers.cookie ?? '')?.[1];
-    const existing = cookie ? this.#sessions.get(cookie) : undefined;
+    return cookie ? this.#sessions.get(cookie) : undefined;
+  }
+
+  session(request: http.IncomingMessage, response: http.ServerResponse): Session {
+    const existing = this.#existingSession(request);
     if (existing) return existing;
     const id = String(Math.floor(Math.random() * 9e15) + 1e15);
     const session: Session = { id, user: this.options.user ?? 'DEVELOPER', items: {}, pagination: {} };

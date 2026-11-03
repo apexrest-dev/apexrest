@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { constants as sqliteConstants, DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
 export type Binds = Record<string, string | number | null | undefined>;
 export type Row = Record<string, string | number | null>;
@@ -1592,6 +1592,7 @@ export class LocalDatabase implements AppData {
   #functions = new Set<string>();
   #sequences = new Map<string, { value: number | null; increment: number; start: number }>();
   #dirtySequences = new Set<string>();
+  #writes?: Set<string> | undefined;
 
   constructor(file: string) {
     this.file = file;
@@ -2153,6 +2154,41 @@ export class LocalDatabase implements AppData {
       }
     }
     return problems;
+  }
+
+  /**
+   * Starts recording the tables that statements prepared from now on write: INSERT, UPDATE and
+   * DELETE, including the writes of triggers they fire. SQLite authorizes when a statement is
+   * prepared, so a statement that was rolled back still counts. Returns false when this Node.js
+   * build has no authorizer API.
+   */
+  trackWrites(): boolean {
+    if (this.#writes) return true;
+    const database = this.db as DatabaseSync & {
+      setAuthorizer?: (
+        callback: (action: number, first: string | null, ...rest: unknown[]) => number,
+      ) => void;
+    };
+    if (typeof database.setAuthorizer !== 'function') return false;
+    const writes = new Set<string>();
+    const actions = new Set([
+      sqliteConstants.SQLITE_INSERT,
+      sqliteConstants.SQLITE_UPDATE,
+      sqliteConstants.SQLITE_DELETE,
+    ]);
+    database.setAuthorizer((action, table, _column, schema) => {
+      if (actions.has(action) && table && schema !== 'temp') writes.add(table.toUpperCase());
+      return sqliteConstants.SQLITE_OK;
+    });
+    this.#writes = writes;
+    return true;
+  }
+
+  /** The tables written since the last call (see trackWrites). */
+  takeWrites(): string[] {
+    const tables = [...(this.#writes ?? [])];
+    this.#writes?.clear();
+    return tables;
   }
 
   close(): void {
