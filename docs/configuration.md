@@ -27,7 +27,9 @@ Gate modes apply to `apexrest_ship mode:apply` (and the CLI `ship --mode apply`)
 
 - `off`: no review state is read.
 - `advisory`: apply proceeds and reports `peerReview` status (`approve`, `changes_requested` or `missing`).
-- `required`: apply fails with `PEER_REVIEW_REQUIRED` or `PEER_REVIEW_CHANGES_REQUESTED` unless an approving review of the exact plan digest exists. A fresh plan created by apply itself is never reviewed, so review the saved plan and apply that path.
+- `required`: apply fails with `PEER_REVIEW_REQUIRED` or `PEER_REVIEW_CHANGES_REQUESTED` unless an approving review of the exact plan digest exists. A fresh plan created by apply itself is never reviewed, so review the saved plan and apply that path. In `required` mode the reviewer must be the other vendor: a review by the host agent itself (for example `vendor: claude` from Claude Code) is refused with `PEER_REVIEW_SAME_VENDOR` and does not satisfy the gate.
+
+Before the reviewer runs, the saved plan must match its own digest and pass the same local checks as apply (sources, configuration, toolchain, project, target and lifetime); otherwise the review fails with `PLAN_TAMPERED` or the apply-time code and nothing is recorded. The optional `focus` text is passed to the reviewer as a fenced request from the reviewed agent, not as review rules.
 
 Interrupted-import recovery is not gated. The gate is a single-user workflow control, not a security boundary: the host agent can edit local files. `apexrest_peer_review action:status` (CLI `apexrest peer status`) reports which CLIs are installed and signed in. Peer runs use the other vendor's subscription limits or API billing; headless Claude usage (`claude -p`) is subject to Anthropic's current plan terms.
 

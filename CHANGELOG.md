@@ -2,6 +2,7 @@
 
 ## 2.5.0
 
+- Bind peer reviews to the real plan: the saved plan must match its digest and pass apply's local checks before the reviewer runs, `required` mode refuses and ignores reviews by the host agent's own vendor, and the agent's `focus` text is fenced as an untrusted request in the reviewer prompt.
 - Give SQLcl write sessions (imports, migrations, packages, restores) up to 60 minutes instead of the 3-minute read limit, and do not recover or re-import automatically after APEXREST stopped SQLcl on a timeout, cancellation, output limit or unconfirmed batch: the server may still be executing the call. Lost responses and Oracle errors keep the server-first automatic recovery.
 - Run dynamic action server code in the local preview only as the application defines it. Rendering a page registers each Execute Server-side Code and SQL/PL/SQL Set Value action in the session; the browser sends only its reference, and the routes ignore any code, SQL or type in the request. Only the declared Items to Submit are set and only the declared Items to Return come back. The registered code is the source as written, without `&ITEM.` substitution, as in APEX. Previously the preview executed whatever code a request contained.
 - Read comments, string literals, q-quotes and quoted identifiers in one pass, as Oracle does, before checking connected preview code for COMMIT, ROLLBACK, EXECUTE IMMEDIATE, DBMS_SQL and autonomous transactions. Previously a `q'[` inside a comment hid a following `COMMIT`; code with an unclosed literal or comment is now refused.

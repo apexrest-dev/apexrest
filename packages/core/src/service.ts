@@ -420,6 +420,7 @@ async function dispatchObserved(
                 vendor: parsed.vendor as PeerVendor | undefined,
                 focus: parsed.focus as string | undefined,
               },
+              (value) => deployment.checkLocal(ctx, value),
               signal,
             );
             break;
