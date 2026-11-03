@@ -91,4 +91,28 @@ Provenance: rendered on November 1, 2026 from an original, deterministic HTML mo
 - **Narration.** A synthetic voice (Kokoro-82M, Apache-2.0, voice `am_michael`).
 - **Playback.** The video is linked as a repository file; GitHub does not play it inline on the features page.
 
+### Live preview video (part 3)
+
+| Asset                                                                | Purpose                                                                                                                                          | Text reference                                                                               |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| [apexrest-live-preview.mp4](apexrest-live-preview.mp4)               | 119-second English explainer, part 3 of the local preview series: live updates over WebSocket (H.264/AAC, 1080×1350, 30 fps, captions burned in) | [Features](../features.md), [Local preview](../local-preview.md#live-updates-over-websocket) |
+| [apexrest-live-preview-poster.png](apexrest-live-preview-poster.png) | End-card frame used as the thumbnail                                                                                                             | [Features](../features.md)                                                                   |
+| [apexrest-live-preview.srt](apexrest-live-preview.srt)               | Caption file matching the spoken narration                                                                                                       | —                                                                                            |
+
+Provenance: rendered on November 3, 2026 from an original, deterministic HTML motion-graphics project kept outside the repository.
+
+- **Application screens.** Every application screen is a real capture (puppeteer and headless Chrome) of `apexrest preview start` from the working tree with the WebSocket live preview. It serves a copy of the generated 22-page showcase application with synthetic SQLite data and the official APEX 26.2 browser assets.
+  - Two browser sessions were used: DEVELOPER watching and AGENT signed in through the app's login page.
+- **Agent actions.** The capture script played the agent:
+  - **Source edits.** It wrote four plain text edits to `pages/p00009-charts.apx` and restored the file afterwards.
+  - **Grid values.** It set grid values through the grid model, then clicked the real Save button.
+- **Figures.** All figures were measured on localhost during capture:
+  - Reloads took 246, 240 and 235 ms, from file write to the page's load event.
+  - The parse-error notice appeared after 167 ms.
+  - Ten region refreshes finished within 32 ms of the Save click.
+  - The toast text "AGENT changed SC_PRODUCTS · 10 regions updated" is real.
+- **Illustrations.** The part cards, the round-trip loop, the socket diagram, the code cards (matching the real edits) and the benefit cards.
+- **Not performed.** No Oracle import, compiler run or connected-mode check was performed.
+- **Narration.** A synthetic voice (Kokoro-82M, Apache-2.0, voice `am_michael`).
+
 Use meaningful alternative text when embedding these images in Markdown. Keep the linked text documentation available so the graphics are never the only source of operational instructions.

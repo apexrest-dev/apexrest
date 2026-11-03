@@ -92,6 +92,21 @@ The video shows an original stock-control application on a demo Oracle Autonomou
 
 It is a verification aid, not import evidence. Read [Connected Oracle mode](local-preview.md#connected-oracle-mode).
 
+## Live preview: the page follows the agent (part 3)
+
+[![Part 3: a grid save in the agent's session redraws the dashboard charts in another session](assets/apexrest-live-preview-poster.png)](assets/apexrest-live-preview.mp4)
+
+[Watch part 3 (MP4, 1:59)](assets/apexrest-live-preview.mp4) · [Captions](assets/apexrest-live-preview.srt)
+
+Part 3 of the local preview series. Every preview page keeps a WebSocket to the local server, so the agent sees its changes without navigating or reloading.
+
+- **Source edits.** Saving an `.apx` file reloads the open page, which takes about a quarter of a second on localhost. A typo shows its parse error, with file and line, on that page.
+- **Data changes.** A write to a table redraws every region that reads it, in every tab and session. Views resolve to their base tables.
+- **Presence.** The toolbar shows who views the page, so the agent can work as its own user while you watch as yours.
+- **Safeguards.** Unsaved grid edits are never overwritten, forms only show a notice, refresh loops are blocked, and the socket stays on localhost.
+
+In the video, captured from the generated showcase app, three source edits reload the page in 235–246 ms. The parse error appears in 167 ms. One grid save redraws 10 dashboard regions in another session within 32 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
+
 ## APEX 26.2: import only what changed
 
 https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d
