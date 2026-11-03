@@ -1,6 +1,6 @@
 import { str } from '../../apexlang.ts';
 import { oracleText, registerOracleFunction } from '../../database.ts';
-import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
+import { RESERVED_BUILTINS, type ApexError, type ApexRenderer, type RenderContext } from '../../render.ts';
 import { escapeHtml, escapeJs } from '../../theme.ts';
 import { aclCheck } from '../devtools/view-as.ts';
 
@@ -44,6 +44,14 @@ export const rememberRenderer = (renderer: ApexRenderer) => {
 const text = (value: unknown): string | null =>
   value === null || value === undefined || value === '' ? null : oracleText(value);
 const sessionState = (rt: Runtime | undefined) => rt?.ctx.session.items;
+/** An item's session state; APEX built-ins such as APP_USER always come from the engine. */
+const itemValue = (rt: Runtime | undefined, item: unknown): unknown => {
+  const name = String(item ?? '').toUpperCase();
+  if (!rt) return undefined;
+  if (name === 'REQUEST') return rt.ctx.request;
+  if (RESERVED_BUILTINS.has(name)) return rt.renderer.builtin(rt.ctx.session, rt.ctx.page)[name];
+  return rt.ctx.session.items[name];
+};
 
 export const MESSAGE_FALLBACKS: Record<string, string> = {
   'APEX.FEATURE.ACL.INFO.ALL_USERS':
@@ -163,12 +171,12 @@ export const STUBS: Record<string, Stub> = {
   },
   'apex_util.get_session_state': {
     params: p('p_item'),
-    fn: (args, rt) => text(sessionState(rt)?.[String(args.p_item ?? '').toUpperCase()]),
+    fn: (args, rt) => text(itemValue(rt, args.p_item)),
   },
   'apex_util.get_numeric_session_state': {
     params: p('p_item'),
     fn: (args, rt) => {
-      const value = text(sessionState(rt)?.[String(args.p_item ?? '').toUpperCase()]);
+      const value = text(itemValue(rt, args.p_item));
       return value === null ? null : Number(value);
     },
   },
@@ -237,12 +245,12 @@ export const STUBS: Record<string, Stub> = {
   },
   v: {
     params: p('p_item'),
-    fn: (args, rt) => text(sessionState(rt)?.[String(args.p_item ?? '').toUpperCase()]),
+    fn: (args, rt) => text(itemValue(rt, args.p_item)),
   },
   nv: {
     params: p('p_item'),
     fn: (args, rt) => {
-      const value = text(sessionState(rt)?.[String(args.p_item ?? '').toUpperCase()]);
+      const value = text(itemValue(rt, args.p_item));
       return value === null ? null : Number(value);
     },
   },

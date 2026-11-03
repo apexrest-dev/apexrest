@@ -603,3 +603,50 @@ test('a forged Host or cross-origin POST never reaches server-side code executio
   );
   assert.equal(same.status, 200, same.body);
 });
+
+test('URL parameters and session state cannot override APEX built-ins such as APP_USER', async (t) => {
+  const server = await preview(t);
+  const { renderer, session, ctx, exec } = runner(server);
+  // Whatever wrote it (URL, submit, Set Session State), a stored APP_USER is not the user.
+  session.items.APP_USER = 'ADMIN';
+  session.items.APP_ID = '999';
+  session.items.P1_NOTE = 'kept';
+  assert.equal(renderer.binds(session, ctx.page).APP_USER, 'SCOTT');
+  assert.equal(renderer.binds(session, ctx.page).P1_NOTE, 'kept');
+  assert.equal(
+    renderer.substitute(session, '&APP_USER./&APP_ID.', ctx.page, 'RAW'),
+    `SCOTT/${renderer.appId}`,
+  );
+  assert.equal(server.db.scalar('select :APP_USER from dual', renderer.binds(session, ctx.page)), 'SCOTT');
+  const result = exec(`
+begin
+  :P1_A := :APP_USER;
+  :P1_B := v('APP_USER');
+  :P1_C := apex_util.get_session_state('APP_USER');
+  select count(*) into :P1_D from dual where :APP_USER = 'SCOTT';
+end;`);
+  assert.equal(result.ok, true, result.failure?.message);
+  assert.deepEqual(
+    [session.items.P1_A, session.items.P1_B, session.items.P1_C, session.items.P1_D],
+    ['SCOTT', 'SCOTT', 'SCOTT', '1'],
+  );
+
+  // A URL parameter named after a built-in is ignored with a warning; ordinary items still bind.
+  await server.start();
+  t.after(() => server.stop());
+  const response = await fetch(`${server.url}/r/demo/home?app_user=ADMIN&p1_note=from-url`);
+  assert.equal(response.status, 200);
+  const cookie = /APEX_LOCAL_SESSION=([\w-]+)/u.exec(response.headers.get('set-cookie') ?? '')?.[1];
+  const state = await (
+    await fetch(`${server.url}/r/demo/__apex/x/session-state`, {
+      headers: { cookie: `APEX_LOCAL_SESSION=${cookie}` },
+    })
+  ).json();
+  assert.equal(JSON.stringify(state).includes('ADMIN'), false, JSON.stringify(state));
+  assert.match(JSON.stringify(state), /from-url/u);
+  assert.ok(
+    server
+      .diagnostics()
+      .some((entry) => entry.level === 'warning' && /URL parameter APP_USER ignored/u.test(entry.message)),
+  );
+});

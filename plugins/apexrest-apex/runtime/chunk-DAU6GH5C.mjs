@@ -11239,6 +11239,13 @@ var rememberRenderer = (renderer) => {
 };
 var text4 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
 var sessionState = (rt) => rt?.ctx.session.items;
+var itemValue = (rt, item2) => {
+  const name = String(item2 ?? "").toUpperCase();
+  if (!rt) return void 0;
+  if (name === "REQUEST") return rt.ctx.request;
+  if (RESERVED_BUILTINS.has(name)) return rt.renderer.builtin(rt.ctx.session, rt.ctx.page)[name];
+  return rt.ctx.session.items[name];
+};
 var MESSAGE_FALLBACKS = {
   "APEX.FEATURE.ACL.INFO.ALL_USERS": "All authenticated users can access this application; users in the access control list get their assigned roles.",
   "APEX.FEATURE.ACL.INFO.ACL_ONLY": "Only users defined in the access control list can access this application.",
@@ -11338,12 +11345,12 @@ var STUBS = {
   },
   "apex_util.get_session_state": {
     params: p("p_item"),
-    fn: (args, rt) => text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
+    fn: (args, rt) => text4(itemValue(rt, args.p_item))
   },
   "apex_util.get_numeric_session_state": {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
+      const value2 = text4(itemValue(rt, args.p_item));
       return value2 === null ? null : Number(value2);
     }
   },
@@ -11412,12 +11419,12 @@ var STUBS = {
   },
   v: {
     params: p("p_item"),
-    fn: (args, rt) => text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()])
+    fn: (args, rt) => text4(itemValue(rt, args.p_item))
   },
   nv: {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text4(sessionState(rt)?.[String(args.p_item ?? "").toUpperCase()]);
+      const value2 = text4(itemValue(rt, args.p_item));
       return value2 === null ? null : Number(value2);
     }
   },
@@ -13077,7 +13084,7 @@ var Interpreter = class {
       }
       if (token.kind === "bind") {
         const numeric3 = isOp(tokens[index + 1], ...COMPARISON2) && tokens[index + 2]?.kind === "number" || isOp(tokens[index - 1], ...COMPARISON2) && tokens[index - 2]?.kind === "number";
-        const raw2 = this.ctx.session.items[token.value];
+        const raw2 = RESERVED_BUILTINS.has(token.value) ? void 0 : this.ctx.session.items[token.value];
         pieces.push({
           pre,
           text: numeric3 ? `apex_local_num(${token.text})` : token.text,
@@ -14976,7 +14983,7 @@ function legacyDefinition(renderer, process2) {
   const id = process2 ? deep(process2.props, "dataLoadDefinition") : "";
   return (id ? renderer.shared("legacyDataLoadDefinition", id) : void 0) ?? renderer.app.shared.find((component) => component.type === "legacyDataLoadDefinition");
 }
-var itemValue = (ctx, props, key) => {
+var itemValue2 = (ctx, props, key) => {
   const item2 = deep(props, key);
   return item2 ? ctx.session.items[item2.toUpperCase()] ?? "" : "";
 };
@@ -14988,9 +14995,9 @@ var counts = (ctx, process2, values) => {
 };
 function parseUploadedData(renderer, ctx, process2) {
   const definition = legacyDefinition(renderer, process2);
-  const importFrom = itemValue(ctx, process2.props, "importFromItem").toUpperCase();
-  const pasted = itemValue(ctx, process2.props, "copyAndPasteItem");
-  const fileName = itemValue(ctx, process2.props, "fileNameItem");
+  const importFrom = itemValue2(ctx, process2.props, "importFromItem").toUpperCase();
+  const pasted = itemValue2(ctx, process2.props, "copyAndPasteItem");
+  const fileName = itemValue2(ctx, process2.props, "fileNameItem");
   const usePaste = importFrom.includes("PASTE") || !fileName && pasted;
   const file = !usePaste && fileName ? storedFile(renderer.db, fileName.split(":")[0]) : void 0;
   const bytes2 = usePaste ? Buffer.from(pasted, "utf8") : file?.bytes;
@@ -14999,9 +15006,9 @@ function parseUploadedData(renderer, ctx, process2) {
       ran: false,
       errors: [{ type: "error", location: ["page"], message: "No data to upload.", unsafe: false }]
     };
-  const separator2 = itemValue(ctx, process2.props, "separatorItem") || void 0;
-  const enclosedBy = itemValue(ctx, process2.props, "enclosedByItem") || '"';
-  const firstRow = itemValue(ctx, process2.props, "firstRowItem");
+  const separator2 = itemValue2(ctx, process2.props, "separatorItem") || void 0;
+  const enclosedBy = itemValue2(ctx, process2.props, "enclosedByItem") || '"';
+  const firstRow = itemValue2(ctx, process2.props, "firstRowItem");
   const table = parseFile(bytes2, usePaste ? "pasted.csv" : file?.filename, {
     separator: separator2 === "\\t" ? "	" : separator2,
     enclosedBy,
@@ -25291,6 +25298,26 @@ function layoutGridRow(columns, max) {
 // packages/core/src/preview/render.ts
 var LOCAL_PREFIX = "/__apex";
 var IMAGE_PREFIX = "/i/";
+var RESERVED_BUILTINS = /* @__PURE__ */ new Set([
+  "APP_ID",
+  "APP_ALIAS",
+  "APP_NAME",
+  "APP_TITLE",
+  "APP_USER",
+  "APP_SESSION",
+  "SESSION",
+  "APP_PAGE_ID",
+  "APP_PAGE_ALIAS",
+  "APP_VERSION",
+  "APP_TENANT_ID",
+  "BROWSER_LANGUAGE",
+  "LOGOUT_URL",
+  "APP_IMAGES",
+  "APP_FILES",
+  "IMAGE_PREFIX",
+  "DEBUG",
+  "REQUEST"
+]);
 var DYNAMIC_ACTION_GROUPS = [
   "genAI",
   "inputValue",
@@ -25535,6 +25562,7 @@ var ApexRenderer = class {
         const name = (quoted ?? plain ?? "").toUpperCase();
         let resolved;
         if (name.startsWith("APP_TEXT$")) resolved = MESSAGES[name.slice(9)] ?? name.slice(9);
+        else if (RESERVED_BUILTINS.has(name) && name in builtins) resolved = builtins[name];
         else if (name in session.items) resolved = session.items[name];
         else if (name in builtins) resolved = builtins[name];
         else if (this.isKnownItem(name)) resolved = "";
@@ -25555,7 +25583,9 @@ var ApexRenderer = class {
   }
   binds(session, page) {
     const builtins = this.builtin(session, page);
-    return { ...builtins, ...session.items };
+    const binds = { ...builtins, ...session.items };
+    for (const name of RESERVED_BUILTINS) if (name in builtins) binds[name] = builtins[name];
+    return binds;
   }
   // ---------------------------------------------------------------- conditions
   condition(ctx, props, key = "serverSideCondition") {
@@ -25564,7 +25594,7 @@ var ApexRenderer = class {
     const type = str(condition, "type");
     const item2 = str(condition, "item").toUpperCase();
     const value2 = str(condition, "value");
-    const itemValue2 = ctx.session.items[item2] ?? "";
+    const itemValue3 = ctx.session.items[item2] ?? "";
     const request = ctx.request;
     const runQuery = () => {
       const sql = str(condition, "sqlQuery");
@@ -25581,22 +25611,22 @@ var ApexRenderer = class {
     };
     switch (type) {
       case "itemIsNull":
-        return itemValue2 === "";
+        return itemValue3 === "";
       case "itemIsNotNull":
-        return itemValue2 !== "";
+        return itemValue3 !== "";
       case "item=value":
       case "itemEqualsValue":
-        return itemValue2 === value2;
+        return itemValue3 === value2;
       case "item!=value":
       case "itemNotEqualsValue":
-        return itemValue2 !== value2;
+        return itemValue3 !== value2;
       case "itemIsZero":
-        return itemValue2 === "0";
+        return itemValue3 === "0";
       case "itemIsNotZero":
-        return itemValue2 !== "0";
+        return itemValue3 !== "0";
       case "itemInValue":
       case "valueOfItemInExpression1IsContainedInExpression2":
-        return value2.split(",").includes(itemValue2);
+        return value2.split(",").includes(itemValue3);
       case "requestEqualsValue":
       case "request=value":
         return request === value2;
@@ -28354,8 +28384,17 @@ var PreviewServer = class {
     if (url2.searchParams.has("apex_theme_style"))
       session.themeStyle = url2.searchParams.get("apex_theme_style") || void 0;
     for (const [key, value2] of url2.searchParams) {
-      if (!["clear", "request", "session", "cs", "apex_theme_style"].includes(key))
-        session.items[key.toUpperCase()] = value2;
+      if (["clear", "request", "session", "cs", "apex_theme_style"].includes(key)) continue;
+      const name = key.toUpperCase();
+      if (RESERVED_BUILTINS.has(name)) {
+        renderer.diagnose(
+          "warning",
+          `URL parameter ${name} ignored: it is an APEX built-in, not an item`,
+          page.id
+        );
+        continue;
+      }
+      session.items[name] = value2;
     }
     const ctx = renderer.prepare(session, page.id, url2.searchParams.get("request") ?? "");
     const replaced = pageResponse(renderer, ctx);

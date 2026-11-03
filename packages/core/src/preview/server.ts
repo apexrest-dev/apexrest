@@ -23,6 +23,7 @@ import {
   ApexRenderer,
   LOCAL_PREFIX,
   MESSAGES,
+  RESERVED_BUILTINS,
   type ApexError,
   type Diagnostic,
   type Session,
@@ -618,8 +619,17 @@ export class PreviewServer {
     if (url.searchParams.has('apex_theme_style'))
       session.themeStyle = url.searchParams.get('apex_theme_style') || undefined;
     for (const [key, value] of url.searchParams) {
-      if (!['clear', 'request', 'session', 'cs', 'apex_theme_style'].includes(key))
-        session.items[key.toUpperCase()] = value;
+      if (['clear', 'request', 'session', 'cs', 'apex_theme_style'].includes(key)) continue;
+      const name = key.toUpperCase();
+      if (RESERVED_BUILTINS.has(name)) {
+        renderer.diagnose(
+          'warning',
+          `URL parameter ${name} ignored: it is an APEX built-in, not an item`,
+          page.id,
+        );
+        continue;
+      }
+      session.items[name] = value;
     }
     const ctx = renderer.prepare(session, page.id, url.searchParams.get('request') ?? '');
     const replaced = pageResponse(renderer, ctx);

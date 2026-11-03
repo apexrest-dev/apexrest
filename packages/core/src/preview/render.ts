@@ -67,6 +67,32 @@ import { layoutGridRow, type GridCell } from './grid.ts';
 export const LOCAL_PREFIX = '/__apex';
 export const IMAGE_PREFIX = '/i/';
 
+/**
+ * APEX built-in names that always come from the engine, never from session state.
+ * A URL parameter, submitted value or assignment named APP_USER must not change
+ * who the application thinks the user is (APEX itself refuses to set these).
+ */
+export const RESERVED_BUILTINS: ReadonlySet<string> = new Set([
+  'APP_ID',
+  'APP_ALIAS',
+  'APP_NAME',
+  'APP_TITLE',
+  'APP_USER',
+  'APP_SESSION',
+  'SESSION',
+  'APP_PAGE_ID',
+  'APP_PAGE_ALIAS',
+  'APP_VERSION',
+  'APP_TENANT_ID',
+  'BROWSER_LANGUAGE',
+  'LOGOUT_URL',
+  'APP_IMAGES',
+  'APP_FILES',
+  'IMAGE_PREFIX',
+  'DEBUG',
+  'REQUEST',
+]);
+
 interface Column {
   name: string;
   type: string;
@@ -471,6 +497,7 @@ export class ApexRenderer {
         const name = (quoted ?? plain ?? '').toUpperCase();
         let resolved: string | undefined;
         if (name.startsWith('APP_TEXT$')) resolved = MESSAGES[name.slice(9)] ?? name.slice(9);
+        else if (RESERVED_BUILTINS.has(name) && name in builtins) resolved = builtins[name];
         else if (name in session.items) resolved = session.items[name];
         else if (name in builtins) resolved = builtins[name];
         else if (this.isKnownItem(name)) resolved = '';
@@ -493,7 +520,9 @@ export class ApexRenderer {
 
   binds(session: Session, page?: ApxComponent): Binds {
     const builtins = this.builtin(session, page);
-    return { ...builtins, ...session.items };
+    const binds: Binds = { ...builtins, ...session.items };
+    for (const name of RESERVED_BUILTINS) if (name in builtins) binds[name] = builtins[name]!;
+    return binds;
   }
 
   // ---------------------------------------------------------------- conditions

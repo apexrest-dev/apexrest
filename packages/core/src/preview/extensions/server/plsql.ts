@@ -1,5 +1,6 @@
 import { oracleNumberText, type Binds, type Row } from '../../database.ts';
 import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
+import { RESERVED_BUILTINS } from '../../render.ts';
 import { findStub, stubArgs, withRuntime, type Runtime } from './apex-api.ts';
 import { commitWork, rollbackWork, savepoint } from './transaction.ts';
 import {
@@ -888,7 +889,7 @@ export class Interpreter implements Runtime {
         const numeric =
           (isOp(tokens[index + 1], ...COMPARISON) && tokens[index + 2]?.kind === 'number') ||
           (isOp(tokens[index - 1], ...COMPARISON) && tokens[index - 2]?.kind === 'number');
-        const raw = this.ctx.session.items[token.value];
+        const raw = RESERVED_BUILTINS.has(token.value) ? undefined : this.ctx.session.items[token.value];
         pieces.push({
           pre,
           text: numeric ? `apex_local_num(${token.text})` : token.text,
