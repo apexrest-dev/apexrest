@@ -22994,8 +22994,64 @@ end;` : `begin
 end;`;
   }
 }
+var QUOTE_CLOSE = { "[": "]", "{": "}", "(": ")", "<": ">" };
+var IDENTIFIER_CHAR = /[\p{L}\p{N}_$#]/u;
+function codeOutsideLiterals(code) {
+  let out = "";
+  let index = 0;
+  const blank = (end) => {
+    out += code.slice(index, end).replace(/[^\r\n]/gu, " ");
+    index = end;
+  };
+  while (index < code.length) {
+    const char = code[index];
+    const next = code[index + 1] ?? "";
+    if (char === "-" && next === "-") {
+      const match = /[\r\n]/u.exec(code.slice(index));
+      blank(match ? index + match.index : code.length);
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = code.indexOf("*/", index + 2);
+      if (end < 0) return void 0;
+      blank(end + 2);
+      continue;
+    }
+    const startsWord = index === 0 || !IDENTIFIER_CHAR.test(code[index - 1]);
+    const q = !startsWord ? -1 : /[qQ]/u.test(char) && next === "'" ? index : /[nN]/u.test(char) && /[qQ]/u.test(next) && code[index + 2] === "'" ? index + 1 : -1;
+    if (q >= 0) {
+      const open2 = code[q + 2];
+      if (open2 === void 0) return void 0;
+      const end = code.indexOf(`${QUOTE_CLOSE[open2] ?? open2}'`, q + 3);
+      if (end < 0) return void 0;
+      blank(end + 2);
+      continue;
+    }
+    if (char === "'") {
+      let end = index + 1;
+      for (; ; ) {
+        end = code.indexOf("'", end);
+        if (end < 0) return void 0;
+        if (code[end + 1] !== "'") break;
+        end += 2;
+      }
+      blank(end + 1);
+      continue;
+    }
+    if (char === '"') {
+      const end = code.indexOf('"', index + 1);
+      if (end < 0) return void 0;
+      blank(end + 1);
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
 function transactionRisk(code) {
-  const bare = code.replace(/q'([[{(<])[\s\S]*?[\]})>]'|q'(.)[\s\S]*?\2'/giu, " ").replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  const bare = codeOutsideLiterals(code);
+  if (bare === void 0) return "An unterminated string, quoted identifier or comment";
   if (/\bcommit\b/iu.test(bare)) return "COMMIT";
   if (/\brollback\b(?!\s+to\b)/iu.test(bare)) return "ROLLBACK";
   if (/\bexecute\s+immediate\b/iu.test(bare)) return "EXECUTE IMMEDIATE";

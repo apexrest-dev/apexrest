@@ -33,14 +33,84 @@ export function oracleBlock(code: string, mode: Mode, shape: Shape): string {
   }
 }
 
+const QUOTE_CLOSE: Record<string, string> = { '[': ']', '{': '}', '(': ')', '<': '>' };
+const IDENTIFIER_CHAR = /[\p{L}\p{N}_$#]/u;
+
+/**
+ * The code with the contents of comments, string literals (including q'…' and n/N
+ * prefixes) and quoted identifiers replaced by spaces. One left-to-right pass, as
+ * Oracle reads it: whichever construct opens first wins, so a q'[ inside a comment
+ * or a -- inside a string is just text. A line comment ends at LF or CR (SQLcl
+ * splits lines on either). Undefined when a construct is never closed.
+ */
+export function codeOutsideLiterals(code: string): string | undefined {
+  let out = '';
+  let index = 0;
+  const blank = (end: number) => {
+    out += code.slice(index, end).replace(/[^\r\n]/gu, ' ');
+    index = end;
+  };
+  while (index < code.length) {
+    const char = code[index]!;
+    const next = code[index + 1] ?? '';
+    if (char === '-' && next === '-') {
+      const match = /[\r\n]/u.exec(code.slice(index));
+      blank(match ? index + match.index : code.length);
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const end = code.indexOf('*/', index + 2);
+      if (end < 0) return undefined;
+      blank(end + 2);
+      continue;
+    }
+    const startsWord = index === 0 || !IDENTIFIER_CHAR.test(code[index - 1]!);
+    const q = !startsWord
+      ? -1
+      : /[qQ]/u.test(char) && next === "'"
+        ? index
+        : /[nN]/u.test(char) && /[qQ]/u.test(next) && code[index + 2] === "'"
+          ? index + 1
+          : -1;
+    if (q >= 0) {
+      const open = code[q + 2];
+      if (open === undefined) return undefined;
+      const end = code.indexOf(`${QUOTE_CLOSE[open] ?? open}'`, q + 3);
+      if (end < 0) return undefined;
+      blank(end + 2);
+      continue;
+    }
+    if (char === "'") {
+      let end = index + 1;
+      for (;;) {
+        end = code.indexOf("'", end);
+        if (end < 0) return undefined;
+        if (code[end + 1] !== "'") break;
+        end += 2;
+      }
+      blank(end + 1);
+      continue;
+    }
+    if (char === '"') {
+      const end = code.indexOf('"', index + 1);
+      if (end < 0) return undefined;
+      blank(end + 1);
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
+
 /**
  * Why a unit must not reach Oracle. `DISABLE COMMIT IN PROCEDURE` stops COMMIT only in stored
  * code; COMMIT in an anonymous block, dynamic SQL and autonomous blocks would persist changes.
  */
 export function transactionRisk(code: string): string | undefined {
-  const bare = code
-    .replace(/q'([[{(<])[\s\S]*?[\]})>]'|q'(.)[\s\S]*?\2'/giu, ' ')
-    .replace(/'(?:[^']|'')*'|--[^\n]*|\/\*[\s\S]*?\*\//gu, ' ');
+  const bare = codeOutsideLiterals(code);
+  // Oracle would not compile it, but a scanner mismatch must not hide a statement: refuse.
+  if (bare === undefined) return 'An unterminated string, quoted identifier or comment';
   if (/\bcommit\b/iu.test(bare)) return 'COMMIT';
   if (/\brollback\b(?!\s+to\b)/iu.test(bare)) return 'ROLLBACK';
   if (/\bexecute\s+immediate\b/iu.test(bare)) return 'EXECUTE IMMEDIATE';

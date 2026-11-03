@@ -9,6 +9,7 @@ import { OracleAppData, type ConnectedOracle } from '../../packages/core/src/pre
 import { WorkerBridge, type OracleLink } from '../../packages/core/src/preview/oracle/bridge.ts';
 import { connectOracle } from '../../packages/core/src/preview/oracle/connect.ts';
 import {
+  codeOutsideLiterals,
   oracleBlock,
   runOraclePlsql,
   transactionRisk,
@@ -419,6 +420,33 @@ test('code and values cannot leave their block through SQLcl terminator lines', 
   assert.match(skipped.failure!.message, /only "\/" \(line 3\)/u);
   assert.equal(preview.inputs.length, sent, 'a unit with a terminator line is not sent');
   assert.equal(preview.oracle.apexError, undefined, 'the refusal does not disable the APEX session context');
+});
+
+test('transaction checks read comments, strings and q-quotes in one pass, as Oracle does', () => {
+  // Bypasses of the former two-pass check: a q-quote opener inside a comment.
+  assert.equal(transactionRisk("/* q'[ */ commit; /* ]' */"), 'COMMIT');
+  assert.equal(transactionRisk("-- q'[\ncommit;\n-- ]'"), 'COMMIT');
+  assert.equal(transactionRisk("-- it's\ncommit;\n-- done'"), 'COMMIT');
+  assert.equal(transactionRisk("x := '/*'; commit; y := '*/';"), 'COMMIT');
+  // A line comment ends at CR too: SQLcl splits lines on it.
+  assert.equal(transactionRisk('null; -- note\rcommit;'), 'COMMIT');
+  // Exact q-quote closers and prefixes.
+  assert.equal(transactionRisk("x := q'[ a )' ]'; commit;"), 'COMMIT');
+  assert.equal(transactionRisk("x := nq'{a}'; execute immediate 'x';"), 'EXECUTE IMMEDIATE');
+  assert.equal(transactionRisk("x := Q'!a!'; rollback;"), 'ROLLBACK');
+  // Never closed: refused rather than guessed.
+  assert.match(transactionRisk('null; /* commit')!, /unterminated/u);
+  assert.match(transactionRisk("x := 'abc; commit;")!, /unterminated/u);
+  assert.match(transactionRisk("x := q'[abc; commit;")!, /unterminated/u);
+  // Text that only mentions the words stays allowed.
+  assert.equal(transactionRisk("x := 'commit'; -- commit\n/* rollback */ y := q'[commit]';"), undefined);
+  assert.equal(transactionRisk("y := q'!it's a commit!'; z := 'O''Hara commit';"), undefined);
+  assert.equal(transactionRisk('select "COMMIT" into x from t; -- it\'s fine'), undefined);
+  assert.equal(transactionRisk("n := seq_q('commit');"), undefined);
+  // Masking keeps offsets and line breaks.
+  const masked = codeOutsideLiterals("a := 'x';\n-- c\nb := q'<y>';")!;
+  assert.equal(masked.length, "a := 'x';\n-- c\nb := q'<y>';".length);
+  assert.equal(masked, 'a :=    ;\n    \nb :=       ;');
 });
 
 const ECHO_WORKER = `
