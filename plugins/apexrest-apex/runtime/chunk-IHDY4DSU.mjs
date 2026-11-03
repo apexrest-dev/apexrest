@@ -43,8 +43,8 @@ import {
 } from "./chunk-CCPOHUCO.mjs";
 
 // packages/core/src/preview/service.ts
-import fs11 from "node:fs";
-import path12 from "node:path";
+import fs12 from "node:fs";
+import path13 from "node:path";
 
 // packages/core/src/preview/assets.ts
 import crypto from "node:crypto";
@@ -396,7 +396,7 @@ function loadAssets(assetsDir = defaultAssetsDir()) {
 import crypto2 from "node:crypto";
 import fs2 from "node:fs";
 import path2 from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { constants as sqliteConstants, DatabaseSync } from "node:sqlite";
 var MONTH_NAMES = [
   "January",
   "February",
@@ -706,8 +706,8 @@ function sqlArithmetic(left, operator, right) {
   if (a === void 0 || b === void 0) return null;
   return sqlNumber(operator === "-" ? a - b : a + b);
 }
-function parseJsonPath(path13) {
-  const text10 = path13.trim().replace(/^(?:lax|strict)\s+/iu, "");
+function parseJsonPath(path14) {
+  const text10 = path14.trim().replace(/^(?:lax|strict)\s+/iu, "");
   if (!text10.startsWith("$")) return void 0;
   const steps = [];
   let index = 1;
@@ -1480,12 +1480,12 @@ function rewriteJsonFunctions(text10) {
     if (args.length < 2) continue;
     const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
     const rest = args.slice(1).join(",").trim();
-    const path13 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
-    if (!path13) continue;
-    const clauses = rest.slice(path13.length);
+    const path14 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path14) continue;
+    const clauses = rest.slice(path14.length);
     const kind = match[1].toLowerCase();
     const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
-    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path13}${option ? `, '${option}'` : ""})`;
+    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path14}${option ? `, '${option}'` : ""})`;
     last = close2 + 1;
     pattern.lastIndex = last;
   }
@@ -1645,6 +1645,7 @@ var LocalDatabase = class {
   #functions = /* @__PURE__ */ new Set();
   #sequences = /* @__PURE__ */ new Map();
   #dirtySequences = /* @__PURE__ */ new Set();
+  #writes;
   constructor(file) {
     this.file = file;
     if (file !== ":memory:") fs2.mkdirSync(path2.dirname(file), { recursive: true });
@@ -2108,6 +2109,35 @@ var LocalDatabase = class {
     }
     return problems;
   }
+  /**
+   * Starts recording the tables that statements prepared from now on write: INSERT, UPDATE and
+   * DELETE, including the writes of triggers they fire. SQLite authorizes when a statement is
+   * prepared, so a statement that was rolled back still counts. Returns false when this Node.js
+   * build has no authorizer API.
+   */
+  trackWrites() {
+    if (this.#writes) return true;
+    const database = this.db;
+    if (typeof database.setAuthorizer !== "function") return false;
+    const writes = /* @__PURE__ */ new Set();
+    const actions = /* @__PURE__ */ new Set([
+      sqliteConstants.SQLITE_INSERT,
+      sqliteConstants.SQLITE_UPDATE,
+      sqliteConstants.SQLITE_DELETE
+    ]);
+    database.setAuthorizer((action, table, _column, schema) => {
+      if (actions.has(action) && table && schema !== "temp") writes.add(table.toUpperCase());
+      return sqliteConstants.SQLITE_OK;
+    });
+    this.#writes = writes;
+    return true;
+  }
+  /** The tables written since the last call (see trackWrites). */
+  takeWrites() {
+    const tables = [...this.#writes ?? []];
+    this.#writes?.clear();
+    return tables;
+  }
   close() {
     if (this.db.isOpen) this.db.close();
   }
@@ -2511,9 +2541,9 @@ async function connectOracle(root, name, link) {
 
 // packages/core/src/preview/server.ts
 import { randomUUID } from "node:crypto";
-import fs10 from "node:fs";
+import fs11 from "node:fs";
 import http from "node:http";
-import path11 from "node:path";
+import path12 from "node:path";
 
 // packages/core/src/preview/apexlang.ts
 import fs4 from "node:fs";
@@ -2777,6 +2807,141 @@ function loadApplication(root, deployment = "default") {
   }
   if (!app) throw new Error(`${appFile} does not declare an app component`);
   return { root, app, pages: pages2, shared: shared3, substitutions, files };
+}
+
+// packages/core/src/preview/websocket.ts
+import { createHash } from "node:crypto";
+var GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+var MAX_MESSAGE = 64 * 1024;
+var OP_CONTINUATION = 0;
+var OP_TEXT = 1;
+var OP_BINARY = 2;
+var OP_CLOSE = 8;
+var OP_PING = 9;
+var OP_PONG = 10;
+var acceptKey = (key) => createHash("sha1").update(key + GUID).digest("base64");
+function encodeFrame(opcode, payload = Buffer.alloc(0)) {
+  const length = payload.length;
+  const header2 = length < 126 ? Buffer.alloc(2) : length < 65536 ? Buffer.alloc(4) : Buffer.alloc(10);
+  header2[0] = 128 | opcode;
+  if (length < 126) header2[1] = length;
+  else if (length < 65536) {
+    header2[1] = 126;
+    header2.writeUInt16BE(length, 2);
+  } else {
+    header2[1] = 127;
+    header2.writeBigUInt64BE(BigInt(length), 2);
+  }
+  return Buffer.concat([header2, payload]);
+}
+var FrameReader = class {
+  #buffer = Buffer.alloc(0);
+  push(chunk) {
+    this.#buffer = this.#buffer.length ? Buffer.concat([this.#buffer, chunk]) : chunk;
+    const frames = [];
+    for (; ; ) {
+      const buffer = this.#buffer;
+      if (buffer.length < 2) return frames;
+      const fin = (buffer[0] & 128) !== 0;
+      const opcode = buffer[0] & 15;
+      const masked = (buffer[1] & 128) !== 0;
+      let length = buffer[1] & 127;
+      let offset = 2;
+      if (length === 126) {
+        if (buffer.length < 4) return frames;
+        length = buffer.readUInt16BE(2);
+        offset = 4;
+      } else if (length === 127) {
+        if (buffer.length < 10) return frames;
+        const big = buffer.readBigUInt64BE(2);
+        if (big > BigInt(MAX_MESSAGE)) return void 0;
+        length = Number(big);
+        offset = 10;
+      }
+      if (!masked || length > MAX_MESSAGE) return void 0;
+      if (buffer.length < offset + 4 + length) return frames;
+      const mask2 = buffer.subarray(offset, offset + 4);
+      const payload = Buffer.from(buffer.subarray(offset + 4, offset + 4 + length));
+      for (let index = 0; index < payload.length; index += 1) payload[index] ^= mask2[index % 4];
+      frames.push({ fin, opcode, payload });
+      this.#buffer = buffer.subarray(offset + 4 + length);
+    }
+  }
+};
+function rejectUpgrade(socket, status, reason) {
+  socket.end(`HTTP/1.1 ${status} ${reason}\r
+Connection: close\r
+Content-Length: 0\r
+\r
+`);
+  socket.destroy();
+}
+function acceptWebSocket(request, socket, head, handlers) {
+  const key = request.headers["sec-websocket-key"];
+  if (request.method !== "GET" || !/\bwebsocket\b/iu.test(request.headers.upgrade ?? "") || typeof key !== "string" || request.headers["sec-websocket-version"] !== "13") {
+    rejectUpgrade(socket, 400, "Bad Request");
+    return void 0;
+  }
+  socket.write(
+    [
+      "HTTP/1.1 101 Switching Protocols",
+      "Upgrade: websocket",
+      "Connection: Upgrade",
+      `Sec-WebSocket-Accept: ${acceptKey(key)}`,
+      "",
+      ""
+    ].join("\r\n")
+  );
+  let open2 = true;
+  const reader = new FrameReader();
+  let fragments = [];
+  const finish = () => {
+    if (!open2) return;
+    open2 = false;
+    handlers.close?.();
+  };
+  const connection = {
+    get open() {
+      return open2 && !socket.destroyed;
+    },
+    send(message) {
+      if (!connection.open) return;
+      socket.write(encodeFrame(OP_TEXT, Buffer.from(JSON.stringify(message), "utf8")));
+    },
+    close(code = 1e3) {
+      if (!connection.open) return;
+      const payload = Buffer.alloc(2);
+      payload.writeUInt16BE(code);
+      socket.end(encodeFrame(OP_CLOSE, payload));
+      finish();
+    }
+  };
+  const receive = (chunk) => {
+    const frames = reader.push(chunk);
+    if (!frames) return connection.close(1002);
+    for (const frame of frames) {
+      if (frame.opcode === OP_CLOSE) return connection.close();
+      if (frame.opcode === OP_PING) {
+        socket.write(encodeFrame(OP_PONG, frame.payload));
+        continue;
+      }
+      if (frame.opcode === OP_PONG) continue;
+      if (frame.opcode === OP_BINARY) return connection.close(1003);
+      if (![OP_TEXT, OP_CONTINUATION].includes(frame.opcode)) return connection.close(1002);
+      fragments.push(frame.payload);
+      if (fragments.reduce((total, part2) => total + part2.length, 0) > MAX_MESSAGE)
+        return connection.close(1009);
+      if (!frame.fin) continue;
+      const text10 = Buffer.concat(fragments).toString("utf8");
+      fragments = [];
+      handlers.message?.(text10);
+    }
+  };
+  socket.on("data", receive);
+  socket.on("close", finish);
+  socket.on("error", finish);
+  if (head.length) receive(head);
+  return connection;
 }
 
 // packages/core/src/preview/client.ts
@@ -3159,9 +3324,123 @@ window.apexLocal = (function ($) {
 })(apex.jQuery);
 `;
 
-// packages/core/src/preview/properties.ts
+// packages/core/src/preview/live.ts
 import fs5 from "node:fs";
 import path4 from "node:path";
+var internal = (table) => /^(?:SQLITE_|APEX_LOCAL_)/u.test(table);
+var LiveHub = class {
+  #clients = /* @__PURE__ */ new Set();
+  #sourceDir;
+  /** Data changes are pushed only when the data persists (not in connected Oracle mode). */
+  data;
+  #watcher;
+  #timer;
+  #onSource;
+  /** `onSource` re-reads the application after a source change and returns a parse error, if any. */
+  constructor(options3) {
+    this.#sourceDir = options3.sourceDir;
+    this.data = options3.data;
+    this.#onSource = options3.onSource;
+  }
+  get size() {
+    return this.#clients.size;
+  }
+  /** Accepts an upgrade on the live route for an existing preview session. */
+  upgrade(request, socket, head, session) {
+    const origin = request.headers.origin;
+    if (origin && URL.parse(origin)?.host !== request.headers.host)
+      return rejectUpgrade(socket, 403, "Forbidden");
+    if (!session) {
+      acceptWebSocket(request, socket, head, {})?.send({ type: "expired" });
+      socket.end();
+      return;
+    }
+    const params2 = new URL(request.url ?? "/", "http://localhost").searchParams;
+    const page2 = params2.get("page") ?? "";
+    const tab = params2.get("tab") ?? "";
+    let client;
+    const connection = acceptWebSocket(request, socket, head, {
+      close: () => {
+        if (client) this.#clients.delete(client);
+        this.#presence();
+        if (!this.#clients.size) this.#unwatch();
+      }
+    });
+    if (!connection) return;
+    client = { connection, session, page: page2, tab };
+    this.#clients.add(client);
+    this.#watch();
+    connection.send({ type: "hello", data: this.data });
+    this.#presence();
+  }
+  /** Tells every page which tables changed; returns the tables that were sent. */
+  changed(change) {
+    const tables = [...new Set(change.tables.map((table) => table.toUpperCase()))].filter(
+      (table) => !internal(table)
+    );
+    if (!this.data || !tables.length) return [];
+    for (const client of this.#clients)
+      client.connection.send({
+        type: "changed",
+        tables,
+        user: change.user,
+        self: change.session !== void 0 && client.session.id === change.session,
+        here: Boolean(change.tab) && client.tab === change.tab
+      });
+    return tables;
+  }
+  /** Sends a message to every page. */
+  broadcast(message) {
+    for (const client of this.#clients) client.connection.send(message);
+  }
+  #presence() {
+    const pages2 = /* @__PURE__ */ new Map();
+    for (const client of this.#clients) pages2.set(client.page, [...pages2.get(client.page) ?? [], client]);
+    for (const [, clients] of pages2) {
+      const users = [...new Set(clients.map((client) => client.session.user))].sort();
+      const sessions = new Set(clients.map((client) => client.session.id)).size;
+      for (const client of clients)
+        client.connection.send({ type: "presence", viewers: clients.length, sessions, users });
+    }
+  }
+  /** Watches the source tree while pages are connected; edits reload them. */
+  #watch() {
+    if (this.#watcher) return;
+    try {
+      this.#watcher = fs5.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
+        const name = String(file ?? "");
+        const parts = name.split(path4.sep);
+        const relevant = !name || name.endsWith(".apx") || parts.includes("static-files");
+        if (!relevant || parts.some((part2) => part2.startsWith("."))) return;
+        clearTimeout(this.#timer);
+        this.#timer = setTimeout(() => this.#sourceChanged(name), 150);
+      });
+      this.#watcher.on("error", () => this.#unwatch());
+    } catch {
+      this.#watcher = void 0;
+    }
+  }
+  #sourceChanged(file) {
+    const error = this.#onSource();
+    if (error) this.broadcast({ type: "source-error", message: error });
+    else this.broadcast({ type: "reload", file: file.split(path4.sep).join("/") });
+  }
+  #unwatch() {
+    clearTimeout(this.#timer);
+    this.#timer = void 0;
+    this.#watcher?.close();
+    this.#watcher = void 0;
+  }
+  close() {
+    this.#unwatch();
+    for (const client of this.#clients) client.connection.close(1001);
+    this.#clients.clear();
+  }
+};
+
+// packages/core/src/preview/properties.ts
+import fs6 from "node:fs";
+import path5 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var CHECKED = /* @__PURE__ */ new Set([
   "page",
@@ -3200,20 +3479,20 @@ var STRUCTURED_TYPES = /* @__PURE__ */ new Set([
 var ENUMERATED_TYPES = /* @__PURE__ */ new Set(["SELECT LIST", "PILL BUTTONS", "CHECKBOXES", "selectList", "checkboxes"]);
 var cached;
 function catalogFile() {
-  const here = path4.dirname(fileURLToPath2(import.meta.url));
+  const here = path5.dirname(fileURLToPath2(import.meta.url));
   const candidates = [
     process.env.APEXREST_RESOURCES,
-    path4.resolve(here, "../resources"),
-    path4.resolve(here, "../../../../resources")
+    path5.resolve(here, "../resources"),
+    path5.resolve(here, "../../../../resources")
   ].filter((entry) => Boolean(entry));
   for (const root of candidates) {
-    const file = path4.join(root, "components", "source", "parameters.json");
-    if (fs5.existsSync(file)) return file;
+    const file = path5.join(root, "components", "source", "parameters.json");
+    if (fs6.existsSync(file)) return file;
   }
   return void 0;
 }
-function add(catalog, context) {
-  let entry = catalog.get(context);
+function add(catalog2, context) {
+  let entry = catalog2.get(context);
   if (!entry) {
     entry = {
       generic: /* @__PURE__ */ new Set(),
@@ -3222,14 +3501,14 @@ function add(catalog, context) {
       structured: /* @__PURE__ */ new Set(),
       values: /* @__PURE__ */ new Map()
     };
-    catalog.set(context, entry);
+    catalog2.set(context, entry);
   }
   return entry;
 }
 function buildCatalog(json5) {
-  const catalog = /* @__PURE__ */ new Map();
+  const catalog2 = /* @__PURE__ */ new Map();
   const record = (context, relative, parameter2) => {
-    const entry = add(catalog, context);
+    const entry = add(catalog2, context);
     const type = TYPED_CONTEXTS.has(context) ? parameter2?.nativeType ?? "" : "";
     const forms = /* @__PURE__ */ new Set([relative, relative.replace(/(^|\.)plugin-/gu, "$1")]);
     for (const form of forms) {
@@ -3262,33 +3541,33 @@ function buildCatalog(json5) {
   }
   for (const attribute3 of json5.utAttributes ?? []) {
     const context = attribute3.apexlangPath.split(".")[0];
-    add(catalog, context).generic.add(attribute3.apexlangRelativePath);
+    add(catalog2, context).generic.add(attribute3.apexlangRelativePath);
   }
-  return catalog;
+  return catalog2;
 }
 function loadCatalog() {
   if (cached !== void 0) return cached;
   const file = catalogFile();
   try {
-    cached = file ? buildCatalog(JSON.parse(fs5.readFileSync(file, "utf8"))) : null;
+    cached = file ? buildCatalog(JSON.parse(fs6.readFileSync(file, "utf8"))) : null;
   } catch {
     cached = null;
   }
   return cached;
 }
 var isSubstitution = (value2) => /[&#][A-Za-z_][\w$#]*[.#]|^#|^&/u.test(value2);
-function checkComponentProperties(components, page, catalog = loadCatalog()) {
-  if (!catalog) return [];
+function checkComponentProperties(components, page2, catalog2 = loadCatalog()) {
+  if (!catalog2) return [];
   const findings = [];
   const visit = (component) => {
-    const entry = catalog.get(component.type);
-    if (entry && CHECKED.has(component.type)) checkComponent(component, entry, page, findings);
+    const entry = catalog2.get(component.type);
+    if (entry && CHECKED.has(component.type)) checkComponent(component, entry, page2, findings);
     for (const child of component.children) visit(child);
   };
   for (const component of components) visit(component);
   return findings;
 }
-function checkComponent(component, entry, page, findings) {
+function checkComponent(component, entry, page2, findings) {
   const type = typeof component.props.type === "string" ? component.props.type : "";
   const typed = entry.byType.get(type);
   const custom = type.includes("/");
@@ -3297,7 +3576,7 @@ function checkComponent(component, entry, page, findings) {
   const extraPaths = new Set(EXTRA_PATHS[component.type] ?? []);
   const known = (dotted) => entry.generic.has(dotted) || Boolean(typed?.has(dotted)) || extraPaths.has(dotted);
   const label = `${component.type} ${component.id}`;
-  const report2 = (message) => findings.push({ message: `${label}: ${message}`, ...page ? { page } : {}, component: component.id });
+  const report2 = (message) => findings.push({ message: `${label}: ${message}`, ...page2 ? { page: page2 } : {}, component: component.id });
   const walk3 = (props, prefix) => {
     for (const [key, value2] of Object.entries(props)) {
       const dotted = prefix ? `${prefix}.${key}` : key;
@@ -3558,14 +3837,14 @@ function savepoint(db2, name) {
 }
 
 // packages/core/src/preview/render.ts
-import { createHash as createHash3 } from "node:crypto";
-import fs9 from "node:fs";
-import path10 from "node:path";
+import { createHash as createHash4 } from "node:crypto";
+import fs10 from "node:fs";
+import path11 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
 var strings = (values) => values.map((value2) => typeof value2 === "string" ? value2 : String(value2));
 var item = (ctx, condition) => ctx.session.items[str(condition, "item").toUpperCase()] ?? "";
-var pages = (condition) => [...strings(list(condition, "pages")), ...str(condition, "value").split(","), str(condition, "page")].map((page) => page.trim()).filter(Boolean);
+var pages = (condition) => [...strings(list(condition, "pages")), ...str(condition, "value").split(","), str(condition, "page")].map((page2) => page2.trim()).filter(Boolean);
 var colonList = (condition) => {
   const values = strings(list(condition, "list"));
   return values.length ? values : str(condition, "value").split(":");
@@ -4059,8 +4338,8 @@ function templateOptions(options3, defaults) {
 }
 
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs6 from "node:fs";
-import path5 from "node:path";
+import fs7 from "node:fs";
+import path6 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
 var SCALES = [
@@ -4310,9 +4589,9 @@ function leafPaths(props, prefix = "") {
 }
 function reportUnsupported(renderer, ctx, owner2, component, groups, supported, label) {
   const ignored = leafPaths(component.props).filter(
-    (path13) => (groups.includes(path13.split(".")[0]) || !path13.includes(".")) && !supported.has(path13) && !/(^|\.)(font\w*|cssStyling)$/u.test(path13)
+    (path14) => (groups.includes(path14.split(".")[0]) || !path14.includes(".")) && !supported.has(path14) && !/(^|\.)(font\w*|cssStyling)$/u.test(path14)
   );
-  const own = ignored.filter((path13) => path13.includes(".") || label !== "Chart");
+  const own = ignored.filter((path14) => path14.includes(".") || label !== "Chart");
   if (own.length)
     renderer.diagnose(
       "info",
@@ -4669,9 +4948,9 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
   return isoOf(upcoming ?? latest).iso.slice(0, 10);
 }
 function fullCalendarScript(renderer) {
-  const root = path5.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
+  const root = path6.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs6.readdirSync(root).filter((entry) => fs6.existsSync(path5.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs7.readdirSync(root).filter((entry) => fs7.existsSync(path6.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
@@ -5435,7 +5714,7 @@ function cartesian(model, outer) {
     for (const segment of segments2) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
-      const path13 = linePath(
+      const path14 = linePath(
         points.map((entry) => [entry.x, entry.y]),
         series.line.type,
         horizontal
@@ -5447,13 +5726,13 @@ function cartesian(model, outer) {
           "L"
         );
         parts.push(
-          `<path class="ajc-area" d="${path13} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
+          `<path class="ajc-area" d="${path14} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
         );
       }
       if (series.type !== "area") {
         const dash = series.line.style === "dashed" ? ' stroke-dasharray="8 5"' : series.line.style === "dotted" ? ' stroke-dasharray="2 4"' : "";
         parts.push(
-          `<path class="ajc-line" d="${path13}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
+          `<path class="ajc-line" d="${path14}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
         );
       }
     }
@@ -6092,10 +6371,10 @@ var DASHES = {
   dashDot: "6 3 1.5 3"
 };
 function rowStyle(props, row, layer, kind) {
-  const value2 = (path13) => rowSubstitute(str(props, path13), row).trim();
-  const number2 = (path13, fallback) => {
-    const parsed2 = Number(value2(path13));
-    return value2(path13) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
+  const value2 = (path14) => rowSubstitute(str(props, path14), row).trim();
+  const number2 = (path14, fallback) => {
+    const parsed2 = Number(value2(path14));
+    return value2(path14) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
   };
   const fill2 = value2("appearance.fillColor");
   const stroke = value2("appearance.strokeColor");
@@ -6395,15 +6674,15 @@ function findRegion(renderer, ctx, id) {
   return renderer.pageComponents(ctx, "region").find((candidate) => candidate.id === id || renderer.regionDomId(candidate) === id);
 }
 function routeContext(renderer, session, params2, type) {
-  const page = params2.get("page") ?? "";
-  if (!renderer.findPage(page)) return { status: 404, type: "text", body: `Page ${page} does not exist` };
-  const ctx = renderer.prepare(session, page);
+  const page2 = params2.get("page") ?? "";
+  if (!renderer.findPage(page2)) return { status: 404, type: "text", body: `Page ${page2} does not exist` };
+  const ctx = renderer.prepare(session, page2);
   const region = findRegion(renderer, ctx, params2.get("region") ?? "");
   if (!region || str(region.props, "type") !== type)
     return {
       status: 404,
       type: "text",
-      body: `No ${type} region ${params2.get("region") ?? ""} on page ${page}`
+      body: `No ${type} region ${params2.get("region") ?? ""} on page ${page2}`
     };
   return { ctx, region };
 }
@@ -6623,8 +6902,8 @@ function configured(owner2, attribute3, component) {
     `plugin-${attribute3.group}.${attribute3.apexlangName}`,
     ...shadowed ? [] : [`settings.${attribute3.apexlangName}`]
   ] : [`settings.${attribute3.apexlangName}`];
-  for (const path13 of paths) {
-    const value2 = get(owner2.props, path13);
+  for (const path14 of paths) {
+    const value2 = get(owner2.props, path14);
     if (value2 !== void 0) return value2;
   }
   return void 0;
@@ -7184,7 +7463,7 @@ function wrapRegion(renderer, ctx, region, parts) {
     const html = wrapRegionOnly(renderer, ctx, region, values, children2);
     if (html !== void 0) return html;
   }
-  const substitute = (path13, escape) => renderer.substitute(ctx.session, str(region.props, path13), ctx.page, escape);
+  const substitute = (path14, escape) => renderer.substitute(ctx.session, str(region.props, path14), ctx.page, escape);
   values.REGION_IMAGE_ALT_TEXT ||= escapeHtml(substitute("image.accessibleDescription", "RAW"));
   values.REGION_IMAGE_ATTRIBUTES ||= substitute("image.customAttributes", "RAW") || substitute("advanced.imageTagAttributes", "RAW");
   const advancedImage = substitute("advanced.regionImage", "RAW");
@@ -7804,12 +8083,12 @@ function graph(version) {
   const ids = activities.map((activity) => activity.id.toLowerCase());
   const level = /* @__PURE__ */ new Map();
   const start = activities.find((activity) => /start/iu.test(str(activity.props, "type"))) ?? activities[0];
-  const visit = (id, depth, path13) => {
-    if (path13.has(id) || (level.get(id) ?? -1) >= depth) return;
+  const visit = (id, depth, path14) => {
+    if (path14.has(id) || (level.get(id) ?? -1) >= depth) return;
     level.set(id, depth);
-    path13.add(id);
-    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path13);
-    path13.delete(id);
+    path14.add(id);
+    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path14);
+    path14.delete(id);
   };
   if (start) visit(start.id.toLowerCase(), 0, /* @__PURE__ */ new Set());
   let next = Math.max(-1, ...level.values()) + 1;
@@ -7860,9 +8139,9 @@ function svgFor(nodes, edges, title) {
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const back = y2 <= y1;
-    const path13 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+    const path14 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
     const label = edge.name && !/^(connection|normal)\b/iu.test(edge.name) ? `<text class="apex-local-wf-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2}">${escapeHtml(edge.name)}</text>` : "";
-    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path13}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
+    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path14}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
   }).join("");
   const boxes = nodes.map((node) => {
     const kind = ICONS[node.type] ?? node.type;
@@ -8000,19 +8279,19 @@ function viewAsPanel(renderer, ctx) {
     viewAs ? " is-on" : ""
   ) + panel("viewas", "View as", "", body4);
 }
-var schemeOf = (page) => {
-  const value2 = get(page.props, "security.authorizationScheme");
+var schemeOf = (page2) => {
+  const value2 = get(page2.props, "security.authorizationScheme");
   return isRef(value2) ? value2.ref : typeof value2 === "string" ? value2 : "";
 };
 function pagesPanel(renderer, ctx) {
-  const pages2 = [...renderer.app.pages.values()].filter((page) => page.id !== "0").sort((a, b) => Number(a.id) - Number(b.id)).map((page) => {
-    const mode = str(page.props, "appearance.pageMode", "normal");
-    const scheme = schemeOf(page);
+  const pages2 = [...renderer.app.pages.values()].filter((page2) => page2.id !== "0").sort((a, b) => Number(a.id) - Number(b.id)).map((page2) => {
+    const mode = str(page2.props, "appearance.pageMode", "normal");
+    const scheme = schemeOf(page2);
     const tags = [
       mode !== "normal" ? `<span class="apex-local-tag">${escapeHtml(mode)}</span>` : "",
       scheme ? `<span class="apex-local-tag" title="Authorization scheme">${escapeHtml(scheme)}</span>` : ""
     ].join("");
-    return `<li${page.id === ctx.pageId ? ' class="is-current"' : ""}><a href="${escapeHtml(renderer.pagePath(page))}"><span class="apex-local-page-id">${escapeHtml(page.id)}</span> ${escapeHtml(str(page.props, "name", page.id))}</a>${tags}</li>`;
+    return `<li${page2.id === ctx.pageId ? ' class="is-current"' : ""}><a href="${escapeHtml(renderer.pagePath(page2))}"><span class="apex-local-page-id">${escapeHtml(page2.id)}</span> ${escapeHtml(str(page2.props, "name", page2.id))}</a>${tags}</li>`;
   }).join("");
   return button("pages", "fa-sitemap", "Pages", "Quick links to every page") + panel(
     "pages",
@@ -8065,8 +8344,8 @@ function sessionStateRoute(renderer, session, request) {
       if (/^[A-Z][A-Z0-9_$#]*$/u.test(key)) session.items[key] = String(value2 ?? "");
     }
     if (input.clearPage) {
-      const page = renderer.findPage(String(input.clearPage));
-      for (const child of page?.children ?? [])
+      const page2 = renderer.findPage(String(input.clearPage));
+      for (const child of page2?.children ?? [])
         if (child.type === "pageItem") delete session.items[child.id.toUpperCase()];
     }
     return json2({ ok: true, items: session.items });
@@ -9602,8 +9881,8 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs7 from "node:fs";
-import path6 from "node:path";
+import fs8 from "node:fs";
+import path7 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
 var libraryCache = /* @__PURE__ */ new Map();
@@ -9612,7 +9891,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs7.readdirSync(path6.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs8.readdirSync(path7.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -10070,15 +10349,15 @@ function qrSvg(text10, options3 = {}) {
   const modules = qrMatrix(text10);
   const border = 4;
   const dimension = modules.length + border * 2;
-  const path13 = [];
+  const path14 = [];
   modules.forEach(
     (row, y) => row.forEach((dark, x) => {
-      if (dark) path13.push(`M${x + border},${y + border}h1v1h-1z`);
+      if (dark) path14.push(`M${x + border},${y + border}h1v1h-1z`);
     })
   );
   const size = options3.size ?? 160;
   const attr3 = (value2) => value2.replace(/[^#\w(),.% -]/gu, "");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path13.join("")}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path14.join("")}"/></svg>`;
 }
 
 // packages/core/src/preview/extensions/items/render.ts
@@ -10822,8 +11101,8 @@ var richTextEditor = (renderer, ctx, item2, name, value2) => {
     Object.assign(state(item2), { container: ["is-readonly"], wrapper: ["display-only"] });
     return `<div id="${name}_DISPLAY" class="display_only apex-item-display-only">${html}</div><input type="hidden" name="${name}" id="${name}" value="${escapeHtml(value2)}">`;
   }
-  const toolbar = setting(renderer, item2, "toolbar", "intermediate");
-  const tools = toolbar === "none" ? [] : toolbar === "basic" || toolbar === "simple" ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
+  const toolbar2 = setting(renderer, item2, "toolbar", "intermediate");
+  const tools = toolbar2 === "none" ? [] : toolbar2 === "basic" || toolbar2 === "simple" ? RTE_TOOLS.slice(0, 6) : RTE_TOOLS;
   ctx.onload.push(`apexLocal.items.richText(${json3(name)});`);
   const height = num(item2.props, "settings.height", num(item2.props, "appearance.height", 5) * 24 + 48);
   return `<div class="apex-item-group apex-item-group--rich-text-editor apex-local-rte" id="${name}_CONTAINER_RTE">${tools.length ? `<div class="apex-local-rte-toolbar" role="toolbar" aria-label="Formatting">${tools.map(
@@ -11101,13 +11380,13 @@ function popupLovResponse(renderer, request) {
   const rows = search ? lov.rows.filter((row) => searchable.some((column2) => matches(row[column2] ?? "", search))) : lov.rows;
   const first = Math.max(1, Number(fetchData.firstRow ?? 1));
   const max = Number(fetchData.maxRows ?? 0) || rows.length;
-  const page = rows.slice(first - 1, first - 1 + max);
+  const page2 = rows.slice(first - 1, first - 1 + max);
   return reply({
     regions: [
       {
         id: region?.id ?? name,
         fetchedData: {
-          values: page.map((row) => fields.map((field) => row[field] ?? "")),
+          values: page2.map((row) => fields.map((field) => row[field] ?? "")),
           firstRow: first,
           moreData: first - 1 + max < rows.length
         }
@@ -11290,8 +11569,8 @@ function split(value2, separator2) {
 function pageUrl(rt, args) {
   const renderer = rt?.renderer ?? lastRenderer;
   const pageKey = text4(args.p_page) ?? rt?.ctx.pageId ?? "";
-  const page = renderer?.findPage(pageKey);
-  const base = renderer ? page ? renderer.pagePath(page) : `${renderer.baseUrl}/${pageKey}` : `f?p=${pageKey}`;
+  const page2 = renderer?.findPage(pageKey);
+  const base = renderer ? page2 ? renderer.pagePath(page2) : `${renderer.baseUrl}/${pageKey}` : `f?p=${pageKey}`;
   const params2 = new URLSearchParams();
   const names = split(args.p_items, ",");
   const values = split(args.p_values, ",");
@@ -11357,8 +11636,8 @@ var STUBS = {
   "apex_util.clear_page_cache": {
     params: p("p_page_id"),
     fn: (args, rt) => {
-      const page = rt?.renderer.findPage(String(args.p_page_id ?? rt.ctx.pageId));
-      for (const item2 of page?.children.filter((child) => child.type === "pageItem") ?? [])
+      const page2 = rt?.renderer.findPage(String(args.p_page_id ?? rt.ctx.pageId));
+      for (const item2 of page2?.children.filter((child) => child.type === "pageItem") ?? [])
         delete rt.ctx.session.items[item2.id.toUpperCase()];
       return null;
     }
@@ -13214,7 +13493,7 @@ import zlib2 from "node:zlib";
 
 // packages/core/src/preview/extensions/files/store.ts
 import { randomInt } from "node:crypto";
-import path7 from "node:path";
+import path8 from "node:path";
 registerDatabaseSetup((db2) => {
   db2.db.exec(`create table if not exists apex_application_temp_files (
     id integer primary key,
@@ -13284,7 +13563,7 @@ function mimeType(bytes2, filename = "", stored2) {
     if (head.startsWith("<svg") || head.startsWith("<?xml") && head.includes("<svg"))
       return "image/svg+xml";
   }
-  return MIME[path7.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
+  return MIME[path8.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
 }
 function tempName(filename) {
   return `${randomInt(1e9, 9e9)}${randomInt(1e5, 9e5)}/${filename}`;
@@ -13396,9 +13675,9 @@ var isFileItem = (item2) => ["fileUpload", "fileBrowse", "imageUpload"].includes
 var storageType = (item2) => str(item2.props, "storage.type", "blobCol");
 function itemPage(renderer, name) {
   const upper4 = name.toUpperCase();
-  for (const page of renderer.app.pages.values())
-    if (page.children.some((child) => child.type === "pageItem" && child.id.toUpperCase() === upper4))
-      return page;
+  for (const page2 of renderer.app.pages.values())
+    if (page2.children.some((child) => child.type === "pageItem" && child.id.toUpperCase() === upper4))
+      return page2;
   return void 0;
 }
 function findItem(renderer, ctx, name) {
@@ -13600,12 +13879,12 @@ var downloadBlobColumn = (renderer, ctx, region, column2, row) => {
   return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text10)}</a>`;
 };
 function fileContext(renderer, session, pageKey, request = "") {
-  const page = pageKey ? renderer.findPage(pageKey) : void 0;
-  if (!page) return void 0;
+  const page2 = pageKey ? renderer.findPage(pageKey) : void 0;
+  if (!page2) return void 0;
   return {
     session,
-    page,
-    pageId: page.id,
+    page: page2,
+    pageId: page2.id,
     request,
     onload: [],
     jsFiles: /* @__PURE__ */ new Set(),
@@ -13615,11 +13894,11 @@ function fileContext(renderer, session, pageKey, request = "") {
     messageTemplates: {}
   };
 }
-var pageContext = (renderer, session, page) => fileContext(renderer, session, page);
+var pageContext = (renderer, session, page2) => fileContext(renderer, session, page2);
 var itemRoute = (renderer, session, request) => {
   const itemName = request.params.get("item") ?? "";
-  const page = request.params.get("page") || itemPage(renderer, itemName)?.id || "";
-  const ctx = pageContext(renderer, session, page);
+  const page2 = request.params.get("page") || itemPage(renderer, itemName)?.id || "";
+  const ctx = pageContext(renderer, session, page2);
   const item2 = ctx ? findItem(renderer, ctx, itemName) : void 0;
   if (!ctx || !item2) return notFound("Item not found");
   const inline = request.params.get("inline") === "Y";
@@ -13812,10 +14091,10 @@ function dynamicActionChild(ctx, key) {
 }
 
 // packages/core/src/preview/extensions/files/parse.ts
-import { createHash } from "node:crypto";
-import path8 from "node:path";
+import { createHash as createHash2 } from "node:crypto";
+import path9 from "node:path";
 function formatOf(filename, bytes2) {
-  const extension = path8.extname(filename ?? "").toLowerCase();
+  const extension = path9.extname(filename ?? "").toLowerCase();
   if (extension === ".xlsx" || extension === ".xlsm") return "xlsx";
   if (extension === ".json") return "json";
   if (extension === ".xml") return "xml";
@@ -14004,7 +14283,7 @@ function workbookSheets(zip2) {
     const name = xmlDecode(/\bname="([^"]*)"/u.exec(match[1])?.[1] ?? `Sheet${index + 1}`);
     const id = /\br:id="([^"]*)"/u.exec(match[1])?.[1] ?? "";
     const target2 = targets.get(id) ?? `worksheets/sheet${index + 1}.xml`;
-    return { sequence: index + 1, name, file: path8.posix.basename(target2), path: `xl/${target2}` };
+    return { sequence: index + 1, name, file: path9.posix.basename(target2), path: `xl/${target2}` };
   });
 }
 function xlsxWorksheets(bytes2) {
@@ -14096,7 +14375,7 @@ var cache2 = /* @__PURE__ */ new Map();
 var columnName = (index) => `COL${String(index + 1).padStart(3, "0")}`;
 function parseFile(bytes2, filename, options3 = {}) {
   const format2 = options3.format ?? formatOf(filename, bytes2);
-  const key = `${createHash("sha1").update(bytes2).digest("hex")}|${filename}|${JSON.stringify({ ...options3, format: format2 })}`;
+  const key = `${createHash2("sha1").update(bytes2).digest("hex")}|${filename}|${JSON.stringify({ ...options3, format: format2 })}`;
   const cached2 = cache2.get(key);
   if (cached2) return cached2;
   let result;
@@ -15332,9 +15611,9 @@ var printReportProcess = (renderer, ctx, process2, point) => {
   return { ran: true, redirectURL: printUrl(renderer, { page: ctx.pageId, process: process2.id }) };
 };
 var actionRoute = (renderer, session, request) => {
-  const page = request.params.get("page") ?? "";
-  if (!renderer.findPage(page)) return { status: 404, type: "json", body: '{"error":"page not found"}' };
-  const ctx = fileContext(renderer, session, page);
+  const page2 = request.params.get("page") ?? "";
+  if (!renderer.findPage(page2)) return { status: 404, type: "json", body: '{"error":"page not found"}' };
+  const ctx = fileContext(renderer, session, page2);
   let items = {};
   try {
     items = JSON.parse(request.body || "{}").items ?? {};
@@ -15347,7 +15626,7 @@ var actionRoute = (renderer, session, request) => {
     return {
       type: "json",
       body: JSON.stringify({
-        url: printUrl(renderer, { page, action: request.params.get("action") }),
+        url: printUrl(renderer, { page: page2, action: request.params.get("action") }),
         inline: true
       })
     };
@@ -15435,8 +15714,8 @@ registerExtension({
   submit: (renderer, session, submit) => {
     setCurrentRenderer(renderer);
     rememberArrays(session, submit.form);
-    const page = renderer.findPage(submit.pageId);
-    if (!page) return void 0;
+    const page2 = renderer.findPage(submit.pageId);
+    if (!page2) return void 0;
     const ctx = fileContext(renderer, session, submit.pageId, submit.request);
     const items = new Map(
       renderer.pageComponents(ctx, "pageItem").map((item2) => [item2.id.toUpperCase(), item2])
@@ -15474,6 +15753,342 @@ registerExtension({
     return download3 ? fileResponse(download3) : void 0;
   }
 });
+
+// packages/core/src/preview/extensions/live.ts
+function identifiers(text10) {
+  const code = text10.replace(/'(?:[^']|'')*'/gu, " ").replace(/--[^\n]*/gu, " ").replace(/\/\*[\s\S]*?\*\//gu, " ");
+  const names = /* @__PURE__ */ new Set();
+  for (const match of code.matchAll(/"([^"]+)"|([A-Za-z][\w$#]*)/gu))
+    names.add((match[1] ?? match[2]).toUpperCase());
+  return names;
+}
+var CONTENT_KEYS = /* @__PURE__ */ new Set(["htmlCode", "text"]);
+function sourceTexts(value2, into = []) {
+  if (typeof value2 === "string") into.push(value2);
+  else if (Array.isArray(value2)) for (const entry of value2) sourceTexts(entry, into);
+  else if (isObject(value2) && !isRef(value2)) {
+    for (const [key, entry] of Object.entries(value2)) if (!CONTENT_KEYS.has(key)) sourceTexts(entry, into);
+  }
+  return into;
+}
+function regionTexts(region) {
+  const texts = sourceTexts(region.props.source);
+  const visit = (children2) => {
+    for (const child of children2) {
+      if (child.type === "region") continue;
+      sourceTexts(child.props.source, texts);
+      visit(child.children);
+    }
+  };
+  visit(region.children);
+  return texts;
+}
+function catalog(renderer) {
+  const objects2 = /* @__PURE__ */ new Map();
+  for (const row of renderer.db.db.prepare(
+    "select name, type, sql from sqlite_master where type in ('table','view') and name not like 'sqlite_%'"
+  ).all())
+    objects2.set(row.name.toUpperCase(), row.type === "view" ? row.sql ?? "" : null);
+  const resolve = (names, seen = /* @__PURE__ */ new Set()) => {
+    const tables = /* @__PURE__ */ new Set();
+    for (const name of names) {
+      if (!objects2.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      const view = objects2.get(name);
+      if (view === null) tables.add(name);
+      else for (const table of resolve(identifiers(view ?? ""), seen)) tables.add(table);
+    }
+    return [...tables].sort();
+  };
+  return resolve;
+}
+function liveRegions(renderer, ctx) {
+  const regions = renderer.pageComponents(ctx, "region");
+  const resolve = catalog(renderer);
+  const tablesOf = (region) => resolve(identifiers(regionTexts(region).join("\n")));
+  const result = {};
+  for (const region of regions) {
+    const type = str(region.props, "type");
+    let tables = tablesOf(region);
+    if (FILTER_REGION_TYPES.has(type)) {
+      const filtered = regions.find(
+        (candidate) => candidate.id === ref(region.props, "source.filteredRegion")
+      );
+      tables = filtered ? tablesOf(filtered) : [];
+    }
+    if (!tables.length) continue;
+    result[renderer.regionDomId(region)] = { tables, ...type === "form" ? { form: true } : {} };
+  }
+  return result;
+}
+function page(renderer, ctx) {
+  if (!renderer.options.toolbar || renderer.isDialog(ctx.page)) return;
+  const config = { page: ctx.pageId, regions: renderer.oracle ? {} : liveRegions(renderer, ctx) };
+  ctx.onload.push(`apexLocal.live.start(${JSON.stringify(config).replaceAll("<", "\\u003c")});`);
+}
+var toolbar = () => '<button type="button" class="apex-local-tb-button apex-local-live" data-apex-local-live title="Live updates over WebSocket: connecting"><span class="apex-local-live-dot is-wait" aria-hidden="true"></span><span class="apex-local-tb-label">Live</span><span class="apex-local-badge is-info apex-local-live-count" hidden></span></button>';
+var CLIENT3 = String.raw`
+apexLocal.live = (function ($) {
+  "use strict";
+  var KEY = "apexLocal.live", SCROLL = "apexLocal.live.scroll", GAP = 800;
+  var state = { on: true, socket: null, connected: false, wasConnected: false, retry: 0, timer: 0,
+    data: true, expired: false, page: "", regions: {}, viewers: 0, sessions: 0, users: [] };
+  var queue = {};
+  // Requests of this tab carry its id, so its own changes are told apart from other tabs'.
+  var TAB = Math.random().toString(36).slice(2, 10);
+  var sameOrigin = function (url) { try { return new URL(url, location.href).origin === location.origin; } catch (e) { return false; } };
+  var nativeFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === "string" || input instanceof URL ? String(input) : input && input.url;
+    if (url && sameOrigin(url)) {
+      var headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
+      headers.set("x-apex-local-tab", TAB);
+      init = Object.assign({}, init, { headers: headers });
+    }
+    return nativeFetch.call(this, input, init);
+  };
+  $.ajaxPrefilter(function (options, original, xhr) {
+    if (!options.crossDomain) xhr.setRequestHeader("x-apex-local-tab", TAB);
+  });
+
+  function read(key) { try { return window.sessionStorage.getItem(key); } catch (e) { return null; } }
+  function enabled() { try { return window.localStorage.getItem(KEY) !== "off"; } catch (e) { return true; } }
+  function remember(on) { try { window.localStorage.setItem(KEY, on ? "on" : "off"); } catch (e) { /* private mode */ } }
+
+  function paint() {
+    var button = document.querySelector("[data-apex-local-live]");
+    if (!button) return;
+    var mode = !state.on ? "off" : state.connected ? "live" : "wait";
+    button.querySelector(".apex-local-live-dot").className = "apex-local-live-dot is-" + mode;
+    button.classList.toggle("is-on", mode === "live");
+    var count = button.querySelector(".apex-local-live-count");
+    count.textContent = mode === "live" && state.viewers > 1 ? String(state.viewers) : "";
+    count.hidden = !count.textContent;
+    var watched = Object.keys(state.regions).length;
+    button.title = mode === "off" ? "Live updates are off; click to turn them on"
+      : mode === "wait" ? "Live updates: connecting to the preview server"
+      : "Live over WebSocket · " + (state.data ? watched + " regions follow their tables" : "source reload only (connected mode)") +
+        " · " + state.viewers + " tab(s) on this page" + (state.users.length ? " (" + state.users.join(", ") + ")" : "") + " · click to turn off";
+  }
+
+  function toasts() {
+    var box = document.querySelector(".apex-local-live-toasts");
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "apex-local-live-toasts";
+      box.setAttribute("role", "status");
+      box.setAttribute("aria-live", "polite");
+      document.body.appendChild(box);
+    }
+    // Just above the developer toolbar, which wraps to two rows on narrow screens.
+    var toolbar = document.getElementById("apexLocalToolbar");
+    box.style.bottom = (toolbar ? toolbar.offsetHeight + 8 : 16) + "px";
+    return box;
+  }
+  // A short notice above the toolbar; "sticky" notices stay until closed or acted on.
+  function toast(text, level, action) {
+    var box = toasts(), note = document.createElement("div");
+    note.className = "apex-local-live-toast is-" + (level || "info");
+    var label = document.createElement("span");
+    label.textContent = text;
+    note.appendChild(label);
+    if (action) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = action.label;
+      button.onclick = function () { note.remove(); action.run(); };
+      note.appendChild(button);
+    }
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "apex-local-live-close";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "×";
+    close.onclick = function () { note.remove(); };
+    note.appendChild(close);
+    box.appendChild(note);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    if (!action && level !== "error") setTimeout(function () { note.remove(); }, 4500);
+  }
+
+  function flash(id) {
+    var element = document.getElementById(id);
+    if (!element) return;
+    element.classList.remove("apex-local-live-flash");
+    void element.offsetWidth;
+    element.classList.add("apex-local-live-flash");
+    setTimeout(function () { element.classList.remove("apex-local-live-flash"); }, 1500);
+  }
+
+  // Never throw away grid edits the user has not saved yet (the preview grid model is "<region>_ig_grid").
+  function unsaved(id) {
+    var name = id + "_ig_grid", model = apex.model && apex.model.get ? apex.model.get(name) : null;
+    if (!model) return false;
+    try { return model.isChanged(); } finally { apex.model.release(name); }
+  }
+
+  function refresh(id) {
+    if (!document.getElementById(id)) return Promise.resolve(false);
+    if (unsaved(id)) {
+      toast("Data of " + id + " changed elsewhere; save or cancel your edits to see it", "warning");
+      return Promise.resolve(false);
+    }
+    if (apex.region.isRegion && apex.region.isRegion(id))
+      return Promise.resolve(apex.region(id).refresh()).then(function () { return true; });
+    return apexLocal.refreshRegion(id).then(function () { return true; });
+  }
+
+  // One refresh per region at a time, at most one every GAP ms; changes that arrive meanwhile coalesce.
+  function schedule(id) {
+    var entry = queue[id] || (queue[id] = { running: false, pending: false, last: 0 });
+    if (entry.running) { entry.pending = true; return; }
+    entry.running = true;
+    setTimeout(function () {
+      var done = function (refreshed) {
+        entry.running = false;
+        entry.last = Date.now();
+        if (refreshed === true) flash(id);
+        if (entry.pending) { entry.pending = false; schedule(id); }
+      };
+      refresh(id).then(done, done);
+    }, Math.max(0, entry.last + GAP - Date.now()));
+  }
+
+  function changed(message) {
+    if (!state.data) return;
+    var tables = message.tables || [], regions = [], forms = [];
+    Object.keys(state.regions).forEach(function (id) {
+      var region = state.regions[id];
+      if (!document.getElementById(id)) return;
+      if (!region.tables.some(function (table) { return tables.indexOf(table) >= 0; })) return;
+      // The grid this tab is saving refreshes itself once its save returns.
+      if (message.here && unsaved(id)) return;
+      (region.form ? forms : regions).push(id);
+    });
+    regions.forEach(schedule);
+    // This tab's own changes refresh its other regions quietly (a chart next to the grid it saved).
+    if (message.here) return;
+    var who = message.self ? "Another tab" : message.user;
+    if (regions.length)
+      toast(who + " changed " + tables.join(", ") + " · " + regions.length + " region" + (regions.length > 1 ? "s" : "") + " updated", "info");
+    if (forms.length)
+      toast(who + " changed " + tables.join(", ") + "; this form may show old values", "warning",
+        { label: "Reload", run: reload });
+  }
+
+  function reload() {
+    try { window.sessionStorage.setItem(SCROLL, JSON.stringify({ url: location.href, y: window.scrollY })); } catch (e) { /* private mode */ }
+    location.reload();
+  }
+
+  function sourceChanged(message) {
+    var dirty = apex.page && apex.page.isChanged && apex.page.isChanged();
+    if (dirty) toast("Application source changed (" + (message.file || "APEXlang") + ")", "warning", { label: "Reload", run: reload });
+    else reload();
+  }
+
+  function receive(event) {
+    var message;
+    try { message = JSON.parse(event.data); } catch (e) { return; }
+    if (message.type === "hello") state.data = !!message.data;
+    else if (message.type === "presence") {
+      state.viewers = message.viewers || 0;
+      state.sessions = message.sessions || 0;
+      state.users = message.users || [];
+    } else if (message.type === "changed") changed(message);
+    else if (message.type === "reload") sourceChanged(message);
+    else if (message.type === "source-error") toast("APEXlang parse error: " + message.message, "error");
+    else if (message.type === "expired") {
+      state.expired = true;
+      toast("The preview server restarted; this page's session is gone", "warning", { label: "Reload", run: reload });
+    }
+    paint();
+  }
+
+  function connect() {
+    if (!state.on || state.socket || !window.WebSocket) return;
+    var base = location.pathname.replace(/\/[^/]*$/, "");
+    var socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + base +
+      "/__apex/live?page=" + encodeURIComponent(state.page) + "&tab=" + TAB);
+    state.socket = socket;
+    socket.onopen = function () {
+      // Changes made while the socket was down were missed: bring every followed region up to date.
+      if (state.wasConnected && state.data) Object.keys(state.regions).forEach(function (id) {
+        if (!state.regions[id].form) schedule(id);
+      });
+      state.connected = state.wasConnected = true;
+      state.retry = 0;
+      paint();
+    };
+    socket.onmessage = receive;
+    socket.onclose = function () {
+      if (state.socket !== socket) return;
+      state.socket = null;
+      state.connected = false;
+      paint();
+      if (!state.on || state.expired) return;
+      state.retry += 1;
+      state.timer = setTimeout(connect, Math.min(10000, 500 * Math.pow(2, state.retry)));
+    };
+  }
+
+  function disconnect() {
+    clearTimeout(state.timer);
+    var socket = state.socket;
+    state.socket = null;
+    state.connected = false;
+    if (socket) socket.close();
+    paint();
+  }
+
+  $(document).on("click", "[data-apex-local-live]", function () {
+    state.on = !state.on;
+    remember(state.on);
+    if (state.on) { state.retry = 0; connect(); } else disconnect();
+    paint();
+  });
+  window.addEventListener("pagehide", function () { if (state.socket) state.socket.close(); });
+  window.addEventListener("pageshow", function (event) { if (event.persisted) connect(); });
+
+  return {
+    start: function (config) {
+      state.page = config.page;
+      state.regions = config.regions || {};
+      state.on = enabled();
+      var scroll = read(SCROLL);
+      if (scroll) {
+        try {
+          var position = JSON.parse(scroll);
+          window.sessionStorage.removeItem(SCROLL);
+          if (position.url === location.href) window.scrollTo(0, position.y);
+        } catch (e) { /* ignore */ }
+      }
+      paint();
+      connect();
+    },
+    state: function () { return { on: state.on, connected: state.connected, data: state.data, viewers: state.viewers, users: state.users.slice(), regions: state.regions }; }
+  };
+})(apex.jQuery);
+`;
+var CSS2 = `
+.apex-local-live-dot{display:inline-block;width:8px;height:8px;margin:4px;border-radius:50%;background:#8a8a8a}
+.apex-local-live-dot.is-live{background:#3fd27a;animation:apexLocalLivePulse 2s infinite}
+.apex-local-live-dot.is-wait{background:#ffb347}
+@keyframes apexLocalLivePulse{0%{box-shadow:0 0 0 0 rgba(63,210,122,.6)}70%{box-shadow:0 0 0 6px rgba(63,210,122,0)}100%{box-shadow:0 0 0 0 rgba(63,210,122,0)}}
+.apex-local-live-flash{animation:apexLocalLiveFlash 1.4s ease-out}
+@keyframes apexLocalLiveFlash{0%{box-shadow:0 0 0 3px rgba(255,179,71,.95)}100%{box-shadow:0 0 0 3px rgba(255,179,71,0)}}
+.apex-local-live-toasts{position:fixed;left:16px;bottom:52px;z-index:2001;display:flex;flex-direction:column;gap:6px;max-width:min(440px,calc(100vw - 32px));font:12px/16px var(--a-base-font-family,system-ui,sans-serif)}
+.apex-local-live-toast{display:flex;gap:10px;align-items:center;padding:8px 8px 8px 12px;border-radius:8px;border-inline-start:3px solid #3fd27a;background:rgba(24,24,28,.94);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:apexLocalLiveIn .18s ease-out}
+.apex-local-live-toast>span{flex:1}
+.apex-local-live-toast.is-warning{border-inline-start-color:#ffb347}
+.apex-local-live-toast.is-error{border-inline-start-color:#ea1818}
+.apex-local-live-toast button{padding:2px 8px;border:1px solid rgba(255,255,255,.3);border-radius:4px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.apex-local-live-toast button.apex-local-live-close{border:0;font-size:16px;line-height:16px;opacity:.7}
+@keyframes apexLocalLiveIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.apex-local-live-dot.is-live,.apex-local-live-flash,.apex-local-live-toast{animation:none}}
+@media print{.apex-local-live-toasts{display:none}}
+`;
+registerExtension({ name: "live", page, toolbar, client: CLIENT3, css: CSS2 });
 
 // packages/core/src/preview/extensions/platform/store.ts
 var WORKSPACE = "PREVIEW";
@@ -15666,9 +16281,9 @@ function pageRows(context) {
   const items = [];
   const regions = [];
   const buttons = [];
-  for (const page of [...renderer.app.pages.values()].sort((a, b) => Number(a.id) - Number(b.id))) {
-    const props = page.props;
-    const pageBase = { ...base, page_id: Number(page.id), page_name: str(props, "name", page.id) };
+  for (const page2 of [...renderer.app.pages.values()].sort((a, b) => Number(a.id) - Number(b.id))) {
+    const props = page2.props;
+    const pageBase = { ...base, page_id: Number(page2.id), page_name: str(props, "name", page2.id) };
     pages2.push({
       ...pageBase,
       page_title: str(props, "title") || str(props, "name"),
@@ -15685,12 +16300,12 @@ function pageRows(context) {
       ...lastUpdated,
       last_updated_on: now()
     });
-    for (const region of walk2(page.children, "region")) {
+    for (const region of walk2(page2.children, "region")) {
       const source = isObject(region.props.source) ? region.props.source : {};
       const parent = ref(region.props, "layout.parentRegion");
       regions.push({
         ...pageBase,
-        region_id: hashId(context.appId, page.id, "region", region.id),
+        region_id: hashId(context.appId, page2.id, "region", region.id),
         region_name: str(region.props, "name", region.id),
         static_id: str(region.props, "advanced.staticId") || region.id,
         source_type: str(region.props, "type"),
@@ -15698,7 +16313,7 @@ function pageRows(context) {
         display_sequence: Number(get(region.props, "layout.sequence") ?? 0),
         display_position: str(region.props, "layout.slot"),
         template: refName(get(region.props, "appearance.template")),
-        parent_region_id: parent ? hashId(context.appId, page.id, "region", parent) : null,
+        parent_region_id: parent ? hashId(context.appId, page2.id, "region", parent) : null,
         location: str(source, "location"),
         query_type: str(source, "type"),
         table_name: str(source, "tableName"),
@@ -15709,15 +16324,15 @@ function pageRows(context) {
         ...lastUpdated
       });
     }
-    for (const item2 of walk2(page.children, "pageItem")) {
+    for (const item2 of walk2(page2.children, "pageItem")) {
       const region = ref(item2.props, "layout.region");
       items.push({
         ...pageBase,
-        item_id: hashId(context.appId, page.id, "item", item2.id),
+        item_id: hashId(context.appId, page2.id, "item", item2.id),
         item_name: item2.id.toUpperCase(),
         display_sequence: Number(get(item2.props, "layout.sequence") ?? 0),
         region: region ?? "",
-        region_id: region ? hashId(context.appId, page.id, "region", region) : null,
+        region_id: region ? hashId(context.appId, page2.id, "region", region) : null,
         label: str(item2.props, "label.label"),
         display_as: str(item2.props, "type"),
         display_as_code: `NATIVE_${str(item2.props, "type").replace(/([a-z])([A-Z])/gu, "$1_$2").toUpperCase()}`,
@@ -15733,10 +16348,10 @@ function pageRows(context) {
         ...lastUpdated
       });
     }
-    for (const button2 of walk2(page.children, "button")) {
+    for (const button2 of walk2(page2.children, "button")) {
       buttons.push({
         ...pageBase,
-        button_id: hashId(context.appId, page.id, "button", button2.id),
+        button_id: hashId(context.appId, page2.id, "button", button2.id),
         button_name: str(button2.props, "buttonName", button2.id.toUpperCase()),
         label: str(button2.props, "label"),
         button_sequence: Number(get(button2.props, "layout.sequence") ?? 0),
@@ -16621,7 +17236,7 @@ function submitFeedback(args, rt) {
   const renderer = rt.renderer;
   const db2 = raw(renderer);
   const pageId = String(args.p_page_id ?? rt.ctx.pageId);
-  const page = renderer.findPage(pageId);
+  const page2 = renderer.findPage(pageId);
   const id = Number(
     one(db2, "select coalesce(max(feedback_id), 0) + 1 as id from apex_local_feedback")?.id ?? 1
   );
@@ -16629,7 +17244,7 @@ function submitFeedback(args, rt) {
     feedback_id: id,
     application_id: Number(args.p_application_id ?? renderer.appId) || appIdOf(renderer),
     page_id: Number(pageId) || null,
-    page_name: page ? str(page.props, "name", page.id) : null,
+    page_name: page2 ? str(page2.props, "name", page2.id) : null,
     session_id: rt.ctx.session.id,
     user_name: rt.ctx.session.user,
     user_email: textOf2(args.p_email),
@@ -16955,7 +17570,7 @@ var ADMIN_STUBS = {
 };
 
 // packages/core/src/preview/extensions/platform/collections.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 var pad2 = (index) => String(index).padStart(3, "0");
 var C = Array.from({ length: 50 }, (_, index) => `c${pad2(index + 1)}`);
 var N = Array.from({ length: 5 }, (_, index) => `n${pad2(index + 1)}`);
@@ -17003,7 +17618,7 @@ function remove(scope2, name) {
     db(scope2).prepare(`delete from ${table} where session_id = ? and collection_name = ?`).run(scope2.session, name);
 }
 var text6 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : typeof value2 === "number" ? value2 : String(value2);
-var md5 = (values) => createHash2("md5").update(values.map((value2) => value2 === null || value2 === void 0 ? "" : String(value2)).join("|")).digest("hex");
+var md5 = (values) => createHash3("md5").update(values.map((value2) => value2 === null || value2 === void 0 ? "" : String(value2)).join("|")).digest("hex");
 function attributes(args) {
   const values = {};
   for (const attribute3 of ATTRIBUTES) {
@@ -17602,23 +18217,23 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs8 from "node:fs";
-import path9 from "node:path";
-var restDir = (renderer) => path9.join(renderer.app.root, ".apex-local", "rest");
+import fs9 from "node:fs";
+import path10 from "node:path";
+var restDir = (renderer) => path10.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
 function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
-    const file = path9.join(dir, `${safe(candidate)}.json`);
-    if (!fs8.existsSync(file)) continue;
-    const source = fs8.readFileSync(file, "utf8");
+    const file = path10.join(dir, `${safe(candidate)}.json`);
+    if (!fs9.existsSync(file)) continue;
+    const source = fs9.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
     } catch (error) {
       renderer.diagnose(
         "warning",
-        `REST fixture ${path9.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
+        `REST fixture ${path10.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
       );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
@@ -17645,7 +18260,7 @@ function logCall(renderer, ctx, entry) {
     source: entry.source,
     method: entry.method.toUpperCase(),
     url: entry.url,
-    fixture: entry.fixture ? path9.relative(renderer.app.root, entry.fixture.file) : null,
+    fixture: entry.fixture ? path10.relative(renderer.app.root, entry.fixture.file) : null,
     status_code: entry.fixture?.status ?? 404,
     request_body: entry.body ?? null,
     response_body: entry.fixture ? entry.fixture.text.slice(0, 4e3) : null,
@@ -18890,9 +19505,9 @@ var PAGINATION_TYPES = /* @__PURE__ */ new Set([
   "nextAndPreviousLinks"
 ]);
 function pagination(template, type, pager) {
-  const { domId, page, perPage, total, shown, align } = pager;
+  const { domId, page: page2, perPage, total, shown, align } = pager;
   if (!shown || type === "showAll" || type === "externalPaginationButtons") return "";
-  const first = (page - 1) * perPage + 1;
+  const first = (page2 - 1) * perPage + 1;
   const last = first + shown - 1;
   const pages2 = Math.max(1, Math.ceil(total / perPage));
   const link = (target2) => `javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${target2})`;
@@ -18900,20 +19515,20 @@ function pagination(template, type, pager) {
   const ofTotal = /OfZ/u.test(type) ? ` of ${total}` : "";
   const range = fill(textTemplate, { TEXT: `${first} - ${last}${ofTotal}` });
   if (/NoPagination$/u.test(type)) return `<tr><td colspan="99"${align}>${range}</td></tr>`;
-  const previous = page > 1 ? fill(
+  const previous = page2 > 1 ? fill(
     text2(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
-    { LINK: link(page - 1), PAGINATION_PREVIOUS: "Previous" }
+    { LINK: link(page2 - 1), PAGINATION_PREVIOUS: "Previous" }
   ) : "";
   const next = last < total ? fill(
     text2(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
-    { LINK: link(page + 1), PAGINATION_NEXT: "Next" }
+    { LINK: link(page2 + 1), PAGINATION_NEXT: "Next" }
   ) : "";
   if (type === "nextAndPreviousLinks") return `<tr><td colspan="99"${align}>${previous}${next}</td></tr>`;
   if (type === "setPaginationSelectList") {
     const options3 = Array.from({ length: pages2 }, (_unused, index) => {
       const from = index * perPage + 1;
       const to = Math.min(total, from + perPage - 1);
-      return `<option value="${index + 1}"${index + 1 === page ? " selected" : ""}>${from} - ${to} of ${total}</option>`;
+      return `<option value="${index + 1}"${index + 1 === page2 ? " selected" : ""}>${from} - ${to} of ${total}</option>`;
     }).join("");
     return `<tr><td colspan="99"${align}>${previous}<select class="t-Report-paginationSelect apex-item-select" aria-label="Pagination" onchange="apexLocalReports.paginate('${escapeHtml(domId)}',this.value)">${options3}</select>${next}</td></tr>`;
   }
@@ -18922,7 +19537,7 @@ function pagination(template, type, pager) {
       const from = index * perPage + 1;
       const to = Math.min(total, from + perPage - 1);
       const label = type === "setPaginationLinks" ? `${from}-${to}` : String(index + 1);
-      return index + 1 === page ? `<span class="t-Report-paginationText"><b>${label}</b></span>` : `<a href="${link(index + 1)}" class="t-Report-paginationLink">${label}</a>`;
+      return index + 1 === page2 ? `<span class="t-Report-paginationText"><b>${label}</b></span>` : `<a href="${link(index + 1)}" class="t-Report-paginationLink">${label}</a>`;
     }).join(" ");
     return `<tr><td colspan="99"${align}>${previous}${links}${next}</td></tr>`;
   }
@@ -18953,8 +19568,8 @@ function classicReport(renderer, ctx, region) {
   const noPaging = /NoPagination$/u.test(type) || type === "showAll";
   const key = stateKey(ctx.pageId, region.id);
   const pages2 = Math.max(1, Math.ceil(rows.length / perPage));
-  const page = noPaging ? 1 : Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
-  const visible = rows.slice((page - 1) * perPage, page * perPage);
+  const page2 = noPaging ? 1 : Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
+  const visible = rows.slice((page2 - 1) * perPage, page2 * perPage);
   const noData = renderer.substitute(
     ctx.session,
     str(region.props, "messages.whenNoDataFound", "no data found"),
@@ -18983,7 +19598,7 @@ function classicReport(renderer, ctx, region) {
   );
   const pager = pagination(template, type, {
     domId,
-    page,
+    page: page2,
     perPage,
     total: rows.length,
     shown: visible.length,
@@ -19033,7 +19648,7 @@ function classicReport(renderer, ctx, region) {
       (row, index) => fill(positional(text2(template, "row_template1"), row, index), {
         ...Object.fromEntries(Object.keys(row).map((name) => [name, escapeHtml(row[name] ?? "")])),
         ...Object.fromEntries(all2.map((column2) => [column2.id.toUpperCase(), display2(column2, row, index)])),
-        ROWNUM: String((page - 1) * perPage + index + 1),
+        ROWNUM: String((page2 - 1) * perPage + index + 1),
         COLCOUNT: String(columns.length)
       })
     ).join("\n");
@@ -20591,7 +21206,7 @@ var RESERVED = /* @__PURE__ */ new Set([
   "BETWEEN",
   "DATE"
 ]);
-function identifiers(columns, others = []) {
+function identifiers2(columns, others = []) {
   const letters = (index) => {
     let name = "";
     for (let value2 = index + 1; value2 > 0; value2 = Math.floor((value2 - 1) / 26))
@@ -21763,7 +22378,7 @@ function irModel(renderer, ctx, region) {
   const limit = rowLimit(region, 1e5);
   let result = sql ? renderer.query(ctx, region, sql, limit + 1) : { columns: [], rows: [], error: "no local source" };
   const base = regionColumns(region, result.columns);
-  const ids = identifiers(
+  const ids = identifiers2(
     base.filter((column2) => !isSpecialColumn(column2.id)),
     base.filter((column2) => isSpecialColumn(column2.id))
   );
@@ -22041,9 +22656,9 @@ function interactiveReport(renderer, ctx, region, slots) {
   const perPage = state2.rowsPerPage && state2.rowsPerPage > 0 ? state2.rowsPerPage : 50;
   const all2 = state2.rowsPerPage === -1;
   const pages2 = all2 ? 1 : Math.max(1, Math.ceil(rows.length / perPage));
-  const page = Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
+  const page2 = Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
   const size = all2 ? rows.length || 1 : perPage;
-  const visible = rows.slice((page - 1) * size, page * size);
+  const visible = rows.slice((page2 - 1) * size, page2 * size);
   const searchBar = get(region.props, "searchBar.includeSearchBar") !== false;
   const searchField = searchBar && get(region.props, "searchBar.searchField") !== false;
   const finder = searchField && get(region.props, "searchBar.finderDropDown") !== false;
@@ -22098,7 +22713,7 @@ function interactiveReport(renderer, ctx, region, slots) {
       (report2) => `<option value="${escapeHtml(report2.id)}"${report2 === currentReport ? " selected" : ""}>${escapeHtml(report2.name)}</option>`
     ).join("")}</optgroup>` : "";
   }).join("");
-  const toolbar = searchBar ? `<div class="a-IRR-toolbar" id="${id}_toolbar">
+  const toolbar2 = searchBar ? `<div class="a-IRR-toolbar" id="${id}_toolbar">
 ${searchField ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--search"><div class="a-IRR-search" role="search">${finder ? `<button class="a-Button a-IRR-button a-IRR-button--colSearch" type="button" id="${id}_column_search_root" aria-haspopup="menu" aria-label="Select columns to search" title="Select columns to search">${icon2("icon-search")}${icon2("icon-menu-drop-down")}</button><div id="${id}_column_search_drop" class="a-Menu" style="display:none"></div>` : ""}<div class="a-IRR-searchFieldContainer"><input class="a-IRR-search-field" type="search" id="${id}_search_field" placeholder="Search: All Text Columns" aria-label="Search: All Text Columns" autocomplete="off"></div><div class="a-IRR-searchButtonContainer"><button class="a-Button a-IRR-button a-IRR-button--search" type="button" id="${id}_search_button">${escapeHtml(goLabel)}</button></div></div></div>` : ""}${reportsSelect ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--savedReports"><label for="${id}_saved_reports" class="u-VisuallyHidden">Saved Report</label><select class="a-IRR-selectList" id="${id}_saved_reports" data-apex-local-ir-report="${id}">${reportOptions}</select></div>` : ""}${rowsSelector ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--rowSelector"><label for="${id}_row_select" class="u-VisuallyHidden">Rows</label><select class="a-IRR-selectList" id="${id}_row_select" data-apex-local-ir-rows="${id}">${[
     ...config.rowsPerPageOptions,
     -1
@@ -22171,11 +22786,11 @@ ${searchField ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--search"><div
     "HTML"
   );
   const noDataHtml = `<div class="a-IRR-noDataMsg"><span class="a-IRR-noDataMsg-icon a-Icon icon-irr-no-results" aria-hidden="true"></span><span class="a-IRR-noDataMsg-text">${noData}</span></div>`;
-  const first = (page - 1) * size + 1;
+  const first = (page2 - 1) * size + 1;
   const last = first + visible.length - 1;
   const ofTotal = str(region.props, "pagination.type", "rowRangesXToYOfZ") === "rowRangesXToY" ? "" : ` of ${rows.length}`;
   const pageButton = (target2, label, iconName) => `<li class="a-IRR-pagination-item"><button class="a-Button a-IRR-button a-IRR-button--pagination" type="button" data-apex-local-ir-page="${target2}" title="${label}" aria-label="${label}">${icon2(iconName)}</button></li>`;
-  const pagination2 = visible.length ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><ul class="a-IRR-pagination" role="group" aria-label="Pagination">${page > 1 ? pageButton(page - 1, "Previous", "icon-left-chevron") : ""}<li class="a-IRR-pagination-item"><span class="a-IRR-pagination-label">${first} - ${last}${ofTotal}</span></li>${last < rows.length ? pageButton(page + 1, "Next", "icon-right-chevron") : ""}</ul></div>` : "";
+  const pagination2 = visible.length ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><ul class="a-IRR-pagination" role="group" aria-label="Pagination">${page2 > 1 ? pageButton(page2 - 1, "Previous", "icon-left-chevron") : ""}<li class="a-IRR-pagination-item"><span class="a-IRR-pagination-label">${first} - ${last}${ofTotal}</span></li>${last < rows.length ? pageButton(page2 + 1, "Next", "icon-right-chevron") : ""}</ul></div>` : "";
   const more = model.moreData ? `<div class="a-IRR-message apex-local-moreData">${escapeHtml(
     str(
       region.props,
@@ -22204,14 +22819,14 @@ ${searchField ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--search"><div
       id,
       domId,
       visible,
-      start: (page - 1) * size,
-      lastPage: page === pages2,
+      start: (page2 - 1) * size,
+      lastPage: page2 === pages2,
       link
     }) : noDataHtml}</div>
 ${pagination2}</div>`;
   }
   return `<div class="a-IRR-container" id="${id}_ir" data-apex-local-ir="${escapeHtml(JSON.stringify(config))}"><div class="a-IRR" id="${id}_worksheet_id" role="group" aria-label="${escapeHtml(str(region.props, "title", str(region.props, "name")))}">
-${toolbar}
+${toolbar2}
 ${tabs}${chipList}${more}
 <div class="a-IRR-content" id="${id}_content">${content}</div></div></div>`;
 }
@@ -22427,11 +23042,11 @@ var json4 = (body4, status = 200) => ({
   type: "json",
   body: JSON.stringify(body4)
 });
-function target(renderer, session, page, regionId) {
-  if (!page || !regionId) return "page and region are required";
+function target(renderer, session, page2, regionId) {
+  if (!page2 || !regionId) return "page and region are required";
   let ctx;
   try {
-    ctx = renderer.prepare(session, page);
+    ctx = renderer.prepare(session, page2);
   } catch (error) {
     return error.message;
   }
@@ -23059,8 +23674,8 @@ function transactionRisk(code) {
   if (/\bpragma\s+autonomous_transaction\b/iu.test(bare)) return "PRAGMA AUTONOMOUS_TRANSACTION";
   return void 0;
 }
-function apexPage(installed, page) {
-  return installed.includes(page) ? page : installed.find((id) => id > 0) ?? installed[0] ?? page;
+function apexPage(installed, page2) {
+  return installed.includes(page2) ? page2 : installed.find((id) => id > 0) ?? installed[0] ?? page2;
 }
 function wrongShape(error, mode) {
   if (mode === "block") return false;
@@ -24289,8 +24904,8 @@ function tabform(renderer, ctx, region) {
   const visible = names.filter((name) => !hidden2(name));
   const perPage = Math.max(1, num(region.props, "reportLayout.numberOfRows", 15));
   const pageCount = Math.max(1, Math.ceil(result.rows.length / perPage));
-  const page = Math.min(pageCount, Math.max(1, ctx.session.pagination[stateKey(ctx.pageId, region.id)] ?? 1));
-  const rows = result.rows.slice((page - 1) * perPage, page * perPage);
+  const page2 = Math.min(pageCount, Math.max(1, ctx.session.pagination[stateKey(ctx.pageId, region.id)] ?? 1));
+  const rows = result.rows.slice((page2 - 1) * perPage, page2 * perPage);
   const added = ctx.session.pagination[addKey(ctx.pageId, region)] ?? 0;
   const selector = `<input type="checkbox" class="u-selector" data-tabform-select aria-label="Select row">`;
   const cell = (name, row) => {
@@ -24321,7 +24936,7 @@ function tabform(renderer, ctx, region) {
     ...rows.map((row) => line(row)),
     ...Array.from({ length: added }, () => line(void 0))
   ].join("");
-  const pager = pageCount > 1 ? `<div class="t-Report-pagination apex-local-tabform-pages">${page > 1 ? `<a href="javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${page - 1})" class="t-Report-paginationLink t-Report-paginationLink--prev">Previous</a>` : ""}<span class="t-Report-paginationText">${(page - 1) * perPage + 1} - ${(page - 1) * perPage + rows.length} of ${result.rows.length}</span>${page < pageCount ? `<a href="javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${page + 1})" class="t-Report-paginationLink t-Report-paginationLink--next">Next</a>` : ""}</div>` : "";
+  const pager = pageCount > 1 ? `<div class="t-Report-pagination apex-local-tabform-pages">${page2 > 1 ? `<a href="javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${page2 - 1})" class="t-Report-paginationLink t-Report-paginationLink--prev">Previous</a>` : ""}<span class="t-Report-paginationText">${(page2 - 1) * perPage + 1} - ${(page2 - 1) * perPage + rows.length} of ${result.rows.length}</span>${page2 < pageCount ? `<a href="javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${page2 + 1})" class="t-Report-paginationLink t-Report-paginationLink--next">Next</a>` : ""}</div>` : "";
   const item2 = tabformItem(region);
   return `<div class="t-Report t-Report--altRowsDefault apex-local-tabform" id="report_${escapeHtml(domId)}" data-region-id="${escapeHtml(domId)}" data-item="${item2}"><input type="hidden" id="${item2}" name="${item2}" value=""><div class="t-Report-wrap"><div class="t-Report-tableWrap"><table class="t-Report-report" aria-label="${escapeHtml(str(region.props, "title", str(region.props, "name")))}"><thead><tr>${head}</tr></thead><tbody>` + (body4 || `<tr><td colspan="${visible.length || 1}" class="t-Report-cell"><span class="nodatafound">${escapeHtml(str(region.props, "messages.whenNoDataFound", "no data found"))}</span></td></tr>`) + `</tbody></table></div>${pager}</div></div>`;
 }
@@ -24675,10 +25290,10 @@ function runSearch(renderer, ctx, region, request) {
     const { rows, error } = configRows(renderer, ctx, config, terms, limit);
     if (error)
       renderer.diagnose("info", `Search configuration ${config.id}: ${error}`, ctx.pageId, region.id);
-    const page = perPage ? rows.slice(first - 1, first - 1 + perPage + 1) : rows;
+    const page2 = perPage ? rows.slice(first - 1, first - 1 + perPage + 1) : rows;
     const noData = str(config.props, "messages.whenNoDataFound");
     configs.push({
-      results: page.map((row) => ({ row: resultRow(renderer, ctx, region, source, config, row, terms) })),
+      results: page2.map((row) => ({ row: resultRow(renderer, ctx, region, source, config, row, terms) })),
       resultsCount: rows.length,
       ...noData ? { noDataFound: escapeHtml(noData) } : {}
     });
@@ -24743,13 +25358,13 @@ function searchRoute(renderer, session, params2, body4) {
     type: "json",
     body: JSON.stringify(value2)
   });
-  const page = params2.get("page") ?? "";
+  const page2 = params2.get("page") ?? "";
   const regionId = params2.get("region") ?? "";
   let ctx;
   try {
     for (const [name, value2] of Object.entries(body4.items ?? {}))
       session.items[name.toUpperCase()] = String(value2);
-    ctx = renderer.prepare(session, page);
+    ctx = renderer.prepare(session, page2);
   } catch (error) {
     return json5({ error: error.message }, 404);
   }
@@ -24957,12 +25572,12 @@ function treeRoute(renderer, session, params2, items) {
     type: "json",
     body: JSON.stringify(body4)
   });
-  const page = params2.get("page") ?? "";
+  const page2 = params2.get("page") ?? "";
   const regionId = params2.get("region") ?? "";
   let ctx;
   try {
     for (const [name, item2] of Object.entries(items)) session.items[name.toUpperCase()] = item2;
-    ctx = renderer.prepare(session, page);
+    ctx = renderer.prepare(session, page2);
   } catch (error) {
     return json5({ error: error.message }, 404);
   }
@@ -24980,8 +25595,8 @@ function treeRoute(renderer, session, params2, items) {
 
 // packages/core/src/preview/extensions/structure/wizard.ts
 function attribute2(props, key) {
-  for (const path13 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
-    const value2 = get(props, path13);
+  for (const path14 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
+    const value2 = get(props, path14);
     if (value2 !== void 0 && value2 !== null && !isObject(value2))
       return Array.isArray(value2) ? value2.map(String).join(",") : String(value2);
   }
@@ -25193,10 +25808,10 @@ var formPagination = (renderer, ctx, process2) => {
 var resetPagination = (renderer, ctx, process2) => {
   const target2 = attribute2(process2.props, "target") || "thisPage";
   const pages2 = target2 === "allPages" ? void 0 : target2 === "pages" ? list(process2.props, "resetPagination.pages").length ? list(process2.props, "resetPagination.pages").map(String) : attribute2(process2.props, "pages").split(/[,:\s]+/u).filter(Boolean) : [ctx.pageId];
-  const ids = pages2?.map((page) => renderer.findPage(page)?.id ?? page);
+  const ids = pages2?.map((page2) => renderer.findPage(page2)?.id ?? page2);
   for (const key of Object.keys(ctx.session.pagination)) {
-    const page = key.split(":")[0];
-    if (!ids || ids.includes(page)) delete ctx.session.pagination[key];
+    const page2 = key.split(":")[0];
+    if (!ids || ids.includes(page2)) delete ctx.session.pagination[key];
   }
   return { ran: true };
 };
@@ -25537,12 +26152,12 @@ var ApexRenderer = class {
   get baseUrl() {
     return `/r/${this.alias}`;
   }
-  diagnose(level, message, page, component) {
+  diagnose(level, message, page2, component) {
     this.trace(void 0, { type: "diagnostic", name: component ?? "", detail: message, level });
-    const key = `${level}|${page}|${component}|${message}`;
+    const key = `${level}|${page2}|${component}|${message}`;
     if (this.#diagnosticKeys.has(key)) return;
     this.#diagnosticKeys.add(key);
-    this.diagnostics.push({ level, message, ...page ? { page } : {}, ...component ? { component } : {} });
+    this.diagnostics.push({ level, message, ...page2 ? { page: page2 } : {}, ...component ? { component } : {} });
   }
   /** Debug trace for the developer toolbar; extensions receive it through `trace`. */
   trace(ctx, event) {
@@ -25560,8 +26175,8 @@ var ApexRenderer = class {
     const byId = this.app.pages.get(key);
     if (byId) return byId;
     const lower2 = key.toLowerCase();
-    for (const page of this.app.pages.values()) {
-      if (str(page.props, "alias").toLowerCase() === lower2) return page;
+    for (const page2 of this.app.pages.values()) {
+      if (str(page2.props, "alias").toLowerCase() === lower2) return page2;
     }
     return void 0;
   }
@@ -25570,9 +26185,9 @@ var ApexRenderer = class {
     if (isObject(home) && home.page !== void 0) return this.findPage(String(home.page))?.id ?? "1";
     return this.app.pages.has("1") ? "1" : [...this.app.pages.keys()].find((id) => id !== "0") ?? "1";
   }
-  pagePath(page) {
-    const alias = str(page.props, "alias");
-    return `${this.baseUrl}/${alias ? alias.toLowerCase() : page.id}`;
+  pagePath(page2) {
+    const alias = str(page2.props, "alias");
+    return `${this.baseUrl}/${alias ? alias.toLowerCase() : page2.id}`;
   }
   pageComponents(ctx, type) {
     const own = ctx.page.children.filter((child) => child.type === type);
@@ -25591,7 +26206,7 @@ var ApexRenderer = class {
   urls(value2) {
     return value2.replaceAll("#APEX_FILES#", IMAGE_PREFIX).replaceAll("#IMAGE_PREFIX#", IMAGE_PREFIX).replaceAll("#THEME_FILES#", this.filePrefix()).replaceAll("#THEME_IMAGES#", this.filePrefix()).replaceAll("#APP_FILES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#APP_IMAGES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#WORKSPACE_FILES#", `${this.baseUrl}/files/workspace/`).replaceAll("#WORKSPACE_IMAGES#", `${this.baseUrl}/files/workspace/`).replaceAll("#MIN_DIRECTORY#", "minified/").replaceAll("#MIN#", ".min").replaceAll("#APEX_VERSION#", APEX_FULL_VERSION).replaceAll("#APEX_BASE_VERSION#", APEX_FULL_VERSION.split(".").slice(0, 2).join(".")).replaceAll("#APP_VERSION#", "");
   }
-  builtin(session, page) {
+  builtin(session, page2) {
     const app = this.app.app.props;
     return {
       APP_ID: this.appId,
@@ -25601,8 +26216,8 @@ var ApexRenderer = class {
       APP_USER: session.user,
       APP_SESSION: session.id,
       SESSION: session.id,
-      APP_PAGE_ID: page?.id ?? "",
-      APP_PAGE_ALIAS: str(page?.props ?? {}, "alias").toUpperCase(),
+      APP_PAGE_ID: page2?.id ?? "",
+      APP_PAGE_ALIAS: str(page2?.props ?? {}, "alias").toUpperCase(),
       APP_VERSION: "",
       APP_TENANT_ID: "",
       BROWSER_LANGUAGE: "en",
@@ -25627,8 +26242,8 @@ var ApexRenderer = class {
     };
   }
   /** Session state, built-ins, and `&APP_TEXT$...` messages for `&NAME.` substitutions. */
-  substitute(session, value2, page, defaultEscape = "HTML") {
-    const builtins = this.builtin(session, page);
+  substitute(session, value2, page2, defaultEscape = "HTML") {
+    const builtins = this.builtin(session, page2);
     const replaced = value2.replace(
       /&(?:"([^"]+)"|([A-Za-z][\w$#.]*?))(?:!([A-Z]+))?\./gu,
       (whole, quoted, plain, filter) => {
@@ -25646,16 +26261,16 @@ var ApexRenderer = class {
     return this.urls(replaced);
   }
   isKnownItem(name) {
-    for (const page of this.app.pages.values()) {
-      if (page.children.some((child) => child.type === "pageItem" && child.id.toUpperCase() === name))
+    for (const page2 of this.app.pages.values()) {
+      if (page2.children.some((child) => child.type === "pageItem" && child.id.toUpperCase() === name))
         return true;
     }
     return this.app.shared.some(
       (component) => component.type === "appItem" && component.id.toUpperCase() === name
     );
   }
-  binds(session, page) {
-    const builtins = this.builtin(session, page);
+  binds(session, page2) {
+    const builtins = this.builtin(session, page2);
     const binds = { ...builtins, ...session.items };
     for (const name of RESERVED_BUILTINS) if (name in builtins) binds[name] = builtins[name];
     return binds;
@@ -25770,7 +26385,7 @@ var ApexRenderer = class {
       return { href: url2 === "separator" ? "separator" : this.substitute(ctx.session, url2, ctx.page, "RAW") };
     }
     const pageKey = this.substitute(ctx.session, rowValue(str(target2, "page", ctx.pageId)), ctx.page, "RAW");
-    const page = this.findPage(pageKey);
+    const page2 = this.findPage(pageKey);
     const parameters = new URLSearchParams();
     const items = get(target2, "items");
     if (isObject(items)) {
@@ -25784,56 +26399,56 @@ var ApexRenderer = class {
     const request = str(target2, "request");
     if (request) parameters.set("request", request);
     const query = parameters.toString();
-    const base = page ? this.pagePath(page) : `${this.baseUrl}/${pageKey}`;
-    return { href: `${base}${query ? `?${query}` : ""}`, ...page ? { page } : {} };
+    const base = page2 ? this.pagePath(page2) : `${this.baseUrl}/${pageKey}`;
+    return { href: `${base}${query ? `?${query}` : ""}`, ...page2 ? { page: page2 } : {} };
   }
-  isDialog(page) {
-    const mode = str(page?.props ?? {}, "appearance.pageMode");
+  isDialog(page2) {
+    const mode = str(page2?.props ?? {}, "appearance.pageMode");
     return mode === "modalDialog" || mode === "nonModalDialog" || mode === "drawer";
   }
-  pageTemplateId(page) {
+  pageTemplateId(page2) {
     const theme = this.themeComponent();
-    if (this.isDialog(page)) {
-      return (ref(page.props, "appearance.dialogTemplate") ?? ref(theme?.props ?? {}, "dialogDefaults.dialogPage") ?? defaultStaticId(this.theme, "default_dialog_template", "modal-dialog")).toLowerCase();
+    if (this.isDialog(page2)) {
+      return (ref(page2.props, "appearance.dialogTemplate") ?? ref(theme?.props ?? {}, "dialogDefaults.dialogPage") ?? defaultStaticId(this.theme, "default_dialog_template", "modal-dialog")).toLowerCase();
     }
-    const explicit = ref(page.props, "appearance.pageTemplate");
+    const explicit = ref(page2.props, "appearance.pageTemplate");
     if (explicit) return explicit.toLowerCase();
     const login = get(this.app.app.props, "navigation.loginUrl");
     const loginPage = isObject(login) ? this.findPage(str(login, "page")) : void 0;
-    if (loginPage === page || /login/iu.test(str(page.props, "alias"))) {
+    if (loginPage === page2 || /login/iu.test(str(page2.props, "alias"))) {
       return (ref(theme?.props ?? {}, "componentDefaults.loginPage") ?? "login").toLowerCase();
     }
     return (ref(theme?.props ?? {}, "componentDefaults.page") ?? defaultStaticId(this.theme, "default_page_template", "standard")).toLowerCase();
   }
   /** Link to a page: modal targets open through the theme's dialog JavaScript. */
   link(ctx, target2, row, triggeringElement = "this") {
-    const { href, page } = this.targetUrl(ctx, target2, row);
-    if (!page || !this.isDialog(page)) return href;
-    return `javascript:${this.dialogJs(page, href, triggeringElement)}`;
+    const { href, page: page2 } = this.targetUrl(ctx, target2, row);
+    if (!page2 || !this.isDialog(page2)) return href;
+    return `javascript:${this.dialogJs(page2, href, triggeringElement)}`;
   }
-  dialogJs(page, url2, triggeringElement) {
-    const template = this.theme.pages.get(this.pageTemplateId(page)) ?? this.theme.pages.get("modal-dialog");
-    const options3 = strings6(list(page.props, "appearance.templateOptions"));
+  dialogJs(page2, url2, triggeringElement) {
+    const template = this.theme.pages.get(this.pageTemplateId(page2)) ?? this.theme.pages.get("modal-dialog");
+    const options3 = strings6(list(page2.props, "appearance.templateOptions"));
     const dialogClasses = options3.filter((option) => option.startsWith("js-dialog-class-")).map((option) => option.slice(16));
     const pageClasses = options3.filter(
       (option) => option !== "#DEFAULT#" && !option.startsWith("js-dialog-class-")
     );
     const attributes2 = [];
-    if (get(page.props, "dialog.resizable") !== void 0)
-      attributes2.push(`resizable:${bool(page.props, "dialog.resizable", true)}`);
-    if (get(page.props, "dialog.chained") !== void 0)
-      attributes2.push(`chained:${bool(page.props, "dialog.chained", true)}`);
+    if (get(page2.props, "dialog.resizable") !== void 0)
+      attributes2.push(`resizable:${bool(page2.props, "dialog.resizable", true)}`);
+    if (get(page2.props, "dialog.chained") !== void 0)
+      attributes2.push(`chained:${bool(page2.props, "dialog.chained", true)}`);
     const literal2 = (value2) => `'${escapeJs(value2)}'`;
     const code = text2(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
     return fill(code, {
       PAGE_URL: literal2(url2),
-      TITLE: literal2(str(page.props, "title", str(page.props, "name"))),
-      DIALOG_HEIGHT: literal2(str(page.props, "dialog.height", text2(template, "dialog_height") || "auto")),
-      DIALOG_WIDTH: literal2(str(page.props, "dialog.width", text2(template, "dialog_width") || "720")),
+      TITLE: literal2(str(page2.props, "title", str(page2.props, "name"))),
+      DIALOG_HEIGHT: literal2(str(page2.props, "dialog.height", text2(template, "dialog_height") || "auto")),
+      DIALOG_WIDTH: literal2(str(page2.props, "dialog.width", text2(template, "dialog_width") || "720")),
       DIALOG_MAX_WIDTH: literal2(
-        str(page.props, "dialog.maxWidth", text2(template, "dialog_max_width") || "960")
+        str(page2.props, "dialog.maxWidth", text2(template, "dialog_max_width") || "960")
       ),
-      IS_MODAL: String(str(page.props, "appearance.pageMode") !== "nonModalDialog"),
+      IS_MODAL: String(str(page2.props, "appearance.pageMode") !== "nonModalDialog"),
       DIALOG: "null",
       DIALOG_CSS_CLASSES: literal2(dialogClasses.join(" ")),
       DIALOG_ATTRIBUTES: attributes2.join(","),
@@ -25961,12 +26576,12 @@ var ApexRenderer = class {
   }
   tableHints(table) {
     const hints = [];
-    for (const page of this.app.pages.values()) {
-      const regions = page.children.filter(
+    for (const page2 of this.app.pages.values()) {
+      const regions = page2.children.filter(
         (child) => child.type === "region" && str(child.props, "source.tableName").toUpperCase() === table.toUpperCase()
       );
       for (const region of regions)
-        for (const item2 of page.children.filter(
+        for (const item2 of page2.children.filter(
           (child) => child.type === "pageItem" && ref(child.props, "source.formRegion") === region.id
         )) {
           const column2 = str(item2.props, "source.column");
@@ -25982,8 +26597,8 @@ var ApexRenderer = class {
         }
     }
     const mentions = new RegExp(`\\b"?${table.replace(/[^\w$#]/gu, "")}"?\\b`, "iu");
-    for (const page of this.app.pages.values()) {
-      for (const region of page.children.filter((child) => child.type === "region")) {
+    for (const page2 of this.app.pages.values()) {
+      for (const region of page2.children.filter((child) => child.type === "region")) {
         const source = str(region.props, "source.tableName") || str(region.props, "source.sqlQuery");
         if (!source || !mentions.test(source)) continue;
         for (const column2 of region.children.filter((child) => child.type === "column")) {
@@ -26112,12 +26727,12 @@ var ApexRenderer = class {
   // ---------------------------------------------------------------- page processing
   /** Before-header computations and form initialization. */
   prepare(session, pageKey, request = "") {
-    const page = this.findPage(pageKey);
-    if (!page) throw new Error(`Page ${pageKey} does not exist`);
+    const page2 = this.findPage(pageKey);
+    if (!page2) throw new Error(`Page ${pageKey} does not exist`);
     const ctx = {
       session,
-      page,
-      pageId: page.id,
+      page: page2,
+      pageId: page2.id,
       request,
       onload: [],
       jsFiles: /* @__PURE__ */ new Set(),
@@ -26128,8 +26743,8 @@ var ApexRenderer = class {
     };
     this.trace(ctx, {
       type: "begin",
-      name: `Show page ${page.id}`,
-      detail: [str(page.props, "name"), request && `request ${request}`].filter(Boolean).join(" \xB7 ")
+      name: `Show page ${page2.id}`,
+      detail: [str(page2.props, "name"), request && `request ${request}`].filter(Boolean).join(" \xB7 ")
     });
     for (const item2 of this.pageComponents(ctx, "pageItem")) {
       const name = item2.id.toUpperCase();
@@ -26137,7 +26752,7 @@ var ApexRenderer = class {
       const type = str(item2.props, "default.type");
       const value2 = str(item2.props, "default.staticValue") || str(item2.props, "default.value");
       if (value2 && (type === "" || type === "static" || type === "staticValue"))
-        session.items[name] = this.substitute(session, value2, page, "RAW");
+        session.items[name] = this.substitute(session, value2, page2, "RAW");
       else if (type === "item")
         session.items[name] = session.items[str(item2.props, "default.item").toUpperCase()] ?? "";
       else if (type === "functionBody" || type === "sqlQuerySingleValue" || type === "expression" && str(item2.props, "default.plsqlExpression")) {
@@ -26149,7 +26764,7 @@ var ApexRenderer = class {
           type === "sqlQuerySingleValue" ? `(${code})` : code,
           language
         );
-        if (result === void 0) this.diagnose("info", `Default for ${name} not evaluated`, page.id, name);
+        if (result === void 0) this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
         else session.items[name] = result === null || result === false ? "" : String(result);
       } else if (type === "sqlQuery" || type === "expression") {
         const sql = str(item2.props, "default.sqlQuery") || str(item2.props, "default.sqlExpression");
@@ -26158,11 +26773,11 @@ var ApexRenderer = class {
             session.items[name] = String(
               this.data.scalar(
                 sql.startsWith("select") ? sql : `select ${sql}${this.data.dialect === "oracle" ? " from dual" : ""}`,
-                this.binds(session, page)
+                this.binds(session, page2)
               ) ?? ""
             );
           } catch {
-            this.diagnose("info", `Default for ${name} not evaluated`, page.id, name);
+            this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
           }
         }
       }
@@ -26349,8 +26964,8 @@ var ApexRenderer = class {
   }
   // ---------------------------------------------------------------- submit
   isLoginPage(pageKey) {
-    const page = this.findPage(pageKey);
-    return Boolean(page) && this.pageTemplateId(page) === "login";
+    const page2 = this.findPage(pageKey);
+    return Boolean(page2) && this.pageTemplateId(page2) === "login";
   }
   /** Any credentials sign in locally; the username becomes APP_USER. */
   login(session, values) {
@@ -26476,15 +27091,15 @@ var ApexRenderer = class {
           "plsqlFunctionBody"
         );
         if (result === void 0 || result === null || result === "") continue;
-        const page = branchType === "functionReturningPage" ? this.findPage(String(result)) : void 0;
+        const page2 = branchType === "functionReturningPage" ? this.findPage(String(result)) : void 0;
         return {
-          redirectURL: page ? this.pagePath(page) : this.substitute(session, String(result), ctx.page, "RAW")
+          redirectURL: page2 ? this.pagePath(page2) : this.substitute(session, String(result), ctx.page, "RAW")
         };
       }
       if (branchType === "page" || branchType === "pageIdentifiedByItem") {
         const key = branchType === "page" ? str(branch.props, "behavior.pageNumber") : session.items[str(branch.props, "behavior.item").toUpperCase()] ?? "";
-        const page = this.findPage(key);
-        if (page) return { redirectURL: this.pagePath(page) };
+        const page2 = this.findPage(key);
+        if (page2) return { redirectURL: this.pagePath(page2) };
         continue;
       }
       const target2 = get(branch.props, "behavior.target");
@@ -26496,12 +27111,12 @@ var ApexRenderer = class {
     return { redirectURL: this.pagePath(ctx.page) };
   }
   prepareSubmit(session, pageKey, request) {
-    const page = this.findPage(pageKey);
-    if (!page) throw new Error(`Page ${pageKey} does not exist`);
+    const page2 = this.findPage(pageKey);
+    if (!page2) throw new Error(`Page ${pageKey} does not exist`);
     const ctx = {
       session,
-      page,
-      pageId: page.id,
+      page: page2,
+      pageId: page2.id,
       request,
       onload: [],
       jsFiles: /* @__PURE__ */ new Set(),
@@ -26512,8 +27127,8 @@ var ApexRenderer = class {
     };
     this.trace(ctx, {
       type: "begin",
-      name: `Process page ${page.id}`,
-      detail: [str(page.props, "name"), request && `request ${request}`].filter(Boolean).join(" \xB7 ")
+      name: `Process page ${page2.id}`,
+      detail: [str(page2.props, "name"), request && `request ${request}`].filter(Boolean).join(" \xB7 ")
     });
     return ctx;
   }
@@ -26756,8 +27371,8 @@ var ApexRenderer = class {
   }
   // ---------------------------------------------------------------- rendering
   renderPage(ctx) {
-    const page = ctx.page;
-    const templateId = this.pageTemplateId(page);
+    const page2 = ctx.page;
+    const templateId = this.pageTemplateId(page2);
     const template = this.theme.pages.get(templateId) ?? this.theme.pages.get("standard");
     if (!this.theme.pages.has(templateId))
       this.diagnose("warning", `Page template @/${templateId} not found; used Standard`, ctx.pageId);
@@ -26810,7 +27425,7 @@ var ApexRenderer = class {
     }
     if (pageItems.length) values.BODY = (values.BODY ?? "") + this.itemsGrid(ctx, template, pageItems);
     const pageOptions = templateOptions(
-      strings6(list(page.props, "appearance.templateOptions")),
+      strings6(list(page2.props, "appearance.templateOptions")),
       text2(template, "default_template_options")
     );
     const themeComponent = this.themeComponent();
@@ -26831,19 +27446,19 @@ var ApexRenderer = class {
       text2(style2, "theme_roller_output_file_url")
     ].filter(Boolean);
     const appCss = strings6(list(this.app.app.props, "css.fileUrls"));
-    const pageCss = strings6(list(page.props, "css.fileUrls"));
-    const inlineCss = [str(this.app.app.props, "css.inline"), str(page.props, "css.inline")].filter(Boolean);
+    const pageCss = strings6(list(page2.props, "css.fileUrls"));
+    const inlineCss = [str(this.app.app.props, "css.inline"), str(page2.props, "css.inline")].filter(Boolean);
     const themeJs = strings6(list(themeComponent?.props ?? {}, "javaScript.fileUrls"));
     const themeJsFiles = themeJs.length ? themeJs : text2(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
     const appJs = strings6(list(this.app.app.props, "javaScript.fileUrls"));
-    const pageJs = strings6(list(page.props, "javaScript.fileUrls"));
+    const pageJs = strings6(list(page2.props, "javaScript.fileUrls"));
     this.navigation(ctx, values, template);
     const link = (url2) => `<link rel="stylesheet" href="${escapeHtml(this.urls(url2))}" type="text/css" />`;
     const script = (url2) => `<script src="${escapeHtml(this.urls(url2))}"></script>`;
     const env = {
       APP_USER: ctx.session.user,
       APP_ID: this.appId,
-      APP_PAGE_ID: page.id,
+      APP_PAGE_ID: page2.id,
       APP_SESSION: ctx.session.id,
       APP_FILES: `${this.baseUrl}/files/static/v1/`,
       WORKSPACE_FILES: `${this.baseUrl}/files/workspace/`,
@@ -26866,18 +27481,18 @@ var ApexRenderer = class {
     ctx.messageTemplates[`${pageTemplate}_S`] = text2(template, "success_message");
     ctx.messageTemplates[`${pageTemplate}_E`] = text2(template, "notification_message");
     const onload2 = [
-      `apex.message.registerTemplates(${JSON.stringify(Object.fromEntries(Object.entries(ctx.messageTemplates).map(([id, markup2]) => [id, this.substitute(ctx.session, markup2, page, "HTML")]))).replaceAll("<", "\\u003c")});`,
+      `apex.message.registerTemplates(${JSON.stringify(Object.fromEntries(Object.entries(ctx.messageTemplates).map(([id, markup2]) => [id, this.substitute(ctx.session, markup2, page2, "HTML")]))).replaceAll("<", "\\u003c")});`,
       text2(template, "javascript_code_onload"),
       ...ctx.onload,
       `apexLocal.init(${JSON.stringify(ctx.clientConfig).replaceAll("<", "\\u003c")});`,
-      this.substitute(ctx.session, str(this.app.app.props, "javaScript.executeWhenPageLoads"), page, "RAW"),
-      this.substitute(ctx.session, str(page.props, "javaScript.executeWhenPageLoads"), page, "RAW"),
+      this.substitute(ctx.session, str(this.app.app.props, "javaScript.executeWhenPageLoads"), page2, "RAW"),
+      this.substitute(ctx.session, str(page2.props, "javaScript.executeWhenPageLoads"), page2, "RAW"),
       // The server-generated init must end with apexreadyend; Universal Theme initializes on it.
       "apex.event.trigger(apex.gPageContext$, 'apexreadyend');"
     ].filter(Boolean);
     const functions = [
       str(this.app.app.props, "javaScript.functionAndGlobalVariableDeclaration"),
-      str(page.props, "javaScript.functionAndGlobalVariableDeclaration")
+      str(page2.props, "javaScript.functionAndGlobalVariableDeclaration")
     ].filter(Boolean);
     const hidden2 = (name, id, value2) => `<input type="hidden" name="${name}" value="${escapeHtml(value2)}" id="${id}" />`;
     const success = ctx.session.success;
@@ -26886,7 +27501,7 @@ var ApexRenderer = class {
     ctx.session.errors = void 0;
     const builtins = {
       TITLE: escapeHtml(
-        this.substitute(ctx.session, str(page.props, "title", str(page.props, "name")), page, "RAW")
+        this.substitute(ctx.session, str(page2.props, "title", str(page2.props, "name")), page2, "RAW")
       ),
       APEX_CSS: css.map(link).join("\n"),
       THEME_CSS: themeFiles.map(link).join("\n"),
@@ -26902,7 +27517,7 @@ ${code}
       ].join("\n"),
       FAVICONS: this.favicons(),
       HEAD: "",
-      PAGE_CSS_CLASSES: [pageOptions, str(page.props, "appearance.cssClasses")].filter(Boolean).join(" "),
+      PAGE_CSS_CLASSES: [pageOptions, str(page2.props, "appearance.cssClasses")].filter(Boolean).join(" "),
       DIALOG_CSS_CLASSES: "",
       ONLOAD: "",
       TEXT_DIRECTION: "",
@@ -26910,7 +27525,7 @@ ${code}
       FORM_OPEN: [
         `<form action="wwv_flow.accept" method="post" name="wwv_flow" id="wwvFlowForm" data-oj-binding-provider="none" novalidate autocomplete="off">`,
         hidden2("p_flow_id", "pFlowId", this.appId),
-        hidden2("p_flow_step_id", "pFlowStepId", page.id),
+        hidden2("p_flow_step_id", "pFlowStepId", page2.id),
         hidden2("p_instance", "pInstance", ctx.session.id),
         hidden2("p_debug", "pdebug", ""),
         hidden2("p_request", "pRequest", ""),
@@ -26924,7 +27539,7 @@ ${code}
         `<input type="hidden" id="pPageFormRegionChecksums" value="[]" />`,
         "</form>"
       ].join("\n"),
-      DEVELOPER_TOOLBAR: this.options.toolbar && !this.isDialog(page) ? this.toolbar(ctx) : "",
+      DEVELOPER_TOOLBAR: this.options.toolbar && !this.isDialog(page2) ? this.toolbar(ctx) : "",
       APEX_JAVASCRIPT: [
         `<script>var apex_img_dir = "${IMAGE_PREFIX}", htmldb_Img_Dir = apex_img_dir; window.apex = { env: ${JSON.stringify(env)} };</script>`,
         script(`#APEX_FILES#libraries/apex/#MIN_DIRECTORY#desktop_all#MIN#.js?v=#APEX_VERSION#`),
@@ -26963,7 +27578,7 @@ ${onload2.join("\n")}
       }) : ""}</span>`,
       GLOBAL_NOTIFICATION: "",
       LOGO: this.logo(ctx),
-      HOME_LINK: this.pagePath(this.findPage(this.homePage()) ?? page),
+      HOME_LINK: this.pagePath(this.findPage(this.homePage()) ?? page2),
       APP_VERSION: "",
       CUSTOMIZE: "",
       BUILT_WITH_LOVE_USING_APEX: "",
@@ -26975,12 +27590,12 @@ ${onload2.join("\n")}
       builtins
     );
     this.trace(ctx, { type: "end", name: ctx.denied ? "Access denied" : "Page rendered" });
-    return this.substitute(ctx.session, html, page, "HTML");
+    return this.substitute(ctx.session, html, page2, "HTML");
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs9.existsSync(
-      path10.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
+    const exists2 = fs10.existsSync(
+      path11.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
   }
@@ -27582,7 +28197,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       const target2 = get(entry.props, "link.target");
       const pages2 = str(entry.props, "currentForPages") || str(entry.props, "link.currentForPages");
       if (pages2)
-        return pages2.split(",").map((page) => page.trim()).includes(ctx.pageId);
+        return pages2.split(",").map((page2) => page2.trim()).includes(ctx.pageId);
       return isObject(target2) && target2.page !== void 0 && this.findPage(String(target2.page))?.id === ctx.pageId;
     };
     const render = (entry, level) => {
@@ -27930,7 +28545,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
         returns: []
       };
     } else return void 0;
-    const ref2 = createHash3("sha256").update(JSON.stringify(entry)).digest("hex").slice(0, 32);
+    const ref2 = createHash4("sha256").update(JSON.stringify(entry)).digest("hex").slice(0, 32);
     const registry2 = ctx.session.serverActions ??= /* @__PURE__ */ new Map();
     registry2.delete(ref2);
     registry2.set(ref2, entry);
@@ -28022,26 +28637,26 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
    * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
    */
   static seed(db2, appRoot, seedDirs = []) {
-    const sqlFiles = (dir) => fs9.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(dir, name));
+    const sqlFiles = (dir) => fs10.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path11.join(dir, name));
     if (seedDirs.length)
-      return seedDirs.filter((dir) => fs9.existsSync(dir)).flatMap(sqlFiles).flatMap(
+      return seedDirs.filter((dir) => fs10.existsSync(dir)).flatMap(sqlFiles).flatMap(
         (script) => db2.runScript(
-          fs9.readFileSync(script, "utf8"),
-          path10.basename(path10.dirname(script)) + "/" + path10.basename(script)
+          fs10.readFileSync(script, "utf8"),
+          path11.basename(path11.dirname(script)) + "/" + path11.basename(script)
         )
       );
-    const local = path10.join(appRoot, ".apex-local");
-    const scripts = fs9.existsSync(local) ? fs9.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(local, name)) : [];
+    const local = path11.join(appRoot, ".apex-local");
+    const scripts = fs10.existsSync(local) ? fs10.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path11.join(local, name)) : [];
     if (!scripts.length) {
-      const supporting = path10.join(appRoot, "supporting-objects");
-      if (fs9.existsSync(supporting)) {
+      const supporting = path11.join(appRoot, "supporting-objects");
+      if (fs10.existsSync(supporting)) {
         scripts.push(
-          ...fs9.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path10.join(supporting, name))
+          ...fs10.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path11.join(supporting, name))
         );
       }
     }
     return scripts.flatMap(
-      (script) => db2.runScript(fs9.readFileSync(script, "utf8"), path10.relative(appRoot, script))
+      (script) => db2.runScript(fs10.readFileSync(script, "utf8"), path11.relative(appRoot, script))
     );
   }
 };
@@ -28081,11 +28696,11 @@ var TYPES = {
 function newestApx(root) {
   let newest = 0;
   const visit = (directory) => {
-    for (const entry of fs10.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs11.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
-      const full = path11.join(directory, entry.name);
+      const full = path12.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
-      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs10.statSync(full).mtimeMs);
+      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs11.statSync(full).mtimeMs);
     }
   };
   visit(root);
@@ -28132,21 +28747,31 @@ var PreviewServer = class {
   assets;
   db;
   seedProblems;
+  /** WebSocket pages: data changes, source reloads and presence (live.ts). */
+  live;
   renderer;
   #server;
   #sessions = /* @__PURE__ */ new Map();
   #loadedAt = 0;
   #loadError;
   constructor(options3) {
-    this.options = { ...options3, sourceDir: path11.resolve(options3.sourceDir) };
+    this.options = { ...options3, sourceDir: path12.resolve(options3.sourceDir) };
     this.assets = loadAssets(options3.assetsDir);
-    const file = options3.database ?? (options3.oracle ? ":memory:" : path11.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
+    const file = options3.database ?? (options3.oracle ? ":memory:" : path12.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
     if (options3.reset && file !== ":memory:")
-      for (const suffix of ["", "-wal", "-shm"]) fs10.rmSync(file + suffix, { force: true });
-    const fresh = file === ":memory:" || !fs10.existsSync(file);
+      for (const suffix of ["", "-wal", "-shm"]) fs11.rmSync(file + suffix, { force: true });
+    const fresh = file === ":memory:" || !fs11.existsSync(file);
     this.db = new LocalDatabase(file);
     this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
     this.renderer = this.#load();
+    this.live = new LiveHub({
+      sourceDir: this.options.sourceDir,
+      data: !options3.oracle && this.db.trackWrites(),
+      onSource: () => {
+        this.#refresh();
+        return this.#loadError;
+      }
+    });
   }
   #load() {
     this.#loadedAt = newestApx(this.options.sourceDir);
@@ -28159,8 +28784,8 @@ var PreviewServer = class {
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose("warning", `Connected preview: ${warning}`);
-    for (const [id, page] of renderer.app.pages)
-      for (const finding of checkComponentProperties([page], id))
+    for (const [id, page2] of renderer.app.pages)
+      for (const finding of checkComponentProperties([page2], id))
         renderer.diagnose("warning", finding.message, finding.page, finding.component);
     return renderer;
   }
@@ -28184,11 +28809,11 @@ var PreviewServer = class {
     return [...this.renderer.diagnostics];
   }
   pages() {
-    return [...this.renderer.app.pages.values()].filter((page) => page.id !== "0").sort((a, b) => Number(a.id) - Number(b.id)).map((page) => ({
-      id: page.id,
-      name: str(page.props, "name", page.id),
-      url: this.url + this.renderer.pagePath(page),
-      mode: str(page.props, "appearance.pageMode", "normal")
+    return [...this.renderer.app.pages.values()].filter((page2) => page2.id !== "0").sort((a, b) => Number(a.id) - Number(b.id)).map((page2) => ({
+      id: page2.id,
+      name: str(page2.props, "name", page2.id),
+      url: this.url + this.renderer.pagePath(page2),
+      mode: str(page2.props, "appearance.pageMode", "normal")
     }));
   }
   async start() {
@@ -28196,7 +28821,19 @@ var PreviewServer = class {
       this.#handle(request, response).catch((error) => {
         if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
         response.end(`APEX preview error: ${error.message}`);
-      }).finally(() => this.#endRequest());
+      }).finally(() => {
+        this.#endRequest();
+        this.#publishWrites(request);
+      });
+    });
+    this.#server.on("upgrade", (request, socket, head) => {
+      const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+      if (pathname !== `${this.renderer.baseUrl}${LOCAL_PREFIX}/live`)
+        return rejectUpgrade(socket, 404, "Not Found");
+      const port = this.#server?.address()?.port ?? 0;
+      if (previewRequestRefusal(request.headers, request.method, port, this.options.host))
+        return rejectUpgrade(socket, 403, "Forbidden");
+      this.live.upgrade(request, socket, head, this.#existingSession(request));
     });
     await new Promise((resolve, reject) => {
       this.#server.once("error", reject);
@@ -28207,6 +28844,7 @@ var PreviewServer = class {
   async stop() {
     const server = this.#server;
     this.#server = void 0;
+    this.live.close();
     if (server) await new Promise((resolve) => server.close(() => resolve()));
     server?.closeAllConnections();
     this.db.close();
@@ -28227,9 +28865,30 @@ var PreviewServer = class {
       this.options.oracle?.data.link.close();
     }
   }
-  session(request, response) {
+  /**
+   * Pushes the tables a request wrote to the live pages. Region refreshes and Ajax reads are left
+   * out: a region that writes while it renders would otherwise make two pages refresh each other.
+   */
+  #publishWrites(request) {
+    const tables = this.db.takeWrites();
+    if (!tables.length || !this.live.size) return;
+    const url2 = new URL(request.url ?? "/", "http://localhost");
+    if (url2.pathname.endsWith(`${LOCAL_PREFIX}/region`)) return;
+    if (request.method === "GET" && url2.pathname.includes(`${LOCAL_PREFIX}/x/`)) return;
+    const session = this.#existingSession(request);
+    this.live.changed({
+      tables,
+      user: session?.user ?? this.options.user ?? "DEVELOPER",
+      session: session?.id,
+      tab: typeof request.headers["x-apex-local-tab"] === "string" ? request.headers["x-apex-local-tab"] : void 0
+    });
+  }
+  #existingSession(request) {
     const cookie = /(?:^|;\s*)APEX_LOCAL_SESSION=([\w-]+)/u.exec(request.headers.cookie ?? "")?.[1];
-    const existing = cookie ? this.#sessions.get(cookie) : void 0;
+    return cookie ? this.#sessions.get(cookie) : void 0;
+  }
+  session(request, response) {
+    const existing = this.#existingSession(request);
     if (existing) return existing;
     const id = String(Math.floor(Math.random() * 9e15) + 1e15);
     const session = { id, user: this.options.user ?? "DEVELOPER", items: {}, pagination: {} };
@@ -28252,9 +28911,9 @@ var PreviewServer = class {
       }
     }
     if (!values || typeof values !== "object") return;
-    const page = this.renderer.findPage(pageKey);
-    if (!page) return;
-    const region = [page, this.renderer.app.pages.get("0")].flatMap((candidate) => candidate?.children ?? []).find(
+    const page2 = this.renderer.findPage(pageKey);
+    if (!page2) return;
+    const region = [page2, this.renderer.app.pages.get("0")].flatMap((candidate) => candidate?.children ?? []).find(
       (child) => child.type === "region" && (child.id === regionId || this.renderer.regionDomId(child) === regionId)
     );
     if (!region) return;
@@ -28266,16 +28925,16 @@ var PreviewServer = class {
     }
   }
   #static(response, root, relative, cache3) {
-    const target2 = path11.resolve(root, decodeURIComponent(relative));
-    if (!target2.startsWith(root + path11.sep) || !fs10.existsSync(target2) || !fs10.statSync(target2).isFile()) {
+    const target2 = path12.resolve(root, decodeURIComponent(relative));
+    if (!target2.startsWith(root + path12.sep) || !fs11.existsSync(target2) || !fs11.statSync(target2).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
     response.writeHead(200, {
-      "content-type": TYPES[path11.extname(target2).toLowerCase()] ?? "application/octet-stream",
+      "content-type": TYPES[path12.extname(target2).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs10.createReadStream(target2).pipe(response);
+    fs11.createReadStream(target2).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -28304,7 +28963,7 @@ var PreviewServer = class {
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
-      return this.#static(response, path11.resolve(this.assets.imagesDir), pathname.slice(3), true);
+      return this.#static(response, path12.resolve(this.assets.imagesDir), pathname.slice(3), true);
     const marker3 = pathname.indexOf(`${LOCAL_PREFIX}/`);
     if (marker3 >= 0) {
       const name = pathname.slice(marker3 + LOCAL_PREFIX.length + 1);
@@ -28348,14 +29007,14 @@ var PreviewServer = class {
     if (rest.startsWith("files/static/v1/"))
       return this.#static(
         response,
-        path11.join(this.options.sourceDir, "shared-components", "static-files"),
+        path12.join(this.options.sourceDir, "shared-components", "static-files"),
         rest.slice(16),
         false
       );
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
-        path11.join(this.options.sourceDir, "workspace-components", "static-files"),
+        path12.join(this.options.sourceDir, "workspace-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -28367,10 +29026,10 @@ var PreviewServer = class {
       const values = Object.fromEntries(
         items.map((item2) => [item2.n, Array.isArray(item2.v) ? item2.v.join(":") : String(item2.v ?? "")])
       );
-      const page2 = form.get("p_flow_step_id") ?? "";
+      const page3 = form.get("p_flow_step_id") ?? "";
       const requestValue = form.get("p_request") ?? "";
       const finish = runSubmitExtensions(renderer, session, {
-        pageId: page2,
+        pageId: page3,
         request: requestValue,
         form,
         files,
@@ -28380,7 +29039,7 @@ var PreviewServer = class {
       const result = transaction(
         renderer.db.db,
         () => {
-          let accepted = renderer.isLoginPage(page2) ? renderer.login(session, values) : renderer.accept(session, page2, requestValue, values);
+          let accepted = renderer.isLoginPage(page3) ? renderer.login(session, values) : renderer.accept(session, page3, requestValue, values);
           for (const step of finish) accepted = step(accepted);
           return accepted;
         },
@@ -28424,7 +29083,7 @@ var PreviewServer = class {
       return;
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/region`) {
-      const page2 = url2.searchParams.get("page") ?? "";
+      const page3 = url2.searchParams.get("page") ?? "";
       const region = url2.searchParams.get("region") ?? "";
       const posted = request.method === "POST" ? await body3(request) : "";
       let items = url2.searchParams.get("items");
@@ -28433,13 +29092,13 @@ var PreviewServer = class {
       } catch {
         return this.#send(response, 400, "text/plain", "Region refresh expects JSON { items }");
       }
-      this.#submitRegionItems(session, page2, region, items);
+      this.#submitRegionItems(session, page3, region, items);
       const target2 = Number(url2.searchParams.get("pg"));
       if (target2 > 0) {
-        const component = renderer.findPage(page2)?.children.find((child) => renderer.regionDomId(child) === region);
-        if (component) session.pagination[`${page2}:${component.id}`] = target2;
+        const component = renderer.findPage(page3)?.children.find((child) => renderer.regionDomId(child) === region);
+        if (component) session.pagination[`${page3}:${component.id}`] = target2;
       }
-      return this.#send(response, 200, TYPES[".html"], renderer.renderRegionFragment(session, page2, region));
+      return this.#send(response, 200, TYPES[".html"], renderer.renderRegionFragment(session, page3, region));
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/server-code` && request.method === "POST") {
       const input = JSON.parse(await body3(request));
@@ -28494,8 +29153,8 @@ var PreviewServer = class {
         `<!DOCTYPE html><html><head><meta charset="utf-8"><script>window.apex={env:${JSON.stringify({ APP_SESSION: session.id })}};</script><script src="/i/libraries/apex/minified/desktop_all.min.js"></script></head><body><script>apex.navigation.dialog.close(true, ${data.replaceAll("<", "\\u003c")});</script></body></html>`
       );
     }
-    const page = renderer.findPage(decodeURIComponent(rest));
-    if (!page) {
+    const page2 = renderer.findPage(decodeURIComponent(rest));
+    if (!page2) {
       const links = this.pages().map((entry) => `<li><a href="${entry.url}">${entry.id} \xB7 ${entry.name}</a></li>`).join("");
       return this.#send(
         response,
@@ -28507,7 +29166,7 @@ var PreviewServer = class {
     for (const clear of (url2.searchParams.get("clear") ?? "").split(",").map((value2) => value2.trim()).filter(Boolean)) {
       if (clear.toUpperCase() === "RP") {
         for (const key of Object.keys(session.pagination))
-          if (key.startsWith(`${page.id}:`)) delete session.pagination[key];
+          if (key.startsWith(`${page2.id}:`)) delete session.pagination[key];
         continue;
       }
       const cleared = renderer.findPage(clear);
@@ -28527,13 +29186,13 @@ var PreviewServer = class {
         renderer.diagnose(
           "warning",
           `URL parameter ${name} ignored: it is an APEX built-in, not an item`,
-          page.id
+          page2.id
         );
         continue;
       }
       session.items[name] = value2;
     }
-    const ctx = renderer.prepare(session, page.id, url2.searchParams.get("request") ?? "");
+    const ctx = renderer.prepare(session, page2.id, url2.searchParams.get("request") ?? "");
     const replaced = pageResponse(renderer, ctx);
     if (replaced) return this.#respond(response, replaced);
     return this.#send(response, 200, TYPES[".html"], renderer.renderPage(ctx));
@@ -28545,8 +29204,8 @@ function checkApplication(options3) {
     const renderer = preview.renderer;
     const ids = options3.pages?.length ? options3.pages : [...renderer.app.pages.keys()].filter((id) => id !== "0");
     const pages2 = ids.map((id) => {
-      const page = renderer.findPage(id);
-      const name = str(page?.props ?? {}, "name", id);
+      const page2 = renderer.findPage(id);
+      const name = str(page2?.props ?? {}, "name", id);
       try {
         const session = {
           id: randomUUID(),
@@ -28555,7 +29214,7 @@ function checkApplication(options3) {
           pagination: {}
         };
         const html = renderer.renderPage(renderer.prepare(session, id));
-        return { id: page?.id ?? id, name, bytes: Buffer.byteLength(html) };
+        return { id: page2?.id ?? id, name, bytes: Buffer.byteLength(html) };
       } catch (error) {
         renderer.diagnose("error", error.message, id);
         return { id, name, bytes: 0, error: error.message };
@@ -28574,36 +29233,36 @@ function checkApplication(options3) {
 var running = /* @__PURE__ */ new Map();
 var DIAGNOSTICS_LIMIT = 60;
 async function resolveSource(root, explicit) {
-  let source = explicit ? path12.resolve(root, explicit) : void 0;
+  let source = explicit ? path13.resolve(root, explicit) : void 0;
   if (!source) {
     try {
       const ctx = await loadProject(root);
-      source = path12.resolve(ctx.root, ctx.config.application.sourceDir);
+      source = path13.resolve(ctx.root, ctx.config.application.sourceDir);
     } catch {
-      source = path12.resolve(root);
+      source = path13.resolve(root);
     }
   }
-  if (!fs11.existsSync(path12.join(source, "application.apx")))
+  if (!fs12.existsSync(path13.join(source, "application.apx")))
     throw new Fault(
       "PREVIEW_SOURCE_MISSING",
       `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
       2
     );
-  return fs11.realpathSync(source);
+  return fs12.realpathSync(source);
 }
 async function projectData(root, sourceDir) {
-  if (fs11.existsSync(path12.join(sourceDir, ".apex-local"))) return {};
+  if (fs12.existsSync(path13.join(sourceDir, ".apex-local"))) return {};
   let ctx;
   try {
     ctx = await loadProject(root);
   } catch {
     return {};
   }
-  const appDir = path12.resolve(ctx.root, ctx.config.application.sourceDir);
-  if (!fs11.existsSync(appDir) || fs11.realpathSync(appDir) !== sourceDir) return {};
+  const appDir = path13.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs12.existsSync(appDir) || fs12.realpathSync(appDir) !== sourceDir) return {};
   return {
-    database: path12.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
-    seedDirs: [path12.resolve(ctx.root, ctx.config.database.migrationsDir), path12.join(ctx.root, ".apex-local")]
+    database: path13.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
+    seedDirs: [path13.resolve(ctx.root, ctx.config.database.migrationsDir), path13.join(ctx.root, ".apex-local")]
   };
 }
 function summarize(diagnostics) {
@@ -28705,7 +29364,7 @@ async function previewStop(root, input) {
 async function previewStatus() {
   return {
     assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs11.existsSync(path12.join(defaultAssetsDir(), "manifest.json")),
+    assetsInstalled: fs12.existsSync(path13.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
     running: [...running.values()].map((server) => ({
       url: server.url,

@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
+import http from 'node:http';
 import path from 'node:path';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
 import { acceptKey, encodeFrame, FrameReader } from '../../packages/core/src/preview/websocket.ts';
-import { workspace } from '../fixtures/preview.ts';
+import { serverRefs, withActions, workspace } from '../fixtures/preview.ts';
 
 const SEED = `create table tasks (
   task_id integer primary key,
@@ -51,6 +52,26 @@ const PAGE = `page 7 (
     )
 )
 `;
+
+// The write comes from a declared Execute Server-side Code action; the browser sends only its reference.
+const ADD_TASK = `
+    dynamicAction add-task (
+        name: Add task
+        when {
+            event: click
+            selectionType: jQuerySelector
+            jQuerySelector: '#never'
+        }
+        action add (
+            action: executeServerSideCode
+            settings {
+                plsqlCode: insert into tasks (title, status) values ('Live', 'OPEN');
+            }
+            execution {
+                sequence: 10
+            }
+        )
+    )`;
 
 /** A test client that queues the server's JSON messages. */
 function socket(url: string, cookie?: string, origin?: string) {
@@ -107,7 +128,7 @@ test('WebSocket frames: handshake key, server frames and masked client frames', 
 test('live preview maps regions to tables and pushes writes, presence and source reloads', async (t) => {
   const { app, assets } = await workspace(t, {
     '.apex-local/01-seed.sql': SEED,
-    'pages/p00007-board.apx': PAGE,
+    'pages/p00007-board.apx': withActions(PAGE, ADD_TASK),
   });
   const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
   await server.start();
@@ -130,6 +151,31 @@ test('live preview maps regions to tables and pushes writes, presence and source
 
   // Foreign origins cannot listen; an unknown session (a restarted server) only learns that it expired.
   assert.equal(await socket(live, cookie, 'http://evil.example').opened, false);
+  // DNS rebinding: a Host that is not this server is refused before the session is looked at.
+  const rebound = await new Promise<number>((resolve) => {
+    const port = Number(new URL(server.url).port);
+    http
+      .get({
+        host: '127.0.0.1',
+        port,
+        path: '/r/demo/__apex/live?page=7',
+        headers: {
+          host: `evil.example:${port}`,
+          cookie,
+          connection: 'Upgrade',
+          upgrade: 'websocket',
+          'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
+          'sec-websocket-version': '13',
+        },
+      })
+      .on('upgrade', (_response, upgraded) => {
+        upgraded.destroy();
+        resolve(101);
+      })
+      .on('response', (response) => resolve(response.statusCode ?? 0))
+      .on('error', () => resolve(0));
+  });
+  assert.equal(rebound, 403);
   const stale = socket(live, 'APEX_LOCAL_SESSION=1');
   assert.equal(await stale.opened, true);
   assert.deepEqual(await stale.next('expired'), { type: 'expired' });
@@ -159,7 +205,7 @@ test('live preview maps regions to tables and pushes writes, presence and source
   const write = await fetch(`${server.url}/r/demo/__apex/server-code?page=7`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json', 'x-apex-local-tab': 'tab1' },
-    body: JSON.stringify({ code: "insert into tasks (title, status) values ('Live', 'OPEN');" }),
+    body: JSON.stringify({ ref: serverRefs(html).add }),
   });
   assert.deepEqual(await write.json(), {});
   assert.deepEqual(await mine.next('changed'), {
@@ -190,7 +236,10 @@ test('live preview maps regions to tables and pushes writes, presence and source
   );
 
   // Editing the APEXlang source reloads every open page.
-  await writeFile(path.join(app, 'pages', 'p00007-board.apx'), PAGE.replace('Open tasks', 'Open work'));
+  await writeFile(
+    path.join(app, 'pages', 'p00007-board.apx'),
+    withActions(PAGE, ADD_TASK).replace('Open tasks', 'Open work'),
+  );
   assert.equal((await mine.next('reload', 5000)).type, 'reload');
   await theirs.next('reload', 5000);
   assert.match(

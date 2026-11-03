@@ -274,6 +274,10 @@ export class PreviewServer {
       const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
       if (pathname !== `${this.renderer.baseUrl}${LOCAL_PREFIX}/live`)
         return rejectUpgrade(socket, 404, 'Not Found');
+      // The same Host and cross-site checks as HTTP requests; the hub also requires a same-origin page.
+      const port = (this.#server?.address() as AddressInfo | null)?.port ?? 0;
+      if (previewRequestRefusal(request.headers, request.method, port, this.options.host))
+        return rejectUpgrade(socket, 403, 'Forbidden');
       this.live.upgrade(request, socket, head, this.#existingSession(request));
     });
     await new Promise<void>((resolve, reject) => {
