@@ -39,6 +39,8 @@
 
 ## Open source code review findings
 
+- Exercise `productionDatabases` with a real production-trust file.
+
 - Exercise the peer-review digest and vendor checks from fresh native Codex and Claude Code sessions.
 
 - Qualify the 60-minute SQLcl write limit and the skipped automatic recovery after a client-side stop against a real long import on an authorized DEV/TEST target, and decide whether a lost connection should also wait for the server session to end before automatic recovery.

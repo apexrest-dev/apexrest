@@ -169,7 +169,13 @@ var sha256 = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var productionTrustSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   approvalKeys: external_exports.array(external_exports.strictObject({ sha256, reviewer: external_exports.string().min(1).optional() })).optional(),
-  productionTargets: external_exports.array(sha256)
+  productionTargets: external_exports.array(sha256),
+  /**
+   * Whole production databases by DB_UNIQUE_NAME (case-insensitive). Every service name,
+   * workspace, schema and application on such a database is production, so a mark does not
+   * depend on which service or application ID a project happens to configure.
+   */
+  productionDatabases: external_exports.array(external_exports.string().trim().min(1).max(128)).optional()
 });
 var productionTrustFile = () => path.join(managedHome(), "production-trust.json");
 async function readProductionTrust(file) {
@@ -188,7 +194,10 @@ async function isProductionTarget(env, digest = targetDigest(env)) {
   if (env.kind === "production") return true;
   const file = productionTrustFile();
   if (!await exists(file)) return false;
-  return (await readProductionTrust(file)).productionTargets.includes(digest);
+  const trust = await readProductionTrust(file);
+  if (trust.productionTargets.includes(digest)) return true;
+  const database = env.databaseIdentity.dbUniqueName.trim().toUpperCase();
+  return (trust.productionDatabases ?? []).some((name) => name.toUpperCase() === database);
 }
 
 export {

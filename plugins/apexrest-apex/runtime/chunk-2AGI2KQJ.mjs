@@ -1,11 +1,11 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-B3GEZPDU.mjs";
+} from "./chunk-5USMC7HM.mjs";
 import {
   managedHome,
   parse
-} from "./chunk-RNEE4V2Z.mjs";
+} from "./chunk-AKZAEB7R.mjs";
 import {
   runProcess
 } from "./chunk-DWU3Q7C4.mjs";

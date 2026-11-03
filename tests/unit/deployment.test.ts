@@ -19,6 +19,7 @@ import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL } from '../../packages/core/src/oracle.ts';
 import { LocalDeploymentControl, coordination } from '../../packages/core/src/deployment-control.ts';
 import { Fault, success } from '../../packages/core/src/result.ts';
+import { isProductionTarget } from '../../packages/core/src/config.ts';
 import { writeJson, withLock, hash, canonical, inventory, atomicWrite } from '../../packages/core/src/fs.ts';
 async function grant(home: string, root: string, plan?: DeployPlan) {
   await writeJson(path.join(home, 'policy.json'), {
@@ -595,6 +596,45 @@ test('targets listed in production trust are production regardless of apexrest.j
   } finally {
     if (original !== undefined) process.env.CI = original;
   }
+});
+
+test('a production database mark covers every service, workspace, schema and application on it', async () => {
+  const { ctx, plan, service } = await prepared();
+  const env = ctx.config.environments.dev!;
+  const trust = path.join(process.env.APEXREST_HOME!, 'production-trust.json');
+  // An exact-target mark registered through another service name does not match this target...
+  const viaOtherService = targetDigest({
+    ...env,
+    databaseIdentity: { ...env.databaseIdentity, serviceName: 'PROD_high' },
+  });
+  await writeJson(trust, { schemaVersion: 1, productionTargets: [viaOtherService] });
+  assert.equal(await isProductionTarget(env), false);
+  // ...a database mark does, whatever the service, workspace, schema, application or letter case.
+  await writeJson(trust, {
+    schemaVersion: 1,
+    productionTargets: [viaOtherService],
+    productionDatabases: [env.databaseIdentity.dbUniqueName.toLowerCase()],
+  });
+  for (const variant of [
+    env,
+    { ...env, databaseIdentity: { ...env.databaseIdentity, serviceName: 'PROD_low' } },
+    { ...env, applicationId: 4242 },
+    { ...env, workspace: 'OTHER_WS', parsingSchema: 'OTHER_SCHEMA' },
+  ])
+    assert.equal(await isProductionTarget(variant as typeof env), true, JSON.stringify(variant));
+  assert.equal(
+    await isProductionTarget({
+      ...env,
+      databaseIdentity: { ...env.databaseIdentity, dbUniqueName: 'DEVDB' },
+    }),
+    false,
+  );
+  await grant(process.env.APEXREST_HOME!, ctx.root, plan);
+  await assert.rejects(authorizePlan(ctx, plan, env), { code: 'PRODUCTION_DEPLOY_DENIED' });
+  await assert.rejects(service.apply(ctx, plan), { code: 'PRODUCTION_DEPLOY_DENIED' });
+  // An unreadable list still fails closed.
+  await writeJson(trust, { schemaVersion: 1, productionTargets: [], productionDatabases: [''] });
+  await assert.rejects(isProductionTarget(env), { code: 'PRODUCTION_TRUST_INVALID' });
 });
 
 test('production never deploys with a local grant or legacy external approval flags', async () => {

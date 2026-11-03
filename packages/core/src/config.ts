@@ -193,6 +193,12 @@ export const productionTrustSchema = z.strictObject({
   schemaVersion: z.literal(1),
   approvalKeys: z.array(z.strictObject({ sha256, reviewer: z.string().min(1).optional() })).optional(),
   productionTargets: z.array(sha256),
+  /**
+   * Whole production databases by DB_UNIQUE_NAME (case-insensitive). Every service name,
+   * workspace, schema and application on such a database is production, so a mark does not
+   * depend on which service or application ID a project happens to configure.
+   */
+  productionDatabases: z.array(z.string().trim().min(1).max(128)).optional(),
 });
 export type ProductionTrust = z.infer<typeof productionTrustSchema>;
 export const productionTrustFile = () => path.join(managedHome(), 'production-trust.json');
@@ -211,11 +217,16 @@ async function readProductionTrust(file: string) {
 /**
  * Production classification never depends only on project configuration. Any
  * target listed in the trust file is production, even if apexrest.json says
- * development. Listing only adds restrictions, so the file need not be protected here.
+ * development: an exact target digest, or any target on a listed production database
+ * (the configured DB_UNIQUE_NAME is verified against the live database before writes).
+ * Listing only adds restrictions, so the file need not be protected here.
  */
 export async function isProductionTarget(env: Environment, digest = targetDigest(env)) {
   if (env.kind === 'production') return true;
   const file = productionTrustFile();
   if (!(await exists(file))) return false;
-  return (await readProductionTrust(file)).productionTargets.includes(digest);
+  const trust = await readProductionTrust(file);
+  if (trust.productionTargets.includes(digest)) return true;
+  const database = env.databaseIdentity.dbUniqueName.trim().toUpperCase();
+  return (trust.productionDatabases ?? []).some((name) => name.toUpperCase() === database);
 }
