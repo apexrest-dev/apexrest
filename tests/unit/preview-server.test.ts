@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LocalDatabase, translateOracleSql } from '../../packages/core/src/preview/database.ts';
 import type { Session } from '../../packages/core/src/preview/render.ts';
-import { PreviewServer } from '../../packages/core/src/preview/server.ts';
+import http from 'node:http';
+import { PreviewServer, previewRequestRefusal } from '../../packages/core/src/preview/server.ts';
 import { runPlsql } from '../../packages/core/src/preview/extensions/server/plsql.ts';
 import { workspace } from '../fixtures/preview.ts';
 
@@ -517,4 +518,88 @@ test('submit runs PL/SQL validations, computations, processes and computed branc
     0,
     JSON.stringify(server.diagnostics(), null, 1),
   );
+});
+
+test('preview refuses foreign hosts, cross-origin writes and cross-site subresources', () => {
+  const ok = (headers: http.IncomingHttpHeaders, method = 'GET', bind?: string) =>
+    previewRequestRefusal(headers, method, 4321, bind) === undefined;
+  // Non-browser clients and same-origin browser requests.
+  assert.ok(ok({ host: '127.0.0.1:4321' }));
+  assert.ok(ok({ host: 'LOCALHOST:4321' }, 'POST'));
+  assert.ok(ok({ host: '[::1]:4321' }));
+  assert.ok(
+    ok({ host: 'localhost:4321', origin: 'http://localhost:4321', 'sec-fetch-site': 'same-origin' }, 'POST'),
+  );
+  // Links into the preview from another site or a typed URL still open.
+  assert.ok(ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }));
+  assert.ok(ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate' }));
+  // DNS rebinding, wrong port, missing Host.
+  assert.equal(ok({ host: 'attacker.example:4321' }), false);
+  assert.equal(ok({ host: '127.0.0.1:9999' }), false);
+  assert.equal(ok({}), false);
+  // CSRF: cross-origin or opaque Origin on unsafe methods, including no-cors text/plain POSTs.
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'https://attacker.example' }, 'POST'), false);
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'null' }, 'POST'), false);
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'http://localhost:4321' }, 'POST'), false);
+  // Cross-site GET subresources (img/script/no-cors fetch) carry no Origin.
+  assert.equal(
+    ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' }),
+    false,
+  );
+  assert.equal(
+    ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'cors' }),
+    false,
+  );
+  assert.equal(
+    ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }, 'POST'),
+    false,
+  );
+  // An explicit non-wildcard bind host is accepted; a wildcard adds nothing.
+  assert.ok(ok({ host: '192.168.1.5:4321' }, 'GET', '192.168.1.5'));
+  assert.equal(ok({ host: '192.168.1.5:4321' }, 'GET', '0.0.0.0'), false);
+});
+
+test('a forged Host or cross-origin POST never reaches server-side code execution', async (t) => {
+  const server = await preview(t);
+  await server.start();
+  t.after(() => server.stop());
+  const { port } = new URL(server.url);
+  const before = server.db.scalar('select count(*) from tasks');
+  const send = (headers: Record<string, string>, code = 'delete from tasks;') =>
+    new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const request = http.request(
+        { host: '127.0.0.1', port, method: 'POST', path: '/r/demo/__apex/server-code?page=1', headers },
+        (response) => {
+          let body = '';
+          response.setEncoding('utf8').on('data', (chunk) => (body += chunk));
+          response.on('end', () => resolve({ status: response.statusCode ?? 0, body }));
+        },
+      );
+      request.on('error', reject);
+      request.end(JSON.stringify({ code }));
+    });
+  const rebound = await send({ host: `attacker.example:${port}`, 'content-type': 'text/plain' });
+  assert.equal(rebound.status, 403);
+  assert.match(rebound.body, /Host is not this preview server/);
+  const csrf = await send({
+    host: `127.0.0.1:${port}`,
+    origin: 'https://attacker.example',
+    'sec-fetch-site': 'cross-site',
+    'sec-fetch-mode': 'no-cors',
+    'content-type': 'text/plain',
+  });
+  assert.equal(csrf.status, 403);
+  assert.equal(server.db.scalar('select count(*) from tasks'), before);
+  assert.ok(Number(before) > 0);
+  // The same request from the preview's own origin is still served.
+  const same = await send(
+    {
+      host: `127.0.0.1:${port}`,
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+      'content-type': 'application/json',
+    },
+    'null;',
+  );
+  assert.equal(same.status, 200, same.body);
 });

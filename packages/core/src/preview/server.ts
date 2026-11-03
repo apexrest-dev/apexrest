@@ -124,6 +124,45 @@ async function formBody(request: http.IncomingMessage) {
   return parseBody(await bytes(request, 64 * 1_048_576), request.headers['content-type']);
 }
 
+const LOOPBACK_NAMES = ['127.0.0.1', 'localhost', '[::1]'];
+const WILDCARD_HOSTS = new Set(['0.0.0.0', '::', '[::]', '']);
+
+/**
+ * Decides whether a request may reach the preview. The preview executes SQL and
+ * PL/SQL from request bodies (and, in connected mode, against a real Oracle
+ * database), so a web page in the user's browser must not be able to drive it:
+ * - Host must name this server (blocks DNS rebinding);
+ * - a cross-origin Origin on an unsafe method is refused (blocks CSRF POSTs);
+ * - Sec-Fetch-Site cross-site/same-site requests are refused unless they are
+ *   top-level GET/HEAD navigations (blocks no-cors subresource GETs, which carry
+ *   no Origin). A plain link into the preview keeps working.
+ * Non-browser clients send no Origin or Sec-Fetch-* headers and pass on Host alone.
+ * Returns the refusal reason, or undefined when the request is allowed.
+ */
+export function previewRequestRefusal(
+  headers: http.IncomingHttpHeaders,
+  method: string | undefined,
+  port: number,
+  bindHost?: string,
+): string | undefined {
+  const names = [...LOOPBACK_NAMES];
+  if (bindHost && !WILDCARD_HOSTS.has(bindHost) && !names.includes(bindHost))
+    names.push(bindHost.includes(':') && !bindHost.startsWith('[') ? `[${bindHost}]` : bindHost);
+  const allowed = new Set(names.map((name) => `${name}:${port}`.toLowerCase()));
+  const host = headers.host?.trim().toLowerCase();
+  if (!host || !allowed.has(host)) return 'Host is not this preview server';
+  const safe = method === 'GET' || method === 'HEAD';
+  const origin = headers.origin?.trim().toLowerCase();
+  if (origin !== undefined && !safe && origin !== `http://${host}`)
+    return 'Cross-origin requests are not accepted';
+  const site = String(headers['sec-fetch-site'] ?? '').toLowerCase();
+  if (site === 'cross-site' || site === 'same-site') {
+    const navigation = headers['sec-fetch-mode'] === 'navigate' && safe;
+    if (!navigation) return 'Cross-site requests are not accepted';
+  }
+  return undefined;
+}
+
 /** Local, database-free runtime for APEXlang sources: Universal Theme 26.2 assets plus SQLite. */
 export class PreviewServer {
   readonly options: PreviewOptions;
@@ -329,6 +368,12 @@ export class PreviewServer {
   }
 
   async #handle(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
+    const port = (this.#server?.address() as AddressInfo | null)?.port ?? 0;
+    const refusal = previewRequestRefusal(request.headers, request.method, port, this.options.host);
+    if (refusal) {
+      request.resume();
+      return this.#send(response, 403, 'text/plain; charset=utf-8', `APEX preview: ${refusal}.`);
+    }
     const url = new URL(request.url ?? '/', 'http://localhost');
     const pathname = url.pathname;
     if (pathname.startsWith('/i/'))

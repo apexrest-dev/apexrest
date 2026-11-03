@@ -27947,6 +27947,26 @@ async function body3(request, limit = 8 * 1048576) {
 async function formBody(request) {
   return parseBody(await bytes(request, 64 * 1048576), request.headers["content-type"]);
 }
+var LOOPBACK_NAMES = ["127.0.0.1", "localhost", "[::1]"];
+var WILDCARD_HOSTS = /* @__PURE__ */ new Set(["0.0.0.0", "::", "[::]", ""]);
+function previewRequestRefusal(headers2, method, port, bindHost) {
+  const names = [...LOOPBACK_NAMES];
+  if (bindHost && !WILDCARD_HOSTS.has(bindHost) && !names.includes(bindHost))
+    names.push(bindHost.includes(":") && !bindHost.startsWith("[") ? `[${bindHost}]` : bindHost);
+  const allowed = new Set(names.map((name) => `${name}:${port}`.toLowerCase()));
+  const host = headers2.host?.trim().toLowerCase();
+  if (!host || !allowed.has(host)) return "Host is not this preview server";
+  const safe2 = method === "GET" || method === "HEAD";
+  const origin = headers2.origin?.trim().toLowerCase();
+  if (origin !== void 0 && !safe2 && origin !== `http://${host}`)
+    return "Cross-origin requests are not accepted";
+  const site = String(headers2["sec-fetch-site"] ?? "").toLowerCase();
+  if (site === "cross-site" || site === "same-site") {
+    const navigation = headers2["sec-fetch-mode"] === "navigate" && safe2;
+    if (!navigation) return "Cross-site requests are not accepted";
+  }
+  return void 0;
+}
 var PreviewServer = class {
   options;
   assets;
@@ -28115,6 +28135,12 @@ var PreviewServer = class {
     }).end(result.type === "binary" && result.data ? result.data : result.body);
   }
   async #handle(request, response) {
+    const port = this.#server?.address()?.port ?? 0;
+    const refusal = previewRequestRefusal(request.headers, request.method, port, this.options.host);
+    if (refusal) {
+      request.resume();
+      return this.#send(response, 403, "text/plain; charset=utf-8", `APEX preview: ${refusal}.`);
+    }
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
