@@ -9,13 +9,15 @@ import {
 } from "./chunk-RNEE4V2Z.mjs";
 import {
   runPooledSqlcl
-} from "./chunk-U46X3ZLW.mjs";
+} from "./chunk-EBHIQVTD.mjs";
 import {
+  SQLCL_READ_TIMEOUT_MS,
+  SQLCL_WRITE_TIMEOUT_MS,
   recordSqlclTiming,
   recordStatementTimings,
   runProcess,
   runSqlclMcp
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import {
   external_exports
 } from "./chunk-W7MSMS56.mjs";
@@ -489,6 +491,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
   delete env.JDK_JAVA_OPTIONS;
   const java = await resolveOrdsJava(settings.javaHome, stage, env, signal, runner);
   env.JAVA_HOME = java.javaHome;
+  const mutation = job.operation === "import" || job.operation === "script";
   const processResult = await runner({
     executable: java.executable,
     args: [
@@ -500,10 +503,9 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
     cwd: stage,
     env,
     input: credentials ? JSON.stringify(credentials) : "",
-    timeoutMs: 18e4,
+    timeoutMs: mutation ? SQLCL_WRITE_TIMEOUT_MS : SQLCL_READ_TIMEOUT_MS,
     ...signal ? { signal } : {}
   });
-  const mutation = job.operation === "import" || job.operation === "script";
   if (processResult.timedOut || processResult.cancelled || processResult.truncated)
     throw new Fault(
       processResult.truncated ? "OUTPUT_LIMIT" : processResult.cancelled ? "CANCELLED" : "TIMEOUT",
@@ -2038,7 +2040,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       cwd: work,
       env,
       input: preamble + connect + input + "\nexit\n",
-      timeoutMs: 18e4,
+      timeoutMs: mutation ? SQLCL_WRITE_TIMEOUT_MS : SQLCL_READ_TIMEOUT_MS,
       ...signal ? { signal } : {}
     };
     const pooled = !isolated && (settings.mode === "mcp" ? this.mcpRunner === runSqlclMcp : this.runner === runProcess && !selected && settings.databaseTransport !== "ords");

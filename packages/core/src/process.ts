@@ -3,6 +3,15 @@ import { performance } from 'node:perf_hooks';
 import { executionTiming, emitSqlclTiming, type SqlclExecutionTiming } from './sqlcl-timings.ts';
 import { StringDecoder } from 'node:string_decoder';
 import { Fault, redact } from './result.ts';
+/** SQLcl sessions that only read: metadata, exports, validation, readback. */
+export const SQLCL_READ_TIMEOUT_MS = 180_000;
+/**
+ * SQLcl sessions that write (imports, migrations, packages, restores). Large applications and
+ * long DDL must be able to finish: a client-side kill does not stop the call already running on
+ * the server, so it leaves an unknown outcome that only later reconciliation can settle.
+ */
+export const SQLCL_WRITE_TIMEOUT_MS = 3_600_000;
+
 export interface ProcessRequest {
   onSqlclTiming?: (timing: SqlclExecutionTiming) => void;
   sqlclConnected?: boolean;

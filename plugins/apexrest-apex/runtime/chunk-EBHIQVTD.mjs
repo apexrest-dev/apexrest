@@ -1,12 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  SQLCL_READ_TIMEOUT_MS,
   SqlclMcpClient,
   emitSqlclTiming,
   executionTiming,
   mcpCallOptions,
   mcpFailure,
   mcpResult
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import {
   canonical,
   hash
@@ -160,7 +161,7 @@ async function runPooledSqlcl(request) {
   }
   timing.queueMs = performance.now() - started;
   timing.reused = session.client.alive;
-  const deadline = Date.now() + (request.timeoutMs ?? 18e4);
+  const deadline = Date.now() + (request.timeoutMs ?? SQLCL_READ_TIMEOUT_MS);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
   let executeStarted;

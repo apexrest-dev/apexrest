@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { executionTiming, emitSqlclTiming, type SqlclExecutionTiming } from './sqlcl-timings.ts';
 import { canonical, hash } from './fs.ts';
-import type { ProcessResult } from './process.ts';
+import { SQLCL_READ_TIMEOUT_MS, type ProcessResult } from './process.ts';
 import { Fault } from './result.ts';
 import { SqlclMcpClient, mcpCallOptions, mcpFailure, mcpResult, type SqlclMcpRequest } from './sqlcl-mcp.ts';
 
@@ -175,7 +175,7 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
   }
   timing.queueMs = performance.now() - started;
   timing.reused = session.client.alive;
-  const deadline = Date.now() + (request.timeoutMs ?? 180000);
+  const deadline = Date.now() + (request.timeoutMs ?? SQLCL_READ_TIMEOUT_MS);
   const options = () => mcpCallOptions(request, deadline);
   let submitted = false;
   let executeStarted: number | undefined;

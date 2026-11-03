@@ -5,15 +5,15 @@ import {
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-M57SWOHE.mjs";
+} from "./chunk-3IJ7WYIM.mjs";
 import {
   VERSION,
   resourceRoot
-} from "./chunk-GJGXYFEZ.mjs";
+} from "./chunk-B3GEZPDU.mjs";
 import {
   managedHome
 } from "./chunk-RNEE4V2Z.mjs";
-import "./chunk-U46X3ZLW.mjs";
+import "./chunk-EBHIQVTD.mjs";
 import {
   Client,
   ReadBuffer,
@@ -34,7 +34,7 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import "./chunk-W7MSMS56.mjs";
 import {
   atomicWrite,

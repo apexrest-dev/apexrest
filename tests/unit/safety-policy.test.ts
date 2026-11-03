@@ -2,7 +2,7 @@ import test from 'node:test';
 import { referenceRead } from '../../packages/core/src/references.ts';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { cp, mkdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { workingCopyFixture } from '../fixtures/working-copy.ts';
 import { fixture } from '../fixtures/project.ts';
 import { inspectSql, executableSql } from '../../packages/core/src/sql-review.ts';
@@ -19,13 +19,18 @@ import {
 import { openVerificationBrowser } from '../../packages/core/src/browser.ts';
 import { JobService, type JobExecutor } from '../../packages/core/src/jobs.ts';
 import { parseLocalEnv, readLocalEnv } from '../../packages/core/src/local-env.ts';
-import { runProcess } from '../../packages/core/src/process.ts';
+import {
+  runProcess,
+  SQLCL_READ_TIMEOUT_MS,
+  SQLCL_WRITE_TIMEOUT_MS,
+  type ProcessRequest,
+} from '../../packages/core/src/process.ts';
 import { atomicWrite, exists, writeJson } from '../../packages/core/src/fs.ts';
-import { hostname } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { LocalDeploymentControl } from '../../packages/core/src/deployment-control.ts';
 import { configureConnection } from '../../packages/core/src/connections.ts';
-import type { OracleAdapter } from '../../packages/core/src/oracle.ts';
-import { success } from '../../packages/core/src/result.ts';
+import { OracleAdapter } from '../../packages/core/src/oracle.ts';
+import { Fault, success } from '../../packages/core/src/result.ts';
 
 async function unlisted(t: import('node:test').TestContext) {
   const f = await workingCopyFixture();
@@ -197,6 +202,68 @@ test('interrupted unchanged server safely replans once; unrelated server changes
   assert.equal(result.status, 'succeeded');
   assert.equal(attempt, 2);
   assert.equal(await new LocalDeploymentControl(f.env).owner(), undefined);
+});
+
+for (const cause of ['TIMEOUT', 'CANCELLED', 'OUTPUT_LIMIT', 'SQLCL_MCP_INCOMPLETE'])
+  test(`an import SQLcl was stopped on (${cause}) is not recovered or re-imported automatically`, async (t) => {
+    const f = await unlisted(t);
+    await f.service.sync(f.ctx, 'dev', 'init');
+    await atomicWrite(
+      path.join(f.ctx.root, f.ctx.config.application.sourceDir, 'application.apx'),
+      'application desired (\n)\n',
+    );
+    const planned = await shipPlan(f.ctx, 'dev', f.service, fallbackCompilerDiagnostics);
+    let imports = 0;
+    f.oracle.importApplication = async () => {
+      imports += 1;
+      // The server call may still be running: the target still shows the baseline.
+      throw new Fault(cause, 'SQLcl did not complete with a confirmed outcome.', 6, 'outcome_unknown');
+    };
+    const recover = f.service.recover.bind(f.service);
+    let recoveries = 0;
+    f.service.recover = async (...args) => {
+      recoveries += 1;
+      return recover(...args);
+    };
+    await assert.rejects(
+      shipApply(f.ctx, planned.plan, 'Update the identified DEV application', f.service),
+      (error: Fault) => {
+        assert.equal(error.code, 'OUTCOME_UNKNOWN');
+        assert.equal(error.details?.cause, cause);
+        assert.equal(error.details?.automaticRecovery, 'skipped');
+        assert.match(error.message, /no automatic recovery was attempted.*mode:recover/su);
+        assert.equal(typeof error.details?.deploymentRunId, 'string');
+        return true;
+      },
+    );
+    assert.equal(imports, 1, 'no second import over a call that may still be running');
+    assert.equal(recoveries, 0);
+    assert.equal((await new LocalDeploymentControl(f.env).owner())?.phase, 'writing');
+  });
+
+test('SQLcl write sessions get the long timeout; reads keep the short one', async (t) => {
+  const requests: ProcessRequest[] = [];
+  const oracle = new OracleAdapter(async (request) => {
+    requests.push(request);
+    return { code: 0, stdout: '', stderr: '', timedOut: false, cancelled: false, truncated: false };
+  });
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-timeouts-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  oracle.stage = async () => root;
+  oracle.discardStage = async () => {};
+  oracle.settings = async () => ({
+    schemaVersion: 1,
+    mode: 'cli',
+    mcpRestrictLevel: '4',
+    executable: path.join(root, 'sql'),
+    javaHome: undefined,
+  });
+  oracle.requireMutationSupport = async () => {};
+  await oracle.session('select 1 from dual;', undefined, false, undefined, root);
+  await oracle.session('begin null; end;\n/', undefined, true, undefined, root, 'text', undefined, true);
+  assert.equal(requests[0]!.timeoutMs, SQLCL_READ_TIMEOUT_MS);
+  assert.equal(requests[1]!.timeoutMs, SQLCL_WRITE_TIMEOUT_MS);
+  assert.ok(SQLCL_WRITE_TIMEOUT_MS >= 60 * 60 * 1000);
 });
 
 test('local ENV is literal data, requires ignored/untracked files and never returns connection password', async (t) => {

@@ -6,7 +6,13 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolResult, JSONRPCMessage, Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { spawnTree, stopTree, type ProcessRequest, type ProcessResult } from './process.ts';
+import {
+  spawnTree,
+  SQLCL_READ_TIMEOUT_MS,
+  stopTree,
+  type ProcessRequest,
+  type ProcessResult,
+} from './process.ts';
 import { Fault, redact } from './result.ts';
 
 export interface SqlclMcpRequest extends ProcessRequest {
@@ -265,7 +271,7 @@ export async function runSqlclMcp(request: SqlclMcpRequest): Promise<ProcessResu
     !!request.connectionName || !!request.sqlclConnected,
   );
   const session = new SqlclMcpClient(request);
-  const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? 180000));
+  const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? SQLCL_READ_TIMEOUT_MS));
   let submitted = false;
   let executeStarted: number | undefined;
   try {

@@ -5,7 +5,7 @@ import {
 import {
   SqlclMcpClient,
   mcpCallOptions
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import "./chunk-W7MSMS56.mjs";
 import "./chunk-CCPOHUCO.mjs";
 

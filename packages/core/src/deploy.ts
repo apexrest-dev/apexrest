@@ -2033,7 +2033,7 @@ export class DeploymentService {
           `Deployment ${runId} requires reconciliation before retry.`,
           6,
           'outcome_unknown',
-          { deploymentRunId: runId },
+          { deploymentRunId: runId, cause: error instanceof Fault ? error.code : 'UNEXPECTED_FAILURE' },
         );
       if (error instanceof Fault) error.details = { ...error.details, deploymentRunId: runId };
       throw error;

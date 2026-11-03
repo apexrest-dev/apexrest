@@ -1,14 +1,14 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-GJGXYFEZ.mjs";
+} from "./chunk-B3GEZPDU.mjs";
 import {
   managedHome,
   parse
 } from "./chunk-RNEE4V2Z.mjs";
 import {
   runProcess
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import {
   external_exports
 } from "./chunk-W7MSMS56.mjs";

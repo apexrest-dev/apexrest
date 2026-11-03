@@ -3,7 +3,13 @@ import { realpath, rm } from 'node:fs/promises';
 import { exists, readJson, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 import { resourceRoot } from './project.ts';
-import { runProcess, type ProcessRequest, type ProcessResult } from './process.ts';
+import {
+  runProcess,
+  SQLCL_READ_TIMEOUT_MS,
+  SQLCL_WRITE_TIMEOUT_MS,
+  type ProcessRequest,
+  type ProcessResult,
+} from './process.ts';
 
 export interface OrdsBridgeJob {
   operation: 'compile' | 'import' | 'export' | 'script' | 'prepare-script';
@@ -136,6 +142,7 @@ export async function runOrdsBridge(
   delete env.JDK_JAVA_OPTIONS;
   const java = await resolveOrdsJava(settings.javaHome, stage, env, signal, runner);
   env.JAVA_HOME = java.javaHome;
+  const mutation = job.operation === 'import' || job.operation === 'script';
   const processResult = await runner({
     executable: java.executable,
     args: [
@@ -147,10 +154,9 @@ export async function runOrdsBridge(
     cwd: stage,
     env,
     input: credentials ? JSON.stringify(credentials) : '',
-    timeoutMs: 180000,
+    timeoutMs: mutation ? SQLCL_WRITE_TIMEOUT_MS : SQLCL_READ_TIMEOUT_MS,
     ...(signal ? { signal } : {}),
   });
-  const mutation = job.operation === 'import' || job.operation === 'script';
   if (processResult.timedOut || processResult.cancelled || processResult.truncated)
     throw new Fault(
       processResult.truncated ? 'OUTPUT_LIMIT' : processResult.cancelled ? 'CANCELLED' : 'TIMEOUT',

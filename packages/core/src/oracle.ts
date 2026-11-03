@@ -14,7 +14,7 @@ import {
 } from './connections.ts';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
-import { runProcess } from './process.ts';
+import { runProcess, SQLCL_READ_TIMEOUT_MS, SQLCL_WRITE_TIMEOUT_MS } from './process.ts';
 import type { ProcessRequest, ProcessResult } from './process.ts';
 import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
@@ -344,7 +344,7 @@ export class OracleAdapter {
       cwd: work,
       env,
       input: preamble + connect + input + '\nexit\n',
-      timeoutMs: 180000,
+      timeoutMs: mutation ? SQLCL_WRITE_TIMEOUT_MS : SQLCL_READ_TIMEOUT_MS,
       ...(signal ? { signal } : {}),
     };
     // Persistent engine: SQLcl executes a piped script only after stdin EOF, so

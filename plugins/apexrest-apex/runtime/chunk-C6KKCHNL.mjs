@@ -5,7 +5,7 @@ import {
 } from "./chunk-KOASC6G4.mjs";
 import {
   runtimeState
-} from "./chunk-M57SWOHE.mjs";
+} from "./chunk-3IJ7WYIM.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -55,7 +55,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-GJGXYFEZ.mjs";
+} from "./chunk-B3GEZPDU.mjs";
 import {
   environment,
   identifier,
@@ -73,7 +73,7 @@ import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-XYDSY3MB.mjs";
+} from "./chunk-DWU3Q7C4.mjs";
 import {
   external_exports
 } from "./chunk-W7MSMS56.mjs";
@@ -14374,7 +14374,7 @@ prompt ${marker}`,
           `Deployment ${runId} requires reconciliation before retry.`,
           6,
           "outcome_unknown",
-          { deploymentRunId: runId }
+          { deploymentRunId: runId, cause: error instanceof Fault ? error.code : "UNEXPECTED_FAILURE" }
         );
       if (error instanceof Fault) error.details = { ...error.details, deploymentRunId: runId };
       throw error;
@@ -15146,6 +15146,14 @@ async function checkShipTarget(ctx, plan, local = false, confirmation) {
     );
   return env2;
 }
+var CLIENT_STOPPED_CAUSES = /* @__PURE__ */ new Set([
+  "TIMEOUT",
+  "CANCELLED",
+  "OUTPUT_LIMIT",
+  "LEASE_OR_CANCELLATION",
+  "SQLCL_MCP_INCOMPLETE",
+  "SCRIPT_INCOMPLETE"
+]);
 async function shipApply(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
   const plan = parse(deployPlanSchema, planValue);
   if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
@@ -15178,6 +15186,11 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
     });
   } catch (error) {
     const runId = error instanceof Fault ? error.details?.deploymentRunId : void 0;
+    if (error instanceof Fault && error.code === "OUTCOME_UNKNOWN" && typeof runId === "string" && CLIENT_STOPPED_CAUSES.has(String(error.details?.cause))) {
+      error.message = `${error.message} SQLcl stopped before Oracle confirmed the outcome (${String(error.details?.cause)}); the database may still be executing it, so no automatic recovery was attempted. Once no APEXREST session remains on the target, run apexrest_ship mode:recover for run ${runId}.`;
+      error.details = { ...error.details, automaticRecovery: "skipped" };
+      throw error;
+    }
     if (recoveryAttempt === 0 && typeof runId === "string" && ["OUTCOME_UNKNOWN", "POST_DEPLOY_CONTENT_FAILED", "POST_DEPLOY_VERIFICATION_FAILED"].includes(
       error.code
     )) {
@@ -15609,7 +15622,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-7GPOH4UW.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-LCYEE67K.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -15759,7 +15772,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-OU3H6S42.mjs");
+      const { previewDispatch } = await import("./chunk-JYNDR2SM.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -15786,29 +15799,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-PGCMMM63.mjs");
+        const { ToolchainService } = await import("./chunk-2CHAS6Y2.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-AFCNDW45.mjs");
+        const { uninstallTools } = await import("./chunk-5CKIE4XM.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-C4TU2NL4.mjs");
+        const { setup: setup2 } = await import("./chunk-KCTXVAPV.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-C4TU2NL4.mjs");
+        const { validateNative } = await import("./chunk-KCTXVAPV.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-C4TU2NL4.mjs");
+        const { uninstallNative } = await import("./chunk-KCTXVAPV.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

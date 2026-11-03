@@ -311,6 +311,22 @@ export async function checkShipTarget(
   return env;
 }
 
+/**
+ * Unknown outcomes where APEXREST itself stopped SQLcl or could not confirm the batch it sent:
+ * a timeout, a cancellation, the output limit, or an unconfirmed persistent-server batch. The
+ * call already sent can still be running on the server after the client is gone, so recovery
+ * must not read the target and re-import straight away. Other unknown outcomes (a lost response,
+ * an Oracle error) keep the server-first automatic recovery.
+ */
+const CLIENT_STOPPED_CAUSES = new Set([
+  'TIMEOUT',
+  'CANCELLED',
+  'OUTPUT_LIMIT',
+  'LEASE_OR_CANCELLATION',
+  'SQLCL_MCP_INCOMPLETE',
+  'SCRIPT_INCOMPLETE',
+]);
+
 export async function shipApply(
   ctx: ProjectContext,
   planValue: unknown,
@@ -358,6 +374,22 @@ export async function shipApply(
     });
   } catch (error) {
     const runId = error instanceof Fault ? error.details?.deploymentRunId : undefined;
+    if (
+      error instanceof Fault &&
+      error.code === 'OUTCOME_UNKNOWN' &&
+      typeof runId === 'string' &&
+      CLIENT_STOPPED_CAUSES.has(String(error.details?.cause))
+    ) {
+      // SQLcl was stopped before Oracle confirmed the result. The call
+      // it had sent can still be running on the server, so an immediate recovery read could see
+      // the baseline and import again over it. Leave the run for a later, deliberate recovery.
+      error.message =
+        `${error.message} SQLcl stopped before Oracle confirmed the outcome (${String(error.details?.cause)}); ` +
+        `the database may still be executing it, so no automatic recovery was attempted. ` +
+        `Once no APEXREST session remains on the target, run apexrest_ship mode:recover for run ${runId}.`;
+      error.details = { ...error.details, automaticRecovery: 'skipped' };
+      throw error;
+    }
     if (
       recoveryAttempt === 0 &&
       typeof runId === 'string' &&

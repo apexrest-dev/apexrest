@@ -7262,6 +7262,8 @@ function recordStatementTimings(label, durations) {
 import { spawn } from "node:child_process";
 import { performance as performance2 } from "node:perf_hooks";
 import { StringDecoder } from "node:string_decoder";
+var SQLCL_READ_TIMEOUT_MS = 18e4;
+var SQLCL_WRITE_TIMEOUT_MS = 36e5;
 var DRAIN_AFTER_EXIT_MS = 3e3;
 var groupKills = process.platform !== "win32";
 function spawnTree(executable, args, options) {
@@ -10983,7 +10985,7 @@ async function runSqlclMcp(request) {
     !!request.connectionName || !!request.sqlclConnected
   );
   const session = new SqlclMcpClient(request);
-  const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? 18e4));
+  const options = mcpCallOptions(request, Date.now() + (request.timeoutMs ?? SQLCL_READ_TIMEOUT_MS));
   let submitted = false;
   let executeStarted;
   try {
@@ -11016,6 +11018,8 @@ export {
   executionTiming,
   emitSqlclTiming,
   recordStatementTimings,
+  SQLCL_READ_TIMEOUT_MS,
+  SQLCL_WRITE_TIMEOUT_MS,
   runProcess,
   safeParse2 as safeParse,
   getObjectShape,

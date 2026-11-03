@@ -53,6 +53,8 @@
 </ul>
 <h2 id="open-source-code-review-findings">Open source code review findings</h2>
 <ul>
+<li><p>Qualify the 60-minute SQLcl write limit and the skipped automatic recovery after a client-side stop against a real long import on an authorized DEV/TEST target, and decide whether a lost connection should also wait for the server session to end before automatic recovery.</p>
+</li>
 <li><p>Harden connected preview code execution beyond the request guard: confirm against real SQLcl 26.x that the refused terminator lines (<code>/</code>, <code>.</code>, leading <code>#</code>, SQL lines ending with <code>;</code>) are complete and that no other line form ends a buffer; check a page with Execute Server-side Code and server Set Value actions in a real browser now that the client sends references instead of code; extend <code>transactionRisk</code> to implicit-commit or non-transactional calls (<code>dbms_utility.exec_ddl_statement</code>, <code>dbms_scheduler</code>, <code>utl_http</code>, <code>utl_file</code>, <code>dbms_pipe</code>). Check the request guard in real Chrome, Firefox and Safari.</p>
 </li>
 <li><p>Detect database scripts that SQLcl accepts without executing their final unit: a trailing PL/SQL block without <code>/</code>, and <code>Warning: ... created with compilation errors</code>, which <code>oracleDiagnostics</code> does not match (consider querying <code>user_errors</code> for touched units). The per-run completion marker now catches early exits and stdin-consuming commands, but not these cases. Verify the marker against real SQLcl on an authorized DEV/TEST target.</p>
