@@ -11,6 +11,8 @@ import {
   DeploymentService,
   authorizePlan,
   planDigest,
+  scriptCompleted,
+  scriptCompletionMarker,
   targetDigest,
 } from '../../packages/core/src/deploy.ts';
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
@@ -70,7 +72,8 @@ async function prepared(backup = false) {
     },
     async session(sql: string) {
       calls.push(sql);
-      return { output: 'fixture-only' };
+      // Real SQLcl prints the completion prompt that follows a script.
+      return { output: `fixture-only\n${String(sql).match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? ''}` };
     },
     async importApplication() {
       calls.push('import');
@@ -126,7 +129,7 @@ test('migration and package scripts run in a restricted SQLcl session', async ()
   const scripts: unknown[][] = [];
   fake.session = async (...args: unknown[]) => {
     if (String(args[0]).startsWith('@')) scripts.push(args);
-    return { output: 'fixture-only' };
+    return { output: `fixture-only\n${String(args[0]).match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? ''}` };
   };
   await service.apply(ctx, await service.plan(ctx, 'dev'));
   assert.equal(scripts.length, 1);
@@ -312,6 +315,51 @@ test('a database-only plan runs scripts without backup or import and keeps every
   assert.ok(!calls.includes('import') && !calls.includes('backup'), 'no backup and no import');
   const rows = await new LocalDeploymentControl(ctx.config.environments.dev!).history();
   assert.equal(rows[0]!.status, 'succeeded');
+});
+
+test('script completion requires the exact per-run marker as a whole line', () => {
+  const marker = scriptCompletionMarker();
+  assert.notEqual(marker, scriptCompletionMarker());
+  assert.ok(scriptCompleted(`Table created.\r\n  ${marker}  \n`, marker));
+  assert.equal(scriptCompleted(undefined, marker), false);
+  assert.equal(scriptCompleted('APEXREST_SCRIPT_COMPLETE', marker), false);
+  assert.equal(scriptCompleted(`prefix ${marker}`, marker), false);
+});
+
+for (const [name, output] of [
+  ['no marker (script exited early or consumed stdin)', () => 'Table created.'],
+  ['a marker the script printed itself', () => 'APEXREST_SCRIPT_COMPLETE'],
+] as const)
+  test(`migration without the completion marker stays started and unknown: ${name}`, async () => {
+    const { ctx, service, fake } = await prepared();
+    await atomicWrite(
+      path.join(ctx.root, ctx.config.database.migrationsDir, '0001__fixture.sql'),
+      'begin null; end;\n/',
+    );
+    const plan = await service.plan(ctx, 'dev');
+    fake.session = async () => ({ output: output() });
+    await assert.rejects(service.apply(ctx, plan), { code: 'OUTCOME_UNKNOWN' });
+    const control = new LocalDeploymentControl(ctx.config.environments.dev!);
+    assert.equal((await control.owner())!.phase, 'writing');
+    const history = await control.history();
+    assert.equal(history.length, 1);
+    assert.equal(history[0]!.status, 'started');
+    await assert.rejects(service.plan(ctx, 'dev'), { code: 'MIGRATION_HISTORY_CONFLICT' });
+  });
+
+test('package script without the completion marker is not recorded as applied', async () => {
+  const { ctx, service, fake } = await prepared();
+  await atomicWrite(
+    path.join(ctx.root, ctx.config.database.packagesDir, 'example.sql'),
+    'begin null; end;\n/',
+  );
+  const plan = await service.plan(ctx, 'dev');
+  assert.ok(plan.operations.some((operation) => operation.kind === 'package'));
+  fake.session = async () => ({ output: 'Package created.' });
+  await assert.rejects(service.apply(ctx, plan), { code: 'OUTCOME_UNKNOWN' });
+  const control = new LocalDeploymentControl(ctx.config.environments.dev!);
+  assert.deepEqual(await control.packages(ctx.config.projectId), {});
+  assert.equal((await control.owner())!.phase, 'writing');
 });
 
 test('local interrupted migration retains writing ownership and started journal without blind retry', async () => {

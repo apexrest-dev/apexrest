@@ -301,9 +301,11 @@ test('initial backup restore requires separate authorization and invalidates syn
 
 test('working copy supports reviewed DB operations and still rejects unbound legacy plans', async () => {
   const { ctx, service, store, calls, oracle } = await initialized();
-  (oracle as unknown as import('../../packages/core/src/oracle.ts').OracleAdapter).session = async () => {
+  (oracle as unknown as import('../../packages/core/src/oracle.ts').OracleAdapter).session = async (
+    input,
+  ) => {
     calls.push('script');
-    return { output: 'APEXREST_SCRIPT_COMPLETE' } as never;
+    return { output: String(input).match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? '' } as never;
   };
   const plan = await service.plan(ctx, 'dev');
   if (plan.schemaVersion !== 2) throw new Error('Expected v2');

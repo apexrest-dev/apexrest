@@ -12917,6 +12917,12 @@ var clientCommands = [
   ["mcp", 3]
 ];
 var plsqlBlockStart = /^(?:begin|declare)\b|^create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable)\s+)?(?:and\s+(?:resolve|compile)\s+)?(?:noforce\s+)?(?:java|function|procedure|package|trigger|type|library)\b/i;
+function scriptCompletionMarker() {
+  return `APEXREST_SCRIPT_COMPLETE_${randomUUID4().replaceAll("-", "")}`;
+}
+function scriptCompleted(output, marker) {
+  return (output ?? "").split(/\r?\n/).some((line) => line.trim() === marker);
+}
 function sqlclControlLines(sql) {
   sql = executableSql(sql);
   const found = [];
@@ -14112,9 +14118,10 @@ var DeploymentService = class {
             "started"
           );
         writeStarted = true;
-        await this.oracle.session(
+        const marker = scriptCompletionMarker();
+        const executed = await this.oracle.session(
           `@${sqlclToken(file)}
-prompt APEXREST_SCRIPT_COMPLETE`,
+prompt ${marker}`,
           deployConnection,
           true,
           controller.signal,
@@ -14122,6 +14129,13 @@ prompt APEXREST_SCRIPT_COMPLETE`,
           "text",
           SCRIPT_RESTRICT_LEVEL
         );
+        if (!scriptCompleted(executed?.output, marker))
+          throw new Fault(
+            "SCRIPT_INCOMPLETE",
+            `SQLcl did not confirm that ${path9.basename(file)} ran to completion.`,
+            6,
+            "outcome_unknown"
+          );
         if (operation.kind === "package")
           await new LocalDeploymentControl(env2).packageApplied(
             runId,

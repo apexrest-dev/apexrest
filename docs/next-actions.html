@@ -53,6 +53,8 @@
 </ul>
 <h2 id="open-source-code-review-findings">Open source code review findings</h2>
 <ul>
+<li><p>Detect database scripts that SQLcl accepts without executing their final unit: a trailing PL/SQL block without <code>/</code>, and <code>Warning: ... created with compilation errors</code>, which <code>oracleDiagnostics</code> does not match (consider querying <code>user_errors</code> for touched units). The per-run completion marker now catches early exits and stdin-consuming commands, but not these cases. Verify the marker against real SQLcl on an authorized DEV/TEST target.</p>
+</li>
 <li><p>Fix SQL script risk inspection in <code>packages/core/src/sql-review.ts</code>: parameterless query function calls and calls inside <code>CREATE TABLE AS SELECT</code> currently produce no mutation risk. Both synthetic cases pass the remote confirmation gate without confirmation. Add negative regressions for the complete risk-to-authorization path while retaining ordinary schema creation and built-in function cases.</p>
 </li>
 <li><p>Qualify process-tree termination against a real stalled Oracle JVM, on Windows and through a fresh native host; local Node process fixtures do not cover them.</p>

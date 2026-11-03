@@ -252,6 +252,14 @@ const clientCommands: [string, number][] = [
 ];
 const plsqlBlockStart =
   /^(?:begin|declare)\b|^create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable)\s+)?(?:and\s+(?:resolve|compile)\s+)?(?:noforce\s+)?(?:java|function|procedure|package|trigger|type|library)\b/i;
+/** Unguessable end-of-script marker, so a user script cannot print it itself. */
+export function scriptCompletionMarker() {
+  return `APEXREST_SCRIPT_COMPLETE_${randomUUID().replaceAll('-', '')}`;
+}
+/** True only when the marker appears as a whole output line. */
+export function scriptCompleted(output: string | undefined, marker: string) {
+  return (output ?? '').split(/\r?\n/).some((line) => line.trim() === marker);
+}
 /**
  * Return 1-based line numbers that SQLcl could interpret as client commands.
  * Each line is tokenized after leading whitespace and leading block comments.
@@ -1736,8 +1744,12 @@ export class DeploymentService {
           );
         writeStarted = true;
         // User scripts run restricted (no host/spool/save); level 2 still allows @file.
-        await this.oracle.session(
-          `@${sqlclToken(file)}\nprompt APEXREST_SCRIPT_COMPLETE`,
+        // A per-run marker printed after the script proves SQLcl reached its end:
+        // a script that exits early or consumes the remaining stdin (ACCEPT,
+        // PAUSE) must not be recorded as applied.
+        const marker = scriptCompletionMarker();
+        const executed = await this.oracle.session(
+          `@${sqlclToken(file)}\nprompt ${marker}`,
           deployConnection,
           true,
           controller.signal,
@@ -1745,6 +1757,13 @@ export class DeploymentService {
           'text',
           SCRIPT_RESTRICT_LEVEL,
         );
+        if (!scriptCompleted(executed?.output, marker))
+          throw new Fault(
+            'SCRIPT_INCOMPLETE',
+            `SQLcl did not confirm that ${path.basename(file)} ran to completion.`,
+            6,
+            'outcome_unknown',
+          );
         if (operation.kind === 'package')
           await new LocalDeploymentControl(env).packageApplied(
             runId,

@@ -2,6 +2,7 @@
 
 ## 2.5.0
 
+- Require a per-run completion marker after every migration and package script. A script whose output lacks it (an early exit, or a client command such as ACCEPT that consumes the remaining input) leaves the migration `started` with an unknown outcome instead of recording it as succeeded or applied.
 - Give the local preview Oracle data semantics: empty items bind as NULL, real division, Oracle number text, date arithmetic on any date expression, ANSI date literals and `DEFAULT sysdate` in seeds, `json_value`/`json_query`/`json_exists`, nested LISTAGG, POSIX regular expressions and ISO date storage for form DML.
 - Run page submits, server-side code and grid saves in one transaction: unhandled process errors stop processing, are shown to the user and roll back. Add interactive grid row validations, `#LABEL#`/`#COLUMN_HEADER#` substitution, lost-update detection, region items to submit on refresh, `clearCache` lists and synchronous Cancel Event.
 - Render 26.2 report and card syntax: show-all pagination, card actions, `&COLUMN.` substitution, list view features, calendar views, template directives in HTML expressions, template component format masks, FILESIZE/SINCE_SHORT masks, interactive report aliases and integer chart ticks.

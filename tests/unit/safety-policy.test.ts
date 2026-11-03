@@ -233,9 +233,9 @@ test('task-scoped dangerous SQL applies on verified local non-production working
     return { local: true, evidence: 'fixture-effective-endpoint-and-server' };
   };
   adapter.databaseDependencies = async () => [{ owner: 'FIXTURE', name: 'DEPENDENT_VIEW', type: 'VIEW' }];
-  adapter.session = async () => {
+  adapter.session = async (input) => {
     f.calls.push('script');
-    return { output: 'APEXREST_SCRIPT_COMPLETE' } as never;
+    return { output: String(input).match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? '' } as never;
   };
   await f.service.sync(f.ctx, 'dev', 'init');
   await atomicWrite(
