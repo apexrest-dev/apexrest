@@ -2,7 +2,7 @@ import { bindNames } from '../database.ts';
 import type { ApexRenderer, RenderContext } from '../render.ts';
 import type { ExecResult, PlsqlOwner } from '../extensions/server/plsql.ts';
 import type { ConnectedOracle } from './app-data.ts';
-import { OracleError, RESULT_BIND } from './protocol.ts';
+import { OracleError, RESULT_BIND, scriptLineRisk } from './protocol.ts';
 
 type Mode = 'block' | 'functionBody' | 'plsqlExpression' | 'sqlExpression';
 type Shape = 'text' | 'boolean';
@@ -97,6 +97,16 @@ export function runOraclePlsql(
     };
     return result;
   }
+  // A terminator line would let the rest of the unit run outside its block (plsqlSegment also refuses it).
+  const breakout = scriptLineRisk(code, 'plsql');
+  if (breakout) {
+    result.ok = false;
+    result.failure = {
+      message: `Code with ${breakout} is not sent to Oracle by the connected preview because SQLcl would run what follows as separate commands; the unit was skipped`,
+      kind: 'unsupported',
+    };
+    return result;
+  }
   const builtins = renderer.builtin(ctx.session, ctx.page);
   const all: Record<string, string | number | null | undefined> = {
     ...renderer.binds(ctx.session, ctx.page),
@@ -139,7 +149,13 @@ export function runOraclePlsql(
           htp: mode === 'block' || mode === 'functionBody',
         });
       } catch (error) {
-        if (!apex || !(error instanceof OracleError) || error.code === -20994 || error.code === -20995)
+        if (
+          !apex ||
+          !(error instanceof OracleError) ||
+          error.code === -20989 ||
+          error.code === -20994 ||
+          error.code === -20995
+        )
           throw error;
         // APEX session setup failed (privileges, session commit, app mismatch): continue with binds only.
         oracle.apexError = error.message.split('\n')[0] ?? error.message;

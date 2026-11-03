@@ -39,7 +39,7 @@
 
 ## Open source code review findings
 
-- Harden connected preview code execution beyond the request guard: refuse code containing a lone `/` or `.` line and encode bind values without raw newlines so code cannot leave its `begin…end;` block; execute server code looked up from the application source by component id instead of client-supplied text; stop query/POST parameters from setting built-ins such as `APP_USER`; tokenize comments and q-quotes together in `transactionRisk`. Check the request guard in real Chrome, Firefox and Safari.
+- Harden connected preview code execution beyond the request guard: confirm against real SQLcl 26.x that the refused terminator lines (`/`, `.`, leading `#`, SQL lines ending with `;`) are complete and that no other line form ends a buffer; execute server code looked up from the application source by component id instead of client-supplied text; stop query/POST parameters from setting built-ins such as `APP_USER`; tokenize comments and q-quotes together in `transactionRisk`. Check the request guard in real Chrome, Firefox and Safari.
 
 - Detect database scripts that SQLcl accepts without executing their final unit: a trailing PL/SQL block without `/`, and `Warning: ... created with compilation errors`, which `oracleDiagnostics` does not match (consider querying `user_errors` for touched units). The per-run completion marker now catches early exits and stdin-consuming commands, but not these cases. Verify the marker against real SQLcl on an authorized DEV/TEST target.
 

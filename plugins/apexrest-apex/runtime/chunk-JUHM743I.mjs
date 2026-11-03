@@ -37,7 +37,40 @@ function bindName(name) {
   return name.toUpperCase();
 }
 function sqlText(value) {
-  return `'${value.replaceAll("'", "''")}'`;
+  const pieces = [];
+  let run = "";
+  for (const char of value) {
+    const code = char.codePointAt(0);
+    if (code >= 32 && code !== 127) {
+      run += char;
+      continue;
+    }
+    if (run) pieces.push(`'${run.replaceAll("'", "''")}'`);
+    run = "";
+    pieces.push(`chr(${code})`);
+  }
+  if (run || !pieces.length) pieces.push(`'${run.replaceAll("'", "''")}'`);
+  return pieces.join(" || ");
+}
+function scriptLineRisk(text, mode) {
+  const lines = text.split(/\r\n|\r|\n/u);
+  for (const [index, line] of lines.entries()) {
+    const at = ` (line ${index + 1})`;
+    if (/^\s*\/\s*$/u.test(line)) return `a line with only "/"${at}`;
+    if (/^\s*\.\s*$/u.test(line)) return `a line with only "."${at}`;
+    if (/^\s*#/u.test(line)) return `a line starting with "#"${at}`;
+    if (mode === "sql" && /;\s*(?:(?:--|\/\*).*)?$/u.test(line)) return `a line ending with ";"${at}`;
+  }
+  return void 0;
+}
+function requireScriptSafe(text, mode) {
+  const risk = scriptLineRisk(text, mode);
+  if (risk)
+    throw new OracleError(
+      -20989,
+      `The connected preview does not send code with ${risk}: SQLcl would run what follows as separate commands`
+    );
+  return text;
 }
 function statementBody(sql) {
   return sql.trim().replace(/;\s*$/u, "");
@@ -72,7 +105,7 @@ prompt ${markers[index]}`).join("\n") + "\n",
 function querySegment(sql, maxRows) {
   return `set sqlformat json
 select * from (
-${statementBody(sql)}
+${requireScriptSafe(statementBody(sql), "sql")}
 ) where rownum <= ${Math.max(1, Math.trunc(maxRows))}
 /
 set sqlformat default`;
@@ -85,7 +118,7 @@ select ${names.map((name) => `:${bindName(name)} "${bindName(name)}"`).join(", "
 set sqlformat default`;
 }
 function plsqlSegment(block) {
-  return `${block.trim()}
+  return `${requireScriptSafe(block.trim(), "plsql")}
 /`;
 }
 function dmlBlock(sql, returningRowid) {
@@ -199,6 +232,7 @@ export {
   OracleError,
   bindName,
   sqlText,
+  scriptLineRisk,
   declareBinds,
   referencedBinds,
   batch,

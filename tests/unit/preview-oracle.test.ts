@@ -17,8 +17,12 @@ import {
   OracleError,
   declareBinds,
   jsonRows,
+  plsqlSegment,
+  querySegment,
+  scriptLineRisk,
   segmentError,
   segments,
+  sqlText,
 } from '../../packages/core/src/preview/oracle/protocol.ts';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
 import { previewStart, previewStop } from '../../packages/core/src/preview/service.ts';
@@ -362,6 +366,59 @@ test('page code that could commit never reaches Oracle; a commit that still happ
       (entry) => entry.level === 'error' && /process save: The code ended/u.test(entry.message),
     ),
   );
+});
+
+test('code and values cannot leave their block through SQLcl terminator lines', async (t) => {
+  const breakout = 'null;\nend;\n/\ndrop table orders purge\n/\nbegin\nnull;';
+  // Lines SQLcl acts on regardless of quoting, with every Java line break.
+  assert.match(scriptLineRisk(breakout, 'plsql')!, /only "\/" \(line 3\)/u);
+  assert.match(scriptLineRisk('null;\r/\rdrop table t', 'plsql')!, /only "\/"/u);
+  assert.match(scriptLineRisk('null;\r\n  /  \r\n', 'plsql')!, /only "\/"/u);
+  assert.match(scriptLineRisk("x := 'a\n.\n';", 'plsql')!, /only "\."/u);
+  assert.match(scriptLineRisk('null;\n  #host id', 'plsql')!, /starting with "#"/u);
+  assert.match(scriptLineRisk('select 1 from dual;\ndrop table t', 'sql')!, /ending with ";"/u);
+  assert.match(scriptLineRisk('select 1 from dual; -- end\ndrop table t', 'sql')!, /ending with ";"/u);
+  // Ordinary code keeps working: semicolons in PL/SQL, division, blank lines, inline ';'.
+  assert.equal(scriptLineRisk('x := a\n  / 2;\n\nif x > 0 then\n  y := 1;\nend if;', 'plsql'), undefined);
+  assert.equal(scriptLineRisk("select ';' x, 4/2 y\n\nfrom dual -- a/b", 'sql'), undefined);
+
+  assert.throws(() => plsqlSegment(`begin\n${breakout}\nend;`), { code: -20989 });
+  assert.throws(() => querySegment('select 1 x from dual) where 1 = 1;\ndrop table orders purge', 10), {
+    code: -20989,
+  });
+  assert.equal(plsqlSegment('begin\n  null;\nend;'), 'begin\n  null;\nend;\n/');
+
+  // Bind values never put a raw line break into the script.
+  assert.equal(sqlText("a'b"), "'a''b'");
+  assert.equal(sqlText('x\n/\ny'), "'x' || chr(10) || '/' || chr(10) || 'y'");
+  assert.equal(sqlText('\r\n'), 'chr(13) || chr(10)');
+  assert.equal(sqlText(''), "''");
+  const declared = declareBinds({ P1_X: 'ok\n/\ndrop table orders purge\n/\n' });
+  const lines = declared.split(/\r\n|\r|\n/u);
+  assert.equal(lines.filter((line) => line.trim() === '/').length, 1, declared);
+  assert.equal(lines.at(-1), '/');
+
+  // Nothing is sent: not the query, not the DML, not the PL/SQL unit.
+  const { inputs, link } = fakeOracle();
+  const data = new OracleAppData(link, 'demo');
+  assert.throws(() => data.query('select 1 from dual;\ndrop table orders purge'), { code: -20989 });
+  assert.throws(() => data.execute('update t set x = 1\n/\ndrop table orders purge'), { code: -20989 });
+  assert.throws(() => data.plsql({ block: oracleBlock(breakout, 'block', 'text'), binds: {} }), {
+    code: -20989,
+  });
+  assert.equal(inputs.length, 0);
+
+  const preview = await oraclePreview(t, () => '');
+  const renderer = preview.server.renderer;
+  const session: Session = { id: '1', user: 'DEV', items: {}, pagination: {} };
+  const ctx = renderer.prepare(session, '1');
+  const sent = preview.inputs.length;
+  const skipped = runOraclePlsql(renderer, ctx, preview.oracle, breakout, 'block', { label: 'p' });
+  assert.equal(skipped.ok, false);
+  assert.equal(skipped.failure?.kind, 'unsupported');
+  assert.match(skipped.failure!.message, /only "\/" \(line 3\)/u);
+  assert.equal(preview.inputs.length, sent, 'a unit with a terminator line is not sent');
+  assert.equal(preview.oracle.apexError, undefined, 'the refusal does not disable the APEX session context');
 });
 
 const ECHO_WORKER = `

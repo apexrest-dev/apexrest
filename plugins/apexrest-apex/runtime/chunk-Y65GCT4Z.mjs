@@ -17,11 +17,12 @@ import {
   plsqlSegment,
   querySegment,
   referencedBinds,
+  scriptLineRisk,
   segmentError,
   segments,
   selectBindsSegment,
   sqlText
-} from "./chunk-N33AM7OK.mjs";
+} from "./chunk-JUHM743I.mjs";
 import {
   OracleAdapter,
   resolveConnection,
@@ -23025,6 +23026,15 @@ function runOraclePlsql(renderer, ctx, oracle, code, mode, owner2) {
     };
     return result;
   }
+  const breakout = scriptLineRisk(code, "plsql");
+  if (breakout) {
+    result.ok = false;
+    result.failure = {
+      message: `Code with ${breakout} is not sent to Oracle by the connected preview because SQLcl would run what follows as separate commands; the unit was skipped`,
+      kind: "unsupported"
+    };
+    return result;
+  }
   const builtins = renderer.builtin(ctx.session, ctx.page);
   const all2 = {
     ...renderer.binds(ctx.session, ctx.page),
@@ -23058,7 +23068,7 @@ ${code}`;
           htp: mode === "block" || mode === "functionBody"
         });
       } catch (error) {
-        if (!apex || !(error instanceof OracleError) || error.code === -20994 || error.code === -20995)
+        if (!apex || !(error instanceof OracleError) || error.code === -20989 || error.code === -20994 || error.code === -20995)
           throw error;
         oracle.apexError = error.message.split("\n")[0] ?? error.message;
         renderer.diagnose(

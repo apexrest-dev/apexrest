@@ -47,8 +47,56 @@ export function bindName(name: string): string {
   return name.toUpperCase();
 }
 
+/**
+ * A string literal that stays on one script line: control characters (CR, LF and
+ * the rest) are spliced in with chr(), so a value cannot put a terminator line
+ * such as `/` into the script.
+ */
 export function sqlText(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
+  const pieces: string[] = [];
+  let run = '';
+  for (const char of value) {
+    const code = char.codePointAt(0)!;
+    if (code >= 0x20 && code !== 0x7f) {
+      run += char;
+      continue;
+    }
+    if (run) pieces.push(`'${run.replaceAll("'", "''")}'`);
+    run = '';
+    pieces.push(`chr(${code})`);
+  }
+  if (run || !pieces.length) pieces.push(`'${run.replaceAll("'", "''")}'`);
+  return pieces.join(' || ');
+}
+
+/**
+ * SQLcl reads the batch line by line (Java line breaks: LF, CR or CRLF) and acts on
+ * some lines whatever their quoting: `/` runs the buffer, `.` ends it, a leading `#`
+ * (SQLPREFIX) runs a client command, and in a SQL statement a line ending in `;`
+ * runs it. Code containing such a line would leave its wrapper and have the rest
+ * executed as separate statements (for example DDL, which commits). Such code is
+ * refused before anything is sent.
+ */
+export function scriptLineRisk(text: string, mode: 'plsql' | 'sql'): string | undefined {
+  const lines = text.split(/\r\n|\r|\n/u);
+  for (const [index, line] of lines.entries()) {
+    const at = ` (line ${index + 1})`;
+    if (/^\s*\/\s*$/u.test(line)) return `a line with only "/"${at}`;
+    if (/^\s*\.\s*$/u.test(line)) return `a line with only "."${at}`;
+    if (/^\s*#/u.test(line)) return `a line starting with "#"${at}`;
+    if (mode === 'sql' && /;\s*(?:(?:--|\/\*).*)?$/u.test(line)) return `a line ending with ";"${at}`;
+  }
+  return undefined;
+}
+
+function requireScriptSafe(text: string, mode: 'plsql' | 'sql'): string {
+  const risk = scriptLineRisk(text, mode);
+  if (risk)
+    throw new OracleError(
+      -20989,
+      `The connected preview does not send code with ${risk}: SQLcl would run what follows as separate commands`,
+    );
+  return text;
 }
 
 function statementBody(sql: string): string {
@@ -91,7 +139,7 @@ export function batch(segments: string[]): Batch {
 }
 
 export function querySegment(sql: string, maxRows: number): string {
-  return `set sqlformat json\nselect * from (\n${statementBody(sql)}\n) where rownum <= ${Math.max(1, Math.trunc(maxRows))}\n/\nset sqlformat default`;
+  return `set sqlformat json\nselect * from (\n${requireScriptSafe(statementBody(sql), 'sql')}\n) where rownum <= ${Math.max(1, Math.trunc(maxRows))}\n/\nset sqlformat default`;
 }
 
 export function selectBindsSegment(names: string[]): string {
@@ -100,7 +148,7 @@ export function selectBindsSegment(names: string[]): string {
 }
 
 export function plsqlSegment(block: string): string {
-  return `${block.trim()}\n/`;
+  return `${requireScriptSafe(block.trim(), 'plsql')}\n/`;
 }
 
 /** DML inside PL/SQL so SQL%ROWCOUNT (and an inserted ROWID) come back as binds. */

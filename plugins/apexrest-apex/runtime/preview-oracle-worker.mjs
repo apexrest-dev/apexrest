@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   INIT_SESSION
-} from "./chunk-N33AM7OK.mjs";
+} from "./chunk-JUHM743I.mjs";
 import {
   SqlclMcpClient,
   mcpCallOptions
