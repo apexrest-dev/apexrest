@@ -9,7 +9,7 @@ import { loadAssets, type ApexAssets } from './assets.ts';
 import { rejectUpgrade } from './websocket.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { LiveHub } from './live.ts';
-import { checkComponentProperties } from './properties.ts';
+import { applicationMmdVersion, checkComponentProperties, checkSharedComponentFiles } from './properties.ts';
 import { LocalDatabase } from './database.ts';
 import type { ConnectedOracle } from './oracle/app-data.ts';
 import {
@@ -217,9 +217,13 @@ export class PreviewServer {
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose('warning', `Connected preview: ${warning}`);
-    // Unknown APEXlang properties and values would otherwise be ignored silently.
+    // Unknown APEXlang properties and values would otherwise be ignored silently, and so would
+    // shared component files the compiler never reads.
+    for (const finding of checkSharedComponentFiles(renderer.app.root, renderer.app.files))
+      renderer.diagnose('warning', finding);
+    const mmdVersion = applicationMmdVersion(this.options.sourceDir);
     for (const [id, page] of renderer.app.pages)
-      for (const finding of checkComponentProperties([page], id))
+      for (const finding of checkComponentProperties([page], id, undefined, mmdVersion ? { mmdVersion } : {}))
         renderer.diagnose('warning', finding.message, finding.page, finding.component);
     return renderer;
   }
