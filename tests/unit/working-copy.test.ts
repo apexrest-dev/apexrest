@@ -253,7 +253,7 @@ test('concurrent applies serialize through deployment ownership and sync revisio
   assert.equal(calls.filter((c) => c === 'import').length, 1);
 });
 
-test('legacy/full-export path, new applications and production retain normal planning', async () => {
+test('legacy/full-export path and new applications plan normally; production is refused before planning', async () => {
   const { ctx, service, controls, calls, env } = await workingCopyFixture();
   env.deployConnectionRef = env.readConnectionRef;
   await service.apply(ctx, await service.plan(ctx, 'dev'));
@@ -267,6 +267,10 @@ test('legacy/full-export path, new applications and production retain normal pla
   env.kind = 'production';
   controls.exists = true;
   await assert.rejects(service.sync(ctx, 'dev', 'init'), { code: 'SYNC_SCOPE_UNSUPPORTED' });
+  calls.length = 0;
+  await assert.rejects(service.plan(ctx, 'dev'), { code: 'PRODUCTION_DEPLOY_DENIED' });
+  assert.deepEqual(calls, [], 'production planning opens no connection');
+  env.kind = 'development';
   const plan = await service.plan(ctx, 'dev');
   assert.equal(plan.schemaVersion === 2 && plan.mode, 'full-export');
 });

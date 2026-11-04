@@ -354,22 +354,30 @@ export async function referenceSearch(query: string, version?: string, options: 
     }));
   }
   if (options.corpus === 'components') {
-    if (selectedVersion.split('@')[0] === '26.2' && query.trim().startsWith('component:')) return [];
-    if (selectedVersion.split('@')[0] === '26.2')
+    // A project supplies context, not a different corpus: the compiler-checked
+    // recipe catalog stays the default. Only an explicit 26.2 version (or an
+    // oracle:26.2 ID) selects the official inventory and public page examples.
+    const official =
+      (version ?? (query.trim().startsWith('oracle:26.2:') ? '26.2' : '')).split('@')[0] === '26.2';
+    // The recipe catalog is version-bound (26.1); a project's profile does not filter it away.
+    const componentVersion = version ?? (options.project ? undefined : selectedVersion);
+    if (official && query.trim().startsWith('component:')) return [];
+    if (official)
       if (options.kind === 'template' || query.trim().startsWith('oracle:26.2:public-template/'))
         return publicTemplateSearch(query, selectedVersion, options);
-    if (selectedVersion.split('@')[0] === '26.2')
+    if (official)
       return referenceSearch(query, selectedVersion, {
         ...options,
         corpus: 'apexlang',
         kind: 'contract',
         family: 'inventory',
       });
-    return componentSearch(query, selectedVersion, options);
+    return componentSearch(query, componentVersion, options);
   }
   if (query.trim().startsWith('oracle:26.2:public-template/'))
     return publicTemplateSearch(query, selectedVersion, options);
-  if (options.corpus === 'patterns') return patternSearch(query, selectedVersion, options);
+  if (options.corpus === 'patterns')
+    return patternSearch(query, version ?? (options.project ? undefined : selectedVersion), options);
   const terms = referenceQueryTerms(query);
   if (!terms.length) return [];
   const index = await referenceIndex(selectedVersion);
@@ -565,8 +573,11 @@ export async function referenceRead(
     return publicTemplateRead(id, offset, limit, selectedVersion);
   if (id === 'apexlang-lifecycle' && selectedVersion.split('@')[0] === '26.2')
     id = 'oracle:26.2:guide/file-import';
-  if (id.startsWith('component:')) return componentRead(id, offset, limit, selectedVersion);
-  if (id.startsWith('pattern:')) return patternRead(id, offset, limit, selectedVersion);
+  // Recipes found through a 26.2 project's context stay readable under their own 26.1 version.
+  if (id.startsWith('component:'))
+    return componentRead(id, offset, limit, version ?? (project ? undefined : selectedVersion));
+  if (id.startsWith('pattern:'))
+    return patternRead(id, offset, limit, version ?? (project ? undefined : selectedVersion));
   const index = await referenceIndex(selectedVersion);
   const item = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, '')) ?? '');
   if (!item || (version && !versionMatches(item.version, version)))

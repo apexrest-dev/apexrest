@@ -79,6 +79,7 @@ export class OracleAppData implements AppData {
   #columns = new Map<string, { name: string; pk: boolean; type: string }[]>();
   #keys = new Map<string, 'default' | 'none'>();
   #dirty = false;
+  #prefetched = false;
 
   constructor(link: OracleLink, schema: string) {
     this.link = link;
@@ -148,6 +149,8 @@ export class OracleAppData implements AppData {
     const { owner, name } = this.#owned(table);
     const key = `${owner}.${name}`;
     let columns = this.#columns.get(key);
+    // After a complete schema prefetch, a schema table that is not listed does not exist.
+    if (!columns && this.#prefetched && owner === this.schema) return [];
     if (!columns) {
       // USER_ views when the table is in the session schema: ALL_ dictionary joins take seconds on ADB.
       const own = owner === this.schema;
@@ -175,6 +178,52 @@ export class OracleAppData implements AppData {
     return columns;
   }
 
+  /**
+   * Reads column and key metadata for every table and view of the session
+   * schema in two dictionary queries, so the first page does not pay one
+   * dictionary round trip per table. A complete prefetch also answers absent
+   * schema tables; a truncated one leaves the per-table lookups in place.
+   */
+  prefetchSchema(limit = 20_000): { tables: number; complete: boolean } {
+    const columns = this.query(
+      `select c.table_name, c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk,
+              case when c.identity_column = 'YES' or c.default_length > 0 then 'Y' else 'N' end has_default
+         from user_tab_columns c
+         left join (select kc.table_name, kc.column_name
+                      from user_constraints k
+                      join user_cons_columns kc on kc.constraint_name = k.constraint_name
+                     where k.constraint_type = 'P') p
+           on p.table_name = c.table_name and p.column_name = c.column_name
+        order by c.table_name, c.column_id`,
+      {},
+      limit,
+    );
+    if (columns.rows.length >= limit) return { tables: 0, complete: false };
+    const triggered = new Set(
+      this.query(
+        `select distinct table_name from user_triggers
+          where triggering_event like '%INSERT%' and status = 'ENABLED' and table_name is not null`,
+        {},
+        limit,
+      ).rows.map((row) => String(row.TABLE_NAME)),
+    );
+    const tables = new Map<string, { name: string; pk: boolean; type: string }[]>();
+    for (const row of columns.rows) {
+      const table = String(row.TABLE_NAME);
+      const column = String(row.COLUMN_NAME);
+      let list = tables.get(table);
+      if (!list) tables.set(table, (list = []));
+      list.push({ name: column, pk: row.IS_PK === 'Y', type: String(row.DATA_TYPE) });
+      this.#keys.set(
+        `${this.schema}.${table}.${column}`,
+        row.HAS_DEFAULT === 'Y' || triggered.has(table) ? 'default' : 'none',
+      );
+    }
+    for (const [table, list] of tables) this.#columns.set(`${this.schema}.${table}`, list);
+    this.#prefetched = true;
+    return { tables: tables.size, complete: true };
+  }
+
   tableExists(table: string): boolean {
     return this.tableColumns(table).length > 0;
   }
@@ -184,6 +233,7 @@ export class OracleAppData implements AppData {
     const { owner, name } = this.#owned(table);
     const key = `${owner}.${name}.${column.toUpperCase()}`;
     let source = this.#keys.get(key);
+    if (!source && this.#prefetched && owner === this.schema) return 'none';
     if (!source) {
       const own = owner === this.schema;
       const found = this.scalar(

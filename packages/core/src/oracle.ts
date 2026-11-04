@@ -140,6 +140,16 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
     // keep stderr, surrounding output and envelope error metadata observable.
     diagnostics = stripEnvelopeRows(stdout) + '\n' + stderr;
   }
+  // SQLcl exits 1 (MCP connect: isError) after naming an unknown saved connection.
+  const missingConnection = r.code !== 0 ? missingSavedConnection(diagnostics) : undefined;
+  if (missingConnection !== undefined)
+    throw new Fault(
+      'SQLCL_CONNECTION_NOT_FOUND',
+      `SQLcl has no saved connection named ${missingConnection}. Create it in SQLcl (conn -save ${missingConnection} ...) or point the APEXREST reference at an existing saved name; the application sources were not checked.`,
+      3,
+      'blocked',
+      { savedConnection: missingConnection },
+    );
   if (/ORA-01017|ORA-28000|ORA-28001/i.test(diagnostics))
     throw new Fault('AUTHENTICATION_FAILED', 'Oracle authentication failed.', 4, 'blocked');
   if (/ORA-01031/i.test(diagnostics))
@@ -156,6 +166,21 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
       1,
     );
   return output;
+}
+/**
+ * SQLcl reports an unknown saved name (`sql -name X`, MCP connect) as a plain
+ * line before any command runs, for example "Unknown connection X". Only a
+ * line-leading message is matched so that query data cannot trigger it.
+ */
+export function missingSavedConnection(output: string): string | undefined {
+  const match =
+    /(?:^|\n)[ \t]*(?:Unknown connection|Connection not found|No (?:saved )?connection (?:named|found(?: with name)?))[: \t]+["']?([^\r\n"']*[^\s"'])["']?[ \t.]*(?:\r?\n|$)/i.exec(
+      output,
+    ) ??
+    /(?:^|\n)[ \t]*(?:The )?(?:saved )?connection[ \t]+["']?([^\s"']+?)["']?[ \t]+(?:was not found|not found|does not exist|doesn't exist)\b/i.exec(
+      output,
+    );
+  return match ? match[1]! : undefined;
 }
 /** Top-level JSON documents in SQLcl output, as [start, end) offsets. */
 export function jsonDocuments(text: string) {

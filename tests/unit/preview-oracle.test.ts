@@ -7,7 +7,7 @@ import path from 'node:path';
 import { writeJson } from '../../packages/core/src/fs.ts';
 import { OracleAppData, type ConnectedOracle } from '../../packages/core/src/preview/oracle/app-data.ts';
 import { WorkerBridge, type OracleLink } from '../../packages/core/src/preview/oracle/bridge.ts';
-import { connectOracle } from '../../packages/core/src/preview/oracle/connect.ts';
+import { connectOracle, warmUp } from '../../packages/core/src/preview/oracle/connect.ts';
 import {
   codeOutsideLiterals,
   oracleBlock,
@@ -510,4 +510,83 @@ test('a project preview seeds from migrations and project .apex-local and writes
   const html = await (await fetch(`${started.url}/r/demo/home`)).text();
   assert.match(html, /From project data/u);
   assert.equal(existsSync(path.join(app, '.apex-local')), false, 'nothing is written into the source tree');
+});
+
+test('the warm-up reads schema metadata once and opens the first APEX session before the URL', () => {
+  const columns = envelope(
+    [
+      ['TABLE_NAME', 'VARCHAR2'],
+      ['COLUMN_NAME', 'VARCHAR2'],
+      ['DATA_TYPE', 'VARCHAR2'],
+      ['IS_PK', 'VARCHAR2'],
+      ['HAS_DEFAULT', 'VARCHAR2'],
+    ],
+    [
+      ['ORDERS', 'ID', 'NUMBER', 'Y', 'Y'],
+      ['ORDERS', 'STATUS', 'VARCHAR2', 'N', 'N'],
+      ['ITEMS', 'ID', 'NUMBER', 'Y', 'N'],
+    ],
+  );
+  const fake = fakeOracle((segment) => {
+    if (/from user_tab_columns c/u.test(segment)) return columns;
+    if (/from user_triggers/u.test(segment)) return envelope([['TABLE_NAME', 'VARCHAR2']], [['ITEMS']]);
+    if (/"APEXREST_DBMS"/u.test(segment)) return outBinds(segment, {});
+    if (/select \* from \(/u.test(segment)) return envelope([['COLUMN_NAME', 'VARCHAR2']], []);
+    return '';
+  });
+  const data = new OracleAppData(fake.link, 'demo');
+  const result = warmUp(data, { applicationId: 102, items: new Set(['P1_X']), pages: [0, 1, 3] });
+  assert.equal(result.tables, 2);
+  assert.equal(result.apexSession, 'ready');
+  assert.equal(fake.inputs.length, 3, 'columns, triggers and one APEX session call');
+  assert.match(
+    fake.inputs[2]!,
+    /apex_session\.create_session\(p_app_id => 102, p_page_id => 1, p_username => 'APEXREST_PREVIEW'\)/u,
+  );
+  // Later lookups come from the prefetched metadata, without another round trip.
+  assert.deepEqual(data.tableColumns('orders'), [
+    { name: 'ID', pk: true, type: 'NUMBER' },
+    { name: 'STATUS', pk: false, type: 'VARCHAR2' },
+  ]);
+  assert.equal(data.tableExists('"DEMO"."ITEMS"'), true);
+  assert.equal(data.tableExists('missing_table'), false);
+  assert.equal(data.keySource('orders', 'id'), 'default');
+  assert.equal(data.keySource('orders', 'status'), 'none');
+  assert.equal(data.keySource('items', 'id'), 'default', 'an insert trigger fills the key');
+  assert.equal(fake.inputs.length, 3);
+  // Other schemas keep the per-table lookup.
+  data.tableColumns('other.audit');
+  assert.equal(fake.inputs.length, 4);
+  assert.match(fake.inputs[3]!, /all_tab_columns/u);
+});
+
+test('a failed or truncated warm-up leaves per-request lookups in place', () => {
+  const failing = fakeOracle((segment) =>
+    /has_default/u.test(segment)
+      ? 'ORA-00904: "C"."IDENTITY_COLUMN": invalid identifier'
+      : /select \* from \(/u.test(segment)
+        ? envelope([['COLUMN_NAME', 'VARCHAR2']], [])
+        : '',
+  );
+  const data = new OracleAppData(failing.link, 'DEMO');
+  assert.equal(warmUp(data).tables, 'skipped');
+  const before = failing.inputs.length;
+  data.tableColumns('orders');
+  assert.equal(failing.inputs.length, before + 1, 'the table is still looked up on demand');
+
+  const full = fakeOracle((segment) =>
+    /select \* from \(/u.test(segment)
+      ? envelope(
+          [
+            ['TABLE_NAME', 'VARCHAR2'],
+            ['COLUMN_NAME', 'VARCHAR2'],
+          ],
+          [['T', 'A']],
+        )
+      : '',
+  );
+  const truncated = new OracleAppData(full.link, 'DEMO');
+  assert.deepEqual(truncated.prefetchSchema(1), { tables: 0, complete: false });
+  truncated.tableColumns('t');
+  assert.equal(full.inputs.length, 2, 'a truncated prefetch caches nothing');
 });

@@ -16,6 +16,8 @@ node plugins/apexrest-apex/runtime/apexrest.mjs --help
 
 `connection add --sqlcl-name NAME` records an APEXREST reference; it does not create a connection in SQLcl. Save the connection interactively in SQLcl, then `apexrest connection list --saved --json` reads that store and `apexrest connection test NAME --saved --json` tests the exact saved name, including case and spaces. ORDS references are tested with `apexrest connection test REF --json` after `sqlcl configure --database-transport ords`.
 
+When a referenced SQLcl saved name does not exist, plan, apply and reads fail with `SQLCL_CONNECTION_NOT_FOUND` (blocked), not a validation error: the application sources were not checked. Create the saved connection in SQLcl (`conn -save NAME -savepwd USER@HOST:PORT/SERVICE`), test it with `apexrest connection test NAME --saved --json`, or point the reference at an existing saved name with `apexrest connection add REF --sqlcl-name NAME`.
+
 Check `APEXREST_SQLCL`, `APEXREST_JAVA_HOME` and `APEXREST_HOME` if tools were installed elsewhere. Repair missing or expired credentials in SQLcl; a successful doctor run does not establish database connectivity.
 
 ## The plugin is installed but tools are missing

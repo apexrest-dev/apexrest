@@ -12,7 +12,7 @@ import { blueprintSchema, digest, instanceSchema } from './schemas.ts';
 import { snapshot, planComposition } from './planner.ts';
 import { stagePlan, freeze, readPlan, materialize, recoveryPlan, journal } from './materializer.ts';
 import { readDocument, safePath, semanticDigest, validate, canonical } from './formats.ts';
-import { loadCatalog } from './catalog.ts';
+import { bundledBlueprintProfiles, loadCatalog } from './catalog.ts';
 import type { MetadataSnapshot } from './binding.ts';
 import { requireComposerCompiler } from './profiles.ts';
 
@@ -119,7 +119,15 @@ export async function composePlan(
     const staged = await stagePlan(ctx, plan);
     compiler = await oracle.validate(staged.directory, signal);
     const actual = compiler as { mmd: { mmdVersion: string }; compiler: { version: string } };
-    requireComposerCompiler(input!.blueprint.application.compatibilityProfile, actual);
+    const profile = input!.blueprint.application.compatibilityProfile;
+    try {
+      requireComposerCompiler(profile, actual);
+    } catch (error) {
+      if (!(error instanceof Fault) || error.code !== 'PROFILE_COMPILER_MISMATCH') throw error;
+      // Re-raise with the bundled blueprints that match the installed compiler.
+      const blueprints = await bundledBlueprintProfiles().catch(() => ({}) as Record<string, string[]>);
+      requireComposerCompiler(profile, actual, (id) => blueprints[id] ?? []);
+    }
     compilerValidated = true;
   }
   if (metadata)
