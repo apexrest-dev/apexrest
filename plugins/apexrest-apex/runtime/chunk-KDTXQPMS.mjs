@@ -71,6 +71,7 @@ var faultNextActions = {
   RECOVERY_REVIEW_REQUIRED: "The plan changes authentication or authorization outside the application task. Obtain explicit scope for this exact change.",
   PROJECT_NOT_CONFIGURED: "Pass the absolute directory containing apexrest.json, or create one with apexrest_project action:init.",
   CONNECTION_REQUIRED: "Configure the named connection reference with apexrest_project action:connection_add (never send passwords in chat).",
+  SQLCL_CONNECTION_NOT_FOUND: "Create and test the SQLcl saved connection (in SQLcl: conn -save NAME -savepwd USER@HOST:PORT/SERVICE; then apexrest connection test NAME --saved), or run apexrest connection add REF --sqlcl-name NAME with an existing saved name. Do not edit application sources.",
   ENVIRONMENT_REQUIRED: "Pass env with a configured environment name; apexrest_project action:inspect lists them.",
   UNKNOWN_ENVIRONMENT: "Use an environment listed by apexrest_project action:inspect.",
   OUTCOME_UNKNOWN: "Do not retry. Read apexrest_job status for the same jobId and reconcile the target before any new deployment.",

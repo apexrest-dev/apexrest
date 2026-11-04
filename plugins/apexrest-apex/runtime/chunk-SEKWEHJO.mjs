@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   external_exports
-} from "./chunk-W7MSMS56.mjs";
+} from "./chunk-MSKY62PK.mjs";
 import {
   canonical,
   contained,
@@ -10,10 +10,10 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-7UXC37DJ.mjs";
+} from "./chunk-CO3K5OIY.mjs";
 import {
   Fault
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // packages/core/src/config.ts
 import path from "node:path";
@@ -199,6 +199,15 @@ async function isProductionTarget(env, digest = targetDigest(env)) {
   const database = env.databaseIdentity.dbUniqueName.trim().toUpperCase();
   return (trust.productionDatabases ?? []).some((name) => name.toUpperCase() === database);
 }
+async function refuseProductionDeployment(env, name, digest) {
+  if (await isProductionTarget(env, digest))
+    throw new Fault(
+      "PRODUCTION_DEPLOY_DENIED",
+      `${name ? `Environment ${name}` : "This target"} is production-marked; the plugin never plans, deploys or restores production targets. No connection was opened.`,
+      4,
+      "blocked"
+    );
+}
 
 export {
   identifier,
@@ -211,5 +220,6 @@ export {
   targetDigest,
   policy,
   updatePolicy,
-  isProductionTarget
+  isProductionTarget,
+  refuseProductionDeployment
 };

@@ -5,9 +5,9 @@ import {
 import {
   SqlclMcpClient,
   mcpCallOptions
-} from "./chunk-DWU3Q7C4.mjs";
-import "./chunk-W7MSMS56.mjs";
-import "./chunk-CCPOHUCO.mjs";
+} from "./chunk-O6VWXF7Y.mjs";
+import "./chunk-MSKY62PK.mjs";
+import "./chunk-KDTXQPMS.mjs";
 
 // packages/core/src/preview/oracle/worker.ts
 import { parentPort, workerData } from "node:worker_threads";

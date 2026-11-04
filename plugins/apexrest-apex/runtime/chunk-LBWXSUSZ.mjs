@@ -7,14 +7,14 @@ import {
   mcpCallOptions,
   mcpFailure,
   mcpResult
-} from "./chunk-DWU3Q7C4.mjs";
+} from "./chunk-O6VWXF7Y.mjs";
 import {
   canonical,
   hash
-} from "./chunk-7UXC37DJ.mjs";
+} from "./chunk-CO3K5OIY.mjs";
 import {
   Fault
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // packages/core/src/sqlcl-session.ts
 import { performance } from "node:perf_hooks";

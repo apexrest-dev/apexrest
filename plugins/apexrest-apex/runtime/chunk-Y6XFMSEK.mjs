@@ -2,10 +2,10 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-S5XN5XLV.mjs";
+} from "./chunk-2PFVJG25.mjs";
 import {
   runtimeState
-} from "./chunk-2AGI2KQJ.mjs";
+} from "./chunk-DDIVGNK7.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -55,7 +55,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-5USMC7HM.mjs";
+} from "./chunk-LVD5G2P3.mjs";
 import {
   environment,
   identifier,
@@ -65,18 +65,19 @@ import {
   parse,
   policy,
   refName,
+  refuseProductionDeployment,
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-AKZAEB7R.mjs";
+} from "./chunk-SEKWEHJO.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-DWU3Q7C4.mjs";
+} from "./chunk-O6VWXF7Y.mjs";
 import {
   external_exports
-} from "./chunk-W7MSMS56.mjs";
+} from "./chunk-MSKY62PK.mjs";
 import {
   atomicWrite,
   canonical,
@@ -87,7 +88,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-7UXC37DJ.mjs";
+} from "./chunk-CO3K5OIY.mjs";
 import {
   Fault,
   __commonJS,
@@ -99,7 +100,7 @@ import {
   sanitized,
   success,
   verifiedVendorReferencePage
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
@@ -178,17 +179,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path13) {
-      const ctrl = callVisitor(key, node2, visitor, path13);
+    function visit_(key, node2, visitor, path14) {
+      const ctrl = callVisitor(key, node2, visitor, path14);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path13, ctrl);
-        return visit_(key, ctrl, visitor, path13);
+        replaceNode(key, path14, ctrl);
+        return visit_(key, ctrl, visitor, path14);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path13 = Object.freeze(path13.concat(node2));
+          path14 = Object.freeze(path14.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path13);
+            const ci = visit_(i, node2.items[i], visitor, path14);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -199,13 +200,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path13 = Object.freeze(path13.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path13);
+          path14 = Object.freeze(path14.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path14);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path13);
+          const cv = visit_("value", node2.value, visitor, path14);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -226,17 +227,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path13) {
-      const ctrl = await callVisitor(key, node2, visitor, path13);
+    async function visitAsync_(key, node2, visitor, path14) {
+      const ctrl = await callVisitor(key, node2, visitor, path14);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path13, ctrl);
-        return visitAsync_(key, ctrl, visitor, path13);
+        replaceNode(key, path14, ctrl);
+        return visitAsync_(key, ctrl, visitor, path14);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path13 = Object.freeze(path13.concat(node2));
+          path14 = Object.freeze(path14.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path13);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path14);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -247,13 +248,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path13 = Object.freeze(path13.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path13);
+          path14 = Object.freeze(path14.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path14);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path13);
+          const cv = await visitAsync_("value", node2.value, visitor, path14);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -280,23 +281,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path13) {
+    function callVisitor(key, node2, visitor, path14) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path13);
+        return visitor(key, node2, path14);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path13);
+        return visitor.Map?.(key, node2, path14);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path13);
+        return visitor.Seq?.(key, node2, path14);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path13);
+        return visitor.Pair?.(key, node2, path14);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path13);
+        return visitor.Scalar?.(key, node2, path14);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path13);
+        return visitor.Alias?.(key, node2, path14);
       return void 0;
     }
-    function replaceNode(key, path13, node2) {
-      const parent = path13[path13.length - 1];
+    function replaceNode(key, path14, node2) {
+      const parent = path14[path14.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -908,10 +909,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path13, value) {
+    function collectionFromPath(schema, path14, value) {
       let v = value;
-      for (let i = path13.length - 1; i >= 0; --i) {
-        const k = path13[i];
+      for (let i = path14.length - 1; i >= 0; --i) {
+        const k = path14[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -930,7 +931,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path13) => path13 == null || typeof path13 === "object" && !!path13[Symbol.iterator]().next().done;
+    var isEmptyPath = (path14) => path14 == null || typeof path14 === "object" && !!path14[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -960,11 +961,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path13, value) {
-        if (isEmptyPath(path13))
+      addIn(path14, value) {
+        if (isEmptyPath(path14))
           this.add(value);
         else {
-          const [key, ...rest] = path13;
+          const [key, ...rest] = path14;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -978,8 +979,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path13) {
-        const [key, ...rest] = path13;
+      deleteIn(path14) {
+        const [key, ...rest] = path14;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -993,8 +994,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path13, keepScalar) {
-        const [key, ...rest] = path13;
+      getIn(path14, keepScalar) {
+        const [key, ...rest] = path14;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1012,8 +1013,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path13) {
-        const [key, ...rest] = path13;
+      hasIn(path14) {
+        const [key, ...rest] = path14;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1023,8 +1024,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path13, value) {
-        const [key, ...rest] = path13;
+      setIn(path14, value) {
+        const [key, ...rest] = path14;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3539,9 +3540,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path13, value) {
+      addIn(path14, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path13, value);
+          this.contents.addIn(path14, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3616,14 +3617,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path13) {
-        if (Collection.isEmptyPath(path13)) {
+      deleteIn(path14) {
+        if (Collection.isEmptyPath(path14)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path13) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path14) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3638,10 +3639,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path13, keepScalar) {
-        if (Collection.isEmptyPath(path13))
+      getIn(path14, keepScalar) {
+        if (Collection.isEmptyPath(path14))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path13, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path14, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3652,10 +3653,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path13) {
-        if (Collection.isEmptyPath(path13))
+      hasIn(path14) {
+        if (Collection.isEmptyPath(path14))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path13) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path14) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3672,13 +3673,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path13, value) {
-        if (Collection.isEmptyPath(path13)) {
+      setIn(path14, value) {
+        if (Collection.isEmptyPath(path14)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path13), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path14), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path13, value);
+          this.contents.setIn(path14, value);
         }
       }
       /**
@@ -5639,9 +5640,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path13) => {
+    visit.itemAtPath = (cst, path14) => {
       let item2 = cst;
-      for (const [field, index] of path13) {
+      for (const [field, index] of path14) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5650,23 +5651,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path13) => {
-      const parent = visit.itemAtPath(cst, path13.slice(0, -1));
-      const field = path13[path13.length - 1][0];
+    visit.parentCollection = (cst, path14) => {
+      const parent = visit.itemAtPath(cst, path14.slice(0, -1));
+      const field = path14[path14.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path13, item2, visitor) {
-      let ctrl = visitor(item2, path13);
+    function _visit(path14, item2, visitor) {
+      let ctrl = visitor(item2, path14);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path13.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path14.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5677,10 +5678,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path13);
+            ctrl = ctrl(item2, path14);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path13) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path14) : ctrl;
     }
     exports.visit = visit;
   }
@@ -8523,6 +8524,18 @@ async function catalogSearch(query, options = {}) {
     nextResultOffset: offset + limit < scored.length ? offset + limit : null
   };
 }
+async function bundledBlueprintProfiles() {
+  const root = path4.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path4.join(root, "index.json"), "utf8"));
+  const byProfile = {};
+  for (const entry2 of index)
+    try {
+      const document = JSON.parse(await readFile3(await safePath(root, entry2.path), "utf8"));
+      const profile = document.application?.compatibilityProfile;
+      if (typeof profile === "string") (byProfile[profile] ??= []).push(entry2.id);
+    } catch {
+    }
+  return byProfile;
+}
 async function catalogRead(id, offset = 0, limit = 4096, project2) {
   let content;
   if (id.startsWith("blueprint:")) {
@@ -8997,14 +9010,40 @@ var composerProfiles = {
   "profile:apex261-ut261-mmd3102": { mmd: "26.1.0+3102", sqlcl: "26.1.2.132.1334" },
   [COMPOSER_262_PROFILE]: { mmd: APEX_262_PROFILE.mmd, sqlcl: APEX_262_PROFILE.sqlcl }
 };
-function requireComposerCompiler(profile, actual) {
+function profilesForCompiler(build, mmd) {
+  if (!build) return [];
+  return Object.entries(composerProfiles).filter(([, pinned]) => pinned.sqlcl === build).sort(([, a], [, b]) => Number(b.mmd === mmd) - Number(a.mmd === mmd)).map(([id]) => id);
+}
+function requireComposerCompiler(profile, actual, blueprintsFor = () => []) {
   const expected = composerProfiles[profile], version2 = /\bBuild:? (\d+(?:\.\d+)+)\b/.exec(actual.compiler.version)?.[1];
-  if (!expected || actual.mmd.mmdVersion !== expected.mmd || version2 !== expected.sqlcl)
-    throw new Fault(
-      "PROFILE_COMPILER_MISMATCH",
-      "Real compiler/MMD differs from the selected pinned Composer profile.",
-      5
+  if (expected && actual.mmd.mmdVersion === expected.mmd && version2 === expected.sqlcl) return;
+  const found = `SQLcl ${version2 ?? "unknown build"} with MMD ${actual.mmd.mmdVersion}`;
+  const matching = profilesForCompiler(version2, actual.mmd.mmdVersion).filter((id) => id !== profile);
+  const nextActions = [];
+  for (const id of matching) {
+    const blueprints = blueprintsFor(id);
+    nextActions.push(
+      blueprints.length ? `Use a blueprint for ${id}, which matches the installed compiler: ${blueprints.join(", ")}.` : `Use a blueprint whose compatibilityProfile is ${id}, which matches the installed compiler.`
     );
+  }
+  if (expected)
+    nextActions.push(
+      `Or install SQLcl ${expected.sqlcl} (MMD ${expected.mmd}) and select it with APEXREST_SQLCL, then rerun compose plan.`
+    );
+  else nextActions.push(`Use a known Composer profile: ${Object.keys(composerProfiles).join(", ")}.`);
+  throw new Fault(
+    "PROFILE_COMPILER_MISMATCH",
+    expected ? `Blueprint profile ${profile} is pinned to SQLcl ${expected.sqlcl} with MMD ${expected.mmd}; found ${found}.` + (matching.length ? ` The installed compiler matches ${matching.join(", ")}.` : "") : `Blueprint profile ${profile} is not a pinned Composer profile; found ${found}.`,
+    5,
+    "failed",
+    {
+      profile,
+      expected: expected ? { sqlcl: expected.sqlcl, mmd: expected.mmd } : null,
+      found: { sqlcl: version2 ?? null, mmd: actual.mmd.mmdVersion },
+      matchingProfiles: matching,
+      nextActions
+    }
+  );
 }
 
 // packages/core/src/composer/emitter.ts
@@ -10598,7 +10637,14 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     const staged = await stagePlan(ctx, plan);
     compiler = await oracle.validate(staged.directory, signal);
     const actual = compiler;
-    requireComposerCompiler(input.blueprint.application.compatibilityProfile, actual);
+    const profile = input.blueprint.application.compatibilityProfile;
+    try {
+      requireComposerCompiler(profile, actual);
+    } catch (error) {
+      if (!(error instanceof Fault) || error.code !== "PROFILE_COMPILER_MISMATCH") throw error;
+      const blueprints = await bundledBlueprintProfiles().catch(() => ({}));
+      requireComposerCompiler(profile, actual, (id) => blueprints[id] ?? []);
+    }
     compilerValidated = true;
   }
   if (metadata)
@@ -10619,7 +10665,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path13, reason, before, after }) => ({ path: path13, reason, before, after })),
+    operations: plan.operations.map(({ path: path14, reason, before, after }) => ({ path: path14, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -10679,6 +10725,10 @@ var dependencies = {
 var previewSource = {
   ...base,
   sourceDir: external_exports.string().min(1).max(4096).optional().describe("APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir")
+};
+var previewSelect = {
+  ...previewSource,
+  port: external_exports.number().int().min(1).max(65535).optional().describe("Port of a running preview")
 };
 var previewRun = {
   assetsDir: external_exports.string().min(1).max(4096).optional(),
@@ -10804,7 +10854,14 @@ var schemas = {
     action: external_exports.enum(["init", "status", "refresh", "invalidate"])
   }),
   "apex.export": external_exports.strictObject({ ...base, env, output: relativePath }),
-  "apex.validate": external_exports.strictObject({ ...base, debugTimings: external_exports.boolean().optional(), env: env.optional() }),
+  "apex.validate": external_exports.strictObject({
+    ...base,
+    sourceDir: external_exports.string().min(1).max(4096).optional().describe(
+      "APEXlang folder with application.apx to validate instead of apexrest.json application.sourceDir; works without a project"
+    ),
+    debugTimings: external_exports.boolean().optional(),
+    env: env.optional()
+  }),
   "apex.diff": external_exports.strictObject({ ...base, env, comparison: external_exports.enum(["auto", "live"]).default("auto") }),
   "db.plan": external_exports.strictObject({ ...base, env }),
   "deploy.plan": external_exports.strictObject({ ...base, env, out: relativePath, ...importOptions2 }).superRefine(checkImportOptions),
@@ -10846,11 +10903,8 @@ var schemas = {
     ...previewRun,
     pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
   }),
-  "preview.stop": external_exports.strictObject({ ...previewSource, all: external_exports.boolean().default(false) }),
-  "preview.status": external_exports.strictObject({}),
-  "sandbox.up": external_exports.strictObject(base),
-  "sandbox.status": external_exports.strictObject(base),
-  "sandbox.down": external_exports.strictObject(base),
+  "preview.stop": external_exports.strictObject({ ...previewSelect, all: external_exports.boolean().default(false) }),
+  "preview.status": external_exports.strictObject(previewSelect),
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.
   project: external_exports.strictObject({
@@ -11071,7 +11125,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path12 from "node:path";
+import path13 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -11999,23 +12053,26 @@ async function referenceSearch(query, version2, options = {}) {
     }));
   }
   if (options.corpus === "components") {
-    if (selectedVersion.split("@")[0] === "26.2" && query.trim().startsWith("component:")) return [];
-    if (selectedVersion.split("@")[0] === "26.2") {
+    const official = (version2 ?? (query.trim().startsWith("oracle:26.2:") ? "26.2" : "")).split("@")[0] === "26.2";
+    const componentVersion = version2 ?? (options.project ? void 0 : selectedVersion);
+    if (official && query.trim().startsWith("component:")) return [];
+    if (official) {
       if (options.kind === "template" || query.trim().startsWith("oracle:26.2:public-template/"))
         return publicTemplateSearch(query, selectedVersion, options);
     }
-    if (selectedVersion.split("@")[0] === "26.2")
+    if (official)
       return referenceSearch(query, selectedVersion, {
         ...options,
         corpus: "apexlang",
         kind: "contract",
         family: "inventory"
       });
-    return componentSearch(query, selectedVersion, options);
+    return componentSearch(query, componentVersion, options);
   }
   if (query.trim().startsWith("oracle:26.2:public-template/"))
     return publicTemplateSearch(query, selectedVersion, options);
-  if (options.corpus === "patterns") return patternSearch(query, selectedVersion, options);
+  if (options.corpus === "patterns")
+    return patternSearch(query, version2 ?? (options.project ? void 0 : selectedVersion), options);
   const terms = referenceQueryTerms(query);
   if (!terms.length) return [];
   const index = await referenceIndex(selectedVersion);
@@ -12167,8 +12224,10 @@ async function referenceRead(id, offset, limit, project2, version2) {
     return publicTemplateRead(id, offset, limit, selectedVersion);
   if (id === "apexlang-lifecycle" && selectedVersion.split("@")[0] === "26.2")
     id = "oracle:26.2:guide/file-import";
-  if (id.startsWith("component:")) return componentRead(id, offset, limit, selectedVersion);
-  if (id.startsWith("pattern:")) return patternRead(id, offset, limit, selectedVersion);
+  if (id.startsWith("component:"))
+    return componentRead(id, offset, limit, version2 ?? (project2 ? void 0 : selectedVersion));
+  if (id.startsWith("pattern:"))
+    return patternRead(id, offset, limit, version2 ?? (project2 ? void 0 : selectedVersion));
   const index = await referenceIndex(selectedVersion);
   const item2 = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, "")) ?? "");
   if (!item2 || version2 && !versionMatches(item2.version, version2))
@@ -13363,6 +13422,8 @@ var DeploymentService = class {
     await new LocalDeploymentControl(env2).release(runId);
   }
   async plan(ctx, name2, options = {}) {
+    const configured = name2 ? ctx.config.environments[name2] : void 0;
+    if (configured) await refuseProductionDeployment(configured, name2);
     if (typeof options === "boolean") return this.legacyPlan(ctx, name2, options);
     const requested = importOptions(options);
     if (requested.importMode === "none") return this.databasePlan(ctx, name2);
@@ -13603,7 +13664,9 @@ var DeploymentService = class {
     return plan;
   }
   async legacyPlan(ctx, name2, restore = false, fresh = false) {
-    const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
+    const env2 = environment(ctx, name2);
+    await refuseProductionDeployment(env2, name2);
+    const connection = await resolveConnection(env2.readConnectionRef);
     const syncStore = new SyncStore(ctx, env2, name2), stored = await syncStore.read();
     const working = !restore && stored?.status !== "invalidated" ? stored : null;
     if (working) await syncStore.validate(working);
@@ -13876,6 +13939,7 @@ var DeploymentService = class {
   async applyObserved(ctx, value, signal, progress) {
     const applyTimingStart = sqlclTimings().length;
     const { env: env2, plan } = await this.checkLocal(ctx, value);
+    await refuseProductionDeployment(env2, plan.environment, plan.targetDigest);
     const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
     await authorizePlan(ctx, plan, env2, locality.local);
     await this.oracle.requireMutationSupport();
@@ -14661,6 +14725,7 @@ prompt ${marker}`,
     parse(external_exports.uuid(), backupId);
     const directory = await contained(ctx.root, ".apexrest/backups/" + backupId);
     const backup = await readJson(path9.join(directory, "backup.json"));
+    await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
     const files = await inventory(path9.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
@@ -14716,41 +14781,6 @@ prompt ${marker}`,
     return plan;
   }
 };
-
-// packages/core/src/sandbox.ts
-async function sandboxAction(action) {
-  const engines = await Promise.all(
-    ["docker", "podman"].map(async (executable2) => {
-      try {
-        const r = await runProcess({
-          executable: executable2,
-          args: ["info", "--format", "{{json .}}"],
-          cwd: process.cwd(),
-          timeoutMs: 1e4
-        });
-        return { engine: executable2, available: r.code === 0 };
-      } catch {
-        return { engine: executable2, available: false };
-      }
-    })
-  );
-  const state = {
-    profile: "optional",
-    platform: `${process.platform}/${process.arch}`,
-    engines,
-    supported: false,
-    reason: "No provisioned Oracle DB Free + APEX 26.1 + ORDS artifact tuple has been verified on this host.",
-    volumesRemoved: false
-  };
-  if (action === "status") return state;
-  if (action === "down") return { ...state, status: "not-configured", changed: false };
-  throw new Fault(
-    "SANDBOX_PROFILE_UNVERIFIED",
-    state.reason + " Remote APEX targets remain independent.",
-    3,
-    "blocked"
-  );
-}
 
 // packages/core/src/panel.ts
 import path10 from "node:path";
@@ -14921,12 +14951,13 @@ var PanelService = class {
 };
 
 // packages/core/src/peer-review.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { randomUUID as randomUUID5 } from "node:crypto";
 import { mkdir as mkdir6, readFile as readFile10, rm as rm4 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/ship.ts
+import path11 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -14966,11 +14997,51 @@ function compilerFault(error, parseDiagnostics2) {
     }
   );
 }
-async function validateApplication(oracle, source2, parseDiagnostics2, signal) {
+async function validationSource(root, input) {
+  if (input.sourceDir === void 0) {
+    const ctx = await loadProject(root);
+    return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
+  }
+  const source2 = path11.resolve(root, input.sourceDir);
+  if (!await exists(path11.join(source2, "application.apx")))
+    throw new Fault(
+      "VALIDATION_SOURCE_MISSING",
+      `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
+      2
+    );
+  const own = path11.join(source2, ".apex", "apexlang.json");
+  if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
+  const candidates = [];
+  if (input.project !== void 0) candidates.push(path11.resolve(input.project));
+  for (let dir = path11.dirname(source2); ; dir = path11.dirname(dir)) {
+    if (await exists(path11.join(dir, "apexrest.json"))) {
+      candidates.push(dir);
+      break;
+    }
+    if (path11.dirname(dir) === dir) break;
+  }
+  for (const candidate of candidates) {
+    let ctx;
+    try {
+      ctx = await loadProject(candidate);
+    } catch {
+      continue;
+    }
+    const file = path11.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    if (await exists(file)) return { source: source2, metadata: { origin: "project", file } };
+  }
+  throw new Fault(
+    "MMD_METADATA_REQUIRED",
+    `${source2} has no Oracle-generated .apex/apexlang.json and no enclosing APEXREST project provides one, so the APEXlang metadata version is unknown. Export or generate the application with SQLcl (apexrest apex export or apex generate), or validate it from a project whose application has .apex/apexlang.json.`,
+    3
+  );
+}
+async function validateApplication(oracle, target, parseDiagnostics2, signal) {
+  const { source: source2, metadata } = typeof target === "string" ? { source: target, metadata: void 0 } : target;
   const started = Date.now();
   let validated;
   try {
-    validated = await oracle.validate(source2, signal);
+    validated = metadata?.origin === "project" ? await oracle.validate(source2, signal, { metadataFile: metadata.file }) : await oracle.validate(source2, signal);
   } catch (error) {
     throw compilerFault(error, parseDiagnostics2);
   }
@@ -15000,6 +15071,7 @@ async function validateApplication(oracle, source2, parseDiagnostics2, signal) {
   ]);
   return {
     ...rest,
+    ...metadata ? { sourceDir: source2, metadata } : {},
     diagnostics: warnings.slice(0, 50),
     warningCount: warnings.length,
     staticAnalysis,
@@ -15458,8 +15530,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
   await mkdir6(scratch, { recursive: true });
   try {
-    const schemaFile = path11.join(scratch, "verdict.schema.json");
-    const lastFile = path11.join(scratch, "last-message.json");
+    const schemaFile = path12.join(scratch, "verdict.schema.json");
+    const lastFile = path12.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -15653,7 +15725,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-LCYEE67K.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-VUTASLQG.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -15803,7 +15875,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-7UIQ6CTI.mjs");
+      const { previewDispatch } = await import("./chunk-GLLUPB2L.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -15830,29 +15902,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-NRVQ65CP.mjs");
+        const { ToolchainService } = await import("./chunk-B5AVZZCK.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-WCVAHB5T.mjs");
+        const { uninstallTools } = await import("./chunk-ZCX2ZG2D.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-TMOWHKWQ.mjs");
+        const { setup: setup2 } = await import("./chunk-DZK6NHRS.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-TMOWHKWQ.mjs");
+        const { validateNative } = await import("./chunk-DZK6NHRS.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-TMOWHKWQ.mjs");
+        const { uninstallNative } = await import("./chunk-DZK6NHRS.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -15862,7 +15934,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path12.basename(path12.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path13.basename(path13.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "connection.add":
@@ -15916,13 +15988,19 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "docs.sync":
         data = await referenceSync(text2("version"), Boolean(parsed.dryRun));
         break;
-      case "sandbox.up":
-      case "sandbox.status":
-      case "sandbox.down":
-        data = await sandboxAction(operation.split(".")[1]);
-        break;
       case "peer.status":
         data = await peerStatus(parsed.project ? await loadProject(root) : void 0);
+        break;
+      case "apex.validate":
+        data = await validateApplication(
+          oracle,
+          await validationSource(root, {
+            project: parsed.project,
+            sourceDir: parsed.sourceDir
+          }),
+          parseDiagnostics,
+          signal
+        );
         break;
       default: {
         const ctx = await loadProject(root);
@@ -15999,14 +16077,6 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
                 focus: parsed.focus
               },
               (value) => deployment.checkLocal(ctx, value),
-              signal
-            );
-            break;
-          case "apex.validate":
-            data = await validateApplication(
-              oracle,
-              await contained(ctx.root, ctx.config.application.sourceDir),
-              parseDiagnostics,
               signal
             );
             break;
@@ -16142,7 +16212,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-OWICTJXX.mjs");
+            const { openVerificationBrowser } = await import("./chunk-R5MHXM77.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),

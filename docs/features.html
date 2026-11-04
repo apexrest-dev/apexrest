@@ -5,7 +5,7 @@
 <p>A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read before it writes:</p>
 <ul>
 <li><strong>Oracle definitions.</strong> The complete <a href="/apexrest/oracle-apexlang-coverage/">26.2 Oracle inventory</a>: 389 definitions and 32,187 contextual property occurrences.</li>
-<li><strong>Compiler-checked recipes.</strong> The <a href="/apexrest/component-catalog/">component catalog</a> has 109 component families with 176 recipes. The <a href="/apexrest/pattern-catalog/">pattern catalog</a> has 58 UX patterns with 84 recipes, 69 of them compiler-checked.</li>
+<li><strong>Compiler-checked recipes.</strong> The <a href="/apexrest/component-catalog/">component catalog</a> has 118 component families with 269 ready recipes. The <a href="/apexrest/pattern-catalog/">pattern catalog</a> has 58 UX patterns with 84 recipes, 69 of them compiler-checked.</li>
 <li><strong>Reference pages.</strong> 1,350 public Oracle pages.</li>
 <li><strong>Retrieval.</strong> <code>apexrest_reference</code> searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit&#39;s code. A change uses at most three lookups.</li>
 <li><strong>Recipes as contracts.</strong> Each recipe carries a data shape, adaptation rules, working APEXlang, and compiler evidence bound to file checksums.</li>
@@ -204,7 +204,7 @@ apexrest connection test dev-read --json
 </tr>
 <tr>
 <td><code>apexrest_apex_validate</code></td>
-<td>Real Oracle compiler on a staging copy, in-process, with structured diagnostics (<code>file</code>, <code>line</code>, <code>column</code>, <code>type</code>, <code>message</code>, <code>validValues</code>, <code>hint</code>)</td>
+<td>Real Oracle compiler on a staging copy, in-process, with structured diagnostics (<code>file</code>, <code>line</code>, <code>column</code>, <code>type</code>, <code>message</code>, <code>validValues</code>, <code>hint</code>); <code>sourceDir</code> validates another APEXlang folder</td>
 </tr>
 <tr>
 <td><code>apexrest_ship</code></td>
@@ -229,6 +229,10 @@ apexrest connection test dev-read --json
 <tr>
 <td><code>apexrest_artifact_read</code></td>
 <td>Bounded, sanitized text of a registered artifact</td>
+</tr>
+<tr>
+<td><code>apexrest_peer_review</code></td>
+<td><code>status</code> shows the other vendor CLI and the review mode; <code>review</code> asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review</td>
 </tr>
 <tr>
 <td><code>apexrest_status</code></td>

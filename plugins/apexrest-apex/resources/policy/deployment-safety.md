@@ -24,7 +24,7 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 
 Plans bind source, configuration, toolchain, target and import selection, and expire after 30 minutes. Source/configuration/compiler drift, target changes, a different project or a forged plan block apply. Regenerate a plan when sources or its validity change; this does not authorize a different application or unrelated work.
 
-`apexrest_ship mode:plan` compiles with Oracle, reads the target and saves a concrete local plan. `mode:apply` uses the application's task instruction. An optional `plan` selects an already reviewed saved plan. Production always fails with `PRODUCTION_DEPLOY_DENIED` before a grant or database write.
+`apexrest_ship mode:plan` compiles with Oracle, reads the target and saves a concrete local plan. `mode:apply` uses the application's task instruction. An optional `plan` selects an already reviewed saved plan. Production always fails with `PRODUCTION_DEPLOY_DENIED` before a grant or database write. A target marked in configuration or in the trust file (`kind: production`, its configured target digest or `DB_UNIQUE_NAME`) is refused before any connection is resolved or SQLcl starts, for plan, apply, database-only and restore plans; the identity-based check of the observed target still runs later, so an environment labelled DEV that resolves to a production target is refused too.
 
 ## Actual dangerous database operations
 

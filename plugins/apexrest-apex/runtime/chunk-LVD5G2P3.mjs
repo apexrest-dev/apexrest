@@ -6,10 +6,10 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-AKZAEB7R.mjs";
+} from "./chunk-SEKWEHJO.mjs";
 import {
   runPooledSqlcl
-} from "./chunk-EBHIQVTD.mjs";
+} from "./chunk-LBWXSUSZ.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
@@ -17,10 +17,10 @@ import {
   recordStatementTimings,
   runProcess,
   runSqlclMcp
-} from "./chunk-DWU3Q7C4.mjs";
+} from "./chunk-O6VWXF7Y.mjs";
 import {
   external_exports
-} from "./chunk-W7MSMS56.mjs";
+} from "./chunk-MSKY62PK.mjs";
 import {
   atomicWrite,
   canonical,
@@ -31,11 +31,11 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-7UXC37DJ.mjs";
+} from "./chunk-CO3K5OIY.mjs";
 import {
   Fault,
   __export
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // plugins/metadata.json
 var metadata_default = {
@@ -85,6 +85,7 @@ __export(oracle_exports, {
   diagnosticHint: () => diagnosticHint,
   installSources: () => installSources,
   jsonDocuments: () => jsonDocuments,
+  missingSavedConnection: () => missingSavedConnection,
   oracleDiagnostics: () => oracleDiagnostics,
   parseCompilerDiagnostics: () => parseCompilerDiagnostics,
   parseStatementMs: () => parseStatementMs,
@@ -1883,6 +1884,15 @@ function oracleDiagnostics(r, mutation = false, format = "text") {
   if (format === "json") {
     diagnostics = stripEnvelopeRows(stdout) + "\n" + stderr;
   }
+  const missingConnection = r.code !== 0 ? missingSavedConnection(diagnostics) : void 0;
+  if (missingConnection !== void 0)
+    throw new Fault(
+      "SQLCL_CONNECTION_NOT_FOUND",
+      `SQLcl has no saved connection named ${missingConnection}. Create it in SQLcl (conn -save ${missingConnection} ...) or point the APEXREST reference at an existing saved name; the application sources were not checked.`,
+      3,
+      "blocked",
+      { savedConnection: missingConnection }
+    );
   if (/ORA-01017|ORA-28000|ORA-28001/i.test(diagnostics))
     throw new Fault("AUTHENTICATION_FAILED", "Oracle authentication failed.", 4, "blocked");
   if (/ORA-01031/i.test(diagnostics))
@@ -1896,6 +1906,14 @@ function oracleDiagnostics(r, mutation = false, format = "text") {
       1
     );
   return output;
+}
+function missingSavedConnection(output) {
+  const match = /(?:^|\n)[ \t]*(?:Unknown connection|Connection not found|No (?:saved )?connection (?:named|found(?: with name)?))[: \t]+["']?([^\r\n"']*[^\s"'])["']?[ \t.]*(?:\r?\n|$)/i.exec(
+    output
+  ) ?? /(?:^|\n)[ \t]*(?:The )?(?:saved )?connection[ \t]+["']?([^\s"']+?)["']?[ \t]+(?:was not found|not found|does not exist|doesn't exist)\b/i.exec(
+    output
+  );
+  return match ? match[1] : void 0;
 }
 function jsonDocuments(text) {
   const spans = [];
@@ -2340,10 +2358,15 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       );
     return found[0];
   }
-  async validate(source, signal) {
+  /**
+   * `metadataFile` supplies Oracle-generated `.apex/apexlang.json` from elsewhere (the nearest
+   * project) for a source tree without its own; it is copied into the staged copy only.
+   */
+  async validate(source, signal, options = {}) {
     const compiler = await this.requireCapability("validate", signal);
     const before = await inventory(source);
-    if (!before[".apex/apexlang.json"])
+    const metadataFile = before[".apex/apexlang.json"] ? path11.join(source, ".apex/apexlang.json") : options.metadataFile;
+    if (!metadataFile)
       throw new Fault(
         "MMD_METADATA_REQUIRED",
         "Preserve Oracle-generated .apex/apexlang.json before validation.",
@@ -2353,6 +2376,10 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     let result;
     try {
       await cp3(source, copy, { recursive: true });
+      if (!before[".apex/apexlang.json"]) {
+        await mkdir4(path11.join(copy, ".apex"), { recursive: true });
+        await cp3(metadataFile, path11.join(copy, ".apex/apexlang.json"));
+      }
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
         void 0,
@@ -2379,7 +2406,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile5(path11.join(source, ".apex/apexlang.json"), "utf8")),
+      mmd: JSON.parse(await readFile5(metadataFile, "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -2944,7 +2971,7 @@ end;
       const stage = await this.stage();
       try {
         const input = path11.join(stage, "restore.sql");
-        await (await import("./chunk-A3QJ5GLR.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
+        await (await import("./chunk-B2QC3QWO.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);
@@ -3048,9 +3075,12 @@ async function compilerDetails(output, root) {
 }
 async function compilerFault(output, root) {
   const details = await compilerDetails(output, root);
+  const count = details?.diagnostics.length ?? 0;
+  const message = output.length > 4e3 ? `${output.slice(0, 4e3)}
+\u2026 report truncated${count ? `; all ${count} diagnostics are in details.diagnostics` : ""}.` : output;
   return new Fault(
     details ? "VALIDATION_FAILED" : "VALIDATION_UNCONFIRMED",
-    output.slice(0, 4e3) || "Compiler returned no success marker.",
+    message || "Compiler returned no success marker.",
     1,
     "failed",
     details

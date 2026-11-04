@@ -1574,9 +1574,15 @@ export async function compilerDetails(output: string, root?: string) {
 /** Validation failure with structured diagnostics; the raw report stays the message. */
 export async function compilerFault(output: string, root?: string) {
   const details = await compilerDetails(output, root);
+  // The message is bounded; say so, because the report usually lists the first error type only.
+  const count = details?.diagnostics.length ?? 0;
+  const message =
+    output.length > 4000
+      ? `${output.slice(0, 4000)}\n… report truncated${count ? `; all ${count} diagnostics are in details.diagnostics` : ''}.`
+      : output;
   return new Fault(
     details ? 'VALIDATION_FAILED' : 'VALIDATION_UNCONFIRMED',
-    output.slice(0, 4000) || 'Compiler returned no success marker.',
+    message || 'Compiler returned no success marker.',
     1,
     'failed',
     details,

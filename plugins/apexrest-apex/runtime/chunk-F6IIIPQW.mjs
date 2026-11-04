@@ -8,17 +8,17 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-XJTCEONX.mjs";
-import "./chunk-S5XN5XLV.mjs";
-import "./chunk-2AGI2KQJ.mjs";
+} from "./chunk-Y6XFMSEK.mjs";
+import "./chunk-2PFVJG25.mjs";
+import "./chunk-DDIVGNK7.mjs";
 import {
   VERSION
-} from "./chunk-5USMC7HM.mjs";
+} from "./chunk-LVD5G2P3.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-AKZAEB7R.mjs";
-import "./chunk-EBHIQVTD.mjs";
+} from "./chunk-SEKWEHJO.mjs";
+import "./chunk-LBWXSUSZ.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -47,19 +47,19 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-DWU3Q7C4.mjs";
+} from "./chunk-O6VWXF7Y.mjs";
 import {
   external_exports
-} from "./chunk-W7MSMS56.mjs";
+} from "./chunk-MSKY62PK.mjs";
 import {
   hash
-} from "./chunk-7UXC37DJ.mjs";
+} from "./chunk-CO3K5OIY.mjs";
 import {
   Fault,
   failure,
   sanitized,
   success
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
@@ -990,7 +990,7 @@ var absoluteProject = external_exports.string().min(1).max(4096).refine(
   (value) => path.isAbsolute(value) && (process.platform !== "win32" || /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/]+[\\/][^\\/]+)/.test(value)),
   "Provide the absolute project directory containing apexrest.json; the plugin runs from its installation directory."
 ).describe("Absolute project directory containing apexrest.json; never the plugin cache.");
-var projectOptional = /* @__PURE__ */ new Set(["reference", "status", "project"]);
+var projectOptional = /* @__PURE__ */ new Set(["reference", "status", "project", "apex.validate"]);
 var mcpSchemas = /* @__PURE__ */ new Map();
 for (const { operation, long } of toolCatalog) {
   const schema = schemas[operation];
@@ -1001,7 +1001,15 @@ for (const { operation, long } of toolCatalog) {
     directory: absoluteProject.describe("Absolute directory for init.").optional(),
     passwordFile: absoluteProject.describe("Absolute private password file.").optional(),
     envFile: absoluteProject.describe("Absolute ignored local ENV credential file.").optional()
-  }) : transportSchema;
+  }) : operation === "apex.validate" ? transportSchema.safeExtend({
+    sourceDir: external_exports.string().max(4096).refine((value) => path.isAbsolute(value), "sourceDir must be an absolute path.").describe("Absolute app folder").optional()
+  }).refine(
+    (input) => input.project !== void 0 || input.sourceDir !== void 0,
+    {
+      message: "Provide project or an absolute sourceDir.",
+      path: ["project"]
+    }
+  ) : transportSchema;
   mcpSchemas.set(
     operation,
     long ? boundarySchema.safeExtend({ waitSeconds: operation === "ship" ? shipWaitSeconds : jobWaitSeconds }) : boundarySchema

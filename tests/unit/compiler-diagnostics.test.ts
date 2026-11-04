@@ -318,3 +318,18 @@ test('an unknown SQLcl saved connection is a blocked connection fault, not a val
   assert.equal(oracleDiagnostics(completed('Unknown connection x\n')), 'Unknown connection x\n\n');
   assert.equal(missingSavedConnection('row: Unknown connection x'), undefined);
 });
+
+test('a long compiler report says it was truncated and points at the full diagnostics', async () => {
+  const entry = (n: number) =>
+    `File: pages/p${String(n).padStart(5, '0')}-x.apx\nLine: 4\nColumn: 8\nType: INVALID_PROPERTY\nError: Invalid property: bogus${n}\n`;
+  const output = `APEXLang Compile Errors:\n${Array.from({ length: 60 }, (_, n) => entry(n + 1)).join('')}`;
+  const fault = await compilerFault(output);
+  assert.equal(fault.code, 'VALIDATION_FAILED');
+  assert.equal(fault.details?.diagnostics?.length, 60);
+  assert.match(fault.message, /report truncated; all 60 diagnostics are in details\.diagnostics\.$/);
+  // A short report is passed through unchanged.
+  assert.equal(
+    (await compilerFault(`APEXLang Compile Errors:\n${entry(1)}`)).message,
+    `APEXLang Compile Errors:\n${entry(1)}`,
+  );
+});

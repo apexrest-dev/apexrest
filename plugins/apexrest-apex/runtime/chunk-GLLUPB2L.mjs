@@ -1,5 +1,12 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  onPreviewShutdown,
+  otherPreviews,
+  registerPreview,
+  stopOtherPreview,
+  unregisterPreview
+} from "./chunk-KSVOEGE7.mjs";
+import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
   HTP_INIT_BLOCK,
@@ -27,20 +34,20 @@ import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-5USMC7HM.mjs";
+} from "./chunk-LVD5G2P3.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject,
   managedHome
-} from "./chunk-AKZAEB7R.mjs";
-import "./chunk-EBHIQVTD.mjs";
-import "./chunk-DWU3Q7C4.mjs";
-import "./chunk-W7MSMS56.mjs";
-import "./chunk-7UXC37DJ.mjs";
+} from "./chunk-SEKWEHJO.mjs";
+import "./chunk-LBWXSUSZ.mjs";
+import "./chunk-O6VWXF7Y.mjs";
+import "./chunk-MSKY62PK.mjs";
+import "./chunk-CO3K5OIY.mjs";
 import {
   Fault
-} from "./chunk-CCPOHUCO.mjs";
+} from "./chunk-KDTXQPMS.mjs";
 
 // packages/core/src/preview/service.ts
 import fs12 from "node:fs";
@@ -2167,6 +2174,7 @@ var OracleAppData = class {
   #columns = /* @__PURE__ */ new Map();
   #keys = /* @__PURE__ */ new Map();
   #dirty = false;
+  #prefetched = false;
   constructor(link, schema) {
     this.link = link;
     this.schema = schema.toUpperCase();
@@ -2228,6 +2236,7 @@ end;` : dmlBlock(sql, true);
     const { owner: owner2, name } = this.#owned(table);
     const key = `${owner2}.${name}`;
     let columns = this.#columns.get(key);
+    if (!columns && this.#prefetched && owner2 === this.schema) return [];
     if (!columns) {
       const own = owner2 === this.schema;
       const dictionary = (view) => own ? `user_${view}` : `all_${view}`;
@@ -2253,6 +2262,51 @@ end;` : dmlBlock(sql, true);
     }
     return columns;
   }
+  /**
+   * Reads column and key metadata for every table and view of the session
+   * schema in two dictionary queries, so the first page does not pay one
+   * dictionary round trip per table. A complete prefetch also answers absent
+   * schema tables; a truncated one leaves the per-table lookups in place.
+   */
+  prefetchSchema(limit = 2e4) {
+    const columns = this.query(
+      `select c.table_name, c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk,
+              case when c.identity_column = 'YES' or c.default_length > 0 then 'Y' else 'N' end has_default
+         from user_tab_columns c
+         left join (select kc.table_name, kc.column_name
+                      from user_constraints k
+                      join user_cons_columns kc on kc.constraint_name = k.constraint_name
+                     where k.constraint_type = 'P') p
+           on p.table_name = c.table_name and p.column_name = c.column_name
+        order by c.table_name, c.column_id`,
+      {},
+      limit
+    );
+    if (columns.rows.length >= limit) return { tables: 0, complete: false };
+    const triggered = new Set(
+      this.query(
+        `select distinct table_name from user_triggers
+          where triggering_event like '%INSERT%' and status = 'ENABLED' and table_name is not null`,
+        {},
+        limit
+      ).rows.map((row) => String(row.TABLE_NAME))
+    );
+    const tables = /* @__PURE__ */ new Map();
+    for (const row of columns.rows) {
+      const table = String(row.TABLE_NAME);
+      const column2 = String(row.COLUMN_NAME);
+      let list4 = tables.get(table);
+      if (!list4) tables.set(table, list4 = []);
+      list4.push({ name: column2, pk: row.IS_PK === "Y", type: String(row.DATA_TYPE) });
+      this.#keys.set(
+        `${this.schema}.${table}.${column2}`,
+        row.HAS_DEFAULT === "Y" || triggered.has(table) ? "default" : "none"
+      );
+    }
+    for (const [table, list4] of tables) this.#columns.set(`${this.schema}.${table}`, list4);
+    this.#prefetched = true;
+    return { tables: tables.size, complete: true };
+  }
   tableExists(table) {
     return this.tableColumns(table).length > 0;
   }
@@ -2261,6 +2315,7 @@ end;` : dmlBlock(sql, true);
     const { owner: owner2, name } = this.#owned(table);
     const key = `${owner2}.${name}.${column2.toUpperCase()}`;
     let source = this.#keys.get(key);
+    if (!source && this.#prefetched && owner2 === this.schema) return "none";
     if (!source) {
       const own = owner2 === this.schema;
       const found = this.scalar(
@@ -2452,6 +2507,35 @@ async function workerSettings(connectionName) {
     connectionName
   };
 }
+function warmUp(data, apex) {
+  const started2 = performance.now();
+  const steps = {
+    tables: "skipped"
+  };
+  try {
+    const prefetched = data.prefetchSchema();
+    steps.tables = prefetched.complete ? prefetched.tables : "partial";
+  } catch {
+    steps.tables = "skipped";
+  }
+  if (apex)
+    try {
+      data.plsql({
+        block: "begin\n  null;\nend;",
+        binds: {},
+        apex: {
+          ...apex,
+          pageId: apex.pages.find((id) => id > 0) ?? apex.pages[0] ?? 1,
+          user: "APEXREST_PREVIEW",
+          items: /* @__PURE__ */ new Set()
+        }
+      });
+      steps.apexSession = "ready";
+    } catch {
+      steps.apexSession = "skipped";
+    }
+  return { ms: Math.round(performance.now() - started2), ...steps };
+}
 async function connectOracle(root, name, link) {
   const ctx = await loadProject(root);
   const env = environment(ctx, name);
@@ -2532,6 +2616,7 @@ async function connectOracle(root, name, link) {
     warnings.push(
       "Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback"
     );
+    warmUp(data, apex);
     data.endRequest();
     return {
       data,
@@ -2692,9 +2777,9 @@ function parseApexLang(source, file = "<memory>") {
       index += 1;
       if (!text10) continue;
       if (text10 === close2) return props;
-      const property = PROPERTY.exec(text10);
-      if (property) {
-        props[unquote(property[1])] = readValue(property[2]);
+      const property2 = PROPERTY.exec(text10);
+      if (property2) {
+        props[unquote(property2[1])] = readValue(property2[2]);
         continue;
       }
       const group2 = GROUP.exec(text10);
@@ -3452,31 +3537,41 @@ var LiveHub = class {
 import fs6 from "node:fs";
 import path5 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-var CHECKED = /* @__PURE__ */ new Set([
-  "page",
-  "region",
-  "pageItem",
-  "button",
-  "dynamicAction",
-  "validation",
-  "computation",
-  "branch",
-  "layer",
-  "series",
-  "axis"
-]);
+var CHECKED = {
+  page: ["app"],
+  region: ["page"],
+  pageItem: ["page"],
+  button: ["page"],
+  dynamicAction: ["page"],
+  action: ["dynamicAction"],
+  validation: ["page"],
+  computation: ["page"],
+  branch: ["page"],
+  column: ["region", "attributes"],
+  layer: ["attributes"],
+  series: ["attributes"],
+  axis: ["attributes"]
+};
 var EXTRA_GROUPS = {
   // Report printing attributes and map region attributes.
   region: ["attributes", "columnHeadings", "columns", "page", "pageHeader"]
 };
 var EXTRA_PATHS = {
-  region: ["settings.enableExport"]
+  region: [
+    { paths: ["settings.enableExport"] },
+    // Lazy loading of chart regions (the 26.1 compiler rejects it).
+    { paths: ["performance.lazyLoading"], since: "26.2" }
+  ]
 };
 var EXTRA_VALUES = {
-  "region pagination.type": ["showAll"]
+  "region pagination.type": { values: ["showAll"], since: "26.2" }
 };
 var ITEM_VALUES = /* @__PURE__ */ new Set(["pageItem geocodingInput.country"]);
-var TYPED_CONTEXTS = /* @__PURE__ */ new Set(["region", "pageItem"]);
+var REGION_TYPES = {
+  interactiveReport: "NATIVE_IR",
+  classicReport: "NATIVE_SQL_REPORT"
+};
+var UNNAMED_REGION_TYPES = ["NATIVE_TABFORM"];
 var STRUCTURED_TYPES = /* @__PURE__ */ new Set([
   "LINK",
   "LINK_IN_APP",
@@ -3486,7 +3581,12 @@ var STRUCTURED_TYPES = /* @__PURE__ */ new Set([
   "STATIC LOV",
   "ORDER BY ITEM"
 ]);
+var LINK_TYPES = /* @__PURE__ */ new Set(["LINK", "LINK_IN_APP", "LINK_IN_DIFF_APP", "LINK_BRANCH", "linkToTargetPageUrl"]);
 var ENUMERATED_TYPES = /* @__PURE__ */ new Set(["SELECT LIST", "PILL BUTTONS", "CHECKBOXES", "selectList", "checkboxes"]);
+var IDENTIFIER_TYPES = /* @__PURE__ */ new Set(["STATIC ID"]);
+var NULL = "$NULL$";
+var TEMPLATE_COMPONENT = /^(?:themeTemplateComponent|appTemplateComponent|templateComponent)\//u;
+var OPEN_GROUPS = /* @__PURE__ */ new Set(["action"]);
 var cached;
 function catalogFile() {
   const here = path5.dirname(fileURLToPath2(import.meta.url));
@@ -3501,59 +3601,104 @@ function catalogFile() {
   }
   return void 0;
 }
-function add(catalog2, context) {
-  let entry = catalog2.get(context);
-  if (!entry) {
-    entry = {
-      generic: /* @__PURE__ */ new Set(),
-      byType: /* @__PURE__ */ new Map(),
-      genericGroups: /* @__PURE__ */ new Set(),
-      structured: /* @__PURE__ */ new Set(),
-      values: /* @__PURE__ */ new Map()
-    };
-    catalog2.set(context, entry);
+function normalize(condition) {
+  if (!condition) return null;
+  if (condition.conditions) {
+    const children2 = condition.conditions.map(normalize).filter((entry) => Boolean(entry));
+    return children2.length ? { operator: condition.operator === "OR" ? "OR" : "AND", conditions: children2 } : null;
   }
-  return entry;
+  if (!condition.type) return null;
+  return {
+    type: condition.type,
+    ...condition.path ? { path: condition.path } : {},
+    values: condition.values ?? (condition.value === void 0 ? [] : [condition.value]),
+    ...condition.hasToExist === false ? { optional: true } : {}
+  };
+}
+function nativeCondition(condition, prefix, paths) {
+  const attribute3 = condition?.["dependingOn.attribute"];
+  if (typeof attribute3 !== "string") return null;
+  const [name, scope2] = attribute3.replace(/^@/u, "").split("/");
+  const target2 = paths.get(`${prefix}${scope2}/${name}`);
+  if (!target2) return null;
+  const operator = String(condition?.["dependingOn.conditionType"] ?? "");
+  const raw2 = condition?.["dependingOn.value"] ?? condition?.["dependingOn.list"];
+  const values = Array.isArray(raw2) ? raw2.map(String) : raw2 === void 0 ? [] : String(raw2).split(",");
+  const type = { "=": "EQUALS", "!=": "NOT_EQUALS", isNotNull: "NOT_NULL", isNull: "NULL", inList: "IN_LIST" }[operator] ?? "";
+  if (!type || ["EQUALS", "NOT_EQUALS", "IN_LIST"].includes(type) && !values.length) return null;
+  return { type, path: `@${target2}`, values, plugin: true };
+}
+var plain = (relative) => relative.replace(/(^|\.)plugin-/gu, "$1");
+function property(parameter2, relative, condition) {
+  return {
+    path: relative,
+    type: parameter2.type,
+    required: Boolean(parameter2.required),
+    defaultValue: parameter2.defaultValue ?? null,
+    values: parameter2.values ?? [],
+    condition
+  };
+}
+function push(map, key, value2) {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key).push(value2);
 }
 function buildCatalog(json5) {
-  const catalog2 = /* @__PURE__ */ new Map();
-  const record = (context, relative, parameter2) => {
-    const entry = add(catalog2, context);
-    const type = TYPED_CONTEXTS.has(context) ? parameter2?.nativeType ?? "" : "";
-    const forms = /* @__PURE__ */ new Set([relative, relative.replace(/(^|\.)plugin-/gu, "$1")]);
-    for (const form of forms) {
-      if (type) {
-        if (!entry.byType.has(type)) entry.byType.set(type, /* @__PURE__ */ new Set());
-        entry.byType.get(type).add(form);
-      } else {
-        entry.generic.add(form);
-        entry.genericGroups.add(form.split(".")[0]);
-      }
-      if (!parameter2) continue;
-      if (STRUCTURED_TYPES.has(parameter2.type)) entry.structured.add(form);
-      if (ENUMERATED_TYPES.has(parameter2.type) && parameter2.values.length) {
-        if (!entry.values.has(form)) entry.values.set(form, /* @__PURE__ */ new Map());
-        const byType = entry.values.get(form);
-        if (!byType.has(type)) byType.set(type, /* @__PURE__ */ new Set());
-        for (const value2 of parameter2.values) byType.get(type).add(value2.name);
-      }
-    }
-  };
+  const variants = /* @__PURE__ */ new Map();
+  const byId = /* @__PURE__ */ new Map();
+  const native = /* @__PURE__ */ new Map();
+  const regionTypes = new Map(Object.entries(REGION_TYPES));
+  const nativePaths = /* @__PURE__ */ new Map();
+  for (const parameter2 of json5.nativeParameters)
+    if (parameter2.id.startsWith("native:") && parameter2.apexlangPath)
+      nativePaths.set(
+        parameter2.id.replace(/^native:/u, ""),
+        plain(parameter2.apexlangPath.slice(parameter2.context.length + 1))
+      );
   for (const parameter2 of json5.nativeParameters) {
     if (!parameter2.apexlangPath) continue;
-    let relative = parameter2.apexlangPath.slice(parameter2.context.length + 1);
-    let context = parameter2.context;
-    if (context === "attributes") {
-      context = "region";
-      relative = relative.replace(/^attributes\./u, "");
+    const relative = plain(parameter2.apexlangPath.slice(parameter2.context.length + 1));
+    if (parameter2.id.startsWith("native:")) {
+      if (!["region", "pageItem"].includes(parameter2.context) || !parameter2.nativeType) continue;
+      const kind = parameter2.id.split("/")[0].replace(/^native:/u, "");
+      const prefix = `${parameter2.id.split("/").slice(0, 2).join("/").replace(/^native:/u, "")}/`;
+      const key = `${kind === "item" ? "pageItem" : "region"} ${parameter2.nativeType}`;
+      if (!native.has(key)) native.set(key, /* @__PURE__ */ new Map());
+      const condition = nativeCondition(parameter2.condition, prefix, nativePaths);
+      push(native.get(key), relative, property(parameter2, relative, condition));
+      continue;
     }
-    record(context, relative, parameter2);
+    if (!parameter2.componentTypeId) continue;
+    let variant = byId.get(parameter2.componentTypeId);
+    if (!variant) {
+      variant = {
+        context: parameter2.context,
+        id: parameter2.componentTypeId,
+        parentId: parameter2.parentComponentTypeId ?? null,
+        parentContext: parameter2.parentContext ?? null,
+        condition: normalize(parameter2.componentCondition),
+        properties: /* @__PURE__ */ new Map()
+      };
+      byId.set(variant.id, variant);
+      push(variants, variant.context, variant);
+    }
+    push(
+      variant.properties,
+      relative,
+      property(parameter2, relative, normalize(parameter2.condition))
+    );
+    const leaf = variant.condition?.conditions?.length === 1 ? variant.condition.conditions[0] : void 0;
+    if (leaf?.path === "region.type" && leaf.type === "EQUALS" && parameter2.nativeType)
+      regionTypes.set(parameter2.nativeType, leaf.values[0]);
   }
-  for (const attribute3 of json5.utAttributes ?? []) {
-    const context = attribute3.apexlangPath.split(".")[0];
-    add(catalog2, context).generic.add(attribute3.apexlangRelativePath);
-  }
-  return catalog2;
+  return {
+    variants,
+    attributes: (variants.get("attributes") ?? []).filter(
+      (variant) => byId.get(variant.parentId ?? "")?.context === "region"
+    ),
+    native,
+    regionTypes
+  };
 }
 function loadCatalog() {
   if (cached !== void 0) return cached;
@@ -3565,83 +3710,425 @@ function loadCatalog() {
   }
   return cached;
 }
+function applicationMmdVersion(sourceDir) {
+  try {
+    const json5 = JSON.parse(fs6.readFileSync(path5.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
+    return typeof json5.mmdVersion === "string" ? json5.mmdVersion : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function atLeast(version, since3) {
+  if (!version) return true;
+  const parts = (text10) => text10.split(/[.+]/u).map((part2) => Number(part2) || 0);
+  const [a, b] = [parts(version), parts(since3)];
+  for (let index = 0; index < b.length; index++) {
+    if ((a[index] ?? 0) !== b[index]) return (a[index] ?? 0) > b[index];
+  }
+  return true;
+}
 var isSubstitution = (value2) => /[&#][A-Za-z_][\w$#]*[.#]|^#|^&/u.test(value2);
-function checkComponentProperties(components, page2, catalog2 = loadCatalog()) {
-  if (!catalog2) return [];
-  const findings = [];
-  const visit = (component) => {
-    const entry = catalog2.get(component.type);
-    if (entry && CHECKED.has(component.type)) checkComponent(component, entry, page2, findings);
-    for (const child of component.children) visit(child);
-  };
-  for (const component of components) visit(component);
-  return findings;
+function exclusive(variants, scope2, checker) {
+  const results = variants.map((variant) => ({ variant, holds: checker.holds(variant.condition, scope2) }));
+  const certain = results.filter((entry) => entry.holds === true);
+  return (certain.length ? certain : results.filter((entry) => entry.holds !== false)).map(
+    (entry) => entry.variant
+  );
 }
-function checkComponent(component, entry, page2, findings) {
-  const type = typeof component.props.type === "string" ? component.props.type : "";
-  const typed = entry.byType.get(type);
-  const custom = type.includes("/");
-  const extra = new Set(EXTRA_GROUPS[component.type] ?? []);
-  const typedGroups = new Set([...typed ?? []].map((dotted) => dotted.split(".")[0]));
-  const extraPaths = new Set(EXTRA_PATHS[component.type] ?? []);
-  const known = (dotted) => entry.generic.has(dotted) || Boolean(typed?.has(dotted)) || extraPaths.has(dotted);
-  const label = `${component.type} ${component.id}`;
-  const report2 = (message) => findings.push({ message: `${label}: ${message}`, ...page2 ? { page: page2 } : {}, component: component.id });
-  const walk3 = (props, prefix) => {
-    for (const [key, value2] of Object.entries(props)) {
-      const dotted = prefix ? `${prefix}.${key}` : key;
-      const group2 = dotted.split(".")[0];
-      const groupKnown = entry.genericGroups.has(group2) || typedGroups.has(group2);
-      if (extra.has(group2)) continue;
-      if (custom && !entry.genericGroups.has(group2)) continue;
-      if (group2 === "settings" && (custom || !typed)) continue;
-      if (entry.structured.has(dotted)) {
-        checkValue(component.type, dotted, value2, entry, type, report2);
-        continue;
-      }
-      if (!groupKnown) {
-        report2(`unknown property group "${group2}"`);
-        continue;
-      }
-      if (isObject(value2) && !known(dotted)) {
-        walk3(value2, dotted);
-        continue;
-      }
-      if (!known(dotted)) {
-        report2(`unknown property "${dotted}"${type ? ` for type ${type}` : ""}`);
-        continue;
-      }
-      checkValue(component.type, dotted, value2, entry, type, report2);
-    }
-  };
-  walk3(component.props, "");
-}
-function checkValue(context, dotted, value2, entry, type, report2) {
-  const allowed = entry.values.get(dotted);
-  if (!allowed) return;
-  let names = allowed.get(type);
-  const generic = allowed.get("");
-  if (!names && !generic) {
-    names = new Set([...allowed.values()].flatMap((set) => [...set]));
+var and = (values) => values.includes(false) ? false : values.includes(null) ? null : true;
+var or = (values) => values.includes(true) ? true : values.every((value2) => value2 === false) ? false : null;
+var Checker = class {
+  findings = [];
+  catalog;
+  page;
+  options;
+  constructor(catalog2, page2, options3) {
+    this.catalog = catalog2;
+    this.page = page2;
+    this.options = options3;
   }
-  const accepted = /* @__PURE__ */ new Set([
-    ...names ?? [],
-    ...generic ?? [],
-    ...EXTRA_VALUES[`${context} ${dotted}`] ?? []
-  ]);
-  const items = ITEM_VALUES.has(`${context} ${dotted}`);
-  const candidates = Array.isArray(value2) ? value2 : [value2];
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string" || isRef(candidate)) continue;
-    if (isSubstitution(candidate)) continue;
-    for (const part2 of candidate.split(":")) {
-      if (part2 === "" || accepted.has(part2) || items && /^P\d+_\w+$/iu.test(part2)) continue;
-      report2(
-        `unknown value "${part2}" for ${dotted} (expected ${[...accepted].sort().slice(0, 12).join(", ")}${accepted.size > 12 ? ", \u2026" : ""})`
+  visit(component, parent) {
+    const scope2 = { component, variants: [], parent };
+    scope2.variants = this.identify(scope2);
+    const checked = CHECKED[component.type];
+    if (scope2.variants.some((variant) => checked?.includes(variant.parentContext ?? ""))) this.check(scope2);
+    else if (scope2.variants.length) this.checkRules(scope2, this.reporter(component));
+    for (const child of component.children) this.visit(child, scope2);
+  }
+  /** Catalog identities whose parent and condition fit the component. */
+  identify(scope2) {
+    const { component, parent } = scope2;
+    const candidates = this.catalog.variants.get(component.type) ?? [];
+    const parents = new Set(parent?.variants.map((variant) => variant.id) ?? []);
+    const matching = exclusive(
+      candidates.filter((variant) => parent ? parents.has(variant.parentId ?? "") : true),
+      scope2,
+      this
+    );
+    if (component.type !== "region" || !matching.length) return matching;
+    return [...matching, ...exclusive(this.catalog.attributes, scope2, this)];
+  }
+  /** Three-valued condition: null when it depends on something the preview cannot decide. */
+  holds(condition, scope2, depth = 0) {
+    if (!condition) return true;
+    if (condition.conditions) {
+      const values2 = condition.conditions.map((child) => this.holds(child, scope2, depth));
+      return condition.operator === "OR" ? or(values2) : and(values2);
+    }
+    if (!condition.path) return null;
+    const target2 = this.target(condition.path, scope2);
+    if (!target2) return null;
+    const values = condition.values ?? [];
+    if (condition.optional && get(target2.scope.component.props, target2.path) === void 0) return null;
+    if (!condition.optional && !condition.plugin && depth < 4) {
+      const referenced = this.properties(target2.scope, target2.path);
+      if (referenced.length && referenced.every((entry) => this.holds(entry.condition, target2.scope, depth + 1) === false))
+        return false;
+    }
+    const actual = this.actual(target2.scope, target2.path);
+    if (actual === null) return null;
+    const upper4 = values.map((value2) => value2.toUpperCase());
+    const test = (raw2) => {
+      const candidate = upper4.includes(raw2.toUpperCase()) ? values[upper4.indexOf(raw2.toUpperCase())] : raw2;
+      switch (condition.type) {
+        case "EQUALS":
+        case "IN_LIST":
+          return values.includes(candidate);
+        case "NOT_EQUALS":
+        case "NOT_IN_LIST":
+          return !values.includes(candidate);
+        case "NULL":
+          return candidate === NULL;
+        case "NOT_NULL":
+          return candidate !== NULL;
+        case "STARTS_WITH":
+        case "STARTS_WITH_ANY":
+          return values.some((value2) => candidate.startsWith(value2));
+        case "NOT_STARTS_WITH_ANY":
+          return !values.some((value2) => candidate.startsWith(value2));
+        default:
+          return null;
+      }
+    };
+    if (actual.kind === "region" || actual.kind === "item")
+      return actual.kind === "region" ? this.regionTest(condition, actual.type) : this.itemTest(condition, actual.type);
+    if (actual.kind === "boolean") {
+      const onOff = values.some((value2) => value2 === "on" || value2 === "off");
+      return test(actual.value ? onOff ? "on" : "Y" : onOff ? "off" : "N");
+    }
+    return or(actual.values.map(test));
+  }
+  regionTest(condition, type) {
+    const values = condition.values ?? [];
+    const raw2 = this.catalog.regionTypes.get(type);
+    const custom = TEMPLATE_COMPONENT.test(type) ? "TMPL_" : type.startsWith("plugin/") ? "PLUGIN_" : void 0;
+    const known = /* @__PURE__ */ new Set([...this.catalog.regionTypes.values(), ...UNNAMED_REGION_TYPES]);
+    const equals = (value2) => raw2 ? raw2 === value2 : custom ? value2.startsWith(custom) ? null : false : known.has(value2) ? false : null;
+    switch (condition.type) {
+      case "EQUALS":
+      case "IN_LIST":
+        return or(values.map(equals));
+      case "NOT_EQUALS":
+      case "NOT_IN_LIST": {
+        const result = or(values.map(equals));
+        return result === null ? null : !result;
+      }
+      case "STARTS_WITH":
+        if (raw2) return values.some((value2) => raw2.startsWith(value2));
+        if (custom)
+          return values.some((value2) => custom.startsWith(value2)) ? true : values.some((value2) => value2.startsWith(custom)) ? null : false;
+        return values.every((value2) => value2.startsWith("TMPL_") || value2.startsWith("PLUGIN_")) ? false : null;
+      default:
+        return null;
+    }
+  }
+  /** Item and column types are `SUPPORTED UI` without a value list: only exact name matches count. */
+  itemTest(condition, type) {
+    const values = condition.values ?? [];
+    const same = (value2) => value2.replace(/^NATIVE_/u, "").replace(/_/gu, "").toLowerCase() === type.toLowerCase();
+    const custom = type.includes("/");
+    switch (condition.type) {
+      case "EQUALS":
+      case "IN_LIST":
+        return values.some(same) ? true : custom && values.every((value2) => value2.startsWith("NATIVE_")) ? false : null;
+      case "NOT_EQUALS":
+      case "NOT_IN_LIST":
+        return values.some(same) ? false : custom && values.every((value2) => value2.startsWith("NATIVE_")) ? true : null;
+      case "STARTS_WITH":
+        return TEMPLATE_COMPONENT.test(type) ? values.some((value2) => value2 === "TMPL_") || null : values.every((value2) => value2 === "TMPL_") ? false : null;
+      default:
+        return null;
+    }
+  }
+  /** Resolves `region.type`, `attributes.chart.type` or `@settings.showTime` to a component. */
+  target(dotted, scope2) {
+    if (dotted.startsWith("@")) return { scope: scope2, path: dotted.slice(1) };
+    const [context, ...rest] = dotted.split(".");
+    const relative = rest.join(".");
+    if (!context || !relative) return void 0;
+    for (let current3 = scope2; current3; current3 = current3.parent) {
+      const type = current3.component.type;
+      if (type === context || context === "attributes" && type === "region")
+        return { scope: current3, path: relative };
+    }
+    return void 0;
+  }
+  /** The MMD value(s) of a property: return values, Y/N for booleans, defaults when absent. */
+  actual(scope2, dotted) {
+    const value2 = get(scope2.component.props, dotted);
+    const properties = this.properties(scope2, dotted);
+    if (dotted === "type" && typeof value2 === "string") {
+      if (scope2.component.type === "region") return { kind: "region", type: value2 };
+      if (!properties.some((entry) => entry.values.length)) return { kind: "item", type: value2 };
+    }
+    if (value2 === void 0) {
+      if (!properties.length || properties.some((entry) => entry.required && entry.defaultValue === null))
+        return null;
+      const flag3 = (entry) => entry.type === "yesNo" ? { true: "Y", false: "N" }[entry.defaultValue ?? ""] ?? entry.defaultValue : entry.defaultValue;
+      const defaults = properties.map(flag3).filter((entry) => entry !== null);
+      if (!defaults.length && properties.some((entry) => entry.type === "yesNo"))
+        return { kind: "values", values: [NULL, "N"] };
+      return { kind: "values", values: defaults.length ? defaults : [NULL] };
+    }
+    if (isRef(value2)) return { kind: "values", values: [`@${value2.ref}`] };
+    if (typeof value2 === "boolean") return { kind: "boolean", value: value2 };
+    if (isObject(value2)) return null;
+    const parts = (Array.isArray(value2) ? value2 : [value2]).flatMap(
+      (entry) => typeof entry === "string" ? entry.split(":") : []
+    );
+    if (!parts.length) return { kind: "values", values: [NULL] };
+    const named2 = /* @__PURE__ */ new Map();
+    for (const entry of properties)
+      for (const option of entry.values)
+        if (option.returnValue !== void 0) named2.set(option.name, option.returnValue);
+    if (parts.some(isSubstitution)) return null;
+    const listed = properties.some(
+      (entry) => ENUMERATED_TYPES.has(entry.type) && !entry.values.length || entry.type === "SUPPORTED UI"
+    );
+    if (parts.some((part2) => !named2.has(part2)) && (listed || !properties.length)) return null;
+    return { kind: "values", values: parts.map((part2) => named2.get(part2) ?? part2) };
+  }
+  /** Catalog properties of one path for the component (its identities and native settings). */
+  properties(scope2, dotted) {
+    const found = [];
+    for (const variant of scope2.variants) found.push(...variant.properties.get(dotted) ?? []);
+    found.push(...this.typed(scope2)?.get(dotted) ?? []);
+    return found;
+  }
+  /** Native plug-in settings for the component type (interactive grid columns use item types). */
+  typed(scope2) {
+    const { component } = scope2;
+    const type = typeof component.props.type === "string" ? component.props.type : "";
+    if (!type || type.includes("/")) return void 0;
+    if (component.type === "region" || component.type === "pageItem")
+      return this.catalog.native.get(`${component.type} ${type}`);
+    if (component.type === "column" && scope2.parent?.component.type === "region") {
+      const grid = scope2.variants.some(
+        (variant) => variant.condition?.conditions?.some(
+          (leaf) => leaf.path === "region.type" && leaf.values?.includes("NATIVE_IG")
+        )
       );
-      return;
+      if (grid) return this.catalog.native.get(`pageItem ${type}`);
+    }
+    return void 0;
+  }
+  check(scope2) {
+    const { component } = scope2;
+    const type = typeof component.props.type === "string" ? component.props.type : "";
+    const typed = this.typed(scope2);
+    const custom = type.includes("/");
+    const paths = /* @__PURE__ */ new Map();
+    for (const variant of scope2.variants)
+      for (const [dotted, entries] of variant.properties)
+        for (const entry of entries) push(paths, dotted, entry);
+    const groups = new Set([...paths.keys()].map((dotted) => dotted.split(".")[0]));
+    for (const [dotted, entries] of typed ?? []) for (const entry of entries) push(paths, dotted, entry);
+    const typedGroups = new Set([...typed?.keys() ?? []].map((dotted) => dotted.split(".")[0]));
+    const extra = new Set(EXTRA_GROUPS[component.type] ?? []);
+    const extraPaths = new Set(
+      (EXTRA_PATHS[component.type] ?? []).filter((entry) => !entry.since || atLeast(this.options.mmdVersion, entry.since)).flatMap((entry) => entry.paths)
+    );
+    for (const dotted of extraPaths) if (!paths.has(dotted)) typedGroups.add(dotted.split(".")[0]);
+    const report2 = this.reporter(component);
+    const typeRejected = type ? this.checkValue(scope2, "type", type, paths.get("type") ?? [], report2) : false;
+    const walk3 = (props, prefix) => {
+      for (const [key, value2] of Object.entries(props)) {
+        const dotted = prefix ? `${prefix}.${key}` : key;
+        if (dotted === "type") continue;
+        const group2 = dotted.split(".")[0];
+        if (extra.has(group2)) continue;
+        if (group2 === "settings" && typeRejected) {
+          if (isObject(value2)) {
+            walk3(value2, dotted);
+          } else report2(`unknown property "${dotted}" (type ${type} is not valid here)`);
+          continue;
+        }
+        if (custom && !groups.has(group2)) continue;
+        if (group2 === "settings" && (custom || !typed)) continue;
+        const entries = (paths.get(dotted) ?? []).filter((entry) => !IDENTIFIER_TYPES.has(entry.type));
+        if (entries.some((entry) => STRUCTURED_TYPES.has(entry.type))) {
+          this.checkStructured(dotted, value2, entries, report2);
+          continue;
+        }
+        if (!groups.has(group2) && !typedGroups.has(group2)) {
+          if (OPEN_GROUPS.has(component.type)) continue;
+          report2(`unknown property group "${group2}"`);
+          continue;
+        }
+        if (isObject(value2) && !entries.length) {
+          walk3(value2, dotted);
+          continue;
+        }
+        if (!entries.length) {
+          if (extraPaths.has(dotted)) continue;
+          const identifier2 = (paths.get(dotted) ?? []).some((entry) => IDENTIFIER_TYPES.has(entry.type));
+          report2(
+            identifier2 ? `unknown property "${dotted}" (the component identifier is its static ID)` : `unknown property "${dotted}"${type ? ` for type ${type}` : ""}`
+          );
+          continue;
+        }
+        if (entries.every((entry) => this.holds(entry.condition, scope2) === false)) {
+          report2(`property "${dotted}" does not apply here (its display condition is not met)`);
+          continue;
+        }
+        this.checkValue(scope2, dotted, value2, entries, report2);
+      }
+    };
+    walk3(component.props, "");
+    this.checkRules(scope2, report2);
+  }
+  reporter(component) {
+    const label = `${component.type} ${component.id}`;
+    return (message) => this.findings.push({
+      message: `${label}: ${message}`,
+      ...this.page ? { page: this.page } : {},
+      component: component.id
+    });
+  }
+  /** Required properties and identifier formats, also for component types that are not checked. */
+  checkRules(scope2, report2) {
+    this.checkRequired(scope2, report2);
+    for (const variant of scope2.variants)
+      for (const [dotted, format2] of Object.entries(
+        FORMATS[`${variant.parentContext} ${variant.context}`] ?? {}
+      )) {
+        const value2 = get(scope2.component.props, dotted);
+        if (typeof value2 === "string" && !format2.pattern.test(value2))
+          report2(`invalid value "${value2}" for ${dotted} (expected ${format2.expected})`);
+      }
+  }
+  /** Link targets: a URL needs `type: url`. */
+  checkStructured(dotted, value2, entries, report2) {
+    if (!entries.some((entry) => LINK_TYPES.has(entry.type)) || !isObject(value2)) return;
+    if ("url" in value2 && value2.type !== "url")
+      report2(`property "${dotted}" has "url" without "type: url" (the compiler does not recognize it)`);
+  }
+  /** Reports a value outside the enumeration; returns true when it did. */
+  checkValue(scope2, dotted, value2, entries, report2) {
+    const applicable = entries.filter((entry) => this.holds(entry.condition, scope2) !== false);
+    const candidates = applicable.length ? applicable : entries;
+    if (!candidates.length || candidates.some((entry) => !ENUMERATED_TYPES.has(entry.type) || !entry.values.length))
+      return false;
+    const context = scope2.component.type;
+    const extra = EXTRA_VALUES[`${context} ${dotted}`];
+    const accepted = /* @__PURE__ */ new Set([
+      ...candidates.flatMap((entry) => entry.values.map((option) => option.name)),
+      ...extra && (!extra.since || atLeast(this.options.mmdVersion, extra.since)) ? extra.values : []
+    ]);
+    const items = ITEM_VALUES.has(`${context} ${dotted}`);
+    for (const candidate of Array.isArray(value2) ? value2 : [value2]) {
+      if (typeof candidate !== "string" || isRef(candidate)) continue;
+      if (isSubstitution(candidate)) continue;
+      for (const part2 of dotted === "type" ? [candidate] : candidate.split(":")) {
+        if (part2 === "" || accepted.has(part2) || items && /^P\d+_\w+$/iu.test(part2)) continue;
+        report2(
+          `unknown value "${part2}" for ${dotted} (expected ${[...accepted].sort().slice(0, 12).join(", ")}${accepted.size > 12 ? ", \u2026" : ""})`
+        );
+        return true;
+      }
+    }
+    return false;
+  }
+  /** Required properties whose identity and display condition certainly apply. */
+  checkRequired(scope2, report2) {
+    for (const variant of scope2.variants) {
+      if (this.holds(variant.condition, scope2) !== true) continue;
+      for (const [dotted, entries] of variant.properties) {
+        if (!REQUIRED_CHECKED.has(`${scope2.component.type} ${dotted}`)) continue;
+        if (get(scope2.component.props, dotted) !== void 0) continue;
+        if (entries.some(
+          (entry) => entry.required && entry.defaultValue === null && this.holds(entry.condition, scope2) === true
+        ))
+          report2(`missing required property "${dotted}"`);
+      }
     }
   }
+};
+var REQUIRED_CHECKED = /* @__PURE__ */ new Set([
+  "pageItem layout.slot",
+  "column layout.sequence",
+  "savedReport settings.appUser"
+]);
+var FORMATS = {
+  "savedReport computation": {
+    identifier: { pattern: /^C\d{2}$/u, expected: '"C" followed by two digits, such as C01' }
+  }
+};
+function checkComponentProperties(components, page2, catalog2 = loadCatalog(), options3 = {}) {
+  if (!catalog2) return [];
+  const checker = new Checker(catalog2, page2, options3);
+  for (const component of components) checker.visit(component, void 0);
+  return checker.findings;
+}
+var SHARED_FILES = [
+  "acl-roles",
+  "app-computations",
+  "app-items",
+  "app-processes",
+  "authentications",
+  "authorizations",
+  "breadcrumbs",
+  "build-options",
+  "classic-navigation-bar-entries",
+  "component-settings",
+  "concatenated-files",
+  "dynamic-translations",
+  "lists",
+  "lovs",
+  "map-backgrounds",
+  "messages",
+  "search-configs",
+  "shortcuts",
+  "static-files"
+];
+var SHARED_FOLDERS = [
+  "ai-agents",
+  "automations",
+  "data-load-definitions",
+  "duality-view-sources",
+  "email-templates",
+  "json-collection-sources",
+  "plugins",
+  "report-layouts",
+  "rest-data-sources",
+  "task-definitions",
+  "workflows"
+];
+function checkSharedComponentFiles(root, files) {
+  const findings = [];
+  for (const file of files) {
+    const relative = path5.relative(root, file).split(path5.sep).join("/");
+    const match = /^shared-components\/(.+)-[^/-]+\.apx$/u.exec(relative);
+    if (!match || match[1].includes("/")) continue;
+    if (SHARED_FILES.includes(relative.slice("shared-components/".length, -".apx".length))) continue;
+    const base = match[1];
+    const target2 = SHARED_FILES.includes(base) ? `shared-components/${base}.apx` : SHARED_FOLDERS.includes(base) ? `shared-components/${base}/<component>.apx` : void 0;
+    if (target2)
+      findings.push(
+        `${relative}: the APEXlang compiler does not read this file, so references to its components do not resolve; move them to ${target2}`
+      );
+  }
+  return findings;
 }
 
 // packages/core/src/preview/extensions.ts
@@ -3914,29 +4401,29 @@ function escapeValue(value2, mode) {
 function tokenize(template) {
   const tokens = [];
   let last = 0;
-  const push = (token) => {
+  const push2 = (token) => {
     const previous = tokens.at(-1);
     if (token.type === "text" && previous?.type === "text") previous.text += token.text;
     else tokens.push(token);
   };
   for (const match of template.matchAll(TOKEN_RE)) {
-    if (match.index > last) push({ type: "text", text: template.slice(last, match.index) });
+    if (match.index > last) push2({ type: "text", text: template.slice(last, match.index) });
     last = match.index + match[0].length;
-    if (match[0] === "{{/}") push({ type: "text", text: "{" });
-    else if (match[1]) push({ type: "ph", text: match[0], name: match[1], filter: match[2] });
+    if (match[0] === "{{/}") push2({ type: "text", text: "{" });
+    else if (match[1]) push2({ type: "ph", text: match[0], name: match[1], filter: match[2] });
     else {
       const directive = DIRECTIVE_RE.exec(match[3]);
       if (directive)
-        push({
+        push2({
           type: "directive",
           text: match[0],
           name: directive[1].trim().toLowerCase(),
           arg: (directive[2] ?? "").trim()
         });
-      else push({ type: "text", text: match[0] });
+      else push2({ type: "text", text: match[0] });
     }
   }
-  if (template.length > last) push({ type: "text", text: template.slice(last) });
+  if (template.length > last) push2({ type: "text", text: template.slice(last) });
   return tokens;
 }
 var IF_MATCH = { else: 1, elseif: 1, elsif: 1, endif: 1 };
@@ -5042,31 +5529,33 @@ function renderCalendar(renderer, ctx, region) {
 
 // packages/core/src/preview/extensions/charts/client.ts
 var CHARTS_CSS = String.raw`
+.apex-local-jet,.apex-local-jet-tip{--ajc-ink:light-dark(#161513,var(--ut-component-text-default-color,var(--ut-body-text-color,#fff)))}
+/* Muted chart ink: #161513 in light styles (unchanged), the theme's text token in dark styles (Vita - Dark). */
 .apex-local-jet{position:relative;width:100%;overflow:hidden;font-family:var(--a-base-font-family,"Oracle Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 .apex-local-jet svg{display:block;overflow:visible}
 .ajc-svg text{font-family:inherit;font-size:12px;fill:var(--ut-body-text-color,#161513)}
-.ajc-svg .ajc-tick,.ajc-svg .ajc-legend-text{fill:rgba(22,21,19,.7)}
-.ajc-svg .ajc-axis-title{fill:rgba(22,21,19,.7);font-size:12px}
+.ajc-svg .ajc-tick,.ajc-svg .ajc-legend-text{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent)}
+.ajc-svg .ajc-axis-title{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent);font-size:12px}
 .ajc-svg .ajc-title{font-size:14px;font-weight:600}
-.ajc-svg .ajc-legend-title{font-weight:600;fill:rgba(22,21,19,.85)}
-.ajc-svg .ajc-message{fill:rgba(22,21,19,.6);font-size:13px}
-.ajc-svg .ajc-value{fill:rgba(22,21,19,.85)}
+.ajc-svg .ajc-legend-title{font-weight:600;fill:color-mix(in srgb,var(--ajc-ink) 85%,transparent)}
+.ajc-svg .ajc-message{fill:color-mix(in srgb,var(--ajc-ink) 60%,transparent);font-size:13px}
+.ajc-svg .ajc-value{fill:color-mix(in srgb,var(--ajc-ink) 85%,transparent)}
 .ajc-svg .ajc-center-value{font-weight:600;fill:var(--ut-body-text-color,#161513)}
-.ajc-svg .ajc-center-label,.ajc-svg .ajc-gauge-text{fill:rgba(22,21,19,.7)}
+.ajc-svg .ajc-center-label,.ajc-svg .ajc-gauge-text{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent)}
 .ajc-svg .ajc-gauge-text{font-weight:600;fill:var(--ut-body-text-color,#161513)}
-.ajc-grid{stroke:rgba(22,21,19,.1);stroke-width:1;shape-rendering:crispEdges}
-.ajc-axis{stroke:rgba(22,21,19,.35);stroke-width:1;shape-rendering:crispEdges}
-.ajc-reference{stroke:rgba(22,21,19,.6);stroke-width:1.5;stroke-dasharray:5 3}
-.ajc-leader{stroke:rgba(22,21,19,.4);stroke-width:1}
-.ajc-gauge-track{fill:rgba(22,21,19,.08)}
+.ajc-grid{stroke:color-mix(in srgb,var(--ajc-ink) 10%,transparent);stroke-width:1;shape-rendering:crispEdges}
+.ajc-axis{stroke:color-mix(in srgb,var(--ajc-ink) 35%,transparent);stroke-width:1;shape-rendering:crispEdges}
+.ajc-reference{stroke:color-mix(in srgb,var(--ajc-ink) 60%,transparent);stroke-width:1.5;stroke-dasharray:5 3}
+.ajc-leader{stroke:color-mix(in srgb,var(--ajc-ink) 40%,transparent);stroke-width:1}
+.ajc-gauge-track{fill:color-mix(in srgb,var(--ajc-ink) 8%,transparent)}
 .ajc-slice{stroke:var(--ut-component-background-color,#fff);stroke-width:1}
 .ajc-bar,.ajc-slice,.ajc-bubble,.ajc-gauge-value{transition:opacity .12s}
 .ajc-bar:hover,.ajc-slice:hover,.ajc-bubble:hover,.ajc-gauge-value:hover{opacity:.8}
 .ajc-point .ajc-hover{opacity:0;transition:opacity .12s}.ajc-point:hover .ajc-hover{opacity:1}
 .ajc-link{cursor:pointer}
-.apex-local-jet-tip{position:fixed;z-index:3000;pointer-events:none;background:var(--ut-component-background-color,#fff);color:var(--ut-body-text-color,#161513);border:1px solid rgba(22,21,19,.12);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.16);padding:6px 10px;font:12px/1.45 var(--a-base-font-family,"Oracle Sans",system-ui,sans-serif);max-width:320px}
+.apex-local-jet-tip{position:fixed;z-index:3000;pointer-events:none;background:var(--ut-component-background-color,#fff);color:var(--ut-body-text-color,#161513);border:1px solid color-mix(in srgb,var(--ajc-ink) 12%,transparent);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.16);padding:6px 10px;font:12px/1.45 var(--a-base-font-family,"Oracle Sans",system-ui,sans-serif);max-width:320px}
 .apex-local-jet-tip table{border-collapse:collapse}.apex-local-jet-tip td{padding:0 0 0 0;vertical-align:top}
-.apex-local-jet-tip td:first-child{color:rgba(22,21,19,.65);padding-right:10px}.apex-local-jet-tip td:last-child{font-weight:600}
+.apex-local-jet-tip td:first-child{color:color-mix(in srgb,var(--ajc-ink) 65%,transparent);padding-right:10px}.apex-local-jet-tip td:last-child{font-weight:600}
 .apex-local-calendar{min-height:300px}
 .apex-local-calendar .fc-event{cursor:pointer}
 .apex-local-calendar-fallback{list-style:none;margin:0;padding:0}
@@ -7024,8 +7513,8 @@ var ComponentRenderer = class {
     const escape = attribute3.escape === "RAW" ? "HTML" : "RAW";
     const replaced = raw2.replace(
       /&(?:"([^"]+)"|([A-Za-z][\w$#]*))(?:!([A-Z]+))?\./gu,
-      (whole, quoted, plain, filter) => {
-        const value2 = columnValue(quoted ?? plain ?? "");
+      (whole, quoted, plain2, filter) => {
+        const value2 = columnValue(quoted ?? plain2 ?? "");
         return value2 === void 0 ? whole : escapeValue(value2, filter ?? escape);
       }
     ).replace(/#([A-Z][A-Z0-9_$]*)(?:!([A-Z]+))?#/gu, (whole, name, filter) => {
@@ -7743,6 +8232,14 @@ var DEVTOOLS_JS = String.raw`
   }
 
   // ---------------------------------------------------------------- debug log
+  function plural(count, noun) { return count + " " + noun + (count === 1 ? "" : "s"); }
+  // Local wall-clock time (HH:MM:SS), the same clock as the page's sysdate; the ISO UTC stamp is the title.
+  function localTime(iso) {
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return String(iso || "");
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+  }
   function loadDebug() {
     var target = toolbar.querySelector("[data-apex-local-debug]");
     if (!target) return undefined;
@@ -7750,14 +8247,16 @@ var DEVTOOLS_JS = String.raw`
       var entries = (data && data.entries) || [];
       if (!entries.length) { target.innerHTML = '<p class="apex-local-muted">No requests logged yet.</p>'; return; }
       target.innerHTML = entries.map(function (entry, index) {
-        var warnings = entry.events.filter(function (event) { return event.level === "warning" || event.level === "error"; }).length;
+        var errors = entry.events.filter(function (event) { return event.level === "error"; }).length;
+        var warnings = entry.events.filter(function (event) { return event.level === "warning"; }).length;
+        var problems = [errors ? plural(errors, "error") : "", warnings ? plural(warnings, "warning") : ""].filter(Boolean).join(", ");
         var rows = entry.events.map(function (event) {
           return '<tr class="is-' + escapeHtml(event.level || "info") + '"><td class="t">' + event.t.toFixed(1) + '</td><td><span class="k">' + escapeHtml(event.type) + "</span>" +
             (event.name ? "<code>" + escapeHtml(event.name) + "</code> " : "") + escapeHtml(event.detail || "") + "</td><td>" + (event.ms !== undefined ? event.ms.toFixed(1) + " ms" : "") + "</td></tr>";
         }).join("");
         return "<details" + (index === 0 ? " open" : "") + "><summary><strong>" + escapeHtml(entry.title) + "</strong><span>" + escapeHtml(entry.detail) + "</span>" +
-          (warnings ? '<span class="is-warning">' + warnings + " warnings</span>" : "") + "<span>" + entry.ms.toFixed(1) + " ms</span><span class=\"apex-local-muted\">" +
-          escapeHtml(entry.started.slice(11, 19)) + "</span></summary><table>" + (rows || '<tr><td colspan="3">No events</td></tr>') + "</table></details>";
+          (problems ? '<span class="is-warning">' + problems + "</span>" : "") + "<span>" + entry.ms.toFixed(1) + " ms</span><span class=\"apex-local-muted\" title=\"" + escapeHtml(entry.started) + "\">" +
+          escapeHtml(localTime(entry.started)) + "</span></summary><table>" + (rows || '<tr><td colspan="3">No events</td></tr>') + "</table></details>";
       }).join("");
     });
   }
@@ -8437,8 +8936,8 @@ function rowValues(row) {
 var AMPERSAND = /&(?:"([^"]+)"|([A-Za-z][\w$#]*?))(?:!([A-Z]+))?\./gu;
 function columnPlaceholders(template, values, defaultFilter) {
   if (!template.includes("&")) return template;
-  return template.replace(AMPERSAND, (whole, quoted, plain, filter) => {
-    const name = (quoted ?? plain ?? "").toUpperCase();
+  return template.replace(AMPERSAND, (whole, quoted, plain2, filter) => {
+    const name = (quoted ?? plain2 ?? "").toUpperCase();
     if (!Object.hasOwn(values, name) || !/^[_$A-Z0-9]+$/u.test(name)) return whole;
     return `#${name}!${filter ?? defaultFilter}#`;
   });
@@ -10001,10 +10500,10 @@ function ajaxIdentifier(ctx, name) {
   return `LOCAL:${ctx.pageId}:${name}`;
 }
 function cascading(item2) {
-  const selector = (key) => strings4(get(item2.props, key)).map((name) => `#${name.toUpperCase()}`).join(",");
+  const selector2 = (key) => strings4(get(item2.props, key)).map((name) => `#${name.toUpperCase()}`).join(",");
   return {
-    parents: selector("cascadingLov.parentItems"),
-    submit: selector("cascadingLov.itemsToSubmit"),
+    parents: selector2("cascadingLov.parentItems"),
+    submit: selector2("cascadingLov.itemsToSubmit"),
     required: bool(item2.props, "cascadingLov.parentRequired", true)
   };
 }
@@ -10326,15 +10825,15 @@ function qrMatrix(text10, ecc = "M") {
   if (version > 40) throw new Error("QR code data is too long");
   const capacity = dataCodewords(version, ecc) * 8;
   const bits = [];
-  const push = (value2, length) => {
+  const push2 = (value2, length) => {
     for (let index = length - 1; index >= 0; index -= 1) bits.push(value2 >>> index & 1);
   };
-  push(4, 4);
-  push(bytes2.length, version <= 9 ? 8 : 16);
-  for (const value2 of bytes2) push(value2, 8);
-  push(0, Math.min(4, capacity - bits.length));
-  push(0, (8 - bits.length % 8) % 8);
-  for (let pad3 = 236; bits.length < capacity; pad3 ^= 236 ^ 17) push(pad3, 8);
+  push2(4, 4);
+  push2(bytes2.length, version <= 9 ? 8 : 16);
+  for (const value2 of bytes2) push2(value2, 8);
+  push2(0, Math.min(4, capacity - bits.length));
+  push2(0, (8 - bits.length % 8) % 8);
+  for (let pad3 = 236; bits.length < capacity; pad3 ^= 236 ^ 17) push2(pad3, 8);
   const data = [];
   for (let index = 0; index < bits.length; index += 8)
     data.push(bits.slice(index, index + 8).reduce((value2, next) => value2 << 1 | next, 0));
@@ -10386,8 +10885,8 @@ function dateValue(value2, mask2) {
 }
 function numberValue(value2, mask2) {
   if (!mask2 || value2 === "") return value2;
-  const plain = Number(value2);
-  return Number.isFinite(plain) ? formatOracle(plain, mask2) ?? value2 : value2;
+  const plain2 = Number(value2);
+  return Number.isFinite(plain2) ? formatOracle(plain2, mask2) ?? value2 : value2;
 }
 function readOnlyMarkup(item2, name, value2, display2, html = false) {
   state(item2).container = ["is-readonly"];
@@ -12021,7 +12520,7 @@ function lex(src) {
   let index = 0;
   let line = 1;
   let gapStart = 0;
-  const push = (kind, text10, value2, start, end) => {
+  const push2 = (kind, text10, value2, start, end) => {
     tokens.push({ kind, text: text10, value: value2, pre: src.slice(gapStart, start), line });
     for (const char of src.slice(start, end)) if (char === "\n") line += 1;
     index = end;
@@ -12058,7 +12557,7 @@ function lex(src) {
       const end = src.indexOf(`${close2}'`, index + 3);
       if (end < 0) throw new PlsqlSyntaxError("Unterminated q-quoted string", line);
       const value2 = src.slice(index + 3, end);
-      push("string", `'${value2.replaceAll("'", "''")}'`, value2, start, end + 2);
+      push2("string", `'${value2.replaceAll("'", "''")}'`, value2, start, end + 2);
       continue;
     }
     if (char === "'") {
@@ -12077,37 +12576,37 @@ function lex(src) {
         value2 += src[cursor];
         cursor += 1;
       }
-      push("string", src.slice(start, cursor + 1), value2, start, cursor + 1);
+      push2("string", src.slice(start, cursor + 1), value2, start, cursor + 1);
       continue;
     }
     if (char === '"') {
       const end = src.indexOf('"', index + 1);
       if (end < 0) throw new PlsqlSyntaxError("Unterminated quoted identifier", line);
-      push("qident", src.slice(start, end + 1), src.slice(start + 1, end), start, end + 1);
+      push2("qident", src.slice(start, end + 1), src.slice(start + 1, end), start, end + 1);
       continue;
     }
     if (/\d/u.test(char) || char === "." && /\d/u.test(next)) {
       const match = /^(?:\d+(?:\.(?!\.)\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFdD]?/u.exec(src.slice(index));
       const text10 = match[0].replace(/[fFdD]$/u, "");
-      push("number", text10, text10, start, start + match[0].length);
+      push2("number", text10, text10, start, start + match[0].length);
       continue;
     }
     if (char === ":" && /[A-Za-z]/u.test(next)) {
       const match = /^:[A-Za-z][\w$#]*/u.exec(src.slice(index));
-      push("bind", match[0], match[0].slice(1).toUpperCase(), start, start + match[0].length);
+      push2("bind", match[0], match[0].slice(1).toUpperCase(), start, start + match[0].length);
       continue;
     }
     if (/[A-Za-z_]/u.test(char)) {
       const match = /^[A-Za-z_][\w$#]*/u.exec(src.slice(index));
-      push("word", match[0], match[0].toLowerCase(), start, start + match[0].length);
+      push2("word", match[0], match[0].toLowerCase(), start, start + match[0].length);
       continue;
     }
     const two = src.slice(index, index + 2);
     if (TWO_CHAR_OPS.has(two)) {
-      push("op", two, two, start, start + 2);
+      push2("op", two, two, start, start + 2);
       continue;
     }
-    push("op", char, char, start, start + 1);
+    push2("op", char, char, start, start + 1);
   }
   return tokens;
 }
@@ -12389,7 +12888,7 @@ var Parser2 = class {
         }
         case "case": {
           this.pos += 1;
-          const selector = isWord(this.peek(), "when") ? void 0 : this.untilWord("when");
+          const selector2 = isWord(this.peek(), "when") ? void 0 : this.untilWord("when");
           const whens = [];
           const ends = /* @__PURE__ */ new Set(["when", "else", "end"]);
           while (this.acceptWord("when")) {
@@ -12404,7 +12903,7 @@ var Parser2 = class {
           this.expectOp(";");
           return {
             k: "case",
-            ...selector ? { selector } : {},
+            ...selector2 ? { selector: selector2 } : {},
             whens,
             ...otherwise ? { otherwise } : {},
             line
@@ -13003,10 +13502,10 @@ var Interpreter = class {
         return statement.otherwise ? this.execList(statement.otherwise, new Scope(scope2)) : void 0;
       }
       case "case": {
-        const selector = statement.selector ? this.evaluate(statement.selector, scope2) : void 0;
+        const selector2 = statement.selector ? this.evaluate(statement.selector, scope2) : void 0;
         for (const when of statement.whens) {
           const value2 = this.evaluate(when.expr, scope2);
-          if (statement.selector ? sameValue(selector ?? null, value2) : truthy(value2))
+          if (statement.selector ? sameValue(selector2 ?? null, value2) : truthy(value2))
             return this.execList(when.body, new Scope(scope2));
         }
         if (statement.otherwise) return this.execList(statement.otherwise, new Scope(scope2));
@@ -13257,12 +13756,12 @@ var Interpreter = class {
       return null;
     }
     const { positional, named: named2 } = this.evalArgs(args, scope2);
-    const plain = (value2) => value2 instanceof Collection ? value2.values().map(plain) : value2 instanceof RecordValue ? null : value2;
+    const plain2 = (value2) => value2 instanceof Collection ? value2.values().map(plain2) : value2 instanceof RecordValue ? null : value2;
     const result = stub.fn(
       stubArgs(
         stub,
-        positional.map(plain),
-        Object.fromEntries(Object.entries(named2).map(([key, value2]) => [key, plain(value2)]))
+        positional.map(plain2),
+        Object.fromEntries(Object.entries(named2).map(([key, value2]) => [key, plain2(value2)]))
       ),
       this
     );
@@ -14243,8 +14742,8 @@ function xmlRows(text10, rowSelector) {
   return { columns, records };
 }
 var flattenXml = (node) => node.children.length ? node.children.map(flattenXml).join(" ") : node.text.trim();
-function selectJson(value2, selector) {
-  const steps = (selector ?? "").replace(/^\$\.?/u, "").split(".").filter(Boolean);
+function selectJson(value2, selector2) {
+  const steps = (selector2 ?? "").replace(/^\$\.?/u, "").split(".").filter(Boolean);
   let current3 = value2;
   for (const step of steps) {
     const key = step.replace(/\[\*?\]$/u, "");
@@ -14518,14 +15017,14 @@ function profileOptions(args, bytes2) {
 }
 function sourceIndex(columns, column2, position2) {
   if (column2["column-number"]) return column2["column-number"] - 1;
-  const selector = column2.selector;
-  if (!selector) return columns.length > position2 ? position2 : -1;
-  if (column2["selector-type"] === "sequence" && /^\d+$/u.test(selector)) return Number(selector) - 1;
+  const selector2 = column2.selector;
+  if (!selector2) return columns.length > position2 ? position2 : -1;
+  if (column2["selector-type"] === "sequence" && /^\d+$/u.test(selector2)) return Number(selector2) - 1;
   if (column2["selector-type"] === "regexp") {
-    const pattern = new RegExp(selector, "iu");
+    const pattern = new RegExp(selector2, "iu");
     return columns.findIndex((name) => pattern.test(name));
   }
-  const wanted = selector.replace(/^\$\.?/u, "").replace(/^\/+/u, "").toLowerCase();
+  const wanted = selector2.replace(/^\$\.?/u, "").replace(/^\/+/u, "").toLowerCase();
   return columns.findIndex(
     (name) => name.toLowerCase() === wanted || name.toLowerCase().replace(/^@/u, "") === wanted
   );
@@ -15877,8 +16376,8 @@ apexLocal.live = (function ($) {
     var watched = Object.keys(state.regions).length;
     button.title = mode === "off" ? "Live updates are off; click to turn them on"
       : mode === "wait" ? "Live updates: connecting to the preview server"
-      : "Live over WebSocket · " + (state.data ? watched + " regions follow their tables" : "source reload only (connected mode)") +
-        " · " + state.viewers + " tab(s) on this page" + (state.users.length ? " (" + state.users.join(", ") + ")" : "") + " · click to turn off";
+      : "Live over WebSocket · " + (state.data ? watched + (watched === 1 ? " region follows its tables" : " regions follow their tables") : "source reload only (connected mode)") +
+        " · " + state.viewers + (state.viewers === 1 ? " tab" : " tabs") + " on this page" + (state.users.length ? " (" + state.users.join(", ") + ")" : "") + " · click to turn off";
   }
 
   function toasts() {
@@ -17082,13 +17581,13 @@ function logActivity(renderer, ctx, mode) {
 function roleIds(rt, args) {
   const db2 = raw(rt.renderer);
   const ids = [];
-  const add2 = (value2) => {
+  const add = (value2) => {
     if (value2 === null || value2 === void 0 || value2 === "") return;
-    if (Array.isArray(value2)) return value2.forEach(add2);
+    if (Array.isArray(value2)) return value2.forEach(add);
     ids.push(Number(value2));
   };
-  add2(args.p_role_id);
-  add2(args.p_role_ids);
+  add(args.p_role_id);
+  add(args.p_role_ids);
   const statics = [];
   const addStatic = (value2) => {
     if (value2 === null || value2 === void 0 || value2 === "") return;
@@ -18331,9 +18830,9 @@ function profileColumns2(source) {
     };
   });
 }
-function pick(value2, selector) {
+function pick(value2, selector2) {
   let current3 = value2;
-  for (const part2 of selector.replace(/^\$\.?/u, "").split(/\.|\[(\d+)\]/u).filter((piece) => piece !== void 0 && piece !== "")) {
+  for (const part2 of selector2.replace(/^\$\.?/u, "").split(/\.|\[(\d+)\]/u).filter((piece) => piece !== void 0 && piece !== "")) {
     if (current3 === null || current3 === void 0) return void 0;
     if (Array.isArray(current3) && /^\d+$/u.test(part2)) current3 = current3[Number(part2)];
     else if (isPlainObject(current3)) {
@@ -20607,7 +21106,21 @@ window.apexLocalReports = (function ($) {
     return baseShowErrors.apply(this, arguments);
   };
 
+  // Commits the cell being edited into the model, as the grid's own Save does first.
+  function finishEditing(ig) {
+    try {
+      var done = ig.grid$ && ig.grid$.grid("finishEditing");
+      if (done && typeof done.then === "function") return Promise.resolve(done);
+    } catch (e) { /* not a grid (yet) */ }
+    return Promise.resolve();
+  }
+
   function saveGrid(ig) {
+    if (!ig) return Promise.resolve();
+    return finishEditing(ig).then(function () { return saveChanges(ig); });
+  }
+
+  function saveChanges(ig) {
     var changes = gridChanges(ig);
     if (!changes.length) { apex.message.showPageSuccess("No changes to save"); return Promise.resolve(); }
     return post("ig-save", { region: ig.cfg.region, changes: changes }).then(function (result) {
@@ -20643,6 +21156,17 @@ window.apexLocalReports = (function ($) {
   function destroyGrid(region) {
     var ig = grids[region];
     if (!ig) return;
+    // A cell still in edit mode deactivates on a 10 ms timer after it loses focus; if the grid is
+    // destroyed first (a save or live refresh re-renders the region), that timer writes into a
+    // released model (null.getRecordId). Leave edit mode synchronously and drop the timer.
+    try {
+      var widget = ig.grid$.grid("instance");
+      if (widget) {
+        if (widget.deactivateDelayTimer) { clearTimeout(widget.deactivateDelayTimer); widget.deactivateDelayTimer = null; }
+        if (ig.grid$.grid("inEditMode")) ig.grid$.grid("setEditMode", false);
+        if (widget.deactivateDelayTimer) { clearTimeout(widget.deactivateDelayTimer); widget.deactivateDelayTimer = null; }
+      }
+    } catch (e) { /* not initialised */ }
     try { ig.grid$.grid("destroy"); } catch (e) { /* already gone */ }
     try { apex.model.destroy(ig.cfg.modelName); } catch (e) { /* not created */ }
     $(esc(region + "_ig_row_actions_menu")).remove();
@@ -20829,6 +21353,36 @@ window.apexLocalReports = (function ($) {
           },
           setFocusTo: function () { return el$.find("button").first(); }
         });
+      } else if (spec.kind === "color") {
+        // <input type=color> only holds #rrggbb, so "Silver" would come back as #c0c0c0.
+        // Keep the stored value unless the user picks a different color.
+        var stored = "";
+        var toHex = function (value) {
+          if (!value) return "#000000";
+          var ctx = document.createElement("canvas").getContext("2d");
+          if (!ctx) return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "#000000";
+          ctx.fillStyle = "#000000";
+          ctx.fillStyle = String(value).trim();
+          var hex = String(ctx.fillStyle).toLowerCase();
+          return /^#[0-9a-f]{6}$/.test(hex) ? hex : "#000000";
+        };
+        el$.on("input", function () { el.apexLocalTouched = true; });
+        apex.item.create(spec.id, {
+          getValue: function () {
+            var value = String(el$.val() || "").toLowerCase();
+            if (!el.apexLocalTouched || (stored && value === toHex(stored))) return stored;
+            return value;
+          },
+          setValue: function (value) {
+            stored = value === null || value === undefined ? "" : String(value);
+            el.apexLocalTouched = false;
+            el$.val(toHex(stored));
+          },
+          displayValueFor: function (value) {
+            if (value === null || value === undefined || value === "") return "";
+            return "<span class='apex-local-swatch' style='background-color:" + html(value) + "' aria-hidden='true'></span> " + html(value);
+          }
+        });
       } else if (spec.kind === "date") {
         var original = "";
         var toInput = function (value) { value = value ? String(value).replace(" ", "T") : ""; return spec.time ? value.slice(0, 16) : value.slice(0, 10); };
@@ -20883,7 +21437,7 @@ window.apexLocalReports = (function ($) {
         choices: [{ label: "All Text Columns", value: "" }].concat(cfg.searchColumns.map(function (c) { return { label: c.label, value: c.name }; })) },
       { name: "edit", label: "Edit", get: function () { return editMode; },
         set: function (value) { editMode = value; ig.grid$.grid("setEditMode", value); } },
-      { name: "save", label: "Save", action: function () { ig.grid$.grid("finishEditing").then(function () { saveGrid(ig); }); } },
+      { name: "save", label: "Save", action: function () { saveGrid(ig); } },
       { name: "selection-add-row", label: cfg.addLabel, action: function () { addRow(ig, null); } },
       { name: "reset-report", label: "Reset", icon: "icon-ig-reset", action: function () { confirmReset(cfg); } }
     ]);
@@ -21614,7 +22168,7 @@ var EDITORS = {
   colorPicker: "color",
   starRating: "stars"
 };
-var CUSTOM_EDITORS = /* @__PURE__ */ new Set(["popupLov", "checkbox", "switch", "stars", "date"]);
+var CUSTOM_EDITORS = /* @__PURE__ */ new Set(["popupLov", "checkbox", "switch", "stars", "date", "color"]);
 var DISPLAY_TYPES = /* @__PURE__ */ new Set([
   "displayOnly",
   "htmlExpression",
@@ -21939,6 +22493,8 @@ function customItem(model, column2, id) {
       return { ...base, ...switchValues(column2) };
     case "stars":
       return { ...base, max: starCount(column2) };
+    case "color":
+      return base;
     default:
       return { ...base, time: hasTime(column2) };
   }
@@ -24931,10 +25487,10 @@ function tabform(renderer, ctx, region) {
   const page2 = Math.min(pageCount, Math.max(1, ctx.session.pagination[stateKey(ctx.pageId, region.id)] ?? 1));
   const rows = result.rows.slice((page2 - 1) * perPage, page2 * perPage);
   const added = ctx.session.pagination[addKey(ctx.pageId, region)] ?? 0;
-  const selector = `<input type="checkbox" class="u-selector" data-tabform-select aria-label="Select row">`;
+  const selector2 = `<input type="checkbox" class="u-selector" data-tabform-select aria-label="Select row">`;
   const cell = (name, row) => {
     const column2 = byName.get(name);
-    if (str(column2?.props ?? {}, "type") === "rowSelector") return selector;
+    if (str(column2?.props ?? {}, "type") === "rowSelector") return selector2;
     const raw2 = row ? row[name] : "";
     if (!row && (!column2 || !EDITABLE.has(str(column2.props, "type")))) return "";
     return cellEditor(renderer, ctx, region, column2, name, raw2, row);
@@ -26270,8 +26826,8 @@ var ApexRenderer = class {
     const builtins = this.builtin(session, page2);
     const replaced = value2.replace(
       /&(?:"([^"]+)"|([A-Za-z][\w$#.]*?))(?:!([A-Z]+))?\./gu,
-      (whole, quoted, plain, filter) => {
-        const name = (quoted ?? plain ?? "").toUpperCase();
+      (whole, quoted, plain2, filter) => {
+        const name = (quoted ?? plain2 ?? "").toUpperCase();
         let resolved;
         if (name.startsWith("APP_TEXT$")) resolved = MESSAGES[name.slice(9)] ?? name.slice(9);
         else if (RESERVED_BUILTINS.has(name) && name in builtins) resolved = builtins[name];
@@ -27161,7 +27717,7 @@ var ApexRenderer = class {
   }
   validate(ctx) {
     const errors = [];
-    const add2 = (message, item2) => errors.push({
+    const add = (message, item2) => errors.push({
       type: "error",
       location: item2 ? ["inline", "page"] : ["page"],
       ...item2 ? { pageItem: item2 } : {},
@@ -27174,14 +27730,14 @@ var ApexRenderer = class {
       const value2 = ctx.session.items[name] ?? "";
       const label = this.label(item2);
       if (bool(item2.props, "validation.valueRequired", false) && value2 === "") {
-        add2(`${label} must have some value.`, name);
+        add(`${label} must have some value.`, name);
         this.trace(ctx, { type: "validation", name, detail: "failed: value required", level: "warning" });
       }
       const max = num(item2.props, "validation.maxLength", 0);
-      if (max && value2.length > max) add2(`${label} exceeds the maximum length of ${max}.`, name);
+      if (max && value2.length > max) add(`${label} exceeds the maximum length of ${max}.`, name);
       if (str(item2.props, "type") === "numberField" && value2 !== "" && // Number items submit their formatted text (format mask), as APEX does.
       !Number.isFinite(Number(value2.replace(/[,\s$€£¥%]/gu, ""))))
-        add2(`${label} must be Numeric.`, name);
+        add(`${label} must be Numeric.`, name);
     }
     for (const validation of bySequence3(this.pageComponents(ctx, "validation"))) {
       if (ref(validation.props, "validation.editableRegion")) continue;
@@ -27191,7 +27747,7 @@ var ApexRenderer = class {
       const message = this.validationFailure(ctx, validation, {
         label: associated ? this.itemLabel(ctx, associated) : ""
       });
-      if (message !== null) add2(message, associated);
+      if (message !== null) add(message, associated);
     }
     errors.push(...runRowValidationExtensions(this, ctx));
     return errors;
@@ -27654,9 +28210,10 @@ ${onload2.join("\n")}
     const errors = counts2("error");
     const warnings = counts2("warning");
     const notes = counts2("info");
-    const badge = (count, level, label) => count ? `<span class="apex-local-badge is-${level}" title="${count} ${label}">${count}</span>` : "";
-    const summary = `${errors} errors \xB7 ${warnings} warnings \xB7 ${notes} notes`;
-    const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? " has-errors" : ""}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? "fa-exclamation-circle" : "fa-info-circle"}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, "error", "errors")}${badge(warnings, "warning", "warnings")}${badge(notes, "info", "notes")}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics \xB7 page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || "<li>No diagnostics</li>"}</ul></div>`;
+    const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+    const badge = (count, level, label) => count ? `<span class="apex-local-badge is-${level}" title="${plural(count, label)}">${count}</span>` : "";
+    const summary = `${plural(errors, "error")} \xB7 ${plural(warnings, "warning")} \xB7 ${plural(notes, "note")}`;
+    const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? " has-errors" : ""}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? "fa-exclamation-circle" : "fa-info-circle"}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, "error", "error")}${badge(warnings, "warning", "warning")}${badge(notes, "info", "note")}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics \xB7 page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || "<li>No diagnostics</li>"}</ul></div>`;
     return `<div class="apex-local-toolbar" id="apexLocalToolbar" role="region" aria-label="APEX local developer toolbar"><div class="apex-local-tb-bar" role="toolbar"><span class="apex-local-tb-brand" title="APEX local preview \xB7 page ${escapeHtml(ctx.pageId)}"><span class="fa fa-apex" aria-hidden="true"></span><span class="apex-local-tb-label">APEX local \xB7 page ${escapeHtml(ctx.pageId)}</span></span>${diagnostics}${tools}${picker}<button type="button" class="apex-local-tb-button apex-local-tb-collapse" data-apex-local-collapse title="Hide toolbar"><span class="fa fa-chevron-down" aria-hidden="true"></span></button></div></div>`;
   }
   navigation(ctx, values, template) {
@@ -28808,8 +29365,11 @@ var PreviewServer = class {
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose("warning", `Connected preview: ${warning}`);
+    for (const finding of checkSharedComponentFiles(renderer.app.root, renderer.app.files))
+      renderer.diagnose("warning", finding);
+    const mmdVersion = applicationMmdVersion(this.options.sourceDir);
     for (const [id, page2] of renderer.app.pages)
-      for (const finding of checkComponentProperties([page2], id))
+      for (const finding of checkComponentProperties([page2], id, void 0, mmdVersion ? { mmdVersion } : {}))
         renderer.diagnose("warning", finding.message, finding.page, finding.component);
     return renderer;
   }
@@ -29255,6 +29815,9 @@ function checkApplication(options3) {
 
 // packages/core/src/preview/service.ts
 var running = /* @__PURE__ */ new Map();
+onPreviewShutdown(async () => {
+  for (const [source, server] of [...running]) await stopServer(source, server);
+});
 var DIAGNOSTICS_LIMIT = 60;
 async function resolveSource(root, explicit) {
   let source = explicit ? path13.resolve(root, explicit) : void 0;
@@ -29334,10 +29897,7 @@ async function previewStart(root, input) {
   const previous = running.get(sourceDir);
   if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env)
     return describe(previous, true);
-  if (previous) {
-    await previous.stop();
-    running.delete(sourceDir);
-  }
+  if (previous) await stopServer(sourceDir, previous);
   const oracle = input.env ? await connectOracle(root, input.env) : void 0;
   const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
@@ -29354,7 +29914,25 @@ async function previewStart(root, input) {
   });
   await server.start();
   running.set(sourceDir, server);
+  const address = new URL(server.url);
+  registerPreview({
+    port: Number(address.port),
+    host: address.hostname.replace(/^\[|\]$/g, ""),
+    url: server.url,
+    sourceDir,
+    ...server.options.oracle ? { environment: server.options.oracle.environment } : {}
+  });
   return describe(server, false);
+}
+async function stopServer(sourceDir, server) {
+  let port;
+  try {
+    port = Number(new URL(server.url).port);
+  } catch {
+  }
+  await server.stop();
+  running.delete(sourceDir);
+  if (port !== void 0) unregisterPreview(port);
 }
 function describe(server, reused) {
   return {
@@ -29373,28 +29951,127 @@ function describe(server, reused) {
     ...summarize(server.diagnostics())
   };
 }
-async function previewStop(root, input) {
-  const targets = input.all ? [...running.keys()] : [await resolveSource(root, input.sourceDir)];
-  const stopped = [];
-  for (const target2 of targets) {
-    const server = running.get(target2);
-    if (!server) continue;
-    await server.stop();
-    running.delete(target2);
-    stopped.push(target2);
-  }
-  return { stopped, running: [...running.keys()] };
+async function listPreviews() {
+  const local = [...running].map(([sourceDir, server]) => ({
+    url: server.url,
+    port: Number(new URL(server.url).port),
+    sourceDir,
+    pid: process.pid,
+    owner: "this-process",
+    ...server.options.oracle ? { environment: server.options.oracle.environment } : {},
+    server
+  }));
+  const others = (await otherPreviews()).map((entry) => ({
+    url: entry.url,
+    port: entry.port,
+    sourceDir: entry.sourceDir,
+    pid: entry.pid,
+    owner: entry.owner,
+    ...entry.environment ? { environment: entry.environment } : {},
+    entry
+  }));
+  return [...local, ...others];
 }
-async function previewStatus() {
+async function selector(root, input, fallback) {
+  const tests = [];
+  const described = [];
+  const none = input.sourceDir === void 0 && input.project === void 0 && input.port === void 0;
+  if (input.sourceDir !== void 0 || fallback === "project-source" && none) {
+    const source = await resolveSource(root, input.sourceDir);
+    tests.push((entry) => entry.sourceDir === source);
+    described.push(source);
+  } else if (input.project !== void 0) {
+    let projectRoot;
+    try {
+      projectRoot = fs12.realpathSync(path13.resolve(input.project));
+    } catch {
+      throw new Fault("INVALID_INPUT", `Project directory ${input.project} does not exist.`, 2);
+    }
+    tests.push(
+      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path13.sep)
+    );
+    described.push(`project ${projectRoot}`);
+  }
+  if (input.port !== void 0) {
+    const port = input.port;
+    tests.push((entry) => entry.port === port);
+    described.push(`port ${port}`);
+  }
+  return {
+    match: (entry) => tests.every((check) => check(entry)),
+    described: described.join(", ")
+  };
+}
+var summaryOf = (entry) => ({
+  url: entry.url,
+  port: entry.port,
+  sourceDir: entry.sourceDir,
+  pid: entry.pid,
+  owner: entry.owner,
+  ...entry.environment ? { environment: entry.environment } : {},
+  ...entry.server ? summarize(entry.server.diagnostics()).counts : {}
+});
+async function previewStop(root, input) {
+  const listed = await listPreviews();
+  const filter = input.all ? void 0 : await selector(root, input, "project-source");
+  const targets = filter ? listed.filter(filter.match) : listed;
+  const stopped = [];
+  const notStopped = [];
+  let hosted = false;
+  for (const target2 of targets) {
+    if (target2.server) {
+      await stopServer(target2.sourceDir, target2.server);
+      stopped.push(target2.sourceDir);
+    } else if (target2.entry?.owner === "cli") {
+      if (await stopOtherPreview(target2.entry)) stopped.push(target2.sourceDir);
+      else
+        notStopped.push({
+          url: target2.url,
+          sourceDir: target2.sourceDir,
+          pid: target2.pid,
+          reason: `Process ${target2.pid} did not close port ${target2.port} within 10 seconds.`
+        });
+    } else {
+      hosted = true;
+      notStopped.push({
+        url: target2.url,
+        sourceDir: target2.sourceDir,
+        pid: target2.pid,
+        reason: `Hosted by another APEXREST MCP process (pid ${target2.pid}); stop it from that session with apexrest_preview action:stop.`
+      });
+    }
+  }
+  if (!stopped.length && notStopped.length)
+    throw new Fault(
+      "PREVIEW_STOP_FAILED",
+      notStopped.map((entry) => `${entry.url}: ${entry.reason}`).join(" "),
+      hosted ? 5 : 1,
+      hosted ? "blocked" : "failed"
+    );
+  if (!stopped.length) {
+    const others = listed.map((entry) => `${entry.url} (${entry.sourceDir})`).join("; ");
+    throw new Fault(
+      "PREVIEW_NOT_RUNNING",
+      `No running preview matches ${filter?.described || "the selection"}; nothing was stopped.` + (others ? ` Running: ${others}.` : " No preview is running."),
+      2,
+      "not_found",
+      {
+        nextActions: [
+          "Run apexrest preview status to list running previews with their source folders and ports."
+        ]
+      }
+    );
+  }
+  const remaining = (await listPreviews()).map((entry) => entry.sourceDir);
+  return { stopped, ...notStopped.length ? { notStopped } : {}, running: remaining };
+}
+async function previewStatus(root = process.cwd(), input = {}) {
+  const filter = await selector(root, input, "all");
   return {
     assetsDir: defaultAssetsDir(),
     assetsInstalled: fs12.existsSync(path13.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
-    running: [...running.values()].map((server) => ({
-      url: server.url,
-      sourceDir: server.options.sourceDir,
-      ...summarize(server.diagnostics()).counts
-    }))
+    running: (await listPreviews()).filter(filter.match).map(summaryOf)
   };
 }
 async function previewCheck(root, input) {
@@ -29426,7 +30103,7 @@ async function previewDispatch(operation2, parsed2, root) {
     case "stop":
       return previewStop(root, input);
     case "status":
-      return previewStatus();
+      return operation2 === "preview" ? previewStatus(root, { sourceDir: input.sourceDir, port: input.port }) : previewStatus(root, input);
     default:
       throw new Fault("INVALID_INPUT", `Unknown preview action: ${selected}`, 2);
   }
