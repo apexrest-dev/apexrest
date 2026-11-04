@@ -396,7 +396,8 @@ test('MCP catalog is twelve tools with correct annotations and a bounded footpri
   };
   assert.equal(job.properties.waitSeconds!.maximum, 120);
   const bytes = Buffer.byteLength(JSON.stringify({ tools }), 'utf8');
-  assert.ok(bytes < 14700, `catalog is ${bytes} bytes`);
+  // apexrest_apex_validate sourceDir (parity with the CLI --source-dir) costs about 80 bytes.
+  assert.ok(bytes < 14800, `catalog is ${bytes} bytes`);
   assert.equal(detachedJob('ship', {}), true);
   assert.equal(detachedJob('apex.sync', { action: 'init' }), false);
 });

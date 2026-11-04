@@ -1,8 +1,9 @@
 import path from 'node:path';
-import { contained, writeJson } from './fs.ts';
+import { contained, exists, writeJson } from './fs.ts';
 import {
   environment,
   isProductionTarget,
+  loadProject,
   parse,
   updatePolicy,
   type PolicyGrant,
@@ -81,16 +82,76 @@ export function compilerFault(error: unknown, parseDiagnostics: DiagnosticParser
 }
 
 /** In-process compiler validation with structured diagnostics; no job, no database call. */
+export interface ValidationSource {
+  source: string;
+  /** Where `.apex/apexlang.json` comes from: the tree itself or the nearest project's application. */
+  metadata?: { origin: 'source' | 'project'; file: string };
+}
+
+/**
+ * Resolves the folder to validate. Without `sourceDir` it is the project's application.sourceDir
+ * (as before). With `sourceDir` (relative to the project or current directory) any folder holding
+ * application.apx works; when it lacks Oracle-generated `.apex/apexlang.json`, the metadata of the
+ * nearest project's application (the given project, else the closest apexrest.json above the
+ * folder) is staged with it, and a tree with neither fails with MMD_METADATA_REQUIRED.
+ */
+export async function validationSource(
+  root: string,
+  input: { project?: string | undefined; sourceDir?: string | undefined },
+): Promise<ValidationSource> {
+  if (input.sourceDir === undefined) {
+    const ctx = await loadProject(root);
+    return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
+  }
+  const source = path.resolve(root, input.sourceDir);
+  if (!(await exists(path.join(source, 'application.apx'))))
+    throw new Fault(
+      'VALIDATION_SOURCE_MISSING',
+      `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
+      2,
+    );
+  const own = path.join(source, '.apex', 'apexlang.json');
+  if (await exists(own)) return { source, metadata: { origin: 'source', file: own } };
+  const candidates: string[] = [];
+  if (input.project !== undefined) candidates.push(path.resolve(input.project));
+  for (let dir = path.dirname(source); ; dir = path.dirname(dir)) {
+    if (await exists(path.join(dir, 'apexrest.json'))) {
+      candidates.push(dir);
+      break;
+    }
+    if (path.dirname(dir) === dir) break;
+  }
+  for (const candidate of candidates) {
+    let ctx: ProjectContext;
+    try {
+      ctx = await loadProject(candidate);
+    } catch {
+      continue;
+    }
+    const file = path.join(ctx.root, ctx.config.application.sourceDir, '.apex', 'apexlang.json');
+    if (await exists(file)) return { source, metadata: { origin: 'project', file } };
+  }
+  throw new Fault(
+    'MMD_METADATA_REQUIRED',
+    `${source} has no Oracle-generated .apex/apexlang.json and no enclosing APEXREST project provides one, so the APEXlang metadata version is unknown. Export or generate the application with SQLcl (apexrest apex export or apex generate), or validate it from a project whose application has .apex/apexlang.json.`,
+    3,
+  );
+}
+
 export async function validateApplication(
   oracle: OracleAdapter,
-  source: string,
+  target: string | ValidationSource,
   parseDiagnostics: DiagnosticParser,
   signal?: AbortSignal,
 ) {
+  const { source, metadata } = typeof target === 'string' ? { source: target, metadata: undefined } : target;
   const started = Date.now();
   let validated: Awaited<ReturnType<OracleAdapter['validate']>>;
   try {
-    validated = await oracle.validate(source, signal);
+    validated =
+      metadata?.origin === 'project'
+        ? await oracle.validate(source, signal, { metadataFile: metadata.file })
+        : await oracle.validate(source, signal);
   } catch (error) {
     throw compilerFault(error, parseDiagnostics);
   }
@@ -122,6 +183,7 @@ export async function validateApplication(
   ]);
   return {
     ...rest,
+    ...(metadata ? { sourceDir: source, metadata } : {}),
     diagnostics: warnings.slice(0, 50),
     warningCount: warnings.length,
     staticAnalysis,

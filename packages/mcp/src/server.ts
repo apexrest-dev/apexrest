@@ -35,7 +35,8 @@ const absoluteProject = z
 
 // Tools that work without a project: references are offline, status/doctor and
 // project init/connections operate on the managed home.
-const projectOptional = new Set<Operation>(['reference', 'status', 'project']);
+// apex.validate needs a project only when no absolute sourceDir names the folder.
+const projectOptional = new Set<Operation>(['reference', 'status', 'project', 'apex.validate']);
 // MCP hosts may launch this process from a plugin cache. Keep this constraint
 // at the transport boundary so the CLI retains its current-directory behavior.
 export const mcpSchemas = new Map<Operation, z.ZodType<Record<string, unknown>>>();
@@ -54,7 +55,25 @@ for (const { operation, long } of toolCatalog) {
           passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
           envFile: absoluteProject.describe('Absolute ignored local ENV credential file.').optional(),
         })
-      : transportSchema;
+      : operation === 'apex.validate'
+        ? transportSchema
+            .safeExtend({
+              sourceDir: z
+                .string()
+                .max(4096)
+                .refine((value) => path.isAbsolute(value), 'sourceDir must be an absolute path.')
+                .describe('Absolute app folder')
+                .optional(),
+            })
+            .refine(
+              (input: Record<string, unknown>) =>
+                input.project !== undefined || input.sourceDir !== undefined,
+              {
+                message: 'Provide project or an absolute sourceDir.',
+                path: ['project'],
+              },
+            )
+        : transportSchema;
   mcpSchemas.set(
     operation,
     long

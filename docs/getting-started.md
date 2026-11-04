@@ -141,7 +141,7 @@ For a page or dashboard, the agent reconciles the read-only sources and confirme
 
 ## Use the CLI
 
-Every MCP operation has a CLI command with `--json` output and the same exit codes (0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown or cancelled). `apexrest --help` lists the commands; `apexrest ship --help` shows one command's options. There is no interactive terminal menu.
+Every MCP operation has a CLI command with `--json` output and the same exit codes (0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown or cancelled). `apexrest --help` lists the commands; `apexrest <command> --help` (for example `apexrest ship --help` or `apexrest preview stop --help`) shows only that command's usage and options, and `apexrest deploy --help` lists a command group. `apexrest apex validate --source-dir PATH` compiles any APEXlang folder that holds `application.apx`, also outside a project: it uses the folder's own `.apex/apexlang.json`, else that of the nearest project application, and otherwise fails with `MMD_METADATA_REQUIRED`. There is no interactive terminal menu.
 
 ```sh
 apexrest status --detail doctor --json

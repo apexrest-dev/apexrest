@@ -719,10 +719,17 @@ export class OracleAdapter {
       );
     return found[0]!;
   }
-  async validate(source: string, signal?: AbortSignal) {
+  /**
+   * `metadataFile` supplies Oracle-generated `.apex/apexlang.json` from elsewhere (the nearest
+   * project) for a source tree without its own; it is copied into the staged copy only.
+   */
+  async validate(source: string, signal?: AbortSignal, options: { metadataFile?: string } = {}) {
     const compiler = await this.requireCapability('validate', signal);
     const before = await inventory(source);
-    if (!before['.apex/apexlang.json'])
+    const metadataFile = before['.apex/apexlang.json']
+      ? path.join(source, '.apex/apexlang.json')
+      : options.metadataFile;
+    if (!metadataFile)
       throw new Fault(
         'MMD_METADATA_REQUIRED',
         'Preserve Oracle-generated .apex/apexlang.json before validation.',
@@ -733,6 +740,10 @@ export class OracleAdapter {
     let result;
     try {
       await cp(source, copy, { recursive: true });
+      if (!before['.apex/apexlang.json']) {
+        await mkdir(path.join(copy, '.apex'), { recursive: true });
+        await cp(metadataFile, path.join(copy, '.apex/apexlang.json'));
+      }
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
         undefined,
@@ -761,7 +772,7 @@ export class OracleAdapter {
     return {
       status: 'passed',
       compiler,
-      mmd: JSON.parse(await readFile(path.join(source, '.apex/apexlang.json'), 'utf8')) as unknown,
+      mmd: JSON.parse(await readFile(metadataFile, 'utf8')) as unknown,
       sourceDigest: hash(canonical(before)),
       output: result.output,
     };

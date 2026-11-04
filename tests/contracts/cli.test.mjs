@@ -57,7 +57,8 @@ test('merged CLI commands map onto the granular operations', () => {
   assert.match(status.stdout, /--detail/);
   const job = run('job', 'status', '--help');
   assert.equal(job.status, 0, job.stdout);
-  assert.match(job.stdout, /Options for jobs status/);
+  assert.match(job.stdout, /Usage: apexrest jobs status <id> \[options\]/);
+  assert.match(job.stdout, /--wait-seconds N/);
   const reference = run('reference', 'search', 'validate', '--json');
   assert.equal(reference.status, 0, reference.stdout);
   assert.equal(JSON.parse(reference.stdout).operation, 'docs.search');

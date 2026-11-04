@@ -6,8 +6,19 @@ import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, set
 import type { Diagnostic } from './render.ts';
 import { connectOracle } from './oracle/connect.ts';
 import { checkApplication, PreviewServer } from './server.ts';
+import {
+  onPreviewShutdown,
+  otherPreviews,
+  registerPreview,
+  stopOtherPreview,
+  unregisterPreview,
+  type PreviewEntry,
+} from './registry.ts';
 
 const running = new Map<string, PreviewServer>();
+onPreviewShutdown(async () => {
+  for (const [source, server] of [...running]) await stopServer(source, server);
+});
 const DIAGNOSTICS_LIMIT = 60;
 
 /** Explicit sourceDir, else apexrest.json application.sourceDir, else a folder that holds application.apx. */
@@ -122,10 +133,7 @@ export async function previewStart(
     (previous.options.oracle?.environment ?? undefined) === input.env
   )
     return describe(previous, true);
-  if (previous) {
-    await previous.stop();
-    running.delete(sourceDir);
-  }
+  if (previous) await stopServer(sourceDir, previous);
   const oracle = input.env ? await connectOracle(root, input.env) : undefined;
   const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
@@ -142,7 +150,27 @@ export async function previewStart(
   });
   await server.start();
   running.set(sourceDir, server);
+  const address = new URL(server.url);
+  registerPreview({
+    port: Number(address.port),
+    host: address.hostname.replace(/^\[|\]$/g, ''),
+    url: server.url,
+    sourceDir,
+    ...(server.options.oracle ? { environment: server.options.oracle.environment } : {}),
+  });
   return describe(server, false);
+}
+
+async function stopServer(sourceDir: string, server: PreviewServer): Promise<void> {
+  let port: number | undefined;
+  try {
+    port = Number(new URL(server.url).port);
+  } catch {
+    // Already stopped.
+  }
+  await server.stop();
+  running.delete(sourceDir);
+  if (port !== undefined) unregisterPreview(port);
 }
 
 function describe(server: PreviewServer, reused: boolean) {
@@ -167,29 +195,161 @@ function describe(server: PreviewServer, reused: boolean) {
   };
 }
 
-export async function previewStop(root: string, input: { sourceDir?: string | undefined; all?: boolean }) {
-  const targets = input.all ? [...running.keys()] : [await resolveSource(root, input.sourceDir)];
-  const stopped: string[] = [];
-  for (const target of targets) {
-    const server = running.get(target);
-    if (!server) continue;
-    await server.stop();
-    running.delete(target);
-    stopped.push(target);
-  }
-  return { stopped, running: [...running.keys()] };
+interface PreviewSelector {
+  project?: string | undefined;
+  sourceDir?: string | undefined;
+  port?: number | undefined;
 }
 
-export async function previewStatus() {
+interface Listed {
+  url: string;
+  port: number;
+  sourceDir: string;
+  pid: number;
+  owner: PreviewEntry['owner'] | 'this-process';
+  environment?: string;
+  entry?: PreviewEntry;
+  server?: PreviewServer;
+}
+
+/** In-process servers first, then live servers of other processes from the registry. */
+async function listPreviews(): Promise<Listed[]> {
+  const local: Listed[] = [...running].map(([sourceDir, server]) => ({
+    url: server.url,
+    port: Number(new URL(server.url).port),
+    sourceDir,
+    pid: process.pid,
+    owner: 'this-process' as const,
+    ...(server.options.oracle ? { environment: server.options.oracle.environment } : {}),
+    server,
+  }));
+  const others: Listed[] = (await otherPreviews()).map((entry) => ({
+    url: entry.url,
+    port: entry.port,
+    sourceDir: entry.sourceDir,
+    pid: entry.pid,
+    owner: entry.owner,
+    ...(entry.environment ? { environment: entry.environment } : {}),
+    entry,
+  }));
+  return [...local, ...others];
+}
+
+/**
+ * Builds a filter from the selectors: sourceDir matches that application folder exactly, project
+ * alone matches every preview whose folder lies inside the project, port matches the port. With no
+ * selector, stop targets the project's own application (as before) and status lists everything.
+ */
+async function selector(root: string, input: PreviewSelector, fallback: 'project-source' | 'all') {
+  const tests: ((entry: Listed) => boolean)[] = [];
+  const described: string[] = [];
+  const none = input.sourceDir === undefined && input.project === undefined && input.port === undefined;
+  if (input.sourceDir !== undefined || (fallback === 'project-source' && none)) {
+    const source = await resolveSource(root, input.sourceDir);
+    tests.push((entry) => entry.sourceDir === source);
+    described.push(source);
+  } else if (input.project !== undefined) {
+    let projectRoot: string;
+    try {
+      projectRoot = fs.realpathSync(path.resolve(input.project));
+    } catch {
+      throw new Fault('INVALID_INPUT', `Project directory ${input.project} does not exist.`, 2);
+    }
+    tests.push(
+      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path.sep),
+    );
+    described.push(`project ${projectRoot}`);
+  }
+  if (input.port !== undefined) {
+    const port = input.port;
+    tests.push((entry) => entry.port === port);
+    described.push(`port ${port}`);
+  }
+  return {
+    match: (entry: Listed) => tests.every((check) => check(entry)),
+    described: described.join(', '),
+  };
+}
+
+const summaryOf = (entry: Listed) => ({
+  url: entry.url,
+  port: entry.port,
+  sourceDir: entry.sourceDir,
+  pid: entry.pid,
+  owner: entry.owner,
+  ...(entry.environment ? { environment: entry.environment } : {}),
+  ...(entry.server ? summarize(entry.server.diagnostics()).counts : {}),
+});
+
+/**
+ * Stops matching previews: in-process servers directly, CLI-owned servers of other processes by
+ * SIGTERM (waiting for the port to close). Previews hosted by another MCP process are never
+ * signalled. A stop that stops nothing fails (`not_found`, or `blocked` when only hosted ones match).
+ */
+export async function previewStop(root: string, input: PreviewSelector & { all?: boolean | undefined }) {
+  const listed = await listPreviews();
+  const filter = input.all ? undefined : await selector(root, input, 'project-source');
+  const targets = filter ? listed.filter(filter.match) : listed;
+  const stopped: string[] = [];
+  const notStopped: { url: string; sourceDir: string; pid: number; reason: string }[] = [];
+  let hosted = false;
+  for (const target of targets) {
+    if (target.server) {
+      await stopServer(target.sourceDir, target.server);
+      stopped.push(target.sourceDir);
+    } else if (target.entry?.owner === 'cli') {
+      if (await stopOtherPreview(target.entry)) stopped.push(target.sourceDir);
+      else
+        notStopped.push({
+          url: target.url,
+          sourceDir: target.sourceDir,
+          pid: target.pid,
+          reason: `Process ${target.pid} did not close port ${target.port} within 10 seconds.`,
+        });
+    } else {
+      hosted = true;
+      notStopped.push({
+        url: target.url,
+        sourceDir: target.sourceDir,
+        pid: target.pid,
+        reason: `Hosted by another APEXREST MCP process (pid ${target.pid}); stop it from that session with apexrest_preview action:stop.`,
+      });
+    }
+  }
+  if (!stopped.length && notStopped.length)
+    throw new Fault(
+      'PREVIEW_STOP_FAILED',
+      notStopped.map((entry) => `${entry.url}: ${entry.reason}`).join(' '),
+      hosted ? 5 : 1,
+      hosted ? 'blocked' : 'failed',
+    );
+  if (!stopped.length) {
+    const others = listed.map((entry) => `${entry.url} (${entry.sourceDir})`).join('; ');
+    throw new Fault(
+      'PREVIEW_NOT_RUNNING',
+      `No running preview matches ${filter?.described || 'the selection'}; nothing was stopped.` +
+        (others ? ` Running: ${others}.` : ' No preview is running.'),
+      2,
+      'not_found',
+      {
+        nextActions: [
+          'Run apexrest preview status to list running previews with their source folders and ports.',
+        ],
+      },
+    );
+  }
+  const remaining = (await listPreviews()).map((entry) => entry.sourceDir);
+  return { stopped, ...(notStopped.length ? { notStopped } : {}), running: remaining };
+}
+
+/** Assets state and every running preview (this process and others), optionally filtered. */
+export async function previewStatus(root = process.cwd(), input: PreviewSelector = {}) {
+  const filter = await selector(root, input, 'all');
   return {
     assetsDir: defaultAssetsDir(),
     assetsInstalled: fs.existsSync(path.join(defaultAssetsDir(), 'manifest.json')),
     download: APEX_DOWNLOAD_URL,
-    running: [...running.values()].map((server) => ({
-      url: server.url,
-      sourceDir: server.options.sourceDir,
-      ...summarize(server.diagnostics()).counts,
-    })),
+    running: (await listPreviews()).filter(filter.match).map(summaryOf),
   };
 }
 
@@ -233,7 +393,10 @@ export async function previewDispatch(operation: string, parsed: Record<string, 
     case 'stop':
       return previewStop(root, input);
     case 'status':
-      return previewStatus();
+      // The MCP tool always carries its project; its status keeps listing every running preview.
+      return operation === 'preview'
+        ? previewStatus(root, { sourceDir: input.sourceDir, port: input.port })
+        : previewStatus(root, input);
     default:
       throw new Fault('INVALID_INPUT', `Unknown preview action: ${selected}`, 2);
   }

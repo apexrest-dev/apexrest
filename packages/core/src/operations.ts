@@ -61,6 +61,11 @@ const previewSource = {
     .optional()
     .describe('APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir'),
 };
+/** Selects running previews, in this process or another one, for status and stop. */
+const previewSelect = {
+  ...previewSource,
+  port: z.number().int().min(1).max(65535).optional().describe('Port of a running preview'),
+};
 const previewRun = {
   assetsDir: z.string().min(1).max(4096).optional(),
   env: env
@@ -210,7 +215,19 @@ export const schemas = {
     action: z.enum(['init', 'status', 'refresh', 'invalidate']),
   }),
   'apex.export': z.strictObject({ ...base, env, output: relativePath }),
-  'apex.validate': z.strictObject({ ...base, debugTimings: z.boolean().optional(), env: env.optional() }),
+  'apex.validate': z.strictObject({
+    ...base,
+    sourceDir: z
+      .string()
+      .min(1)
+      .max(4096)
+      .optional()
+      .describe(
+        'APEXlang folder with application.apx to validate instead of apexrest.json application.sourceDir; works without a project',
+      ),
+    debugTimings: z.boolean().optional(),
+    env: env.optional(),
+  }),
   'apex.diff': z.strictObject({ ...base, env, comparison: z.enum(['auto', 'live']).default('auto') }),
   'db.plan': z.strictObject({ ...base, env }),
   'deploy.plan': z
@@ -262,11 +279,8 @@ export const schemas = {
     ...previewRun,
     pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
   }),
-  'preview.stop': z.strictObject({ ...previewSource, all: z.boolean().default(false) }),
-  'preview.status': z.strictObject({}),
-  'sandbox.up': z.strictObject(base),
-  'sandbox.status': z.strictObject(base),
-  'sandbox.down': z.strictObject(base),
+  'preview.stop': z.strictObject({ ...previewSelect, all: z.boolean().default(false) }),
+  'preview.status': z.strictObject(previewSelect),
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.
   project: z.strictObject({

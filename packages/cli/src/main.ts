@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { dispatch } from '../../core/src/service.ts';
-import { internalOperations, schemas } from '../../core/src/operations.ts';
+import { internalOperations, schemas, toolCatalog } from '../../core/src/operations.ts';
+import { setPreviewOwner } from '../../core/src/preview/registry.ts';
 import type { Operation } from '../../core/src/operations.ts';
 import { failure, Fault } from '../../core/src/result.ts';
 import { executeJob, failQueuedJob } from '../../core/src/jobs.ts';
@@ -40,31 +41,108 @@ function knownHelpTarget() {
       Object.keys(schemas).some((op) => op.startsWith((groupAliases[first] ?? first) + '.')))
   );
 }
+const booleans = new Set([
+  'json',
+  'yes',
+  'nonInteractive',
+  'offline',
+  'dryRun',
+  'acceptOracleLicense',
+  'nativeOnly',
+  'keepRuntime',
+  'saved',
+  'workingCopy',
+  'includeUnresolved',
+  'reset',
+  'all',
+]);
+const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds', 'port', 'sampleRows']);
+const BANNER = 'APEXREST for Codex and Claude Code — independent Oracle APEX developer tools';
+const EXIT_CODES =
+  'Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.';
+const command = (op: string) => op.replace('.', ' ');
+const flag = (name: string) => '--' + name.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+interface FieldDef {
+  type: string;
+  innerType?: { def: FieldDef; description?: string };
+  entries?: Record<string, string>;
+}
+type Field = { def: FieldDef; description?: string };
+/** The innermost zod definition (under optional/default) and the first description on the way. */
+function unwrap(field: Field) {
+  let def = field.def;
+  let description = field.description;
+  while (def.innerType) {
+    description ??= def.innerType.description;
+    def = def.innerType.def;
+  }
+  return { def, description };
+}
+/** Boolean options are bare flags, from the list above or from their zod type. */
+const isFlag = (name: string, field: Field | undefined) =>
+  booleans.has(name) || (field !== undefined && unwrap(field).def.type === 'boolean');
+const optionColumn = 32;
+/** Value placeholder and description of one option, read from its zod field. */
+function optionLine(name: string, field: Field) {
+  const { def, description } = unwrap(field);
+  const value = isFlag(name, field)
+    ? ''
+    : def.type === 'enum' && def.entries
+      ? ' ' + Object.values(def.entries).join('|')
+      : numbers.has(name)
+        ? ' N'
+        : name === 'confirmation'
+          ? ' JSON'
+          : def.type === 'array'
+            ? ' VALUE...'
+            : name === 'project' || /(?:Dir|File)$/.test(name)
+              ? ' PATH'
+              : ' VALUE';
+  const text = '  ' + flag(name) + value;
+  return description ? text.padEnd(optionColumn) + ' ' + description : text;
+}
 function help() {
   const key = selected.op as Operation;
-  const lines = [
-    'APEXREST for Codex — independent Oracle APEX developer tools',
-    'Usage: apexrest [command] [options]',
-    '',
-    ...Object.keys(schemas)
-      .filter(listed)
-      .map((x) => '  ' + x.replace('.', ' ')),
-    '  job status|cancel <id>   (alias of jobs ...)',
-    '  mcp',
-    '',
-    '--json emits one structured JSON result; diagnostics use stderr.',
-    'Use --project PATH for project operations. Environment never defaults.',
-    'ship --env NAME --mode plan|apply|recover --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.',
-    'Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.',
-  ];
-  if (schemas[key])
+  const first = groupAliases[argv[0] ?? ''] ?? argv[0] ?? '';
+  const lines = [BANNER];
+  if (!first.startsWith('-') && schemas[key]) {
+    // One command: its usage, description and options only.
+    const shape = schemas[key].shape as Record<string, Field>;
+    const args = (positional[key] ?? []).map((p) => ` <${p}>`).join('');
+    lines.push(`Usage: apexrest ${command(key)}${args} [options]`);
+    const described = toolCatalog.find((tool) => tool.operation === key)?.description;
+    if (described) lines.push('', described);
     lines.push(
       '',
-      `Options for ${selected.op.replace('.', ' ')}:`,
-      ...Object.keys(schemas[key].shape).map(
-        (k) => '  --' + k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()),
-      ),
-      ...(positional[key] ?? []).map((p) => '  <' + p + '>'),
+      'Options:',
+      ...Object.keys(shape).map((name) => optionLine(name, shape[name]!)),
+      '  --json'.padEnd(optionColumn) + ' Emit one compact JSON result.',
+    );
+  } else if (first && !first.startsWith('-') && first !== 'mcp') {
+    // A command group alone (apexrest deploy --help) lists the group's commands.
+    lines.push(
+      `Usage: apexrest ${first} <command> [options]`,
+      '',
+      ...Object.keys(schemas)
+        .filter((op) => listed(op) && op.startsWith(first + '.'))
+        .map((op) => '  ' + command(op)),
+      '',
+      `Run apexrest ${first} <command> --help for the command's options.`,
+    );
+  } else
+    lines.push(
+      'Usage: apexrest <command> [options]',
+      '',
+      ...Object.keys(schemas)
+        .filter(listed)
+        .map((x) => '  ' + command(x)),
+      '  job status|cancel <id>   (alias of jobs ...)',
+      '  mcp                      (stdio MCP server for Codex and Claude Code)',
+      '',
+      'apexrest <command> --help shows that command’s options.',
+      '--json emits one structured JSON result; diagnostics use stderr.',
+      'Use --project PATH for project operations. Environment never defaults.',
+      'ship --env NAME --mode plan|apply|recover --user-request TEXT validates, plans and (apply) imports with a plan-bound grant.',
     );
   if (key === 'apex.sync')
     lines.push(
@@ -126,7 +204,23 @@ function help() {
       '--detail doctor probes local tools; --detail project (default) prints the read-only project snapshot.',
     );
   if (key === 'apex.validate')
-    lines.push('', 'Runs in-process and returns structured diagnostics (file, line, column, type, hint).');
+    lines.push(
+      '',
+      'Runs in-process and returns structured diagnostics (file, line, column, type, hint).',
+      '--source-dir PATH validates any folder with application.apx, without apexrest.json. Its own',
+      '.apex/apexlang.json is used, else that of the nearest project application; otherwise it fails.',
+    );
+  if (key === 'preview.status' || key === 'preview.stop')
+    lines.push(
+      '',
+      'Sees previews of every APEXREST process: this one, a foreground preview start and MCP hosts.',
+      '--source-dir selects one application folder, --project every preview inside the project, --port one port.',
+      key === 'preview.stop'
+        ? 'Without a selector stop targets the current project application; --all stops every preview. A foreground\n' +
+            'preview start is stopped with SIGTERM; MCP-hosted previews are stopped from their own session.\n' +
+            'Stopping nothing fails with PREVIEW_NOT_RUNNING (status not_found, exit 2).'
+        : 'Without a selector status lists every running preview.',
+    );
   if (key === 'dependencies.install')
     lines.push(
       '',
@@ -169,6 +263,7 @@ function help() {
       'Saved in APEXREST_HOME/sqlcl.json. No connection, download or Codex registration is changed.',
       'SQLcl MCP can write its own database audit log on connected operations. No silent CLI fallback.',
     );
+  lines.push('', EXIT_CODES);
   console.log(lines.join('\n'));
 }
 try {
@@ -200,22 +295,6 @@ try {
     if (!(selectedOp.op in schemas)) throw new Fault('INVALID_INPUT', 'Unknown command. Use --help.', 2);
     const schema = schemas[selectedOp.op as Operation];
     const input: Record<string, unknown> = {};
-    const booleans = new Set([
-      'json',
-      'yes',
-      'nonInteractive',
-      'offline',
-      'dryRun',
-      'acceptOracleLicense',
-      'nativeOnly',
-      'keepRuntime',
-      'saved',
-      'workingCopy',
-      'includeUnresolved',
-      'reset',
-      'all',
-    ]);
-    const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds', 'port', 'sampleRows']);
     let index = 0,
       rest: string | undefined;
     for (let i = selectedOp.start; i < argv.length; i++) {
@@ -225,7 +304,7 @@ try {
         if (name === 'json') continue;
         if (!(name in schema.shape) || name in input)
           throw new Fault('INVALID_INPUT', `Unknown or duplicate option: ${token}`, 2);
-        if (booleans.has(name)) input[name] = true;
+        if (isFlag(name, (schema.shape as Record<string, Field>)[name])) input[name] = true;
         else {
           const value = argv[++i];
           if (!value || value.startsWith('--'))
@@ -256,6 +335,8 @@ try {
         else throw new Fault('INVALID_INPUT', `Unexpected argument: ${token}`, 2);
       }
     }
+    // This process exists only to serve the preview, so other processes may stop it (preview stop).
+    if (selectedOp.op === 'preview.start') setPreviewOwner('cli');
     const result = await dispatch(selectedOp.op, input);
     console.log(JSON.stringify(result, null, argv.includes('--json') ? 0 : 2));
     process.exitCode = result.exitCode;
