@@ -1,10 +1,24 @@
 # Features and videos
 
-APEXREST is one Oracle APEX plugin for Codex and Claude Code. This page explains its main capabilities, with a short video for each. Every video has English narration from a synthetic voice and burned-in captions. Provenance, data sources and limits are recorded in [docs/assets/README.md](assets/README.md).
+APEXREST is one Oracle APEX plugin for Codex and Claude Code. This page explains its main capabilities. The video series on YouTube shows each one with real screen captures and measured results.
+
+## Video series
+
+Watch the [Oracle APEX with AI agents](https://www.youtube.com/playlist?list=PLe3nsyhtHRGk) playlist in order. Each episode has English narration from a synthetic voice (Kokoro-82M) and English subtitles.
+
+| #   | Watch                                                                                                    | Episode                                                                                  | Length |
+| --- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| 1   | [![Episode 1 thumbnail](https://i.ytimg.com/vi/JJNva5WGreA/mqdefault.jpg)](https://youtu.be/JJNva5WGreA) | [APEXlang: Oracle APEX as source code, and agent skills](https://youtu.be/JJNva5WGreA)   | 7:30   |
+| 2   | [![Episode 2 thumbnail](https://i.ytimg.com/vi/FXia3u3E5L0/mqdefault.jpg)](https://youtu.be/FXia3u3E5L0) | [The plugin for Codex and Claude Code](https://youtu.be/FXia3u3E5L0)                     | 8:49   |
+| 3   | [![Episode 3 thumbnail](https://i.ytimg.com/vi/lswZLhfpmH0/mqdefault.jpg)](https://youtu.be/lswZLhfpmH0) | [APEX component library: how the agent picks proven parts](https://youtu.be/lswZLhfpmH0) | 6:04   |
+| 4   | [![Episode 4 thumbnail](https://i.ytimg.com/vi/aGGKPqKG5kI/mqdefault.jpg)](https://youtu.be/aGGKPqKG5kI) | [The Decisions API: picking APEX page components faster](https://youtu.be/aGGKPqKG5kI)   | 7:38   |
+| 5   | [![Episode 5 thumbnail](https://i.ytimg.com/vi/l_JsL2q8ij4/mqdefault.jpg)](https://youtu.be/l_JsL2q8ij4) | [Run Oracle APEX locally, no database](https://youtu.be/l_JsL2q8ij4)                     | 8:12   |
+| 6   | [![Episode 6 thumbnail](https://i.ytimg.com/vi/WiudC_UkVQ8/mqdefault.jpg)](https://youtu.be/WiudC_UkVQ8) | [Local Oracle APEX with your real database backend](https://youtu.be/WiudC_UkVQ8)        | 8:46   |
+| 7   | [![Episode 7 thumbnail](https://i.ytimg.com/vi/zFN1-eS8BXo/mqdefault.jpg)](https://youtu.be/zFN1-eS8BXo) | [APEX live preview over WebSocket](https://youtu.be/zFN1-eS8BXo)                         | 8:13   |
 
 ## Component library: read before writing
 
-https://github.com/user-attachments/assets/dddd2f88-66f6-4040-9359-13bb4ee999f4
+[Watch episode 3 on YouTube](https://youtu.be/lswZLhfpmH0)
 
 A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read before it writes:
 
@@ -14,11 +28,11 @@ A single Metric Card page is 69 lines of nested APEXlang, and every guessed prop
 - **Retrieval.** `apexrest_reference` searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit's code. A change uses at most three lookups.
 - **Recipes as contracts.** Each recipe carries a data shape, adaptation rules, working APEXlang, and compiler evidence bound to file checksums.
 
-The video shows real APEXREST 2.1.0 search results, an `LOV_NOT_FOUND` compiler diagnostic and the passing validation after the fix. The user request and the compile-loop sketch are illustrations.
+The episode shows real `docs search` and `docs read` results, the simple dashboard pattern adapted into a new page, an `LOV_NOT_FOUND` compiler diagnostic from a deliberate typo and the passing validation after the fix.
 
 ## Decisions API: choose components before generating
 
-https://github.com/user-attachments/assets/7136505b-c13c-4478-8473-318d4827062f
+[Watch episode 4 on YouTube](https://youtu.be/aGGKPqKG5kI)
 
 The optional [OpenAI Decisions selection](component-catalog.md#optional-openai-decisions-selection) runs through `apexrest_reference mode:select` and `apexrest docs select`. One bounded predicate batch ranks up to 64 compatible local catalog candidates. The host model then writes the page from the verified local contracts. When selection is disabled, search and read stay fully local.
 
@@ -29,13 +43,13 @@ In a one-page pilot, the same model built the same APEXlang page three times wit
 - Two of three selected runs passed on the first generation.
 - All six final pages passed the offline Oracle compiler and the same 46 checks.
 
-This is a single-page pilot, not a general benchmark. The page in the video is a wireframe with synthetic data.
+This is a single-page pilot, not a general benchmark. The pilot page uses synthetic data.
 
 ## Local preview: run APEXlang without a database
 
-https://github.com/user-attachments/assets/e1923958-59a8-4c09-bb1a-0ce94dd540bf
+[Watch episode 5 on YouTube](https://youtu.be/l_JsL2q8ij4)
 
-`apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an `.apx` edit on the next reload, before anything is compiled or imported. The video tours a 22-page showcase application with one page per component family. `preview check` renders all 22 pages with 0 errors and 0 warnings.
+`apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an `.apx` edit on the next reload, before anything is compiled or imported. The episode tours a 22-page showcase application with one page per component family. `preview check` renders all 22 pages with 0 errors and 0 warnings.
 
 ```sh
 apexrest preview setup                        # once: extracts the APEX 26.2 browser runtime and theme templates
@@ -63,13 +77,11 @@ Running APEXlang locally gives you:
 
 The preview is a design aid, not Oracle evidence. Charts are SVG rather than Oracle JET, maps have no tiles, and anything it does not simulate is listed in diagnostics. Read the [local preview guide](local-preview.md).
 
-## Connected preview: run the backend in your database (part 2)
+## Connected preview: run the backend in your database
 
-[![Part 2: a draft receipt posted through the project's own PL/SQL package in Oracle, then rolled back](assets/apexrest-connected-preview-poster.png)](assets/apexrest-connected-preview.mp4)
+[Watch episode 6 on YouTube](https://youtu.be/WiudC_UkVQ8)
 
-[Watch part 2 (MP4, 2:09)](assets/apexrest-connected-preview.mp4) · [Captions](assets/apexrest-connected-preview.srt)
-
-Part 2 of the local preview series. The local UI from part 1 can run its backend in your own DEV, QA or TEST database. Add `--env` and the Node.js preview opens one session through your saved SQLcl connection.
+The local UI can run its backend in your own DEV, QA or TEST database. Add `--env` and the Node.js preview opens one session through your saved SQLcl connection.
 
 - **SQL.** Region, report, LOV and form SQL runs in Oracle as written, with page items as binds.
 - **PL/SQL.** Processes, validations and conditions run as real PL/SQL blocks, including your own packages. Bind values flow back into the page.
@@ -84,34 +96,30 @@ apexrest preview check --project /abs/app --env test   # every page against the 
 apexrest preview start --project /abs/app --env test   # local UI, data and PL/SQL in Oracle
 ```
 
-The video shows an original stock-control application on a demo Oracle Autonomous Database:
+The episode shows an original stock-control application on a demo Oracle Autonomous Database:
 
-- all 17 pages checked in 21 seconds with 0 errors;
+- all 17 pages checked in 24 seconds with 0 errors;
 - a receipt posted through the project's package and then rolled back;
 - an over-stock issue rejected with the package's own error message.
 
 It is a verification aid, not import evidence. Read [Connected Oracle mode](local-preview.md#connected-oracle-mode).
 
-## Live preview: the page follows the agent (part 3)
+## Live preview: the page follows the agent
 
-[![Part 3: a grid save in the agent's session redraws the dashboard charts in another session](assets/apexrest-live-preview-poster.png)](assets/apexrest-live-preview.mp4)
+[Watch episode 7 on YouTube](https://youtu.be/zFN1-eS8BXo)
 
-[Watch part 3 (MP4, 1:59)](assets/apexrest-live-preview.mp4) · [Captions](assets/apexrest-live-preview.srt)
-
-Part 3 of the local preview series. Every preview page keeps a WebSocket to the local server, so the agent sees its changes without navigating or reloading.
+Every preview page keeps a WebSocket to the local server, so the agent sees its changes without navigating or reloading.
 
 - **Source edits.** Saving an `.apx` file reloads the open page, which takes about a quarter of a second on localhost. A typo shows its parse error, with file and line, on that page.
 - **Data changes.** A write to a table redraws every region that reads it, in every tab and session. Views resolve to their base tables.
 - **Presence.** The toolbar shows who views the page, so the agent can work as its own user while you watch as yours.
 - **Safeguards.** Unsaved grid edits are never overwritten, forms only show a notice, refresh loops are blocked, and the socket stays on localhost.
 
-In the video, captured from the generated showcase app, three source edits reload the page in 235–246 ms. The parse error appears in 167 ms. One grid save redraws 10 dashboard regions in another session within 32 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
+In the episode, captured from the generated showcase app, four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
 
 ## APEX 26.2: import only what changed
 
-https://github.com/user-attachments/assets/0e024a0a-d8b2-4366-b87f-55496e3ad55d
-
-Update a page and its shared list of values without re-importing the rest of the application. APEXREST compares the saved baseline, local edits and a fresh server export. It preserves remote-only changes and blocks conflicts before writing. The video walks through one page change: selective export, local edit, compiler validation, scope planning and a selected-file import with readback.
+Update a page and its shared list of values without re-importing the rest of the application. APEXREST compares the saved baseline, local edits and a fresh server export. It preserves remote-only changes and blocks conflicts before writing.
 
 | Import mode      | Use it for                                                                                                  |
 | ---------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -126,12 +134,6 @@ Partial imports require:
 - the reviewed SQLcl 26.3 compiler on a direct connection.
 
 APEX 26.1 keeps full imports. See [APEX 26.2 partial imports](apex-26.2.md).
-
-## The first local preview video
-
-https://github.com/user-attachments/assets/fc2fd0e4-ac1a-4ff8-b15d-6c3bad5d624a
-
-The earlier explainer runs Oracle's public HR demo app in the preview. It shows a report, a modal form with real validation messages, a save that refreshes the report, and an `.apx` edit that appears on the next reload.
 
 ## Safe deployment
 
@@ -177,20 +179,20 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 
 ## Tools
 
-| Tool                     | Purpose                                                                                                                                                               |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile`        |
-| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                                |
-| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                       |
+| Tool                     | Purpose                                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile`                                      |
+| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                                                              |
+| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                                                     |
 | `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`); `sourceDir` validates another APEXlang folder |
-| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run` |
-| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                           |
-| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                       |
-| `apexrest_preview`       | Database-free local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `stop`, `status`          |
-| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                    |
-| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                      |
-| `apexrest_peer_review`   | `status` shows the other vendor CLI and the review mode; `review` asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review |
-| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)  |
+| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run`                               |
+| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                                                         |
+| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                                                     |
+| `apexrest_preview`       | Database-free local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `stop`, `status`                                        |
+| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                                                  |
+| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                                                    |
+| `apexrest_peer_review`   | `status` shows the other vendor CLI and the review mode; `review` asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review                               |
+| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)                                |
 
 Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine. `ship` apply runs in a detached worker, so a database write survives host termination. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`, `preview`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
 

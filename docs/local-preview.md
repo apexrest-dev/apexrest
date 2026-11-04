@@ -2,7 +2,7 @@
 
 `apexrest preview` runs an APEXlang application on Node.js without an Oracle database, or, with `--env`, against the application's own DEV/QA/TEST Oracle database ([connected mode](#connected-oracle-mode)). It exists for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them. It is a simulation. It never replaces `apexrest_apex_validate`, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.
 
-[Watch the explainer video (MP4, 1:37)](assets/apexrest-local-preview.mp4) · [Captions](assets/apexrest-local-preview.srt): live screens of Oracle's HR demo app running in the preview, from report and modal form to validation, save and hot reload.
+[Watch episode 5 on YouTube](https://youtu.be/l_JsL2q8ij4): a 22-page showcase application running in the preview, from reports and forms to charts, grids and hot reload.
 
 ## How it works
 
@@ -38,7 +38,7 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
 
 ## Live updates over WebSocket
 
-[Watch part 3 (MP4, 1:59)](assets/apexrest-live-preview.mp4) · [Captions](assets/apexrest-live-preview.srt): an agent edits the APEXlang source and the open page follows; a grid save in the agent's session redraws ten dashboard charts in another session.
+[Watch episode 7 on YouTube](https://youtu.be/zFN1-eS8BXo): an agent edits the APEXlang source and the open page follows; a grid save in the agent's session redraws ten dashboard charts in another session.
 
 Every page with the developer toolbar keeps a WebSocket to the preview server (`<app>/__apex/live`). It is a preview feature for design work; APEX itself does not push changes to open pages.
 
@@ -50,7 +50,7 @@ Every page with the developer toolbar keeps a WebSocket to the preview server (`
 
 ## Connected Oracle mode
 
-[Watch part 2 (MP4, 2:09)](assets/apexrest-connected-preview.mp4) · [Captions](assets/apexrest-connected-preview.srt): a stock-control app posting documents through its own PL/SQL package on a demo Autonomous Database, with every request rolled back.
+[Watch episode 6 on YouTube](https://youtu.be/WiudC_UkVQ8): a stock-control app posting documents through its own PL/SQL package on a demo Autonomous Database, with every request rolled back.
 
 Without a database the preview simulates data in SQLite and interprets a subset of PL/SQL. When the project has an Oracle DEV/QA/TEST environment with a SQLcl saved connection, `--env <name>` (MCP: `env`) on `start` or `check` runs the application's data and server logic in that database instead. Rendering stays in Node.js. Choose this when a page depends on project packages, procedures, functions, views or real rows.
 

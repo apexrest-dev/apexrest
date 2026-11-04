@@ -35,7 +35,7 @@ You ask for a change, such as "add an order status report". The agent then:
 - **Direct or ORDS access.** Reach the database through the Oracle listener or REST-Enabled SQL over HTTPS.
 - **Two providers, one team.** Work in Claude Code with Codex as the reviewer, or in Codex with Claude Code. The second agent reviews each deployment plan read-only under your own subscription or API key; set `peerReview.mode: required` to block deployment until it approves. See [peer review](docs/configuration.md#cross-vendor-peer-review).
 
-Watch the short videos and read the details on [Features and videos](docs/features.md).
+Watch the [video series on YouTube](https://www.youtube.com/playlist?list=PLe3nsyhtHRGk) and read the details on [Features and videos](docs/features.md).
 
 ## Requirements
 
@@ -88,7 +88,7 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 ## Documentation
 
-- [Features and videos](docs/features.md): component library, Decisions selection, local preview, connected preview (part 2), partial imports, tools and skills.
+- [Features and videos](docs/features.md): the YouTube video series, component library, Decisions selection, local and connected preview, live updates, partial imports, tools and skills.
 - [Getting started](https://apexrest-dev.github.io/apexrest/getting-started/): install, connect, create or adopt an application, ship and verify.
 - [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database.
 - [Configuration](https://apexrest-dev.github.io/apexrest/configuration/): environments, connection references, trust policy and deployment coordination.
