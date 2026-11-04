@@ -150,8 +150,8 @@ apexLocal.live = (function ($) {
     var watched = Object.keys(state.regions).length;
     button.title = mode === "off" ? "Live updates are off; click to turn them on"
       : mode === "wait" ? "Live updates: connecting to the preview server"
-      : "Live over WebSocket · " + (state.data ? watched + " regions follow their tables" : "source reload only (connected mode)") +
-        " · " + state.viewers + " tab(s) on this page" + (state.users.length ? " (" + state.users.join(", ") + ")" : "") + " · click to turn off";
+      : "Live over WebSocket · " + (state.data ? watched + (watched === 1 ? " region follows its tables" : " regions follow their tables") : "source reload only (connected mode)") +
+        " · " + state.viewers + (state.viewers === 1 ? " tab" : " tabs") + " on this page" + (state.users.length ? " (" + state.users.join(", ") + ")" : "") + " · click to turn off";
   }
 
   function toasts() {

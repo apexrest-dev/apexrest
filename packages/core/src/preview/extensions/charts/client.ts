@@ -3,31 +3,33 @@ import { NEW_END, NEW_START } from './calendar.ts';
 /** Browser side of the chart, calendar and map previews (appended to /__apex/runtime.js). */
 
 export const CHARTS_CSS = String.raw`
+.apex-local-jet,.apex-local-jet-tip{--ajc-ink:light-dark(#161513,var(--ut-component-text-default-color,var(--ut-body-text-color,#fff)))}
+/* Muted chart ink: #161513 in light styles (unchanged), the theme's text token in dark styles (Vita - Dark). */
 .apex-local-jet{position:relative;width:100%;overflow:hidden;font-family:var(--a-base-font-family,"Oracle Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
 .apex-local-jet svg{display:block;overflow:visible}
 .ajc-svg text{font-family:inherit;font-size:12px;fill:var(--ut-body-text-color,#161513)}
-.ajc-svg .ajc-tick,.ajc-svg .ajc-legend-text{fill:rgba(22,21,19,.7)}
-.ajc-svg .ajc-axis-title{fill:rgba(22,21,19,.7);font-size:12px}
+.ajc-svg .ajc-tick,.ajc-svg .ajc-legend-text{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent)}
+.ajc-svg .ajc-axis-title{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent);font-size:12px}
 .ajc-svg .ajc-title{font-size:14px;font-weight:600}
-.ajc-svg .ajc-legend-title{font-weight:600;fill:rgba(22,21,19,.85)}
-.ajc-svg .ajc-message{fill:rgba(22,21,19,.6);font-size:13px}
-.ajc-svg .ajc-value{fill:rgba(22,21,19,.85)}
+.ajc-svg .ajc-legend-title{font-weight:600;fill:color-mix(in srgb,var(--ajc-ink) 85%,transparent)}
+.ajc-svg .ajc-message{fill:color-mix(in srgb,var(--ajc-ink) 60%,transparent);font-size:13px}
+.ajc-svg .ajc-value{fill:color-mix(in srgb,var(--ajc-ink) 85%,transparent)}
 .ajc-svg .ajc-center-value{font-weight:600;fill:var(--ut-body-text-color,#161513)}
-.ajc-svg .ajc-center-label,.ajc-svg .ajc-gauge-text{fill:rgba(22,21,19,.7)}
+.ajc-svg .ajc-center-label,.ajc-svg .ajc-gauge-text{fill:color-mix(in srgb,var(--ajc-ink) 70%,transparent)}
 .ajc-svg .ajc-gauge-text{font-weight:600;fill:var(--ut-body-text-color,#161513)}
-.ajc-grid{stroke:rgba(22,21,19,.1);stroke-width:1;shape-rendering:crispEdges}
-.ajc-axis{stroke:rgba(22,21,19,.35);stroke-width:1;shape-rendering:crispEdges}
-.ajc-reference{stroke:rgba(22,21,19,.6);stroke-width:1.5;stroke-dasharray:5 3}
-.ajc-leader{stroke:rgba(22,21,19,.4);stroke-width:1}
-.ajc-gauge-track{fill:rgba(22,21,19,.08)}
+.ajc-grid{stroke:color-mix(in srgb,var(--ajc-ink) 10%,transparent);stroke-width:1;shape-rendering:crispEdges}
+.ajc-axis{stroke:color-mix(in srgb,var(--ajc-ink) 35%,transparent);stroke-width:1;shape-rendering:crispEdges}
+.ajc-reference{stroke:color-mix(in srgb,var(--ajc-ink) 60%,transparent);stroke-width:1.5;stroke-dasharray:5 3}
+.ajc-leader{stroke:color-mix(in srgb,var(--ajc-ink) 40%,transparent);stroke-width:1}
+.ajc-gauge-track{fill:color-mix(in srgb,var(--ajc-ink) 8%,transparent)}
 .ajc-slice{stroke:var(--ut-component-background-color,#fff);stroke-width:1}
 .ajc-bar,.ajc-slice,.ajc-bubble,.ajc-gauge-value{transition:opacity .12s}
 .ajc-bar:hover,.ajc-slice:hover,.ajc-bubble:hover,.ajc-gauge-value:hover{opacity:.8}
 .ajc-point .ajc-hover{opacity:0;transition:opacity .12s}.ajc-point:hover .ajc-hover{opacity:1}
 .ajc-link{cursor:pointer}
-.apex-local-jet-tip{position:fixed;z-index:3000;pointer-events:none;background:var(--ut-component-background-color,#fff);color:var(--ut-body-text-color,#161513);border:1px solid rgba(22,21,19,.12);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.16);padding:6px 10px;font:12px/1.45 var(--a-base-font-family,"Oracle Sans",system-ui,sans-serif);max-width:320px}
+.apex-local-jet-tip{position:fixed;z-index:3000;pointer-events:none;background:var(--ut-component-background-color,#fff);color:var(--ut-body-text-color,#161513);border:1px solid color-mix(in srgb,var(--ajc-ink) 12%,transparent);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.16);padding:6px 10px;font:12px/1.45 var(--a-base-font-family,"Oracle Sans",system-ui,sans-serif);max-width:320px}
 .apex-local-jet-tip table{border-collapse:collapse}.apex-local-jet-tip td{padding:0 0 0 0;vertical-align:top}
-.apex-local-jet-tip td:first-child{color:rgba(22,21,19,.65);padding-right:10px}.apex-local-jet-tip td:last-child{font-weight:600}
+.apex-local-jet-tip td:first-child{color:color-mix(in srgb,var(--ajc-ink) 65%,transparent);padding-right:10px}.apex-local-jet-tip td:last-child{font-weight:600}
 .apex-local-calendar{min-height:300px}
 .apex-local-calendar .fc-event{cursor:pointer}
 .apex-local-calendar-fallback{list-style:none;margin:0;padding:0}

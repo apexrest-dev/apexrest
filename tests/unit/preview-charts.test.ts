@@ -7,6 +7,7 @@ import {
   niceScale,
 } from '../../packages/core/src/preview/extensions/charts/format.ts';
 import { initialDate } from '../../packages/core/src/preview/extensions/charts/calendar.ts';
+import { CHARTS_CSS } from '../../packages/core/src/preview/extensions/charts/client.ts';
 import { workspace } from '../fixtures/preview.ts';
 
 const sql = (query: string) => `
@@ -434,4 +435,22 @@ test('calendar regions feed FullCalendar from SQL and maps draw offline', async 
   );
   assert.ok(result.diagnostics.some((entry) => /overview\.show not simulated/.test(entry.message)));
   assert.ok(result.diagnostics.some((entry) => /Map offices is drawn offline/.test(entry.message)));
+});
+
+test('chart ink follows the theme: unchanged in light styles, theme text tokens in dark styles', () => {
+  // Muted text, axes, grid lines and gauge tracks derive from one token resolved by color-scheme
+  // (Vita - Dark declares color-scheme: dark) instead of a fixed near-black.
+  assert.match(
+    CHARTS_CSS,
+    /--ajc-ink:light-dark\(#161513,var\(--ut-component-text-default-color,var\(--ut-body-text-color,#fff\)\)\)/,
+  );
+  const rules = CHARTS_CSS.slice(0, CHARTS_CSS.indexOf('.apex-local-calendar{'));
+  assert.doesNotMatch(rules, /rgba\(22,21,19,/);
+  // Light output is preserved: 70% of #161513 over transparent is the former rgba(22,21,19,.7).
+  assert.match(
+    rules,
+    /\.ajc-svg \.ajc-tick,\.ajc-svg \.ajc-legend-text\{fill:color-mix\(in srgb,var\(--ajc-ink\) 70%,transparent\)\}/,
+  );
+  assert.match(rules, /\.ajc-gauge-track\{fill:color-mix\(in srgb,var\(--ajc-ink\) 8%,transparent\)\}/);
+  assert.match(rules, /\.ajc-svg text\{[^}]*fill:var\(--ut-body-text-color,#161513\)\}/);
 });

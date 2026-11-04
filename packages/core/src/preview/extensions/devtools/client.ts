@@ -182,6 +182,14 @@ export const DEVTOOLS_JS = String.raw`
   }
 
   // ---------------------------------------------------------------- debug log
+  function plural(count, noun) { return count + " " + noun + (count === 1 ? "" : "s"); }
+  // Local wall-clock time (HH:MM:SS), the same clock as the page's sysdate; the ISO UTC stamp is the title.
+  function localTime(iso) {
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return String(iso || "");
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    return pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+  }
   function loadDebug() {
     var target = toolbar.querySelector("[data-apex-local-debug]");
     if (!target) return undefined;
@@ -189,14 +197,16 @@ export const DEVTOOLS_JS = String.raw`
       var entries = (data && data.entries) || [];
       if (!entries.length) { target.innerHTML = '<p class="apex-local-muted">No requests logged yet.</p>'; return; }
       target.innerHTML = entries.map(function (entry, index) {
-        var warnings = entry.events.filter(function (event) { return event.level === "warning" || event.level === "error"; }).length;
+        var errors = entry.events.filter(function (event) { return event.level === "error"; }).length;
+        var warnings = entry.events.filter(function (event) { return event.level === "warning"; }).length;
+        var problems = [errors ? plural(errors, "error") : "", warnings ? plural(warnings, "warning") : ""].filter(Boolean).join(", ");
         var rows = entry.events.map(function (event) {
           return '<tr class="is-' + escapeHtml(event.level || "info") + '"><td class="t">' + event.t.toFixed(1) + '</td><td><span class="k">' + escapeHtml(event.type) + "</span>" +
             (event.name ? "<code>" + escapeHtml(event.name) + "</code> " : "") + escapeHtml(event.detail || "") + "</td><td>" + (event.ms !== undefined ? event.ms.toFixed(1) + " ms" : "") + "</td></tr>";
         }).join("");
         return "<details" + (index === 0 ? " open" : "") + "><summary><strong>" + escapeHtml(entry.title) + "</strong><span>" + escapeHtml(entry.detail) + "</span>" +
-          (warnings ? '<span class="is-warning">' + warnings + " warnings</span>" : "") + "<span>" + entry.ms.toFixed(1) + " ms</span><span class=\"apex-local-muted\">" +
-          escapeHtml(entry.started.slice(11, 19)) + "</span></summary><table>" + (rows || '<tr><td colspan="3">No events</td></tr>') + "</table></details>";
+          (problems ? '<span class="is-warning">' + problems + "</span>" : "") + "<span>" + entry.ms.toFixed(1) + " ms</span><span class=\"apex-local-muted\" title=\"" + escapeHtml(entry.started) + "\">" +
+          escapeHtml(localTime(entry.started)) + "</span></summary><table>" + (rows || '<tr><td colspan="3">No events</td></tr>') + "</table></details>";
       }).join("");
     });
   }
