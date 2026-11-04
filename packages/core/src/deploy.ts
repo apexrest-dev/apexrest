@@ -828,8 +828,10 @@ export class DeploymentService {
     await new LocalDeploymentControl(env).release(runId);
   }
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
-    // Production is refused from configuration before any connection or SQLcl call.
-    await refuseProductionDeployment(environment(ctx, name), name);
+    // Production is refused from configuration before any connection or SQLcl call. An unknown
+    // environment is reported where it was before, after the source-level checks.
+    const configured = name ? ctx.config.environments[name] : undefined;
+    if (configured) await refuseProductionDeployment(configured, name);
     if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
     const requested = importOptions(options);
     if (requested.importMode === 'none') return this.databasePlan(ctx, name);
