@@ -19,7 +19,6 @@ import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService, deployPlanSchema } from './deploy.ts';
 import { ArtifactService } from './artifacts.ts';
 import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
-import { sandboxAction } from './sandbox.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
 import { peerReview, peerReviewGate, peerStatus, type PeerVendor } from './peer-review.ts';
@@ -28,6 +27,7 @@ import {
   shipApply,
   shipPlan,
   validateApplication,
+  validationSource,
   planPreview,
   type PlanConfirmation,
   type DiagnosticParser,
@@ -338,13 +338,20 @@ async function dispatchObserved(
       case 'docs.sync':
         data = await referenceSync(text('version'), Boolean(parsed.dryRun));
         break;
-      case 'sandbox.up':
-      case 'sandbox.status':
-      case 'sandbox.down':
-        data = await sandboxAction(operation.split('.')[1]!);
-        break;
       case 'peer.status':
         data = await peerStatus(parsed.project ? await loadProject(root) : undefined);
+        break;
+      case 'apex.validate':
+        // --source-dir validates any APEXlang folder; without it the project's application is used.
+        data = await validateApplication(
+          oracle,
+          await validationSource(root, {
+            project: parsed.project as string | undefined,
+            sourceDir: parsed.sourceDir as string | undefined,
+          }),
+          parseDiagnostics,
+          signal,
+        );
         break;
       default: {
         const ctx = await loadProject(root);
@@ -421,14 +428,6 @@ async function dispatchObserved(
                 focus: parsed.focus as string | undefined,
               },
               (value) => deployment.checkLocal(ctx, value),
-              signal,
-            );
-            break;
-          case 'apex.validate':
-            data = await validateApplication(
-              oracle,
-              await contained(ctx.root, ctx.config.application.sourceDir),
-              parseDiagnostics,
               signal,
             );
             break;

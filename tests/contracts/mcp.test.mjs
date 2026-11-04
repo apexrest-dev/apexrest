@@ -211,7 +211,10 @@ test('MCP project tools require an explicit absolute path before dispatch or job
     if (['apexrest_reference', 'apexrest_status', 'apexrest_project'].includes(tool.name)) {
       assert.ok(!tool.inputSchema.required?.includes('project'), tool.name);
     } else {
-      assert.ok(tool.inputSchema.required.includes('project'), tool.name);
+      // apex_validate takes project or an absolute sourceDir; with neither it still names project.
+      if (tool.name === 'apexrest_apex_validate')
+        assert.ok(!tool.inputSchema.required?.includes('project'), tool.name);
+      else assert.ok(tool.inputSchema.required.includes('project'), tool.name);
       assert.ok(Object.hasOwn(inputs, tool.name), `${tool.name} needs an input fixture`);
       const missing = JSON.parse(
         (await client.callTool({ name: tool.name, arguments: inputs[tool.name] })).content[0].text,
