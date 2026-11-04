@@ -230,3 +230,17 @@ export async function isProductionTarget(env: Environment, digest = targetDigest
   const database = env.databaseIdentity.dbUniqueName.trim().toUpperCase();
   return (trust.productionDatabases ?? []).some((name) => name.toUpperCase() === database);
 }
+/**
+ * Up-front deployment refusal from configuration and the trust file alone:
+ * runs before any connection is resolved or SQLcl is started. Later identity
+ * checks still classify the observed target digest.
+ */
+export async function refuseProductionDeployment(env: Environment, name?: string, digest?: string) {
+  if (await isProductionTarget(env, digest))
+    throw new Fault(
+      'PRODUCTION_DEPLOY_DENIED',
+      `${name ? `Environment ${name}` : 'This target'} is production-marked; the plugin never plans, deploys or restores production targets. No connection was opened.`,
+      4,
+      'blocked',
+    );
+}

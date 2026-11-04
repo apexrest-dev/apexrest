@@ -25,7 +25,8 @@ import {
 } from '../../packages/core/src/composer/planner.ts';
 import { declarations } from '../../packages/core/src/composer/reader.ts';
 import { render } from '../../packages/core/src/composer/emitter.ts';
-import { loadCatalog } from '../../packages/core/src/composer/catalog.ts';
+import { bundledBlueprintProfiles, loadCatalog } from '../../packages/core/src/composer/catalog.ts';
+import { Fault, failure } from '../../packages/core/src/result.ts';
 import {
   COMPOSER_262_PROFILE,
   composerProfiles,
@@ -223,6 +224,38 @@ test('Composer compiler profiles require their exact vendor MMD and compiler bui
   assert.match(source, /dataType: STRING/);
   assert.doesNotMatch(source, /executionMappingIdentifier:/);
   assert.equal((await blueprint()).application.compatibilityProfile, COMPOSER_262_PROFILE);
+});
+
+test('a pinned-compiler mismatch names both builds and the blueprint for the installed compiler', async () => {
+  const legacy = 'profile:apex261-ut261-mmd3102';
+  const installed = {
+    mmd: { mmdVersion: composerProfiles[COMPOSER_262_PROFILE]!.mmd },
+    compiler: {
+      version: `SQLcl: Release 26.3.0.0 Production Build: ${composerProfiles[COMPOSER_262_PROFILE]!.sqlcl}`,
+    },
+  };
+  const blueprints = await bundledBlueprintProfiles();
+  assert.deepEqual(blueprints[COMPOSER_262_PROFILE]?.sort(), [
+    'blueprint:crm@1.1.0',
+    'blueprint:service-desk@1.1.0',
+  ]);
+  assert.throws(
+    () => requireComposerCompiler(legacy, installed, (id) => blueprints[id] ?? []),
+    (error: unknown) => {
+      assert.ok(error instanceof Fault);
+      assert.equal(error.code, 'PROFILE_COMPILER_MISMATCH');
+      assert.match(
+        error.message,
+        new RegExp(`pinned to SQLcl ${composerProfiles[legacy]!.sqlcl.replaceAll('.', '\\.')}`),
+      );
+      assert.match(error.message, /found SQLcl 26\.3\.0\.260\.1620 with MMD 26\.2\.0\+3479/);
+      assert.deepEqual(error.details?.matchingProfiles, [COMPOSER_262_PROFILE]);
+      const next = failure('compose.plan', error).nextActions;
+      assert.match(next[0]!, /blueprint:crm@1\.1\.0/);
+      assert.match(next[1]!, /install SQLcl 26\.1\.2\.132\.1334/);
+      return true;
+    },
+  );
 });
 
 test('list and master-detail report columns use the Oracle Interactive Report type domain', async () => {

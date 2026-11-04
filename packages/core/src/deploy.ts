@@ -4,7 +4,15 @@ import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
-import { environment, isProductionTarget, managedHome, parse, policy, refName } from './config.ts';
+import {
+  environment,
+  isProductionTarget,
+  managedHome,
+  parse,
+  policy,
+  refName,
+  refuseProductionDeployment,
+} from './config.ts';
 import type { ProjectContext, Environment } from './config.ts';
 import { resolveConnection } from './connections.ts';
 import type { Connection } from './connections.ts';
@@ -820,6 +828,8 @@ export class DeploymentService {
     await new LocalDeploymentControl(env).release(runId);
   }
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
+    // Production is refused from configuration before any connection or SQLcl call.
+    await refuseProductionDeployment(environment(ctx, name), name);
     if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
     const requested = importOptions(options);
     if (requested.importMode === 'none') return this.databasePlan(ctx, name);
@@ -1095,8 +1105,9 @@ export class DeploymentService {
     restore = false,
     fresh = false,
   ): Promise<DeployPlan> {
-    const env = environment(ctx, name),
-      connection = await resolveConnection(env.readConnectionRef);
+    const env = environment(ctx, name);
+    await refuseProductionDeployment(env, name);
+    const connection = await resolveConnection(env.readConnectionRef);
     const syncStore = new SyncStore(ctx, env, name),
       stored = await syncStore.read();
     const working = !restore && stored?.status !== 'invalidated' ? stored : null;
@@ -1435,6 +1446,8 @@ export class DeploymentService {
   ) {
     const applyTimingStart = sqlclTimings().length;
     const { env, plan } = await this.checkLocal(ctx, value);
+    // Locality probing connects; refuse production-marked targets first.
+    await refuseProductionDeployment(env, plan.environment, plan.targetDigest);
     const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
     await authorizePlan(ctx, plan, env, locality.local);
     await this.oracle.requireMutationSupport();
@@ -2380,6 +2393,7 @@ export class DeploymentService {
       selectedFiles?: string[];
       absentFiles?: string[];
     };
+    await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
     const files = await inventory(path.join(directory, 'application'));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault('BACKUP_INVALID', 'Backup digest does not match.', 5);

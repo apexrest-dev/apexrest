@@ -4,7 +4,7 @@ Find a component, inspect its parameters and adapt its APEXlang recipe to your a
 
 Browse the component list and examples in [Universal Theme Reference](https://apex.oracle.com/ut).
 
-For `version:26.2`, `corpus:components` resolves the complete [official Oracle inventory](oracle-apexlang-coverage.md) by default, including native/plugin variants and all properties. With `kind:template`, it searches **1,350 original APEXlang page examples from 33 public Oracle applications**. The local compiler-checked recipe catalog remains independently bound to 26.1.
+For an explicit `version:26.2`, `corpus:components` resolves the complete [official Oracle inventory](oracle-apexlang-coverage.md) by default, including native/plugin variants and all properties. With `kind:template`, it searches **1,350 original APEXlang page examples from 33 public Oracle applications**. The local compiler-checked recipe catalog remains independently bound to 26.1. Passing `project` only supplies context: without `version`, `corpus:components` and `corpus:patterns` still return the recipe and pattern catalogs, labelled with their own 26.1 version, even when the project's `toolchain.profile` is `26.2`.
 
 ## Public page templates and ready recipes
 

@@ -8,10 +8,16 @@ import {
   compilerFault,
   diagnosticHint,
   jsonDocuments,
+  missingSavedConnection,
   oracleDiagnostics,
   parseCompilerDiagnostics,
 } from '../../packages/core/src/oracle.ts';
 import type { ProcessRequest, ProcessResult } from '../../packages/core/src/process.ts';
+import {
+  compilerFault as shipCompilerFault,
+  fallbackCompilerDiagnostics,
+} from '../../packages/core/src/ship.ts';
+import { Fault, failure } from '../../packages/core/src/result.ts';
 
 // Verbatim SQLcl 26.1.2 `apex validate` output shapes (offline compiler).
 const report = `APEXLang Compile Errors:
@@ -282,4 +288,33 @@ test('JSON diagnostics strip rows of every envelope and batches split per marker
     short.jsonQueryBatch([{ sql: 'select 1 from dual' }, { sql: 'select 2 from dual' }], connection),
     { code: 'EMPTY_QUERY_RESULT' },
   );
+});
+
+test('an unknown SQLcl saved connection is a blocked connection fault, not a validation failure', () => {
+  // Verbatim SQLcl 26.3 output of `sql -S -L -name <missing>` (exit code 1).
+  const missing = completed('Unknown connection apexrest_missing\n', { code: 1 });
+  let fault: unknown;
+  assert.throws(
+    () => oracleDiagnostics(missing),
+    (error: unknown) => {
+      fault = error;
+      return (
+        error instanceof Fault &&
+        error.code === 'SQLCL_CONNECTION_NOT_FOUND' &&
+        error.status === 'blocked' &&
+        error.details?.savedConnection === 'apexrest_missing'
+      );
+    },
+  );
+  // ship planning maps compiler faults to VALIDATION_FAILED; this one passes through unchanged.
+  assert.equal(shipCompilerFault(fault, fallbackCompilerDiagnostics), fault);
+  const result = failure('ship', fault);
+  assert.equal(result.diagnostics[0]!.code, 'SQLCL_CONNECTION_NOT_FOUND');
+  assert.ok(result.nextActions.some((action) => /conn -save/.test(action) && /connection test/.test(action)));
+  assert.ok(result.nextActions.every((action) => !/\.apx/.test(action)));
+  assert.equal(missingSavedConnection('Unknown connection "dev read"'), 'dev read');
+  assert.equal(missingSavedConnection("Connection 'dev-read' not found"), 'dev-read');
+  // Successful output carrying the phrase as data, or mid-line, is not a missing connection.
+  assert.equal(oracleDiagnostics(completed('Unknown connection x\n')), 'Unknown connection x\n\n');
+  assert.equal(missingSavedConnection('row: Unknown connection x'), undefined);
 });

@@ -32,6 +32,47 @@ async function workerSettings(connectionName: string): Promise<WorkerSettings> {
 }
 
 /**
+ * Pays the one-time costs of a fresh Oracle session before the preview URL is
+ * returned: dictionary metadata for the schema's tables (one query instead of
+ * one per table on the first page) and the first APEX session creation, which
+ * loads APEX package state. Both are best effort and rolled back; a failure
+ * (including a timeout, after which the next call opens a fresh session)
+ * leaves the per-request paths, and their diagnostics, unchanged.
+ */
+export function warmUp(
+  data: OracleAppData,
+  apex?: ConnectedOracle['apex'],
+): { ms: number; tables: number | 'partial' | 'skipped'; apexSession?: 'ready' | 'skipped' } {
+  const started = performance.now();
+  const steps: { tables: number | 'partial' | 'skipped'; apexSession?: 'ready' | 'skipped' } = {
+    tables: 'skipped',
+  };
+  try {
+    const prefetched = data.prefetchSchema();
+    steps.tables = prefetched.complete ? prefetched.tables : 'partial';
+  } catch {
+    steps.tables = 'skipped';
+  }
+  if (apex)
+    try {
+      data.plsql({
+        block: 'begin\n  null;\nend;',
+        binds: {},
+        apex: {
+          ...apex,
+          pageId: apex.pages.find((id) => id > 0) ?? apex.pages[0] ?? 1,
+          user: 'APEXREST_PREVIEW',
+          items: new Set(),
+        },
+      });
+      steps.apexSession = 'ready';
+    } catch {
+      steps.apexSession = 'skipped';
+    }
+  return { ms: Math.round(performance.now() - started), ...steps };
+}
+
+/**
  * Opens the connected preview for one DEV/QA/TEST environment of apexrest.json:
  * refuses production, requires a SQLcl saved connection, and confirms the
  * database, service, parsing schema and workspace exactly as deployment does.
@@ -125,6 +166,7 @@ export async function connectOracle(
     warnings.push(
       'Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback',
     );
+    warmUp(data, apex);
     data.endRequest();
     return {
       data,

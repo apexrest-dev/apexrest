@@ -220,6 +220,26 @@ export async function catalogSearch(
     nextResultOffset: offset + limit < scored.length ? offset + limit : null,
   };
 }
+/** Bundled blueprint IDs by compatibility profile; unreadable entries are skipped. */
+export async function bundledBlueprintProfiles(): Promise<Record<string, string[]>> {
+  const root = path.join(resourceRoot(), 'blueprints'),
+    index = JSON.parse(await readFile(path.join(root, 'index.json'), 'utf8')) as {
+      id: string;
+      path: string;
+    }[];
+  const byProfile: Record<string, string[]> = {};
+  for (const entry of index)
+    try {
+      const document = JSON.parse(await readFile(await safePath(root, entry.path), 'utf8')) as {
+        application?: { compatibilityProfile?: unknown };
+      };
+      const profile = document.application?.compatibilityProfile;
+      if (typeof profile === 'string') (byProfile[profile] ??= []).push(entry.id);
+    } catch {
+      // A malformed bundled entry gives no suggestion; catalog reads report it.
+    }
+  return byProfile;
+}
 export async function catalogRead(id: string, offset = 0, limit = 4096, project?: string) {
   let content: string;
   if (id.startsWith('blueprint:')) {

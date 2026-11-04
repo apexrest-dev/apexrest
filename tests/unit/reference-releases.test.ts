@@ -81,7 +81,9 @@ test('project profile supplies release only when no explicit version is selected
   );
   const official = 'oracle:26.2:inventory/app/page/region/plugin-variants/interactive-grid/interactive-grid';
   assert.equal((await referenceSearch(official, '26.2', { corpus: 'components' }))[0]?.id, official);
-  await assert.rejects(referenceRead(id, 0, 100, ctx.root), { code: 'REFERENCE_NOT_FOUND' });
+  // A project supplies context only; its 26.1 recipe stays readable, an explicit 26.2 version does not.
+  assert.equal((await referenceRead(id, 0, 100, ctx.root)).id, id);
+  await assert.rejects(referenceRead(id, 0, 100, ctx.root, '26.2'), { code: 'REFERENCE_NOT_FOUND' });
 });
 
 test('26.2 index and each reference are checksum protected, including manifest-only cache changes', async (t) => {
