@@ -279,9 +279,25 @@ test('developer toolbar renders the APEX-style bar with session, debug, view as,
   );
   assert.match(toolbar, /<option value="vita">Vita<\/option>/);
   assert.match(toolbar, /apex_theme_style=/);
+  // Counts are pluralized: "1 warning", not "1 warnings".
+  server.renderer.diagnose('warning', 'single warning for pluralization', '5');
+  const one = server.renderer.toolbar(
+    server.renderer.prepare({ id: '9', user: 'DEVELOPER', items: {}, pagination: {} }, '5'),
+  );
+  const summary = /title="Diagnostics: ([^"]*)"/u.exec(one)![1]!;
+  for (const noun of ['error', 'warning', 'note']) {
+    const n = Number(new RegExp(`(\\d+) ${noun}`, 'u').exec(summary)![1]);
+    assert.match(summary, new RegExp(`\\b${n} ${noun}${n === 1 ? '(?!s)' : 's'}`, 'u'), summary);
+  }
+  assert.doesNotMatch(one, /\b1 (error|warning|note)s\b/u);
 
   const runtime = await (await call('/__apex/runtime.js')).text();
   assert.match(runtime, /hasAction: function/);
+  // The debug log shows local wall-clock time (as sysdate) and pluralized problem counts.
+  assert.match(runtime, /escapeHtml\(localTime\(entry\.started\)\)/);
+  assert.doesNotMatch(runtime, /entry\.started\.slice\(11, 19\)/);
+  assert.doesNotMatch(runtime, /" warnings<\/span>"/);
+  assert.match(runtime, /plural\(warnings, "warning"\)/);
   for (const name of ['generateTextWithAi', 'showAiAssistant', 'triggerGeocoding', 'expandTree'])
     assert.match(runtime, new RegExp(`${name}:`), name);
   const css = await (await call('/__apex/runtime.css')).text();

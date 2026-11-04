@@ -867,7 +867,21 @@ window.apexLocalReports = (function ($) {
     return baseShowErrors.apply(this, arguments);
   };
 
+  // Commits the cell being edited into the model, as the grid's own Save does first.
+  function finishEditing(ig) {
+    try {
+      var done = ig.grid$ && ig.grid$.grid("finishEditing");
+      if (done && typeof done.then === "function") return Promise.resolve(done);
+    } catch (e) { /* not a grid (yet) */ }
+    return Promise.resolve();
+  }
+
   function saveGrid(ig) {
+    if (!ig) return Promise.resolve();
+    return finishEditing(ig).then(function () { return saveChanges(ig); });
+  }
+
+  function saveChanges(ig) {
     var changes = gridChanges(ig);
     if (!changes.length) { apex.message.showPageSuccess("No changes to save"); return Promise.resolve(); }
     return post("ig-save", { region: ig.cfg.region, changes: changes }).then(function (result) {
@@ -903,6 +917,17 @@ window.apexLocalReports = (function ($) {
   function destroyGrid(region) {
     var ig = grids[region];
     if (!ig) return;
+    // A cell still in edit mode deactivates on a 10 ms timer after it loses focus; if the grid is
+    // destroyed first (a save or live refresh re-renders the region), that timer writes into a
+    // released model (null.getRecordId). Leave edit mode synchronously and drop the timer.
+    try {
+      var widget = ig.grid$.grid("instance");
+      if (widget) {
+        if (widget.deactivateDelayTimer) { clearTimeout(widget.deactivateDelayTimer); widget.deactivateDelayTimer = null; }
+        if (ig.grid$.grid("inEditMode")) ig.grid$.grid("setEditMode", false);
+        if (widget.deactivateDelayTimer) { clearTimeout(widget.deactivateDelayTimer); widget.deactivateDelayTimer = null; }
+      }
+    } catch (e) { /* not initialised */ }
     try { ig.grid$.grid("destroy"); } catch (e) { /* already gone */ }
     try { apex.model.destroy(ig.cfg.modelName); } catch (e) { /* not created */ }
     $(esc(region + "_ig_row_actions_menu")).remove();
@@ -1089,6 +1114,36 @@ window.apexLocalReports = (function ($) {
           },
           setFocusTo: function () { return el$.find("button").first(); }
         });
+      } else if (spec.kind === "color") {
+        // <input type=color> only holds #rrggbb, so "Silver" would come back as #c0c0c0.
+        // Keep the stored value unless the user picks a different color.
+        var stored = "";
+        var toHex = function (value) {
+          if (!value) return "#000000";
+          var ctx = document.createElement("canvas").getContext("2d");
+          if (!ctx) return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : "#000000";
+          ctx.fillStyle = "#000000";
+          ctx.fillStyle = String(value).trim();
+          var hex = String(ctx.fillStyle).toLowerCase();
+          return /^#[0-9a-f]{6}$/.test(hex) ? hex : "#000000";
+        };
+        el$.on("input", function () { el.apexLocalTouched = true; });
+        apex.item.create(spec.id, {
+          getValue: function () {
+            var value = String(el$.val() || "").toLowerCase();
+            if (!el.apexLocalTouched || (stored && value === toHex(stored))) return stored;
+            return value;
+          },
+          setValue: function (value) {
+            stored = value === null || value === undefined ? "" : String(value);
+            el.apexLocalTouched = false;
+            el$.val(toHex(stored));
+          },
+          displayValueFor: function (value) {
+            if (value === null || value === undefined || value === "") return "";
+            return "<span class='apex-local-swatch' style='background-color:" + html(value) + "' aria-hidden='true'></span> " + html(value);
+          }
+        });
       } else if (spec.kind === "date") {
         var original = "";
         var toInput = function (value) { value = value ? String(value).replace(" ", "T") : ""; return spec.time ? value.slice(0, 16) : value.slice(0, 10); };
@@ -1143,7 +1198,7 @@ window.apexLocalReports = (function ($) {
         choices: [{ label: "All Text Columns", value: "" }].concat(cfg.searchColumns.map(function (c) { return { label: c.label, value: c.name }; })) },
       { name: "edit", label: "Edit", get: function () { return editMode; },
         set: function (value) { editMode = value; ig.grid$.grid("setEditMode", value); } },
-      { name: "save", label: "Save", action: function () { ig.grid$.grid("finishEditing").then(function () { saveGrid(ig); }); } },
+      { name: "save", label: "Save", action: function () { saveGrid(ig); } },
       { name: "selection-add-row", label: cfg.addLabel, action: function () { addRow(ig, null); } },
       { name: "reset-report", label: "Reset", icon: "icon-ig-reset", action: function () { confirmReset(cfg); } }
     ]);

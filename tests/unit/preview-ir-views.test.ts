@@ -492,7 +492,26 @@ test('interactive grid column editors, edit authorization and saved-report forma
   };
   // edit authorization follows the preview policy: permissive unless "view as" enforces it
   assert.deepEqual(config.allowed, { add: true, update: true, delete: true });
-  assert.deepEqual(config.customItems.map((item) => item.kind).sort(), ['popupLov', 'stars', 'switch']);
+  assert.deepEqual(config.customItems.map((item) => item.kind).sort(), [
+    'color',
+    'popupLov',
+    'stars',
+    'switch',
+  ]);
+  // The color editor keeps a stored name such as "Silver" unless the user picks another color
+  // (an <input type=color> alone would turn it into #c0c0c0 and mark the row changed).
+  const runtime = await (await fetch(`${server.url}/__apex/runtime.js`)).text();
+  assert.match(runtime, /spec\.kind === "color"/);
+  assert.match(
+    runtime,
+    /if \(!el\.apexLocalTouched \|\| \(stored && value === toHex\(stored\)\)\) return stored;/,
+  );
+  // Destroying a grid (save, refresh) first leaves edit mode and drops the pending deactivate timer.
+  assert.match(runtime, /clearTimeout\(widget\.deactivateDelayTimer\)/);
+  assert.match(
+    runtime,
+    /function saveGrid\(ig\) \{\s*if \(!ig\) return Promise\.resolve\(\);\s*return finishEditing\(ig\)/,
+  );
   assert.equal(config.customItems.find((item) => item.kind === 'popupLov')!.lov!.length, 3);
   assert.match(html, /<input type="color" id="staff_ig_c_COLOR"/);
   assert.match(html, /<div id="staff_ig_c_DEPT" class="apex-local-ig-popupLov/);

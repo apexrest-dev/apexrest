@@ -54,7 +54,7 @@ const EDITORS: Record<string, string> = {
 };
 
 /** Editors that need a small apex.item implementation in the browser. */
-const CUSTOM_EDITORS = new Set(['popupLov', 'checkbox', 'switch', 'stars', 'date']);
+const CUSTOM_EDITORS = new Set(['popupLov', 'checkbox', 'switch', 'stars', 'date', 'color']);
 
 const DISPLAY_TYPES = new Set([
   'displayOnly',
@@ -510,6 +510,8 @@ function customItem(model: GridModel, column: GridColumn, id: string) {
       return { ...base, ...switchValues(column) };
     case 'stars':
       return { ...base, max: starCount(column) };
+    case 'color':
+      return base;
     default:
       return { ...base, time: hasTime(column) };
   }

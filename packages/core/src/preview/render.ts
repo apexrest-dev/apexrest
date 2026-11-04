@@ -2177,10 +2177,13 @@ export class ApexRenderer {
     const errors = counts('error');
     const warnings = counts('warning');
     const notes = counts('info');
+    const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
     const badge = (count: number, level: string, label: string) =>
-      count ? `<span class="apex-local-badge is-${level}" title="${count} ${label}">${count}</span>` : '';
-    const summary = `${errors} errors · ${warnings} warnings · ${notes} notes`;
-    const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? ' has-errors' : ''}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, 'error', 'errors')}${badge(warnings, 'warning', 'warnings')}${badge(notes, 'info', 'notes')}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics · page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || '<li>No diagnostics</li>'}</ul></div>`;
+      count
+        ? `<span class="apex-local-badge is-${level}" title="${plural(count, label)}">${count}</span>`
+        : '';
+    const summary = `${plural(errors, 'error')} · ${plural(warnings, 'warning')} · ${plural(notes, 'note')}`;
+    const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? ' has-errors' : ''}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, 'error', 'error')}${badge(warnings, 'warning', 'warning')}${badge(notes, 'info', 'note')}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics · page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || '<li>No diagnostics</li>'}</ul></div>`;
     return `<div class="apex-local-toolbar" id="apexLocalToolbar" role="region" aria-label="APEX local developer toolbar"><div class="apex-local-tb-bar" role="toolbar"><span class="apex-local-tb-brand" title="APEX local preview · page ${escapeHtml(ctx.pageId)}"><span class="fa fa-apex" aria-hidden="true"></span><span class="apex-local-tb-label">APEX local · page ${escapeHtml(ctx.pageId)}</span></span>${diagnostics}${tools}${picker}<button type="button" class="apex-local-tb-button apex-local-tb-collapse" data-apex-local-collapse title="Hide toolbar"><span class="fa fa-chevron-down" aria-hidden="true"></span></button></div></div>`;
   }
 
