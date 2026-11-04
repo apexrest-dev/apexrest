@@ -195,6 +195,36 @@ test('26.1 remains full and automatic ineligible changes expose reasons while ex
   assert.deepEqual(f.imports, []);
 });
 
+test('package scripts unchanged since their last run do not force a full import; changed ones do', async (t) => {
+  const f = await initialized(t);
+  const script = f.ctx.config.database.packagesDir + '/0010__customer_api.sql';
+  await atomicWrite(path.join(f.ctx.root, script), 'create or replace package customer_api as end;\n/\n');
+  await f.edit(page, 'local page edit');
+  const unapplied = await f.service.plan(f.ctx, 'dev');
+  assert.equal(unapplied.schemaVersion, 4);
+  if (unapplied.schemaVersion !== 4) throw new Error('Expected versioned selection');
+  assert.equal(unapplied.importSelection.resolvedMode, 'full');
+  assert.ok(unapplied.importSelection.reasons.includes('database-operations-require-full-import'));
+  await writeJson(new LocalDeploymentControl(f.env).file('packages.json'), {
+    [f.ctx.config.projectId + ':' + script]: unapplied.sources[script],
+  });
+  const plan = await f.service.plan(f.ctx, 'dev');
+  assert.deepEqual(selected(plan).files, [page]);
+  assert.deepEqual(plan.operations, [{ kind: 'import' }, { kind: 'verify' }]);
+  await f.apply(plan);
+  assert.deepEqual(f.imports, [[page]]);
+  assert.equal(await f.content(page, true), 'local page edit');
+  await atomicWrite(
+    path.join(f.ctx.root, script),
+    'create or replace package customer_api as x number; end;\n/\n',
+  );
+  await f.edit(page, 'second page edit');
+  await assert.rejects(f.service.plan(f.ctx, 'dev', { importMode: 'files', files: [page] }), {
+    code: 'PARTIAL_IMPORT_UNSUPPORTED',
+    message: 'database-operations-require-full-import',
+  });
+});
+
 test('selection tampering, source drift, target drift and backup failure stop before selected writes', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'selected edit');

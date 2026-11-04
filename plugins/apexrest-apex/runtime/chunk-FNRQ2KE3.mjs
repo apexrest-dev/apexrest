@@ -13849,9 +13849,12 @@ var DeploymentService = class {
         );
       checkMigrations(ctx, sources, current.history);
       const history = new Map(current.history.map((row) => [String(row.version), row]));
+      const packageHistory = await new LocalDeploymentControl(env2).packages(ctx.config.projectId);
       for (const [file, sha] of Object.entries(sources)) {
-        if (file.startsWith(ctx.config.database.packagesDir + "/"))
-          return fallback(["database-operations-require-full-import"]);
+        if (file.startsWith(ctx.config.database.packagesDir + "/")) {
+          if (packageHistory[file] !== sha) return fallback(["database-operations-require-full-import"]);
+          continue;
+        }
         if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
           const old = history.get(path11.basename(file));
           if (!old) return fallback(["database-operations-require-full-import"]);
@@ -13911,6 +13914,7 @@ var DeploymentService = class {
         target: current.target,
         fingerprint: current.fingerprint,
         migrationHistory: current.history,
+        packageHistory,
         coordination: coordination(env2),
         scope: "selected-file-import",
         operations: [{ kind: "import" }, { kind: "verify" }],
