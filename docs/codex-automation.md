@@ -1,6 +1,6 @@
 # Programmatic automation for the agent surface
 
-The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its [10 MCP tools](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.
+The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its [12 MCP tools](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.
 
 ## What runs without AI
 

@@ -1,6 +1,6 @@
 # Architecture
 
-APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for Codex and Claude Code, the `apexrest` CLI and six skills that tell the host agent how to use them. Ten MCP tools expose bounded operations; the CLI keeps granular commands. Both surfaces validate inputs against the same strict Zod schemas in `packages/core/src/operations.ts`.
+APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for Codex and Claude Code, the `apexrest` CLI and six skills that tell the host agent how to use them. Twelve MCP tools expose bounded operations; the CLI keeps granular commands. Both surfaces validate inputs against the same strict Zod schemas in `packages/core/src/operations.ts`.
 
 Implementation runs in the user's open conversation. See [host integration](codex-integration.md) for ownership and host boundaries.
 

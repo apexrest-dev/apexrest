@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/dddd2f88-66f6-4040-9359-13bb4ee999f4
 A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read before it writes:
 
 - **Oracle definitions.** The complete [26.2 Oracle inventory](oracle-apexlang-coverage.md): 389 definitions and 32,187 contextual property occurrences.
-- **Compiler-checked recipes.** The [component catalog](component-catalog.md) has 109 component families with 176 recipes. The [pattern catalog](pattern-catalog.md) has 58 UX patterns with 84 recipes, 69 of them compiler-checked.
+- **Compiler-checked recipes.** The [component catalog](component-catalog.md) has 118 component families with 269 ready recipes. The [pattern catalog](pattern-catalog.md) has 58 UX patterns with 84 recipes, 69 of them compiler-checked.
 - **Reference pages.** 1,350 public Oracle pages.
 - **Retrieval.** `apexrest_reference` searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit's code. A change uses at most three lookups.
 - **Recipes as contracts.** Each recipe carries a data shape, adaptation rules, working APEXlang, and compiler evidence bound to file checksums.
@@ -189,6 +189,7 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 | `apexrest_preview`       | Database-free local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `stop`, `status`          |
 | `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                    |
 | `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                      |
+| `apexrest_peer_review`   | `status` shows the other vendor CLI and the review mode; `review` asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review |
 | `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)  |
 
 Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine. `ship` apply runs in a detached worker, so a database write survives host termination. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`, `preview`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.

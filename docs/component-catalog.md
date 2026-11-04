@@ -53,6 +53,8 @@ Read the returned ID with `apexrest_reference` `mode: "read"` (`id`), following 
 
 Search matches any of the query terms (at least half must match), ranks ready recipes whose title starts with the query above their overview contracts, and returns property-name lookups such as `pageItemsToSubmit` at the parameter contract. Records with `readiness: "unresolved"` are hidden unless `includeUnresolved: true` is set; an exact ID always resolves. The first hit of a page carries `code`, the recipe's primary `apexlang` block read from its checksum-verified document (bounded to 2,500 characters, `truncated: true` with the full `length` when a read must continue); `include: "code"` attaches it to every hit and `include: "metadata"` to none. `requiresReferences` and `relatedReferences` resolve up to three linked IDs to `{ id, title, kind }` (titles of `oracle:` or `pattern:` targets are `null`), and `docs.read` resolves up to sixteen. The page budget of 7,000 bytes is unchanged: later snippets shrink first, then inline code, and code is dropped before any hit is omitted.
 
+Metric Cards with `display: report` use Universal Theme's report template, which gives each card a fixed 12.5rem width. This matches APEX itself, so three such regions with `columnSpan: 4` show narrow cards with empty space beside them. When the cards should fill their columns, use the `partial` Metric Card recipe (`display: partial`).
+
 ## Optional OpenAI Decisions selection
 
 Before composing a page, the host can select several useful references in one operation. A [one-page pilot video](assets/apexrest-decisions-pilot.mp4) ([captions](assets/apexrest-decisions-pilot.srt)) shows the measured effect and its limits.
