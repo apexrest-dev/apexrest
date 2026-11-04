@@ -15803,7 +15803,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-IHDY4DSU.mjs");
+      const { previewDispatch } = await import("./chunk-7UIQ6CTI.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();

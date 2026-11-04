@@ -2177,11 +2177,22 @@ export class LocalDatabase implements AppData {
       sqliteConstants.SQLITE_DELETE,
     ]);
     database.setAuthorizer((action, table, _column, schema) => {
-      if (actions.has(action) && table && schema !== 'temp') writes.add(table.toUpperCase());
+      if (actions.has(action) && table && schema !== 'temp') this.#writes?.add(table.toUpperCase());
       return sqliteConstants.SQLITE_OK;
     });
     this.#writes = writes;
     return true;
+  }
+
+  /** Runs preview bookkeeping (e.g. rebuilding generated tables) without recording its writes. */
+  untracked<T>(work: () => T): T {
+    const writes = this.#writes;
+    this.#writes = undefined;
+    try {
+      return work();
+    } finally {
+      this.#writes = writes;
+    }
   }
 
   /** The tables written since the last call (see trackWrites). */

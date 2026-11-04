@@ -246,6 +246,12 @@ test('live preview maps regions to tables and pushes writes, presence and source
     await (await fetch(`${server.url}/r/demo/board`, { headers: { cookie } })).text(),
     /Open work/,
   );
+  // Re-reading the source regenerates the APEX_* dictionary tables; that is not a data change.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.deepEqual(
+    mine.queue.filter((message) => message.type === 'changed'),
+    [],
+  );
 
   theirs.ws.close();
   assert.equal((await mine.next('presence')).viewers, 1);

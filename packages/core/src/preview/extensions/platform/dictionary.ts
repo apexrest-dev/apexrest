@@ -563,6 +563,11 @@ const built = new WeakSet<ApexRenderer>();
 export function ensureDictionary(renderer: ApexRenderer): void {
   if (built.has(renderer)) return;
   built.add(renderer);
+  // Rebuilding the dictionary from the source is not a data change for live pages.
+  renderer.db.untracked(() => buildDictionary(renderer));
+}
+
+function buildDictionary(renderer: ApexRenderer): void {
   const db = raw(renderer);
   ensureStateTables(db);
   const appId = renderer.appId;

@@ -2126,11 +2126,21 @@ var LocalDatabase = class {
       sqliteConstants.SQLITE_DELETE
     ]);
     database.setAuthorizer((action, table, _column, schema) => {
-      if (actions.has(action) && table && schema !== "temp") writes.add(table.toUpperCase());
+      if (actions.has(action) && table && schema !== "temp") this.#writes?.add(table.toUpperCase());
       return sqliteConstants.SQLITE_OK;
     });
     this.#writes = writes;
     return true;
+  }
+  /** Runs preview bookkeeping (e.g. rebuilding generated tables) without recording its writes. */
+  untracked(work) {
+    const writes = this.#writes;
+    this.#writes = void 0;
+    try {
+      return work();
+    } finally {
+      this.#writes = writes;
+    }
   }
   /** The tables written since the last call (see trackWrites). */
   takeWrites() {
@@ -15956,13 +15966,17 @@ apexLocal.live = (function ($) {
 
   function changed(message) {
     if (!state.data) return;
-    var tables = message.tables || [], regions = [], forms = [];
+    var tables = message.tables || [], regions = [], forms = [], held = [];
     Object.keys(state.regions).forEach(function (id) {
       var region = state.regions[id];
       if (!document.getElementById(id)) return;
       if (!region.tables.some(function (table) { return tables.indexOf(table) >= 0; })) return;
-      // The grid this tab is saving refreshes itself once its save returns.
-      if (message.here && unsaved(id)) return;
+      // A grid with unsaved edits is left alone: the one this tab is saving refreshes itself once
+      // its save returns, and another one keeps its user's edits (with a notice).
+      if (unsaved(id)) {
+        if (!message.here) held.push(id);
+        return;
+      }
       (region.form ? forms : regions).push(id);
     });
     regions.forEach(schedule);
@@ -15971,6 +15985,9 @@ apexLocal.live = (function ($) {
     var who = message.self ? "Another tab" : message.user;
     if (regions.length)
       toast(who + " changed " + tables.join(", ") + " · " + regions.length + " region" + (regions.length > 1 ? "s" : "") + " updated", "info");
+    held.forEach(function (id) {
+      toast("Data of " + id + " changed elsewhere; save or cancel your edits to see it", "warning");
+    });
     if (forms.length)
       toast(who + " changed " + tables.join(", ") + "; this form may show old values", "warning",
         { label: "Reload", run: reload });
@@ -15990,7 +16007,15 @@ apexLocal.live = (function ($) {
   function receive(event) {
     var message;
     try { message = JSON.parse(event.data); } catch (e) { return; }
-    if (message.type === "hello") state.data = !!message.data;
+    if (message.type === "hello") {
+      state.data = !!message.data;
+      // Changes made while the socket was down were missed: bring every followed region up to date.
+      // Only after hello, which a server that no longer knows this session never sends.
+      if (state.wasConnected && state.data) Object.keys(state.regions).forEach(function (id) {
+        if (!state.regions[id].form) schedule(id);
+      });
+      state.wasConnected = true;
+    }
     else if (message.type === "presence") {
       state.viewers = message.viewers || 0;
       state.sessions = message.sessions || 0;
@@ -16012,11 +16037,7 @@ apexLocal.live = (function ($) {
       "/__apex/live?page=" + encodeURIComponent(state.page) + "&tab=" + TAB);
     state.socket = socket;
     socket.onopen = function () {
-      // Changes made while the socket was down were missed: bring every followed region up to date.
-      if (state.wasConnected && state.data) Object.keys(state.regions).forEach(function (id) {
-        if (!state.regions[id].form) schedule(id);
-      });
-      state.connected = state.wasConnected = true;
+      state.connected = true;
       state.retry = 0;
       paint();
     };
@@ -16674,6 +16695,9 @@ var built = /* @__PURE__ */ new WeakSet();
 function ensureDictionary(renderer) {
   if (built.has(renderer)) return;
   built.add(renderer);
+  renderer.db.untracked(() => buildDictionary(renderer));
+}
+function buildDictionary(renderer) {
   const db2 = raw(renderer);
   ensureStateTables(db2);
   const appId = renderer.appId;
