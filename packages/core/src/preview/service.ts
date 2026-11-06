@@ -77,13 +77,25 @@ function summarize(diagnostics: Diagnostic[]) {
   };
 }
 
-function assetsReady(assetsDir: string | undefined): void {
+/**
+ * Makes sure the Universal Theme assets exist before a start or check. A missing install is set up
+ * here (from the cached APEX distribution, or downloaded once) instead of returning an error that
+ * only asks the caller to run setup.
+ */
+async function assetsReady(assetsDir: string | undefined): Promise<void> {
   try {
+    loadAssets(assetsDir);
+    return;
+  } catch {
+    // Not installed yet: set up below.
+  }
+  try {
+    await previewSetup({ assetsDir });
     loadAssets(assetsDir);
   } catch (error) {
     throw new Fault('PREVIEW_ASSETS_MISSING', (error as Error).message, 3, 'blocked', {
       nextActions: [
-        'Run apexrest preview setup (downloads the APEX 26.2 distribution once) or pass --zip with a local apex_26.2 zip.',
+        'The automatic preview setup failed. Run apexrest preview setup with --zip and a local apex_26.2 zip, or check network access to download.oracle.com.',
       ],
     });
   }
@@ -124,7 +136,7 @@ export async function previewStart(
   },
 ) {
   const sourceDir = await resolveSource(root, input.sourceDir);
-  assetsReady(input.assetsDir);
+  await assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
   if (
     previous &&
@@ -364,7 +376,7 @@ export async function previewCheck(
   },
 ) {
   const sourceDir = await resolveSource(root, input.sourceDir);
-  assetsReady(input.assetsDir);
+  await assetsReady(input.assetsDir);
   const oracle = input.env ? await connectOracle(root, input.env) : undefined;
   const { seedDirs } = await projectData(root, sourceDir);
   const result = checkApplication({
