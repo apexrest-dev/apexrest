@@ -175,7 +175,11 @@ export async function startMcp() {
                 );
           result = jobToolResult(
             tool.operation,
-            await runJobTool(jobs, tool.operation, input, runtime, extra.signal, inline ? { inline } : {}),
+            // The boundary schema already allows ship its longer wait (recover included); use the same bound here.
+            await runJobTool(jobs, tool.operation, input, runtime, extra.signal, {
+              ...(inline ? { inline } : {}),
+              ...(tool.operation === 'ship' ? { waitSchema: shipWaitSeconds } : {}),
+            }),
           );
         }
       } else result = await dispatch(tool.operation, input, extra.signal);
