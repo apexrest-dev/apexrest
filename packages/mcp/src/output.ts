@@ -175,9 +175,12 @@ function preview(value: unknown, depth = 0): unknown {
 export async function toolOutput(original: Result, project?: string) {
   const full = sanitized(original) as Result;
   const serialized = JSON.stringify(full);
-  const reader = ['docs.read', 'artifacts.read', 'reference'].includes(full.operation);
+  const reader = ['docs.read', 'artifacts.read', 'reference', 'metadata.read'].includes(full.operation);
   let result = full;
-  if (serialized.length > (reader ? readerLimit : inlineLimit)) {
+  // Compiler diagnostics are the repair list itself: a typical first validation of new pages
+  // (30-50 entries with hints) travels inline instead of costing an artifact read.
+  const limit = reader || full.diagnostics.length > 5 ? readerLimit : inlineLimit;
+  if (serialized.length > limit) {
     let artifactId: string | undefined;
     let capturedRunId: string | undefined;
     try {

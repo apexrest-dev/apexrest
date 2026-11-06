@@ -282,3 +282,27 @@ test('large plan previews preserve safety fields, source counts and operation co
   assert.equal(summary.sources, undefined);
   assert.ok(JSON.stringify(transported).length < 4000);
 });
+
+test('a first validation with dozens of hinted diagnostics travels inline', async (t) => {
+  const { ctx } = await isolated(t);
+  const entries = Array.from({ length: 33 }, (_, i) => ({
+    message: `Invalid property: onValue${i}`,
+    file: `pages/p0000${i % 5}-page.apx`,
+    line: i + 1,
+    column: 12,
+    type: 'INVALID_PROPERTY',
+    hint: 'inside settings of pageItem P4_IS_ACTIVE (type: switch) of page 4. Fix: onValue applies to pageItem (type: switch) only when settings.useDefaults = N',
+  }));
+  const failed = failure(
+    'apex.validate',
+    new Fault('VALIDATION_FAILED', 'Oracle compiler reported 33 error(s).', 1, 'failed', {
+      diagnostics: entries,
+    }),
+  );
+  const response = await toolOutput(failed, ctx.root);
+  const inline = JSON.parse(response.content[0]!.text);
+  assert.equal(response.isError, true);
+  assert.equal(inline.diagnostics.length, 33);
+  assert.equal(inline.data?.output, undefined);
+  assert.ok(response.content[0]!.text.length < 32768);
+});
