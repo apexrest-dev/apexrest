@@ -2,6 +2,7 @@
 
 ## 2.5.0
 
+- Add repair hints from the 26.2 property contracts to `INVALID_PROPERTY` compiler diagnostics: the `hint` ends with `Fix:` and says where the property belongs (`parentEntry belongs in group appearance of entry`), when it applies (`onValue applies to pageItem (type: switch) only when settings.useDefaults = N`) or which properties the group accepts.
 - Return working APEXlang with 26.2 component selection: each selected page component carries `example`, a block from an Oracle 26.2 sample page of the same kind (region, page item, button, process) that prefers the variant the request names (a line chart, not a pie), and a modal form request adds `pageExamples` with one whole sample page (create/save/delete buttons, cancel action, initialization, row processing, close dialog). Components the request names (switch, select list, button, PL/SQL process, list and breadcrumb entries) now reach the Decisions shortlist ahead of regions that only share vocabulary; `select` returns up to 12 results by default (16 at most), and results with an example omit their routing summary and links.
 - Install the local preview assets on first use: `preview` runs the asset setup itself when the APEX assets are missing and reports `PREVIEW_ASSETS_MISSING` only when that setup fails.
 - Accept the ship wait limit of up to 120 seconds in `apexrest_ship mode:recover`; it previously rejected `waitSeconds` above 30.

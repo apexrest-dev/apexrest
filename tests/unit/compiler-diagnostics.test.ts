@@ -205,7 +205,7 @@ test('validate and import surface structured compiler diagnostics on the fault',
           column: 8,
           type: 'INVALID_PROPERTY',
           message: 'Invalid property: bogus',
-          hint: 'inside navigation of page 1',
+          hint: 'inside navigation of page 1. Fix: page has no bogus; navigation: cursorFocus, warnOnUnsavedChanges',
         },
       ]);
       return true;
@@ -223,7 +223,10 @@ test('validate and import surface structured compiler diagnostics on the fault',
     (error: Error & { code: string; details?: { diagnostics?: { type: string; hint?: string }[] } }) => {
       assert.equal(error.code, 'ORACLE_COMMAND_FAILED');
       assert.equal(error.details?.diagnostics?.[0]?.type, 'INVALID_PROPERTY');
-      assert.equal(error.details?.diagnostics?.[0]?.hint, 'inside navigation of page 1');
+      assert.equal(
+        error.details?.diagnostics?.[0]?.hint,
+        'inside navigation of page 1. Fix: page has no bogus; navigation: cursorFocus, warnOnUnsavedChanges',
+      );
       return true;
     },
   );

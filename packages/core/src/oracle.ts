@@ -1,3 +1,4 @@
+import { propertyFix } from './contract-hints.ts';
 import { performance } from 'node:perf_hooks';
 import { recordSqlclTiming, recordStatementTimings, type SqlclLabel } from './sqlcl-timings.ts';
 import path from 'node:path';
@@ -1580,6 +1581,8 @@ export async function compilerDetails(output: string, root?: string) {
     for (const diagnostic of diagnostics) {
       const hint = await diagnosticHint(root, diagnostic);
       if (hint) diagnostic.hint = hint;
+      const fix = await propertyFix(diagnostic.type, diagnostic.message, hint);
+      if (fix) diagnostic.hint = `${hint}. Fix: ${fix}`;
     }
   return diagnostics.length ? { diagnostics } : undefined;
 }
