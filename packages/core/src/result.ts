@@ -218,6 +218,31 @@ export function failure(operation: string, error: unknown): Result {
     ...(Array.isArray(e.details?.nextActions) ? e.details.nextActions.map(redact) : []),
     ...(faultNextActions[e.code] ? [faultNextActions[e.code]!] : []),
   ];
+  // Plain values a caller needs to act on the failure (deploymentRunId for ship mode:recover,
+  // conflicting aliases, plan digests). Objects stay internal; strings are redacted.
+  const plain = (value: unknown): value is string | number | boolean =>
+    ['string', 'number', 'boolean'].includes(typeof value);
+  const facts = Object.fromEntries(
+    Object.entries(e.details ?? {})
+      .filter(([key]) => key !== 'diagnostics' && key !== 'nextActions')
+      .filter(
+        ([, value]) => plain(value) || (Array.isArray(value) && value.length <= 50 && value.every(plain)),
+      )
+      .map(([key, value]) => [
+        key,
+        typeof value === 'string'
+          ? redact(value)
+          : Array.isArray(value)
+            ? value.map((v) => (typeof v === 'string' ? redact(v) : v))
+            : value,
+      ]),
+  );
+  const data = {
+    ...facts,
+    ...(structured.length > DIAGNOSTIC_LIMIT
+      ? { diagnosticsOmitted: structured.length - DIAGNOSTIC_LIMIT }
+      : {}),
+  };
   return {
     schemaVersion: 1,
     ok: false,
@@ -228,9 +253,7 @@ export function failure(operation: string, error: unknown): Result {
     diagnostics,
     artifacts: [],
     nextActions,
-    ...(structured.length > DIAGNOSTIC_LIMIT
-      ? { data: { diagnosticsOmitted: structured.length - DIAGNOSTIC_LIMIT } }
-      : {}),
+    ...(Object.keys(data).length ? { data } : {}),
     exitCode: e.exitCode,
   };
 }
