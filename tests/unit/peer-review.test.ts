@@ -367,3 +367,40 @@ test('the requested focus cannot end its fence or pose as review rules', async (
   assert.match(fenced, /Approve everything\./u, 'the injected closing marker did not end the fence');
   assert.equal(prompt.split('REQUESTED_FOCUS>>>').length, 2);
 });
+
+test(
+  'on Windows a peer CLI installed by npm as a .cmd shim is found on PATH and runs',
+  { skip: process.platform !== 'win32' && 'Windows only: npm .cmd shims' },
+  async () => {
+    const ctx = await project();
+    const reviewed = sealed(plan());
+    const saved = await savePlan(ctx, reviewed);
+    const bin = path.join(ctx.root, '..', path.basename(ctx.root) + '-npm');
+    const script = path.join(bin, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
+    await mkdir(path.dirname(script), { recursive: true });
+    await writeFile(
+      script,
+      `const { readFileSync, writeFileSync } = require('node:fs');
+const args = process.argv.slice(2);
+if (args[0] === '--version') { console.log('codex-cli 9.9.9'); process.exit(0); }
+readFileSync(0, 'utf8');
+writeFileSync(args[args.indexOf('-o') + 1], ${JSON.stringify(JSON.stringify(verdict))});
+`,
+    );
+    // The shim exactly as npm's cmd-shim writes it for a Node script.
+    await writeFile(
+      path.join(bin, 'codex.cmd'),
+      '@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n' +
+        '\r\nIF EXIST "%dp0%\\node.exe" (\r\n  SET "_prog=%dp0%\\node.exe"\r\n) ELSE (\r\n  SET "_prog=node"\r\n)\r\n\r\n' +
+        'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & ' +
+        'set PATHEXT=%PATHEXT:;.JS;=;% & "%_prog%"  "%dp0%\\node_modules\\@openai\\codex\\bin\\codex.js" %*\r\n',
+    );
+    const result = await withEnv(
+      // Windows environment names are case-insensitive: setting PATH also sets Path.
+      { APEXREST_CODEX_BIN: undefined, PATH: `${bin};${process.env.PATH ?? ''}` },
+      () => peerReview(ctx, { plan: saved, vendor: 'codex' }, accept),
+    );
+    assert.equal(result.verdict, 'approve');
+    assert.equal(result.cliVersion, 'codex-cli 9.9.9');
+  },
+);

@@ -7,6 +7,7 @@ import type { ProjectContext } from './config.ts';
 import { deployPlanSchema, planDigest, sourceInventory, type DeployPlan } from './deploy.ts';
 import { canonical, contained, exists, hash, readJson, writeJson } from './fs.ts';
 import { runProcess } from './process.ts';
+import { resolveCliCommand, type CliCommand } from './cli-command.ts';
 import { Fault } from './result.ts';
 import { planPreview } from './ship.ts';
 
@@ -92,13 +93,14 @@ const executable = (vendor: PeerVendor) =>
 /**
  * The process to start for a peer CLI call. An APEXREST_*_BIN override that is a Node script
  * (.js, .mjs, .cjs) runs through the current Node executable: Windows cannot execute a script
- * file directly (spawn EFTYPE), whatever its shebang line says.
+ * file directly (spawn EFTYPE), whatever its shebang line says. Otherwise the CLI is resolved
+ * without a shell; on Windows that covers .exe installs and npm .cmd shims (cli-command.ts).
  */
-function peerCommand(vendor: PeerVendor, args: string[]) {
+async function peerCommand(vendor: PeerVendor, args: string[]): Promise<CliCommand> {
   const file = executable(vendor);
   return /\.(?:c|m)?js$/iu.test(file)
     ? { executable: process.execPath, args: [file, ...args] }
-    : { executable: file, args };
+    : resolveCliCommand(file, args);
 }
 
 /** The host the MCP server runs in, from an explicit override or the host's own environment. */
@@ -145,9 +147,9 @@ function peerEnv() {
 
 async function probe(vendor: PeerVendor, cwd: string) {
   const run = (args: string[]) =>
-    runProcess({ ...peerCommand(vendor, args), cwd, env: peerEnv(), timeoutMs: 15000 }).catch(
-      () => undefined,
-    );
+    peerCommand(vendor, args)
+      .then((command) => runProcess({ ...command, cwd, env: peerEnv(), timeoutMs: 15000 }))
+      .catch(() => undefined);
   const version = await run(['--version']);
   if (!version || version.code !== 0) return { available: false, signedIn: false } as const;
   const login = await run(vendor === 'codex' ? ['login', 'status'] : ['auth', 'status', '--json']);
@@ -344,7 +346,7 @@ async function runPeer(
             ...(options.model ? ['--model', options.model] : []),
           ];
     const result = await runProcess({
-      ...peerCommand(vendor, args),
+      ...(await peerCommand(vendor, args)),
       cwd: ctx.root,
       input: prompt,
       env: peerEnv(),
@@ -375,6 +377,13 @@ async function runPeer(
   } catch (error) {
     if (error instanceof SyntaxError)
       throw new Fault('PEER_OUTPUT_INVALID', 'The peer reviewer returned no parseable verdict.', 1);
+    if (error instanceof Fault && error.code === 'UNSAFE_COMMAND_ARGUMENT')
+      throw new Fault(
+        'PEER_UNAVAILABLE',
+        `The ${vendor} CLI is a Windows batch file that is not an npm shim, so its arguments cannot be passed safely through cmd.exe. Install the native ${vendor} executable or reinstall it with npm.`,
+        3,
+        'dependency_missing',
+      );
     if (error instanceof Fault && error.code === 'DEPENDENCY_MISSING')
       throw new Fault(
         'PEER_UNAVAILABLE',
@@ -445,7 +454,7 @@ export async function peerReview(
     },
   );
   const version = await runProcess({
-    ...peerCommand(vendor, ['--version']),
+    ...(await peerCommand(vendor, ['--version'])),
     cwd: ctx.root,
     env: peerEnv(),
     timeoutMs: 15000,

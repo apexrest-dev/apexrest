@@ -4,8 +4,10 @@ import {
   browserPreferences
 } from "./chunk-2PFVJG25.mjs";
 import {
+  batchCommand,
+  locateCommand,
   runtimeState
-} from "./chunk-DDIVGNK7.mjs";
+} from "./chunk-G3H5M4NL.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -179,17 +181,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path15) {
-      const ctrl = callVisitor(key, node2, visitor, path15);
+    function visit_(key, node2, visitor, path16) {
+      const ctrl = callVisitor(key, node2, visitor, path16);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path15, ctrl);
-        return visit_(key, ctrl, visitor, path15);
+        replaceNode(key, path16, ctrl);
+        return visit_(key, ctrl, visitor, path16);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path15 = Object.freeze(path15.concat(node2));
+          path16 = Object.freeze(path16.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path15);
+            const ci = visit_(i, node2.items[i], visitor, path16);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -200,13 +202,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path15 = Object.freeze(path15.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path15);
+          path16 = Object.freeze(path16.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path16);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path15);
+          const cv = visit_("value", node2.value, visitor, path16);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -227,17 +229,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path15) {
-      const ctrl = await callVisitor(key, node2, visitor, path15);
+    async function visitAsync_(key, node2, visitor, path16) {
+      const ctrl = await callVisitor(key, node2, visitor, path16);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path15, ctrl);
-        return visitAsync_(key, ctrl, visitor, path15);
+        replaceNode(key, path16, ctrl);
+        return visitAsync_(key, ctrl, visitor, path16);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path15 = Object.freeze(path15.concat(node2));
+          path16 = Object.freeze(path16.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path15);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path16);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -248,13 +250,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path15 = Object.freeze(path15.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path15);
+          path16 = Object.freeze(path16.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path16);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path15);
+          const cv = await visitAsync_("value", node2.value, visitor, path16);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -281,23 +283,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path15) {
+    function callVisitor(key, node2, visitor, path16) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path15);
+        return visitor(key, node2, path16);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path15);
+        return visitor.Map?.(key, node2, path16);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path15);
+        return visitor.Seq?.(key, node2, path16);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path15);
+        return visitor.Pair?.(key, node2, path16);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path15);
+        return visitor.Scalar?.(key, node2, path16);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path15);
+        return visitor.Alias?.(key, node2, path16);
       return void 0;
     }
-    function replaceNode(key, path15, node2) {
-      const parent = path15[path15.length - 1];
+    function replaceNode(key, path16, node2) {
+      const parent = path16[path16.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -909,10 +911,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path15, value) {
+    function collectionFromPath(schema, path16, value) {
       let v = value;
-      for (let i = path15.length - 1; i >= 0; --i) {
-        const k = path15[i];
+      for (let i = path16.length - 1; i >= 0; --i) {
+        const k = path16[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -931,7 +933,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path15) => path15 == null || typeof path15 === "object" && !!path15[Symbol.iterator]().next().done;
+    var isEmptyPath = (path16) => path16 == null || typeof path16 === "object" && !!path16[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -961,11 +963,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path15, value) {
-        if (isEmptyPath(path15))
+      addIn(path16, value) {
+        if (isEmptyPath(path16))
           this.add(value);
         else {
-          const [key, ...rest] = path15;
+          const [key, ...rest] = path16;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -979,8 +981,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path15) {
-        const [key, ...rest] = path15;
+      deleteIn(path16) {
+        const [key, ...rest] = path16;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -994,8 +996,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path15, keepScalar) {
-        const [key, ...rest] = path15;
+      getIn(path16, keepScalar) {
+        const [key, ...rest] = path16;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1013,8 +1015,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path15) {
-        const [key, ...rest] = path15;
+      hasIn(path16) {
+        const [key, ...rest] = path16;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1024,8 +1026,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path15, value) {
-        const [key, ...rest] = path15;
+      setIn(path16, value) {
+        const [key, ...rest] = path16;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3540,9 +3542,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path15, value) {
+      addIn(path16, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path15, value);
+          this.contents.addIn(path16, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3617,14 +3619,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path15) {
-        if (Collection.isEmptyPath(path15)) {
+      deleteIn(path16) {
+        if (Collection.isEmptyPath(path16)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path15) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path16) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3639,10 +3641,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path15, keepScalar) {
-        if (Collection.isEmptyPath(path15))
+      getIn(path16, keepScalar) {
+        if (Collection.isEmptyPath(path16))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path15, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path16, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3653,10 +3655,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path15) {
-        if (Collection.isEmptyPath(path15))
+      hasIn(path16) {
+        if (Collection.isEmptyPath(path16))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path15) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path16) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3673,13 +3675,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path15, value) {
-        if (Collection.isEmptyPath(path15)) {
+      setIn(path16, value) {
+        if (Collection.isEmptyPath(path16)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path15), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path16), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path15, value);
+          this.contents.setIn(path16, value);
         }
       }
       /**
@@ -5640,9 +5642,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path15) => {
+    visit.itemAtPath = (cst, path16) => {
       let item2 = cst;
-      for (const [field, index] of path15) {
+      for (const [field, index] of path16) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5651,23 +5653,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path15) => {
-      const parent = visit.itemAtPath(cst, path15.slice(0, -1));
-      const field = path15[path15.length - 1][0];
+    visit.parentCollection = (cst, path16) => {
+      const parent = visit.itemAtPath(cst, path16.slice(0, -1));
+      const field = path16[path16.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path15, item2, visitor) {
-      let ctrl = visitor(item2, path15);
+    function _visit(path16, item2, visitor) {
+      let ctrl = visitor(item2, path16);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path15.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path16.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5678,10 +5680,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path15);
+            ctrl = ctrl(item2, path16);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path15) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path16) : ctrl;
     }
     exports.visit = visit;
   }
@@ -10665,7 +10667,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path15, reason, before, after }) => ({ path: path15, reason, before, after })),
+    operations: plan.operations.map(({ path: path16, reason, before, after }) => ({ path: path16, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -11125,7 +11127,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path14 from "node:path";
+import path15 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -15025,13 +15027,69 @@ var PanelService = class {
 };
 
 // packages/core/src/peer-review.ts
-import path13 from "node:path";
+import path14 from "node:path";
 import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdir as mkdir6, readFile as readFile11, rm as rm4 } from "node:fs/promises";
+import { mkdir as mkdir6, readFile as readFile12, rm as rm4 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
-// packages/core/src/ship.ts
+// packages/core/src/cli-command.ts
 import path12 from "node:path";
+import { readFile as readFile11, stat as stat4 } from "node:fs/promises";
+var SHIM_LIMIT = 64 * 1024;
+var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
+function npmShimTarget(text2) {
+  const line = text2.split(/\r?\n/u).map((entry2) => entry2.trim()).filter((entry2) => entry2.includes("%*")).at(-1);
+  if (!line) return void 0;
+  const target = /"%dp0%\\([^"%]+)"\s+%\*$/iu.exec(line)?.[1];
+  if (!target) return void 0;
+  const prog = line.lastIndexOf('"%_prog%"');
+  if (prog >= 0) {
+    if (!/SET "_prog=(?:%dp0%\\)?node(?:\.exe)?"/iu.test(text2)) return void 0;
+    const flags = line.slice(prog + '"%_prog%"'.length, line.lastIndexOf('"%dp0%\\')).trim().split(/\s+/u).filter(Boolean);
+    if (!flags.every((flag) => NODE_FLAG.test(flag))) return void 0;
+    return { target, node: true, nodeArgs: flags };
+  }
+  if (!line.startsWith('"%dp0%\\') || !/\.(?:exe|com)$/iu.test(target)) return void 0;
+  return { target, node: false, nodeArgs: [] };
+}
+async function isFile(file) {
+  try {
+    return (await stat4(file)).isFile();
+  } catch {
+    return false;
+  }
+}
+async function resolveCliCommand(command, args, host = {}) {
+  const platform = host.platform ?? process.platform, env2 = host.env ?? process.env;
+  if (platform !== "win32") return { executable: command, args };
+  const located = await locateCommand(command, { platform, env: env2 });
+  if (!located)
+    throw new Fault(
+      "DEPENDENCY_MISSING",
+      `${command} was not found on an absolute PATH entry.`,
+      3,
+      "dependency_missing"
+    );
+  const extension = path12.extname(located).toLowerCase();
+  if (extension === ".cmd" || extension === ".bat") {
+    const content = await readFile11(located);
+    const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
+    if (shim) {
+      const target = path12.join(path12.dirname(located), ...shim.target.split(/[\\/]/u));
+      if (await isFile(target))
+        return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
+    }
+  }
+  const batch = batchCommand(located, args, env2);
+  return {
+    executable: batch.executable,
+    args: batch.args,
+    ...batch.verbatim ? { windowsVerbatimArguments: true } : {}
+  };
+}
+
+// packages/core/src/ship.ts
+import path13 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -15076,23 +15134,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source2 = path12.resolve(root, input.sourceDir);
-  if (!await exists(path12.join(source2, "application.apx")))
+  const source2 = path13.resolve(root, input.sourceDir);
+  if (!await exists(path13.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path12.join(source2, ".apex", "apexlang.json");
+  const own = path13.join(source2, ".apex", "apexlang.json");
   if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path12.resolve(input.project));
-  for (let dir = path12.dirname(source2); ; dir = path12.dirname(dir)) {
-    if (await exists(path12.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path13.resolve(input.project));
+  for (let dir = path13.dirname(source2); ; dir = path13.dirname(dir)) {
+    if (await exists(path13.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path12.dirname(dir) === dir) break;
+    if (path13.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -15101,7 +15159,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file = path12.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file = path13.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file)) return { source: source2, metadata: { origin: "project", file } };
   }
   throw new Fault(
@@ -15447,9 +15505,9 @@ var verdictJsonSchema = {
   }
 };
 var executable = (vendor) => (vendor === "codex" ? process.env.APEXREST_CODEX_BIN : process.env.APEXREST_CLAUDE_BIN) || vendor;
-function peerCommand(vendor, args) {
+async function peerCommand(vendor, args) {
   const file = executable(vendor);
-  return /\.(?:c|m)?js$/iu.test(file) ? { executable: process.execPath, args: [file, ...args] } : { executable: file, args };
+  return /\.(?:c|m)?js$/iu.test(file) ? { executable: process.execPath, args: [file, ...args] } : resolveCliCommand(file, args);
 }
 function hostAgent(env2 = process.env) {
   if (env2.APEXREST_HOST === "codex" || env2.APEXREST_HOST === "claude") return env2.APEXREST_HOST;
@@ -15488,9 +15546,7 @@ function peerEnv() {
   return env2;
 }
 async function probe(vendor, cwd) {
-  const run = (args) => runProcess({ ...peerCommand(vendor, args), cwd, env: peerEnv(), timeoutMs: 15e3 }).catch(
-    () => void 0
-  );
+  const run = (args) => peerCommand(vendor, args).then((command) => runProcess({ ...command, cwd, env: peerEnv(), timeoutMs: 15e3 })).catch(() => void 0);
   const version2 = await run(["--version"]);
   if (!version2 || version2.code !== 0) return { available: false, signedIn: false };
   const login = await run(vendor === "codex" ? ["login", "status"] : ["auth", "status", "--json"]);
@@ -15608,8 +15664,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
   await mkdir6(scratch, { recursive: true });
   try {
-    const schemaFile = path13.join(scratch, "verdict.schema.json");
-    const lastFile = path13.join(scratch, "last-message.json");
+    const schemaFile = path14.join(scratch, "verdict.schema.json");
+    const lastFile = path14.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -15643,7 +15699,7 @@ async function runPeer(vendor, ctx, prompt, options) {
       ...options.model ? ["--model", options.model] : []
     ];
     const result = await runProcess({
-      ...peerCommand(vendor, args),
+      ...await peerCommand(vendor, args),
       cwd: ctx.root,
       input: prompt,
       env: peerEnv(),
@@ -15660,7 +15716,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile11(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile12(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -15668,6 +15724,13 @@ async function runPeer(vendor, ctx, prompt, options) {
   } catch (error) {
     if (error instanceof SyntaxError)
       throw new Fault("PEER_OUTPUT_INVALID", "The peer reviewer returned no parseable verdict.", 1);
+    if (error instanceof Fault && error.code === "UNSAFE_COMMAND_ARGUMENT")
+      throw new Fault(
+        "PEER_UNAVAILABLE",
+        `The ${vendor} CLI is a Windows batch file that is not an npm shim, so its arguments cannot be passed safely through cmd.exe. Install the native ${vendor} executable or reinstall it with npm.`,
+        3,
+        "dependency_missing"
+      );
     if (error instanceof Fault && error.code === "DEPENDENCY_MISSING")
       throw new Fault(
         "PEER_UNAVAILABLE",
@@ -15725,7 +15788,7 @@ async function peerReview(ctx, input, verify, signal) {
     }
   );
   const version2 = await runProcess({
-    ...peerCommand(vendor, ["--version"]),
+    ...await peerCommand(vendor, ["--version"]),
     cwd: ctx.root,
     env: peerEnv(),
     timeoutMs: 15e3
@@ -15978,29 +16041,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-B5AVZZCK.mjs");
+        const { ToolchainService } = await import("./chunk-QMLGR7AA.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-ZCX2ZG2D.mjs");
+        const { uninstallTools } = await import("./chunk-TOKNBWH6.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-DZK6NHRS.mjs");
+        const { setup: setup2 } = await import("./chunk-RW3KS4TP.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-DZK6NHRS.mjs");
+        const { validateNative } = await import("./chunk-RW3KS4TP.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-DZK6NHRS.mjs");
+        const { uninstallNative } = await import("./chunk-RW3KS4TP.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -16010,7 +16073,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path14.basename(path14.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path15.basename(path15.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "connection.add":

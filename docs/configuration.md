@@ -12,7 +12,7 @@ Optional `peerReview` enables cross-vendor review of saved ship plans: `mode` (`
 
 ## Cross-vendor peer review
 
-Claude Code and Codex can review each other's APEX changes. The host agent prepares a plan with `apexrest_ship mode:plan`, then calls `apexrest_peer_review action:review plan:<planPath>`. The runtime runs the other vendor's CLI in the project directory with the user's existing sign-in (ChatGPT or `OPENAI_API_KEY` for Codex; Claude subscription or `ANTHROPIC_API_KEY` for Claude Code). APEXREST never handles those credentials.
+Claude Code and Codex can review each other's APEX changes. The host agent prepares a plan with `apexrest_ship mode:plan`, then calls `apexrest_peer_review action:review plan:<planPath>`. The runtime runs the other vendor's CLI in the project directory with the user's existing sign-in (ChatGPT or `OPENAI_API_KEY` for Codex; Claude subscription or `ANTHROPIC_API_KEY` for Claude Code). APEXREST never handles those credentials. On Windows the CLI is found on absolute `PATH` entries (never in the project folder): a native `codex.exe` or `claude.exe` runs directly, and an npm-installed `codex.cmd` or `claude.cmd` shim runs the Node script it points to, without cmd.exe. `APEXREST_CODEX_BIN` and `APEXREST_CLAUDE_BIN` override the CLI; a `.js`, `.mjs` or `.cjs` override runs through Node.
 
 | Host | Peer command (read-only) |
 | --- | --- |

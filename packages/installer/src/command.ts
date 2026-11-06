@@ -85,16 +85,33 @@ export async function resolveCommand(
   const platform = host.platform ?? process.platform,
     env = host.env ?? process.env;
   if (platform !== 'win32') return { executable: command, args, verbatim: false };
-  let resolved: string | undefined;
+  const resolved = await locateCommand(command, { platform, env });
+  if (!resolved) return { executable: command, args, verbatim: false };
+  return batchCommand(resolved, args, env);
+}
+
+/**
+ * Windows only: the file a command name or path refers to (PATHEXT for names without an
+ * eligible extension; absolute PATH entries only), or undefined when there is none.
+ */
+export async function locateCommand(command: string, host: CommandHost = {}): Promise<string | undefined> {
+  const platform = host.platform ?? process.platform,
+    env = host.env ?? process.env;
   if (/[\\/]/.test(command) || path.win32.isAbsolute(command)) {
     const extension = path.extname(command).toLowerCase();
     for (const suffix of windowsExtensions.includes(extension) ? [''] : windowsSuffixes(env))
-      if (await isFile(command + suffix)) {
-        resolved = command + suffix;
-        break;
-      }
-  } else resolved = await searchPath(command, { platform, env });
-  if (!resolved) return { executable: command, args, verbatim: false };
+      if (await isFile(command + suffix)) return command + suffix;
+    return undefined;
+  }
+  return searchPath(command, { platform, env });
+}
+
+/** A located Windows file as a process: batch files run through cmd.exe with strict quoting. */
+export function batchCommand(
+  resolved: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): ResolvedCommand {
   if (!['.cmd', '.bat'].includes(path.extname(resolved).toLowerCase()))
     return { executable: resolved, args, verbatim: false };
   const line = [resolved, ...args].map(cmdQuote).join(' ');

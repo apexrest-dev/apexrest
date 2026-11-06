@@ -4737,16 +4737,21 @@ function cmdQuote(value) {
 async function resolveCommand(command, args, host = {}) {
   const platform = host.platform ?? process.platform, env = host.env ?? process.env;
   if (platform !== "win32") return { executable: command, args, verbatim: false };
-  let resolved;
+  const resolved = await locateCommand(command, { platform, env });
+  if (!resolved) return { executable: command, args, verbatim: false };
+  return batchCommand(resolved, args, env);
+}
+async function locateCommand(command, host = {}) {
+  const platform = host.platform ?? process.platform, env = host.env ?? process.env;
   if (/[\\/]/.test(command) || path3.win32.isAbsolute(command)) {
     const extension = path3.extname(command).toLowerCase();
     for (const suffix of windowsExtensions.includes(extension) ? [""] : windowsSuffixes(env))
-      if (await isFile(command + suffix)) {
-        resolved = command + suffix;
-        break;
-      }
-  } else resolved = await searchPath(command, { platform, env });
-  if (!resolved) return { executable: command, args, verbatim: false };
+      if (await isFile(command + suffix)) return command + suffix;
+    return void 0;
+  }
+  return searchPath(command, { platform, env });
+}
+function batchCommand(resolved, args, env = process.env) {
   if (![".cmd", ".bat"].includes(path3.extname(resolved).toLowerCase()))
     return { executable: resolved, args, verbatim: false };
   const line = [resolved, ...args].map(cmdQuote).join(" ");
@@ -5012,6 +5017,8 @@ var ToolchainService = class {
 };
 
 export {
+  locateCommand,
+  batchCommand,
   runCommand,
   lockSchema,
   canonicalHome,
