@@ -40,7 +40,7 @@ node "$APEXREST_CLI" sqlcl configure --mode cli --database-transport direct --js
 node "$APEXREST_CLI" apex sync --project "$APEXREST_PROJECT" --env dev --action init --json
 ```
 
-Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. An already initialized ready working copy can be reused.
+Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. A freshly generated application is the exception for two rewrites Oracle makes on import: `deployments/default.json` gains the configured `app.id`, and an empty deinstall script and its reference are dropped. When those are the only differences, init adopts the server form of the affected files and lists them in `normalized`. An already initialized ready working copy can be reused.
 
 After editing, ordinary authorized work needs one apply call: it compiles and plans before import. Use a separate plan preview only when review is useful:
 

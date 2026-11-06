@@ -70,7 +70,7 @@ APEXREST_PROJECT=&quot;/absolute/path/to/application-project&quot;
 node &quot;$APEXREST_CLI&quot; sqlcl configure --mode cli --database-transport direct --json
 node &quot;$APEXREST_CLI&quot; apex sync --project &quot;$APEXREST_PROJECT&quot; --env dev --action init --json
 </code></pre>
-<p>Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. An already initialized ready working copy can be reused.</p>
+<p>Initialize the baseline before editing. Initial sync refuses conflicting local sources; retain and reconcile them rather than overwriting them. A freshly generated application is the exception for two rewrites Oracle makes on import: <code>deployments/default.json</code> gains the configured <code>app.id</code>, and an empty deinstall script and its reference are dropped. When those are the only differences, init adopts the server form of the affected files and lists them in <code>normalized</code>. An already initialized ready working copy can be reused.</p>
 <p>After editing, ordinary authorized work needs one apply call: it compiles and plans before import. Use a separate plan preview only when review is useful:</p>
 <pre><code class="language-sh">node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode plan --import-mode auto --user-request &quot;Update the Home page and status LOV in the configured dev application&quot; --json
 node &quot;$APEXREST_CLI&quot; ship --project &quot;$APEXREST_PROJECT&quot; --env dev --mode apply --import-mode auto --user-request &quot;Update the Home page and status LOV in the configured dev application&quot; --json

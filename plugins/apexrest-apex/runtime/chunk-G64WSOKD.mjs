@@ -179,17 +179,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path14) {
-      const ctrl = callVisitor(key, node2, visitor, path14);
+    function visit_(key, node2, visitor, path15) {
+      const ctrl = callVisitor(key, node2, visitor, path15);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path14, ctrl);
-        return visit_(key, ctrl, visitor, path14);
+        replaceNode(key, path15, ctrl);
+        return visit_(key, ctrl, visitor, path15);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path14 = Object.freeze(path14.concat(node2));
+          path15 = Object.freeze(path15.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path14);
+            const ci = visit_(i, node2.items[i], visitor, path15);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -200,13 +200,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path14 = Object.freeze(path14.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path14);
+          path15 = Object.freeze(path15.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path15);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path14);
+          const cv = visit_("value", node2.value, visitor, path15);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -227,17 +227,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path14) {
-      const ctrl = await callVisitor(key, node2, visitor, path14);
+    async function visitAsync_(key, node2, visitor, path15) {
+      const ctrl = await callVisitor(key, node2, visitor, path15);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path14, ctrl);
-        return visitAsync_(key, ctrl, visitor, path14);
+        replaceNode(key, path15, ctrl);
+        return visitAsync_(key, ctrl, visitor, path15);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path14 = Object.freeze(path14.concat(node2));
+          path15 = Object.freeze(path15.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path14);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path15);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -248,13 +248,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path14 = Object.freeze(path14.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path14);
+          path15 = Object.freeze(path15.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path15);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path14);
+          const cv = await visitAsync_("value", node2.value, visitor, path15);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -281,23 +281,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path14) {
+    function callVisitor(key, node2, visitor, path15) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path14);
+        return visitor(key, node2, path15);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path14);
+        return visitor.Map?.(key, node2, path15);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path14);
+        return visitor.Seq?.(key, node2, path15);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path14);
+        return visitor.Pair?.(key, node2, path15);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path14);
+        return visitor.Scalar?.(key, node2, path15);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path14);
+        return visitor.Alias?.(key, node2, path15);
       return void 0;
     }
-    function replaceNode(key, path14, node2) {
-      const parent = path14[path14.length - 1];
+    function replaceNode(key, path15, node2) {
+      const parent = path15[path15.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -909,10 +909,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path14, value) {
+    function collectionFromPath(schema, path15, value) {
       let v = value;
-      for (let i = path14.length - 1; i >= 0; --i) {
-        const k = path14[i];
+      for (let i = path15.length - 1; i >= 0; --i) {
+        const k = path15[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -931,7 +931,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path14) => path14 == null || typeof path14 === "object" && !!path14[Symbol.iterator]().next().done;
+    var isEmptyPath = (path15) => path15 == null || typeof path15 === "object" && !!path15[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -961,11 +961,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path14, value) {
-        if (isEmptyPath(path14))
+      addIn(path15, value) {
+        if (isEmptyPath(path15))
           this.add(value);
         else {
-          const [key, ...rest] = path14;
+          const [key, ...rest] = path15;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -979,8 +979,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path14) {
-        const [key, ...rest] = path14;
+      deleteIn(path15) {
+        const [key, ...rest] = path15;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -994,8 +994,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path14, keepScalar) {
-        const [key, ...rest] = path14;
+      getIn(path15, keepScalar) {
+        const [key, ...rest] = path15;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1013,8 +1013,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path14) {
-        const [key, ...rest] = path14;
+      hasIn(path15) {
+        const [key, ...rest] = path15;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1024,8 +1024,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path14, value) {
-        const [key, ...rest] = path14;
+      setIn(path15, value) {
+        const [key, ...rest] = path15;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3540,9 +3540,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path14, value) {
+      addIn(path15, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path14, value);
+          this.contents.addIn(path15, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3617,14 +3617,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path14) {
-        if (Collection.isEmptyPath(path14)) {
+      deleteIn(path15) {
+        if (Collection.isEmptyPath(path15)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path14) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path15) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3639,10 +3639,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path14, keepScalar) {
-        if (Collection.isEmptyPath(path14))
+      getIn(path15, keepScalar) {
+        if (Collection.isEmptyPath(path15))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path14, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path15, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3653,10 +3653,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path14) {
-        if (Collection.isEmptyPath(path14))
+      hasIn(path15) {
+        if (Collection.isEmptyPath(path15))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path14) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path15) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3673,13 +3673,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path14, value) {
-        if (Collection.isEmptyPath(path14)) {
+      setIn(path15, value) {
+        if (Collection.isEmptyPath(path15)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path14), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path15), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path14, value);
+          this.contents.setIn(path15, value);
         }
       }
       /**
@@ -5640,9 +5640,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path14) => {
+    visit.itemAtPath = (cst, path15) => {
       let item2 = cst;
-      for (const [field, index] of path14) {
+      for (const [field, index] of path15) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5651,23 +5651,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path14) => {
-      const parent = visit.itemAtPath(cst, path14.slice(0, -1));
-      const field = path14[path14.length - 1][0];
+    visit.parentCollection = (cst, path15) => {
+      const parent = visit.itemAtPath(cst, path15.slice(0, -1));
+      const field = path15[path15.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path14, item2, visitor) {
-      let ctrl = visitor(item2, path14);
+    function _visit(path15, item2, visitor) {
+      let ctrl = visitor(item2, path15);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path14.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path15.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5678,10 +5678,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path14);
+            ctrl = ctrl(item2, path15);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path14) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path15) : ctrl;
     }
     exports.visit = visit;
   }
@@ -10665,7 +10665,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path14, reason, before, after }) => ({ path: path14, reason, before, after })),
+    operations: plan.operations.map(({ path: path15, reason, before, after }) => ({ path: path15, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -11125,7 +11125,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path13 from "node:path";
+import path14 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -12467,8 +12467,8 @@ async function referenceSelect(input, signal, fetcher = fetch) {
 }
 
 // packages/core/src/deploy.ts
-import path9 from "node:path";
-import { readFile as readFile9, mkdir as mkdir5, cp as cp3, open as open2, rename, rm as rm3 } from "node:fs/promises";
+import path10 from "node:path";
+import { readFile as readFile10, mkdir as mkdir5, cp as cp3, open as open2, rename, rm as rm3 } from "node:fs/promises";
 import { randomUUID as randomUUID4 } from "node:crypto";
 
 // packages/core/src/sql-review.ts
@@ -12812,6 +12812,62 @@ function inspectSql(sql, depth = 0) {
   );
 }
 
+// packages/core/src/sync-normalization.ts
+import path9 from "node:path";
+import { readFile as readFile9 } from "node:fs/promises";
+var DEPLOYMENT_FILE = "deployments/default.json";
+var SUPPORTING_OBJECTS = "supporting-objects/supporting-objects.apx";
+var DEINSTALL_BLOCK = /^([ \t]*)deinstall \{\r?\n[ \t]*scriptFile: ([^\s]+)\r?\n\1\}\r?\n/mu;
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function withoutAppId(value) {
+  const copy = structuredClone(value);
+  if (isObject(copy.app)) {
+    delete copy.app.id;
+    if (!Object.keys(copy.app).length) delete copy.app;
+  }
+  return copy;
+}
+async function generatedSourceNormalizations(localRoot, serverRoot, local, server, applicationId) {
+  const differing = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].filter((file) => local[file] !== server[file]).sort();
+  const read = async (root, file) => readFile9(await contained(root, file), "utf8");
+  const result = [];
+  const explained = /* @__PURE__ */ new Set();
+  if (differing.includes(DEPLOYMENT_FILE) && local[DEPLOYMENT_FILE] && server[DEPLOYMENT_FILE]) {
+    let localJson, serverJson;
+    try {
+      localJson = JSON.parse(await read(localRoot, DEPLOYMENT_FILE));
+      serverJson = JSON.parse(await read(serverRoot, DEPLOYMENT_FILE));
+    } catch {
+      return void 0;
+    }
+    if (!isObject(localJson) || !isObject(serverJson)) return void 0;
+    const serverId = isObject(serverJson.app) ? serverJson.app.id : void 0;
+    const localId = isObject(localJson.app) ? localJson.app.id : void 0;
+    if (serverId !== applicationId || localId !== void 0 && localId !== applicationId) return void 0;
+    if (canonical(withoutAppId(localJson)) !== canonical(withoutAppId(serverJson))) return void 0;
+    result.push({ file: DEPLOYMENT_FILE, rule: "deployment-app-id-target", action: "replaced" });
+    explained.add(DEPLOYMENT_FILE);
+  }
+  if (differing.includes(SUPPORTING_OBJECTS) && local[SUPPORTING_OBJECTS] && server[SUPPORTING_OBJECTS]) {
+    const localText = await read(localRoot, SUPPORTING_OBJECTS);
+    const match2 = DEINSTALL_BLOCK.exec(localText);
+    if (!match2) return void 0;
+    const script = path9.posix.normalize(path9.posix.join(path9.posix.dirname(SUPPORTING_OBJECTS), match2[2]));
+    if (script.startsWith("..") || !local[script] || server[script]) return void 0;
+    if ((await read(localRoot, script)).trim() !== "") return void 0;
+    const stripped = localText.slice(0, match2.index) + localText.slice(match2.index + match2[0].length);
+    if (stripped !== await read(serverRoot, SUPPORTING_OBJECTS)) return void 0;
+    result.push(
+      { file: SUPPORTING_OBJECTS, rule: "empty-deinstall-script", action: "replaced" },
+      { file: script, rule: "empty-deinstall-script", action: "removed" }
+    );
+    explained.add(SUPPORTING_OBJECTS).add(script);
+  }
+  return differing.every((file) => explained.has(file)) && result.length ? result : void 0;
+}
+
 // packages/core/src/deploy.ts
 var digestSchema = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var filesSchema = external_exports.record(external_exports.string(), digestSchema);
@@ -13040,7 +13096,7 @@ function securityAttributes(text2) {
   return out;
 }
 async function securityChanged(local, server) {
-  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile9(await contained(root, file), "utf8"));
+  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile10(await contained(root, file), "utf8"));
   for (const file of /* @__PURE__ */ new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
     if (local.files[file] === server.files[file]) continue;
     if (/authenticat|authoriz/i.test(file)) return true;
@@ -13084,7 +13140,7 @@ async function authorizePlan(ctx, plan, env2, local = false) {
     );
 }
 var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
-var migrationVersion = (file) => BigInt(migrationName.exec(path9.basename(file))?.[1] ?? "-1");
+var migrationVersion = (file) => BigInt(migrationName.exec(path10.basename(file))?.[1] ?? "-1");
 function operationOrder(a, b) {
   const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
   if (kind) return kind;
@@ -13168,19 +13224,19 @@ async function sourceInventory(ctx) {
       for (const [file, sha] of Object.entries(await inventory(dir))) files[relative + "/" + file] = sha;
   }
   for (const relative of ["package.json", "package-lock.json"])
-    if (await exists(path9.join(ctx.root, relative)))
-      files[relative] = hash(await readFile9(await contained(ctx.root, relative)));
+    if (await exists(path10.join(ctx.root, relative)))
+      files[relative] = hash(await readFile10(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
 async function appendJournal(runDir, event) {
-  const journal2 = await open2(path9.join(runDir, "journal.jsonl"), "a", 384);
+  const journal2 = await open2(path10.join(runDir, "journal.jsonl"), "a", 384);
   try {
     await journal2.writeFile(JSON.stringify(event) + "\n");
     await journal2.sync();
   } finally {
     await journal2.close();
   }
-  await writeJson(path9.join(runDir, "state.json"), event);
+  await writeJson(path10.join(runDir, "state.json"), event);
 }
 var DeploymentService = class {
   constructor(oracle = new OracleAdapter()) {
@@ -13200,7 +13256,7 @@ var DeploymentService = class {
     const databaseOperations = [];
     for (const operation of plan.operations) {
       if (!operation.file || !["migration", "package"].includes(operation.kind)) continue;
-      const sql = await readFile9(await contained(ctx.root, operation.file), "utf8");
+      const sql = await readFile10(await contained(ctx.root, operation.file), "utf8");
       for (const described of inspectSql(sql)) {
         let dependencies2 = [], dependenciesStatus = "not-applicable";
         if (described.object && ["drop-table", "rename-column", "alter-table", "rename-object"].includes(described.action)) {
@@ -13319,13 +13375,13 @@ var DeploymentService = class {
         const syncId = randomUUID4(), backupId = randomUUID4();
         const baselineDir = ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
-        await mkdir5(path9.dirname(baselineRoot), { recursive: true, mode: 448 });
+        await mkdir5(path10.dirname(baselineRoot), { recursive: true, mode: 448 });
         await privateCopy(exported.directory, baselineRoot);
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
         await mkdir5(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(exported.directory, path9.join(backupRoot, "application"));
-        await writeJson(path9.join(backupRoot, "backup.json"), {
+        await privateCopy(exported.directory, path10.join(backupRoot, "application"));
+        await writeJson(path10.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env2),
@@ -13358,7 +13414,7 @@ var DeploymentService = class {
           targetDigest: targetDigest(env2),
           target,
           sourceDir: ctx.config.application.sourceDir,
-          toolchainDigest: hash(await readFile9(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+          toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
           runtimeVersion: VERSION,
           compilerVersion: exported.compiler.version,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -13371,14 +13427,32 @@ var DeploymentService = class {
         };
         const source2 = await syncPath(ctx, ctx.config.application.sourceDir);
         const refreshKnown = action === "refresh" && previous?.sourceDir === ctx.config.application.sourceDir;
+        let normalized = [];
         if (await exists(source2)) {
           const expected = refreshKnown ? checkpoint(previous).files : exported.files;
-          if (canonical(await inventory(source2)) !== canonical(expected))
-            throw new Fault(
-              "SYNC_SOURCE_CONFLICT",
-              "Local sources differ from the expected inventory. Staged artifacts were retained; local files were preserved.",
-              5
-            );
+          const conflict = () => new Fault(
+            "SYNC_SOURCE_CONFLICT",
+            "Local sources differ from the expected inventory. Staged artifacts were retained; local files were preserved.",
+            5
+          );
+          const local = await inventory(source2);
+          if (canonical(local) !== canonical(expected)) {
+            const adopt = action === "init" ? await generatedSourceNormalizations(
+              source2,
+              baselineRoot,
+              local,
+              expected,
+              env2.applicationId
+            ) : void 0;
+            if (!adopt) throw conflict();
+            for (const change of adopt) {
+              const target2 = await contained(source2, change.file);
+              if (change.action === "removed") await rm3(target2);
+              else await cp3(await contained(baselineRoot, change.file), target2, { force: true });
+            }
+            if (canonical(await inventory(source2)) !== canonical(expected)) throw conflict();
+            normalized = adopt;
+          }
           if (refreshKnown) {
             const retained = await syncPath(
               ctx,
@@ -13399,7 +13473,7 @@ var DeploymentService = class {
             }
           }
         } else {
-          await mkdir5(path9.dirname(source2), { recursive: true });
+          await mkdir5(path10.dirname(source2), { recursive: true });
           const replacement = await syncPath(
             ctx,
             ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/new-working-copy"
@@ -13412,7 +13486,7 @@ var DeploymentService = class {
           await store.write({ ...previous, status: "invalidated", revision: previous.revision + 1 });
         await store.write(state);
         await this.oracle.discardStage?.(exported.stage);
-        return store.status();
+        return normalized.length ? { ...await store.status(), normalized } : store.status();
       } finally {
         await this.releaseLease(env2, runId);
       }
@@ -13561,7 +13635,7 @@ var DeploymentService = class {
         if (file.startsWith(ctx.config.database.packagesDir + "/"))
           return fallback(["database-operations-require-full-import"]);
         if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-          const old = history.get(path9.basename(file));
+          const old = history.get(path10.basename(file));
           if (!old) return fallback(["database-operations-require-full-import"]);
           if (old.checksum !== sha)
             throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
@@ -13613,7 +13687,7 @@ var DeploymentService = class {
         sourceDigest: hash(canonical(sources)),
         sources,
         configurationDigest: hash(canonical(ctx.config)),
-        toolchainDigest: hash(await readFile9(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+        toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
         compiler: validation.compiler.version,
         targetDigest: targetDigest(env2),
         target: current.target,
@@ -13721,11 +13795,11 @@ var DeploymentService = class {
       if (!migration && !pkg) continue;
       if (!file.endsWith(".sql"))
         throw new Fault("UNSUPPORTED_DB_SOURCE", "Database execution directories accept .sql files only.", 3);
-      const sql = await readFile9(await contained(ctx.root, file), "utf8");
-      const runs = migration ? !history.has(path9.basename(file)) : packageHistory[file] !== sha256;
+      const sql = await readFile10(await contained(ctx.root, file), "utf8");
+      const runs = migration ? !history.has(path10.basename(file)) : packageHistory[file] !== sha256;
       if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
-        const version2 = path9.basename(file);
+        const version2 = path10.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version2))
           throw new Fault(
             "INVALID_MIGRATION_NAME",
@@ -13749,7 +13823,7 @@ var DeploymentService = class {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
             files: applicationFiles(ctx, sources)
           },
-          { root: path9.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+          { root: path10.resolve(ctx.root, current.exported.directory), files: current.exported.files }
         ))
           risks.push("authentication-or-authorization-change");
       } finally {
@@ -13774,7 +13848,7 @@ var DeploymentService = class {
       sourceDigest: hash(canonical(sources)),
       sources,
       configurationDigest: hash(canonical(ctx.config)),
-      toolchainDigest: hash(await readFile9(lock)),
+      toolchainDigest: hash(await readFile10(lock)),
       compiler: validation.compiler.version,
       targetDigest: targetDigest(env2),
       target: current.target,
@@ -13850,7 +13924,7 @@ var DeploymentService = class {
     const lifetime = Date.parse(plan.expiresAt) - Date.parse(plan.createdAt);
     if (!(lifetime > 0 && lifetime <= PLAN_LIFETIME_MS) || Date.parse(plan.createdAt) > Date.now() + 6e4)
       throw new Fault("PLAN_TAMPERED", "Plan lifetime exceeds the reviewed plan limit.", 5);
-    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile9(await contained(ctx.root, ctx.config.toolchain.lockFile))))
+    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))))
       throw new Fault("SOURCE_DRIFT", "Sources, configuration or toolchain lock changed after review.", 5);
     const databaseOnly = plan.scope === "database-only";
     if (plan.backupRequired !== (!databaseOnly && Boolean(plan.target.application)))
@@ -13872,13 +13946,13 @@ var DeploymentService = class {
         if (!kind) continue;
         if (!file.endsWith(".sql"))
           throw new Fault("UNSUPPORTED_DB_SOURCE", "Database sources must be SQL files.", 5);
-        const previous = history.get(path9.basename(file));
+        const previous = history.get(path10.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
         const runs = kind === "migration" ? !previous : plan.packageHistory?.[file] !== sha256;
         if (!runs) continue;
         expected.push({ kind, file, sha256 });
-        const risks = migrationRisk(await readFile9(await contained(ctx.root, file), "utf8")).map(
+        const risks = migrationRisk(await readFile10(await contained(ctx.root, file), "utf8")).map(
           (r) => `${r}:${file}`
         );
         if (risks.some((r) => !plan.risks.includes(r)))
@@ -14023,7 +14097,7 @@ var DeploymentService = class {
     }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runs = path9.join(ctx.root, ".apexrest/deployments"), runDir = path9.join(runs, runId);
+    const runs = path10.join(ctx.root, ".apexrest/deployments"), runDir = path10.join(runs, runId);
     await mkdir5(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false, syncSucceeded = false;
     let freshBackupId = null;
@@ -14052,7 +14126,7 @@ var DeploymentService = class {
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
     };
-    await writeJson(path9.join(runDir, "plan.json"), plan);
+    await writeJson(path10.join(runDir, "plan.json"), plan);
     await record("approved");
     await this.lease(env2, runId, false);
     try {
@@ -14063,14 +14137,14 @@ var DeploymentService = class {
       if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
         const backup = backupSource ?? await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
         try {
-          const backupId = randomUUID4(), directory = path9.join(ctx.root, ".apexrest/backups", backupId);
+          const backupId = randomUUID4(), directory = path10.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir5(directory, { recursive: true, mode: 448 });
           const backupPath = backup.directory.startsWith(".apexrest/") ? await syncPath(ctx, backup.directory) : backup.directory;
-          await privateCopy(backupPath, path9.join(directory, "application"));
-          const files = await inventory(path9.join(directory, "application"));
+          await privateCopy(backupPath, path10.join(directory, "application"));
+          const files = await inventory(path10.join(directory, "application"));
           if (!scoped && !Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-          await writeJson(path9.join(directory, "backup.json"), {
+          await writeJson(path10.join(directory, "backup.json"), {
             schemaVersion: 1,
             backupId,
             runId,
@@ -14086,7 +14160,7 @@ var DeploymentService = class {
             restoreProcedure: "Reviewed APEXlang import in the recorded scope; newly created components have no previous source to restore. Schema/data recovery is separate."
           });
           freshBackupId = backupId;
-          await writeJson(path9.join(runDir, "backup.json"), {
+          await writeJson(path10.join(runDir, "backup.json"), {
             backupId,
             checksum: backup.digest,
             targetDigest: plan.targetDigest
@@ -14105,18 +14179,18 @@ var DeploymentService = class {
           await this.oracle.discardStage?.(after.exported?.stage);
         }
       }
-      const snapshot2 = path9.join(runDir, "snapshot");
+      const snapshot2 = path10.join(runDir, "snapshot");
       await mkdir5(snapshot2, { mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source2 = await contained(ctx.root, file), destination = await contained(snapshot2, file);
-        await mkdir5(path9.dirname(destination), { recursive: true });
+        await mkdir5(path10.dirname(destination), { recursive: true });
         await cp3(source2, destination);
-        if (hash(await readFile9(destination)) !== sha)
+        if (hash(await readFile10(destination)) !== sha)
           throw new Fault("SOURCE_DRIFT", "Source changed while freezing deployment.", 5);
       }
       if (selection) {
         await checkSnapshot(ctx, selection.effective);
-        const application = path9.join(snapshot2, ctx.config.application.sourceDir);
+        const application = path10.join(snapshot2, ctx.config.application.sourceDir);
         await rm3(application, { recursive: true });
         await privateCopy(await syncPath(ctx, selection.effective.directory), application);
         if (canonical(await inventory(application)) !== canonical(selection.effective.files))
@@ -14177,7 +14251,7 @@ var DeploymentService = class {
         if (operation.kind === "migration")
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path9.basename(file),
+            path10.basename(file),
             operation.sha256,
             "started"
           );
@@ -14196,7 +14270,7 @@ prompt ${marker}`,
         if (!scriptCompleted(executed?.output, marker))
           throw new Fault(
             "SCRIPT_INCOMPLETE",
-            `SQLcl did not confirm that ${path9.basename(file)} ran to completion.`,
+            `SQLcl did not confirm that ${path10.basename(file)} ran to completion.`,
             6,
             "outcome_unknown"
           );
@@ -14210,12 +14284,12 @@ prompt ${marker}`,
         if (operation.kind === "migration") {
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path9.basename(file),
+            path10.basename(file),
             operation.sha256,
             "succeeded"
           );
           completedMigrations.push({
-            version: path9.basename(file),
+            version: path10.basename(file),
             checksum: operation.sha256,
             status: "succeeded",
             run_id: runId
@@ -14236,7 +14310,7 @@ prompt ${marker}`,
         );
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        const frozen = path9.join(runDir, "restore");
+        const frozen = path10.join(runDir, "restore");
         await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
@@ -14260,7 +14334,7 @@ prompt ${marker}`,
         await this.oracle.restoreApplication(
           env2,
           deployConnection,
-          path9.join(frozen, main[0]),
+          path10.join(frozen, main[0]),
           controller.signal
         );
       } else {
@@ -14272,13 +14346,13 @@ prompt ${marker}`,
           )
         ) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        if (selection && canonical(await inventory(path9.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
+        if (selection && canonical(await inventory(path10.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
-        let importSource = path9.join(snapshot2, ctx.config.application.sourceDir);
+        let importSource = path10.join(snapshot2, ctx.config.application.sourceDir);
         if (plan.restore && !selection) {
-          const frozen = path9.join(runDir, "restore");
+          const frozen = path10.join(runDir, "restore");
           await privateCopy(
             await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application"),
             frozen
@@ -14351,7 +14425,7 @@ prompt ${marker}`,
               policy: "exact-bytes",
               normalizations: []
             };
-            await writeJson(path9.join(runDir, "readback-verification.json"), {
+            await writeJson(path10.join(runDir, "readback-verification.json"), {
               ...comparison,
               scope: scoped ? "selected" : "full",
               sourceObservationScope: selection.exportScope ?? "full",
@@ -14499,7 +14573,7 @@ prompt ${marker}`,
   async recoveryRead(ctx, runId) {
     parse(external_exports.uuid(), runId);
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
-    const plan = parse(deployPlanSchema, await readJson(path9.join(directory, "plan.json")));
+    const plan = parse(deployPlanSchema, await readJson(path10.join(directory, "plan.json")));
     const env2 = environment(ctx, plan.environment);
     if (plan.digest !== planDigest2(plan) || plan.projectRoot !== ctx.root || plan.projectId !== ctx.config.projectId || plan.targetDigest !== targetDigest(env2))
       throw new Fault("PLAN_TARGET_MISMATCH", "Reconciliation must use the original project and target.", 5);
@@ -14525,7 +14599,7 @@ prompt ${marker}`,
         "The actual server/application identity changed before reconciliation.",
         5
       );
-    const state = await readJson(path9.join(directory, "state.json"));
+    const state = await readJson(path10.join(directory, "state.json"));
     const expectedDirectory = selection?.effective?.directory ?? ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const expectedInventory = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
     const expectedFiles = scoped ? pickFiles(expectedInventory, selection.files) : expectedInventory;
@@ -14614,7 +14688,7 @@ prompt ${marker}`,
           "Server content differs from both reviewed desired and baseline sources. Preserve the server snapshot and resolve these files: " + result.conflictFiles.join(", "),
           5
         );
-      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile9(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
+      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
         throw new Fault(
           "SOURCE_DRIFT",
           "Local sources/configuration/toolchain changed; recovery cannot repeat a different task.",
@@ -14724,9 +14798,9 @@ prompt ${marker}`,
   async restorePlan(ctx, backupId) {
     parse(external_exports.uuid(), backupId);
     const directory = await contained(ctx.root, ".apexrest/backups/" + backupId);
-    const backup = await readJson(path9.join(directory, "backup.json"));
+    const backup = await readJson(path10.join(directory, "backup.json"));
     await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
-    const files = await inventory(path9.join(directory, "application"));
+    const files = await inventory(path10.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
     let plan;
@@ -14745,7 +14819,7 @@ prompt ${marker}`,
       const context2 = await syncPath(ctx, ".apexrest/restore-context/" + randomUUID4());
       await overlaySelection(
         await syncPath(ctx, ctx.config.application.sourceDir),
-        path9.join(directory, "application"),
+        path10.join(directory, "application"),
         backup.selectedFiles,
         context2
       );
@@ -14763,7 +14837,7 @@ prompt ${marker}`,
         await rm3(context2, { recursive: true, force: true });
       }
     } else {
-      if (backup.format === "APEXLANG") await this.oracle.validate(path9.join(directory, "application"));
+      if (backup.format === "APEXLANG") await this.oracle.validate(path10.join(directory, "application"));
       plan = await this.plan(ctx, backup.environment, true);
     }
     if (plan.targetDigest !== backup.targetDigest)
@@ -14783,7 +14857,7 @@ prompt ${marker}`,
 };
 
 // packages/core/src/panel.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { readdir as readdir4, realpath as realpath4, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
@@ -14806,7 +14880,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry2) => ({
           entry: entry2,
-          at: (await stat3(path10.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path11.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -14951,13 +15025,13 @@ var PanelService = class {
 };
 
 // packages/core/src/peer-review.ts
-import path12 from "node:path";
+import path13 from "node:path";
 import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdir as mkdir6, readFile as readFile10, rm as rm4 } from "node:fs/promises";
+import { mkdir as mkdir6, readFile as readFile11, rm as rm4 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/ship.ts
-import path11 from "node:path";
+import path12 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -15002,23 +15076,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source2 = path11.resolve(root, input.sourceDir);
-  if (!await exists(path11.join(source2, "application.apx")))
+  const source2 = path12.resolve(root, input.sourceDir);
+  if (!await exists(path12.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path11.join(source2, ".apex", "apexlang.json");
+  const own = path12.join(source2, ".apex", "apexlang.json");
   if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path11.resolve(input.project));
-  for (let dir = path11.dirname(source2); ; dir = path11.dirname(dir)) {
-    if (await exists(path11.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path12.resolve(input.project));
+  for (let dir = path12.dirname(source2); ; dir = path12.dirname(dir)) {
+    if (await exists(path12.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path11.dirname(dir) === dir) break;
+    if (path12.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -15027,7 +15101,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file = path11.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file = path12.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file)) return { source: source2, metadata: { origin: "project", file } };
   }
   throw new Fault(
@@ -15530,8 +15604,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
   await mkdir6(scratch, { recursive: true });
   try {
-    const schemaFile = path12.join(scratch, "verdict.schema.json");
-    const lastFile = path12.join(scratch, "last-message.json");
+    const schemaFile = path13.join(scratch, "verdict.schema.json");
+    const lastFile = path13.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -15583,7 +15657,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile10(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile11(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -15934,7 +16008,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path13.basename(path13.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path14.basename(path14.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "connection.add":

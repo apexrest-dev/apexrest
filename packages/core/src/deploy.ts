@@ -34,6 +34,7 @@ import { VERSION } from './version.ts';
 import { inspectSql, executableSql, type DatabaseOperation } from './sql-review.ts';
 import { APEXLANG_EQUIVALENCE_POLICY, compareApplicationExports } from './apexlang-equivalence.ts';
 import { databaseMeetsApex262Minimum } from './compatibility.ts';
+import { generatedSourceNormalizations, type SourceNormalization } from './sync-normalization.ts';
 import {
   importOptions,
   importSelectionSchema,
@@ -775,14 +776,39 @@ export class DeploymentService {
         };
         const source = await syncPath(ctx, ctx.config.application.sourceDir);
         const refreshKnown = action === 'refresh' && previous?.sourceDir === ctx.config.application.sourceDir;
+        let normalized: SourceNormalization[] = [];
         if (await exists(source)) {
           const expected = refreshKnown ? checkpoint(previous!).files : exported.files;
-          if (canonical(await inventory(source)) !== canonical(expected))
-            throw new Fault(
+          const conflict = () =>
+            new Fault(
               'SYNC_SOURCE_CONFLICT',
               'Local sources differ from the expected inventory. Staged artifacts were retained; local files were preserved.',
               5,
             );
+          const local = await inventory(source);
+          if (canonical(local) !== canonical(expected)) {
+            // A freshly generated app differs from its own server export only where Oracle
+            // rewrites it on import. Those files alone are adopted from the server; any other
+            // difference is a real local edit and stays a conflict.
+            const adopt =
+              action === 'init'
+                ? await generatedSourceNormalizations(
+                    source,
+                    baselineRoot,
+                    local,
+                    expected,
+                    env.applicationId,
+                  )
+                : undefined;
+            if (!adopt) throw conflict();
+            for (const change of adopt) {
+              const target = await contained(source, change.file);
+              if (change.action === 'removed') await rm(target);
+              else await cp(await contained(baselineRoot, change.file), target, { force: true });
+            }
+            if (canonical(await inventory(source)) !== canonical(expected)) throw conflict();
+            normalized = adopt;
+          }
           if (refreshKnown) {
             // Preserve the clean previous copy and atomically install the new server baseline.
             const retained = await syncPath(
@@ -818,7 +844,7 @@ export class DeploymentService {
         await store.write(state);
         // Private baseline and backup copies are installed; release the Oracle staging exports.
         await this.oracle.discardStage?.(exported.stage);
-        return store.status();
+        return normalized.length ? { ...(await store.status()), normalized } : store.status();
       } finally {
         await this.releaseLease(env, runId);
       }

@@ -176,6 +176,48 @@ test('initial adoption conflict retains private staging and does not overwrite l
   assert.deepEqual(exportsOnly(calls), ['export:APEXLANG']);
 });
 
+test('init adopts the server form of a freshly generated app and reports each file', async () => {
+  const { ctx, service, server, env } = await workingCopyFixture();
+  const local = path.join(ctx.root, ctx.config.application.sourceDir);
+  const id = ctx.config.environments.dev!.applicationId;
+  await atomicWrite(path.join(local, 'deployments/default.json'), '{\n}\n');
+  await atomicWrite(
+    path.join(local, 'supporting-objects/supporting-objects.apx'),
+    'supportingObject (\n    deinstall {\n        scriptFile: deinstall-script.sql\n    }\n)\n',
+  );
+  await atomicWrite(path.join(local, 'supporting-objects/deinstall-script.sql'), '');
+  await atomicWrite(
+    path.join(server, 'deployments/default.json'),
+    `{\n  "app" : {\n    "id" : ${id}\n  }\n}`,
+  );
+  await atomicWrite(
+    path.join(server, 'supporting-objects/supporting-objects.apx'),
+    'supportingObject (\n)\n',
+  );
+  const result = (await service.sync(ctx, 'dev', 'init')) as { status: string; normalized?: unknown[] };
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(
+    result.normalized?.map((entry) => (entry as { file: string; action: string }).action),
+    ['replaced', 'replaced', 'removed'],
+  );
+  assert.deepEqual(await inventory(local), await inventory(server));
+  assert.equal((await new SyncStore(ctx, env, 'dev').read())?.status, 'ready');
+});
+
+test('a recognised rewrite next to a real local edit is a conflict and nothing is changed', async () => {
+  const { ctx, service, server, env } = await workingCopyFixture();
+  const local = path.join(ctx.root, ctx.config.application.sourceDir);
+  const id = ctx.config.environments.dev!.applicationId;
+  await atomicWrite(path.join(local, 'deployments/default.json'), '{\n}\n');
+  await atomicWrite(path.join(server, 'deployments/default.json'), `{"app":{"id":${id}}}`);
+  await atomicWrite(path.join(server, 'application.apx'), 'server edit');
+  const before = await inventory(local);
+  await assert.rejects(service.sync(ctx, 'dev', 'init'), { code: 'SYNC_SOURCE_CONFLICT' });
+  assert.deepEqual(await inventory(local), before);
+  assert.equal(await readFile(path.join(local, 'deployments/default.json'), 'utf8'), '{\n}\n');
+  assert.equal(await new SyncStore(ctx, env, 'dev').read(), null);
+});
+
 test('init installs sources when source directory is absent', async () => {
   const { ctx, service } = await workingCopyFixture();
   await rm(path.join(ctx.root, ctx.config.application.sourceDir), { recursive: true });
