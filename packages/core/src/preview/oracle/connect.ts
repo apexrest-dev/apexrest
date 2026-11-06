@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { environment, isProductionTarget, loadProject } from '../../config.ts';
 import { resolveConnection } from '../../connections.ts';
 import { OracleAdapter, targetIdentitySql } from '../../oracle.ts';
@@ -72,6 +75,27 @@ export function warmUp(
   return { ms: Math.round(performance.now() - started), ...steps };
 }
 
+/** The ojdbc.properties path of a SQLcl saved connection, when its connection store is found. */
+export function savedConnectionProperties(name: string, home = os.homedir()): string | undefined {
+  const store = path.join(home, '.dbtools', 'connections');
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(store);
+  } catch {
+    return undefined;
+  }
+  for (const entry of entries) {
+    try {
+      const text = fs.readFileSync(path.join(store, entry, 'dbtools.properties'), 'utf8');
+      if (text.split(/\r?\n/u).some((line) => line.trim() === `name=${name}`))
+        return path.join(store, entry, 'ojdbc.properties');
+    } catch {
+      // Not a saved connection directory.
+    }
+  }
+  return undefined;
+}
+
 /**
  * Opens the connected preview for one DEV/QA/TEST environment of apexrest.json:
  * refuses production, requires a SQLcl saved connection, and confirms the
@@ -119,6 +143,21 @@ export async function connectOracle(
         5,
         'conflict',
       );
+    // Every request ends with a rollback, so the session must hold a transaction. SQLcl's MCP
+    // server opens saved connections with JDBC auto-commit unless the connection disables it.
+    if (!data.transactional()) {
+      const properties = savedConnectionProperties(connection.name);
+      throw new Fault(
+        'PREVIEW_AUTOCOMMIT_ON',
+        `SQLcl saved connection ${connection.name} commits every statement (JDBC auto-commit), so the connected preview could not roll its requests back and did not start. ` +
+          (properties
+            ? `Add the line autoCommit=false to ${properties} (create the file if needed), then start the preview again.`
+            : `Add autoCommit=false to the ojdbc.properties file of that saved connection, then start the preview again.`) +
+          ' The offline preview (without env) is unaffected.',
+        3,
+        'blocked',
+      );
+    }
     if (rows.filter((row) => row.TARGET_RECORD === 'workspace').length !== 1)
       throw new Fault(
         'WORKSPACE_UNCONFIRMED',

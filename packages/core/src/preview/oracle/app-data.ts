@@ -307,6 +307,17 @@ export class OracleAppData implements AppData {
   }
 
   /** Ends the preview request: everything it changed in Oracle is rolled back. */
+  /**
+   * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
+   * once and a rollback fails with ORA-17274; the preview must then not run at all.
+   */
+  transactional(): boolean {
+    const { errors } = this.#run(['rollback;'], false);
+    if (errors[0]?.code === -17274) return false;
+    if (errors[0]) throw errors[0];
+    return true;
+  }
+
   endRequest(): void {
     if (!this.#dirty) return;
     this.#dirty = false;

@@ -7,7 +7,11 @@ import path from 'node:path';
 import { writeJson } from '../../packages/core/src/fs.ts';
 import { OracleAppData, type ConnectedOracle } from '../../packages/core/src/preview/oracle/app-data.ts';
 import { WorkerBridge, type OracleLink } from '../../packages/core/src/preview/oracle/bridge.ts';
-import { connectOracle, warmUp } from '../../packages/core/src/preview/oracle/connect.ts';
+import {
+  connectOracle,
+  savedConnectionProperties,
+  warmUp,
+} from '../../packages/core/src/preview/oracle/connect.ts';
 import {
   codeOutsideLiterals,
   oracleBlock,
@@ -329,6 +333,32 @@ test('connectOracle refuses production targets and ORDS-only connections', async
   assert.equal(connected.apex, undefined);
   assert.ok(connected.warnings.some((warning) => /not installed/u.test(warning)));
   connected.data.close();
+
+  // A saved connection with JDBC auto-commit (SQLcl's MCP server default) cannot roll back:
+  // the preview refuses before any page query and names the properties file to fix.
+  const store = path.join(home, '.dbtools', 'connections', 'abc123');
+  await mkdir(store, { recursive: true });
+  await writeFile(path.join(store, 'dbtools.properties'), 'name=fixture-dev\ntype=ORACLE_DATABASE\n');
+  assert.equal(savedConnectionProperties('fixture-dev', home), path.join(store, 'ojdbc.properties'));
+  assert.equal(savedConnectionProperties('other', home), undefined);
+  const autocommit = fakeOracle((segment) =>
+    /^rollback;/mu.test(segment) && !/select/u.test(segment)
+      ? 'Error starting at line : 1 in command -\nrollback\nError report -\nORA-17274: Could not rollback with auto-commit enabled.'
+      : identity('fixture')(segment),
+  );
+  await assert.rejects(
+    connectOracle(ctx.root, 'dev', () => autocommit.link),
+    (error: Error & { code: string }) => {
+      assert.equal(error.code, 'PREVIEW_AUTOCOMMIT_ON');
+      assert.match(error.message, /autoCommit=false/u);
+      return true;
+    },
+  );
+  assert.equal(autocommit.link.closed, true, 'the refused session is closed');
+  assert.ok(
+    !autocommit.inputs.some((input) => /apex_application_page_items|all_source/u.test(input)),
+    'no page or source query ran after the refusal',
+  );
 });
 
 test('page code that could commit never reaches Oracle; a commit that still happens is detected', async (t) => {
