@@ -33,6 +33,14 @@ test('invalid properties get a repair hint from the 26.2 inventory contract', as
     ))!,
     /^type is not valid in the component itself of action \(type: refresh\); valid there: .*\baction\b/u,
   );
+  assert.match(
+    (await propertyFix(
+      'DUPLICATED_COMPONENT',
+      'Duplicated component within parent scope. For properties: advanced.executionMappingIdentifier: null',
+      undefined,
+    ))!,
+    /executionMappingIdentifier: <unique 20-digit number>/u,
+  );
   assert.equal(await propertyFix('LOV_NOT_FOUND', 'Invalid property: x', 'inside page 1'), undefined);
   assert.equal(await fix('Invalid property: x', 'inside nothing'), undefined);
 });

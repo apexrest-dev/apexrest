@@ -1582,7 +1582,7 @@ export async function compilerDetails(output: string, root?: string) {
       const hint = await diagnosticHint(root, diagnostic);
       if (hint) diagnostic.hint = hint;
       const fix = await propertyFix(diagnostic.type, diagnostic.message, hint);
-      if (fix) diagnostic.hint = `${hint}. Fix: ${fix}`;
+      if (fix) diagnostic.hint = hint ? `${hint}. Fix: ${fix}` : `Fix: ${fix}`;
     }
   return diagnostics.length ? { diagnostics } : undefined;
 }

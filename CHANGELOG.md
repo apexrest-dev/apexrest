@@ -2,6 +2,7 @@
 
 ## 2.5.0
 
+- Explain a `DUPLICATED_COMPONENT` error for processes without an `executionMappingIdentifier`: the hint now says to give every process of the page its own `advanced { executionMappingIdentifier }`.
 - Outline breadcrumb and list entries in 26.2 component selection: the Oracle sample pages hold no shared components, so a selected entry contract carries a `skeleton` with each always-applicable property in its group (`parentEntry` inside `appearance` for a breadcrumb entry, inside `layout` for a list entry) and its value type or values. `select` returns 16 results by default, so buttons, processes and entries fit a long request.
 - Point the work skill at the new selection and repair data: name every component by its APEX name in `select`, adapt `example` blocks and `pageExamples` directly, apply a `Fix:` hint without lookups, and leave SQLcl and connection checks to the tools.
 - Return compiler diagnostics (more than five) and `metadata_read` results inline up to 32 KB instead of compacting them to an artifact above 8 KB, so a first validation of new pages arrives as one complete repair list.
