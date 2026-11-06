@@ -71,8 +71,9 @@ test('selection configuration is opt-in, strict and bounded in runtime and opera
   ]) {
     assert.equal(projectSchema.safeParse({ ...ctx.config, decisionApi: change }).success, false);
   }
-  assert.equal(schemas['docs.select'].parse({ request: 'cards' }).limit, 6);
+  assert.equal(schemas['docs.select'].parse({ request: 'cards' }).limit, 12);
   assert.equal(schemas['docs.select'].safeParse({ request: ' ', limit: 9 }).success, false);
+  assert.equal(schemas['docs.select'].safeParse({ request: 'cards', limit: 17 }).success, false);
   assert.equal(schemas['docs.select'].safeParse({ request: 'x'.repeat(4001) }).success, false);
   assert.equal(schemas['docs.select'].safeParse({ request: 'cards', version: '27.1' }).success, false);
   assert.equal((await dispatch('reference', { mode: 'select', request: 'cards' })).exitCode, 2);
@@ -366,12 +367,25 @@ test('eight 26.2 selections retain the grid contract after compacting metadata t
     result.results.map((entry) => entry.id),
     ids,
   );
-  assert.ok(Buffer.byteLength(JSON.stringify(sanitized(result))) <= 7000);
+  // The selected contract carries a working grid block; examples raise the budget to 24,000 bytes.
+  const grid = result.results.find((entry) => entry.id === contract) as {
+    example?: { text: string; id: string };
+  };
+  assert.match(grid.example!.text, /type: interactiveGrid/u);
+  assert.match(grid.example!.id, /^oracle:26\.2:public-template\//u);
+  // A result with a working example drops its routing summary and links.
+  for (const key of ['text', 'source', 'requiresReferences', 'relatedReferences'])
+    assert.equal(key in grid, false);
+  assert.ok(Buffer.byteLength(JSON.stringify(sanitized(result))) <= 28000);
   const output = await toolOutput(
-    { ...(await dispatch('docs.select', { project: ctx.root, request: 'cards' })), data: result },
+    {
+      ...(await dispatch('docs.select', { project: ctx.root, request: 'cards' })),
+      operation: 'reference',
+      data: result,
+    },
     ctx.root,
   );
-  assert.ok(Buffer.byteLength(JSON.stringify(output)) <= 8192);
+  assert.ok(Buffer.byteLength(JSON.stringify(output)) <= 32768);
 });
 
 test('catalog and selected document integrity failures cannot become successful fallback results', async (t) => {
@@ -402,4 +416,22 @@ test('catalog and selected document integrity failures cannot become successful 
     referenceSelect({ project: ctx.root, request: 'metric card', limit: 1 }, undefined, unavailable),
     /hashes disagree/,
   );
+});
+
+test('26.2 candidates include the components a request names, not only large regions', async () => {
+  const ids = (
+    await referenceCandidates(
+      'dashboard with metric cards and a line chart; interactive report; modal form with a select list and a switch item; button with a PL/SQL process; navigation menu list entries; breadcrumbs',
+      '26.2',
+    )
+  ).map((candidate) => candidate.id.replace('oracle:26.2:inventory/app/', ''));
+  for (const id of [
+    'page/page-item/plugin-variants/switch/switch',
+    'page/page-item/plugin-variants/select-list/select-list',
+    'page/process/plugin-variants/execute-code/execute-code',
+    'page/button/button',
+    'list/entry/entry',
+    'breadcrumb/entry/entry',
+  ])
+    assert.ok(ids.includes(id), id);
 });

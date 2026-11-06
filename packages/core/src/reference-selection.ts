@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  componentExample,
+  contractComponent,
+  contractComponentType,
+  pageExamples,
+} from './component-examples.ts';
 import { loadProject } from './config.ts';
 import { contained } from './fs.ts';
 import { readLocalEnv } from './local-env.ts';
@@ -235,10 +241,39 @@ export async function referenceSelect(
     ...(usage ? { usage } : {}),
     durationMs: Math.round(performance.now() - started),
   };
+  // 26.2 inventory contracts list property addresses, not code. Attach the smallest working block
+  // of each selected component from Oracle's sample applications so it can be adapted directly.
+  for (const result of results) {
+    if (result.kind !== 'contract' || !String(result.version).startsWith('26.2')) continue;
+    const component = contractComponent(String(result.id));
+    if (!component) continue;
+    const example = await componentExample(component.type, { kind: component.kind, request: input.request });
+    const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
+    if (example) Object.assign(result, { example: { componentType, ...example } });
+  }
+  // With a working example the routing fields (summary, source, links) only cost context.
+  for (const result of results)
+    if ('example' in result)
+      for (const key of [
+        'text',
+        'source',
+        'requiresReferences',
+        'requiresCount',
+        'relatedReferences',
+        'relatedCount',
+      ])
+        delete (result as Record<string, unknown>)[key];
+  const pages = String(version).startsWith('26.2') ? await pageExamples(input.request) : [];
+  const budget = results.some((result) => 'example' in result) || pages.length ? 30000 : 7000;
   const size = (page: typeof results) =>
-    Buffer.byteLength(JSON.stringify(sanitized({ selection, results: page })), 'utf8');
-  fitResults(results, 7000, size);
-  while (results.length && size(results) > 7000) results.pop();
+    Buffer.byteLength(
+      JSON.stringify(
+        sanitized({ selection, results: page, ...(pages.length ? { pageExamples: pages } : {}) }),
+      ),
+      'utf8',
+    );
+  fitResults(results, budget, size);
+  while (results.length && size(results) > budget) results.pop();
   cancelled(signal);
-  return { selection, results };
+  return { selection, results, ...(pages.length ? { pageExamples: pages } : {}) };
 }

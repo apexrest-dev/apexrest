@@ -87,7 +87,7 @@ test('packaged select has twelve-tool MCP/CLI parity, bounded output and explici
   assert.equal(relative.isError, true);
   const tooMany = await client.callTool({
     name: 'apexrest_reference',
-    arguments: { mode: 'select', project: root, request: 'cards', limit: 9 },
+    arguments: { mode: 'select', project: root, request: 'cards', limit: 17 },
   });
   assert.equal(tooMany.isError, true);
   const localSearch = await client.callTool({

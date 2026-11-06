@@ -2,6 +2,7 @@
 
 ## 2.5.0
 
+- Return working APEXlang with 26.2 component selection: each selected page component carries `example`, a block from an Oracle 26.2 sample page of the same kind (region, page item, button, process) that prefers the variant the request names (a line chart, not a pie), and a modal form request adds `pageExamples` with one whole sample page (create/save/delete buttons, cancel action, initialization, row processing, close dialog). Components the request names (switch, select list, button, PL/SQL process, list and breadcrumb entries) now reach the Decisions shortlist ahead of regions that only share vocabulary; `select` returns up to 12 results by default (16 at most), and results with an example omit their routing summary and links.
 - Install the local preview assets on first use: `preview` runs the asset setup itself when the APEX assets are missing and reports `PREVIEW_ASSETS_MISSING` only when that setup fails.
 - Accept the ship wait limit of up to 120 seconds in `apexrest_ship mode:recover`; it previously rejected `waitSeconds` above 30.
 - Keep the plain facts of a failure in the result: strings, numbers, booleans and short lists from the fault details (such as `deploymentRunId`, `expectedAlias` and `usedBy`) now reach `data`, redacted. Previously a failed result dropped every detail, so `mode:recover` had no deployment run ID to work with.

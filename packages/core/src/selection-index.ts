@@ -11,6 +11,36 @@ export type SelectionEntry = {
 };
 export type SelectionCandidate = Omit<SelectionEntry, 'text'> & { summary: string; score: number };
 
+// Path segments that structure the inventory rather than name a component.
+const structural = new Set(['inventory', 'app', 'page', 'plugin-variants', 'template-component']);
+// Requests describe some components by what they do rather than by their Oracle name.
+const nameAliases: Record<string, string[]> = {
+  'execute-code': ['pl sql', 'plsql'],
+  'page-item': ['item'],
+};
+const named = (phrase: string, name: string) =>
+  [name.replace(/-/g, ' '), ...(nameAliases[name] ?? [])].some((words) =>
+    phrase.includes(stemmedReference(words)),
+  );
+
+/**
+ * Inventory contracts whose component name the request states (switch, select list, breadcrumb
+ * entry, button) outrank contracts that merely share vocabulary. Property inventories of large
+ * regions mention most UI words, so term overlap alone would crowd out the components named.
+ */
+function componentNameBoost(id: string, phrase: string) {
+  const at = id.indexOf('inventory/');
+  if (at < 0) return 0;
+  const segments = id
+    .slice(at)
+    .split('/')
+    .filter((segment) => !structural.has(segment));
+  const name = segments.at(-1);
+  if (!name) return 0;
+  const parent = [...segments].reverse().find((segment) => segment !== name);
+  return (named(phrase, name) ? 2000 : 0) + (parent && named(phrase, parent) ? 1000 : 0);
+}
+
 /** Broad OR retrieval for prose requests; ordinary search keeps its stricter matching rule. */
 export function rankSelection(
   entries: SelectionEntry[],
@@ -35,6 +65,7 @@ export function rankSelection(
       const matched = matches(all);
       if (!matched.length) return [];
       const score =
+        componentNameBoost(entry.id, phrase) +
         matched.length * 100 +
         matches(title).length * 200 +
         (stemmedReference(entry.title).includes(phrase) ? 500 : 0) +
