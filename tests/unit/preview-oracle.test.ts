@@ -505,11 +505,17 @@ test('a project preview seeds from migrations and project .apex-local and writes
     url: string;
     database: string;
   };
-  t.after(() => previewStop(root, { all: true }));
-  assert.equal(started.database, path.join(await realpath(root), '.apexrest/preview/preview.sqlite'));
-  const html = await (await fetch(`${started.url}/r/demo/home`)).text();
-  assert.match(html, /From project data/u);
-  assert.equal(existsSync(path.join(app, '.apex-local')), false, 'nothing is written into the source tree');
+  // Stop here, not in t.after: after hooks run in registration order, so the workspace removal
+  // would run first. On Windows it cannot delete the open SQLite file, and its failure would skip
+  // the stop and leave the server keeping the test process alive.
+  try {
+    assert.equal(started.database, path.join(await realpath(root), '.apexrest/preview/preview.sqlite'));
+    const html = await (await fetch(`${started.url}/r/demo/home`)).text();
+    assert.match(html, /From project data/u);
+    assert.equal(existsSync(path.join(app, '.apex-local')), false, 'nothing is written into the source tree');
+  } finally {
+    await previewStop(root, { all: true });
+  }
 });
 
 test('the warm-up reads schema metadata once and opens the first APEX session before the URL', () => {

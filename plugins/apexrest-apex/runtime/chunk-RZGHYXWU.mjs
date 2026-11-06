@@ -15447,6 +15447,10 @@ var verdictJsonSchema = {
   }
 };
 var executable = (vendor) => (vendor === "codex" ? process.env.APEXREST_CODEX_BIN : process.env.APEXREST_CLAUDE_BIN) || vendor;
+function peerCommand(vendor, args) {
+  const file = executable(vendor);
+  return /\.(?:c|m)?js$/iu.test(file) ? { executable: process.execPath, args: [file, ...args] } : { executable: file, args };
+}
 function hostAgent(env2 = process.env) {
   if (env2.APEXREST_HOST === "codex" || env2.APEXREST_HOST === "claude") return env2.APEXREST_HOST;
   if (env2.CLAUDECODE === "1" || env2.CLAUDE_CODE_ENTRYPOINT) return "claude";
@@ -15484,7 +15488,7 @@ function peerEnv() {
   return env2;
 }
 async function probe(vendor, cwd) {
-  const run = (args) => runProcess({ executable: executable(vendor), args, cwd, env: peerEnv(), timeoutMs: 15e3 }).catch(
+  const run = (args) => runProcess({ ...peerCommand(vendor, args), cwd, env: peerEnv(), timeoutMs: 15e3 }).catch(
     () => void 0
   );
   const version2 = await run(["--version"]);
@@ -15639,8 +15643,7 @@ async function runPeer(vendor, ctx, prompt, options) {
       ...options.model ? ["--model", options.model] : []
     ];
     const result = await runProcess({
-      executable: executable(vendor),
-      args,
+      ...peerCommand(vendor, args),
       cwd: ctx.root,
       input: prompt,
       env: peerEnv(),
@@ -15722,8 +15725,7 @@ async function peerReview(ctx, input, verify, signal) {
     }
   );
   const version2 = await runProcess({
-    executable: executable(vendor),
-    args: ["--version"],
+    ...peerCommand(vendor, ["--version"]),
     cwd: ctx.root,
     env: peerEnv(),
     timeoutMs: 15e3

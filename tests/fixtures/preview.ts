@@ -209,7 +209,8 @@ export async function workspace(
   extraThemeSql = '',
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-preview-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  // Windows releases file handles shortly after close; retry instead of failing the cleanup.
+  t.after(() => rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const app = path.join(root, 'app');
   for (const [file, content] of Object.entries({ ...APP, ...files })) {
     await mkdir(path.dirname(path.join(app, file)), { recursive: true });

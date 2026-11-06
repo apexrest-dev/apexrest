@@ -89,6 +89,18 @@ const verdictJsonSchema = {
 const executable = (vendor: PeerVendor) =>
   (vendor === 'codex' ? process.env.APEXREST_CODEX_BIN : process.env.APEXREST_CLAUDE_BIN) || vendor;
 
+/**
+ * The process to start for a peer CLI call. An APEXREST_*_BIN override that is a Node script
+ * (.js, .mjs, .cjs) runs through the current Node executable: Windows cannot execute a script
+ * file directly (spawn EFTYPE), whatever its shebang line says.
+ */
+function peerCommand(vendor: PeerVendor, args: string[]) {
+  const file = executable(vendor);
+  return /\.(?:c|m)?js$/iu.test(file)
+    ? { executable: process.execPath, args: [file, ...args] }
+    : { executable: file, args };
+}
+
 /** The host the MCP server runs in, from an explicit override or the host's own environment. */
 export function hostAgent(env: NodeJS.ProcessEnv = process.env): PeerVendor | undefined {
   if (env.APEXREST_HOST === 'codex' || env.APEXREST_HOST === 'claude') return env.APEXREST_HOST;
@@ -133,7 +145,7 @@ function peerEnv() {
 
 async function probe(vendor: PeerVendor, cwd: string) {
   const run = (args: string[]) =>
-    runProcess({ executable: executable(vendor), args, cwd, env: peerEnv(), timeoutMs: 15000 }).catch(
+    runProcess({ ...peerCommand(vendor, args), cwd, env: peerEnv(), timeoutMs: 15000 }).catch(
       () => undefined,
     );
   const version = await run(['--version']);
@@ -332,8 +344,7 @@ async function runPeer(
             ...(options.model ? ['--model', options.model] : []),
           ];
     const result = await runProcess({
-      executable: executable(vendor),
-      args,
+      ...peerCommand(vendor, args),
       cwd: ctx.root,
       input: prompt,
       env: peerEnv(),
@@ -434,8 +445,7 @@ export async function peerReview(
     },
   );
   const version = await runProcess({
-    executable: executable(vendor),
-    args: ['--version'],
+    ...peerCommand(vendor, ['--version']),
     cwd: ctx.root,
     env: peerEnv(),
     timeoutMs: 15000,
