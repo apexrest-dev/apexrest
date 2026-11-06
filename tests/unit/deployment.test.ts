@@ -18,7 +18,7 @@ import {
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL } from '../../packages/core/src/oracle.ts';
 import { LocalDeploymentControl, coordination } from '../../packages/core/src/deployment-control.ts';
-import { Fault, success } from '../../packages/core/src/result.ts';
+import { Fault, failure, success } from '../../packages/core/src/result.ts';
 import { isProductionTarget } from '../../packages/core/src/config.ts';
 import { writeJson, withLock, hash, canonical, inventory, atomicWrite } from '../../packages/core/src/fs.ts';
 async function grant(home: string, root: string, plan?: DeployPlan) {
@@ -672,4 +672,35 @@ test('migrations reject nested, duplicate-version and out-of-order files and run
   await service.apply(ctx, plan);
   await atomicWrite(path.join(dir, '0003__late.sql'), 'begin null; end;\n/');
   await assert.rejects(service.plan(ctx, 'dev'), { code: 'MIGRATION_OUT_OF_ORDER' });
+});
+
+test('an alias another workspace application uses is refused at plan time, before any import', async () => {
+  const { ctx, service, fake, calls } = await prepared();
+  const asked: string[] = [];
+  (
+    fake as unknown as { aliasHolders: (e: unknown, c: unknown, alias: string) => Promise<number[]> }
+  ).aliasHolders = async (_env, _connection, alias) => {
+    asked.push(alias);
+    return [201];
+  };
+  await assert.rejects(service.plan(ctx, 'dev'), (error: Fault) => {
+    assert.equal(error.code, 'APPLICATION_ALIAS_IN_USE');
+    assert.match(error.message, /already used by application 201/u);
+    assert.deepEqual(error.details?.usedBy, [201]);
+    return true;
+  });
+  assert.deepEqual(asked, [ctx.config.application.alias]);
+  assert.ok(!calls.includes('import'));
+  // The failure result passes the plain facts on, so the caller can act without guessing.
+  const result = failure('ship', await service.plan(ctx, 'dev').catch((error: unknown) => error));
+  assert.deepEqual((result.data as { usedBy?: number[] }).usedBy, [201]);
+});
+
+test('recover names the identifier it needs when the run does not exist', async () => {
+  const { ctx, service } = await prepared();
+  await assert.rejects(service.recover(ctx, randomUUID()), (error: Fault) => {
+    assert.equal(error.code, 'DEPLOYMENT_RUN_NOT_FOUND');
+    assert.match(error.message, /data\.deploymentRunId/u);
+    return true;
+  });
 });

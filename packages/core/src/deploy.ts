@@ -1144,7 +1144,7 @@ export class DeploymentService {
       throw new Fault('SYNC_BLOCKED', 'Reconcile interrupted writes before restore planning.', 5);
     // Target reads and compilation use independent inputs. Settle both before
     // returning an error so a failed preflight leaves no Oracle work running.
-    const [targetCheck, sourceCheck] = await Promise.allSettled([
+    const [targetCheck, sourceCheck, aliasCheck] = await Promise.allSettled([
       working && !fresh ? this.workingFingerprint(ctx, name, working) : this.fingerprint(env, connection),
       (async () => {
         const sources = await sourceInventory(ctx);
@@ -1156,9 +1156,27 @@ export class DeploymentService {
           throw new Fault('TOOLCHAIN_LOCK_REQUIRED', 'The project needs its pinned toolchain lock.', 3);
         return { sources, validation, lock };
       })(),
+      // APEX imports an application whose alias another workspace application already uses
+      // under a changed alias, which then fails post-import verification. Refuse it here.
+      // Only without a sync baseline (a new or first-imported application); the post-import identity
+      // check stays the guard, so a failed lookup never blocks planning.
+      !working && typeof this.oracle.aliasHolders === 'function'
+        ? this.oracle.aliasHolders(env, connection, ctx.config.application.alias).catch(() => [] as number[])
+        : Promise.resolve([] as number[]),
     ]);
     if (targetCheck.status === 'rejected') throw targetCheck.reason;
     if (sourceCheck.status === 'rejected') throw sourceCheck.reason;
+    if (aliasCheck.status === 'rejected') throw aliasCheck.reason;
+    if (aliasCheck.value.length)
+      throw new Fault(
+        'APPLICATION_ALIAS_IN_USE',
+        `Alias ${ctx.config.application.alias} is already used by application ${aliasCheck.value.join(', ')} in workspace ${env.workspace}. ` +
+          `APEX would import application ${env.applicationId} under a changed alias and the deployment would fail verification. ` +
+          'Choose an unused alias, set it in apexrest.json (application.alias) and in application.apx (alias), then plan again.',
+        5,
+        'conflict',
+        { alias: ctx.config.application.alias, usedBy: aliasCheck.value },
+      );
     const current = targetCheck.value,
       { sources, validation, lock } = sourceCheck.value,
       risks: string[] = [];
@@ -1945,7 +1963,19 @@ export class DeploymentService {
           !target.application ||
           String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase()
         )
-          throw new Fault('POST_DEPLOY_IDENTITY_FAILED', 'Expected imported app was not found.', 1);
+          throw new Fault(
+            'POST_DEPLOY_IDENTITY_FAILED',
+            target.application
+              ? `Application ${env.applicationId} was imported with alias ${String(target.application.alias)}, not ${String(expectedAlias)}: another application in workspace ${env.workspace} probably uses that alias. Change application.alias in apexrest.json and application.apx to an unused alias, then ship again.`
+              : `Application ${env.applicationId} was not found in workspace ${env.workspace} after the import.`,
+            1,
+            'failed',
+            {
+              deploymentRunId: runId,
+              expectedAlias: String(expectedAlias),
+              ...(target.application ? { observedAlias: String(target.application.alias) } : {}),
+            },
+          );
         if (selection) {
           const observed = scoped
             ? await this.oracle.exportSelection(
@@ -2145,6 +2175,12 @@ export class DeploymentService {
   private async recoveryRead(ctx: ProjectContext, runId: string) {
     parse(z.uuid(), runId);
     const directory = await contained(ctx.root, '.apexrest/deployments/' + runId);
+    if (!(await exists(path.join(directory, 'plan.json'))))
+      throw new Fault(
+        'DEPLOYMENT_RUN_NOT_FOUND',
+        `No deployment run ${runId} exists in this project. Pass the deploymentRunId from the failed apexrest_ship result (data.deploymentRunId), not the result's runId or a jobId.`,
+        2,
+      );
     const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json')));
     const env = environment(ctx, plan.environment);
     if (

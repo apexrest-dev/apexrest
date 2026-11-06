@@ -1254,6 +1254,18 @@ export class OracleAdapter {
       );
     return { identity, workspace: workspaces[0]!, application: applications[0] ?? null };
   }
+  /** Other applications of the workspace that already use this alias (APEX aliases are case-insensitive). */
+  async aliasHolders(env: Environment, connection: Connection, alias: string): Promise<number[]> {
+    const rows = await this.jsonQuery(
+      `select application_id from apex_applications
+        where workspace = :p_workspace and upper(alias) = upper(:p_alias) and application_id <> :p_app_id`,
+      connection,
+      { p_workspace: env.workspace, p_alias: alias, p_app_id: env.applicationId },
+      undefined,
+      'metadata-batch',
+    );
+    return rows.map((row) => Number(row.application_id)).filter((id) => Number.isFinite(id));
+  }
   /** Fresh identity and versions share one read-only SQLcl session. */
   async versionedTarget(env: Environment, connection: Connection) {
     const [identity, versions] = await this.jsonQueryBatch(
