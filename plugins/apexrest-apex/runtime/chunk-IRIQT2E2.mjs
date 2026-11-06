@@ -8,17 +8,17 @@ import {
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-VQPMV7I4.mjs";
-import "./chunk-2PFVJG25.mjs";
-import "./chunk-G3H5M4NL.mjs";
+} from "./chunk-VKQIF6K6.mjs";
+import "./chunk-L7BXOT7W.mjs";
+import "./chunk-SF7RSNPX.mjs";
 import {
   VERSION
-} from "./chunk-LVD5G2P3.mjs";
+} from "./chunk-VTUE7NAA.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-SEKWEHJO.mjs";
-import "./chunk-LBWXSUSZ.mjs";
+} from "./chunk-PWI5SWBA.mjs";
+import "./chunk-ZA5GNFQJ.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -47,19 +47,19 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-O6VWXF7Y.mjs";
+} from "./chunk-H2VLYI5A.mjs";
 import {
   external_exports
-} from "./chunk-MSKY62PK.mjs";
+} from "./chunk-A5P52BZT.mjs";
 import {
   hash
-} from "./chunk-CO3K5OIY.mjs";
+} from "./chunk-SBZ36R7Y.mjs";
 import {
   Fault,
   failure,
   sanitized,
   success
-} from "./chunk-KDTXQPMS.mjs";
+} from "./chunk-IFFZXFNO.mjs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
@@ -868,9 +868,10 @@ function preview(value, depth = 0) {
 async function toolOutput(original, project) {
   const full = sanitized(original);
   const serialized = JSON.stringify(full);
-  const reader = ["docs.read", "artifacts.read", "reference"].includes(full.operation);
+  const reader = ["docs.read", "artifacts.read", "reference", "metadata.read"].includes(full.operation);
   let result = full;
-  if (serialized.length > (reader ? readerLimit : inlineLimit)) {
+  const limit = reader || full.diagnostics.length > 5 ? readerLimit : inlineLimit;
+  if (serialized.length > limit) {
     let artifactId;
     let capturedRunId;
     try {
@@ -1101,7 +1102,11 @@ async function startMcp() {
           );
           result = jobToolResult(
             tool.operation,
-            await runJobTool(jobs, tool.operation, input, runtime, extra.signal, inline ? { inline } : {})
+            // The boundary schema already allows ship its longer wait (recover included); use the same bound here.
+            await runJobTool(jobs, tool.operation, input, runtime, extra.signal, {
+              ...inline ? { inline } : {},
+              ...tool.operation === "ship" ? { waitSchema: shipWaitSeconds } : {}
+            })
           );
         }
       } else result = await dispatch(tool.operation, input, extra.signal);

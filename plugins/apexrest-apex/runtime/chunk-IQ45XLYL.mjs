@@ -5,7 +5,7 @@ import {
   registerPreview,
   stopOtherPreview,
   unregisterPreview
-} from "./chunk-KSVOEGE7.mjs";
+} from "./chunk-N43MMRVF.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -34,24 +34,24 @@ import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-LVD5G2P3.mjs";
+} from "./chunk-VTUE7NAA.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject,
   managedHome
-} from "./chunk-SEKWEHJO.mjs";
-import "./chunk-LBWXSUSZ.mjs";
-import "./chunk-O6VWXF7Y.mjs";
-import "./chunk-MSKY62PK.mjs";
-import "./chunk-CO3K5OIY.mjs";
+} from "./chunk-PWI5SWBA.mjs";
+import "./chunk-ZA5GNFQJ.mjs";
+import "./chunk-H2VLYI5A.mjs";
+import "./chunk-A5P52BZT.mjs";
+import "./chunk-SBZ36R7Y.mjs";
 import {
   Fault
-} from "./chunk-KDTXQPMS.mjs";
+} from "./chunk-IFFZXFNO.mjs";
 
 // packages/core/src/preview/service.ts
-import fs12 from "node:fs";
-import path13 from "node:path";
+import fs13 from "node:fs";
+import path14 from "node:path";
 
 // packages/core/src/preview/assets.ts
 import crypto from "node:crypto";
@@ -399,6 +399,11 @@ function loadAssets(assetsDir = defaultAssetsDir()) {
   };
 }
 
+// packages/core/src/preview/oracle/connect.ts
+import fs4 from "node:fs";
+import os from "node:os";
+import path3 from "node:path";
+
 // packages/core/src/preview/database.ts
 import crypto2 from "node:crypto";
 import fs2 from "node:fs";
@@ -713,8 +718,8 @@ function sqlArithmetic(left, operator, right) {
   if (a === void 0 || b === void 0) return null;
   return sqlNumber(operator === "-" ? a - b : a + b);
 }
-function parseJsonPath(path14) {
-  const text10 = path14.trim().replace(/^(?:lax|strict)\s+/iu, "");
+function parseJsonPath(path15) {
+  const text10 = path15.trim().replace(/^(?:lax|strict)\s+/iu, "");
   if (!text10.startsWith("$")) return void 0;
   const steps = [];
   let index = 1;
@@ -1487,12 +1492,12 @@ function rewriteJsonFunctions(text10) {
     if (args.length < 2) continue;
     const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
     const rest = args.slice(1).join(",").trim();
-    const path14 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
-    if (!path14) continue;
-    const clauses = rest.slice(path14.length);
+    const path15 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path15) continue;
+    const clauses = rest.slice(path15.length);
     const kind = match[1].toLowerCase();
     const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
-    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path14}${option ? `, '${option}'` : ""})`;
+    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path15}${option ? `, '${option}'` : ""})`;
     last = close2 + 1;
     pattern.lastIndex = last;
   }
@@ -2388,6 +2393,16 @@ end;`
     };
   }
   /** Ends the preview request: everything it changed in Oracle is rolled back. */
+  /**
+   * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
+   * once and a rollback fails with ORA-17274; the preview must then not run at all.
+   */
+  transactional() {
+    const { errors } = this.#run(["rollback;"], false);
+    if (errors[0]?.code === -17274) return false;
+    if (errors[0]) throw errors[0];
+    return true;
+  }
   endRequest() {
     if (!this.#dirty) return;
     this.#dirty = false;
@@ -2536,6 +2551,24 @@ function warmUp(data, apex) {
     }
   return { ms: Math.round(performance.now() - started2), ...steps };
 }
+function savedConnectionProperties(name, home = os.homedir()) {
+  const store = path3.join(home, ".dbtools", "connections");
+  let entries;
+  try {
+    entries = fs4.readdirSync(store);
+  } catch {
+    return void 0;
+  }
+  for (const entry of entries) {
+    try {
+      const text10 = fs4.readFileSync(path3.join(store, entry, "dbtools.properties"), "utf8");
+      if (text10.split(/\r?\n/u).some((line) => line.trim() === `name=${name}`))
+        return path3.join(store, entry, "ojdbc.properties");
+    } catch {
+    }
+  }
+  return void 0;
+}
 async function connectOracle(root, name, link) {
   const ctx = await loadProject(root);
   const env = environment(ctx, name);
@@ -2569,6 +2602,15 @@ async function connectOracle(root, name, link) {
         5,
         "conflict"
       );
+    if (!data.transactional()) {
+      const properties = savedConnectionProperties(connection.name);
+      throw new Fault(
+        "PREVIEW_AUTOCOMMIT_ON",
+        `SQLcl saved connection ${connection.name} commits every statement (JDBC auto-commit), so the connected preview could not roll its requests back and did not start. ` + (properties ? `Add the line autoCommit=false to ${properties} (create the file if needed), then start the preview again.` : `Add autoCommit=false to the ojdbc.properties file of that saved connection, then start the preview again.`) + " The offline preview (without env) is unaffected.",
+        3,
+        "blocked"
+      );
+    }
     if (rows.filter((row) => row.TARGET_RECORD === "workspace").length !== 1)
       throw new Fault(
         "WORKSPACE_UNCONFIRMED",
@@ -2636,13 +2678,13 @@ async function connectOracle(root, name, link) {
 
 // packages/core/src/preview/server.ts
 import { randomUUID } from "node:crypto";
-import fs11 from "node:fs";
+import fs12 from "node:fs";
 import http from "node:http";
-import path12 from "node:path";
+import path13 from "node:path";
 
 // packages/core/src/preview/apexlang.ts
-import fs4 from "node:fs";
-import path3 from "node:path";
+import fs5 from "node:fs";
+import path4 from "node:path";
 var ApexLangError = class extends Error {
   file;
   line;
@@ -2854,16 +2896,16 @@ function list(props, dotted) {
   return value2 === void 0 || value2 === "" ? [] : [value2];
 }
 function walk(directory) {
-  if (!fs4.existsSync(directory)) return [];
-  return fs4.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const full = path3.join(directory, entry.name);
+  if (!fs5.existsSync(directory)) return [];
+  return fs5.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const full = path4.join(directory, entry.name);
     if (entry.isDirectory()) return entry.name === "static-files" ? [] : walk(full);
     return entry.name.endsWith(".apx") ? [full] : [];
   });
 }
 function deploymentSubstitutions(root, deployment) {
-  const file = path3.join(root, "deployments", `${deployment}.json`);
-  if (!fs4.existsSync(file)) return {};
+  const file = path4.join(root, "deployments", `${deployment}.json`);
+  if (!fs5.existsSync(file)) return {};
   const values = {};
   const collect = (value2) => {
     if (!value2 || typeof value2 !== "object") return;
@@ -2874,25 +2916,25 @@ function deploymentSubstitutions(root, deployment) {
     }
   };
   try {
-    collect(JSON.parse(fs4.readFileSync(file, "utf8")));
+    collect(JSON.parse(fs5.readFileSync(file, "utf8")));
   } catch {
     return {};
   }
   return values;
 }
 function loadApplication(root, deployment = "default") {
-  const appFile = path3.join(root, "application.apx");
-  if (!fs4.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
+  const appFile = path4.join(root, "application.apx");
+  if (!fs5.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
   const substitutions = deploymentSubstitutions(root, deployment);
   const files = walk(root).sort();
   const pages2 = /* @__PURE__ */ new Map();
   const shared3 = [];
   let app;
   for (const file of files) {
-    const relative = path3.relative(root, file);
-    const text10 = fs4.readFileSync(file, "utf8").replace(
+    const relative = path4.relative(root, file);
+    const text10 = fs5.readFileSync(file, "utf8").replace(
       /@([A-Z][A-Z0-9_]*)@/gu,
-      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path3.basename(root).toLowerCase() : name === "APP_NAME" ? path3.basename(root) : whole)
+      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path4.basename(root).toLowerCase() : name === "APP_NAME" ? path4.basename(root) : whole)
     );
     for (const component of parseApexLang(text10, relative)) {
       if (component.type === "app") app = component;
@@ -3420,8 +3462,8 @@ window.apexLocal = (function ($) {
 `;
 
 // packages/core/src/preview/live.ts
-import fs5 from "node:fs";
-import path4 from "node:path";
+import fs6 from "node:fs";
+import path5 from "node:path";
 var internal = (table) => /^(?:SQLITE_|APEX_LOCAL_)/u.test(table);
 var LiveHub = class {
   #clients = /* @__PURE__ */ new Set();
@@ -3502,9 +3544,9 @@ var LiveHub = class {
   #watch() {
     if (this.#watcher) return;
     try {
-      this.#watcher = fs5.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
+      this.#watcher = fs6.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
         const name = String(file ?? "");
-        const parts = name.split(path4.sep);
+        const parts = name.split(path5.sep);
         const relevant = !name || name.endsWith(".apx") || parts.includes("static-files");
         if (!relevant || parts.some((part2) => part2.startsWith("."))) return;
         clearTimeout(this.#timer);
@@ -3518,7 +3560,7 @@ var LiveHub = class {
   #sourceChanged(file) {
     const error = this.#onSource();
     if (error) this.broadcast({ type: "source-error", message: error });
-    else this.broadcast({ type: "reload", file: file.split(path4.sep).join("/") });
+    else this.broadcast({ type: "reload", file: file.split(path5.sep).join("/") });
   }
   #unwatch() {
     clearTimeout(this.#timer);
@@ -3534,8 +3576,8 @@ var LiveHub = class {
 };
 
 // packages/core/src/preview/properties.ts
-import fs6 from "node:fs";
-import path5 from "node:path";
+import fs7 from "node:fs";
+import path6 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var CHECKED = {
   page: ["app"],
@@ -3589,15 +3631,15 @@ var TEMPLATE_COMPONENT = /^(?:themeTemplateComponent|appTemplateComponent|templa
 var OPEN_GROUPS = /* @__PURE__ */ new Set(["action"]);
 var cached;
 function catalogFile() {
-  const here = path5.dirname(fileURLToPath2(import.meta.url));
+  const here = path6.dirname(fileURLToPath2(import.meta.url));
   const candidates = [
     process.env.APEXREST_RESOURCES,
-    path5.resolve(here, "../resources"),
-    path5.resolve(here, "../../../../resources")
+    path6.resolve(here, "../resources"),
+    path6.resolve(here, "../../../../resources")
   ].filter((entry) => Boolean(entry));
   for (const root of candidates) {
-    const file = path5.join(root, "components", "source", "parameters.json");
-    if (fs6.existsSync(file)) return file;
+    const file = path6.join(root, "components", "source", "parameters.json");
+    if (fs7.existsSync(file)) return file;
   }
   return void 0;
 }
@@ -3704,7 +3746,7 @@ function loadCatalog() {
   if (cached !== void 0) return cached;
   const file = catalogFile();
   try {
-    cached = file ? buildCatalog(JSON.parse(fs6.readFileSync(file, "utf8"))) : null;
+    cached = file ? buildCatalog(JSON.parse(fs7.readFileSync(file, "utf8"))) : null;
   } catch {
     cached = null;
   }
@@ -3712,7 +3754,7 @@ function loadCatalog() {
 }
 function applicationMmdVersion(sourceDir) {
   try {
-    const json5 = JSON.parse(fs6.readFileSync(path5.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
+    const json5 = JSON.parse(fs7.readFileSync(path6.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
     return typeof json5.mmdVersion === "string" ? json5.mmdVersion : void 0;
   } catch {
     return void 0;
@@ -4117,7 +4159,7 @@ var SHARED_FOLDERS = [
 function checkSharedComponentFiles(root, files) {
   const findings = [];
   for (const file of files) {
-    const relative = path5.relative(root, file).split(path5.sep).join("/");
+    const relative = path6.relative(root, file).split(path6.sep).join("/");
     const match = /^shared-components\/(.+)-[^/-]+\.apx$/u.exec(relative);
     if (!match || match[1].includes("/")) continue;
     if (SHARED_FILES.includes(relative.slice("shared-components/".length, -".apx".length))) continue;
@@ -4335,8 +4377,8 @@ function savepoint(db2, name) {
 
 // packages/core/src/preview/render.ts
 import { createHash as createHash4 } from "node:crypto";
-import fs10 from "node:fs";
-import path11 from "node:path";
+import fs11 from "node:fs";
+import path12 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
 var strings = (values) => values.map((value2) => typeof value2 === "string" ? value2 : String(value2));
@@ -4835,8 +4877,8 @@ function templateOptions(options3, defaults) {
 }
 
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs7 from "node:fs";
-import path6 from "node:path";
+import fs8 from "node:fs";
+import path7 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
 var SCALES = [
@@ -5086,9 +5128,9 @@ function leafPaths(props, prefix = "") {
 }
 function reportUnsupported(renderer, ctx, owner2, component, groups, supported, label) {
   const ignored = leafPaths(component.props).filter(
-    (path14) => (groups.includes(path14.split(".")[0]) || !path14.includes(".")) && !supported.has(path14) && !/(^|\.)(font\w*|cssStyling)$/u.test(path14)
+    (path15) => (groups.includes(path15.split(".")[0]) || !path15.includes(".")) && !supported.has(path15) && !/(^|\.)(font\w*|cssStyling)$/u.test(path15)
   );
-  const own = ignored.filter((path14) => path14.includes(".") || label !== "Chart");
+  const own = ignored.filter((path15) => path15.includes(".") || label !== "Chart");
   if (own.length)
     renderer.diagnose(
       "info",
@@ -5445,9 +5487,9 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
   return isoOf(upcoming ?? latest).iso.slice(0, 10);
 }
 function fullCalendarScript(renderer) {
-  const root = path6.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
+  const root = path7.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs7.readdirSync(root).filter((entry) => fs7.existsSync(path6.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs8.readdirSync(root).filter((entry) => fs8.existsSync(path7.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
@@ -6213,7 +6255,7 @@ function cartesian(model, outer) {
     for (const segment of segments2) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
-      const path14 = linePath(
+      const path15 = linePath(
         points.map((entry) => [entry.x, entry.y]),
         series.line.type,
         horizontal
@@ -6225,13 +6267,13 @@ function cartesian(model, outer) {
           "L"
         );
         parts.push(
-          `<path class="ajc-area" d="${path14} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
+          `<path class="ajc-area" d="${path15} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
         );
       }
       if (series.type !== "area") {
         const dash = series.line.style === "dashed" ? ' stroke-dasharray="8 5"' : series.line.style === "dotted" ? ' stroke-dasharray="2 4"' : "";
         parts.push(
-          `<path class="ajc-line" d="${path14}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
+          `<path class="ajc-line" d="${path15}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
         );
       }
     }
@@ -6870,10 +6912,10 @@ var DASHES = {
   dashDot: "6 3 1.5 3"
 };
 function rowStyle(props, row, layer, kind) {
-  const value2 = (path14) => rowSubstitute(str(props, path14), row).trim();
-  const number2 = (path14, fallback) => {
-    const parsed2 = Number(value2(path14));
-    return value2(path14) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
+  const value2 = (path15) => rowSubstitute(str(props, path15), row).trim();
+  const number2 = (path15, fallback) => {
+    const parsed2 = Number(value2(path15));
+    return value2(path15) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
   };
   const fill2 = value2("appearance.fillColor");
   const stroke = value2("appearance.strokeColor");
@@ -7401,8 +7443,8 @@ function configured(owner2, attribute3, component) {
     `plugin-${attribute3.group}.${attribute3.apexlangName}`,
     ...shadowed ? [] : [`settings.${attribute3.apexlangName}`]
   ] : [`settings.${attribute3.apexlangName}`];
-  for (const path14 of paths) {
-    const value2 = get(owner2.props, path14);
+  for (const path15 of paths) {
+    const value2 = get(owner2.props, path15);
     if (value2 !== void 0) return value2;
   }
   return void 0;
@@ -7962,7 +8004,7 @@ function wrapRegion(renderer, ctx, region, parts) {
     const html = wrapRegionOnly(renderer, ctx, region, values, children2);
     if (html !== void 0) return html;
   }
-  const substitute = (path14, escape) => renderer.substitute(ctx.session, str(region.props, path14), ctx.page, escape);
+  const substitute = (path15, escape) => renderer.substitute(ctx.session, str(region.props, path15), ctx.page, escape);
   values.REGION_IMAGE_ALT_TEXT ||= escapeHtml(substitute("image.accessibleDescription", "RAW"));
   values.REGION_IMAGE_ATTRIBUTES ||= substitute("image.customAttributes", "RAW") || substitute("advanced.imageTagAttributes", "RAW");
   const advancedImage = substitute("advanced.regionImage", "RAW");
@@ -8592,12 +8634,12 @@ function graph(version) {
   const ids = activities.map((activity) => activity.id.toLowerCase());
   const level = /* @__PURE__ */ new Map();
   const start = activities.find((activity) => /start/iu.test(str(activity.props, "type"))) ?? activities[0];
-  const visit = (id, depth, path14) => {
-    if (path14.has(id) || (level.get(id) ?? -1) >= depth) return;
+  const visit = (id, depth, path15) => {
+    if (path15.has(id) || (level.get(id) ?? -1) >= depth) return;
     level.set(id, depth);
-    path14.add(id);
-    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path14);
-    path14.delete(id);
+    path15.add(id);
+    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path15);
+    path15.delete(id);
   };
   if (start) visit(start.id.toLowerCase(), 0, /* @__PURE__ */ new Set());
   let next = Math.max(-1, ...level.values()) + 1;
@@ -8648,9 +8690,9 @@ function svgFor(nodes, edges, title) {
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const back = y2 <= y1;
-    const path14 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+    const path15 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
     const label = edge.name && !/^(connection|normal)\b/iu.test(edge.name) ? `<text class="apex-local-wf-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2}">${escapeHtml(edge.name)}</text>` : "";
-    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path14}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
+    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path15}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
   }).join("");
   const boxes = nodes.map((node) => {
     const kind = ICONS[node.type] ?? node.type;
@@ -10390,8 +10432,8 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs8 from "node:fs";
-import path7 from "node:path";
+import fs9 from "node:fs";
+import path8 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
 var libraryCache = /* @__PURE__ */ new Map();
@@ -10400,7 +10442,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs8.readdirSync(path7.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs9.readdirSync(path8.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -10858,15 +10900,15 @@ function qrSvg(text10, options3 = {}) {
   const modules = qrMatrix(text10);
   const border = 4;
   const dimension = modules.length + border * 2;
-  const path14 = [];
+  const path15 = [];
   modules.forEach(
     (row, y) => row.forEach((dark, x) => {
-      if (dark) path14.push(`M${x + border},${y + border}h1v1h-1z`);
+      if (dark) path15.push(`M${x + border},${y + border}h1v1h-1z`);
     })
   );
   const size = options3.size ?? 160;
   const attr3 = (value2) => value2.replace(/[^#\w(),.% -]/gu, "");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path14.join("")}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path15.join("")}"/></svg>`;
 }
 
 // packages/core/src/preview/extensions/items/render.ts
@@ -14002,7 +14044,7 @@ import zlib2 from "node:zlib";
 
 // packages/core/src/preview/extensions/files/store.ts
 import { randomInt } from "node:crypto";
-import path8 from "node:path";
+import path9 from "node:path";
 registerDatabaseSetup((db2) => {
   db2.db.exec(`create table if not exists apex_application_temp_files (
     id integer primary key,
@@ -14072,7 +14114,7 @@ function mimeType(bytes2, filename = "", stored2) {
     if (head.startsWith("<svg") || head.startsWith("<?xml") && head.includes("<svg"))
       return "image/svg+xml";
   }
-  return MIME[path8.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
+  return MIME[path9.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
 }
 function tempName(filename) {
   return `${randomInt(1e9, 9e9)}${randomInt(1e5, 9e5)}/${filename}`;
@@ -14601,9 +14643,9 @@ function dynamicActionChild(ctx, key) {
 
 // packages/core/src/preview/extensions/files/parse.ts
 import { createHash as createHash2 } from "node:crypto";
-import path9 from "node:path";
+import path10 from "node:path";
 function formatOf(filename, bytes2) {
-  const extension = path9.extname(filename ?? "").toLowerCase();
+  const extension = path10.extname(filename ?? "").toLowerCase();
   if (extension === ".xlsx" || extension === ".xlsm") return "xlsx";
   if (extension === ".json") return "json";
   if (extension === ".xml") return "xml";
@@ -14792,7 +14834,7 @@ function workbookSheets(zip2) {
     const name = xmlDecode(/\bname="([^"]*)"/u.exec(match[1])?.[1] ?? `Sheet${index + 1}`);
     const id = /\br:id="([^"]*)"/u.exec(match[1])?.[1] ?? "";
     const target2 = targets.get(id) ?? `worksheets/sheet${index + 1}.xml`;
-    return { sequence: index + 1, name, file: path9.posix.basename(target2), path: `xl/${target2}` };
+    return { sequence: index + 1, name, file: path10.posix.basename(target2), path: `xl/${target2}` };
   });
 }
 function xlsxWorksheets(bytes2) {
@@ -18740,23 +18782,23 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs9 from "node:fs";
-import path10 from "node:path";
-var restDir = (renderer) => path10.join(renderer.app.root, ".apex-local", "rest");
+import fs10 from "node:fs";
+import path11 from "node:path";
+var restDir = (renderer) => path11.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
 function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
-    const file = path10.join(dir, `${safe(candidate)}.json`);
-    if (!fs9.existsSync(file)) continue;
-    const source = fs9.readFileSync(file, "utf8");
+    const file = path11.join(dir, `${safe(candidate)}.json`);
+    if (!fs10.existsSync(file)) continue;
+    const source = fs10.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
     } catch (error) {
       renderer.diagnose(
         "warning",
-        `REST fixture ${path10.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
+        `REST fixture ${path11.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
       );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
@@ -18783,7 +18825,7 @@ function logCall(renderer, ctx, entry) {
     source: entry.source,
     method: entry.method.toUpperCase(),
     url: entry.url,
-    fixture: entry.fixture ? path10.relative(renderer.app.root, entry.fixture.file) : null,
+    fixture: entry.fixture ? path11.relative(renderer.app.root, entry.fixture.file) : null,
     status_code: entry.fixture?.status ?? 404,
     request_body: entry.body ?? null,
     response_body: entry.fixture ? entry.fixture.text.slice(0, 4e3) : null,
@@ -26175,8 +26217,8 @@ function treeRoute(renderer, session, params2, items) {
 
 // packages/core/src/preview/extensions/structure/wizard.ts
 function attribute2(props, key) {
-  for (const path14 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
-    const value2 = get(props, path14);
+  for (const path15 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
+    const value2 = get(props, path15);
     if (value2 !== void 0 && value2 !== null && !isObject(value2))
       return Array.isArray(value2) ? value2.map(String).join(",") : String(value2);
   }
@@ -28174,8 +28216,8 @@ ${onload2.join("\n")}
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs10.existsSync(
-      path11.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
+    const exists2 = fs11.existsSync(
+      path12.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
   }
@@ -29218,26 +29260,26 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
    * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
    */
   static seed(db2, appRoot, seedDirs = []) {
-    const sqlFiles = (dir) => fs10.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path11.join(dir, name));
+    const sqlFiles = (dir) => fs11.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path12.join(dir, name));
     if (seedDirs.length)
-      return seedDirs.filter((dir) => fs10.existsSync(dir)).flatMap(sqlFiles).flatMap(
+      return seedDirs.filter((dir) => fs11.existsSync(dir)).flatMap(sqlFiles).flatMap(
         (script) => db2.runScript(
-          fs10.readFileSync(script, "utf8"),
-          path11.basename(path11.dirname(script)) + "/" + path11.basename(script)
+          fs11.readFileSync(script, "utf8"),
+          path12.basename(path12.dirname(script)) + "/" + path12.basename(script)
         )
       );
-    const local = path11.join(appRoot, ".apex-local");
-    const scripts = fs10.existsSync(local) ? fs10.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path11.join(local, name)) : [];
+    const local = path12.join(appRoot, ".apex-local");
+    const scripts = fs11.existsSync(local) ? fs11.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path12.join(local, name)) : [];
     if (!scripts.length) {
-      const supporting = path11.join(appRoot, "supporting-objects");
-      if (fs10.existsSync(supporting)) {
+      const supporting = path12.join(appRoot, "supporting-objects");
+      if (fs11.existsSync(supporting)) {
         scripts.push(
-          ...fs10.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path11.join(supporting, name))
+          ...fs11.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path12.join(supporting, name))
         );
       }
     }
     return scripts.flatMap(
-      (script) => db2.runScript(fs10.readFileSync(script, "utf8"), path11.relative(appRoot, script))
+      (script) => db2.runScript(fs11.readFileSync(script, "utf8"), path12.relative(appRoot, script))
     );
   }
 };
@@ -29277,11 +29319,11 @@ var TYPES = {
 function newestApx(root) {
   let newest = 0;
   const visit = (directory) => {
-    for (const entry of fs11.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs12.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
-      const full = path12.join(directory, entry.name);
+      const full = path13.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
-      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs11.statSync(full).mtimeMs);
+      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs12.statSync(full).mtimeMs);
     }
   };
   visit(root);
@@ -29336,12 +29378,12 @@ var PreviewServer = class {
   #loadedAt = 0;
   #loadError;
   constructor(options3) {
-    this.options = { ...options3, sourceDir: path12.resolve(options3.sourceDir) };
+    this.options = { ...options3, sourceDir: path13.resolve(options3.sourceDir) };
     this.assets = loadAssets(options3.assetsDir);
-    const file = options3.database ?? (options3.oracle ? ":memory:" : path12.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
+    const file = options3.database ?? (options3.oracle ? ":memory:" : path13.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
     if (options3.reset && file !== ":memory:")
-      for (const suffix of ["", "-wal", "-shm"]) fs11.rmSync(file + suffix, { force: true });
-    const fresh = file === ":memory:" || !fs11.existsSync(file);
+      for (const suffix of ["", "-wal", "-shm"]) fs12.rmSync(file + suffix, { force: true });
+    const fresh = file === ":memory:" || !fs12.existsSync(file);
     this.db = new LocalDatabase(file);
     this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
     this.renderer = this.#load();
@@ -29509,16 +29551,16 @@ var PreviewServer = class {
     }
   }
   #static(response, root, relative, cache3) {
-    const target2 = path12.resolve(root, decodeURIComponent(relative));
-    if (!target2.startsWith(root + path12.sep) || !fs11.existsSync(target2) || !fs11.statSync(target2).isFile()) {
+    const target2 = path13.resolve(root, decodeURIComponent(relative));
+    if (!target2.startsWith(root + path13.sep) || !fs12.existsSync(target2) || !fs12.statSync(target2).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
     response.writeHead(200, {
-      "content-type": TYPES[path12.extname(target2).toLowerCase()] ?? "application/octet-stream",
+      "content-type": TYPES[path13.extname(target2).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs11.createReadStream(target2).pipe(response);
+    fs12.createReadStream(target2).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -29547,7 +29589,7 @@ var PreviewServer = class {
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
-      return this.#static(response, path12.resolve(this.assets.imagesDir), pathname.slice(3), true);
+      return this.#static(response, path13.resolve(this.assets.imagesDir), pathname.slice(3), true);
     const marker3 = pathname.indexOf(`${LOCAL_PREFIX}/`);
     if (marker3 >= 0) {
       const name = pathname.slice(marker3 + LOCAL_PREFIX.length + 1);
@@ -29591,14 +29633,14 @@ var PreviewServer = class {
     if (rest.startsWith("files/static/v1/"))
       return this.#static(
         response,
-        path12.join(this.options.sourceDir, "shared-components", "static-files"),
+        path13.join(this.options.sourceDir, "shared-components", "static-files"),
         rest.slice(16),
         false
       );
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
-        path12.join(this.options.sourceDir, "workspace-components", "static-files"),
+        path13.join(this.options.sourceDir, "workspace-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -29820,36 +29862,36 @@ onPreviewShutdown(async () => {
 });
 var DIAGNOSTICS_LIMIT = 60;
 async function resolveSource(root, explicit) {
-  let source = explicit ? path13.resolve(root, explicit) : void 0;
+  let source = explicit ? path14.resolve(root, explicit) : void 0;
   if (!source) {
     try {
       const ctx = await loadProject(root);
-      source = path13.resolve(ctx.root, ctx.config.application.sourceDir);
+      source = path14.resolve(ctx.root, ctx.config.application.sourceDir);
     } catch {
-      source = path13.resolve(root);
+      source = path14.resolve(root);
     }
   }
-  if (!fs12.existsSync(path13.join(source, "application.apx")))
+  if (!fs13.existsSync(path14.join(source, "application.apx")))
     throw new Fault(
       "PREVIEW_SOURCE_MISSING",
       `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
       2
     );
-  return fs12.realpathSync(source);
+  return fs13.realpathSync(source);
 }
 async function projectData(root, sourceDir) {
-  if (fs12.existsSync(path13.join(sourceDir, ".apex-local"))) return {};
+  if (fs13.existsSync(path14.join(sourceDir, ".apex-local"))) return {};
   let ctx;
   try {
     ctx = await loadProject(root);
   } catch {
     return {};
   }
-  const appDir = path13.resolve(ctx.root, ctx.config.application.sourceDir);
-  if (!fs12.existsSync(appDir) || fs12.realpathSync(appDir) !== sourceDir) return {};
+  const appDir = path14.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs13.existsSync(appDir) || fs13.realpathSync(appDir) !== sourceDir) return {};
   return {
-    database: path13.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
-    seedDirs: [path13.resolve(ctx.root, ctx.config.database.migrationsDir), path13.join(ctx.root, ".apex-local")]
+    database: path14.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
+    seedDirs: [path14.resolve(ctx.root, ctx.config.database.migrationsDir), path14.join(ctx.root, ".apex-local")]
   };
 }
 function summarize(diagnostics) {
@@ -29863,13 +29905,19 @@ function summarize(diagnostics) {
     truncated: diagnostics.length > DIAGNOSTICS_LIMIT
   };
 }
-function assetsReady(assetsDir) {
+async function assetsReady(assetsDir) {
   try {
+    loadAssets(assetsDir);
+    return;
+  } catch {
+  }
+  try {
+    await previewSetup({ assetsDir });
     loadAssets(assetsDir);
   } catch (error) {
     throw new Fault("PREVIEW_ASSETS_MISSING", error.message, 3, "blocked", {
       nextActions: [
-        "Run apexrest preview setup (downloads the APEX 26.2 distribution once) or pass --zip with a local apex_26.2 zip."
+        "The automatic preview setup failed. Run apexrest preview setup with --zip and a local apex_26.2 zip, or check network access to download.oracle.com."
       ]
     });
   }
@@ -29893,7 +29941,7 @@ async function previewSetup(input) {
 }
 async function previewStart(root, input) {
   const sourceDir = await resolveSource(root, input.sourceDir);
-  assetsReady(input.assetsDir);
+  await assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
   if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env)
     return describe(previous, true);
@@ -29983,12 +30031,12 @@ async function selector(root, input, fallback) {
   } else if (input.project !== void 0) {
     let projectRoot;
     try {
-      projectRoot = fs12.realpathSync(path13.resolve(input.project));
+      projectRoot = fs13.realpathSync(path14.resolve(input.project));
     } catch {
       throw new Fault("INVALID_INPUT", `Project directory ${input.project} does not exist.`, 2);
     }
     tests.push(
-      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path13.sep)
+      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path14.sep)
     );
     described.push(`project ${projectRoot}`);
   }
@@ -30069,14 +30117,14 @@ async function previewStatus(root = process.cwd(), input = {}) {
   const filter = await selector(root, input, "all");
   return {
     assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs12.existsSync(path13.join(defaultAssetsDir(), "manifest.json")),
+    assetsInstalled: fs13.existsSync(path14.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
     running: (await listPreviews()).filter(filter.match).map(summaryOf)
   };
 }
 async function previewCheck(root, input) {
   const sourceDir = await resolveSource(root, input.sourceDir);
-  assetsReady(input.assetsDir);
+  await assetsReady(input.assetsDir);
   const oracle = input.env ? await connectOracle(root, input.env) : void 0;
   const { seedDirs } = await projectData(root, sourceDir);
   const result = checkApplication({

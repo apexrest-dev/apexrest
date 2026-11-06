@@ -2,12 +2,12 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-2PFVJG25.mjs";
+} from "./chunk-L7BXOT7W.mjs";
 import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-G3H5M4NL.mjs";
+} from "./chunk-SF7RSNPX.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -57,7 +57,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-LVD5G2P3.mjs";
+} from "./chunk-VTUE7NAA.mjs";
 import {
   environment,
   identifier,
@@ -71,15 +71,15 @@ import {
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-SEKWEHJO.mjs";
+} from "./chunk-PWI5SWBA.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-O6VWXF7Y.mjs";
+} from "./chunk-H2VLYI5A.mjs";
 import {
   external_exports
-} from "./chunk-MSKY62PK.mjs";
+} from "./chunk-A5P52BZT.mjs";
 import {
   atomicWrite,
   canonical,
@@ -90,7 +90,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-CO3K5OIY.mjs";
+} from "./chunk-SBZ36R7Y.mjs";
 import {
   Fault,
   __commonJS,
@@ -102,7 +102,7 @@ import {
   sanitized,
   success,
   verifiedVendorReferencePage
-} from "./chunk-KDTXQPMS.mjs";
+} from "./chunk-IFFZXFNO.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
@@ -181,17 +181,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path16) {
-      const ctrl = callVisitor(key, node2, visitor, path16);
+    function visit_(key, node2, visitor, path17) {
+      const ctrl = callVisitor(key, node2, visitor, path17);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path16, ctrl);
-        return visit_(key, ctrl, visitor, path16);
+        replaceNode(key, path17, ctrl);
+        return visit_(key, ctrl, visitor, path17);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
+          path17 = Object.freeze(path17.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path16);
+            const ci = visit_(i, node2.items[i], visitor, path17);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -202,13 +202,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path16);
+          path17 = Object.freeze(path17.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path17);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path16);
+          const cv = visit_("value", node2.value, visitor, path17);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -229,17 +229,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path16) {
-      const ctrl = await callVisitor(key, node2, visitor, path16);
+    async function visitAsync_(key, node2, visitor, path17) {
+      const ctrl = await callVisitor(key, node2, visitor, path17);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path16, ctrl);
-        return visitAsync_(key, ctrl, visitor, path16);
+        replaceNode(key, path17, ctrl);
+        return visitAsync_(key, ctrl, visitor, path17);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
+          path17 = Object.freeze(path17.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path16);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path17);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -250,13 +250,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path16);
+          path17 = Object.freeze(path17.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path17);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path16);
+          const cv = await visitAsync_("value", node2.value, visitor, path17);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -283,23 +283,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path16) {
+    function callVisitor(key, node2, visitor, path17) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path16);
+        return visitor(key, node2, path17);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path16);
+        return visitor.Map?.(key, node2, path17);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path16);
+        return visitor.Seq?.(key, node2, path17);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path16);
+        return visitor.Pair?.(key, node2, path17);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path16);
+        return visitor.Scalar?.(key, node2, path17);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path16);
+        return visitor.Alias?.(key, node2, path17);
       return void 0;
     }
-    function replaceNode(key, path16, node2) {
-      const parent = path16[path16.length - 1];
+    function replaceNode(key, path17, node2) {
+      const parent = path17[path17.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -911,10 +911,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path16, value) {
+    function collectionFromPath(schema, path17, value) {
       let v = value;
-      for (let i = path16.length - 1; i >= 0; --i) {
-        const k = path16[i];
+      for (let i = path17.length - 1; i >= 0; --i) {
+        const k = path17[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -933,7 +933,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path16) => path16 == null || typeof path16 === "object" && !!path16[Symbol.iterator]().next().done;
+    var isEmptyPath = (path17) => path17 == null || typeof path17 === "object" && !!path17[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -963,11 +963,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path16, value) {
-        if (isEmptyPath(path16))
+      addIn(path17, value) {
+        if (isEmptyPath(path17))
           this.add(value);
         else {
-          const [key, ...rest] = path16;
+          const [key, ...rest] = path17;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -981,8 +981,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path16) {
-        const [key, ...rest] = path16;
+      deleteIn(path17) {
+        const [key, ...rest] = path17;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -996,8 +996,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path16, keepScalar) {
-        const [key, ...rest] = path16;
+      getIn(path17, keepScalar) {
+        const [key, ...rest] = path17;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1015,8 +1015,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path16) {
-        const [key, ...rest] = path16;
+      hasIn(path17) {
+        const [key, ...rest] = path17;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1026,8 +1026,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path16, value) {
-        const [key, ...rest] = path16;
+      setIn(path17, value) {
+        const [key, ...rest] = path17;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -1052,12 +1052,12 @@ var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
-    function indentComment(comment, indent2) {
+    function indentComment(comment, indent3) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
-      return indent2 ? comment.replace(/^(?! *$)/gm, indent2) : comment;
+      return indent3 ? comment.replace(/^(?! *$)/gm, indent3) : comment;
     }
-    var lineComment = (str, indent2, comment) => str.endsWith("\n") ? indentComment(comment, indent2) : comment.includes("\n") ? "\n" + indentComment(comment, indent2) : (str.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str, indent3, comment) => str.endsWith("\n") ? indentComment(comment, indent3) : comment.includes("\n") ? "\n" + indentComment(comment, indent3) : (str.endsWith(" ") ? "" : " ") + comment;
     exports.indentComment = indentComment;
     exports.lineComment = lineComment;
     exports.stringifyComment = stringifyComment;
@@ -1071,17 +1071,17 @@ var require_foldFlowLines = __commonJS({
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
     var FOLD_QUOTED = "quoted";
-    function foldFlowLines(text2, indent2, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+    function foldFlowLines(text2, indent3, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
       if (!lineWidth || lineWidth < 0)
         return text2;
       if (lineWidth < minContentWidth)
         minContentWidth = 0;
-      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent2.length);
+      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent3.length);
       if (text2.length <= endStep)
         return text2;
       const folds = [];
       const escapedFolds = {};
-      let end = lineWidth - indent2.length;
+      let end = lineWidth - indent3.length;
       if (typeof indentAtStart === "number") {
         if (indentAtStart > lineWidth - Math.max(2, minContentWidth))
           folds.push(0);
@@ -1095,7 +1095,7 @@ var require_foldFlowLines = __commonJS({
       let escStart = -1;
       let escEnd = -1;
       if (mode === FOLD_BLOCK) {
-        i = consumeMoreIndentedLines(text2, i, indent2.length);
+        i = consumeMoreIndentedLines(text2, i, indent3.length);
         if (i !== -1)
           end = i + endStep;
       }
@@ -1119,8 +1119,8 @@ var require_foldFlowLines = __commonJS({
         }
         if (ch === "\n") {
           if (mode === FOLD_BLOCK)
-            i = consumeMoreIndentedLines(text2, i, indent2.length);
-          end = i + indent2.length + endStep;
+            i = consumeMoreIndentedLines(text2, i, indent3.length);
+          end = i + indent3.length + endStep;
           split = void 0;
         } else {
           if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
@@ -1165,22 +1165,22 @@ var require_foldFlowLines = __commonJS({
         const end2 = folds[i2 + 1] || text2.length;
         if (fold === 0)
           res = `
-${indent2}${text2.slice(0, end2)}`;
+${indent3}${text2.slice(0, end2)}`;
         else {
           if (mode === FOLD_QUOTED && escapedFolds[fold])
             res += `${text2[fold]}\\`;
           res += `
-${indent2}${text2.slice(fold + 1, end2)}`;
+${indent3}${text2.slice(fold + 1, end2)}`;
         }
       }
       return res;
     }
-    function consumeMoreIndentedLines(text2, i, indent2) {
+    function consumeMoreIndentedLines(text2, i, indent3) {
       let end = i;
       let start = i + 1;
       let ch = text2[start];
       while (ch === " " || ch === "	") {
-        if (i < start + indent2) {
+        if (i < start + indent3) {
           ch = text2[++i];
         } else {
           do {
@@ -1236,7 +1236,7 @@ var require_stringifyString = __commonJS({
         return json;
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
-      const indent2 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const indent3 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
       let str = "";
       let start = 0;
       for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
@@ -1296,7 +1296,7 @@ var require_stringifyString = __commonJS({
                   str += "\n";
                   i += 2;
                 }
-                str += indent2;
+                str += indent3;
                 if (json[i + 2] === " ")
                   str += "\\";
                 i += 1;
@@ -1308,15 +1308,15 @@ var require_stringifyString = __commonJS({
           }
       }
       str = start ? str + json.slice(start) : json;
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent2, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent3, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
         return doubleQuotedString(value, ctx);
-      const indent2 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const indent3 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
       const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
-${indent2}`) + "'";
-      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent2, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+${indent3}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent3, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function quotedString(value, ctx) {
       const { singleQuote } = ctx.options;
@@ -1346,8 +1346,8 @@ ${indent2}`) + "'";
       if (!blockQuote || /\n[\t ]+$/.test(value)) {
         return quotedString(value, ctx);
       }
-      const indent2 = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
-      const literal = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent2.length);
+      const indent3 = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
+      const literal = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent3.length);
       if (!value)
         return literal ? "|\n" : ">\n";
       let chomp;
@@ -1372,7 +1372,7 @@ ${indent2}`) + "'";
         value = value.slice(0, -end.length);
         if (end[end.length - 1] === "\n")
           end = end.slice(0, -1);
-        end = end.replace(blockEndNewlines, `$&${indent2}`);
+        end = end.replace(blockEndNewlines, `$&${indent3}`);
       }
       let startWithSpace = false;
       let startEnd;
@@ -1389,9 +1389,9 @@ ${indent2}`) + "'";
       let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
       if (start) {
         value = value.substring(start.length);
-        start = start.replace(/\n+/g, `$&${indent2}`);
+        start = start.replace(/\n+/g, `$&${indent3}`);
       }
-      const indentSize = indent2 ? "2" : "1";
+      const indentSize = indent3 ? "2" : "1";
       let header = (startWithSpace ? indentSize : "") + chomp;
       if (comment) {
         header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
@@ -1399,7 +1399,7 @@ ${indent2}`) + "'";
           onComment();
       }
       if (!literal) {
-        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent2}`);
+        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent3}`);
         let literalFallback = false;
         const foldOptions = getFoldOptions(ctx, true);
         if (blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED) {
@@ -1407,18 +1407,18 @@ ${indent2}`) + "'";
             literalFallback = true;
           };
         }
-        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent2, foldFlowLines.FOLD_BLOCK, foldOptions);
+        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent3, foldFlowLines.FOLD_BLOCK, foldOptions);
         if (!literalFallback)
           return `>${header}
-${indent2}${body}`;
+${indent3}${body}`;
       }
-      value = value.replace(/\n+/g, `$&${indent2}`);
+      value = value.replace(/\n+/g, `$&${indent3}`);
       return `|${header}
-${indent2}${start}${value}${end}`;
+${indent3}${start}${value}${end}`;
     }
     function plainString(item2, ctx, onComment, onChompKeep) {
       const { type, value } = item2;
-      const { actualString, implicitKey, indent: indent2, indentStep, inFlow } = ctx;
+      const { actualString, implicitKey, indent: indent3, indentStep, inFlow } = ctx;
       if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
         return quotedString(value, ctx);
       }
@@ -1429,22 +1429,22 @@ ${indent2}${start}${value}${end}`;
         return blockString(item2, ctx, onComment, onChompKeep);
       }
       if (containsDocumentMarker(value)) {
-        if (indent2 === "") {
+        if (indent3 === "") {
           ctx.forceBlockIndent = true;
           return blockString(item2, ctx, onComment, onChompKeep);
-        } else if (implicitKey && indent2 === indentStep) {
+        } else if (implicitKey && indent3 === indentStep) {
           return quotedString(value, ctx);
         }
       }
       const str = value.replace(/\n+/g, `$&
-${indent2}`);
+${indent3}`);
       if (actualString) {
         const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent2, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent3, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item2, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -1616,7 +1616,7 @@ var require_stringifyPair = __commonJS({
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
-      const { allNullValues, doc, indent: indent2, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
+      const { allNullValues, doc, indent: indent3, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
       let keyComment = identity.isNode(key) && key.comment || null;
       if (simpleKeys) {
         if (keyComment) {
@@ -1631,7 +1631,7 @@ var require_stringifyPair = __commonJS({
       ctx = Object.assign({}, ctx, {
         allNullValues: false,
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
-        indent: indent2 + indentStep
+        indent: indent3 + indentStep
       });
       let keyCommentDone = false;
       let chompKeep = false;
@@ -1661,7 +1661,7 @@ var require_stringifyPair = __commonJS({
         if (keyComment)
           str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
         str = `? ${str}
-${indent2}:`;
+${indent3}:`;
       } else {
         str = `${str}:`;
         if (keyComment)
@@ -1939,7 +1939,7 @@ var require_stringifyCollection = __commonJS({
       return stringify2(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
-      const { indent: indent2, options: { commentString } } = ctx;
+      const { indent: indent3, options: { commentString } } = ctx;
       const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
       let chompKeep = false;
       const lines = [];
@@ -1976,11 +1976,11 @@ var require_stringifyCollection = __commonJS({
         for (let i = 1; i < lines.length; ++i) {
           const line = lines[i];
           str += line ? `
-${indent2}${line}` : "\n";
+${indent3}${line}` : "\n";
         }
       }
       if (comment) {
-        str += "\n" + stringifyComment.indentComment(commentString(comment), indent2);
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent3);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
@@ -1988,7 +1988,7 @@ ${indent2}${line}` : "\n";
       return str;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
-      const { indent: indent2, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      const { indent: indent3, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
       itemIndent += indentStep;
       const itemCtx = Object.assign({}, ctx, {
         indent: itemIndent,
@@ -2057,19 +2057,19 @@ ${indent2}${line}` : "\n";
           let str = start;
           for (const line of lines)
             str += line ? `
-${indentStep}${indent2}${line}` : "\n";
+${indentStep}${indent3}${line}` : "\n";
           return `${str}
-${indent2}${end}`;
+${indent3}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
         }
       }
     }
-    function addCommentBefore({ indent: indent2, options: { commentString } }, lines, comment, chompKeep) {
+    function addCommentBefore({ indent: indent3, options: { commentString } }, lines, comment, chompKeep) {
       if (comment && chompKeep)
         comment = comment.replace(/^\n+/, "");
       if (comment) {
-        const ic = stringifyComment.indentComment(commentString(comment), indent2);
+        const ic = stringifyComment.indentComment(commentString(comment), indent3);
         lines.push(ic.trimStart());
       }
     }
@@ -3542,9 +3542,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path16, value) {
+      addIn(path17, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path16, value);
+          this.contents.addIn(path17, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3619,14 +3619,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path16) {
-        if (Collection.isEmptyPath(path16)) {
+      deleteIn(path17) {
+        if (Collection.isEmptyPath(path17)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path16) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path17) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3641,10 +3641,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path16, keepScalar) {
-        if (Collection.isEmptyPath(path16))
+      getIn(path17, keepScalar) {
+        if (Collection.isEmptyPath(path17))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path16, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path17, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3655,10 +3655,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path16) {
-        if (Collection.isEmptyPath(path16))
+      hasIn(path17) {
+        if (Collection.isEmptyPath(path17))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path16) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path17) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3675,13 +3675,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path16, value) {
-        if (Collection.isEmptyPath(path16)) {
+      setIn(path17, value) {
+        if (Collection.isEmptyPath(path17)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path16), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path17), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path16, value);
+          this.contents.setIn(path17, value);
         }
       }
       /**
@@ -4019,10 +4019,10 @@ var require_util_flow_indent_check = __commonJS({
   "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
-    function flowIndentCheck(indent2, fc, onError) {
+    function flowIndentCheck(indent3, fc, onError) {
       if (fc?.type === "flow-collection") {
         const end = fc.end[0];
-        if (end.indent === indent2 && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
+        if (end.indent === indent3 && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
           const msg = "Flow end indicator should be more indented than parent";
           onError(end, "BAD_INDENT", msg, true);
         }
@@ -4540,17 +4540,17 @@ var require_resolve_block_scalar = __commonJS({
       let offset = scalar2.offset + header.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
-        const [indent2, content] = lines[i];
+        const [indent3, content] = lines[i];
         if (content === "" || content === "\r") {
-          if (header.indent === 0 && indent2.length > trimIndent)
-            trimIndent = indent2.length;
+          if (header.indent === 0 && indent3.length > trimIndent)
+            trimIndent = indent3.length;
         } else {
-          if (indent2.length < trimIndent) {
+          if (indent3.length < trimIndent) {
             const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
-            onError(offset + indent2.length, "MISSING_CHAR", message);
+            onError(offset + indent3.length, "MISSING_CHAR", message);
           }
           if (header.indent === 0)
-            trimIndent = indent2.length;
+            trimIndent = indent3.length;
           contentStart = i;
           if (trimIndent === 0 && !ctx.atRoot) {
             const message = "Block scalar values in collections must be indented";
@@ -4558,7 +4558,7 @@ var require_resolve_block_scalar = __commonJS({
           }
           break;
         }
-        offset += indent2.length + content.length + 1;
+        offset += indent3.length + content.length + 1;
       }
       for (let i = lines.length - 1; i >= chompStart; --i) {
         if (lines[i][0].length > trimIndent)
@@ -4570,26 +4570,26 @@ var require_resolve_block_scalar = __commonJS({
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
       for (let i = contentStart; i < chompStart; ++i) {
-        let [indent2, content] = lines[i];
-        offset += indent2.length + content.length + 1;
+        let [indent3, content] = lines[i];
+        offset += indent3.length + content.length + 1;
         const crlf = content[content.length - 1] === "\r";
         if (crlf)
           content = content.slice(0, -1);
-        if (content && indent2.length < trimIndent) {
+        if (content && indent3.length < trimIndent) {
           const src = header.indent ? "explicit indentation indicator" : "first line";
           const message = `Block scalar lines must not be less indented than their ${src}`;
           onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
-          indent2 = "";
+          indent3 = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent2.slice(trimIndent) + content;
+          value += sep + indent3.slice(trimIndent) + content;
           sep = "\n";
-        } else if (indent2.length > trimIndent || content[0] === "	") {
+        } else if (indent3.length > trimIndent || content[0] === "	") {
           if (sep === " ")
             sep = "\n";
           else if (!prevMoreIndented && sep === "\n")
             sep = "\n\n";
-          value += sep + indent2.slice(trimIndent) + content;
+          value += sep + indent3.slice(trimIndent) + content;
           sep = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
@@ -4625,7 +4625,7 @@ var require_resolve_block_scalar = __commonJS({
       }
       const { source: source2 } = props[0];
       const mode = source2[0];
-      let indent2 = 0;
+      let indent3 = 0;
       let chomp = "";
       let error = -1;
       for (let i = 1; i < source2.length; ++i) {
@@ -4634,8 +4634,8 @@ var require_resolve_block_scalar = __commonJS({
           chomp = ch;
         else {
           const n = Number(ch);
-          if (!indent2 && n)
-            indent2 = n;
+          if (!indent3 && n)
+            indent3 = n;
           else if (error === -1)
             error = offset + i;
         }
@@ -4676,7 +4676,7 @@ var require_resolve_block_scalar = __commonJS({
           }
         }
       }
-      return { mode, indent: indent2, chomp, comment, length };
+      return { mode, indent: indent3, chomp, comment, length };
     }
     function splitLines(source2) {
       const split = source2.split(/\n( *)/);
@@ -5410,15 +5410,15 @@ var require_cst_scalar = __commonJS({
       return null;
     }
     function createScalarToken(value, context2) {
-      const { implicitKey = false, indent: indent2, inFlow = false, offset = -1, type = "PLAIN" } = context2;
+      const { implicitKey = false, indent: indent3, inFlow = false, offset = -1, type = "PLAIN" } = context2;
       const source2 = stringifyString.stringifyString({ type, value }, {
         implicitKey,
-        indent: indent2 > 0 ? " ".repeat(indent2) : "",
+        indent: indent3 > 0 ? " ".repeat(indent3) : "",
         inFlow,
         options: { blockQuote: true, lineWidth: -1 }
       });
       const end = context2.end ?? [
-        { type: "newline", offset: -1, indent: indent2, source: "\n" }
+        { type: "newline", offset: -1, indent: indent3, source: "\n" }
       ];
       switch (source2[0]) {
         case "|":
@@ -5427,25 +5427,25 @@ var require_cst_scalar = __commonJS({
           const head = source2.substring(0, he);
           const body = source2.substring(he + 1) + "\n";
           const props = [
-            { type: "block-scalar-header", offset, indent: indent2, source: head }
+            { type: "block-scalar-header", offset, indent: indent3, source: head }
           ];
           if (!addEndtoBlockProps(props, end))
-            props.push({ type: "newline", offset: -1, indent: indent2, source: "\n" });
-          return { type: "block-scalar", offset, indent: indent2, props, source: body };
+            props.push({ type: "newline", offset: -1, indent: indent3, source: "\n" });
+          return { type: "block-scalar", offset, indent: indent3, props, source: body };
         }
         case '"':
-          return { type: "double-quoted-scalar", offset, indent: indent2, source: source2, end };
+          return { type: "double-quoted-scalar", offset, indent: indent3, source: source2, end };
         case "'":
-          return { type: "single-quoted-scalar", offset, indent: indent2, source: source2, end };
+          return { type: "single-quoted-scalar", offset, indent: indent3, source: source2, end };
         default:
-          return { type: "scalar", offset, indent: indent2, source: source2, end };
+          return { type: "scalar", offset, indent: indent3, source: source2, end };
       }
     }
     function setScalarValue(token, value, context2 = {}) {
       let { afterKey = false, implicitKey = false, inFlow = false, type } = context2;
-      let indent2 = "indent" in token ? token.indent : null;
-      if (afterKey && typeof indent2 === "number")
-        indent2 += 2;
+      let indent3 = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent3 === "number")
+        indent3 += 2;
       if (!type)
         switch (token.type) {
           case "single-quoted-scalar":
@@ -5465,8 +5465,8 @@ var require_cst_scalar = __commonJS({
             type = "PLAIN";
         }
       const source2 = stringifyString.stringifyString({ type, value }, {
-        implicitKey: implicitKey || indent2 === null,
-        indent: indent2 !== null && indent2 > 0 ? " ".repeat(indent2) : "",
+        implicitKey: implicitKey || indent3 === null,
+        indent: indent3 !== null && indent3 > 0 ? " ".repeat(indent3) : "",
         inFlow,
         options: { blockQuote: true, lineWidth: -1 }
       });
@@ -5497,16 +5497,16 @@ var require_cst_scalar = __commonJS({
         token.source = body;
       } else {
         const { offset } = token;
-        const indent2 = "indent" in token ? token.indent : -1;
+        const indent3 = "indent" in token ? token.indent : -1;
         const props = [
-          { type: "block-scalar-header", offset, indent: indent2, source: head }
+          { type: "block-scalar-header", offset, indent: indent3, source: head }
         ];
         if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
-          props.push({ type: "newline", offset: -1, indent: indent2, source: "\n" });
+          props.push({ type: "newline", offset: -1, indent: indent3, source: "\n" });
         for (const key of Object.keys(token))
           if (key !== "type" && key !== "offset")
             delete token[key];
-        Object.assign(token, { type: "block-scalar", indent: indent2, props, source: body });
+        Object.assign(token, { type: "block-scalar", indent: indent3, props, source: body });
       }
     }
     function addEndtoBlockProps(props, end) {
@@ -5551,12 +5551,12 @@ var require_cst_scalar = __commonJS({
           break;
         }
         default: {
-          const indent2 = "indent" in token ? token.indent : -1;
+          const indent3 = "indent" in token ? token.indent : -1;
           const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
           for (const key of Object.keys(token))
             if (key !== "type" && key !== "offset")
               delete token[key];
-          Object.assign(token, { type, indent: indent2, source: source2, end });
+          Object.assign(token, { type, indent: indent3, source: source2, end });
         }
       }
     }
@@ -5642,9 +5642,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path16) => {
+    visit.itemAtPath = (cst, path17) => {
       let item2 = cst;
-      for (const [field, index] of path16) {
+      for (const [field, index] of path17) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5653,23 +5653,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path16) => {
-      const parent = visit.itemAtPath(cst, path16.slice(0, -1));
-      const field = path16[path16.length - 1][0];
+    visit.parentCollection = (cst, path17) => {
+      const parent = visit.itemAtPath(cst, path17.slice(0, -1));
+      const field = path17[path17.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path16, item2, visitor) {
-      let ctrl = visitor(item2, path16);
+    function _visit(path17, item2, visitor) {
+      let ctrl = visitor(item2, path17);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path16.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path17.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5680,10 +5680,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path16);
+            ctrl = ctrl(item2, path17);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path16) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path17) : ctrl;
     }
     exports.visit = visit;
   }
@@ -5862,15 +5862,15 @@ var require_lexer = __commonJS({
       continueScalar(offset) {
         let ch = this.buffer[offset];
         if (this.indentNext > 0) {
-          let indent2 = 0;
+          let indent3 = 0;
           while (ch === " ")
-            ch = this.buffer[++indent2 + offset];
+            ch = this.buffer[++indent3 + offset];
           if (ch === "\r") {
-            const next2 = this.buffer[indent2 + offset + 1];
+            const next2 = this.buffer[indent3 + offset + 1];
             if (next2 === "\n" || !next2 && !this.atEnd)
-              return offset + indent2 + 1;
+              return offset + indent3 + 1;
           }
-          return ch === "\n" || indent2 >= this.indentNext || !ch && !this.atEnd ? offset + indent2 : -1;
+          return ch === "\n" || indent3 >= this.indentNext || !ch && !this.atEnd ? offset + indent3 : -1;
         }
         if (ch === "-" || ch === ".") {
           const dt = this.buffer.substr(offset, 3);
@@ -6039,12 +6039,12 @@ var require_lexer = __commonJS({
       }
       *parseFlowCollection() {
         let nl, sp;
-        let indent2 = -1;
+        let indent3 = -1;
         do {
           nl = yield* this.pushNewline();
           if (nl > 0) {
             sp = yield* this.pushSpaces(false);
-            this.indentValue = indent2 = sp;
+            this.indentValue = indent3 = sp;
           } else {
             sp = 0;
           }
@@ -6053,8 +6053,8 @@ var require_lexer = __commonJS({
         const line = this.getLine();
         if (line === null)
           return this.setNext("flow");
-        if (indent2 !== -1 && indent2 < this.indentNext && line[0] !== "#" || indent2 === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
-          const atFlowEndMarker = indent2 === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+        if (indent3 !== -1 && indent3 < this.indentNext && line[0] !== "#" || indent3 === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent3 === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -6162,16 +6162,16 @@ var require_lexer = __commonJS({
       }
       *parseBlockScalar() {
         let nl = this.pos - 1;
-        let indent2 = 0;
+        let indent3 = 0;
         let ch;
         loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
           switch (ch) {
             case " ":
-              indent2 += 1;
+              indent3 += 1;
               break;
             case "\n":
               nl = i2;
-              indent2 = 0;
+              indent3 = 0;
               break;
             case "\r": {
               const next2 = this.buffer[i2 + 1];
@@ -6187,9 +6187,9 @@ var require_lexer = __commonJS({
         }
         if (!ch && !this.atEnd)
           return this.setNext("block-scalar");
-        if (indent2 >= this.indentNext) {
+        if (indent3 >= this.indentNext) {
           if (this.blockScalarIndent === -1)
-            this.indentNext = indent2;
+            this.indentNext = indent3;
           else {
             this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
           }
@@ -6222,7 +6222,7 @@ var require_lexer = __commonJS({
             const lastChar = i2;
             while (ch2 === " ")
               ch2 = this.buffer[--i2];
-            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent2 > lastChar)
+            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent3 > lastChar)
               nl = i2;
             else
               break;
@@ -7238,10 +7238,10 @@ var require_parser = __commonJS({
         }
         return null;
       }
-      atIndentedComment(start, indent2) {
+      atIndentedComment(start, indent3) {
         if (this.type !== "comment")
           return false;
-        if (this.indent <= indent2)
+        if (this.indent <= indent3)
           return false;
         return start.every((st) => st.type === "newline" || st.type === "space");
       }
@@ -7363,8 +7363,8 @@ var require_public_api = __commonJS({
       if (typeof options === "string")
         options = options.length;
       if (typeof options === "number") {
-        const indent2 = Math.round(options);
-        options = indent2 < 1 ? void 0 : indent2 > 8 ? { indent: 8 } : { indent: indent2 };
+        const indent3 = Math.round(options);
+        options = indent3 < 1 ? void 0 : indent3 > 8 ? { indent: 8 } : { indent: indent3 };
       }
       if (value === void 0) {
         const { keepUndefined } = options ?? replacer ?? {};
@@ -8607,13 +8607,13 @@ function declarations(source2) {
   return out.sort((a, b) => a.start - b.start);
 }
 function inventorySymbols(sources) {
-  const pages = /* @__PURE__ */ new Set(), symbols = /* @__PURE__ */ new Set();
+  const pages2 = /* @__PURE__ */ new Set(), symbols = /* @__PURE__ */ new Set();
   for (const source2 of Object.values(sources))
     for (const node2 of declarations(source2)) {
-      if (node2.kind === "page" && /^\d+$/.test(node2.key)) pages.add(Number(node2.key));
+      if (node2.kind === "page" && /^\d+$/.test(node2.key)) pages2.add(Number(node2.key));
       if (node2.key) symbols.add(node2.key.toUpperCase());
     }
-  return { pages, symbols };
+  return { pages: pages2, symbols };
 }
 function editSpans(source2, edits) {
   let result = source2, previous = source2.length + 1;
@@ -10667,7 +10667,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path16, reason, before, after }) => ({ path: path16, reason, before, after })),
+    operations: plan.operations.map(({ path: path17, reason, before, after }) => ({ path: path17, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -10832,7 +10832,7 @@ var schemas = {
     ...base,
     request: external_exports.string().trim().min(1).max(4e3),
     version: external_exports.string().regex(/^26\.[12](?:@[A-Za-z0-9_.-]+)?$/).optional(),
-    limit: external_exports.number().int().min(1).max(8).default(6)
+    limit: external_exports.number().int().min(1).max(16).default(12)
   }),
   "docs.read": external_exports.strictObject({
     ...base,
@@ -11127,7 +11127,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path15 from "node:path";
+import path16 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -11360,13 +11360,13 @@ var navigationalWords = /* @__PURE__ */ new Set([
 var navigationalQuery = (query) => /[:/]/.test(query.trim()) || referenceWords(query).some((word) => navigationalWords.has(word));
 function primaryCodeBlock(text2, limit = 2500) {
   const lines = text2.split("\n");
-  const blocks = [];
+  const blocks2 = [];
   let open3;
   for (const line of lines) {
     if (open3) {
       const close = line.match(/^(\s*)(`{3,}|~{3,})\s*$/);
       if (close && close[1] === open3.indent && close[2][0] === open3.fence[0] && close[2].length >= open3.fence.length) {
-        blocks.push({ language: open3.language, lines: open3.lines });
+        blocks2.push({ language: open3.language, lines: open3.lines });
         open3 = void 0;
       } else open3.lines.push(line.startsWith(open3.indent) ? line.slice(open3.indent.length) : line);
       continue;
@@ -11374,7 +11374,7 @@ function primaryCodeBlock(text2, limit = 2500) {
     const start = line.match(/^(\s*)(`{3,}|~{3,})\s*([\w.+-]*)\s*$/);
     if (start) open3 = { indent: start[1], fence: start[2], language: start[3].toLowerCase(), lines: [] };
   }
-  const chosen = blocks.find((block) => block.language === "apexlang") ?? blocks.find((block) => !block.language) ?? blocks.sort((a, b) => b.lines.join("\n").length - a.lines.join("\n").length)[0];
+  const chosen = blocks2.find((block) => block.language === "apexlang") ?? blocks2.find((block) => !block.language) ?? blocks2.sort((a, b) => b.lines.join("\n").length - a.lines.join("\n").length)[0];
   if (!chosen) return null;
   const full = chosen.lines.join("\n");
   if (!full.trim()) return null;
@@ -11453,6 +11453,23 @@ import path7 from "node:path";
 import { readFile as readFile7, realpath as realpath2, stat } from "node:fs/promises";
 
 // packages/core/src/selection-index.ts
+var structural = /* @__PURE__ */ new Set(["inventory", "app", "page", "plugin-variants", "template-component"]);
+var nameAliases = {
+  "execute-code": ["pl sql", "plsql"],
+  "page-item": ["item"]
+};
+var named = (phrase, name2) => [name2.replace(/-/g, " "), ...nameAliases[name2] ?? []].some(
+  (words) => phrase.includes(stemmedReference(words))
+);
+function componentNameBoost(id, phrase) {
+  const at = id.indexOf("inventory/");
+  if (at < 0) return 0;
+  const segments = id.slice(at).split("/").filter((segment) => !structural.has(segment));
+  const name2 = segments.at(-1);
+  if (!name2) return 0;
+  const parent = [...segments].reverse().find((segment) => segment !== name2);
+  return (named(phrase, name2) ? 2e3 : 0) + (parent && named(phrase, parent) ? 1e3 : 0);
+}
 function rankSelection(entries, request, version2) {
   const terms = referenceQueryTerms(request, 128);
   const phrase = stemmedReference(request);
@@ -11466,7 +11483,7 @@ function rankSelection(entries, request, version2) {
     );
     const matched = matches(all);
     if (!matched.length) return [];
-    const score = matched.length * 100 + matches(title).length * 200 + (stemmedReference(entry2.title).includes(phrase) ? 500 : 0) + (entry2.kind === "template" ? 20 : 0) + (entry2.readiness === "ready" ? 10 : 0);
+    const score = componentNameBoost(entry2.id, phrase) + matched.length * 100 + matches(title).length * 200 + (stemmedReference(entry2.title).includes(phrase) ? 500 : 0) + (entry2.kind === "template" ? 20 : 0) + (entry2.readiness === "ready" ? 10 : 0);
     const words = entry2.text.toLowerCase();
     const positions = matched.map((term) => words.indexOf(term.stem)).filter((n) => n >= 0);
     const start = Math.max(0, (positions.length ? Math.min(...positions) : 0) - 80);
@@ -12288,6 +12305,170 @@ async function referenceSync(version2, dryRun) {
   };
 }
 
+// packages/core/src/component-examples.ts
+import path9 from "node:path";
+import { readdir as readdir4, readFile as readFile9 } from "node:fs/promises";
+var MIN_BLOCK = 250;
+var MAX_BLOCK = 4e3;
+var KEEP = 8;
+var TYPE_LINE = /^\s*type: (?:[A-Za-z]+\/)?([A-Za-z][A-Za-z0-9]*)\s*$/u;
+var SOURCE_TYPES = /* @__PURE__ */ new Set([
+  "sql",
+  "query",
+  "plsql",
+  "function",
+  "body",
+  "expression",
+  "static",
+  "table",
+  "local",
+  "item",
+  "page",
+  "region",
+  "none",
+  "default",
+  "code"
+]);
+var OPENER = /^(\s*)([a-z][A-Za-z]*)\b.*\($/u;
+var examples;
+var indent2 = (line) => line.length - line.trimStart().length;
+function sourceOf(document) {
+  const begin = document.indexOf("````apexlang\n");
+  if (begin < 0) return void 0;
+  const end = document.indexOf("\n````", begin + 13);
+  return end < 0 ? void 0 : document.slice(begin + 13, end);
+}
+function* blocks(lines) {
+  for (const [start, line] of lines.entries()) {
+    const opener = OPENER.exec(line.trimEnd());
+    if (!opener) continue;
+    const depth = opener[1].length;
+    let end = start + 1;
+    while (end < lines.length && !(lines[end].trim() === ")" && indent2(lines[end]) === depth)) end += 1;
+    if (end >= lines.length) continue;
+    let type;
+    for (let at = start + 1; at < end && !type; at += 1)
+      if (indent2(lines[at]) === depth + 4) type = TYPE_LINE.exec(lines[at])?.[1];
+    yield { keyword: opener[2], type, text: lines.slice(start, end + 1).join("\n") };
+  }
+}
+function keep(index, key, example) {
+  const list = index.get(key) ?? [];
+  list.push(example);
+  list.sort((a, b) => a.text.length - b.text.length);
+  index.set(key, list.slice(0, KEEP));
+}
+async function load() {
+  const root = path9.join(resourceRoot(), "public-templates", "26.2", "documents");
+  const index = /* @__PURE__ */ new Map();
+  let applications;
+  try {
+    applications = (await readdir4(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return index;
+  }
+  for (const application of applications.sort()) {
+    const pages2 = (await readdir4(path9.join(root, application))).filter((f) => /^p\d+.*\.md$/u.test(f)).sort();
+    for (const page2 of pages2) {
+      const source2 = sourceOf(await readFile9(path9.join(root, application, page2), "utf8"));
+      if (!source2) continue;
+      const id = `oracle:26.2:public-template/${application}/${page2.replace(/\.md$/u, "")}`;
+      for (const block of blocks(source2.split("\n"))) {
+        if (block.text.length < MIN_BLOCK || block.text.length > MAX_BLOCK) continue;
+        const types = new Set(
+          [...block.text.matchAll(/^\s*type: (?:[A-Za-z]+\/)?([A-Za-z]\w*)\s*$/gmu)].flatMap((m) => referenceStems(m[1])).filter((stem) => !SOURCE_TYPES.has(stem))
+        );
+        const example = { id, text: block.text, stems: new Set(referenceStems(block.text)), types };
+        keep(index, block.type ? `${block.keyword}:${block.type}` : block.keyword, example);
+        if (block.type) keep(index, `*:${block.type}`, example);
+      }
+    }
+  }
+  return index;
+}
+async function componentExample(type, options = {}) {
+  examples ??= load();
+  const index = await examples;
+  const key = type ? `${options.kind ?? "*"}:${type}` : options.kind;
+  const list = key ? index.get(key) ?? (type ? index.get(`*:${type}`) : void 0) : void 0;
+  if (!list?.length) return void 0;
+  const wanted = new Set(referenceStems(options.request ?? ""));
+  const overlap = (example) => [...wanted].reduce(
+    (score, stem) => score + (example.types.has(stem) ? 100 : 0) + (example.stems.has(stem) ? 1 : 0),
+    0
+  );
+  const best = list.reduce((a, b) => overlap(b) > overlap(a) ? b : a);
+  return { id: best.id, text: best.text };
+}
+function contractComponentType(title) {
+  const name2 = title.split(" \u2014 ")[0].split("/").at(-1).trim();
+  return /^[A-Za-z][A-Za-z0-9]*$/u.test(name2) ? name2 : void 0;
+}
+function contractComponent(id) {
+  const at = id.indexOf("inventory/app/page/");
+  if (at < 0) return void 0;
+  const segments = id.slice(at + "inventory/app/page/".length).split("/");
+  const camel = (s) => s.replace(/-([a-z])/gu, (_m, c) => c.toUpperCase());
+  const variant = segments.findIndex((s) => s === "plugin-variants" || s === "template-component");
+  if (variant === 1) return { kind: camel(segments[0]), type: camel(segments[2]) };
+  if (segments.length === 2 && segments[0] === segments[1]) return { kind: camel(segments[0]) };
+  return void 0;
+}
+var PAGE_PATTERNS = [
+  {
+    pattern: "modal form page (create, save, delete, cancel, close dialog, row processing)",
+    request: [/\b(?:modal|dialog)\b/iu, /\bform\b/iu],
+    contains: [
+      /^\s*pageMode: modalDialog\s*$/mu,
+      /^\s{4}region \S+ \(\n\s+name: .*\n\s+type: form\s*$/mu,
+      /^\s*type: formAutoRowProcessing\s*$/mu,
+      /^\s*type: closeDialog\s*$/mu,
+      /^\s*type: formInitialization\s*$/mu,
+      /^\s{4}button create \(/mu,
+      /^\s{4}button delete \(/mu,
+      /^\s{4}button save \(/mu,
+      /^\s{4}dynamicAction /mu
+    ]
+  }
+];
+var MAX_PAGE = 9e3;
+var pages;
+async function loadPages() {
+  const root = path9.join(resourceRoot(), "public-templates", "26.2", "documents");
+  const best = /* @__PURE__ */ new Map();
+  let applications;
+  try {
+    applications = (await readdir4(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return best;
+  }
+  for (const application of applications.sort())
+    for (const page2 of (await readdir4(path9.join(root, application))).filter((f) => /^p\d+.*\.md$/u.test(f)).sort()) {
+      const text2 = sourceOf(await readFile9(path9.join(root, application, page2), "utf8"));
+      if (!text2 || text2.length > MAX_PAGE) continue;
+      for (const { pattern, contains } of PAGE_PATTERNS) {
+        if (!contains.every((re) => re.test(text2))) continue;
+        const current = best.get(pattern);
+        if (!current || text2.length < current.text.length)
+          best.set(pattern, {
+            id: `oracle:26.2:public-template/${application}/${page2.replace(/\.md$/u, "")}`,
+            text: text2
+          });
+      }
+    }
+  return best;
+}
+async function pageExamples(request) {
+  const wanted = PAGE_PATTERNS.filter(({ request: words }) => words.every((re) => re.test(request)));
+  if (!wanted.length) return [];
+  pages ??= loadPages();
+  const found = await pages;
+  return wanted.flatMap(({ pattern }) => {
+    const page2 = found.get(pattern);
+    return page2 ? [{ pattern, ...page2 }] : [];
+  });
+}
+
 // packages/core/src/reference-selection.ts
 var model = "gpt-6-luna";
 var endpoint = "https://api.openai.com/v1/decisions";
@@ -12461,16 +12642,42 @@ async function referenceSelect(input, signal, fetcher = fetch) {
     ...usage ? { usage } : {},
     durationMs: Math.round(performance.now() - started)
   };
-  const size = (page2) => Buffer.byteLength(JSON.stringify(sanitized({ selection, results: page2 })), "utf8");
-  fitResults(results, 7e3, size);
-  while (results.length && size(results) > 7e3) results.pop();
+  for (const result of results) {
+    if (result.kind !== "contract" || !String(result.version).startsWith("26.2")) continue;
+    const component = contractComponent(String(result.id));
+    if (!component) continue;
+    const example = await componentExample(component.type, { kind: component.kind, request: input.request });
+    const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
+    if (example) Object.assign(result, { example: { componentType, ...example } });
+  }
+  for (const result of results)
+    if ("example" in result)
+      for (const key of [
+        "text",
+        "source",
+        "requiresReferences",
+        "requiresCount",
+        "relatedReferences",
+        "relatedCount"
+      ])
+        delete result[key];
+  const pages2 = String(version2).startsWith("26.2") ? await pageExamples(input.request) : [];
+  const budget = results.some((result) => "example" in result) || pages2.length ? 3e4 : 7e3;
+  const size = (page2) => Buffer.byteLength(
+    JSON.stringify(
+      sanitized({ selection, results: page2, ...pages2.length ? { pageExamples: pages2 } : {} })
+    ),
+    "utf8"
+  );
+  fitResults(results, budget, size);
+  while (results.length && size(results) > budget) results.pop();
   cancelled(signal);
-  return { selection, results };
+  return { selection, results, ...pages2.length ? { pageExamples: pages2 } : {} };
 }
 
 // packages/core/src/deploy.ts
-import path10 from "node:path";
-import { readFile as readFile10, mkdir as mkdir5, cp as cp3, open as open2, rename, rm as rm3 } from "node:fs/promises";
+import path11 from "node:path";
+import { readFile as readFile11, mkdir as mkdir5, cp as cp3, open as open2, rename, rm as rm3 } from "node:fs/promises";
 import { randomUUID as randomUUID4 } from "node:crypto";
 
 // packages/core/src/sql-review.ts
@@ -12815,8 +13022,8 @@ function inspectSql(sql, depth = 0) {
 }
 
 // packages/core/src/sync-normalization.ts
-import path9 from "node:path";
-import { readFile as readFile9 } from "node:fs/promises";
+import path10 from "node:path";
+import { readFile as readFile10 } from "node:fs/promises";
 var DEPLOYMENT_FILE = "deployments/default.json";
 var SUPPORTING_OBJECTS = "supporting-objects/supporting-objects.apx";
 var DEINSTALL_BLOCK = /^([ \t]*)deinstall \{\r?\n[ \t]*scriptFile: ([^\s]+)\r?\n\1\}\r?\n/mu;
@@ -12833,7 +13040,7 @@ function withoutAppId(value) {
 }
 async function generatedSourceNormalizations(localRoot, serverRoot, local, server, applicationId) {
   const differing = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].filter((file) => local[file] !== server[file]).sort();
-  const read = async (root, file) => readFile9(await contained(root, file), "utf8");
+  const read = async (root, file) => readFile10(await contained(root, file), "utf8");
   const result = [];
   const explained = /* @__PURE__ */ new Set();
   if (differing.includes(DEPLOYMENT_FILE) && local[DEPLOYMENT_FILE] && server[DEPLOYMENT_FILE]) {
@@ -12856,7 +13063,7 @@ async function generatedSourceNormalizations(localRoot, serverRoot, local, serve
     const localText = await read(localRoot, SUPPORTING_OBJECTS);
     const match2 = DEINSTALL_BLOCK.exec(localText);
     if (!match2) return void 0;
-    const script = path9.posix.normalize(path9.posix.join(path9.posix.dirname(SUPPORTING_OBJECTS), match2[2]));
+    const script = path10.posix.normalize(path10.posix.join(path10.posix.dirname(SUPPORTING_OBJECTS), match2[2]));
     if (script.startsWith("..") || !local[script] || server[script]) return void 0;
     if ((await read(localRoot, script)).trim() !== "") return void 0;
     const stripped = localText.slice(0, match2.index) + localText.slice(match2.index + match2[0].length);
@@ -13098,7 +13305,7 @@ function securityAttributes(text2) {
   return out;
 }
 async function securityChanged(local, server) {
-  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile10(await contained(root, file), "utf8"));
+  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile11(await contained(root, file), "utf8"));
   for (const file of /* @__PURE__ */ new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
     if (local.files[file] === server.files[file]) continue;
     if (/authenticat|authoriz/i.test(file)) return true;
@@ -13142,7 +13349,7 @@ async function authorizePlan(ctx, plan, env2, local = false) {
     );
 }
 var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
-var migrationVersion = (file) => BigInt(migrationName.exec(path10.basename(file))?.[1] ?? "-1");
+var migrationVersion = (file) => BigInt(migrationName.exec(path11.basename(file))?.[1] ?? "-1");
 function operationOrder(a, b) {
   const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
   if (kind) return kind;
@@ -13226,19 +13433,19 @@ async function sourceInventory(ctx) {
       for (const [file, sha] of Object.entries(await inventory(dir))) files[relative + "/" + file] = sha;
   }
   for (const relative of ["package.json", "package-lock.json"])
-    if (await exists(path10.join(ctx.root, relative)))
-      files[relative] = hash(await readFile10(await contained(ctx.root, relative)));
+    if (await exists(path11.join(ctx.root, relative)))
+      files[relative] = hash(await readFile11(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
 async function appendJournal(runDir, event) {
-  const journal2 = await open2(path10.join(runDir, "journal.jsonl"), "a", 384);
+  const journal2 = await open2(path11.join(runDir, "journal.jsonl"), "a", 384);
   try {
     await journal2.writeFile(JSON.stringify(event) + "\n");
     await journal2.sync();
   } finally {
     await journal2.close();
   }
-  await writeJson(path10.join(runDir, "state.json"), event);
+  await writeJson(path11.join(runDir, "state.json"), event);
 }
 var DeploymentService = class {
   constructor(oracle = new OracleAdapter()) {
@@ -13258,7 +13465,7 @@ var DeploymentService = class {
     const databaseOperations = [];
     for (const operation of plan.operations) {
       if (!operation.file || !["migration", "package"].includes(operation.kind)) continue;
-      const sql = await readFile10(await contained(ctx.root, operation.file), "utf8");
+      const sql = await readFile11(await contained(ctx.root, operation.file), "utf8");
       for (const described of inspectSql(sql)) {
         let dependencies2 = [], dependenciesStatus = "not-applicable";
         if (described.object && ["drop-table", "rename-column", "alter-table", "rename-object"].includes(described.action)) {
@@ -13377,13 +13584,13 @@ var DeploymentService = class {
         const syncId = randomUUID4(), backupId = randomUUID4();
         const baselineDir = ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
-        await mkdir5(path10.dirname(baselineRoot), { recursive: true, mode: 448 });
+        await mkdir5(path11.dirname(baselineRoot), { recursive: true, mode: 448 });
         await privateCopy(exported.directory, baselineRoot);
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
         await mkdir5(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(exported.directory, path10.join(backupRoot, "application"));
-        await writeJson(path10.join(backupRoot, "backup.json"), {
+        await privateCopy(exported.directory, path11.join(backupRoot, "application"));
+        await writeJson(path11.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env2),
@@ -13416,7 +13623,7 @@ var DeploymentService = class {
           targetDigest: targetDigest(env2),
           target,
           sourceDir: ctx.config.application.sourceDir,
-          toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+          toolchainDigest: hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))),
           runtimeVersion: VERSION,
           compilerVersion: exported.compiler.version,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -13475,7 +13682,7 @@ var DeploymentService = class {
             }
           }
         } else {
-          await mkdir5(path10.dirname(source2), { recursive: true });
+          await mkdir5(path11.dirname(source2), { recursive: true });
           const replacement = await syncPath(
             ctx,
             ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/new-working-copy"
@@ -13637,7 +13844,7 @@ var DeploymentService = class {
         if (file.startsWith(ctx.config.database.packagesDir + "/"))
           return fallback(["database-operations-require-full-import"]);
         if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-          const old = history.get(path10.basename(file));
+          const old = history.get(path11.basename(file));
           if (!old) return fallback(["database-operations-require-full-import"]);
           if (old.checksum !== sha)
             throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
@@ -13689,7 +13896,7 @@ var DeploymentService = class {
         sourceDigest: hash(canonical(sources)),
         sources,
         configurationDigest: hash(canonical(ctx.config)),
-        toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+        toolchainDigest: hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))),
         compiler: validation.compiler.version,
         targetDigest: targetDigest(env2),
         target: current.target,
@@ -13748,7 +13955,7 @@ var DeploymentService = class {
     if (working) await syncStore.validate(working);
     if (restore && stored && ["importing", "outcome_unknown"].includes(stored.status))
       throw new Fault("SYNC_BLOCKED", "Reconcile interrupted writes before restore planning.", 5);
-    const [targetCheck, sourceCheck] = await Promise.allSettled([
+    const [targetCheck, sourceCheck, aliasCheck] = await Promise.allSettled([
       working && !fresh ? this.workingFingerprint(ctx, name2, working) : this.fingerprint(env2, connection),
       (async () => {
         const sources2 = await sourceInventory(ctx);
@@ -13759,10 +13966,24 @@ var DeploymentService = class {
         if (!await exists(lock2))
           throw new Fault("TOOLCHAIN_LOCK_REQUIRED", "The project needs its pinned toolchain lock.", 3);
         return { sources: sources2, validation: validation2, lock: lock2 };
-      })()
+      })(),
+      // APEX imports an application whose alias another workspace application already uses
+      // under a changed alias, which then fails post-import verification. Refuse it here.
+      // Only without a sync baseline (a new or first-imported application); the post-import identity
+      // check stays the guard, so a failed lookup never blocks planning.
+      !working && typeof this.oracle.aliasHolders === "function" ? this.oracle.aliasHolders(env2, connection, ctx.config.application.alias).catch(() => []) : Promise.resolve([])
     ]);
     if (targetCheck.status === "rejected") throw targetCheck.reason;
     if (sourceCheck.status === "rejected") throw sourceCheck.reason;
+    if (aliasCheck.status === "rejected") throw aliasCheck.reason;
+    if (aliasCheck.value.length)
+      throw new Fault(
+        "APPLICATION_ALIAS_IN_USE",
+        `Alias ${ctx.config.application.alias} is already used by application ${aliasCheck.value.join(", ")} in workspace ${env2.workspace}. APEX would import application ${env2.applicationId} under a changed alias and the deployment would fail verification. Choose an unused alias, set it in apexrest.json (application.alias) and in application.apx (alias), then plan again.`,
+        5,
+        "conflict",
+        { alias: ctx.config.application.alias, usedBy: aliasCheck.value }
+      );
     const current = targetCheck.value, { sources, validation, lock } = sourceCheck.value, risks = [];
     if (fresh && working && current.exported) {
       const changed = changedFiles(checkpoint(working).files, current.exported.files);
@@ -13797,11 +14018,11 @@ var DeploymentService = class {
       if (!migration && !pkg) continue;
       if (!file.endsWith(".sql"))
         throw new Fault("UNSUPPORTED_DB_SOURCE", "Database execution directories accept .sql files only.", 3);
-      const sql = await readFile10(await contained(ctx.root, file), "utf8");
-      const runs = migration ? !history.has(path10.basename(file)) : packageHistory[file] !== sha256;
+      const sql = await readFile11(await contained(ctx.root, file), "utf8");
+      const runs = migration ? !history.has(path11.basename(file)) : packageHistory[file] !== sha256;
       if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
-        const version2 = path10.basename(file);
+        const version2 = path11.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version2))
           throw new Fault(
             "INVALID_MIGRATION_NAME",
@@ -13825,7 +14046,7 @@ var DeploymentService = class {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
             files: applicationFiles(ctx, sources)
           },
-          { root: path10.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+          { root: path11.resolve(ctx.root, current.exported.directory), files: current.exported.files }
         ))
           risks.push("authentication-or-authorization-change");
       } finally {
@@ -13850,7 +14071,7 @@ var DeploymentService = class {
       sourceDigest: hash(canonical(sources)),
       sources,
       configurationDigest: hash(canonical(ctx.config)),
-      toolchainDigest: hash(await readFile10(lock)),
+      toolchainDigest: hash(await readFile11(lock)),
       compiler: validation.compiler.version,
       targetDigest: targetDigest(env2),
       target: current.target,
@@ -13926,7 +14147,7 @@ var DeploymentService = class {
     const lifetime = Date.parse(plan.expiresAt) - Date.parse(plan.createdAt);
     if (!(lifetime > 0 && lifetime <= PLAN_LIFETIME_MS) || Date.parse(plan.createdAt) > Date.now() + 6e4)
       throw new Fault("PLAN_TAMPERED", "Plan lifetime exceeds the reviewed plan limit.", 5);
-    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))))
+    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))))
       throw new Fault("SOURCE_DRIFT", "Sources, configuration or toolchain lock changed after review.", 5);
     const databaseOnly = plan.scope === "database-only";
     if (plan.backupRequired !== (!databaseOnly && Boolean(plan.target.application)))
@@ -13948,13 +14169,13 @@ var DeploymentService = class {
         if (!kind) continue;
         if (!file.endsWith(".sql"))
           throw new Fault("UNSUPPORTED_DB_SOURCE", "Database sources must be SQL files.", 5);
-        const previous = history.get(path10.basename(file));
+        const previous = history.get(path11.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
         const runs = kind === "migration" ? !previous : plan.packageHistory?.[file] !== sha256;
         if (!runs) continue;
         expected.push({ kind, file, sha256 });
-        const risks = migrationRisk(await readFile10(await contained(ctx.root, file), "utf8")).map(
+        const risks = migrationRisk(await readFile11(await contained(ctx.root, file), "utf8")).map(
           (r) => `${r}:${file}`
         );
         if (risks.some((r) => !plan.risks.includes(r)))
@@ -14099,7 +14320,7 @@ var DeploymentService = class {
     }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runs = path10.join(ctx.root, ".apexrest/deployments"), runDir = path10.join(runs, runId);
+    const runs = path11.join(ctx.root, ".apexrest/deployments"), runDir = path11.join(runs, runId);
     await mkdir5(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, syncMarked = false, syncSucceeded = false;
     let freshBackupId = null;
@@ -14128,7 +14349,7 @@ var DeploymentService = class {
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
     };
-    await writeJson(path10.join(runDir, "plan.json"), plan);
+    await writeJson(path11.join(runDir, "plan.json"), plan);
     await record("approved");
     await this.lease(env2, runId, false);
     try {
@@ -14139,14 +14360,14 @@ var DeploymentService = class {
       if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
         const backup = backupSource ?? await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
         try {
-          const backupId = randomUUID4(), directory = path10.join(ctx.root, ".apexrest/backups", backupId);
+          const backupId = randomUUID4(), directory = path11.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir5(directory, { recursive: true, mode: 448 });
           const backupPath = backup.directory.startsWith(".apexrest/") ? await syncPath(ctx, backup.directory) : backup.directory;
-          await privateCopy(backupPath, path10.join(directory, "application"));
-          const files = await inventory(path10.join(directory, "application"));
+          await privateCopy(backupPath, path11.join(directory, "application"));
+          const files = await inventory(path11.join(directory, "application"));
           if (!scoped && !Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-          await writeJson(path10.join(directory, "backup.json"), {
+          await writeJson(path11.join(directory, "backup.json"), {
             schemaVersion: 1,
             backupId,
             runId,
@@ -14162,7 +14383,7 @@ var DeploymentService = class {
             restoreProcedure: "Reviewed APEXlang import in the recorded scope; newly created components have no previous source to restore. Schema/data recovery is separate."
           });
           freshBackupId = backupId;
-          await writeJson(path10.join(runDir, "backup.json"), {
+          await writeJson(path11.join(runDir, "backup.json"), {
             backupId,
             checksum: backup.digest,
             targetDigest: plan.targetDigest
@@ -14181,18 +14402,18 @@ var DeploymentService = class {
           await this.oracle.discardStage?.(after.exported?.stage);
         }
       }
-      const snapshot2 = path10.join(runDir, "snapshot");
+      const snapshot2 = path11.join(runDir, "snapshot");
       await mkdir5(snapshot2, { mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source2 = await contained(ctx.root, file), destination = await contained(snapshot2, file);
-        await mkdir5(path10.dirname(destination), { recursive: true });
+        await mkdir5(path11.dirname(destination), { recursive: true });
         await cp3(source2, destination);
-        if (hash(await readFile10(destination)) !== sha)
+        if (hash(await readFile11(destination)) !== sha)
           throw new Fault("SOURCE_DRIFT", "Source changed while freezing deployment.", 5);
       }
       if (selection) {
         await checkSnapshot(ctx, selection.effective);
-        const application = path10.join(snapshot2, ctx.config.application.sourceDir);
+        const application = path11.join(snapshot2, ctx.config.application.sourceDir);
         await rm3(application, { recursive: true });
         await privateCopy(await syncPath(ctx, selection.effective.directory), application);
         if (canonical(await inventory(application)) !== canonical(selection.effective.files))
@@ -14253,7 +14474,7 @@ var DeploymentService = class {
         if (operation.kind === "migration")
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path10.basename(file),
+            path11.basename(file),
             operation.sha256,
             "started"
           );
@@ -14272,7 +14493,7 @@ prompt ${marker}`,
         if (!scriptCompleted(executed?.output, marker))
           throw new Fault(
             "SCRIPT_INCOMPLETE",
-            `SQLcl did not confirm that ${path10.basename(file)} ran to completion.`,
+            `SQLcl did not confirm that ${path11.basename(file)} ran to completion.`,
             6,
             "outcome_unknown"
           );
@@ -14286,12 +14507,12 @@ prompt ${marker}`,
         if (operation.kind === "migration") {
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path10.basename(file),
+            path11.basename(file),
             operation.sha256,
             "succeeded"
           );
           completedMigrations.push({
-            version: path10.basename(file),
+            version: path11.basename(file),
             checksum: operation.sha256,
             status: "succeeded",
             run_id: runId
@@ -14312,7 +14533,7 @@ prompt ${marker}`,
         );
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        const frozen = path10.join(runDir, "restore");
+        const frozen = path11.join(runDir, "restore");
         await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
@@ -14336,7 +14557,7 @@ prompt ${marker}`,
         await this.oracle.restoreApplication(
           env2,
           deployConnection,
-          path10.join(frozen, main[0]),
+          path11.join(frozen, main[0]),
           controller.signal
         );
       } else {
@@ -14348,13 +14569,13 @@ prompt ${marker}`,
           )
         ) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        if (selection && canonical(await inventory(path10.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
+        if (selection && canonical(await inventory(path11.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
-        let importSource = path10.join(snapshot2, ctx.config.application.sourceDir);
+        let importSource = path11.join(snapshot2, ctx.config.application.sourceDir);
         if (plan.restore && !selection) {
-          const frozen = path10.join(runDir, "restore");
+          const frozen = path11.join(runDir, "restore");
           await privateCopy(
             await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application"),
             frozen
@@ -14400,7 +14621,17 @@ prompt ${marker}`,
         } else target = await this.oracle.verifyTarget(env2, readConnection);
         const expectedAlias = plan.restore ? plan.restore.alias ?? plan.target.application?.alias ?? ctx.config.application.alias : ctx.config.application.alias;
         if (!target.application || String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase())
-          throw new Fault("POST_DEPLOY_IDENTITY_FAILED", "Expected imported app was not found.", 1);
+          throw new Fault(
+            "POST_DEPLOY_IDENTITY_FAILED",
+            target.application ? `Application ${env2.applicationId} was imported with alias ${String(target.application.alias)}, not ${String(expectedAlias)}: another application in workspace ${env2.workspace} probably uses that alias. Change application.alias in apexrest.json and application.apx to an unused alias, then ship again.` : `Application ${env2.applicationId} was not found in workspace ${env2.workspace} after the import.`,
+            1,
+            "failed",
+            {
+              deploymentRunId: runId,
+              expectedAlias: String(expectedAlias),
+              ...target.application ? { observedAlias: String(target.application.alias) } : {}
+            }
+          );
         if (selection) {
           const observed = scoped ? await this.oracle.exportSelection(
             env2,
@@ -14427,7 +14658,7 @@ prompt ${marker}`,
               policy: "exact-bytes",
               normalizations: []
             };
-            await writeJson(path10.join(runDir, "readback-verification.json"), {
+            await writeJson(path11.join(runDir, "readback-verification.json"), {
               ...comparison,
               scope: scoped ? "selected" : "full",
               sourceObservationScope: selection.exportScope ?? "full",
@@ -14575,7 +14806,13 @@ prompt ${marker}`,
   async recoveryRead(ctx, runId) {
     parse(external_exports.uuid(), runId);
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
-    const plan = parse(deployPlanSchema, await readJson(path10.join(directory, "plan.json")));
+    if (!await exists(path11.join(directory, "plan.json")))
+      throw new Fault(
+        "DEPLOYMENT_RUN_NOT_FOUND",
+        `No deployment run ${runId} exists in this project. Pass the deploymentRunId from the failed apexrest_ship result (data.deploymentRunId), not the result's runId or a jobId.`,
+        2
+      );
+    const plan = parse(deployPlanSchema, await readJson(path11.join(directory, "plan.json")));
     const env2 = environment(ctx, plan.environment);
     if (plan.digest !== planDigest2(plan) || plan.projectRoot !== ctx.root || plan.projectId !== ctx.config.projectId || plan.targetDigest !== targetDigest(env2))
       throw new Fault("PLAN_TARGET_MISMATCH", "Reconciliation must use the original project and target.", 5);
@@ -14601,7 +14838,7 @@ prompt ${marker}`,
         "The actual server/application identity changed before reconciliation.",
         5
       );
-    const state = await readJson(path10.join(directory, "state.json"));
+    const state = await readJson(path11.join(directory, "state.json"));
     const expectedDirectory = selection?.effective?.directory ?? ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const expectedInventory = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
     const expectedFiles = scoped ? pickFiles(expectedInventory, selection.files) : expectedInventory;
@@ -14690,7 +14927,7 @@ prompt ${marker}`,
           "Server content differs from both reviewed desired and baseline sources. Preserve the server snapshot and resolve these files: " + result.conflictFiles.join(", "),
           5
         );
-      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
+      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
         throw new Fault(
           "SOURCE_DRIFT",
           "Local sources/configuration/toolchain changed; recovery cannot repeat a different task.",
@@ -14800,9 +15037,9 @@ prompt ${marker}`,
   async restorePlan(ctx, backupId) {
     parse(external_exports.uuid(), backupId);
     const directory = await contained(ctx.root, ".apexrest/backups/" + backupId);
-    const backup = await readJson(path10.join(directory, "backup.json"));
+    const backup = await readJson(path11.join(directory, "backup.json"));
     await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
-    const files = await inventory(path10.join(directory, "application"));
+    const files = await inventory(path11.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
     let plan;
@@ -14821,7 +15058,7 @@ prompt ${marker}`,
       const context2 = await syncPath(ctx, ".apexrest/restore-context/" + randomUUID4());
       await overlaySelection(
         await syncPath(ctx, ctx.config.application.sourceDir),
-        path10.join(directory, "application"),
+        path11.join(directory, "application"),
         backup.selectedFiles,
         context2
       );
@@ -14839,7 +15076,7 @@ prompt ${marker}`,
         await rm3(context2, { recursive: true, force: true });
       }
     } else {
-      if (backup.format === "APEXLANG") await this.oracle.validate(path10.join(directory, "application"));
+      if (backup.format === "APEXLANG") await this.oracle.validate(path11.join(directory, "application"));
       plan = await this.plan(ctx, backup.environment, true);
     }
     if (plan.targetDigest !== backup.targetDigest)
@@ -14859,8 +15096,8 @@ prompt ${marker}`,
 };
 
 // packages/core/src/panel.ts
-import path11 from "node:path";
-import { readdir as readdir4, realpath as realpath4, stat as stat3 } from "node:fs/promises";
+import path12 from "node:path";
+import { readdir as readdir5, realpath as realpath4, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
 var PanelService = class {
@@ -14874,7 +15111,7 @@ var PanelService = class {
   async records(folder) {
     const base2 = await contained(this.root, ".apexrest/" + folder);
     if (!await exists(base2)) return { rows: [], omitted: 0 };
-    let entries = (await readdir4(base2, { withFileTypes: true })).filter(
+    let entries = (await readdir5(base2, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && external_exports.uuid().safeParse(e.name).success
     );
     let omitted = 0;
@@ -14882,7 +15119,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry2) => ({
           entry: entry2,
-          at: (await stat3(path11.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path12.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -15027,14 +15264,14 @@ var PanelService = class {
 };
 
 // packages/core/src/peer-review.ts
-import path14 from "node:path";
+import path15 from "node:path";
 import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdir as mkdir6, readFile as readFile12, rm as rm4 } from "node:fs/promises";
+import { mkdir as mkdir6, readFile as readFile13, rm as rm4 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path12 from "node:path";
-import { readFile as readFile11, stat as stat4 } from "node:fs/promises";
+import path13 from "node:path";
+import { readFile as readFile12, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text2) {
@@ -15070,12 +15307,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path12.extname(located).toLowerCase();
+  const extension = path13.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile11(located);
+    const content = await readFile12(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path12.join(path12.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path13.join(path13.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -15089,7 +15326,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path13 from "node:path";
+import path14 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -15134,23 +15371,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source2 = path13.resolve(root, input.sourceDir);
-  if (!await exists(path13.join(source2, "application.apx")))
+  const source2 = path14.resolve(root, input.sourceDir);
+  if (!await exists(path14.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path13.join(source2, ".apex", "apexlang.json");
+  const own = path14.join(source2, ".apex", "apexlang.json");
   if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path13.resolve(input.project));
-  for (let dir = path13.dirname(source2); ; dir = path13.dirname(dir)) {
-    if (await exists(path13.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path14.resolve(input.project));
+  for (let dir = path14.dirname(source2); ; dir = path14.dirname(dir)) {
+    if (await exists(path14.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path13.dirname(dir) === dir) break;
+    if (path14.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -15159,7 +15396,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file = path13.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file = path14.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file)) return { source: source2, metadata: { origin: "project", file } };
   }
   throw new Fault(
@@ -15216,11 +15453,11 @@ async function validateApplication(oracle, target, parseDiagnostics2, signal) {
 function sourceCounts(ctx, plan) {
   const under = (dir) => Object.keys(plan.sources).filter((f) => f.startsWith(dir + "/"));
   const application = under(ctx.config.application.sourceDir);
-  const pages = application.filter((f) => /\/pages\/[^/]+\.apx$/.test(f));
+  const pages2 = application.filter((f) => /\/pages\/[^/]+\.apx$/.test(f));
   return {
     application: application.length,
-    pages: pages.length,
-    pageFiles: pages.slice(0, 50).map((f) => f.slice(ctx.config.application.sourceDir.length + 1)),
+    pages: pages2.length,
+    pageFiles: pages2.slice(0, 50).map((f) => f.slice(ctx.config.application.sourceDir.length + 1)),
     migrations: plan.operations.filter((o) => o.kind === "migration").length,
     packages: plan.operations.filter((o) => o.kind === "package").length
   };
@@ -15664,8 +15901,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
   await mkdir6(scratch, { recursive: true });
   try {
-    const schemaFile = path14.join(scratch, "verdict.schema.json");
-    const lastFile = path14.join(scratch, "last-message.json");
+    const schemaFile = path15.join(scratch, "verdict.schema.json");
+    const lastFile = path15.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -15716,7 +15953,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile12(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile13(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -15864,7 +16101,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-VUTASLQG.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-WS22Y7YS.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -16014,7 +16251,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GLLUPB2L.mjs");
+      const { previewDispatch } = await import("./chunk-IQ45XLYL.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16041,29 +16278,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-QMLGR7AA.mjs");
+        const { ToolchainService } = await import("./chunk-C2SIZFXF.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-TOKNBWH6.mjs");
+        const { uninstallTools } = await import("./chunk-NGYQX67D.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-RW3KS4TP.mjs");
+        const { setup: setup2 } = await import("./chunk-6IBA4NW7.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-RW3KS4TP.mjs");
+        const { validateNative } = await import("./chunk-6IBA4NW7.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-RW3KS4TP.mjs");
+        const { uninstallNative } = await import("./chunk-6IBA4NW7.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -16073,7 +16310,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path15.basename(path15.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path16.basename(path16.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "connection.add":
@@ -16351,7 +16588,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-R5MHXM77.mjs");
+            const { openVerificationBrowser } = await import("./chunk-4F6OXWXY.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),

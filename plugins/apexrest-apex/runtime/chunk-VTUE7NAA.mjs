@@ -6,10 +6,10 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-SEKWEHJO.mjs";
+} from "./chunk-PWI5SWBA.mjs";
 import {
   runPooledSqlcl
-} from "./chunk-LBWXSUSZ.mjs";
+} from "./chunk-ZA5GNFQJ.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
@@ -17,10 +17,10 @@ import {
   recordStatementTimings,
   runProcess,
   runSqlclMcp
-} from "./chunk-O6VWXF7Y.mjs";
+} from "./chunk-H2VLYI5A.mjs";
 import {
   external_exports
-} from "./chunk-MSKY62PK.mjs";
+} from "./chunk-A5P52BZT.mjs";
 import {
   atomicWrite,
   canonical,
@@ -31,11 +31,11 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-CO3K5OIY.mjs";
+} from "./chunk-SBZ36R7Y.mjs";
 import {
   Fault,
   __export
-} from "./chunk-KDTXQPMS.mjs";
+} from "./chunk-IFFZXFNO.mjs";
 
 // plugins/metadata.json
 var metadata_default = {
@@ -70,8 +70,8 @@ var metadata_default = {
 var VERSION = metadata_default.version;
 
 // packages/core/src/project.ts
-import path12 from "node:path";
-import { cp as cp4, mkdir as mkdir5, lstat as lstat3, readdir as readdir3, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
+import path13 from "node:path";
+import { cp as cp4, mkdir as mkdir5, lstat as lstat3, readdir as readdir4, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // packages/core/src/oracle.ts
@@ -94,17 +94,112 @@ __export(oracle_exports, {
   sqlclToken: () => sqlclToken,
   targetIdentitySql: () => targetIdentitySql
 });
+
+// packages/core/src/contract-hints.ts
+import path from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+var contracts;
+var camel = (s) => s.replace(/-([a-z])/gu, (_m, c) => c.toUpperCase());
+function parseContract(text, segments) {
+  const kind = /^- componentType: `([^`]+)`/mu.exec(text)?.[1];
+  if (!kind) return void 0;
+  const at = segments.findIndex((s) => s === "plugin-variants" || s === "template-component");
+  const properties = [];
+  let group = "";
+  for (const line of text.split("\n")) {
+    const heading = /^### (\S+)/u.exec(line);
+    if (heading) {
+      group = line.includes("(direct group)") ? "" : heading[1];
+      continue;
+    }
+    const property = /^- `([A-Za-z][\w]*)` — .*; (—|`.*`);\s*$/u.exec(line);
+    if (!property) continue;
+    const condition = property[2] === "\u2014" ? void 0 : property[2].replace(/`/gu, "").replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, "$1").split(" or ").map((clause) => [...new Set(clause.split(" and "))].join(" and ")).filter((clause, i, all) => all.indexOf(clause) === i).join(" or ").slice(0, 240);
+    properties.push({ group, name: property[1], ...condition ? { condition } : {} });
+  }
+  return { kind, ...at >= 0 ? { variant: camel(segments[at + 1]) } : {}, segments, properties };
+}
+async function load() {
+  const root = path.join(resourceRoot(), "references", "26.2", "documents", "app");
+  const found = [];
+  const walk = async (dir, segments) => {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) await walk(path.join(dir, entry.name), [...segments, entry.name]);
+      else if (entry.name.endsWith(".md") && entry.name === `${segments.at(-1)}.md`) {
+        const contract = parseContract(await readFile(path.join(dir, entry.name), "utf8"), segments);
+        if (contract) found.push(contract);
+      }
+    }
+  };
+  await walk(root, []);
+  return found;
+}
+function labels(hint) {
+  return hint.replace(/^inside /u, "").split(" of ").map((part) => {
+    const match = /^(\S+)(?: ([^\s(]+))?(?: \(type: ([^)]+)\))?$/u.exec(part.trim());
+    if (!match) return { kind: "" };
+    const type = match[3]?.split("/").at(-1);
+    return { kind: match[1], ...match[2] ? { name: match[2] } : {}, ...type ? { type } : {} };
+  });
+}
+function contractFor(all, component, parent) {
+  const matching = all.filter(
+    (c) => c.kind === component.kind && (component.type ? c.variant === component.type : !c.variant)
+  );
+  const kebab = parent?.kind.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`);
+  return (kebab && matching.find((c) => c.segments.includes(kebab))) ?? matching[0];
+}
+var list = (names) => [...new Set(names)].slice(0, 30).join(", ");
+async function propertyFix(type, message, hint) {
+  if (type !== "INVALID_PROPERTY" || !hint) return void 0;
+  const property = /Invalid property: ([A-Za-z]\w*)/u.exec(message)?.[1];
+  if (!property) return void 0;
+  try {
+    contracts ??= load();
+    const all = await contracts;
+    const chain = labels(hint);
+    const named = chain.findIndex((label) => label.name);
+    if (named < 0) return void 0;
+    const group = chain.slice(0, named).map((label) => label.kind).reverse().join(".");
+    const contract = contractFor(all, chain[named], chain[named + 1]);
+    if (!contract) return void 0;
+    const where = contract.properties.filter((p) => p.name === property);
+    const component = `${contract.kind}${contract.variant ? ` (type: ${contract.variant})` : ""}`;
+    if (where.length) {
+      const here = where.filter((p) => p.group === group);
+      if (here.length && here.every((p) => p.condition))
+        return `${property} applies to ${component} only when ${[...new Set(here.map((p) => p.condition))].join(" or ")}`;
+      if (!here.length && new Set(where.map((p) => p.group)).size === 1)
+        return `${property} belongs in ${where.map((p) => p.group ? `group ${p.group}` : "the component itself (no group)").filter((v, i, a) => a.indexOf(v) === i).join(" or ")} of ${component}${where[0].condition ? ` when ${where[0].condition}` : ""}`;
+      if (here.length) return void 0;
+    }
+    const valid = contract.properties.filter((p) => p.group === group).map((p) => p.name);
+    if (where.length)
+      return `${property} is not valid in ${group || "the component itself"} of ${component}; valid there: ${list(valid)}`;
+    return valid.length ? `${component} has no ${property}; ${group || "its direct properties"}: ${list(valid)}` : `${component} has no ${property} and no group ${group}; groups: ${list(contract.properties.map((p) => p.group).filter(Boolean))}`;
+  } catch {
+    return void 0;
+  }
+}
+
+// packages/core/src/oracle.ts
 import { performance } from "node:perf_hooks";
-import path11 from "node:path";
+import path12 from "node:path";
 import { randomUUID } from "node:crypto";
-import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile5, readdir as readdir2, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
+import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile6, readdir as readdir3, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
-import path2 from "node:path";
+import path3 from "node:path";
 import { chmod, constants as constants2, lstat, mkdir, open as open2, rm, stat } from "node:fs/promises";
 
 // packages/core/src/local-env.ts
-import path from "node:path";
+import path2 from "node:path";
 import { constants, open, realpath } from "node:fs/promises";
 function parseLocalEnv(contents) {
   const result = /* @__PURE__ */ Object.create(null);
@@ -125,10 +220,10 @@ function parseLocalEnv(contents) {
   return result;
 }
 async function readLocalEnv(file) {
-  const requested = path.resolve(file), physical = await realpath(requested);
+  const requested = path2.resolve(file), physical = await realpath(requested);
   if (requested !== physical)
     throw new Fault("ENV_FILE_UNSAFE", "Credential ENV paths cannot use symlink aliases.", 2);
-  const cwd = path.dirname(physical);
+  const cwd = path2.dirname(physical);
   const root = await runProcess({
     executable: "git",
     args: ["rev-parse", "--show-toplevel"],
@@ -137,7 +232,7 @@ async function readLocalEnv(file) {
   });
   if (root.code !== 0)
     throw new Fault("ENV_FILE_UNSAFE", "Credential ENV files must belong to a Git working tree.", 2);
-  const relative = path.relative(root.stdout.trim(), physical);
+  const relative = path2.relative(root.stdout.trim(), physical);
   const tracked = await runProcess({
     executable: "git",
     args: ["ls-files", "--error-unmatch", "--", relative],
@@ -200,7 +295,7 @@ function checkPassword(password) {
 }
 async function credentialPath(name) {
   parse(refName, name);
-  return contained(managedHome(), path2.join("credentials", name + ".json"));
+  return contained(managedHome(), path3.join("credentials", name + ".json"));
 }
 async function ordsCredentials(connection) {
   const name = references.get(connection);
@@ -248,7 +343,7 @@ async function ordsCredentials(connection) {
   return value;
 }
 async function connections() {
-  const file = path2.join(managedHome(), "connections.json");
+  const file = path3.join(managedHome(), "connections.json");
   return await exists(file) ? parse(storeSchema, await readJson(file)) : {};
 }
 async function resolveConnection(name) {
@@ -265,7 +360,7 @@ async function resolveConnection(name) {
 }
 async function editConnection(name, value) {
   parse(refName, name);
-  return withLock(path2.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path3.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     let credentialsDeleted = false;
     if (value) current[name] = parse(connectionSchema, { ...current[name], ...value });
@@ -275,7 +370,7 @@ async function editConnection(name, value) {
       credentialsDeleted = await exists(file);
       await rm(file, { force: true });
     }
-    await writeJson(path2.join(managedHome(), "connections.json"), current);
+    await writeJson(path3.join(managedHome(), "connections.json"), current);
     return { name, status: value ? "configured" : "removed", credentialsDeleted };
   });
 }
@@ -330,7 +425,7 @@ async function configureConnection(name, input) {
       ordsUrl: input.ordsUrl ?? url
     };
   }
-  return withLock(path2.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path3.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     const previous = current[name];
     const ords = input.ordsUrl || input.ordsUsername ? parse(ordsSchema, { url: input.ordsUrl, username: input.ordsUsername }) : previous?.ords;
@@ -343,11 +438,11 @@ async function configureConnection(name, input) {
     let password = input.password;
     if (input.passwordFile) {
       if (password !== void 0) throw new Fault("INVALID_INPUT", "Supply one local password source.", 2);
-      const file = path2.resolve(input.passwordFile);
-      const roots = [managedHome(), ...input.project ? [path2.resolve(input.project)] : [], process.cwd()];
+      const file = path3.resolve(input.passwordFile);
+      const roots = [managedHome(), ...input.project ? [path3.resolve(input.project)] : [], process.cwd()];
       const inside = (root) => {
-        const relative = path2.relative(root, file);
-        return relative !== "" && !relative.startsWith("..") && !path2.isAbsolute(relative);
+        const relative = path3.relative(root, file);
+        return relative !== "" && !relative.startsWith("..") && !path3.isAbsolute(relative);
       };
       if (!roots.some(inside))
         throw new Fault(
@@ -375,13 +470,13 @@ async function configureConnection(name, input) {
       }
     }
     current[name] = value;
-    await writeJson(path2.join(managedHome(), "connections.json"), current);
+    await writeJson(path3.join(managedHome(), "connections.json"), current);
     return { name, status: "configured" };
   });
 }
 
 // packages/core/src/sqlcl-config.ts
-import path3 from "node:path";
+import path4 from "node:path";
 var sqlclMode = external_exports.enum(["cli", "mcp"]);
 var sqlclRestriction = external_exports.enum(["4", "1"]);
 var databaseTransport = external_exports.enum(["direct", "ords"]);
@@ -399,7 +494,7 @@ async function sqlclConfig() {
 }
 async function configureSqlcl(mode, level, transport) {
   const home = managedHome();
-  return withLock(path3.join(home, "sqlcl-config.lock"), async () => {
+  return withLock(path4.join(home, "sqlcl-config.lock"), async () => {
     const previous = await sqlclConfig();
     const configuration = parse(sqlclConfigSchema, {
       ...previous,
@@ -420,16 +515,16 @@ async function configureSqlcl(mode, level, transport) {
 }
 
 // packages/core/src/ords.ts
-import path4 from "node:path";
+import path5 from "node:path";
 import { realpath as realpath2, rm as rm2 } from "node:fs/promises";
 async function sqlclHome(executable) {
-  const candidates = path4.isAbsolute(executable) ? [executable] : executable.includes(path4.sep) ? [path4.resolve(executable)] : (process.env.PATH ?? "").split(path4.delimiter).flatMap(
-    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path4.join(directory, executable + extension)) : [path4.join(directory, executable)]
+  const candidates = path5.isAbsolute(executable) ? [executable] : executable.includes(path5.sep) ? [path5.resolve(executable)] : (process.env.PATH ?? "").split(path5.delimiter).flatMap(
+    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path5.join(directory, executable + extension)) : [path5.join(directory, executable)]
   );
   for (const candidate of candidates) {
     if (!await exists(candidate)) continue;
-    const home = path4.dirname(path4.dirname(await realpath2(candidate)));
-    if (await exists(path4.join(home, "lib", "jdbcrest.jar"))) return home;
+    const home = path5.dirname(path5.dirname(await realpath2(candidate)));
+    if (await exists(path5.join(home, "lib", "jdbcrest.jar"))) return home;
     break;
   }
   throw new Fault(
@@ -442,7 +537,7 @@ async function sqlclHome(executable) {
 async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess) {
   const executableName = process.platform === "win32" ? "java.exe" : "java";
   const candidates = [
-    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path4.join(home, "bin", executableName), javaHome: home })),
+    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path5.join(home, "bin", executableName), javaHome: home })),
     { executable: executableName, javaHome: void 0 }
   ];
   const attempted = /* @__PURE__ */ new Set();
@@ -478,11 +573,11 @@ async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess
 async function runOrdsBridge(settings, job, credentials, stage, signal, runner = runProcess) {
   if (signal?.aborted) throw new Fault("CANCELLED", "ORDS operation cancelled.", 6, "cancelled");
   const home = await sqlclHome(settings.executable);
-  const helper = path4.join(resourceRoot(), "ords", "OrdsBridge.java");
+  const helper = path5.join(resourceRoot(), "ords", "OrdsBridge.java");
   if (!await exists(helper))
     throw new Fault("ORDS_HELPER_REQUIRED", "The installed plugin is missing its ORDS helper.", 3, "blocked");
-  const jobFile = path4.join(stage, "ords-job.json");
-  const output = path4.join(stage, "ords-result.json");
+  const jobFile = path5.join(stage, "ords-job.json");
+  const output = path5.join(stage, "ords-result.json");
   await rm2(output, { force: true });
   await writeJson(jobFile, { ...job, output });
   const env = { ...process.env, JAVA_HOME: settings.javaHome };
@@ -497,7 +592,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
     executable: java.executable,
     args: [
       "-cp",
-      [path4.join(home, "lib", "*"), path4.join(home, "lib", "ext", "*")].join(path4.delimiter),
+      [path5.join(home, "lib", "*"), path5.join(home, "lib", "ext", "*")].join(path5.delimiter),
       helper,
       jobFile
     ],
@@ -536,8 +631,8 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
 }
 
 // packages/core/src/compatibility.ts
-import path5 from "node:path";
-import { readFile } from "node:fs/promises";
+import path6 from "node:path";
+import { readFile as readFile2 } from "node:fs/promises";
 var APEX_262_PROFILE = {
   id: "apex262-sqlcl263-mmd3479",
   apex: "26.2",
@@ -554,7 +649,7 @@ function databaseMeetsApex262Minimum(version) {
 }
 async function sourceMmdVersion(source) {
   try {
-    const value = JSON.parse(await readFile(path5.join(source, ".apex/apexlang.json"), "utf8"));
+    const value = JSON.parse(await readFile2(path6.join(source, ".apex/apexlang.json"), "utf8"));
     const version = value?.mmdVersion;
     return typeof version === "string" && /^\d+\.\d+\.\d+\+\d+$/.test(version) ? version : null;
   } catch {
@@ -578,8 +673,8 @@ function evaluatePartialImportCompatibility(input) {
 }
 
 // packages/core/src/upgrade-audit.ts
-import path6 from "node:path";
-import { readFile as readFile2, stat as stat2, opendir } from "node:fs/promises";
+import path7 from "node:path";
+import { readFile as readFile3, stat as stat2, opendir } from "node:fs/promises";
 function parseCodeScan(output, source) {
   const clean = output.replace(/\x1b\[[0-9;]*m/g, "");
   const from = clean.indexOf("["), to = clean.lastIndexOf("]");
@@ -590,8 +685,8 @@ function parseCodeScan(output, source) {
   for (const entry of report) {
     if (!entry || typeof entry.file !== "string" || !Array.isArray(entry.issues))
       throw new Error("CodeScan report entry is incomplete.");
-    const file = path6.relative(source, path6.resolve(source, entry.file)).replaceAll(path6.sep, "/");
-    if (!file || file.startsWith("../") || path6.isAbsolute(file))
+    const file = path7.relative(source, path7.resolve(source, entry.file)).replaceAll(path7.sep, "/");
+    if (!file || file.startsWith("../") || path7.isAbsolute(file))
       throw new Error("CodeScan returned a file outside the inspected source.");
     for (const issue of entry.issues) {
       if (typeof issue?.ruleNo !== "string" || typeof issue.msg !== "string" || !Number.isInteger(issue.line) || issue.line < 0 || !Number.isInteger(issue.col) || issue.col < 0)
@@ -641,12 +736,12 @@ async function auditUpgradeSource(source) {
   let inspected = 0, traversalTruncated = false;
   discovery: while (directories.length) {
     const relative = directories.pop();
-    for await (const entry of await opendir(path6.join(source, relative))) {
+    for await (const entry of await opendir(path7.join(source, relative))) {
       if (++inspected > 1e4) {
         traversalTruncated = true;
         break discovery;
       }
-      const file = path6.posix.join(relative, entry.name);
+      const file = path7.posix.join(relative, entry.name);
       if (entry.isSymbolicLink()) skipped.push(file);
       else if (entry.isDirectory()) directories.push(file);
       else if (entry.isFile() && /\.(?:apx|sql|js)$/i.test(file)) files.push(file);
@@ -655,14 +750,14 @@ async function auditUpgradeSource(source) {
   files.sort();
   let bytes = 0, scannedFiles = 0;
   for (const file of files) {
-    const absolute = path6.join(source, file), size = (await stat2(absolute)).size;
+    const absolute = path7.join(source, file), size = (await stat2(absolute)).size;
     if (size > 1024 * 1024 || bytes + size > 16 * 1024 * 1024 || scannedFiles >= 2e3) {
       skipped.push(file);
       continue;
     }
     bytes += size;
     scannedFiles++;
-    const lines = (await readFile2(absolute, "utf8")).split(/\r?\n/);
+    const lines = (await readFile3(absolute, "utf8")).split(/\r?\n/);
     for (const rule of upgradeRules) {
       const at = lines.findIndex((line) => rule.pattern.test(line));
       if (at >= 0)
@@ -742,9 +837,9 @@ async function localServerHost(serverHost) {
         })).stdout.trim();
         if (!/^(unix|npipe):\/\//.test(context)) continue;
       }
-      const list = await runProcess({ executable, args: ["ps", "-q"], cwd: process.cwd(), timeoutMs: 5e3 });
-      const ids = list.stdout.trim().split(/\s+/).filter((id) => /^[a-f0-9]{12,64}$/.test(id));
-      if (list.code !== 0 || !ids.length) continue;
+      const list2 = await runProcess({ executable, args: ["ps", "-q"], cwd: process.cwd(), timeoutMs: 5e3 });
+      const ids = list2.stdout.trim().split(/\s+/).filter((id) => /^[a-f0-9]{12,64}$/.test(id));
+      if (list2.code !== 0 || !ids.length) continue;
       const names = await runProcess({
         executable,
         args: ["inspect", "--format", "{{.Config.Hostname}}", ...ids],
@@ -760,15 +855,15 @@ async function localServerHost(serverHost) {
 }
 
 // packages/core/src/partial-import.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { cp as cp2, mkdir as mkdir3, rename, rm as rm4 } from "node:fs/promises";
 
 // packages/core/src/sync.ts
-import path8 from "node:path";
-import { lstat as lstat2, mkdir as mkdir2, readdir, realpath as realpath3, open as open3, cp, chmod as chmod2 } from "node:fs/promises";
+import path9 from "node:path";
+import { lstat as lstat2, mkdir as mkdir2, readdir as readdir2, realpath as realpath3, open as open3, cp, chmod as chmod2 } from "node:fs/promises";
 
 // packages/core/src/deployment-control.ts
-import path7 from "node:path";
+import path8 from "node:path";
 import { hostname as hostname2 } from "node:os";
 import { rm as rm3 } from "node:fs/promises";
 function coordination(env) {
@@ -799,10 +894,10 @@ var LocalDeploymentControl = class {
   directory;
   constructor(env) {
     const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
-    this.directory = path7.join(managedHome(), "deployment-control", key);
+    this.directory = path8.join(managedHome(), "deployment-control", key);
   }
   file(name) {
-    return path7.join(this.directory, name);
+    return path8.join(this.directory, name);
   }
   async history() {
     const file = this.file("history.json");
@@ -987,8 +1082,8 @@ var syncStateSchema = external_exports.strictObject({
 async function syncPath(ctx, relative) {
   const file = await contained(ctx.root, relative);
   let probe = ctx.root;
-  for (const part of path8.relative(ctx.root, file).split(path8.sep).filter(Boolean)) {
-    probe = path8.join(probe, part);
+  for (const part of path9.relative(ctx.root, file).split(path9.sep).filter(Boolean)) {
+    probe = path9.join(probe, part);
     if (await exists(probe)) {
       if ((await lstat2(probe)).isSymbolicLink())
         throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
@@ -1000,9 +1095,9 @@ async function privateCopy(source, destination) {
   await cp(source, destination, { recursive: true });
   async function secure(directory) {
     await chmod2(directory, 448);
-    for (const entry of await readdir(directory, { withFileTypes: true })) {
+    for (const entry of await readdir2(directory, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
-      const file = path8.join(directory, entry.name);
+      const file = path9.join(directory, entry.name);
       if (entry.isDirectory()) await secure(file);
       else if (entry.isFile()) await chmod2(file, 384);
       else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
@@ -1050,7 +1145,7 @@ var SyncStore = class {
     const base = await syncPath(this.ctx, ".apexrest/sync");
     if (!await exists(base)) return null;
     const matches = [];
-    for (const entry of await readdir(base, { withFileTypes: true })) {
+    for (const entry of await readdir2(base, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Sync storage contains a symlink.", 5);
       if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
       const file = await this.file(entry.name);
@@ -1092,8 +1187,8 @@ var SyncStore = class {
     return state;
   }
   async checkMapping(state) {
-    const { readFile: readFile6 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile6(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
+    const { readFile: readFile7 } = await import("node:fs/promises");
+    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile7(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
       throw new Fault(
         "SYNC_MAPPING_CHANGED",
         "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
@@ -1133,7 +1228,7 @@ var SyncStore = class {
   async write(state) {
     const valid = syncStateSchema.parse(state);
     const file = await this.file(valid.targetDigest);
-    await mkdir2(path8.dirname(file), { recursive: true, mode: 448 });
+    await mkdir2(path9.dirname(file), { recursive: true, mode: 448 });
     const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
     const journal = await open3(journalFile, "a", 384);
     try {
@@ -1154,7 +1249,7 @@ var SyncStore = class {
       await journal.close();
     }
     await writeJson(file, valid);
-    const directory = process.platform !== "win32" ? await open3(path8.dirname(file), "r") : null;
+    const directory = process.platform !== "win32" ? await open3(path9.dirname(file), "r") : null;
     try {
       await directory?.sync();
     } finally {
@@ -1198,8 +1293,8 @@ var SyncStore = class {
 };
 
 // packages/core/src/apexlang-equivalence.ts
-import path9 from "node:path";
-import { readFile as readFile3 } from "node:fs/promises";
+import path10 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
 var APEXLANG_EQUIVALENCE_POLICY = "apex262-selected-source-v1";
 var formattingRule = "structural-whitespace-and-comments";
 var defaultRule = "pageItem.selectList.layout.startNewRow:true-default";
@@ -1589,10 +1684,10 @@ async function compareApplicationExports(expectedRoot, actualRoot, expectedFiles
   for (const file of [.../* @__PURE__ */ new Set([...Object.keys(expectedFiles), ...Object.keys(actualFiles)])].sort()) {
     if (expectedFiles[file] === actualFiles[file]) continue;
     let reason = "File bytes differ outside the selected APEXlang normalization scope.";
-    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path9.posix.extname(file) === ".apx") {
+    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path10.posix.extname(file) === ".apx") {
       const [expected, actual] = await Promise.all([
-        readFile3(await contained(expectedRoot, file)),
-        readFile3(await contained(actualRoot, file))
+        readFile4(await contained(expectedRoot, file)),
+        readFile4(await contained(actualRoot, file))
       ]);
       if (hash(expected) !== expectedFiles[file] || hash(actual) !== actualFiles[file])
         reason = "Source changed during readback comparison.";
@@ -1649,7 +1744,7 @@ function importOptions(value = {}) {
       2
     );
   const files = (value.files ?? []).map((file) => {
-    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path10.posix.normalize(file) !== file || file === ".")
+    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path11.posix.normalize(file) !== file || file === ".")
       throw new Fault(
         "IMPORT_FILE_UNSAFE",
         "Use normalized application-relative file paths without globs.",
@@ -1663,7 +1758,7 @@ function importOptions(value = {}) {
 }
 async function sourceRelease(root) {
   try {
-    const value = await readJson(path10.join(root, ".apex/apexlang.json"));
+    const value = await readJson(path11.join(root, ".apex/apexlang.json"));
     return typeof value.mmdVersion === "string" ? value.mmdVersion.match(/^\d+\.\d+/)?.[0] ?? null : null;
   } catch {
     return null;
@@ -1687,7 +1782,7 @@ async function overlaySelection(source, exported, files, destination) {
     const target = await contained(destination, file);
     if (!observed[file]) await rm4(target, { force: true });
     else {
-      await mkdir3(path10.dirname(target), { recursive: true, mode: 448 });
+      await mkdir3(path11.dirname(target), { recursive: true, mode: 448 });
       await cp2(await contained(exported, file), target);
     }
   }
@@ -1729,18 +1824,18 @@ function selectImport(base, local, remote, options) {
 }
 async function persistSnapshot(ctx, source, directory) {
   const destination = await syncPath(ctx, directory);
-  await mkdir3(path10.dirname(destination), { recursive: true, mode: 448 });
+  await mkdir3(path11.dirname(destination), { recursive: true, mode: 448 });
   await privateCopy(source, destination);
   const files = await inventory(destination);
   return { directory, files, digest: hash(canonical(files)) };
 }
 async function stageSelection(ctx, before, localRoot, files, expected, directory) {
   const root = await syncPath(ctx, directory);
-  await mkdir3(path10.dirname(root), { recursive: true, mode: 448 });
+  await mkdir3(path11.dirname(root), { recursive: true, mode: 448 });
   await privateCopy(await syncPath(ctx, before.directory), root);
   for (const file of files) {
     const destination = await contained(root, file);
-    await mkdir3(path10.dirname(destination), { recursive: true, mode: 448 });
+    await mkdir3(path11.dirname(destination), { recursive: true, mode: 448 });
     await cp2(await contained(localRoot, file), destination);
   }
   const actual = await inventory(root);
@@ -1768,7 +1863,7 @@ async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, sele
     const destination = await contained(replacement, file);
     if (!server.files[file]) await rm4(destination, { force: true });
     else {
-      await mkdir3(path10.dirname(destination), { recursive: true });
+      await mkdir3(path11.dirname(destination), { recursive: true });
       await cp2(await contained(await syncPath(ctx, server.directory), file), destination);
     }
   }
@@ -1961,13 +2056,13 @@ var OracleAdapter = class {
   selectedTransport;
   selectedConnections = /* @__PURE__ */ new Map();
   async settings() {
-    const file = path11.join(managedHome(), "runtime.json");
+    const file = path12.join(managedHome(), "runtime.json");
     const state = await exists(file) ? await readJson(file) : {};
     const transport = await (this.selectedTransport ??= sqlclConfig());
     return {
       ...transport,
       executable: process.env.APEXREST_SQLCL ?? state.sqlcl ?? this.executable,
-      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path11.dirname(path11.dirname(state.java)) : process.env.JAVA_HOME)
+      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path12.dirname(path12.dirname(state.java)) : process.env.JAVA_HOME)
     };
   }
   async selectedConnection(connection) {
@@ -2121,7 +2216,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
   }
   /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
   async sessionHome() {
-    const root = path11.join(managedHome(), "staging");
+    const root = path12.join(managedHome(), "staging");
     await mkdir4(root, { recursive: true, mode: 448 });
     return root;
   }
@@ -2138,14 +2233,14 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       );
   }
   async stage() {
-    const root = path11.join(managedHome(), "staging");
+    const root = path12.join(managedHome(), "staging");
     await mkdir4(root, { recursive: true, mode: 448 });
-    return mkdtemp(path11.join(root, "oracle-"));
+    return mkdtemp(path12.join(root, "oracle-"));
   }
   /** Remove a private staging directory created by stage(). Other paths are never removed. */
   async discardStage(stage) {
     if (!stage) return;
-    const relative = path11.relative(path11.join(managedHome(), "staging"), path11.resolve(stage));
+    const relative = path12.relative(path12.join(managedHome(), "staging"), path12.resolve(stage));
     if (!/^oracle-[^/\\]+$/.test(relative)) return;
     await rm5(stage, { recursive: true, force: true });
   }
@@ -2167,12 +2262,12 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     }
   }
   async capabilityKey(settings) {
-    if (!path11.isAbsolute(settings.executable)) return;
+    if (!path12.isAbsolute(settings.executable)) return;
     try {
       const executable = await realpath4(settings.executable);
-      const bin = path11.dirname(executable);
-      if (path11.basename(bin) !== "bin") return;
-      const lib = path11.join(path11.dirname(bin), "lib");
+      const bin = path12.dirname(executable);
+      if (path12.basename(bin) !== "bin") return;
+      const lib = path12.join(path12.dirname(bin), "lib");
       const mark = async (file, required) => {
         try {
           const info = await stat3(file, { bigint: true });
@@ -2185,11 +2280,11 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       const marks = {
         executable: await mark(executable, true),
         lib: await mark(lib, true),
-        apex: await mark(path11.join(lib, "dbtools-apex.jar"), false),
-        apexlang: await mark(path11.join(lib, "apexlang-compiler.jar"), false),
-        ext: await mark(path11.join(lib, "ext"), false),
-        extApex: await mark(path11.join(lib, "ext/dbtools-apex.jar"), false),
-        extApexlang: await mark(path11.join(lib, "ext/apexlang-compiler.jar"), false)
+        apex: await mark(path12.join(lib, "dbtools-apex.jar"), false),
+        apexlang: await mark(path12.join(lib, "apexlang-compiler.jar"), false),
+        ext: await mark(path12.join(lib, "ext"), false),
+        extApex: await mark(path12.join(lib, "ext/dbtools-apex.jar"), false),
+        extApexlang: await mark(path12.join(lib, "ext/apexlang-compiler.jar"), false)
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -2291,7 +2386,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         findings: [],
         reason: "APEXlang CodeScan is qualified only for SQLcl 26.3."
       };
-    const stage = await this.stage(), copy = path11.join(stage, "application");
+    const stage = await this.stage(), copy = path12.join(stage, "application");
     try {
       await cp3(source, copy, { recursive: true });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
@@ -2339,16 +2434,16 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return { directory, compiler, output: result.output, files: await inventory(directory) };
   }
   async findApplication(root) {
-    if (await exists(path11.join(root, "application.apx"))) return root;
+    if (await exists(path12.join(root, "application.apx"))) return root;
     const found = [];
-    for (const entry of await readdir2(root, { withFileTypes: true }))
+    for (const entry of await readdir3(root, { withFileTypes: true }))
       if (entry.isDirectory()) {
-        const dir = path11.join(root, entry.name);
-        if (await exists(path11.join(dir, "application.apx"))) found.push(dir);
+        const dir = path12.join(root, entry.name);
+        if (await exists(path12.join(dir, "application.apx"))) found.push(dir);
         else
-          for (const sub of await readdir2(dir, { withFileTypes: true }))
-            if (sub.isDirectory() && await exists(path11.join(dir, sub.name, "application.apx")))
-              found.push(path11.join(dir, sub.name));
+          for (const sub of await readdir3(dir, { withFileTypes: true }))
+            if (sub.isDirectory() && await exists(path12.join(dir, sub.name, "application.apx")))
+              found.push(path12.join(dir, sub.name));
       }
     if (found.length !== 1)
       throw new Fault(
@@ -2365,20 +2460,20 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
   async validate(source, signal, options = {}) {
     const compiler = await this.requireCapability("validate", signal);
     const before = await inventory(source);
-    const metadataFile = before[".apex/apexlang.json"] ? path11.join(source, ".apex/apexlang.json") : options.metadataFile;
+    const metadataFile = before[".apex/apexlang.json"] ? path12.join(source, ".apex/apexlang.json") : options.metadataFile;
     if (!metadataFile)
       throw new Fault(
         "MMD_METADATA_REQUIRED",
         "Preserve Oracle-generated .apex/apexlang.json before validation.",
         3
       );
-    const stage = await this.stage(), copy = path11.join(stage, "application");
+    const stage = await this.stage(), copy = path12.join(stage, "application");
     let result;
     try {
       await cp3(source, copy, { recursive: true });
       if (!before[".apex/apexlang.json"]) {
-        await mkdir4(path11.join(copy, ".apex"), { recursive: true });
-        await cp3(metadataFile, path11.join(copy, ".apex/apexlang.json"));
+        await mkdir4(path12.join(copy, ".apex"), { recursive: true });
+        await cp3(metadataFile, path12.join(copy, ".apex/apexlang.json"));
       }
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
@@ -2406,7 +2501,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile5(metadataFile, "utf8")),
+      mmd: JSON.parse(await readFile6(metadataFile, "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -2415,7 +2510,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     const compiler = await this.requireCapability("export");
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === "ords";
-    const exportRoot = ords ? path11.join(stage, "export") : stage;
+    const exportRoot = ords ? path12.join(stage, "export") : stage;
     const result = ords ? {
       output: String(
         (await this.ordsBridge(
@@ -2472,7 +2567,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         3
       );
     const compiler = await this.requireCapability("export");
-    const stage = await this.stage(), directory = path11.join(stage, "selection");
+    const stage = await this.stage(), directory = path12.join(stage, "selection");
     await mkdir4(directory, { mode: 448 });
     try {
       if (exportScope === "full") {
@@ -2487,7 +2582,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
               throw new Fault("PARTIAL_EXPORT_AMBIGUOUS", "Export has duplicate selected identities.", 5);
             if (!matches.length) continue;
             const target = await contained(directory, file);
-            await mkdir4(path11.dirname(target), { recursive: true, mode: 448 });
+            await mkdir4(path12.dirname(target), { recursive: true, mode: 448 });
             await cp3(await contained(exported.directory, matches[0]), target);
           }
           const files2 = await inventory(directory);
@@ -2529,7 +2624,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       const outputs = [];
       const observed = /* @__PURE__ */ new Set();
       for (const [index, mapping] of mappings.entries()) {
-        const exportDirectory = path11.join(stage, "component-" + (index + 1));
+        const exportDirectory = path12.join(stage, "component-" + (index + 1));
         await mkdir4(exportDirectory, { mode: 448 });
         const result = await this.session(
           `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(exportDirectory)} -expComponents ${sqlclToken(mapping.type + ":" + mapping.id)}`,
@@ -2556,7 +2651,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
             );
           observed.add(mapping.file);
           const target = await contained(directory, mapping.file);
-          await mkdir4(path11.dirname(target), { recursive: true, mode: 448 });
+          await mkdir4(path12.dirname(target), { recursive: true, mode: 448 });
           await cp3(await contained(exportDirectory, file), target);
         }
       }
@@ -2802,6 +2897,18 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
       );
     return { identity, workspace: workspaces[0], application: applications[0] ?? null };
   }
+  /** Other applications of the workspace that already use this alias (APEX aliases are case-insensitive). */
+  async aliasHolders(env, connection, alias) {
+    const rows = await this.jsonQuery(
+      `select application_id from apex_applications
+        where workspace = :p_workspace and upper(alias) = upper(:p_alias) and application_id <> :p_app_id`,
+      connection,
+      { p_workspace: env.workspace, p_alias: alias, p_app_id: env.applicationId },
+      void 0,
+      "metadata-batch"
+    );
+    return rows.map((row) => Number(row.application_id)).filter((id) => Number.isFinite(id));
+  }
   /** Fresh identity and versions share one read-only SQLcl session. */
   async versionedTarget(env, connection) {
     const [identity, versions] = await this.jsonQueryBatch(
@@ -2845,9 +2952,9 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     return { target, metadata: parseApplicationMetadata(rows[1]) };
   }
   async nativeDeployment(ctx, env, source) {
-    const output = path11.join(await this.stage(), "deployment.json");
-    const defaults = path11.join(source, "deployments/default.json");
-    const native = await exists(defaults) ? JSON.parse(await readFile5(defaults, "utf8")) : {};
+    const output = path12.join(await this.stage(), "deployment.json");
+    const defaults = path12.join(source, "deployments/default.json");
+    const native = await exists(defaults) ? JSON.parse(await readFile6(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output, {
       ...native,
@@ -2879,7 +2986,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
           2
         );
       for (const file of selectedFiles) {
-        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path11.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
+        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path12.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
           throw new Fault(
             "PARTIAL_IMPORT_FILES_INVALID",
             "Partial-import files must be literal contained APEXlang paths without globs.",
@@ -2888,7 +2995,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         let valid = false;
         try {
           const physical = await realpath4(await contained(source, file));
-          valid = path11.relative(await realpath4(source), physical).replaceAll(path11.sep, "/") === file && (await stat3(physical)).isFile();
+          valid = path12.relative(await realpath4(source), physical).replaceAll(path12.sep, "/") === file && (await stat3(physical)).isFile();
         } catch {
         }
         if (!valid)
@@ -2911,7 +3018,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     try {
       return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
-      await this.discardStage(path11.dirname(config));
+      await this.discardStage(path12.dirname(config));
     }
   }
   async importWith(env, connection, source, config, signal, selectedFiles) {
@@ -2970,8 +3077,8 @@ end;
       await this.requireMutationSupport();
       const stage = await this.stage();
       try {
-        const input = path11.join(stage, "restore.sql");
-        await (await import("./chunk-B2QC3QWO.mjs")).atomicWrite(input, setup + await readFile5(file, "utf8"));
+        const input = path12.join(stage, "restore.sql");
+        await (await import("./chunk-XLCW2IED.mjs")).atomicWrite(input, setup + await readFile6(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);
@@ -3034,7 +3141,7 @@ async function diagnosticHint(root, diagnostic) {
     return;
   try {
     const file = await contained(root, diagnostic.file);
-    const lines = (await readFile5(file, "utf8")).split(/\r?\n/);
+    const lines = (await readFile6(file, "utf8")).split(/\r?\n/);
     const indent = (text) => text.match(/^\s*/)[0].length;
     const open4 = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain = [];
@@ -3070,6 +3177,8 @@ async function compilerDetails(output, root) {
     for (const diagnostic of diagnostics) {
       const hint = await diagnosticHint(root, diagnostic);
       if (hint) diagnostic.hint = hint;
+      const fix = await propertyFix(diagnostic.type, diagnostic.message, hint);
+      if (fix) diagnostic.hint = `${hint}. Fix: ${fix}`;
     }
   return diagnostics.length ? { diagnostics } : void 0;
 }
@@ -3107,8 +3216,8 @@ async function installSources(source, root, destination) {
       5,
       "conflict"
     );
-  await mkdir4(path11.dirname(target), { recursive: true });
-  const staging = await mkdtemp(path11.join(path11.dirname(target), ".apexrest-copy-"));
+  await mkdir4(path12.dirname(target), { recursive: true });
+  const staging = await mkdtemp(path12.join(path12.dirname(target), ".apexrest-copy-"));
   await inventory(source);
   await cp3(source, staging, { recursive: true });
   await rename2(staging, target);
@@ -3117,15 +3226,15 @@ async function installSources(source, root, destination) {
 
 // packages/core/src/project.ts
 function resourceRoot() {
-  return process.env.APEXREST_RESOURCES ?? path12.resolve(path12.dirname(fileURLToPath(import.meta.url)), "../resources");
+  return process.env.APEXREST_RESOURCES ?? path13.resolve(path13.dirname(fileURLToPath(import.meta.url)), "../resources");
 }
 async function projectInit(directory, template, alias) {
   parse(refName, alias);
-  const destination = path12.resolve(directory);
-  await mkdir5(path12.dirname(destination), { recursive: true });
+  const destination = path13.resolve(directory);
+  await mkdir5(path13.dirname(destination), { recursive: true });
   return withLock(destination + ".init.lock", async () => {
     if (await exists(destination)) {
-      if (!(await lstat3(destination)).isDirectory() || (await readdir3(destination)).length)
+      if (!(await lstat3(destination)).isDirectory() || (await readdir4(destination)).length)
         throw new Fault("LOCAL_EDITS_CONFLICT", "Project init requires an empty directory.", 5, "conflict");
     }
     const root = await mkdtemp2(destination + ".init-");
@@ -3137,7 +3246,7 @@ async function projectInit(directory, template, alias) {
         "conflict"
       );
       if (!await exists(root)) await mkdir5(root, { recursive: true, mode: 448 });
-      if (!(await lstat3(root)).isDirectory() || (await readdir3(root)).length !== 0) throw conflict();
+      if (!(await lstat3(root)).isDirectory() || (await readdir4(root)).length !== 0) throw conflict();
       const createFile = async (file, content) => {
         try {
           await writeFile(file, content, { flag: "wx", mode: 384 });
@@ -3158,45 +3267,45 @@ async function projectInit(directory, template, alias) {
         environments: {},
         artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
       };
-      await createFile(path12.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
-      await createFile(path12.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
+      await createFile(path13.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+      await createFile(path13.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
       for (const dir of Object.values(config.database))
-        await mkdir5(path12.join(root, dir), { recursive: true });
+        await mkdir5(path13.join(root, dir), { recursive: true });
       await cp4(
-        path12.join(resourceRoot(), "toolchains/toolchain.lock.json"),
-        path12.join(root, config.toolchain.lockFile),
+        path13.join(resourceRoot(), "toolchains/toolchain.lock.json"),
+        path13.join(root, config.toolchain.lockFile),
         { force: false, errorOnExist: true }
       );
       if (template !== "existing-app") {
         const generated = await new OracleAdapter().generate(alias, alias);
         await installSources(generated.directory, root, config.application.sourceDir);
-        const release = await sourceRelease(path12.join(root, config.application.sourceDir));
+        const release = await sourceRelease(path13.join(root, config.application.sourceDir));
         if (release === "26.2") {
           config.toolchain.profile = "26.2";
           await cp4(
-            path12.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
-            path12.join(root, config.toolchain.lockFile)
+            path13.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
+            path13.join(root, config.toolchain.lockFile)
           );
-          await atomicWrite(path12.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+          await atomicWrite(path13.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
         }
         if (template === "customer-crm") {
-          await cp4(path12.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
+          await cp4(path13.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
           await cp4(
-            path12.join(
+            path13.join(
               resourceRoot(),
               "templates/customer-crm",
               release === "26.2" ? "apex-overlay-26.2" : "apex-overlay"
             ),
-            path12.join(root, config.application.sourceDir),
+            path13.join(root, config.application.sourceDir),
             { recursive: true }
           );
-          const { readFile: readFile6 } = await import("node:fs/promises");
-          const file = path12.join(
+          const { readFile: readFile7 } = await import("node:fs/promises");
+          const file = path13.join(
             root,
             config.application.sourceDir,
             release === "26.2" ? "shared-components/lists/navigation-menu.apx" : "shared-components/lists.apx"
           );
-          const lists = await readFile6(file, "utf8"), index = lists.lastIndexOf(")");
+          const lists = await readFile7(file, "utf8"), index = lists.lastIndexOf(")");
           if (index < 0 || !lists.includes("list navigation-menu ("))
             throw new Fault(
               "UNSUPPORTED_TEMPLATE",
@@ -3221,16 +3330,16 @@ async function projectInit(directory, template, alias) {
         }
       }
       if (await exists(destination)) {
-        if ((await readdir3(destination)).length) throw conflict();
+        if ((await readdir4(destination)).length) throw conflict();
         const moved = [];
         try {
-          for (const entry of await readdir3(root)) {
-            await rename3(path12.join(root, entry), path12.join(destination, entry));
+          for (const entry of await readdir4(root)) {
+            await rename3(path13.join(root, entry), path13.join(destination, entry));
             moved.push(entry);
           }
         } catch (error) {
           for (const entry of moved.reverse())
-            await rename3(path12.join(destination, entry), path12.join(root, entry));
+            await rename3(path13.join(destination, entry), path13.join(root, entry));
           throw error;
         }
       } else await rename3(root, destination);
@@ -3313,11 +3422,6 @@ export {
   resolveConnection,
   editConnection,
   configureConnection,
-  sqlclMode,
-  sqlclRestriction,
-  databaseTransport,
-  sqlclConfig,
-  configureSqlcl,
   coordination,
   LocalDeploymentControl,
   VERSION,
@@ -3344,6 +3448,11 @@ export {
   resourceRoot,
   projectInit,
   projectInspect,
+  sqlclMode,
+  sqlclRestriction,
+  databaseTransport,
+  sqlclConfig,
+  configureSqlcl,
   APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,
