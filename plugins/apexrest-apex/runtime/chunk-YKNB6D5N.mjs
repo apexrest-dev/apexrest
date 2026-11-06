@@ -7,7 +7,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-SF7RSNPX.mjs";
+} from "./chunk-KCDAQT6D.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -25,6 +25,7 @@ import {
   configureConnection,
   configureSqlcl,
   connections,
+  contractSkeleton,
   coordination,
   databaseMeetsApex262Minimum,
   databaseTransport,
@@ -57,7 +58,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-VTUE7NAA.mjs";
+} from "./chunk-VZUWYS6D.mjs";
 import {
   environment,
   identifier,
@@ -10832,7 +10833,7 @@ var schemas = {
     ...base,
     request: external_exports.string().trim().min(1).max(4e3),
     version: external_exports.string().regex(/^26\.[12](?:@[A-Za-z0-9_.-]+)?$/).optional(),
-    limit: external_exports.number().int().min(1).max(16).default(12)
+    limit: external_exports.number().int().min(1).max(16).default(16)
   }),
   "docs.read": external_exports.strictObject({
     ...base,
@@ -12650,8 +12651,16 @@ async function referenceSelect(input, signal, fetcher = fetch) {
     const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
     if (example) Object.assign(result, { example: { componentType, ...example } });
   }
+  for (const result of results) {
+    if (result.kind !== "contract" || "example" in result || !String(result.version).startsWith("26.2"))
+      continue;
+    const id = String(result.id);
+    if (!id.includes("inventory/app/") || id.includes("inventory/app/page/")) continue;
+    const skeleton = await contractSkeleton(id);
+    if (skeleton) Object.assign(result, { skeleton });
+  }
   for (const result of results)
-    if ("example" in result)
+    if ("example" in result || "skeleton" in result)
       for (const key of [
         "text",
         "source",
@@ -16251,7 +16260,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-IQ45XLYL.mjs");
+      const { previewDispatch } = await import("./chunk-5SQEM7V6.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16278,29 +16287,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-C2SIZFXF.mjs");
+        const { ToolchainService } = await import("./chunk-YMUMHA3M.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-NGYQX67D.mjs");
+        const { uninstallTools } = await import("./chunk-EOF3IA6D.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-6IBA4NW7.mjs");
+        const { setup: setup2 } = await import("./chunk-DVRHU4W5.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-6IBA4NW7.mjs");
+        const { validateNative } = await import("./chunk-DVRHU4W5.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-6IBA4NW7.mjs");
+        const { uninstallNative } = await import("./chunk-DVRHU4W5.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

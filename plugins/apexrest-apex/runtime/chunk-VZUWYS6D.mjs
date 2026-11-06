@@ -115,7 +115,18 @@ function parseContract(text, segments) {
     const property = /^- `([A-Za-z][\w]*)` — .*; (—|`.*`);\s*$/u.exec(line);
     if (!property) continue;
     const condition = property[2] === "\u2014" ? void 0 : property[2].replace(/`/gu, "").replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, "$1").split(" or ").map((clause) => [...new Set(clause.split(" and "))].join(" and ")).filter((clause, i, all) => all.indexOf(clause) === i).join(" or ").slice(0, 240);
-    properties.push({ group, name: property[1], ...condition ? { condition } : {} });
+    const type = / — `(<[^`]+>)`/u.exec(line)?.[1];
+    const required = /`; [^;]*; (Yes|No); /u.exec(line)?.[1];
+    const enumeration = /`<enum:\[(.*?)\]>`/u.exec(line)?.[1];
+    const values = enumeration ? [...enumeration.matchAll(/(?:^|, )([\w-]+):"/gu)].map((m) => m[1]) : void 0;
+    properties.push({
+      group,
+      name: property[1],
+      ...condition ? { condition } : {},
+      ...type ? { type } : {},
+      ...required ? { required: required === "Yes" } : {},
+      ...values?.length ? { values } : {}
+    });
   }
   return { kind, ...at >= 0 ? { variant: camel(segments[at + 1]) } : {}, segments, properties };
 }
@@ -157,6 +168,8 @@ function contractFor(all, component, parent) {
 }
 var list = (names) => [...new Set(names)].slice(0, 30).join(", ");
 async function propertyFix(type, message, hint) {
+  if (type === "DUPLICATED_COMPONENT" && /executionMappingIdentifier: null/u.test(message))
+    return "give every process of the page its own advanced { executionMappingIdentifier: <unique 20-digit number> }";
   if (type !== "INVALID_PROPERTY" || !hint) return void 0;
   const property = /Invalid property: ([A-Za-z]\w*)/u.exec(message)?.[1];
   if (!property) return void 0;
@@ -183,6 +196,40 @@ async function propertyFix(type, message, hint) {
     if (where.length)
       return `${property} is not valid in ${group || "the component itself"} of ${component}; valid there: ${list(valid)}`;
     return valid.length ? `${component} has no ${property}; ${group || "its direct properties"}: ${list(valid)}` : `${component} has no ${property} and no group ${group}; groups: ${list(contract.properties.map((p) => p.group).filter(Boolean))}`;
+  } catch {
+    return void 0;
+  }
+}
+var SKELETON_SKIP = /* @__PURE__ */ new Set([
+  "security",
+  "config",
+  "comments",
+  "serverSideCondition",
+  "help",
+  "userDefinedAttributes",
+  "clickCounting",
+  "advanced"
+]);
+async function contractSkeleton(id) {
+  const at = id.indexOf("inventory/app/");
+  if (at < 0) return void 0;
+  const segments = id.slice(at + "inventory/app/".length).split("/").slice(0, -1);
+  try {
+    contracts ??= load();
+    const contract = (await contracts).find((c) => c.segments.join("/") === segments.join("/"));
+    if (!contract) return void 0;
+    const value = (p) => p.values ? p.values.slice(0, 6).join(" | ") + (p.values.length > 6 ? " | \u2026" : "") : p.type ?? "<value>";
+    const shown = contract.properties.filter((p) => !p.condition && !SKELETON_SKIP.has(p.group));
+    const groups = [...new Set(shown.map((p) => p.group))];
+    const lines = [`${contract.kind} <name> (`];
+    for (const group of groups) {
+      const members = shown.filter((p) => p.group === group);
+      const rows = members.map((p) => `${p.name}: ${value(p)}${p.required ? "" : "  (optional)"}`);
+      if (!group) lines.push(...rows.map((row) => `    ${row}`));
+      else lines.push(`    ${group} {`, ...rows.map((row) => `        ${row}`), "    }");
+    }
+    lines.push(")");
+    return lines.join("\n");
   } catch {
     return void 0;
   }
@@ -3178,7 +3225,7 @@ async function compilerDetails(output, root) {
       const hint = await diagnosticHint(root, diagnostic);
       if (hint) diagnostic.hint = hint;
       const fix = await propertyFix(diagnostic.type, diagnostic.message, hint);
-      if (fix) diagnostic.hint = `${hint}. Fix: ${fix}`;
+      if (fix) diagnostic.hint = hint ? `${hint}. Fix: ${fix}` : `Fix: ${fix}`;
     }
   return diagnostics.length ? { diagnostics } : void 0;
 }
@@ -3448,6 +3495,7 @@ export {
   resourceRoot,
   projectInit,
   projectInspect,
+  contractSkeleton,
   sqlclMode,
   sqlclRestriction,
   databaseTransport,

@@ -7,13 +7,13 @@ import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-VKQIF6K6.mjs";
+} from "./chunk-YKNB6D5N.mjs";
 import "./chunk-L7BXOT7W.mjs";
 import {
   setPreviewOwner
 } from "./chunk-N43MMRVF.mjs";
-import "./chunk-SF7RSNPX.mjs";
-import "./chunk-VTUE7NAA.mjs";
+import "./chunk-KCDAQT6D.mjs";
+import "./chunk-VZUWYS6D.mjs";
 import {
   loadProject
 } from "./chunk-PWI5SWBA.mjs";
@@ -266,7 +266,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-IRIQT2E2.mjs");
+    const { startMcp } = await import("./chunk-2ENMHJBS.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
