@@ -191,7 +191,7 @@ export const schemas = {
       .string()
       .regex(/^26\.[12](?:@[A-Za-z0-9_.-]+)?$/)
       .optional(),
-    limit: z.number().int().min(1).max(16).default(12),
+    limit: z.number().int().min(1).max(16).default(16),
   }),
   'docs.read': z.strictObject({
     ...base,

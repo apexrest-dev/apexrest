@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { propertyFix } from '../../packages/core/src/contract-hints.ts';
+import { contractSkeleton, propertyFix } from '../../packages/core/src/contract-hints.ts';
 
 test('invalid properties get a repair hint from the 26.2 inventory contract', async () => {
   const fix = (message: string, hint: string) => propertyFix('INVALID_PROPERTY', message, hint);
@@ -35,4 +35,16 @@ test('invalid properties get a repair hint from the 26.2 inventory contract', as
   );
   assert.equal(await propertyFix('LOV_NOT_FOUND', 'Invalid property: x', 'inside page 1'), undefined);
   assert.equal(await fix('Invalid property: x', 'inside nothing'), undefined);
+});
+
+test('shared-component contracts without sample code get an outline with properties in their groups', async () => {
+  const breadcrumb = (await contractSkeleton('oracle:26.2:inventory/app/breadcrumb/entry/entry'))!;
+  assert.match(
+    breadcrumb,
+    /^entry <name> \(\n {4}name: <STRING>\n {4}pageNumber: <INTEGER>\n {4}appearance \{\n {8}parentEntry: <@entry> {2}\(optional\)/u,
+  );
+  assert.doesNotMatch(breadcrumb, /serverSideCondition|authorizationScheme/u);
+  const list = (await contractSkeleton('oracle:26.2:inventory/app/list/entry/entry'))!;
+  assert.match(list, /^ {4}isCurrent \{\n {8}type: targetPage \| pages/mu);
+  assert.equal(await contractSkeleton('oracle:26.2:inventory/app/no-such/thing/thing'), undefined);
 });

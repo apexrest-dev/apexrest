@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contractSkeleton } from './contract-hints.ts';
 import {
   componentExample,
   contractComponent,
@@ -251,9 +252,19 @@ export async function referenceSelect(
     const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
     if (example) Object.assign(result, { example: { componentType, ...example } });
   }
+  // Shared-component contracts (breadcrumb and list entries) have no sample page code: outline
+  // them with the properties in the groups they belong to.
+  for (const result of results) {
+    if (result.kind !== 'contract' || 'example' in result || !String(result.version).startsWith('26.2'))
+      continue;
+    const id = String(result.id);
+    if (!id.includes('inventory/app/') || id.includes('inventory/app/page/')) continue;
+    const skeleton = await contractSkeleton(id);
+    if (skeleton) Object.assign(result, { skeleton });
+  }
   // With a working example the routing fields (summary, source, links) only cost context.
   for (const result of results)
-    if ('example' in result)
+    if ('example' in result || 'skeleton' in result)
       for (const key of [
         'text',
         'source',

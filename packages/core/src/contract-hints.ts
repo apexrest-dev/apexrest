@@ -8,6 +8,11 @@ interface ContractProperty {
   name: string;
   /** When the property applies, e.g. `settings.useDefaults = N`; undefined when always. */
   condition?: string;
+  /** Declared value type such as `<STRING>` or `<@entry>`. */
+  type?: string;
+  required?: boolean;
+  /** Enum value names, when the property has a fixed list. */
+  values?: string[];
 }
 interface Contract {
   kind: string;
@@ -46,7 +51,20 @@ function parseContract(text: string, segments: string[]): Contract | undefined {
             .filter((clause, i, all) => all.indexOf(clause) === i)
             .join(' or ')
             .slice(0, 240);
-    properties.push({ group, name: property[1]!, ...(condition ? { condition } : {}) });
+    const type = / — `(<[^`]+>)`/u.exec(line)?.[1];
+    const required = /`; [^;]*; (Yes|No); /u.exec(line)?.[1];
+    const enumeration = /`<enum:\[(.*?)\]>`/u.exec(line)?.[1];
+    const values = enumeration
+      ? [...enumeration.matchAll(/(?:^|, )([\w-]+):"/gu)].map((m) => m[1]!)
+      : undefined;
+    properties.push({
+      group,
+      name: property[1]!,
+      ...(condition ? { condition } : {}),
+      ...(type ? { type } : {}),
+      ...(required ? { required: required === 'Yes' } : {}),
+      ...(values?.length ? { values } : {}),
+    });
   }
   return { kind, ...(at >= 0 ? { variant: camel(segments[at + 1]!) } : {}), segments, properties };
 }
@@ -143,6 +161,54 @@ export async function propertyFix(type: string, message: string, hint: string | 
     return valid.length
       ? `${component} has no ${property}; ${group || 'its direct properties'}: ${list(valid)}`
       : `${component} has no ${property} and no group ${group}; groups: ${list(contract.properties.map((p) => p.group).filter(Boolean))}`;
+  } catch {
+    return undefined;
+  }
+}
+
+// Groups a first draft rarely needs; the full contract stays readable with apexrest_reference.
+const SKELETON_SKIP = new Set([
+  'security',
+  'config',
+  'comments',
+  'serverSideCondition',
+  'help',
+  'userDefinedAttributes',
+  'clickCounting',
+  'advanced',
+]);
+
+/**
+ * An APEXlang-shaped outline of a 26.2 inventory contract without sample code (breadcrumb and list
+ * entries): every always-applicable property in the group it belongs to, with its value type or
+ * values. Undefined for unknown contracts. `id` is `oracle:26.2:inventory/app/<path>/<name>`.
+ */
+export async function contractSkeleton(id: string): Promise<string | undefined> {
+  const at = id.indexOf('inventory/app/');
+  if (at < 0) return undefined;
+  const segments = id
+    .slice(at + 'inventory/app/'.length)
+    .split('/')
+    .slice(0, -1);
+  try {
+    contracts ??= load();
+    const contract = (await contracts).find((c) => c.segments.join('/') === segments.join('/'));
+    if (!contract) return undefined;
+    const value = (p: ContractProperty) =>
+      p.values
+        ? p.values.slice(0, 6).join(' | ') + (p.values.length > 6 ? ' | …' : '')
+        : (p.type ?? '<value>');
+    const shown = contract.properties.filter((p) => !p.condition && !SKELETON_SKIP.has(p.group));
+    const groups = [...new Set(shown.map((p) => p.group))];
+    const lines = [`${contract.kind} <name> (`];
+    for (const group of groups) {
+      const members = shown.filter((p) => p.group === group);
+      const rows = members.map((p) => `${p.name}: ${value(p)}${p.required ? '' : '  (optional)'}`);
+      if (!group) lines.push(...rows.map((row) => `    ${row}`));
+      else lines.push(`    ${group} {`, ...rows.map((row) => `        ${row}`), '    }');
+    }
+    lines.push(')');
+    return lines.join('\n');
   } catch {
     return undefined;
   }

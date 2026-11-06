@@ -71,7 +71,7 @@ test('selection configuration is opt-in, strict and bounded in runtime and opera
   ]) {
     assert.equal(projectSchema.safeParse({ ...ctx.config, decisionApi: change }).success, false);
   }
-  assert.equal(schemas['docs.select'].parse({ request: 'cards' }).limit, 12);
+  assert.equal(schemas['docs.select'].parse({ request: 'cards' }).limit, 16);
   assert.equal(schemas['docs.select'].safeParse({ request: ' ', limit: 9 }).success, false);
   assert.equal(schemas['docs.select'].safeParse({ request: 'cards', limit: 17 }).success, false);
   assert.equal(schemas['docs.select'].safeParse({ request: 'x'.repeat(4001) }).success, false);
