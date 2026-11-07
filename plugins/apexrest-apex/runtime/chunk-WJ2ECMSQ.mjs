@@ -11393,8 +11393,8 @@ var CODE_LIMIT = 2500;
 var SEARCH_LINKS = 3;
 function fitResults(results, budget, size) {
   const halve = (hit, floor) => {
+    if (typeof hit.text !== "string" || hit.text.length <= floor) return false;
     const next2 = Math.floor(hit.text.length / 2);
-    if (hit.text.length <= floor) return false;
     hit.text = hit.text.slice(0, Math.max(floor, next2));
     return true;
   };
@@ -16260,7 +16260,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-5SQEM7V6.mjs");
+      const { previewDispatch } = await import("./chunk-RRYTNXBI.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();

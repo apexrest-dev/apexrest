@@ -399,15 +399,310 @@ function loadAssets(assetsDir = defaultAssetsDir()) {
   };
 }
 
+// packages/core/src/preview/apexlang.ts
+import fs2 from "node:fs";
+import path2 from "node:path";
+var ApexLangError = class extends Error {
+  file;
+  line;
+  constructor(message, file, line) {
+    super(`${file}:${line}: ${message}`);
+    this.file = file;
+    this.line = line;
+  }
+};
+var PROPERTY = /^("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$.#-]+)\s*:(?:\s+(.*))?$/u;
+var GROUP = /^([A-Za-z][\w-]*)\s*\{$/u;
+var COMPONENT = /^([A-Za-z][\w]*)(?:\s+(.+?))?\s*\($/u;
+function isRef(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && typeof value2.ref === "string" && Object.keys(value2).length === 2 && "global" in value2;
+}
+function isObject(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && !isRef(value2);
+}
+function unquote(raw2) {
+  if (raw2.startsWith('"') && raw2.endsWith('"') && raw2.length >= 2) {
+    try {
+      return JSON.parse(raw2);
+    } catch {
+      return raw2.slice(1, -1);
+    }
+  }
+  return raw2;
+}
+function scalar(raw2) {
+  const text10 = raw2.trim();
+  if (text10 === "true") return true;
+  if (text10 === "false") return false;
+  if (text10.startsWith('"') && text10.endsWith('"') && text10.length >= 2) return unquote(text10);
+  if (text10.length >= 2 && text10.startsWith("\\") && text10.endsWith("\\")) return text10.slice(1, -1);
+  if (/^@\S+$/u.test(text10) && !text10.endsWith("@")) {
+    return text10.startsWith("@/") ? { ref: text10.slice(2), global: true } : { ref: text10.slice(1), global: false };
+  }
+  return text10;
+}
+function inlineArray(text10) {
+  const body4 = text10.slice(1, -1).trim();
+  if (!body4) return [];
+  const values = [];
+  for (const match of body4.matchAll(/"(?:[^"\\]|\\.)*"|\S+/gu)) values.push(scalar(match[0]));
+  return values;
+}
+function stripComments(lines) {
+  let block = false;
+  let fence = false;
+  return lines.map((line) => {
+    const trimmed = line.trim();
+    if (fence) {
+      if (trimmed === "```") fence = false;
+      return line;
+    }
+    if (trimmed.startsWith("```")) {
+      fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
+      return line;
+    }
+    if (block) {
+      const end = line.indexOf("*/");
+      if (end === -1) return "";
+      block = false;
+      return line.slice(end + 2);
+    }
+    if (trimmed.startsWith("//")) return "";
+    if (trimmed.startsWith("/*")) {
+      const end = line.indexOf("*/", line.indexOf("/*") + 2);
+      if (end === -1) {
+        block = true;
+        return "";
+      }
+      return line.slice(0, line.indexOf("/*")) + line.slice(end + 2);
+    }
+    return line;
+  });
+}
+function parseApexLang(source, file = "<memory>") {
+  const lines = stripComments(source.replace(/\r\n?/gu, "\n").split("\n"));
+  let index = 0;
+  const fail = (message) => {
+    throw new ApexLangError(message, file, index + 1);
+  };
+  const readFence = () => {
+    const opening = lines[index] ?? "";
+    const indent = opening.length - opening.trimStart().length;
+    const body4 = [];
+    index += 1;
+    while (index < lines.length && (lines[index] ?? "").trim() !== "```") {
+      const line = lines[index] ?? "";
+      const leading = line.length - line.trimStart().length;
+      body4.push(line.slice(Math.min(indent, leading)));
+      index += 1;
+    }
+    if (index >= lines.length) fail("unterminated ``` block");
+    index += 1;
+    return body4.join("\n");
+  };
+  const readValue = (raw2) => {
+    const text10 = (raw2 ?? "").trim();
+    if (text10 === "") {
+      const next = (lines[index] ?? "").trim();
+      if (next.startsWith("```")) return readFence();
+      return "";
+    }
+    if (text10 === "{") return readBlock("}");
+    if (text10 === "[") return readArray();
+    if (text10.startsWith("[") && text10.endsWith("]")) return inlineArray(text10);
+    if (text10.startsWith("```") && text10.endsWith("```") && text10.length >= 6) return text10.slice(3, -3);
+    return scalar(text10);
+  };
+  const readArray = () => {
+    const values = [];
+    while (index < lines.length) {
+      const text10 = (lines[index] ?? "").trim();
+      index += 1;
+      if (!text10) continue;
+      if (text10 === "]") return values;
+      if (text10 === "{") values.push(readBlock("}"));
+      else if (text10.startsWith("```")) {
+        index -= 1;
+        values.push(readFence());
+      } else values.push(scalar(text10));
+    }
+    return fail("unterminated array");
+  };
+  function readBlock(close2, children2) {
+    const props = {};
+    while (index < lines.length) {
+      const text10 = (lines[index] ?? "").trim();
+      const lineNumber = index + 1;
+      index += 1;
+      if (!text10) continue;
+      if (text10 === close2) return props;
+      const property2 = PROPERTY.exec(text10);
+      if (property2) {
+        props[unquote(property2[1])] = readValue(property2[2]);
+        continue;
+      }
+      const group2 = GROUP.exec(text10);
+      if (group2) {
+        const nested = readBlock("}", children2);
+        const existing = props[group2[1]];
+        props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
+        continue;
+      }
+      const component = COMPONENT.exec(text10);
+      if (component && children2) {
+        children2.push(readComponent(component[1], component[2] ?? "", lineNumber));
+        continue;
+      }
+      index -= 1;
+      fail(`unexpected line: ${text10.slice(0, 120)}`);
+    }
+    if (close2 === "") return props;
+    return fail(`missing closing "${close2}"`);
+  }
+  function readComponent(type, rawId, line) {
+    const children2 = [];
+    const props = readBlock(")", children2);
+    return { type, id: unquote(rawId.trim()), props, children: children2, file, line };
+  }
+  const components = [];
+  while (index < lines.length) {
+    const text10 = (lines[index] ?? "").trim();
+    const lineNumber = index + 1;
+    index += 1;
+    if (!text10) continue;
+    const component = COMPONENT.exec(text10);
+    if (!component) {
+      index -= 1;
+      fail(`expected a component declaration, found: ${text10.slice(0, 120)}`);
+    }
+    components.push(readComponent(component[1], component[2] ?? "", lineNumber));
+  }
+  return components;
+}
+function get(props, dotted) {
+  let value2 = props;
+  for (const part2 of dotted.split(".")) {
+    if (!isObject(value2)) return void 0;
+    value2 = value2[part2];
+  }
+  return value2;
+}
+function str(props, dotted, fallback = "") {
+  const value2 = get(props, dotted);
+  if (typeof value2 === "string") return value2;
+  if (typeof value2 === "boolean") return String(value2);
+  if (isRef(value2)) return value2.ref;
+  return fallback;
+}
+function num(props, dotted, fallback) {
+  const value2 = Number(str(props, dotted, ""));
+  return str(props, dotted, "") !== "" && Number.isFinite(value2) ? value2 : fallback;
+}
+function bool(props, dotted, fallback) {
+  const value2 = get(props, dotted);
+  return typeof value2 === "boolean" ? value2 : fallback;
+}
+function ref(props, dotted) {
+  const value2 = get(props, dotted);
+  if (isRef(value2)) return value2.ref;
+  return typeof value2 === "string" && value2 ? value2 : void 0;
+}
+function list(props, dotted) {
+  const value2 = get(props, dotted);
+  if (Array.isArray(value2)) return value2;
+  return value2 === void 0 || value2 === "" ? [] : [value2];
+}
+function walk(directory) {
+  if (!fs2.existsSync(directory)) return [];
+  return fs2.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const full = path2.join(directory, entry.name);
+    if (entry.isDirectory()) return entry.name === "static-files" ? [] : walk(full);
+    return entry.name.endsWith(".apx") ? [full] : [];
+  });
+}
+function deploymentSubstitutions(root, deployment) {
+  const file = path2.join(root, "deployments", `${deployment}.json`);
+  if (!fs2.existsSync(file)) return {};
+  const values = {};
+  const collect2 = (value2) => {
+    if (!value2 || typeof value2 !== "object") return;
+    for (const [key, nested] of Object.entries(value2)) {
+      if (typeof nested === "string" || typeof nested === "number")
+        values[key.toUpperCase()] = String(nested);
+      else collect2(nested);
+    }
+  };
+  try {
+    collect2(JSON.parse(fs2.readFileSync(file, "utf8")));
+  } catch {
+    return {};
+  }
+  return values;
+}
+function loadApplication(root, deployment = "default") {
+  const appFile = path2.join(root, "application.apx");
+  if (!fs2.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
+  const substitutions = deploymentSubstitutions(root, deployment);
+  const files = walk(root).sort();
+  const pages2 = /* @__PURE__ */ new Map();
+  const shared3 = [];
+  let app;
+  for (const file of files) {
+    const relative = path2.relative(root, file);
+    const text10 = fs2.readFileSync(file, "utf8").replace(
+      /@([A-Z][A-Z0-9_]*)@/gu,
+      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path2.basename(root).toLowerCase() : name === "APP_NAME" ? path2.basename(root) : whole)
+    );
+    for (const component of parseApexLang(text10, relative)) {
+      if (component.type === "app") app = component;
+      else if (component.type === "page") pages2.set(component.id, component);
+      else shared3.push(component);
+    }
+  }
+  if (!app) throw new Error(`${appFile} does not declare an app component`);
+  return { root, app, pages: pages2, shared: shared3, substitutions, files };
+}
+
+// packages/core/src/preview/gaps.ts
+var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction"]);
+function properties(props, prefix = "") {
+  return Object.entries(props).flatMap(([key, value2]) => {
+    const dotted = prefix ? `${prefix}.${key}` : key;
+    if (NOT_APPLIED.has(key) && value2 !== void 0 && value2 !== "") return [dotted];
+    return isObject(value2) ? properties(value2, dotted) : [];
+  });
+}
+function collect(pageId, component, into) {
+  for (const property2 of properties(component.props))
+    into.push({
+      pageId,
+      component: `${component.type} ${component.id}`,
+      property: property2,
+      file: component.file,
+      line: component.line,
+      message: `Page ${pageId}, ${component.type} ${component.id}: ${property2} does not run in the local preview; check its effect (formats, axes, tooltips, widget options) on the imported application.`
+    });
+  for (const child of component.children) collect(pageId, child, into);
+}
+function localGaps(app) {
+  const gaps = [];
+  for (const [pageId, page2] of [...app.pages.entries()].sort((a, b) => Number(a[0]) - Number(b[0])))
+    collect(pageId, page2, gaps);
+  return gaps;
+}
+function initFunction(region) {
+  return str(region.props, "componentAdvanced.initJavaScriptFunction") || str(region.props, "advanced.initJavaScriptFunction");
+}
+
 // packages/core/src/preview/oracle/connect.ts
-import fs4 from "node:fs";
+import fs5 from "node:fs";
 import os from "node:os";
-import path3 from "node:path";
+import path4 from "node:path";
 
 // packages/core/src/preview/database.ts
 import crypto2 from "node:crypto";
-import fs2 from "node:fs";
-import path2 from "node:path";
+import fs3 from "node:fs";
+import path3 from "node:path";
 import { constants as sqliteConstants, DatabaseSync } from "node:sqlite";
 var MONTH_NAMES = [
   "January",
@@ -1660,7 +1955,7 @@ var LocalDatabase = class {
   #writes;
   constructor(file) {
     this.file = file;
-    if (file !== ":memory:") fs2.mkdirSync(path2.dirname(file), { recursive: true });
+    if (file !== ":memory:") fs3.mkdirSync(path3.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.#registerOracleFunctions();
     for (const setup of databaseSetups) setup(this);
@@ -2426,12 +2721,12 @@ end;`;
 }
 
 // packages/core/src/preview/oracle/bridge.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MessageChannel, Worker, receiveMessageOnPort } from "node:worker_threads";
 function defaultWorker() {
   const source = new URL("./worker.ts", import.meta.url);
-  if (fs3.existsSync(fileURLToPath(source))) return source;
+  if (fs4.existsSync(fileURLToPath(source))) return source;
   return new URL("./preview-oracle-worker.mjs", import.meta.url);
 }
 var WorkerBridge = class {
@@ -2552,18 +2847,18 @@ function warmUp(data, apex) {
   return { ms: Math.round(performance.now() - started2), ...steps };
 }
 function savedConnectionProperties(name, home = os.homedir()) {
-  const store = path3.join(home, ".dbtools", "connections");
+  const store = path4.join(home, ".dbtools", "connections");
   let entries;
   try {
-    entries = fs4.readdirSync(store);
+    entries = fs5.readdirSync(store);
   } catch {
     return void 0;
   }
   for (const entry of entries) {
     try {
-      const text10 = fs4.readFileSync(path3.join(store, entry, "dbtools.properties"), "utf8");
+      const text10 = fs5.readFileSync(path4.join(store, entry, "dbtools.properties"), "utf8");
       if (text10.split(/\r?\n/u).some((line) => line.trim() === `name=${name}`))
-        return path3.join(store, entry, "ojdbc.properties");
+        return path4.join(store, entry, "ojdbc.properties");
     } catch {
     }
   }
@@ -2603,10 +2898,10 @@ async function connectOracle(root, name, link) {
         "conflict"
       );
     if (!data.transactional()) {
-      const properties = savedConnectionProperties(connection.name);
+      const properties2 = savedConnectionProperties(connection.name);
       throw new Fault(
         "PREVIEW_AUTOCOMMIT_ON",
-        `SQLcl saved connection ${connection.name} commits every statement (JDBC auto-commit), so the connected preview could not roll its requests back and did not start. ` + (properties ? `Add the line autoCommit=false to ${properties} (create the file if needed), then start the preview again.` : `Add autoCommit=false to the ojdbc.properties file of that saved connection, then start the preview again.`) + " The offline preview (without env) is unaffected.",
+        `SQLcl saved connection ${connection.name} commits every statement (JDBC auto-commit), so the connected preview could not roll its requests back and did not start. ` + (properties2 ? `Add the line autoCommit=false to ${properties2} (create the file if needed), then start the preview again.` : `Add autoCommit=false to the ojdbc.properties file of that saved connection, then start the preview again.`) + " The offline preview (without env) is unaffected.",
         3,
         "blocked"
       );
@@ -2681,270 +2976,6 @@ import { randomUUID } from "node:crypto";
 import fs12 from "node:fs";
 import http from "node:http";
 import path13 from "node:path";
-
-// packages/core/src/preview/apexlang.ts
-import fs5 from "node:fs";
-import path4 from "node:path";
-var ApexLangError = class extends Error {
-  file;
-  line;
-  constructor(message, file, line) {
-    super(`${file}:${line}: ${message}`);
-    this.file = file;
-    this.line = line;
-  }
-};
-var PROPERTY = /^("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$.#-]+)\s*:(?:\s+(.*))?$/u;
-var GROUP = /^([A-Za-z][\w-]*)\s*\{$/u;
-var COMPONENT = /^([A-Za-z][\w]*)(?:\s+(.+?))?\s*\($/u;
-function isRef(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && typeof value2.ref === "string" && Object.keys(value2).length === 2 && "global" in value2;
-}
-function isObject(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && !isRef(value2);
-}
-function unquote(raw2) {
-  if (raw2.startsWith('"') && raw2.endsWith('"') && raw2.length >= 2) {
-    try {
-      return JSON.parse(raw2);
-    } catch {
-      return raw2.slice(1, -1);
-    }
-  }
-  return raw2;
-}
-function scalar(raw2) {
-  const text10 = raw2.trim();
-  if (text10 === "true") return true;
-  if (text10 === "false") return false;
-  if (text10.startsWith('"') && text10.endsWith('"') && text10.length >= 2) return unquote(text10);
-  if (text10.length >= 2 && text10.startsWith("\\") && text10.endsWith("\\")) return text10.slice(1, -1);
-  if (/^@\S+$/u.test(text10) && !text10.endsWith("@")) {
-    return text10.startsWith("@/") ? { ref: text10.slice(2), global: true } : { ref: text10.slice(1), global: false };
-  }
-  return text10;
-}
-function inlineArray(text10) {
-  const body4 = text10.slice(1, -1).trim();
-  if (!body4) return [];
-  const values = [];
-  for (const match of body4.matchAll(/"(?:[^"\\]|\\.)*"|\S+/gu)) values.push(scalar(match[0]));
-  return values;
-}
-function stripComments(lines) {
-  let block = false;
-  let fence = false;
-  return lines.map((line) => {
-    const trimmed = line.trim();
-    if (fence) {
-      if (trimmed === "```") fence = false;
-      return line;
-    }
-    if (trimmed.startsWith("```")) {
-      fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
-      return line;
-    }
-    if (block) {
-      const end = line.indexOf("*/");
-      if (end === -1) return "";
-      block = false;
-      return line.slice(end + 2);
-    }
-    if (trimmed.startsWith("//")) return "";
-    if (trimmed.startsWith("/*")) {
-      const end = line.indexOf("*/", line.indexOf("/*") + 2);
-      if (end === -1) {
-        block = true;
-        return "";
-      }
-      return line.slice(0, line.indexOf("/*")) + line.slice(end + 2);
-    }
-    return line;
-  });
-}
-function parseApexLang(source, file = "<memory>") {
-  const lines = stripComments(source.replace(/\r\n?/gu, "\n").split("\n"));
-  let index = 0;
-  const fail = (message) => {
-    throw new ApexLangError(message, file, index + 1);
-  };
-  const readFence = () => {
-    const opening = lines[index] ?? "";
-    const indent = opening.length - opening.trimStart().length;
-    const body4 = [];
-    index += 1;
-    while (index < lines.length && (lines[index] ?? "").trim() !== "```") {
-      const line = lines[index] ?? "";
-      const leading = line.length - line.trimStart().length;
-      body4.push(line.slice(Math.min(indent, leading)));
-      index += 1;
-    }
-    if (index >= lines.length) fail("unterminated ``` block");
-    index += 1;
-    return body4.join("\n");
-  };
-  const readValue = (raw2) => {
-    const text10 = (raw2 ?? "").trim();
-    if (text10 === "") {
-      const next = (lines[index] ?? "").trim();
-      if (next.startsWith("```")) return readFence();
-      return "";
-    }
-    if (text10 === "{") return readBlock("}");
-    if (text10 === "[") return readArray();
-    if (text10.startsWith("[") && text10.endsWith("]")) return inlineArray(text10);
-    if (text10.startsWith("```") && text10.endsWith("```") && text10.length >= 6) return text10.slice(3, -3);
-    return scalar(text10);
-  };
-  const readArray = () => {
-    const values = [];
-    while (index < lines.length) {
-      const text10 = (lines[index] ?? "").trim();
-      index += 1;
-      if (!text10) continue;
-      if (text10 === "]") return values;
-      if (text10 === "{") values.push(readBlock("}"));
-      else if (text10.startsWith("```")) {
-        index -= 1;
-        values.push(readFence());
-      } else values.push(scalar(text10));
-    }
-    return fail("unterminated array");
-  };
-  function readBlock(close2, children2) {
-    const props = {};
-    while (index < lines.length) {
-      const text10 = (lines[index] ?? "").trim();
-      const lineNumber = index + 1;
-      index += 1;
-      if (!text10) continue;
-      if (text10 === close2) return props;
-      const property2 = PROPERTY.exec(text10);
-      if (property2) {
-        props[unquote(property2[1])] = readValue(property2[2]);
-        continue;
-      }
-      const group2 = GROUP.exec(text10);
-      if (group2) {
-        const nested = readBlock("}", children2);
-        const existing = props[group2[1]];
-        props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
-        continue;
-      }
-      const component = COMPONENT.exec(text10);
-      if (component && children2) {
-        children2.push(readComponent(component[1], component[2] ?? "", lineNumber));
-        continue;
-      }
-      index -= 1;
-      fail(`unexpected line: ${text10.slice(0, 120)}`);
-    }
-    if (close2 === "") return props;
-    return fail(`missing closing "${close2}"`);
-  }
-  function readComponent(type, rawId, line) {
-    const children2 = [];
-    const props = readBlock(")", children2);
-    return { type, id: unquote(rawId.trim()), props, children: children2, file, line };
-  }
-  const components = [];
-  while (index < lines.length) {
-    const text10 = (lines[index] ?? "").trim();
-    const lineNumber = index + 1;
-    index += 1;
-    if (!text10) continue;
-    const component = COMPONENT.exec(text10);
-    if (!component) {
-      index -= 1;
-      fail(`expected a component declaration, found: ${text10.slice(0, 120)}`);
-    }
-    components.push(readComponent(component[1], component[2] ?? "", lineNumber));
-  }
-  return components;
-}
-function get(props, dotted) {
-  let value2 = props;
-  for (const part2 of dotted.split(".")) {
-    if (!isObject(value2)) return void 0;
-    value2 = value2[part2];
-  }
-  return value2;
-}
-function str(props, dotted, fallback = "") {
-  const value2 = get(props, dotted);
-  if (typeof value2 === "string") return value2;
-  if (typeof value2 === "boolean") return String(value2);
-  if (isRef(value2)) return value2.ref;
-  return fallback;
-}
-function num(props, dotted, fallback) {
-  const value2 = Number(str(props, dotted, ""));
-  return str(props, dotted, "") !== "" && Number.isFinite(value2) ? value2 : fallback;
-}
-function bool(props, dotted, fallback) {
-  const value2 = get(props, dotted);
-  return typeof value2 === "boolean" ? value2 : fallback;
-}
-function ref(props, dotted) {
-  const value2 = get(props, dotted);
-  if (isRef(value2)) return value2.ref;
-  return typeof value2 === "string" && value2 ? value2 : void 0;
-}
-function list(props, dotted) {
-  const value2 = get(props, dotted);
-  if (Array.isArray(value2)) return value2;
-  return value2 === void 0 || value2 === "" ? [] : [value2];
-}
-function walk(directory) {
-  if (!fs5.existsSync(directory)) return [];
-  return fs5.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const full = path4.join(directory, entry.name);
-    if (entry.isDirectory()) return entry.name === "static-files" ? [] : walk(full);
-    return entry.name.endsWith(".apx") ? [full] : [];
-  });
-}
-function deploymentSubstitutions(root, deployment) {
-  const file = path4.join(root, "deployments", `${deployment}.json`);
-  if (!fs5.existsSync(file)) return {};
-  const values = {};
-  const collect = (value2) => {
-    if (!value2 || typeof value2 !== "object") return;
-    for (const [key, nested] of Object.entries(value2)) {
-      if (typeof nested === "string" || typeof nested === "number")
-        values[key.toUpperCase()] = String(nested);
-      else collect(nested);
-    }
-  };
-  try {
-    collect(JSON.parse(fs5.readFileSync(file, "utf8")));
-  } catch {
-    return {};
-  }
-  return values;
-}
-function loadApplication(root, deployment = "default") {
-  const appFile = path4.join(root, "application.apx");
-  if (!fs5.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
-  const substitutions = deploymentSubstitutions(root, deployment);
-  const files = walk(root).sort();
-  const pages2 = /* @__PURE__ */ new Map();
-  const shared3 = [];
-  let app;
-  for (const file of files) {
-    const relative = path4.relative(root, file);
-    const text10 = fs5.readFileSync(file, "utf8").replace(
-      /@([A-Z][A-Z0-9_]*)@/gu,
-      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path4.basename(root).toLowerCase() : name === "APP_NAME" ? path4.basename(root) : whole)
-    );
-    for (const component of parseApexLang(text10, relative)) {
-      if (component.type === "app") app = component;
-      else if (component.type === "page") pages2.set(component.id, component);
-      else shared3.push(component);
-    }
-  }
-  if (!app) throw new Error(`${appFile} does not declare an app component`);
-  return { root, app, pages: pages2, shared: shared3, substitutions, files };
-}
 
 // packages/core/src/preview/websocket.ts
 import { createHash } from "node:crypto";
@@ -3918,17 +3949,17 @@ var Checker = class {
   /** The MMD value(s) of a property: return values, Y/N for booleans, defaults when absent. */
   actual(scope2, dotted) {
     const value2 = get(scope2.component.props, dotted);
-    const properties = this.properties(scope2, dotted);
+    const properties2 = this.properties(scope2, dotted);
     if (dotted === "type" && typeof value2 === "string") {
       if (scope2.component.type === "region") return { kind: "region", type: value2 };
-      if (!properties.some((entry) => entry.values.length)) return { kind: "item", type: value2 };
+      if (!properties2.some((entry) => entry.values.length)) return { kind: "item", type: value2 };
     }
     if (value2 === void 0) {
-      if (!properties.length || properties.some((entry) => entry.required && entry.defaultValue === null))
+      if (!properties2.length || properties2.some((entry) => entry.required && entry.defaultValue === null))
         return null;
       const flag3 = (entry) => entry.type === "yesNo" ? { true: "Y", false: "N" }[entry.defaultValue ?? ""] ?? entry.defaultValue : entry.defaultValue;
-      const defaults = properties.map(flag3).filter((entry) => entry !== null);
-      if (!defaults.length && properties.some((entry) => entry.type === "yesNo"))
+      const defaults = properties2.map(flag3).filter((entry) => entry !== null);
+      if (!defaults.length && properties2.some((entry) => entry.type === "yesNo"))
         return { kind: "values", values: [NULL, "N"] };
       return { kind: "values", values: defaults.length ? defaults : [NULL] };
     }
@@ -3940,14 +3971,14 @@ var Checker = class {
     );
     if (!parts.length) return { kind: "values", values: [NULL] };
     const named2 = /* @__PURE__ */ new Map();
-    for (const entry of properties)
+    for (const entry of properties2)
       for (const option of entry.values)
         if (option.returnValue !== void 0) named2.set(option.name, option.returnValue);
     if (parts.some(isSubstitution)) return null;
-    const listed = properties.some(
+    const listed = properties2.some(
       (entry) => ENUMERATED_TYPES.has(entry.type) && !entry.values.length || entry.type === "SUPPORTED UI"
     );
-    if (parts.some((part2) => !named2.has(part2)) && (listed || !properties.length)) return null;
+    if (parts.some((part2) => !named2.has(part2)) && (listed || !properties2.length)) return null;
     return { kind: "values", values: parts.map((part2) => named2.get(part2) ?? part2) };
   }
   /** Catalog properties of one path for the component (its identities and native settings). */
@@ -5534,10 +5565,10 @@ function renderCalendar(renderer, ctx, region) {
       ctx.pageId,
       region.id
     );
-  if (str(region.props, "componentAdvanced.initJavaScriptFunction"))
+  if (initFunction(region))
     renderer.diagnose(
-      "info",
-      `Calendar ${region.id}: the initialization JavaScript function is not applied locally`,
+      "warning",
+      `Calendar ${region.id}: the initialization JavaScript function is not applied locally; check its formats, axes and tooltips on the imported application`,
       ctx.pageId,
       region.id
     );
@@ -5571,6 +5602,7 @@ function renderCalendar(renderer, ctx, region) {
 
 // packages/core/src/preview/extensions/charts/client.ts
 var CHARTS_CSS = String.raw`
+.apex-local-note{margin-top:8px;padding:6px 10px;border:1px dashed #c74634;border-radius:4px;color:#8a2c1f;background:#fdf1ef;font-size:12px;line-height:1.4}
 .apex-local-jet,.apex-local-jet-tip{--ajc-ink:light-dark(#161513,var(--ut-component-text-default-color,var(--ut-body-text-color,#fff)))}
 /* Muted chart ink: #161513 in light styles (unchanged), the theme's text token in dark styles (Vita - Dark). */
 .apex-local-jet{position:relative;width:100%;overflow:hidden;font-family:var(--a-base-font-family,"Oracle Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}
@@ -7197,16 +7229,17 @@ function renderChartRegion(renderer, ctx, region) {
       region.id
     );
   }
-  if (str(region.props, "componentAdvanced.initJavaScriptFunction"))
+  if (initFunction(region))
     renderer.diagnose(
-      "info",
-      `Chart ${region.id}: the initialization JavaScript function is not applied locally`,
+      "warning",
+      `Chart ${region.id}: the initialization JavaScript function is not applied locally; check its formats, axes and tooltips on the imported application`,
       ctx.pageId,
       region.id
     );
   const model = chartModel(renderer, ctx, UNSUPPORTED_TYPES.has(type) ? asBar(region) : region);
   const maxWidth = model.maxWidth ? `max-width:${model.maxWidth}px;` : "";
-  return `<div class="apex-local-jet a-JET-chart" id="${escapeHtml(domId)}_jet" data-chart-region="${escapeHtml(region.id)}" data-chart-type="${escapeHtml(type)}" data-width="${DEFAULT_WIDTH}" style="${maxWidth}min-height:${model.height}px">${renderChartSvg(model, DEFAULT_WIDTH)}</div>`;
+  const note2 = initFunction(region) ? `<div class="apex-local-note" role="note">Local preview: this chart's initialization JavaScript function is not applied. Axes, formats and tooltips it sets appear only in APEX; check them on the imported application.</div>` : "";
+  return `<div class="apex-local-jet a-JET-chart" id="${escapeHtml(domId)}_jet" data-chart-region="${escapeHtml(region.id)}" data-chart-type="${escapeHtml(type)}" data-width="${DEFAULT_WIDTH}" style="${maxWidth}min-height:${model.height}px">${renderChartSvg(model, DEFAULT_WIDTH)}</div>${note2}`;
 }
 function asBar(region) {
   return { ...region, props: { ...region.props, chart: { type: "bar" } } };
@@ -29905,6 +29938,15 @@ function summarize(diagnostics) {
     truncated: diagnostics.length > DIAGNOSTICS_LIMIT
   };
 }
+function gapsFor(sourceDir) {
+  let gaps;
+  try {
+    gaps = localGaps(loadApplication(sourceDir));
+  } catch {
+    return {};
+  }
+  return gaps.length ? { notAppliedLocally: gaps.slice(0, DIAGNOSTICS_LIMIT) } : {};
+}
 async function assetsReady(assetsDir) {
   try {
     loadAssets(assetsDir);
@@ -29996,7 +30038,8 @@ function describe(server, reused) {
       environment: server.options.oracle.environment,
       target: server.options.oracle.target
     } : { mode: "sqlite" },
-    ...summarize(server.diagnostics())
+    ...summarize(server.diagnostics()),
+    ...gapsFor(server.options.sourceDir)
   };
 }
 async function listPreviews() {
@@ -30057,7 +30100,8 @@ var summaryOf = (entry) => ({
   pid: entry.pid,
   owner: entry.owner,
   ...entry.environment ? { environment: entry.environment } : {},
-  ...entry.server ? summarize(entry.server.diagnostics()).counts : {}
+  ...entry.server ? summarize(entry.server.diagnostics()).counts : {},
+  ...entry.server ? gapsFor(entry.sourceDir) : {}
 });
 async function previewStop(root, input) {
   const listed = await listPreviews();
@@ -30136,7 +30180,7 @@ async function previewCheck(root, input) {
     ...input.sampleRows === void 0 ? {} : { sampleRows: input.sampleRows },
     toolbar: false
   });
-  return { sourceDir, pages: result.pages, ...summarize(result.diagnostics) };
+  return { sourceDir, pages: result.pages, ...summarize(result.diagnostics), ...gapsFor(sourceDir) };
 }
 async function previewDispatch(operation2, parsed2, root) {
   const { action, ...input } = parsed2;
