@@ -236,15 +236,16 @@ export function codeWanted(include: 'code' | 'metadata' | undefined, offset: num
 }
 export const CODE_LIMIT = 2500;
 export const SEARCH_LINKS = 3;
-type Shrinkable = { text: string; code?: CodeBlock | null; [key: string]: unknown };
+// Selection results that carry a working example drop their summary text.
+type Shrinkable = { text?: string; code?: CodeBlock | null; [key: string]: unknown };
 /**
  * Fit a result page into its character budget: shorten later snippets first, then the
  * inline code, then every snippet, and drop resolved links before dropping code.
  */
 export function fitResults<T extends Shrinkable>(results: T[], budget: number, size: (page: T[]) => number) {
   const halve = (hit: Shrinkable, floor: number) => {
+    if (typeof hit.text !== 'string' || hit.text.length <= floor) return false;
     const next = Math.floor(hit.text.length / 2);
-    if (hit.text.length <= floor) return false;
     hit.text = hit.text.slice(0, Math.max(floor, next));
     return true;
   };

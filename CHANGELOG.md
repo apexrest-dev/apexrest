@@ -1,7 +1,11 @@
 # Current changes
 
-## 2.5.0
+## 2.6.0
 
+- Report source the local preview never runs: `apexrest_preview` `start`, `check` and `status` return initialization JavaScript functions (`componentAdvanced` or `advanced.initJavaScriptFunction`, both accepted by the compiler and run by APEX) as `notAppliedLocally`; chart and calendar diagnostics for them are warnings, and a chart with one shows a visible note in the preview page. The work skill tells the agent to check such code in APEX.
+- Fix `apexrest_reference mode:select` failing with `INTERNAL_ERROR` when an over-budget result page held results that carry an example and no summary text.
+- Add the [field report](docs/apex-design-race.md) comparing the same APEX application built with and without the plugin, including a browser design check, with screenshots and a timeline.
+- Align package, workspace and Codex/Claude Code source versions to 2.6.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
 - Mention entry skeletons in the work skill.
 - Explain a `DUPLICATED_COMPONENT` error for processes without an `executionMappingIdentifier`: the hint now says to give every process of the page its own `advanced { executionMappingIdentifier }`.
 - Outline breadcrumb and list entries in 26.2 component selection: the Oracle sample pages hold no shared components, so a selected entry contract carries a `skeleton` with each always-applicable property in its group (`parentEntry` inside `appearance` for a breadcrumb entry, inside `layout` for a list entry) and its value type or values. `select` returns 16 results by default, so buttons, processes and entries fit a long request.
@@ -22,7 +26,6 @@
 - Refuse production-marked environments before any connection or SQLcl call in plan, apply and restore. Report a missing SQLcl saved connection as `SQLCL_CONNECTION_NOT_FOUND`. Keep component recipes and patterns in reference searches scoped by a project. Explain composer compiler mismatches with the matching blueprints. Warm up connected previews before the URL is returned.
 - Replace the repository's feature videos with the seven-episode YouTube series "Oracle APEX with AI agents". The features page lists every episode with its thumbnail and links each feature to its episode. The old MP4, caption and poster files are removed from `docs/assets`.
 - Fix local preview chart text in dark theme styles, the grid Color editor rewriting values that were not edited, a grid null error after a save, and toolbar times (now local) and counts (now pluralized). Truncated compiler reports now say where the full diagnostic list is.
-
 - Add `productionDatabases` to `$APEXREST_HOME/production-trust.json`: listing a `DB_UNIQUE_NAME` makes every service name, workspace, schema and application on that database production, so a production mark no longer depends on the service name or application ID a project configures.
 - Bind peer reviews to the real plan: the saved plan must match its digest and pass apply's local checks before the reviewer runs, `required` mode refuses and ignores reviews by the host agent's own vendor, and the agent's `focus` text is fenced as an untrusted request in the reviewer prompt.
 - Give SQLcl write sessions (imports, migrations, packages, restores) up to 60 minutes instead of the 3-minute read limit, and do not recover or re-import automatically after APEXREST stopped SQLcl on a timeout, cancellation, output limit or unconfirmed batch: the server may still be executing the call. Lost responses and Oracle errors keep the server-first automatic recovery.
@@ -32,6 +35,9 @@
 - Stop connected preview code from leaving its SQLcl block: page code and region SQL with a line SQLcl acts on regardless of quoting (only `/`, only `.`, a leading `#`, or in SQL a line ending with `;`) are refused before anything is sent, and bind values reach the script without raw line breaks. Previously such code could end its `begin…end;` early and run DDL, which commits.
 - Refuse local preview requests that another web page could send: a `Host` other than the preview's loopback address and port, an unsafe method with a foreign or `null` `Origin`, and cross-site or same-site requests other than top-level GET navigations. Previously any page in the browser could post SQL or PL/SQL to the preview, which in connected mode runs against the DEV/QA/TEST database.
 - Require a per-run completion marker after every migration and package script. A script whose output lacks it (an early exit, or a client command such as ACCEPT that consumes the remaining input) leaves the migration `started` with an unknown outcome instead of recording it as succeeded or applied.
+
+## 2.5.0
+
 - Give the local preview Oracle data semantics: empty items bind as NULL, real division, Oracle number text, date arithmetic on any date expression, ANSI date literals and `DEFAULT sysdate` in seeds, `json_value`/`json_query`/`json_exists`, nested LISTAGG, POSIX regular expressions and ISO date storage for form DML.
 - Run page submits, server-side code and grid saves in one transaction: unhandled process errors stop processing, are shown to the user and roll back. Add interactive grid row validations, `#LABEL#`/`#COLUMN_HEADER#` substitution, lost-update detection, region items to submit on refresh, `clearCache` lists and synchronous Cancel Event.
 - Render 26.2 report and card syntax: show-all pagination, card actions, `&COLUMN.` substitution, list view features, calendar views, template directives in HTML expressions, template component format masks, FILESIZE/SINCE_SHORT masks, interactive report aliases and integer chart ticks.

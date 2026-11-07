@@ -68,7 +68,7 @@ claude plugin install apexrest@apexrest
 npm install -g apexrest
 ```
 
-The repository ships the built plugin under `plugins/apexrest-apex`, so you need no build step. To install from a local checkout, pass its path to `marketplace add`. Registry packages can lag the source; this README describes source version 2.5.0.
+The repository ships the built plugin under `plugins/apexrest-apex`, so you need no build step. To install from a local checkout, pass its path to `marketplace add`. Registry packages can lag the source; this README describes source version 2.6.0.
 
 ## Quick start
 
@@ -88,6 +88,7 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 ## Documentation
 
+- [Field report: two agents, one dashboard](docs/apex-design-race.md): the same APEX app built with and without the plugin, with a browser design check: 2 imports instead of 8 and 39–55% less time.
 - [Features and videos](docs/features.md): the YouTube video series, component library, Decisions selection, local and connected preview, live updates, partial imports, tools and skills.
 - [Getting started](https://apexrest-dev.github.io/apexrest/getting-started/): install, connect, create or adopt an application, ship and verify.
 - [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database.

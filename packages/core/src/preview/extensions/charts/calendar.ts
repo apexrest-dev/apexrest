@@ -4,6 +4,7 @@ import { get, list, num, str, bool, type ApxComponent } from '../../apexlang.ts'
 import type { Row } from '../../database.ts';
 import type { ApexRenderer, RenderContext } from '../../render.ts';
 import { escapeHtml } from '../../theme.ts';
+import { initFunction } from '../../gaps.ts';
 import { parseDate } from './format.ts';
 import { rowSubstitute, substituteDeep } from './model.ts';
 
@@ -209,10 +210,10 @@ export function renderCalendar(renderer: ApexRenderer, ctx: RenderContext, regio
       ctx.pageId,
       region.id,
     );
-  if (str(region.props, 'componentAdvanced.initJavaScriptFunction'))
+  if (initFunction(region))
     renderer.diagnose(
-      'info',
-      `Calendar ${region.id}: the initialization JavaScript function is not applied locally`,
+      'warning',
+      `Calendar ${region.id}: the initialization JavaScript function is not applied locally; check its formats, axes and tooltips on the imported application`,
       ctx.pageId,
       region.id,
     );

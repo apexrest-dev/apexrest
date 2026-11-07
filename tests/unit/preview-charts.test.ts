@@ -9,6 +9,9 @@ import {
 import { initialDate } from '../../packages/core/src/preview/extensions/charts/calendar.ts';
 import { CHARTS_CSS } from '../../packages/core/src/preview/extensions/charts/client.ts';
 import { workspace } from '../fixtures/preview.ts';
+import { loadApplication } from '../../packages/core/src/preview/apexlang.ts';
+import { localGaps } from '../../packages/core/src/preview/gaps.ts';
+import { previewCheck } from '../../packages/core/src/preview/service.ts';
 
 const sql = (query: string) => `
             source {
@@ -453,4 +456,94 @@ test('chart ink follows the theme: unchanged in light styles, theme text tokens 
   );
   assert.match(rules, /\.ajc-gauge-track\{fill:color-mix\(in srgb,var\(--ajc-ink\) 8%,transparent\)\}/);
   assert.match(rules, /\.ajc-svg text\{[^}]*fill:var\(--ut-body-text-color,#161513\)\}/);
+});
+
+test('chart initialization JavaScript is reported as not applied: warning, visible note and notAppliedLocally', async (t) => {
+  const page = `page 5 (
+    name: Trend JS
+    alias: TREND-JS
+${chart(
+  'trendjs',
+  10,
+  `        chart {
+            type: line
+        }
+        componentAdvanced {
+            initJavaScriptFunction:
+                \`\`\`javascript-browser
+                function (options) { options.xAxis = { tickLabel: { converter: null } }; return options; }
+                \`\`\`
+        }
+        series s (
+            name: Amount
+${sql('select quarter, sum(amount) amount from sales group by quarter order by 1')}
+            columnMapping {
+                label: QUARTER
+                value: AMOUNT
+            }
+        )`,
+)}
+${chart(
+  'trendadv',
+  20,
+  `        chart {
+            type: line
+        }
+        advanced {
+            initJavaScriptFunction:
+                \`\`\`javascript-browser
+                function (options) { return options; }
+                \`\`\`
+        }
+        series s (
+            name: Amount
+${sql('select quarter, sum(amount) amount from sales group by quarter order by 1')}
+            columnMapping {
+                label: QUARTER
+                value: AMOUNT
+            }
+        )`,
+)}
+)
+`;
+  const { app, assets } = await workspace(t, { ...FILES, 'pages/p00005-trend-js.apx': page });
+
+  const gaps = localGaps(loadApplication(app));
+  assert.deepEqual(
+    gaps.map((gap) => [gap.pageId, gap.component, gap.property]),
+    [
+      ['5', 'region trendjs', 'componentAdvanced.initJavaScriptFunction'],
+      ['5', 'region trendadv', 'advanced.initJavaScriptFunction'],
+    ],
+  );
+  assert.match(gaps[0]!.message, /does not run in the local preview; check its effect/);
+
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const html = await (await fetch(`${server.url}/r/demo/trend-js`)).text();
+  assert.equal(
+    (
+      html.match(
+        /class="apex-local-note" role="note">Local preview: this chart's initialization JavaScript/g,
+      ) ?? []
+    ).length,
+    2,
+    'both the componentAdvanced and the advanced spelling show the note',
+  );
+  const plain = await (await fetch(`${server.url}/r/demo/charts`)).text();
+  assert.doesNotMatch(plain, /class="apex-local-note"/, 'charts without init code carry no note');
+
+  const checked = await previewCheck(app, { sourceDir: app, assetsDir: assets, pages: ['5'] });
+  assert.ok(
+    checked.diagnostics.some(
+      (entry) =>
+        entry.level === 'warning' &&
+        /Chart trendadv: the initialization JavaScript function is not applied locally/.test(entry.message),
+    ),
+  );
+  assert.deepEqual(
+    checked.notAppliedLocally?.map((gap) => gap.property),
+    ['componentAdvanced.initJavaScriptFunction', 'advanced.initJavaScriptFunction'],
+  );
 });

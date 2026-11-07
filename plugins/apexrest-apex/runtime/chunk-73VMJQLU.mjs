@@ -7,7 +7,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-KCDAQT6D.mjs";
+} from "./chunk-KE5D4DRK.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -58,7 +58,7 @@ import {
   supportedFile,
   syncPath,
   targetIdentitySql
-} from "./chunk-VZUWYS6D.mjs";
+} from "./chunk-PRQBG3KY.mjs";
 import {
   environment,
   identifier,
@@ -11393,8 +11393,8 @@ var CODE_LIMIT = 2500;
 var SEARCH_LINKS = 3;
 function fitResults(results, budget, size) {
   const halve = (hit, floor) => {
+    if (typeof hit.text !== "string" || hit.text.length <= floor) return false;
     const next2 = Math.floor(hit.text.length / 2);
-    if (hit.text.length <= floor) return false;
     hit.text = hit.text.slice(0, Math.max(floor, next2));
     return true;
   };
@@ -16264,7 +16264,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-5SQEM7V6.mjs");
+      const { previewDispatch } = await import("./chunk-K3O6TMAW.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16291,29 +16291,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-YMUMHA3M.mjs");
+        const { ToolchainService } = await import("./chunk-X4FXJTO5.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-EOF3IA6D.mjs");
+        const { uninstallTools } = await import("./chunk-7HNOHFUB.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-DVRHU4W5.mjs");
+        const { setup: setup2 } = await import("./chunk-RMRKDHO7.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-DVRHU4W5.mjs");
+        const { validateNative } = await import("./chunk-RMRKDHO7.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-DVRHU4W5.mjs");
+        const { uninstallNative } = await import("./chunk-RMRKDHO7.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

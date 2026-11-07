@@ -2,6 +2,7 @@ import { str, type ApxComponent } from '../apexlang.ts';
 import { registerExtension, type RouteResponse } from '../extensions.ts';
 import type { ApexRenderer, RenderContext, Session } from '../render.ts';
 import { escapeHtml } from '../theme.ts';
+import { initFunction } from '../gaps.ts';
 import { calendarEvents, fullCalendarScript, renderCalendar } from './charts/calendar.ts';
 import { CHARTS_CSS, CHARTS_JS } from './charts/client.ts';
 import { renderMap } from './charts/map.ts';
@@ -40,16 +41,20 @@ function renderChartRegion(renderer: ApexRenderer, ctx: RenderContext, region: A
       region.id,
     );
   }
-  if (str(region.props, 'componentAdvanced.initJavaScriptFunction'))
+  if (initFunction(region))
     renderer.diagnose(
-      'info',
-      `Chart ${region.id}: the initialization JavaScript function is not applied locally`,
+      'warning',
+      `Chart ${region.id}: the initialization JavaScript function is not applied locally; check its formats, axes and tooltips on the imported application`,
       ctx.pageId,
       region.id,
     );
   const model = chartModel(renderer, ctx, UNSUPPORTED_TYPES.has(type) ? asBar(region) : region);
   const maxWidth = model.maxWidth ? `max-width:${model.maxWidth}px;` : '';
-  return `<div class="apex-local-jet a-JET-chart" id="${escapeHtml(domId)}_jet" data-chart-region="${escapeHtml(region.id)}" data-chart-type="${escapeHtml(type)}" data-width="${DEFAULT_WIDTH}" style="${maxWidth}min-height:${model.height}px">${renderChartSvg(model, DEFAULT_WIDTH)}</div>`;
+  // Visible beside the chart: a screenshot of the preview must not pass for the APEX result.
+  const note = initFunction(region)
+    ? '<div class="apex-local-note" role="note">Local preview: this chart\'s initialization JavaScript function is not applied. Axes, formats and tooltips it sets appear only in APEX; check them on the imported application.</div>'
+    : '';
+  return `<div class="apex-local-jet a-JET-chart" id="${escapeHtml(domId)}_jet" data-chart-region="${escapeHtml(region.id)}" data-chart-type="${escapeHtml(type)}" data-width="${DEFAULT_WIDTH}" style="${maxWidth}min-height:${model.height}px">${renderChartSvg(model, DEFAULT_WIDTH)}</div>${note}`;
 }
 
 function asBar(region: ApxComponent): ApxComponent {

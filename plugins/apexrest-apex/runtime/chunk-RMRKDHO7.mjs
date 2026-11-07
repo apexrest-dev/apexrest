@@ -5,11 +5,11 @@ import {
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-KCDAQT6D.mjs";
+} from "./chunk-KE5D4DRK.mjs";
 import {
   VERSION,
   resourceRoot
-} from "./chunk-VZUWYS6D.mjs";
+} from "./chunk-PRQBG3KY.mjs";
 import {
   managedHome
 } from "./chunk-PWI5SWBA.mjs";

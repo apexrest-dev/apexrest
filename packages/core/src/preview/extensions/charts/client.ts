@@ -3,6 +3,7 @@ import { NEW_END, NEW_START } from './calendar.ts';
 /** Browser side of the chart, calendar and map previews (appended to /__apex/runtime.js). */
 
 export const CHARTS_CSS = String.raw`
+.apex-local-note{margin-top:8px;padding:6px 10px;border:1px dashed #c74634;border-radius:4px;color:#8a2c1f;background:#fdf1ef;font-size:12px;line-height:1.4}
 .apex-local-jet,.apex-local-jet-tip{--ajc-ink:light-dark(#161513,var(--ut-component-text-default-color,var(--ut-body-text-color,#fff)))}
 /* Muted chart ink: #161513 in light styles (unchanged), the theme's text token in dark styles (Vita - Dark). */
 .apex-local-jet{position:relative;width:100%;overflow:hidden;font-family:var(--a-base-font-family,"Oracle Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)}

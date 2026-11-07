@@ -12,6 +12,10 @@
       "route": "/apexrest/features/"
     },
     {
+      "source": "docs/apex-design-race.md",
+      "route": "/apexrest/apex-design-race/"
+    },
+    {
       "source": "site/content/install.md",
       "route": "/apexrest/install/"
     },
@@ -148,6 +152,8 @@
     ".nojekyll",
     "apex-26.2/index.html",
     "apex-26.2.html",
+    "apex-design-race/index.html",
+    "apex-design-race.html",
     "architecture/index.html",
     "architecture.html",
     "assets/search.js",

@@ -9,6 +9,7 @@ import { hash, writeJson } from '../../packages/core/src/fs.ts';
 import { referenceSelect } from '../../packages/core/src/reference-selection.ts';
 import { referenceCandidates } from '../../packages/core/src/references.ts';
 import { rankSelection } from '../../packages/core/src/selection-index.ts';
+import { fitResults } from '../../packages/core/src/reference-index.ts';
 import { schemas } from '../../packages/core/src/operations.ts';
 import { dispatch } from '../../packages/core/src/service.ts';
 import { toolOutput } from '../../packages/mcp/src/output.ts';
@@ -434,4 +435,15 @@ test('26.2 candidates include the components a request names, not only large reg
     'breadcrumb/entry/entry',
   ])
     assert.ok(ids.includes(id), id);
+});
+
+test('results without summary text (they carry an example) still fit an exceeded budget', () => {
+  const results = [
+    { id: 'a', example: { text: 'x'.repeat(4000) } },
+    { id: 'b', text: 'y'.repeat(2000), example: { text: 'z'.repeat(4000) } },
+    { id: 'c', skeleton: 'entry <name> (\n)' },
+  ] as unknown as Parameters<typeof fitResults>[0];
+  const size = (page: typeof results) => JSON.stringify(page).length;
+  assert.doesNotThrow(() => fitResults(results, 1000, size));
+  assert.ok((results[1] as { text: string }).text.length <= 300);
 });

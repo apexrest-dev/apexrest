@@ -3,6 +3,8 @@ import path from 'node:path';
 import { loadProject } from '../config.ts';
 import { Fault } from '../result.ts';
 import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, setupAssets } from './assets.ts';
+import { loadApplication } from './apexlang.ts';
+import { localGaps } from './gaps.ts';
 import type { Diagnostic } from './render.ts';
 import { connectOracle } from './oracle/connect.ts';
 import { checkApplication, PreviewServer } from './server.ts';
@@ -75,6 +77,17 @@ function summarize(diagnostics: Diagnostic[]) {
     diagnostics: ranked.slice(0, DIAGNOSTICS_LIMIT),
     truncated: diagnostics.length > DIAGNOSTICS_LIMIT,
   };
+}
+
+/** Source features the preview never runs (read fresh, so edits after start are included). */
+function gapsFor(sourceDir: string) {
+  let gaps;
+  try {
+    gaps = localGaps(loadApplication(sourceDir));
+  } catch {
+    return {};
+  }
+  return gaps.length ? { notAppliedLocally: gaps.slice(0, DIAGNOSTICS_LIMIT) } : {};
 }
 
 /**
@@ -204,6 +217,7 @@ function describe(server: PreviewServer, reused: boolean) {
         }
       : { mode: 'sqlite' },
     ...summarize(server.diagnostics()),
+    ...gapsFor(server.options.sourceDir),
   };
 }
 
@@ -291,6 +305,7 @@ const summaryOf = (entry: Listed) => ({
   owner: entry.owner,
   ...(entry.environment ? { environment: entry.environment } : {}),
   ...(entry.server ? summarize(entry.server.diagnostics()).counts : {}),
+  ...(entry.server ? gapsFor(entry.sourceDir) : {}),
 });
 
 /**
@@ -388,7 +403,7 @@ export async function previewCheck(
     ...(input.sampleRows === undefined ? {} : { sampleRows: input.sampleRows }),
     toolbar: false,
   });
-  return { sourceDir, pages: result.pages, ...summarize(result.diagnostics) };
+  return { sourceDir, pages: result.pages, ...summarize(result.diagnostics), ...gapsFor(sourceDir) };
 }
 
 /** Routes the composite MCP tool and the granular CLI commands. */
