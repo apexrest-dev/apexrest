@@ -1,0 +1,101 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Field report: with and without the plugin · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/apex-design-race/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/apex-design-race/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.6.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features and videos</a></li><li><a href="/apexrest/apex-design-race/" aria-current="page">Field report: with and without the plugin</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Field report: with and without the plugin</div><h1 id="two-agents-one-dashboard-what-the-apexrest-plugin-changes">Two agents, one dashboard: what the APEXREST plugin changes</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#the-commission">The commission</a></li><li><a href="#the-two-workshops">The two workshops</a></li><li><a href="#the-race">The race</a></li><li><a href="#the-scoreboard">The scoreboard</a></li><li><a href="#what-the-first-plugin-run-taught-us">What the first plugin run taught us</a></li><li><a href="#the-fine-print">The fine print</a></li><li><a href="#the-moral">The moral</a></li></ul></details>
+<p><em>A field report from 6–7 November 2026. Every figure below comes from recorded runs on a local Oracle database. Each setup ran once, and the limits are listed at the end.</em></p>
+<h2 id="the-commission">The commission</h2>
+<p>Imagine you hire a tailor to make a suit. A good tailor does not cut the cloth once and hand it over. They pin, step back, look in the mirror, adjust a seam and look again. Most of the craft happens in those small fittings.</p>
+<p>Now imagine a tailor without a mirror. To see each adjustment, they have to send the jacket across town to a factory, wait for it to be sewn properly, collect it, and only then look. The suit can still end up beautiful, but every fitting costs a trip.</p>
+<p>That is the whole story of this experiment. The rest is detail.</p>
+<p>We gave an AI coding agent (Claude Code, using the claude-opus-5-5 model) the same commission twice: build an <a href="https://apex.oracle.com/">Oracle APEX</a> application called <strong>Bitcoin Price Monitor</strong>. It needed five pages on tables that already held a month of hourly prices:</p>
+<ul>
+<li>a dashboard with the latest price, the 24-hour change and a 7-day price chart;</li>
+<li>a price history report;</li>
+<li>an alerts page with a pop-up form to create, edit and delete alerts;</li>
+<li>an alert events page with a filter and an &quot;acknowledge all&quot; button;</li>
+<li>a navigation menu.</li>
+</ul>
+<p>We added one demanding clause: <strong>open the dashboard in a real Chrome browser, look at it with a designer&#39;s eye, and keep fixing it until it looks professional.</strong> That meant a clear hierarchy for the price, a colored change, even spacing and a readable chart. Then the agent had to import the application again and look once more.</p>
+<p>Both agents started from the same empty application, with the same database, the same model and the same browser. One difference separated them.</p>
+<h2 id="the-two-workshops">The two workshops</h2>
+<p><strong>The first agent worked the traditional way.</strong> It had Oracle&#39;s own APEXlang guide, which describes the text format an APEX application can be written in, and SQLcl, Oracle&#39;s command-line tool for compiling and importing applications. This is a perfectly respectable workshop. It is also the tailor without a mirror: to see any change, the agent has to compile the application, import it into APEX on the database server, reload the page in the browser and look.</p>
+<p><strong>The second agent had APEXREST installed.</strong> A <em>plugin</em> is a set of extra tools you add to an AI assistant, much like a power tool you add to a workbench. The assistant stays the same; it just has better instruments. APEXREST gives it four:</p>
+<ol>
+<li><strong>A component library.</strong> It holds working building blocks taken from Oracle&#39;s own sample applications, so the agent adapts a real chart, form or card instead of writing one from memory.</li>
+<li><strong>The Oracle compiler with repair hints.</strong> When something is wrong, the error message also says how to fix it.</li>
+<li><strong>A local APEX that runs on the agent&#39;s own machine</strong> (Node.js) using live data from the development database, with every change rolled back. When the agent saves a file, the open page reloads at once. <strong>This is the mirror.</strong></li>
+<li><strong>A safe shipping step.</strong> It plans the import, takes a backup, imports into the development application and checks that it landed in the right place.</li>
+</ol>
+<h2 id="the-race">The race</h2>
+<p><img src="/apexrest/assets/apex-design-race-timeline.svg" alt="Where the time went: three timelines. Without the plugin, 8 minutes of building and then 14 minutes in a loop of edit, compile, import and reload, with 8 imports. With APEXREST, about 4 minutes of building, 3–5 minutes polishing in the local preview, a final check in real APEX and 2 imports, finishing at 13.6 and 10.1 minutes." loading="lazy" decoding="async"></p>
+<h3 id="without-the-plugin-the-trip-across-town">Without the plugin: the trip across town</h3>
+<p>The first agent read Oracle&#39;s guide by running dozens of shell commands. It wrote the pages, compiled them and imported the first version after a little over <strong>8 minutes</strong>. Then it opened Chrome, signed in and started looking.</p>
+<p>It looked carefully, and the design work was good. In a narrow browser window the three price cards stacked on top of each other and pushed the chart below the fold, so it reorganized them. It colored the 24-hour change green and gave the open-events count an amber bell. It fixed the chart&#39;s Y-axis so it no longer started at zero and the price line stopped looking flat, and it made the tooltip show the hour and the exact price.</p>
+<p>But every one of those touches went through the same trip: <strong>edit, compile, import into APEX, reload, look.</strong> After the first import that loop ran <strong>7 more times</strong>, plus one import attempt that never reported success. The polishing phase alone took about <strong>13 minutes</strong>. The run finished after <strong>22 minutes 11 seconds</strong> and cost <strong>$8.04</strong> in model usage.</p>
+<p><img src="/apexrest/assets/apex-design-race-without-plugin.png" alt="The finished dashboard built without the plugin: a price card, a green 24-hour change, an amber events count and a 7-day line chart scaled from $100,000 to $110,000." loading="lazy" decoding="async"></p>
+<h3 id="with-the-plugin-the-mirror-in-the-workshop">With the plugin: the mirror in the workshop</h3>
+<p>The second agent asked the component library, in one request, for everything it needed: a chart, cards, an interactive report, a modal form, a switch and buttons. It got working blocks back, looked up a few details, and wrote its first page after about <strong>1.5 minutes</strong>.</p>
+<p>At about the <strong>3-minute mark</strong> it did something the first agent could not do: it started the <strong>local APEX</strong>, opened it in Chrome and began designing right there. This local APEX renders the real APEX look, the Universal Theme, using the real data from the development database. Nothing it does is saved: every change is rolled back. When the agent saves a file, the page in the browser updates almost instantly, so a fitting costs seconds instead of an import.</p>
+<p><img src="/apexrest/assets/apex-design-race-local-preview.png" alt="The same dashboard in the local APEX, running on the agent&#39;s machine with live data. A developer toolbar at the bottom shows diagnostics, session state and the live-reload status." loading="lazy" decoding="async"></p>
+<p>In the mirror it found what a designer finds. The first draft had a generic banner, four identical cards, a chart starting at zero, raw timestamps on the axis and a legend nobody needed. It fixed all of it. It then walked through the other pages and noticed that the alert filter rendered <em>below</em> its report instead of above it, so it moved the filter, all before a single import.</p>
+<p>Only then did it ship. The first import came at about <strong>6.5 minutes</strong>. In the real APEX the agent checked the chart again and found one detail the mirror had not shown: the tooltip showed only the date and a rounded price. It added the hour and the exact price, imported a second time, and finished.</p>
+<p><strong>Total: 10 minutes 4 seconds, 2 imports, $5.01.</strong></p>
+<p><img src="/apexrest/assets/apex-design-race-with-plugin.png" alt="The finished dashboard built with APEXREST: a large price card, a green 24-hour change badge, an amber open-events count with a &quot;Review events&quot; link, and a 7-day chart scaled from $100,000 to $110,000." loading="lazy" decoding="async"></p>
+<h2 id="the-scoreboard">The scoreboard</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th></th>
+<th align="right">Without the plugin</th>
+<th align="right">With APEXREST, run 1</th>
+<th align="right">With APEXREST, run 2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Total time</td>
+<td align="right">22 min 11 s</td>
+<td align="right">13 min 36 s (−39%)</td>
+<td align="right">10 min 4 s (−55%)</td>
+</tr>
+<tr>
+<td>Agent turns</td>
+<td align="right">192</td>
+<td align="right">136</td>
+<td align="right">121</td>
+</tr>
+<tr>
+<td>Imports into APEX</td>
+<td align="right">8 (+1 failed attempt)</td>
+<td align="right">2</td>
+<td align="right">2</td>
+</tr>
+<tr>
+<td>Browser actions</td>
+<td align="right">124</td>
+<td align="right">85</td>
+<td align="right">63</td>
+</tr>
+<tr>
+<td>Model cost (API price estimate)</td>
+<td align="right">$8.04</td>
+<td align="right">$4.15 (−48%)</td>
+<td align="right">$5.01 (−38%)</td>
+</tr>
+</tbody></table>
+</div>
+<p>All three applications compile without errors in the Oracle compiler and were imported into the development database. The dashboards look comparably professional. The plugin did not make the agent a better designer; it made each fitting cheaper, so the same care took less time.</p>
+<h2 id="what-the-first-plugin-run-taught-us">What the first plugin run taught us</h2>
+<p>The plugin ran twice because the first run exposed a crack in the mirror.</p>
+<p>To label the chart&#39;s dates, that agent wrote a small JavaScript function of the kind APEX runs inside a chart. The local APEX draws charts with its own renderer, not Oracle&#39;s chart library, and it did not run that function, so the preview looked fine. In real APEX the dates turned into &quot;NaN&quot;, and it took a second import to fix them. The warning existed, but only as a quiet line in the developer toolbar that the agent never read.</p>
+<p>So we changed the mirror. Now, when a page has code the local APEX cannot run, a visible note appears right under the chart, and the plugin&#39;s own answer to the agent lists the code under <code>notAppliedLocally</code>, with a reminder to check it in real APEX:</p>
+<p><img src="/apexrest/assets/apex-design-race-preview-note.png" alt="The local APEX showing a red-bordered note under the chart: the chart&#39;s initialization JavaScript function is not applied locally; check its axes, formats and tooltips on the imported application." loading="lazy" decoding="async"></p>
+<p>The second run happened to use no such function, so the new warning did not come into play. Its second import came from the tooltip format, which the local renderer also draws differently from Oracle&#39;s charts. That is the next thing to make the mirror show. The rule stands either way: <strong>the local APEX is for design; the final look at charts belongs in real APEX.</strong> The plugin&#39;s workflow ends there on purpose.</p>
+<h2 id="the-fine-print">The fine print</h2>
+<ul>
+<li><strong>One run per setup.</strong> The two plugin runs took 816 and 604 seconds, so run-to-run variation is large. The second run was faster but cost more, because the agent re-read more context.</li>
+<li><strong>A narrow window.</strong> The Chrome window was about 620 pixels wide in every run, so &quot;desktop&quot; was a squeezed desktop.</li>
+<li><strong>A guided prompt.</strong> The plugin agent&#39;s instructions named its tools and asked for checks in the local APEX. The other agent was pointed at Oracle&#39;s guide.</li>
+<li><strong>Synthetic data, a local target.</strong> The test used Oracle Database Free on the same machine. Neither agent clicked buttons that change data (delete, acknowledge all) in the browser.</li>
+<li><strong>Model cost</strong> is an estimate at API prices for the Claude model only.</li>
+</ul>
+<h2 id="the-moral">The moral</h2>
+<p>When design happens in a browser, most of the time goes into the loop: <em>change, import, reload, look</em>. APEXREST takes the import out of that loop. In this test the agent imported 2 times instead of 8, finished 39–55% sooner and spent 38–48% less. The careful final look in real APEX stays, because that is where the suit is worn.</p>
+<p>Want to try it? Start with <a href="/apexrest/getting-started/">Getting started</a>, see the <a href="/apexrest/local-preview/">local preview</a> in detail, or read how imports stay safe in <a href="/apexrest/deployment/">deployment safety</a>.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/apex-design-race.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.6.0 · Not an official Oracle or OpenAI product</footer></body></html>

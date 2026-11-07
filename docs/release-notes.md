@@ -1,14 +1,22 @@
 # Current release notes
 
-## Source bundle 2.5.0
+## Source bundle 2.6.0
 
 The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
 
-## Changes in 2.5.0
+## Changes in 2.6.0
 
 - Add [cross-vendor peer review](configuration.md#cross-vendor-peer-review): `apexrest_peer_review` / `apexrest peer review` asks the other agent CLI (Codex from Claude Code, Claude Code from Codex) for a read-only review of a saved ship plan under the user's own sign-in. The verdict is bound to the plan digest; optional `peerReview.mode` `advisory` reports it at apply and `required` blocks apply without an approving review. Without a plan it reviews the local sources instead, for local-only work with no Oracle target; that source-bound verdict is advisory and never unlocks `required` apply. The MCP catalog grows to twelve tools; its byte budget rises to 14,700 bytes.
+- Component selection on 26.2 returns working APEXlang: each selected component carries an `example` from an Oracle sample page, a modal form request adds a whole sample page, and breadcrumb and list entries get a `skeleton`. `INVALID_PROPERTY` compiler diagnostics end with a `Fix:` hint from the property contract, and diagnostics and metadata reads arrive inline up to 32 KB.
+- The [local preview](local-preview.md) pushes live updates over a WebSocket, sets up its assets on first use, refuses autocommitting connected sessions and requests another web page could send, keeps APEX built-ins out of session state, and checks properties against the component type the compiler uses. Initialization JavaScript functions it never runs are listed as `notAppliedLocally` and marked under the chart.
+- Deployment safety: whole production databases can be marked in production trust, aliases already used in the workspace are detected while planning, SQLcl write sessions get 60 minutes, and a client-side stop no longer triggers automatic recovery.
+- A new [field report](apex-design-race.md) shows the same application built with and without the plugin, including a browser design check.
+- Align package, workspace and Codex/Claude Code source versions to 2.6.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+
+## Changes in 2.5.0
+
 - The [local preview](local-preview.md) follows Oracle semantics more closely: NULL for empty items, real division and Oracle number text, date arithmetic, ANSI date literals and `DEFAULT sysdate` in seed scripts, JSON functions, nested LISTAGG, POSIX regular expressions and ISO dates in form DML.
 - Page submits, server-side code and grid saves are transactional; an unhandled process error is shown to the user and rolls back the page's DML. Interactive grid row validations mark failing cells, validation messages substitute labels, forms detect lost updates and region refreshes submit their page items.
 - APEX 26.2 syntax for show-all pagination, card actions, `&COLUMN.` substitution, list views and calendar views is rendered; template components apply format masks; chart ticks no longer show spurious decimals.

@@ -21,6 +21,14 @@
       "group": "Start here"
     },
     {
+      "slug": "apex-design-race",
+      "title": "Field report: with and without the plugin",
+      "source": "docs/apex-design-race.md",
+      "lang": "en",
+      "key": "apex-design-race",
+      "group": "Start here"
+    },
+    {
       "slug": "install",
       "title": "Install",
       "source": "site/content/install.md",
