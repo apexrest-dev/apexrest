@@ -88,7 +88,7 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 ## Documentation
 
-- [Field report: two agents, one dashboard](docs/apex-design-race.md): the same APEX app built with and without the plugin, with a browser design check: 2 imports instead of 8 and 39–55% less time.
+- [Field report: developing with the plugin is 2 times faster](docs/apex-design-race.md): the same APEX app built with and without the plugin, with a browser design check: 2 imports instead of 8, 2.2 times faster and 38% lower model cost, and why.
 - [Features and videos](docs/features.md): the YouTube video series, component library, Decisions selection, local and connected preview, live updates, partial imports, tools and skills.
 - [Getting started](https://apexrest-dev.github.io/apexrest/getting-started/): install, connect, create or adopt an application, ship and verify.
 - [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database.

@@ -1,17 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" width="960" height="330" role="img" aria-labelledby="t d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264" width="960" height="264" role="img" aria-labelledby="t d" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
 <title id="t">Where the time went: building the same APEX application with and without the plugin</title>
-<desc id="d">Without the plugin: 501 seconds building, then 824 seconds polishing in real APEX with 8 imports, 1,331 seconds in total. With APEXREST, run 1: 235 s building, 273 s polishing in the local preview, 305 s final check in APEX, 2 imports, 816 s. Run 2: 200 s building, 197 s in the local preview, 205 s final check, 2 imports, 604 s.</desc>
-<rect width="960" height="330" fill="#fcfcfb"/>
-<line x1="200.0" y1="40" x2="200.0" y2="246" stroke="#e4e3df" stroke-width="1"/>
-<text x="200.0" y="264" font-size="12" fill="#52514e" text-anchor="middle">0 min</text>
-<line x1="356.5" y1="40" x2="356.5" y2="246" stroke="#e4e3df" stroke-width="1"/>
-<text x="356.5" y="264" font-size="12" fill="#52514e" text-anchor="middle">5 min</text>
-<line x1="513.0" y1="40" x2="513.0" y2="246" stroke="#e4e3df" stroke-width="1"/>
-<text x="513.0" y="264" font-size="12" fill="#52514e" text-anchor="middle">10 min</text>
-<line x1="669.6" y1="40" x2="669.6" y2="246" stroke="#e4e3df" stroke-width="1"/>
-<text x="669.6" y="264" font-size="12" fill="#52514e" text-anchor="middle">15 min</text>
-<line x1="826.1" y1="40" x2="826.1" y2="246" stroke="#e4e3df" stroke-width="1"/>
-<text x="826.1" y="264" font-size="12" fill="#52514e" text-anchor="middle">20 min</text>
+<desc id="d">Without the plugin: 501 seconds building, then 824 seconds polishing in real APEX with 8 imports, 1,331 seconds in total. With APEXREST: 200 s building, 197 s polishing in the local preview, 205 s final check in APEX, 2 imports, 604 s in total.</desc>
+<rect width="960" height="264" fill="#fcfcfb"/>
+<line x1="200.0" y1="40" x2="200.0" y2="180" stroke="#e4e3df" stroke-width="1"/>
+<text x="200.0" y="198" font-size="12" fill="#52514e" text-anchor="middle">0 min</text>
+<line x1="356.5" y1="40" x2="356.5" y2="180" stroke="#e4e3df" stroke-width="1"/>
+<text x="356.5" y="198" font-size="12" fill="#52514e" text-anchor="middle">5 min</text>
+<line x1="513.0" y1="40" x2="513.0" y2="180" stroke="#e4e3df" stroke-width="1"/>
+<text x="513.0" y="198" font-size="12" fill="#52514e" text-anchor="middle">10 min</text>
+<line x1="669.6" y1="40" x2="669.6" y2="180" stroke="#e4e3df" stroke-width="1"/>
+<text x="669.6" y="198" font-size="12" fill="#52514e" text-anchor="middle">15 min</text>
+<line x1="826.1" y1="40" x2="826.1" y2="180" stroke="#e4e3df" stroke-width="1"/>
+<text x="826.1" y="198" font-size="12" fill="#52514e" text-anchor="middle">20 min</text>
 <text x="186" y="68" font-size="14" font-weight="600" fill="#0b0b0b" text-anchor="end">Without the plugin</text>
 <text x="186" y="85" font-size="12" fill="#52514e" text-anchor="end">1,331 s · 8 imports</text>
 <rect x="200.0" y="56" width="260.4" height="28" rx="4" fill="#2a78d6"/>
@@ -24,23 +24,16 @@
 <path d="M780.7 47 l5 -7 h-10 z" fill="#0b0b0b"/>
 <path d="M835.0 47 l5 -7 h-10 z" fill="#0b0b0b"/>
 <path d="M853.2 47 l5 -7 h-10 z" fill="#0b0b0b"/>
-<text x="186" y="134" font-size="14" font-weight="600" fill="#0b0b0b" text-anchor="end">With APEXREST, run 1</text>
-<text x="186" y="151" font-size="12" fill="#52514e" text-anchor="end">816 s · 2 imports</text>
-<rect x="200.0" y="122" width="121.6" height="28" rx="4" fill="#2a78d6"/>
-<rect x="323.6" y="122" width="140.4" height="28" rx="4" fill="#1baf7a"/>
-<rect x="466.0" y="122" width="157.1" height="28" rx="4" fill="#eb6834"/>
-<path d="M465.0 113 l5 -7 h-10 z" fill="#0b0b0b"/>
-<path d="M527.7 113 l5 -7 h-10 z" fill="#0b0b0b"/>
-<text x="186" y="200" font-size="14" font-weight="600" fill="#0b0b0b" text-anchor="end">With APEXREST, run 2</text>
-<text x="186" y="217" font-size="12" fill="#52514e" text-anchor="end">604 s · 2 imports</text>
-<rect x="200.0" y="188" width="103.3" height="28" rx="4" fill="#2a78d6"/>
-<rect x="305.3" y="188" width="100.8" height="28" rx="4" fill="#1baf7a"/>
-<rect x="408.1" y="188" width="105.0" height="28" rx="4" fill="#eb6834"/>
-<path d="M407.1 179 l5 -7 h-10 z" fill="#0b0b0b"/>
-<path d="M457.2 179 l5 -7 h-10 z" fill="#0b0b0b"/>
-<rect x="20" y="282" width="12" height="12" rx="3" fill="#2a78d6"/><text x="38" y="292" font-size="12" fill="#0b0b0b">Build: read references, write pages, compile</text>
-<rect x="420" y="282" width="12" height="12" rx="3" fill="#1baf7a"/><text x="438" y="292" font-size="12" fill="#0b0b0b">Polish in the local APEX on Node.js (save → instant reload)</text>
-<rect x="20" y="304" width="12" height="12" rx="3" fill="#eb6834"/><text x="38" y="314" font-size="12" fill="#0b0b0b">Real APEX loop (edit → compile → import → reload)</text>
-<path d="M460 310 l5 -7 h-10 z" fill="#0b0b0b"/><text x="470" y="314" font-size="12" fill="#0b0b0b">Import into APEX</text>
+<text x="186" y="134" font-size="14" font-weight="600" fill="#0b0b0b" text-anchor="end">With APEXREST</text>
+<text x="186" y="151" font-size="12" fill="#52514e" text-anchor="end">604 s · 2 imports</text>
+<rect x="200.0" y="122" width="103.3" height="28" rx="4" fill="#2a78d6"/>
+<rect x="305.3" y="122" width="100.8" height="28" rx="4" fill="#1baf7a"/>
+<rect x="408.1" y="122" width="105.0" height="28" rx="4" fill="#eb6834"/>
+<path d="M407.1 113 l5 -7 h-10 z" fill="#0b0b0b"/>
+<path d="M457.2 113 l5 -7 h-10 z" fill="#0b0b0b"/>
+<rect x="20" y="216" width="12" height="12" rx="3" fill="#2a78d6"/><text x="38" y="226" font-size="12" fill="#0b0b0b">Build: read references, write pages, compile</text>
+<rect x="420" y="216" width="12" height="12" rx="3" fill="#1baf7a"/><text x="438" y="226" font-size="12" fill="#0b0b0b">Polish in the local APEX on Node.js (save → instant reload)</text>
+<rect x="20" y="238" width="12" height="12" rx="3" fill="#eb6834"/><text x="38" y="248" font-size="12" fill="#0b0b0b">Real APEX loop (edit → compile → import → reload)</text>
+<path d="M460 244 l5 -7 h-10 z" fill="#0b0b0b"/><text x="470" y="248" font-size="12" fill="#0b0b0b">Import into APEX</text>
 <text x="20" y="24" font-size="15" font-weight="700" fill="#0b0b0b">Where the time went (same task, same model, same browser)</text>
 </svg>
