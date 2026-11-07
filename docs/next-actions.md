@@ -1,5 +1,10 @@
 # Next actions and verification limits
 
+## Oracle skill and source maintenance
+
+- The 2026-11-05 check found no newer APEXlang skill content: all 13 APEX entrypoints, 389 bundled 26.2 definitions and 659 bundled 26.1 source files match the reviewed sources. Keep the existing upstream pins; review future skill/router changes separately from inventory changes using the maintainer skill map.
+- For a separately requested application release upgrade, follow `oracle:26.2:guide/upgrade-audit` on the identified DEV/QA/TEST target. The current skill/guide refresh performs no application import, toolchain upgrade or browser qualification. Verify fresh native Codex/Claude loading separately from local packaging checks.
+
 ## Current review defects
 
 - Fix the P1 remote SQL risk gap for parameterless function calls and calls within CTAS. Reproduce the exact remote planner/confirmation path; the 2026-10-31 review reconfirmed the existing defect without executing SQL on Oracle (SAFETY-01, A22).
@@ -12,8 +17,11 @@
 ## Findings from the 2026-11-04 local 26.2 run
 
 - Local migration history is keyed only by database identity and parsing schema. A rebuilt database with the same `FREE`/`freepdb1`/schema identity inherited the destroyed database's history, so the first plan skipped `0001__customers.sql`. Detect a recreated database (for example DBID or creation time) or report the mismatch before planning.
-- `apex sync init` after the first `ship` of a template project fails with `SYNC_SOURCE_CONFLICT`. The server export omits defaults, reorders entries and drops `supporting-objects/deinstall-script.sql`, so the template sources never match it byte for byte. Use the canonical equivalence policy for init, or adopt the export automatically after a successful full import. Check whether the deinstall script reaches the server.
+- The 2026-11-06 sync-init normalization accepts the two known server rewrites of a generated blank app (`app.id`, the empty deinstall script). Repeat `apex sync init` on a fresh template project against the real target; it was not rerun after the fix. Defaults and reordering beyond those two rewrites still raise `SYNC_SOURCE_CONFLICT`.
 - `ship --plan <planId>` fails with `INTERNAL_ERROR` (ENOENT). Accept a plan ID, or return an input error that names the plan path.
+- `ship` refuses a `--user-request` shorter than 10 characters, so a literal instruction such as "test it" cannot authorize a change. Review the minimum against the rule that the request is the user's literal words.
+- With only a database script changed, `ship` in `auto` mode returns `NO_LOCAL_CHANGES`, so the change is not deployed. The local no-op check in `plan` compares application files only. Report pending migrations and changed package scripts, or point to `importMode: none`.
+- A database-only apply journals a `backing_up` phase although it backs nothing up; the time is spent on the fresh target export. Name the phase for what it does.
 
 ## Connected and host qualification
 
@@ -113,7 +121,7 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The retained 2.2.0 npm exception does not apply to source version 2.3.0. Current-version npm eligibility and full qualification require all nine source-bound reports under the existing configuration. Do not treat absent reports as passed gates.
 
-- A requested 2.4.0 publication needs its own applicable readiness decision, current required reports, green final-source CI on all four jobs, matching public archive integrity and a fresh registry installation with CLI/MCP/reference probes. Version update and main integration do not establish registry publication.
+- A requested publication of the current version needs its own applicable readiness decision, current required reports, green final-source CI on all four jobs, matching public archive integrity and a fresh registry installation with CLI/MCP/reference probes. Version update and main integration do not establish registry publication.
 - Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The retained version-bound npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
 - Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
 - Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.

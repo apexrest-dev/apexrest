@@ -7,7 +7,7 @@ import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-73VMJQLU.mjs";
+} from "./chunk-QAOGL5I4.mjs";
 import "./chunk-L7BXOT7W.mjs";
 import {
   setPreviewOwner
@@ -266,7 +266,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-XFUULN3J.mjs");
+    const { startMcp } = await import("./chunk-TLKZD2TF.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

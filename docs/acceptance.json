@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-11-01",
+  "asOf": "2026-11-06",
   "release": "2.6.0",
   "overall": "partial-local",
   "statusSemantics": {
@@ -859,6 +859,9 @@
         "tests/unit/reference-releases.test.ts",
         "tests/unit/oracle-upstream-sync.test.ts",
         "plugins/apexrest-apex/skills/apexrest-oracle-sync/SKILL.md",
+        "plugins/apexrest-apex/skills/apexrest-oracle-sync/references/oracle-skills.md",
+        "plugins/apexrest-apex/skills/apexrest-work/references/upgrade.md",
+        "resources/references/26.2/guides/upgrade-audit.md",
         "docs/oracle-apexlang-coverage.md"
       ],
       "blocker": "This criterion covers the pinned source inventory and local packaged retrieval only. Oracle target behavior, new release qualification and native host/browser behavior remain separate."

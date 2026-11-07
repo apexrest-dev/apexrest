@@ -17,7 +17,7 @@
     "license": "UPL-1.0",
     "mode": "complete official versioned inventory and selected examples; no upstream executable or global skill sync",
     "archiveSha256": "5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343",
-    "indexSha256": "dcf2471ff36cc1755b610d73b7d062611f858cb4c0eb90b5819bda4b408b18e5",
+    "indexSha256": "59787813b91d12a31f80f1e4bf66260d162050518db1048791ab31aa99e5aa46",
     "snapshot": "references/26.2/oracle-snapshot.json"
   }
 }

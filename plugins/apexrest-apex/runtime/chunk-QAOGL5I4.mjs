@@ -13166,10 +13166,13 @@ var planV2Object = legacyPlanSchema.extend({
   backupStrategy: external_exports.enum(["fresh-export", "initial-backup"]),
   workingCopy: syncBindingSchema.nullable()
 });
-var planV2Schema = planV2Object.superRefine((plan, ctx) => {
-  if (plan.mode === "working-copy" !== (plan.backupStrategy === "initial-backup") || plan.mode === "working-copy" !== (plan.workingCopy !== null))
+var bindsWorkingCopy = (plan) => plan.mode === "working-copy" === (plan.workingCopy !== null);
+function checkPlanMode(plan, ctx) {
+  const backupAgrees = plan.scope === "database-only" ? plan.backupStrategy === "fresh-export" : plan.mode === "working-copy" === (plan.backupStrategy === "initial-backup");
+  if (!backupAgrees || !bindsWorkingCopy(plan))
     ctx.addIssue({ code: "custom", message: "Plan mode, backup strategy and sync binding must agree." });
-});
+}
+var planV2Schema = planV2Object.superRefine(checkPlanMode);
 var composerBindingSchema = external_exports.strictObject({
   generationDigest: digestSchema,
   blueprintDigest: digestSchema,
@@ -13178,10 +13181,7 @@ var composerBindingSchema = external_exports.strictObject({
   catalogDigest: digestSchema,
   blueprintPath: external_exports.string().min(1)
 });
-var planV3Schema = planV2Object.extend({ schemaVersion: external_exports.literal(3), composer: composerBindingSchema }).superRefine((plan, ctx) => {
-  if (plan.mode === "working-copy" !== (plan.backupStrategy === "initial-backup") || plan.mode === "working-copy" !== (plan.workingCopy !== null))
-    ctx.addIssue({ code: "custom", message: "Plan mode, backup strategy and sync binding must agree." });
-});
+var planV3Schema = planV2Object.extend({ schemaVersion: external_exports.literal(3), composer: composerBindingSchema }).superRefine(checkPlanMode);
 var planV4Schema = planV2Object.extend({
   schemaVersion: external_exports.literal(4),
   scope: external_exports.enum(["full-application-import", "selected-file-import"]),
@@ -13189,7 +13189,7 @@ var planV4Schema = planV2Object.extend({
   importSelection: importSelectionSchema
 }).superRefine((plan, ctx) => {
   const partial = plan.importSelection.resolvedMode === "files";
-  if (partial && !!plan.restore && plan.restore.format !== "APEXLANG" || plan.importSelection.requestedMode === "files" && !partial || plan.importSelection.requestedMode === "full" && partial || !partial && plan.mode === "full-export" && plan.backupStrategy !== "fresh-export" || plan.mode === "working-copy" !== (plan.workingCopy !== null) || partial && (!plan.importSelection.files.length || !plan.importSelection.before || !plan.importSelection.effective || plan.backupStrategy !== "fresh-export" || !plan.workingCopy) || partial !== (plan.scope === "selected-file-import") || !partial && (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
+  if (partial && !!plan.restore && plan.restore.format !== "APEXLANG" || plan.importSelection.requestedMode === "files" && !partial || plan.importSelection.requestedMode === "full" && partial || !partial && plan.mode === "full-export" && plan.backupStrategy !== "fresh-export" || !bindsWorkingCopy(plan) || partial && (!plan.importSelection.files.length || !plan.importSelection.before || !plan.importSelection.effective || plan.backupStrategy !== "fresh-export" || !plan.workingCopy) || partial !== (plan.scope === "selected-file-import") || !partial && (plan.importSelection.files.length || plan.importSelection.before || plan.importSelection.effective))
     ctx.addIssue({
       code: "custom",
       message: "Import selection, scope, snapshots and backup strategy must agree."
@@ -13945,6 +13945,7 @@ var DeploymentService = class {
   /**
    * Migrations and changed package scripts only. The target is observed with a fresh export like a
    * full plan, so identity, drift and history checks are unchanged; nothing is backed up or imported.
+   * A working copy stays bound (mode `working-copy`) so apply still checks its revision.
    */
   async databasePlan(ctx, name2) {
     const full = await this.legacyPlan(ctx, name2, false, true);

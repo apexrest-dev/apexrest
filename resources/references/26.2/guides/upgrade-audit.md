@@ -1,6 +1,18 @@
 # APEX 26.2 upgrade audit
 
-Keep 26.1 source and compiler metadata intact until an authorized target upgrade. Import and re-export in a development environment to obtain the 26.2 structure. Capture structural differences separately from feature changes. Export `-force` deletes the alias directory: use a backed-up, disposable staging path and reconcile before replacing tracked source. Preserve generated translations.sql; do not hand-edit generated artifacts.
+Updating Oracle skills does not upgrade an application. Keep 26.1 source and compiler metadata intact until an authorized target upgrade; do not edit `.apex/apexlang.json` to change versions.
+
+For source-controlled applications, refresh every application's source after a major APEX upgrade, even when its features are unchanged:
+
+1. Isolate the structural refresh on an upgrade branch. Back up uncommitted/project-owned files and the server application; resolve drift before import.
+2. Confirm the upgraded DEV/QA/TEST target and the tool used for import: SQLcl for CLI, ORDS for App Builder, or SQL Developer for VS Code. Do not install or upgrade tools implicitly.
+3. Use the authorized APEXREST full-import flow to establish the reviewed source on that target. Importing the same application ID overwrites server changes; retain identity, backup, drift and recovery checks.
+4. Re-export APEXlang into disposable staging. SQLcl `apex export -exptype apexlang -applicationid <verified-id> -force` removes the app alias directory in the current directory before export; run it inside the staging directory, never in the working tree.
+5. Review added, changed and removed files, reconcile project-owned files, and adopt the new baseline through working-copy sync. Keep structural changes in a separate commit. Preserve generated `translations.sql`.
+
+Use the refreshed export for 26.2 file-level work. A successful import, source refresh and requested browser verification remain separate outcomes.
+
+If compiler/profile checks or baseline refresh refuse the upgrade, report the blocker. Do not rewrite metadata or delete checkpoints to bypass it.
 
 Audit these compatibility changes:
 

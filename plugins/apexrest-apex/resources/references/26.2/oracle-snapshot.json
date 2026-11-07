@@ -6,8 +6,8 @@
   "license": "UPL-1.0",
   "licenseSha256": "939579ce6e384d07f665d3f8078d3596a41c3517465a92d9ce680ebb23e33205",
   "mmdVersion": "26.2.0+3479",
-  "indexSha256": "dcf2471ff36cc1755b610d73b7d062611f858cb4c0eb90b5819bda4b408b18e5",
-  "searchSha256": "92e9f818081dc36d1860e6eb9a53f5e8c2b4149386f415b96901b8d88072cffa",
+  "indexSha256": "59787813b91d12a31f80f1e4bf66260d162050518db1048791ab31aa99e5aa46",
+  "searchSha256": "a18ab78c06fec2ba7d5f58c59c86105a7e8236c1c6db93a57d278eac52dadf70",
   "records": 412,
   "scope": "Complete, byte-exact official 26.2 component inventory with paginated retrieval; selected application examples and separately labeled local guides/recipes. No upstream executable or orchestration policy.",
   "inventoryCoverage": {

@@ -54,7 +54,7 @@
     "name": "upgrade-audit",
     "title": "APEX 26.2 source upgrade and removed/deprecated features",
     "family": "migration",
-    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/htmrn/changed-behavior.html",
+    "source": "https://docs.oracle.com/en/database/oracle/apex/26.2/apxdc/upgrading-apexlang-source-with-new-apex-release.html",
     "related": [
       "oracle:26.2:guide/file-import"
     ]

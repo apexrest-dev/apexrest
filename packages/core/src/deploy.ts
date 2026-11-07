@@ -137,13 +137,24 @@ const planV2Object = legacyPlanSchema.extend({
   backupStrategy: z.enum(['fresh-export', 'initial-backup']),
   workingCopy: syncBindingSchema.nullable(),
 });
-const planV2Schema = planV2Object.superRefine((plan, ctx) => {
-  if (
-    (plan.mode === 'working-copy') !== (plan.backupStrategy === 'initial-backup') ||
-    (plan.mode === 'working-copy') !== (plan.workingCopy !== null)
-  )
+type PlanMode = Pick<z.infer<typeof planV2Object>, 'mode' | 'backupStrategy' | 'workingCopy' | 'scope'>;
+/** Working-copy mode and the sync binding always agree, whatever the plan imports. */
+const bindsWorkingCopy = (plan: Pick<PlanMode, 'mode' | 'workingCopy'>) =>
+  (plan.mode === 'working-copy') === (plan.workingCopy !== null);
+/**
+ * An import plan backs up a working copy from its initial baseline and anything else from a fresh
+ * export. A database-only plan imports and backs up nothing: its strategy names how the target is
+ * observed, which is always a fresh export, including when it binds a working copy.
+ */
+function checkPlanMode(plan: PlanMode, ctx: z.RefinementCtx) {
+  const backupAgrees =
+    plan.scope === 'database-only'
+      ? plan.backupStrategy === 'fresh-export'
+      : (plan.mode === 'working-copy') === (plan.backupStrategy === 'initial-backup');
+  if (!backupAgrees || !bindsWorkingCopy(plan))
     ctx.addIssue({ code: 'custom', message: 'Plan mode, backup strategy and sync binding must agree.' });
-});
+}
+const planV2Schema = planV2Object.superRefine(checkPlanMode);
 export const composerBindingSchema = z.strictObject({
   generationDigest: digestSchema,
   blueprintDigest: digestSchema,
@@ -154,13 +165,7 @@ export const composerBindingSchema = z.strictObject({
 });
 const planV3Schema = planV2Object
   .extend({ schemaVersion: z.literal(3), composer: composerBindingSchema })
-  .superRefine((plan, ctx) => {
-    if (
-      (plan.mode === 'working-copy') !== (plan.backupStrategy === 'initial-backup') ||
-      (plan.mode === 'working-copy') !== (plan.workingCopy !== null)
-    )
-      ctx.addIssue({ code: 'custom', message: 'Plan mode, backup strategy and sync binding must agree.' });
-  });
+  .superRefine(checkPlanMode);
 const planV4Schema = planV2Object
   .extend({
     schemaVersion: z.literal(4),
@@ -175,7 +180,7 @@ const planV4Schema = planV2Object
       (plan.importSelection.requestedMode === 'files' && !partial) ||
       (plan.importSelection.requestedMode === 'full' && partial) ||
       (!partial && plan.mode === 'full-export' && plan.backupStrategy !== 'fresh-export') ||
-      (plan.mode === 'working-copy') !== (plan.workingCopy !== null) ||
+      !bindsWorkingCopy(plan) ||
       (partial &&
         (!plan.importSelection.files.length ||
           !plan.importSelection.before ||
@@ -1118,6 +1123,7 @@ export class DeploymentService {
   /**
    * Migrations and changed package scripts only. The target is observed with a fresh export like a
    * full plan, so identity, drift and history checks are unchanged; nothing is backed up or imported.
+   * A working copy stays bound (mode `working-copy`) so apply still checks its revision.
    */
   private async databasePlan(ctx: ProjectContext, name: string): Promise<DeployPlan> {
     const full = await this.legacyPlan(ctx, name, false, true);

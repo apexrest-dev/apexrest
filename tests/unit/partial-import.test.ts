@@ -225,6 +225,52 @@ test('package scripts unchanged since their last run do not force a full import;
   });
 });
 
+test('a database-only plan on a working copy loads, runs the pending migration and imports nothing', async (t) => {
+  const f = await initialized(t);
+  const scripts: string[] = [];
+  (f.oracle as unknown as { session: (sql: string) => Promise<{ output: string }> }).session = async (
+    sql,
+  ) => {
+    scripts.push(sql);
+    // Real SQLcl prints the completion prompt that follows a script.
+    return { output: `fixture-only\n${sql.match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? ''}` };
+  };
+  const migration = f.ctx.config.database.migrationsDir + '/0001__fixture_rows.sql';
+  await atomicWrite(path.join(f.ctx.root, migration), 'create table fixture_rows (id number);\n');
+  const plan = await f.service.plan(f.ctx, 'dev', { importMode: 'none' });
+  assert.equal(plan.scope, 'database-only');
+  assert.equal(plan.schemaVersion !== 1 && plan.mode, 'working-copy');
+  assert.deepEqual(
+    plan.operations.map((o) => o.kind),
+    ['migration'],
+  );
+  deployPlanSchema.parse(plan);
+  // The database-only exemption covers only the fresh observation; mismatched plans still fail.
+  const rejected = (change: Record<string, unknown>) =>
+    assert.equal(deployPlanSchema.safeParse({ ...plan, ...change }).success, false, JSON.stringify(change));
+  rejected({ backupStrategy: 'initial-backup' });
+  rejected({ scope: 'full-application-import' });
+  rejected({ mode: 'full-export' });
+  rejected({
+    scope: 'full-application-import',
+    mode: 'full-export',
+    workingCopy: null,
+    backupStrategy: 'initial-backup',
+  });
+  await f.apply(plan);
+  assert.ok(
+    scripts.some((sql) => sql.includes('0001__fixture_rows.sql')),
+    'the migration ran',
+  );
+  assert.deepEqual(f.imports, [], 'no application import');
+  const rows = await new LocalDeploymentControl(f.env).history();
+  assert.deepEqual(
+    rows.map((row) => [row.version, row.status]),
+    [['0001__fixture_rows.sql', 'succeeded']],
+  );
+  assert.equal((await f.store.read())!.status, 'ready');
+});
+
 test('selection tampering, source drift, target drift and backup failure stop before selected writes', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'selected edit');

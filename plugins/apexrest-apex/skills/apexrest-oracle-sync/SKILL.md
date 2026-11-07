@@ -7,7 +7,9 @@ description: Maintain the APEXREST source library by checking and synchronizing 
 
 Work in the APEXREST source checkout with canonical origin `https://github.com/apexrest-dev/apexrest`; these maintainer helpers live in its `scripts/` directory. An application project or installed runtime is not that checkout.
 
-Inspect the current `toolchains/sources.lock.json` and `resources/references/26.2/oracle-snapshot.json`. Run `node scripts/check-oracle-apexlang-upstream.mjs`; its ignored `docs/evidence/oracle-upstream/upstream.json` records the exact candidate revision, downloaded archive SHA-256 and additions/removals/content changes. Inspect `inventoryStatus`, `bundledSourceChanges`, `licenseChanged` and `releaseDiscovery` separately. A new release directory requires review even when 26.2 bytes are unchanged; the helper never auto-creates a profile or declares the whole library current. A newer commit alone is not a content update. The helper supports `--archive ZIP --commit SHA --out DIRECTORY` for offline comparison.
+Inspect the current `toolchains/sources.lock.json` and `resources/references/26.2/oracle-snapshot.json`. Run `node scripts/check-oracle-apexlang-upstream.mjs`; its ignored `docs/evidence/oracle-upstream/upstream.json` records the exact candidate revision, downloaded archive SHA-256 and additions/removals/content changes. Inspect `inventoryStatus`, `bundledSourceChanges`, `licenseChanged` and `releaseDiscovery` separately. A new release directory requires review even when 26.2 bytes are unchanged; the helper never auto-creates a profile or declares the whole library current. The helper supports `--archive ZIP --commit SHA --out DIRECTORY` for offline comparison.
+
+For requests to find or update skills, also review the official routers and versioned `SKILL.md` files using [the Oracle skill map](references/oracle-skills.md). The checker does not compare all skill instructions or their helpers. Compare those files in the downloaded candidate archive against the reviewed archive, recording additions, removals and changed bytes separately. Inspect changed linked resources before adapting guidance. A newer repository commit with unchanged relevant bytes needs no source repin or invented skill version.
 
 For authorized 26.2 synchronization, use the verified archive and candidate fields:
 
@@ -22,6 +24,8 @@ node scripts/verify-oracle-apexlang-coverage.mjs --archive ARCHIVE.zip
 `--check` compares without writing. Review content changes, source MMD and licensing; retain complete Oracle contracts. The search summary is not a contract; full definitions are checksum-verified, lazy-loaded and paginated. Do not restore the former property-group allowlist or copy upstream deploy scripts into the plugin.
 
 Use `corpus:components`, `version:26.2` for contracts. Keep local UX recipes and patterns explicitly bound to their independently verified version. Preserve 26.1 routing; an upstream source refresh does not upgrade target applications or qualify another MMD/compiler.
+
+For a local guide-only update, regenerate references from the existing pinned archive and keep the upstream commit/archive hashes unchanged. For an application release upgrade, read `oracle:26.2:guide/upgrade-audit` with `version:26.2` and follow [work](../apexrest-work/SKILL.md); skill maintenance itself authorizes no application import.
 
 Run retrieval, contract, packaging and documentation checks. Coverage checks archive/index/search digests, everyday component/property discovery and all paginated documents. Corrupt/missing accelerators rebuild from verified full definitions; keep genuinely unrelated searches empty. Update current implementation/acceptance/next-actions documentation from those results. Distinguish inventory documents, declaration keywords, document/group/property occurrences and compiler MMD bindings; none equals all APEX platform features or runtime qualification.
 
