@@ -6,6 +6,8 @@ Use English for code, CLI help, agent skill instructions and public documentatio
 
 Use https://github.com/apexrest-dev/apexrest as the canonical repository and Git origin.
 
+Track planning and work items in the Linear workspace https://linear.app/apexrest (available to agents through the `linear` MCP server in .mcp.json). Public bug reports stay in GitHub issues.
+
 # Engineering rules
 
 Use the current acceptance matrix in docs/acceptance.json. Run relevant checks and update docs/implementation-status.md and docs/next-actions.md. Never claim fixtures as Oracle or native-host evidence. Keep implementation, verification and blockers separate.
