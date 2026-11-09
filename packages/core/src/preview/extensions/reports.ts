@@ -11,6 +11,7 @@ import {
   interactiveGrid,
   pageErrors,
   saveGrid,
+  type SaveResult,
 } from './reports/interactive-grid.ts';
 import {
   CHART_WIDTH,
@@ -34,6 +35,9 @@ import {
   type IrView,
 } from './reports/ir-views.ts';
 import { toPrintHtml, toXlsx } from './reports/xlsx.ts';
+import { runOraclePlsql } from '../oracle/plsql.ts';
+import { rememberRenderer } from './server/apex-api.ts';
+import { runPlsql } from './server/plsql.ts';
 import { validateRows } from './server/rows.ts';
 import {
   findRegion,
@@ -586,11 +590,73 @@ function rowProcess(
     );
 }
 
+const ROW_STATUS = { insert: 'C', update: 'U', delete: 'D' } as const;
+
+/**
+ * Applies grid changes through the region's row processing: with a PL/SQL Code target
+ * (`target.targetType: plsqlCode`) the code runs once per changed row, with the row's columns and
+ * `:APEX$ROW_STATUS` (C, U or D) as binds, as APEX does; otherwise the table is changed directly.
+ * A failing row undoes the rows applied before it.
+ */
+function applyGrid(
+  renderer: ApexRenderer,
+  ctx: RenderContext,
+  region: ApxComponent,
+  process: ApxComponent,
+  changes: GridChange[],
+): SaveResult {
+  if (str(process.props, 'target.targetType') !== 'plsqlCode')
+    return saveGrid(renderer, ctx, region, changes);
+  const code = str(process.props, 'target.dmlPlsqlCode');
+  if (!code.trim()) return { ok: true, saved: 0, errors: [] };
+  const who = { label: `process ${process.id}`, component: process.id };
+  const items = ctx.session.items;
+  let saved = 0;
+  rememberRenderer(renderer);
+  renderer.data.execute('savepoint apex_local_ig');
+  for (const change of changes) {
+    const overlay: Record<string, string> = { APEX$ROW_STATUS: ROW_STATUS[change.op] };
+    for (const [name, value] of Object.entries(change.values)) overlay[name.toUpperCase()] = value ?? '';
+    const before: Record<string, string | undefined> = {};
+    for (const [name, value] of Object.entries(overlay)) {
+      before[name] = Object.hasOwn(items, name) ? items[name] : undefined;
+      items[name] = value;
+    }
+    let result;
+    try {
+      result = renderer.oracle
+        ? runOraclePlsql(renderer, ctx, renderer.oracle, code, 'block', who)
+        : runPlsql(renderer, ctx, code, 'block', who);
+    } finally {
+      for (const [name, value] of Object.entries(before)) {
+        if (value === undefined) delete items[name];
+        else items[name] = value;
+      }
+    }
+    if (!result.ok) {
+      renderer.data.execute('rollback to savepoint apex_local_ig');
+      renderer.data.execute('release savepoint apex_local_ig');
+      const message = (result.failure?.message ?? 'PL/SQL failed').replace(/^ORA-20\d{3}:\s*/u, '');
+      renderer.diagnose(
+        result.failure?.kind === 'app' ? 'info' : 'warning',
+        `${who.label}: row ${change.op} failed — ${message}`,
+        ctx.pageId,
+        process.id,
+      );
+      return { ok: false, saved: 0, errors: [{ ...(change.id ? { id: change.id } : {}), message }] };
+    }
+    saved += 1;
+  }
+  renderer.data.execute('release savepoint apex_local_ig');
+  return { ok: true, saved, errors: [] };
+}
+
 function saveRoute(renderer: ApexRenderer, session: Session, request: RouteRequest): RouteResponse {
   const input = body(request);
   const found = target(renderer, session, text(input.page), text(input.region));
   if (typeof found === 'string') return json({ ok: false, errors: [{ message: found }] }, 404);
-  if (!rowProcess(renderer, found.ctx, found.region)) {
+  const process = rowProcess(renderer, found.ctx, found.region);
+  if (!process) {
     renderer.diagnose(
       'warning',
       `Interactive Grid ${found.region.id} has no Interactive Grid - Automatic Row Processing (DML) process; changes are not saved`,
@@ -611,7 +677,7 @@ function saveRoute(renderer: ApexRenderer, session: Session, request: RouteReque
   // Validations of the editable region run per changed row before any DML (all failures).
   const rowErrors = validateRows(renderer, found.ctx, found.region, changes);
   if (rowErrors.length) return json({ ok: false, saved: 0, errors: rowErrors });
-  return json(saveGrid(renderer, found.ctx, found.region, changes));
+  return json(applyGrid(renderer, found.ctx, found.region, process, changes));
 }
 
 function stageRoute(renderer: ApexRenderer, session: Session, request: RouteRequest): RouteResponse {
@@ -648,7 +714,7 @@ registerExtension({
       const pending = state?.pending;
       if (!state || !pending?.changes.length) return { ran: true };
       state.pending = undefined;
-      const result = saveGrid(renderer, ctx, region, pending.changes);
+      const result = applyGrid(renderer, ctx, region, process, pending.changes);
       return result.ok ? { ran: true } : { ran: false, errors: pageErrors(region, result) };
     },
   },

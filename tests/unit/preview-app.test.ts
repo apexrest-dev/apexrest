@@ -423,3 +423,111 @@ test('preview dynamic content opens preview pages from Oracle page URLs', async 
   const html = await (await fetch(`${server.url}/r/demo/panel`)).text();
   assert.match(html, /<a id="go" href="\/r\/demo\/home\?p1_x=7">Go<\/a>/u);
 });
+
+test('interactive grid row processing with a PL/SQL Code target runs the code once per changed row', async (t) => {
+  const { app, assets } = await workspace(t, {
+    '.apex-local/02-picked.sql': `create table picked (task_id integer, qty number, row_status varchar2(1));
+`,
+    'pages/p00003-pick.apx': `page 3 (
+    name: Pick
+    alias: PICK
+
+    region goods (
+        name: Goods
+        type: interactiveGrid
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery: select task_id, title, cast(null as number) qty from tasks
+        }
+        layout {
+            sequence: 10
+        }
+        edit {
+            enabled: true
+            allowedOperations: [
+                update
+            ]
+        }
+
+        column TASK_ID (
+            type: hidden
+            source {
+                databaseColumn: TASK_ID
+                dataType: number
+                primaryKey: true
+            }
+        )
+        column TITLE (
+            type: displayOnly
+            source {
+                databaseColumn: TITLE
+            }
+        )
+        column QTY (
+            type: numberField
+            source {
+                databaseColumn: QTY
+                dataType: number
+            }
+        )
+    )
+
+    process add-lines (
+        name: Add lines
+        type: interactiveGridAutoRowProcessing
+        editableRegion: @goods
+        target {
+            targetType: plsqlCode
+            dmlPlsqlCode:
+                \`\`\`plsql
+                if :APEX$ROW_STATUS = 'U' and :QTY is not null then
+                  if :QTY < 0 then
+                    raise_application_error(-20001, 'Quantity must not be negative');
+                  end if;
+                  insert into picked (task_id, qty, row_status) values (:TASK_ID, :QTY, :APEX$ROW_STATUS);
+                end if;
+                \`\`\`
+        }
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+    )
+)
+`,
+  });
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const first = await fetch(`${server.url}/r/demo/pick`);
+  const cookie = first.headers.get('set-cookie')!.split(';')[0]!;
+  await first.text();
+  const save = async (changes: unknown[]) =>
+    (await (
+      await fetch(`${server.url}/r/demo/__apex/x/ig-save`, {
+        method: 'POST',
+        headers: { cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({ page: '3', region: 'goods', changes }),
+      })
+    ).json()) as { ok: boolean; saved: number; errors: { message: string }[] };
+
+  const ok = await save([
+    { op: 'update', id: '1', values: { TASK_ID: '1', TITLE: 'Design review', QTY: '2' } },
+    { op: 'update', id: '2', values: { TASK_ID: '2', TITLE: 'Ship it', QTY: '' } },
+  ]);
+  assert.equal(ok.ok, true);
+  assert.equal(ok.saved, 2);
+  assert.deepEqual(server.db.query('select task_id, qty, row_status from picked', {}, 10).rows, [
+    { TASK_ID: 1, QTY: 2, ROW_STATUS: 'U' },
+  ]);
+  assert.equal(server.db.scalar('select count(*) from tasks'), 2, 'the source table is not changed');
+
+  const failed = await save([
+    { op: 'update', id: '2', values: { TASK_ID: '2', TITLE: 'Ship it', QTY: '5' } },
+    { op: 'update', id: '1', values: { TASK_ID: '1', TITLE: 'Design review', QTY: '-1' } },
+  ]);
+  assert.equal(failed.ok, false);
+  assert.match(failed.errors[0]!.message, /Quantity must not be negative/u);
+  assert.equal(server.db.scalar('select count(*) from picked'), 1, 'a failing row undoes the earlier rows');
+});
