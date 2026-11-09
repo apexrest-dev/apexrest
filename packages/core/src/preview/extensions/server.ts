@@ -295,7 +295,8 @@ function dynamicContent(renderer: ApexRenderer, ctx: RenderContext, region: ApxC
     const message = report(renderer, ctx, owner(region), result, 'the region shows a placeholder');
     return `<div class="apex-local-unsupported"><span class="fa fa-info-circle" aria-hidden="true"></span> PL/SQL dynamic content “${escapeHtml(str(region.props, 'name', region.id))}” could not run locally${message ? `: ${escapeHtml(message)}` : ''}.</div>`;
   }
-  return result.output + (body ? itemText(result.value) : '');
+  // Page URLs that Oracle generated (connected mode) open the preview pages.
+  return renderer.localizeOracleHtml(result.output + (body ? itemText(result.value) : ''));
 }
 
 // ------------------------------------------------------------------ application components

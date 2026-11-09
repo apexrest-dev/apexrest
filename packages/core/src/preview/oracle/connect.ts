@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { environment, isProductionTarget, loadProject } from '../../config.ts';
-import { resolveConnection } from '../../connections.ts';
+import { resolveConnection, type Connection } from '../../connections.ts';
 import { OracleAdapter, targetIdentitySql } from '../../oracle.ts';
 import { Fault } from '../../result.ts';
 import { OracleAppData, type ConnectedOracle } from './app-data.ts';
@@ -96,6 +96,16 @@ export function savedConnectionProperties(name: string, home = os.homedir()): st
   return undefined;
 }
 
+export interface ConnectOptions {
+  /**
+   * Commit mode: successful requests are committed and application code may commit. Only an
+   * actually local DEV/QA/TEST database qualifies (docs/deployment-safety.md); remote targets are refused.
+   */
+  commit?: boolean;
+  /** Locality of the saved connection; defaults to the deployment check (`OracleAdapter.connectionLocality`). */
+  locality?: (connection: Connection) => Promise<{ local: boolean; evidence: string }>;
+}
+
 /**
  * Opens the connected preview for one DEV/QA/TEST environment of apexrest.json:
  * refuses production, requires a SQLcl saved connection, and confirms the
@@ -105,7 +115,9 @@ export async function connectOracle(
   root: string,
   name: string,
   link?: (settings: WorkerSettings) => OracleLink,
+  options: ConnectOptions = {},
 ): Promise<ConnectedOracle> {
+  const commit = options.commit === true;
   const ctx = await loadProject(root);
   const env = environment(ctx, name);
   if (await isProductionTarget(env))
@@ -123,8 +135,30 @@ export async function connectOracle(
       3,
       'blocked',
     );
-  const settings = await workerSettings(connection.name);
-  const data = new OracleAppData(link ? link(settings) : new WorkerBridge({ settings }), env.parsingSchema);
+  if (commit) {
+    // Locality comes from the effective connection endpoint and server identity, never from names.
+    let locality: { local: boolean; evidence: string };
+    try {
+      locality = await (options.locality ?? ((target) => new OracleAdapter().connectionLocality(target)))(
+        connection,
+      );
+    } catch (error) {
+      locality = { local: false, evidence: `unconfirmed (${(error as Error).message})` };
+    }
+    if (!locality.local)
+      throw new Fault(
+        'PREVIEW_COMMIT_REMOTE_REFUSED',
+        `Commit mode writes application data permanently and runs only against a database on this computer; ` +
+          `connection ${connection.name} of ${name} is not confirmed local (${locality.evidence}). ` +
+          'Start the connected preview without commit; every request is then rolled back.',
+        4,
+        'blocked',
+      );
+  }
+  const settings = { ...(await workerSettings(connection.name)), ...(commit ? { commit } : {}) };
+  const data = new OracleAppData(link ? link(settings) : new WorkerBridge({ settings }), env.parsingSchema, {
+    commit,
+  });
   try {
     const rows = data.query(targetIdentitySql, {
       P_WORKSPACE: env.workspace,
@@ -143,8 +177,9 @@ export async function connectOracle(
         5,
         'conflict',
       );
-    // Every request ends with a rollback, so the session must hold a transaction. SQLcl's MCP
-    // server opens saved connections with JDBC auto-commit unless the connection disables it.
+    // Every request ends with a rollback (commit mode: a failed one), so the session must hold a
+    // transaction. SQLcl's MCP server opens saved connections with JDBC auto-commit unless the
+    // connection disables it.
     if (!data.transactional()) {
       const properties = savedConnectionProperties(connection.name);
       throw new Fault(
@@ -198,13 +233,19 @@ export async function connectOracle(
       { APEXREST_OWNER: env.parsingSchema },
       200,
     );
-    if (autonomous.rows.length)
+    if (commit)
       warnings.push(
-        `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(', ')}`,
+        `Commit mode: every successful request is committed to ${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}; a failed request is rolled back`,
       );
-    warnings.push(
-      'Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback',
-    );
+    else {
+      if (autonomous.rows.length)
+        warnings.push(
+          `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(', ')}`,
+        );
+      warnings.push(
+        'Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback',
+      );
+    }
     warmUp(data, apex);
     data.endRequest();
     return {
@@ -212,6 +253,7 @@ export async function connectOracle(
       environment: name,
       target: `${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}`,
       ...(apex ? { apex } : {}),
+      ...(commit ? { commit } : {}),
       warnings,
     };
   } catch (error) {

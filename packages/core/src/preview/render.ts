@@ -217,6 +217,19 @@ export interface RenderOptions {
 
 type Lov = { d: string; r: string }[];
 
+/** One rendered list entry, from a static entry or a dynamic list row. Label and attributes are HTML. */
+interface ListNode {
+  key: string;
+  label: string;
+  href: string;
+  icon: string;
+  image: string;
+  imageAttr: string;
+  current: boolean;
+  attributes: string[];
+  children: ListNode[];
+}
+
 /** Dynamic action attribute groups passed to the browser next to `settings`. */
 const DYNAMIC_ACTION_GROUPS = [
   'genAI',
@@ -444,7 +457,50 @@ export class ApexRenderer {
     return this.shared('theme', current) ?? this.app.shared.find((component) => component.type === 'theme');
   }
 
+  /** Folder of the current theme's own files (`#THEME_DB_IMAGES#`), next to its theme.apx. */
+  themeFilesDir(): string | undefined {
+    const theme = this.themeComponent();
+    return theme
+      ? path.join(path.dirname(path.resolve(this.app.root, theme.file)), 'static-files')
+      : undefined;
+  }
+
+  /**
+   * Theme styles the application offers, keyed by lower-case static ID: the theme's own `style`
+   * components (a subscribed style inherits its master's files; a Theme Roller style uses its
+   * `outputCssFileUrl`), or the built-in Universal Theme styles when the theme declares none.
+   */
+  themeStyles(): Map<string, TemplateParams> {
+    const own = this.themeComponent()?.children.filter((child) => child.type === 'style') ?? [];
+    if (!own.length) return this.theme.styles;
+    const styles = new Map<string, TemplateParams>();
+    for (const style of own) {
+      const master = ref(style.props, 'subscription.master');
+      const base =
+        (master && this.theme.styles.get(master.toLowerCase())) ||
+        this.theme.styles.get(style.id.toLowerCase());
+      const css = strings(list(style.props, 'css.fileUrls'));
+      const output = str(style.props, 'themeRollerAttributes.outputCssFileUrl');
+      styles.set(style.id.toLowerCase(), {
+        ...base,
+        static_id: style.id,
+        name: str(style.props, 'name', text(base, 'name') || style.id),
+        css_file_urls: css.length ? css.join('\n') : text(base, 'css_file_urls'),
+        theme_roller_output_file_url: output || text(base, 'theme_roller_output_file_url'),
+      });
+      // The dictionary stores a subscribed style under its master's static ID.
+      if (master && !styles.has(master.toLowerCase()))
+        styles.set(master.toLowerCase(), styles.get(style.id.toLowerCase())!);
+    }
+    return styles;
+  }
+
   // ---------------------------------------------------------------- substitutions
+
+  /** URL of the theme's own files, served from the theme's static-files folder. */
+  themeDbImages(): string {
+    return `${this.baseUrl}/files/theme/v1/`;
+  }
 
   filePrefix(): string {
     return `${IMAGE_PREFIX}themes/theme_42/${this.assets.manifest.apexVersion.split('.').slice(0, 2).join('.')}/`;
@@ -457,6 +513,7 @@ export class ApexRenderer {
       .replaceAll('#IMAGE_PREFIX#', IMAGE_PREFIX)
       .replaceAll('#THEME_FILES#', this.filePrefix())
       .replaceAll('#THEME_IMAGES#', this.filePrefix())
+      .replaceAll('#THEME_DB_IMAGES#', this.themeDbImages())
       .replaceAll('#APP_FILES#', `${this.baseUrl}/files/static/v1/`)
       .replaceAll('#APP_IMAGES#', `${this.baseUrl}/files/static/v1/`)
       .replaceAll('#WORKSPACE_FILES#', `${this.baseUrl}/files/workspace/`)
@@ -486,6 +543,7 @@ export class ApexRenderer {
       LOGOUT_URL: `${this.baseUrl}/__logout`,
       APP_IMAGES: `${this.baseUrl}/files/static/v1/`,
       APP_FILES: `${this.baseUrl}/files/static/v1/`,
+      THEME_DB_IMAGES: this.themeDbImages(),
       IMAGE_PREFIX,
       DEBUG: 'NO',
       REQUEST: '',
@@ -1961,8 +2019,9 @@ export class ApexRenderer {
       ref(themeComponent?.props ?? {}, 'style.currentThemeStyle') ??
       defaultStaticId(this.theme, 'current_theme_style_id', 'vita')
     ).toLowerCase();
-    const style = this.theme.styles.get(styleId) ?? this.theme.styles.get('vita');
-    if (!this.theme.styles.has(styleId))
+    const themeStyles = this.themeStyles();
+    const style = themeStyles.get(styleId) ?? this.theme.styles.get('vita');
+    if (!themeStyles.has(styleId))
       this.diagnose('info', `Theme style ${styleId} not found; used Vita`, ctx.pageId);
 
     const css = [
@@ -2166,7 +2225,9 @@ export class ApexRenderer {
       )
       .join('');
     const current = (ctx.session.themeStyle ?? '').toLowerCase();
-    const styles = [...this.theme.styles.entries()]
+    const ownStyles = this.themeComponent()?.children.filter((child) => child.type === 'style') ?? [];
+    const styles = [...this.themeStyles().entries()]
+      .filter(([id, style]) => !ownStyles.length || text(style, 'static_id').toLowerCase() === id)
       .map(
         ([id, style]) =>
           `<option value="${escapeHtml(id)}"${id === current ? ' selected' : ''}>${escapeHtml(text(style, 'name') || id)}</option>`,
@@ -2903,46 +2964,25 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
     for (const file of text(template, 'javascript_file_urls').split('\n').filter(Boolean))
       ctx.jsFiles.add(file);
     for (const file of text(template, 'css_file_urls').split('\n').filter(Boolean)) ctx.cssFiles.add(file);
-    const entries = listComponent.children.filter(
-      (child) => child.type === 'entry' && this.visible(ctx, child),
-    );
-    const childrenOf = (parent: string | undefined) =>
-      bySequence(entries.filter((entry) => ref(entry.props, 'layout.parentEntry') === parent));
-    const isCurrent = (entry: ApxComponent): boolean => {
-      const target = get(entry.props, 'link.target');
-      const pages = str(entry.props, 'currentForPages') || str(entry.props, 'link.currentForPages');
-      if (pages)
-        return pages
-          .split(',')
-          .map((page) => page.trim())
-          .includes(ctx.pageId);
-      return (
-        isObject(target) && target.page !== undefined && this.findPage(String(target.page))?.id === ctx.pageId
-      );
-    };
-    const render = (entry: ApxComponent, level: number): string => {
-      const kids = childrenOf(entry.id);
-      const current = isCurrent(entry) || kids.some(isCurrent);
-      const attributes = get(entry.props, 'userDefinedAttributes');
+    const nodes = this.listNodes(ctx, listComponent);
+    const isCurrent = (node: ListNode): boolean => node.current || node.children.some(isCurrent);
+    const render = (node: ListNode, level: number): string => {
+      const kids = node.children;
+      const current = isCurrent(node);
       const values: Record<string, string> = {
-        LINK: escapeHtml(this.link(ctx, get(entry.props, 'link.target'))),
-        TEXT: this.substitute(ctx.session, str(entry.props, 'label', entry.id), ctx.page, 'HTML'),
-        TEXT_ESC_SC: this.substitute(ctx.session, str(entry.props, 'label', entry.id), ctx.page, 'HTML'),
-        ICON_CSS_CLASSES: iconClasses(
-          str(entry.props, 'icon.imageIconCssClasses') || str(entry.props, 'icon.iconCssClasses'),
-        ),
-        IMAGE: iconClasses(str(entry.props, 'icon.imageIconCssClasses')),
-        IMAGE_ATTR: '',
+        LINK: escapeHtml(node.href),
+        TEXT: node.label,
+        TEXT_ESC_SC: node.label,
+        ICON_CSS_CLASSES: iconClasses(node.icon),
+        IMAGE: iconClasses(node.image),
+        IMAGE_ATTR: node.imageAttr,
         LINK_ATTR: '',
-        LIST_ITEM_ID: `${listId}_${slug(entry.id)}`,
-        PARENT_LIST_ITEM_ID: `${listId}_${slug(entry.id)}`,
+        LIST_ITEM_ID: `${listId}_${slug(node.key)}`,
+        PARENT_LIST_ITEM_ID: `${listId}_${slug(node.key)}`,
         LEVEL: String(level),
       };
-      for (let index = 1; index <= 20; index += 1) {
-        const key = `A${String(index).padStart(2, '0')}`;
-        const value = isObject(attributes) ? attributes[String(index)] : undefined;
-        values[key] = typeof value === 'string' ? this.substitute(ctx.session, value, ctx.page, 'HTML') : '';
-      }
+      for (let index = 1; index <= 20; index += 1)
+        values[`A${String(index).padStart(2, '0')}`] = node.attributes[index - 1] ?? '';
       const sub = level > 1;
       const field = kids.length
         ? sub
@@ -2983,11 +3023,160 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
       ctx.onload.push(fill(text(template, 'javascript_code_onload'), shared, false));
     return (
       fill(text(template, 'list_template_before_rows'), shared) +
-      childrenOf(undefined)
-        .map((entry) => render(entry, 1))
-        .join('') +
+      nodes.map((node) => render(node, 1)).join('') +
       fill(text(template, 'list_template_after_rows'), shared)
     );
+  }
+
+  /** Top-level entries of a list as a tree: static entries, or the rows of a dynamic list query. */
+  listNodes(ctx: RenderContext, listComponent: ApxComponent): ListNode[] {
+    const sourceType = str(listComponent.props, 'source.type');
+    if (sourceType === 'sqlQuery') return this.dynamicListNodes(ctx, listComponent);
+    if (sourceType && sourceType !== 'static' && sourceType !== 'staticValues') {
+      this.diagnose(
+        'warning',
+        `List ${listComponent.id} source type ${sourceType} is not simulated; the list is empty`,
+        ctx.pageId,
+        listComponent.id,
+      );
+      return [];
+    }
+    const entries = listComponent.children.filter(
+      (child) => child.type === 'entry' && this.visible(ctx, child),
+    );
+    const isCurrent = (entry: ApxComponent): boolean => {
+      const target = get(entry.props, 'link.target');
+      const pages = str(entry.props, 'currentForPages') || str(entry.props, 'link.currentForPages');
+      if (pages)
+        return pages
+          .split(',')
+          .map((page) => page.trim())
+          .includes(ctx.pageId);
+      return (
+        isObject(target) && target.page !== undefined && this.findPage(String(target.page))?.id === ctx.pageId
+      );
+    };
+    const build = (parent: string | undefined): ListNode[] =>
+      bySequence(entries.filter((entry) => ref(entry.props, 'layout.parentEntry') === parent)).map(
+        (entry) => {
+          const attributes = get(entry.props, 'userDefinedAttributes');
+          const label = this.substitute(ctx.session, str(entry.props, 'label', entry.id), ctx.page, 'HTML');
+          return {
+            key: entry.id,
+            label,
+            href: this.link(ctx, get(entry.props, 'link.target')),
+            icon: str(entry.props, 'icon.imageIconCssClasses') || str(entry.props, 'icon.iconCssClasses'),
+            image: str(entry.props, 'icon.imageIconCssClasses'),
+            imageAttr: '',
+            current: isCurrent(entry),
+            attributes: Array.from({ length: 20 }, (_, index) => {
+              const value = isObject(attributes) ? attributes[String(index + 1)] : undefined;
+              return typeof value === 'string' ? this.substitute(ctx.session, value, ctx.page, 'HTML') : '';
+            }),
+            children: build(entry.id),
+          };
+        },
+      );
+    return build(undefined);
+  }
+
+  /**
+   * A dynamic list runs its query and reads the columns by position, as APEX does: level, label,
+   * target, is_current_list_entry, image, image_attribute, image_alt_attribute, attribute1..10.
+   * Rows nest by level in query order.
+   */
+  dynamicListNodes(ctx: RenderContext, listComponent: ApxComponent): ListNode[] {
+    const sql = str(listComponent.props, 'source.sqlQuery');
+    let result: { columns: string[]; rows: Row[] };
+    try {
+      result = this.data.query(sql, this.binds(ctx.session, ctx.page), 5_000);
+    } catch (error) {
+      this.diagnose(
+        'warning',
+        `Dynamic list ${listComponent.id} query failed: ${(error as Error).message}`,
+        ctx.pageId,
+        listComponent.id,
+      );
+      return [];
+    }
+    const roots: ListNode[] = [];
+    const stack: { level: number; node: ListNode }[] = [];
+    result.rows.forEach((row, index) => {
+      const at = (position: number): string => {
+        const column = result.columns[position];
+        const value = column === undefined ? undefined : row[column];
+        return value === null || value === undefined ? '' : String(value);
+      };
+      const level = Math.max(1, Number(at(0)) || 1);
+      const href = this.localUrl(at(2));
+      const flag = at(3).toUpperCase();
+      const targetPage = this.pageOfUrl(href);
+      const node: ListNode = {
+        key: `${index + 1}`,
+        label: escapeHtml(at(1)),
+        href,
+        icon: at(4),
+        image: at(4),
+        imageAttr: at(5),
+        current:
+          flag === 'YES' || flag === 'TRUE'
+            ? true
+            : flag === 'NO' || flag === 'FALSE'
+              ? false
+              : targetPage === ctx.pageId,
+        attributes: Array.from({ length: 10 }, (_, attribute) => escapeHtml(at(7 + attribute))),
+        children: [],
+      };
+      while (stack.length && stack[stack.length - 1]!.level >= level) stack.pop();
+      (stack.length ? stack[stack.length - 1]!.node.children : roots).push(node);
+      stack.push({ level, node });
+    });
+    return roots;
+  }
+
+  /**
+   * Maps a URL that Oracle APEX produced (`/ords/r/ws/app/page?…&session=…&cs=…` or `f?p=…`) to the
+   * preview's own page path; other URLs are returned unchanged.
+   */
+  localUrl(url: string): string {
+    if (!url) return '#';
+    const fp = /^(?:.*\/)?f\?p=([^&#]*)/iu.exec(url);
+    if (fp) return `${this.baseUrl}/f?p=${fp[1]}`;
+    const friendly =
+      /^(?:https?:\/\/[^/]+)?(?:\/[^/?#]+)*?\/r\/[^/?#]+\/[^/?#]+\/([^/?#]+)(\?[^#]*)?(#.*)?$/iu.exec(url);
+    if (!friendly) return url;
+    const page = this.findPage(decodeURIComponent(friendly[1]!));
+    if (!page) return url;
+    const query = new URLSearchParams(friendly[2] ?? '');
+    query.delete('session');
+    query.delete('cs');
+    return `${this.pagePath(page)}${query.size ? `?${query}` : ''}${friendly[3] ?? ''}`;
+  }
+
+  /**
+   * Rewrites the page URLs inside HTML that Oracle APEX generated (PL/SQL dynamic content, `htp`
+   * output). Outside ORDS, APEX writes them as `http://:/r/ws/app/page?…&amp;session=…&amp;cs=…`, which
+   * a browser cannot open.
+   */
+  localizeOracleHtml(html: string): string {
+    if (!html.includes('/r/')) return html;
+    return html.replace(
+      /(["'])((?:https?:\/\/[^/"'\s]*)?(?:\/[^/"'\s?#<>]+)*?\/r\/[^/"'\s?#<>]+\/[^/"'\s?#<>]+\/[^/"'\s?#<>]+(?:\?[^"'\s<>#]*)?(?:#[^"'\s<>]*)?)\1/gu,
+      (whole, quote: string, url: string) => {
+        const plain = url.replaceAll('&amp;', '&');
+        const local = this.localUrl(plain);
+        if (local === plain) return whole;
+        return `${quote}${url === plain ? local : local.replaceAll('&', '&amp;')}${quote}`;
+      },
+    );
+  }
+
+  /** ID of the preview page a local URL opens, if any. */
+  pageOfUrl(href: string): string | undefined {
+    if (!href.startsWith(`${this.baseUrl}/`)) return undefined;
+    const rest = href.slice(this.baseUrl.length + 1);
+    if (rest.startsWith('f?p=')) return this.findPage(rest.slice(4).split(':')[1] ?? '')?.id;
+    return this.findPage(decodeURIComponent(rest.split(/[?#]/u)[0] ?? ''))?.id;
   }
 
   // ---------------------------------------------------------------- buttons & items

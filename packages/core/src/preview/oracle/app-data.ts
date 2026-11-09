@@ -45,6 +45,8 @@ export interface ConnectedOracle {
   apex?: { applicationId: number; items: Set<string>; pages: number[] };
   /** Set after APEX session setup failed once; database code then runs with binds only. */
   apexError?: string;
+  /** Commit mode (local targets only): successful requests are committed, failed ones rolled back. */
+  commit?: boolean;
   warnings: string[];
 }
 
@@ -70,7 +72,8 @@ function text(value: string | number | null | undefined): string | null {
 
 /**
  * Application data and PL/SQL in a real Oracle session. Every preview request
- * ends with endRequest(), which rolls back; DDL is refused because it commits.
+ * ends with endRequest(), which rolls back; in commit mode a successful request
+ * is committed instead. DDL is refused because it commits.
  */
 export class OracleAppData implements AppData {
   readonly dialect = 'oracle' as const;
@@ -80,10 +83,13 @@ export class OracleAppData implements AppData {
   #keys = new Map<string, 'default' | 'none'>();
   #dirty = false;
   #prefetched = false;
+  /** Commit mode: endRequest(true) commits, and units that end the transaction are not errors. */
+  readonly commit: boolean;
 
-  constructor(link: OracleLink, schema: string) {
+  constructor(link: OracleLink, schema: string, options: { commit?: boolean } = {}) {
     this.link = link;
     this.schema = schema.toUpperCase();
+    this.commit = options.commit === true;
   }
 
   /** Runs segments; the failing segment's error is returned, transport failures throw. */
@@ -279,6 +285,8 @@ export class OracleAppData implements AppData {
       );
     parts.push(plsqlSegment(DBMS_OUTPUT_BLOCK));
     if (call.htp) parts.push(plsqlSegment(HTP_READ_BLOCK));
+    // A committed APEX session would outlive the request; the preview creates one per unit.
+    if (call.apex && this.commit) parts.push(plsqlSegment('begin\n  apex_session.delete_session;\nend;'));
     const names = [...Object.keys(declared), TX_BEFORE, TX_AFTER].map(bindName);
     parts.push(selectBindsSegment(names));
     const { texts, errors } = this.#run(parts);
@@ -288,7 +296,7 @@ export class OracleAppData implements AppData {
     if (read) throw read;
     const row = jsonRows(texts.at(-1)!).rows[0] ?? {};
     const values = Object.fromEntries(names.map((name) => [name, text(row[name])]));
-    const ended = values[TX_BEFORE] !== values[TX_AFTER];
+    const ended = !this.commit && values[TX_BEFORE] !== values[TX_AFTER];
     delete values[TX_BEFORE];
     delete values[TX_AFTER];
     const error = ended
@@ -306,7 +314,6 @@ export class OracleAppData implements AppData {
     };
   }
 
-  /** Ends the preview request: everything it changed in Oracle is rolled back. */
   /**
    * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
    * once and a rollback fails with ORA-17274; the preview must then not run at all.
@@ -318,10 +325,14 @@ export class OracleAppData implements AppData {
     return true;
   }
 
-  endRequest(): void {
+  /**
+   * Ends the preview request. Its Oracle work is rolled back, unless the data is in commit mode
+   * and `succeeded` is true: then it is committed, as APEX commits a page request without errors.
+   */
+  endRequest(succeeded = false): void {
     if (!this.#dirty) return;
     this.#dirty = false;
-    const { errors } = this.#run(['rollback;'], false);
+    const { errors } = this.#run([this.commit && succeeded ? 'commit;' : 'rollback;'], false);
     if (errors[0]) throw errors[0];
   }
 

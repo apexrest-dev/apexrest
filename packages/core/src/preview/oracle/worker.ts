@@ -1,6 +1,6 @@
 import { parentPort, workerData, type MessagePort } from 'node:worker_threads';
 import { SqlclMcpClient, mcpCallOptions } from '../../sqlcl-mcp.ts';
-import { INIT_SESSION } from './protocol.ts';
+import { initSession } from './protocol.ts';
 
 /**
  * Owns the preview's one long-lived SQLcl MCP server and named connection. The
@@ -14,6 +14,8 @@ export interface WorkerSettings {
   cwd: string;
   env: Record<string, string>;
   connectionName: string;
+  /** Commit mode: application code may commit and successful requests are committed. */
+  commit?: boolean;
 }
 interface Data {
   settings: WorkerSettings;
@@ -39,7 +41,7 @@ async function open(deadline: number) {
   try {
     await next.open(options());
     await next.connect(settings.connectionName, options);
-    await next.execute(INIT_SESSION, options, () => false);
+    await next.execute(initSession(settings.commit === true), options, () => false);
   } catch (error) {
     await next.close();
     throw error;

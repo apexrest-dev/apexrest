@@ -25,6 +25,7 @@ apexrest preview check --project /abs/app   # render every page; list unsupporte
 apexrest preview start --project /abs/app   # serve on 127.0.0.1 and print page URLs (Ctrl+C stops)
 apexrest preview start --source-dir src --port 8765 --reset
 apexrest preview start --project /abs/app --env dev   # connected mode: data and PL/SQL from Oracle
+apexrest preview start --project /abs/app --env dev --commit   # working mode on a local database: successful requests are committed
 apexrest preview status                     # every running preview, from any APEXREST process
 apexrest preview stop --project /abs/app    # stop the project's previews, also from another terminal
 apexrest preview stop --port 8765           # or select by --source-dir, --port; --all stops every preview
@@ -46,7 +47,7 @@ Every page with the developer toolbar keeps a WebSocket to the preview server (`
 - **Safeguards.** A grid with unsaved edits is not refreshed; it shows a notice. Form regions are never refreshed; they show a notice with a Reload button. Refreshes of one region are coalesced to at most one every 800 ms. Region refreshes and Ajax reads do not publish changes, so two pages cannot keep refreshing each other.
 - **Source edits.** An `.apx` or static-file change reloads open pages and keeps the scroll position. A page with unsaved changes gets a Reload button instead. A parse error is shown on the page.
 - **Presence and control.** The toolbar's **Live** button shows the connection state and how many tabs view the same page, and as which users. Clicking it turns live updates off or on for the browser. After a server restart, a page offers a reload instead of reconnecting with a session the server no longer knows.
-- **Scope.** The socket accepts only same-origin pages with a known preview session on the loopback server. Write tracking uses the SQLite authorizer (Node.js 24.10 or later). Writes made outside the preview, for example with the `sqlite3` CLI, are not seen. In [connected mode](#connected-oracle-mode) every request is rolled back, so only source reloads and presence are pushed. Dialog pages and pages without the toolbar do not connect.
+- **Scope.** The socket accepts only same-origin pages with a known preview session on the loopback server. Write tracking uses the SQLite authorizer (Node.js 24.10 or later). Writes made outside the preview, for example with the `sqlite3` CLI, are not seen. In [connected mode](#connected-oracle-mode) only source reloads and presence are pushed, also in commit mode. Dialog pages and pages without the toolbar do not connect.
 
 ## Connected Oracle mode
 
@@ -58,6 +59,7 @@ Without a database the preview simulates data in SQLite and interprets a subset 
 - **Session.** The preview opens one SQLcl MCP server in a worker thread and keeps its session for the life of the preview. The renderer waits synchronously for each batch. The session starts with `exitcommit` and `autocommit` off and `ALTER SESSION DISABLE COMMIT IN PROCEDURE`.
 - **Warm-up.** Before `start` (or `check`) returns, the session reads column, primary-key and key-default metadata for all tables and views of the parsing schema in two dictionary queries and, when the application is installed, creates one APEX session. Both are rolled back. The first page therefore does not pay one dictionary round trip per table or the first APEX initialization; tables of other schemas are still looked up on first use. A warm-up failure is ignored and the per-request lookups remain.
 - **Every request is rolled back.** Each HTTP request ends with `ROLLBACK`, whatever it changed. Because nothing persists, a row inserted by a form is gone on the next page.
+- **Commit mode (working mode).** `start --env <name> --commit` (MCP: `commit: true` with `action: start`) uses the connected preview as a working application. A request that ends without an error status and without failed page processing is committed; a submit or Ajax call that fails is rolled back, as APEX does. The session then allows COMMIT in stored code, and page code with `COMMIT`, `ROLLBACK`, dynamic SQL or autonomous transactions is sent to Oracle instead of being skipped. The tripwire is off. The APEX session that each unit creates is deleted before the commit. Commit mode is refused (`PREVIEW_COMMIT_REMOTE_REFUSED`) unless the saved connection is confirmed local by the same endpoint and server-identity check as deployment (see [deployment safety](deployment-safety.md)); production is refused as always, and the saved connection still needs `autoCommit=false`. `check` never commits. DDL from the preview itself is still never sent.
 - **What cannot commit.** Oracle blocks COMMIT only inside stored code, not in anonymous blocks or dynamic SQL. Page code that contains `COMMIT`, `ROLLBACK` (other than `ROLLBACK TO SAVEPOINT`), `EXECUTE IMMEDIATE`, `DBMS_SQL` or `PRAGMA AUTONOMOUS_TRANSACTION` is therefore never sent; it is skipped with a diagnostic. DDL from the preview itself (sample tables, schema repair, seeding, data-load targets) is never sent either. Page code and region SQL containing a line SQLcl acts on regardless of quoting — only `/`, only `.`, a leading `#`, or in SQL a line ending with `;` — are refused the same way, because SQLcl would run the rest as separate statements; bind values are sent without raw line breaks.
 - **Tripwire.** Every unit records `DBMS_TRANSACTION.LOCAL_TRANSACTION_ID` before and after it runs. If a package still ends the transaction, the unit fails with an error diagnostic that says earlier work may have been committed.
 - **Not undone.** Autonomous transactions in stored code (they are listed as a warning at start), sequence numbers and side effects outside the database (mail, HTTP calls, jobs).
@@ -74,7 +76,11 @@ The toolbar's Session panel and the `start` result name the environment and targ
 
 ### Pages, theme and navigation
 
-All Universal Theme 26.2 page templates (standard, side columns, marquee, modal dialog, drawer, wizard, login) with their slots and grid, navigation menus and bars, breadcrumbs, the theme style of the application or the toolbar picker, and success/error messages through the genuine `apex.message` templates.
+All Universal Theme 26.2 page templates (standard, side columns, marquee, modal dialog, drawer, wizard, login) with their slots and grid, navigation menus and bars, breadcrumbs, the theme style of the application or the toolbar picker (including the theme's own styles: a subscribed style uses its master's files, and a Theme Roller style loads its `outputCssFileUrl`, with `#THEME_DB_IMAGES#` served from the theme's `static-files` folder), and success/error messages through the genuine `apex.message` templates.
+
+Dynamic lists (`source.type: sqlQuery`) run their query, locally or in Oracle in connected mode, and read the columns by position as APEX does: level, label, target, is_current_list_entry (`YES`/`NO`, or decided from the target page when empty), image, image_attribute, image_alt_attribute and attribute1–10. Rows nest by level in query order. A failing query renders an empty list with a warning; other list source types are reported as not simulated.
+
+Page URLs that Oracle APEX generated — `http://:/r/ws/app/page?…&session=…&cs=…` in PL/SQL dynamic content, or `/ords/r/ws/app/page?…` in list targets and report values — open the matching preview page: dynamic content and list targets are rewritten, and such requests are redirected. `session` and `cs` are dropped; other parameters are kept.
 
 ### Reports and grids
 

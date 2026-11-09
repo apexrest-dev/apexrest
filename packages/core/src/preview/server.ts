@@ -62,7 +62,10 @@ export interface PreviewOptions {
   sampleRows?: number;
   /** Seed script folders in load order (see ApexRenderer.seed). */
   seedDirs?: string[];
-  /** Connected mode: application data and PL/SQL come from this Oracle session; each request is rolled back. */
+  /**
+   * Connected mode: application data and PL/SQL come from this Oracle session; each request is
+   * rolled back, or committed when it succeeds and the session is in commit mode.
+   */
   oracle?: ConnectedOracle;
 }
 
@@ -270,7 +273,7 @@ export class PreviewServer {
           response.end(`APEX preview error: ${(error as Error).message}`);
         })
         .finally(() => {
-          this.#endRequest();
+          this.#endRequest(response);
           this.#publishWrites(request);
         });
     });
@@ -305,15 +308,31 @@ export class PreviewServer {
     }
   }
 
-  /** Connected mode: nothing a request did in Oracle survives it. */
-  #endRequest(): void {
+  /** Responses whose page processing failed; commit mode rolls their Oracle work back. */
+  #failed = new WeakSet<http.ServerResponse>();
+
+  /** Wraps a transaction failure test so a failed submit or Ajax call is also rolled back in Oracle. */
+  #failure<T>(response: http.ServerResponse, failed: (result: T) => boolean): (result: T) => boolean {
+    return (result) => {
+      const failure = failed(result);
+      if (failure) this.#failed.add(response);
+      return failure;
+    };
+  }
+
+  /**
+   * Connected mode: nothing a request did in Oracle survives it, except in commit mode, where a
+   * request that ended without an error status or failed processing is committed.
+   */
+  #endRequest(response: http.ServerResponse): void {
+    const succeeded = response.statusCode < 400 && !this.#failed.has(response);
     try {
-      this.options.oracle?.data.endRequest();
+      this.options.oracle?.data.endRequest(succeeded);
     } catch (error) {
-      // A rollback that cannot be confirmed resets the session; Oracle rolls back a closed session.
+      // An end that cannot be confirmed resets the session; Oracle rolls back a closed session.
       this.renderer.diagnose(
         'error',
-        `Connected preview: rollback failed (${(error as Error).message}); the Oracle session was reset`,
+        `Connected preview: ${this.options.oracle?.commit && succeeded ? 'commit' : 'rollback'} failed (${(error as Error).message}); the Oracle session was reset`,
       );
       this.options.oracle?.data.link.close();
     }
@@ -457,6 +476,15 @@ export class PreviewServer {
         `APEXlang parse error: ${this.#loadError}`,
       );
     const renderer = this.renderer;
+    // Page URLs that Oracle APEX generated (`/ords/r/ws/app/page?…&session=…`, for example in
+    // connected-mode report values) redirect to the preview page.
+    if (/^(?:\/[^/]+)*?\/r\/[^/]+\/[^/]+\/[^/]+$/u.test(pathname)) {
+      const location = renderer.localUrl(`${pathname}${url.search}`);
+      if (location !== `${pathname}${url.search}`) {
+        response.writeHead(302, { location }).end();
+        return;
+      }
+    }
     // Legacy f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES links redirect to friendly URLs.
     if ((pathname === '/f' || pathname.endsWith(`${renderer.baseUrl}/f`)) && url.searchParams.has('p')) {
       const [, pageKey = '', , requestValue = '', , clear = '', names = '', values = ''] = (
@@ -490,6 +518,11 @@ export class PreviewServer {
         rest.slice(16),
         false,
       );
+    if (rest.startsWith('files/theme/v1/')) {
+      const themeDir = renderer.themeFilesDir();
+      if (!themeDir) return this.#send(response, 404, 'text/plain', 'Not found');
+      return this.#static(response, themeDir, rest.slice(15), false);
+    }
     if (rest.startsWith('files/workspace/'))
       return this.#static(
         response,
@@ -531,7 +564,7 @@ export class PreviewServer {
           for (const step of finish) accepted = step(accepted);
           return accepted;
         },
-        (accepted) => Boolean((accepted as { errors?: unknown[] }).errors?.length),
+        this.#failure(response, (accepted) => Boolean((accepted as { errors?: unknown[] }).errors?.length)),
       );
       return this.#send(
         response,
@@ -569,7 +602,7 @@ export class PreviewServer {
       const name = rest.slice(LOCAL_PREFIX.length + 2);
       // Ajax requests that change data run in a transaction like a page submit.
       const result = TRANSACTIONAL_ROUTES.has(name)
-        ? transaction(renderer.db.db, call, failedResponse)
+        ? transaction(renderer.db.db, call, this.#failure(response, failedResponse))
         : call();
       return this.#respond(response, result);
     }
@@ -635,7 +668,7 @@ export class PreviewServer {
       const values = transaction(
         renderer.db.db,
         () => renderer.executeServerCode(session, action.pageId, action.code, items, returns, errors),
-        () => errors.length > 0,
+        this.#failure(response, () => errors.length > 0),
       );
       // An unhandled error is shown like apex.server errors and stops the following actions.
       return this.#send(

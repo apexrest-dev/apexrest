@@ -21,6 +21,7 @@ import {
 import {
   OracleError,
   declareBinds,
+  initSession,
   jsonRows,
   plsqlSegment,
   querySegment,
@@ -187,13 +188,18 @@ test('every request that touched Oracle ends with one rollback', () => {
   assert.equal(link.closed, true);
 });
 
-async function oraclePreview(t: import('node:test').TestContext, answer: (segment: string) => string) {
+async function oraclePreview(
+  t: import('node:test').TestContext,
+  answer: (segment: string) => string,
+  commit = false,
+) {
   const { app, assets } = await workspace(t);
   const fake = fakeOracle(answer);
   const oracle: ConnectedOracle = {
-    data: new OracleAppData(fake.link, 'DEMO'),
+    data: new OracleAppData(fake.link, 'DEMO', { commit }),
     environment: 'dev',
     target: 'DEVDB/devdb_svc',
+    ...(commit ? { commit } : {}),
     warnings: ['Sequences advance'],
   };
   const server = new PreviewServer({ sourceDir: app, assetsDir: assets, oracle });
@@ -625,4 +631,165 @@ test('a failed or truncated warm-up leaves per-request lookups in place', () => 
   assert.deepEqual(truncated.prefetchSchema(1), { tables: 0, complete: false });
   truncated.tableColumns('t');
   assert.equal(full.inputs.length, 2, 'a truncated prefetch caches nothing');
+});
+
+test('commit mode is refused for a database that is not confirmed local', async (t) => {
+  const { ctx } = await fixture();
+  const home = await mkdtemp(path.join(tmpdir(), 'apexrest-home-'));
+  const before = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = home;
+  t.after(async () => {
+    if (before === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = before;
+    await rm(home, { recursive: true, force: true });
+    await rm(ctx.root, { recursive: true, force: true });
+  });
+  await writeJson(path.join(home, 'connections.json'), {
+    read: { kind: 'sqlcl-store', name: 'fixture-dev' },
+  });
+  const identity = (segment: string) =>
+    /select \* from \(/u.test(segment)
+      ? envelope(
+          [
+            ['TARGET_RECORD', 'VARCHAR2'],
+            ['DB_UNIQUE_NAME', 'VARCHAR2'],
+            ['SERVICE_NAME', 'VARCHAR2'],
+            ['PARSING_SCHEMA', 'VARCHAR2'],
+            ['WORKSPACE', 'VARCHAR2'],
+          ],
+          /target_record/u.test(segment)
+            ? [
+                ['identity', 'fixture', 'fixture', 'FIXTURE', null],
+                ['workspace', null, null, null, 'FIXTURE'],
+              ]
+            : [],
+        )
+      : '';
+
+  let opened = false;
+  await assert.rejects(
+    connectOracle(
+      ctx.root,
+      'dev',
+      () => {
+        opened = true;
+        return fakeOracle(identity).link;
+      },
+      { commit: true, locality: async () => ({ local: false, evidence: 'remote-endpoint' }) },
+    ),
+    (error: Error & { code: string }) => {
+      assert.equal(error.code, 'PREVIEW_COMMIT_REMOTE_REFUSED');
+      assert.match(error.message, /remote-endpoint/u);
+      return true;
+    },
+  );
+  assert.equal(opened, false, 'a refused commit mode opens no session');
+  await assert.rejects(
+    connectOracle(ctx.root, 'dev', () => fakeOracle(identity).link, {
+      commit: true,
+      locality: async () => {
+        throw new Error('show connection failed');
+      },
+    }),
+    { code: 'PREVIEW_COMMIT_REMOTE_REFUSED' },
+  );
+
+  let settings: { commit?: boolean } | undefined;
+  const local = fakeOracle(identity);
+  const connected = await connectOracle(
+    ctx.root,
+    'dev',
+    (worker) => {
+      settings = worker;
+      return local.link;
+    },
+    { commit: true, locality: async () => ({ local: true, evidence: 'loopback+local-server-identity' }) },
+  );
+  assert.equal(connected.commit, true);
+  assert.equal(settings?.commit, true, 'the worker session allows COMMIT in procedures');
+  assert.ok(connected.warnings.some((warning) => /Commit mode/u.test(warning)));
+  assert.ok(!connected.warnings.some((warning) => /not undone by the rollback/u.test(warning)));
+  connected.data.query('select 1 from dual');
+  connected.data.endRequest(true);
+  assert.match(local.inputs.at(-1)!, /^commit;/u);
+  connected.data.query('select 1 from dual');
+  connected.data.endRequest(false);
+  assert.match(local.inputs.at(-1)!, /^rollback;/u);
+  connected.data.close();
+
+  assert.match(initSession(false), /disable commit in procedure/u);
+  assert.doesNotMatch(initSession(true), /disable commit/u);
+  assert.match(initSession(true), /set autocommit off/u);
+});
+
+test('commit mode sends committing code, commits successful requests and rolls back failed ones', async (t) => {
+  let rejected = false;
+  const { server, oracle, inputs } = await oraclePreview(
+    t,
+    (segment) => {
+      // Bind declarations and the unit are separate segments of one batch.
+      if (/:P1_TITLE := /u.test(segment)) rejected = /:P1_TITLE := 'BAD'/u.test(segment);
+      if (/insert into tasks/u.test(segment) && rejected)
+        return 'ORA-20100: Title rejected\nORA-06512: at line 2';
+      if (/"APEXREST_TX_BEFORE"/u.test(segment))
+        return outBinds(segment, { APEXREST_TX_BEFORE: '5.1.900', APEXREST_TX_AFTER: null });
+      if (/select \* from \(/u.test(segment))
+        return envelope(
+          [
+            ['TASK_ID', 'NUMBER'],
+            ['TITLE', 'VARCHAR2'],
+            ['STATUS', 'VARCHAR2'],
+          ],
+          [[1, 'Row', 'OPEN']],
+        );
+      return '';
+    },
+    true,
+  );
+  const renderer = server.renderer;
+  const ctx = renderer.prepare({ id: '1', user: 'DEV', items: {}, pagination: {} }, '1');
+  const sent = inputs.length;
+  const committing = runOraclePlsql(renderer, ctx, oracle, 'insert into t values (1);\ncommit;', 'block', {
+    label: 'p',
+  });
+  assert.equal(committing.ok, true, 'a unit that ends the transaction is not an error in commit mode');
+  assert.equal(inputs.length, sent + 1, 'a unit with COMMIT is sent');
+  assert.match(inputs.at(-1)!, /commit;/u);
+  oracle.data.endRequest(false);
+
+  await server.start();
+  const ended = () => inputs.filter((input) => /^(commit|rollback);/u.test(input)).length;
+  const settle = async (count: number) => {
+    for (let i = 0; i < 100 && ended() < count; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  };
+  const first = await fetch(`${server.url}/r/demo/home`);
+  const cookie = first.headers.get('set-cookie')!.split(';')[0]!;
+  assert.match(await first.text(), /Row/u);
+  let before = ended();
+  await settle(before + 1);
+  assert.match(inputs.filter((input) => /^(commit|rollback);/u.test(input)).at(-1)!, /^commit;/u);
+
+  const submit = (title: string) =>
+    fetch(`${server.url}/r/demo/wwv_flow.accept`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        p_flow_step_id: '1',
+        p_request: 'ADD',
+        p_json: JSON.stringify({ pageItems: { itemsToSubmit: [{ n: 'P1_TITLE', v: title }] } }),
+      }),
+    }).then((response) => response.json() as Promise<{ errors?: unknown[] }>);
+
+  before = ended();
+  const failed = await submit('BAD');
+  assert.ok(failed.errors?.length, 'the failing process returns errors');
+  await settle(before + 1);
+  assert.match(inputs.filter((input) => /^(commit|rollback);/u.test(input)).at(-1)!, /^rollback;/u);
+
+  before = ended();
+  const saved = await submit('Good');
+  assert.equal(saved.errors, undefined);
+  await settle(before + 1);
+  assert.match(inputs.filter((input) => /^(commit|rollback);/u.test(input)).at(-1)!, /^commit;/u);
+  assert.ok(inputs.some((input) => /insert into tasks/u.test(input) && /:P1_TITLE := 'Good'/u.test(input)));
 });

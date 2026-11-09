@@ -158,7 +158,8 @@ export function runOraclePlsql(
   owner: PlsqlOwner,
 ): ExecResult {
   const result: ExecResult = { ok: true, value: null, output: '', errors: [] };
-  const risk = transactionRisk(code);
+  // Commit mode lets application code commit, as APEX does; otherwise such a unit could persist work.
+  const risk = oracle.commit ? undefined : transactionRisk(code);
   if (risk) {
     result.ok = false;
     result.failure = {
@@ -249,7 +250,7 @@ export function runOraclePlsql(
           ctx.pageId,
           owner.component,
         );
-      result.output = reply.htp;
+      result.output = renderer.localizeOracleHtml(reply.htp);
       if (reply.error) {
         result.ok = false;
         result.failure = failure(reply.error);

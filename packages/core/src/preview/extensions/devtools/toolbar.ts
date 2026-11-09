@@ -48,7 +48,7 @@ function sessionPanel(renderer: ApexRenderer, ctx: RenderContext): string {
     [
       'Data',
       renderer.oracle
-        ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) · every request rolled back`
+        ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) · ${renderer.oracle.commit ? 'commit mode: successful requests are committed' : 'every request rolled back'}`
         : 'Local SQLite simulation',
     ],
   ]

@@ -146,8 +146,16 @@ export async function previewStart(
     user?: string | undefined;
     toolbar?: boolean | undefined;
     env?: string | undefined;
+    commit?: boolean | undefined;
   },
 ) {
+  const commit = input.commit === true;
+  if (commit && !input.env)
+    throw new Fault(
+      'INVALID_INPUT',
+      "commit needs env: it commits requests to that environment's local Oracle database. The SQLite preview keeps its data anyway.",
+      2,
+    );
   const sourceDir = await resolveSource(root, input.sourceDir);
   await assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
@@ -155,11 +163,12 @@ export async function previewStart(
     previous &&
     !input.reset &&
     input.port === undefined &&
-    (previous.options.oracle?.environment ?? undefined) === input.env
+    (previous.options.oracle?.environment ?? undefined) === input.env &&
+    (previous.options.oracle?.commit === true) === commit
   )
     return describe(previous, true);
   if (previous) await stopServer(sourceDir, previous);
-  const oracle = input.env ? await connectOracle(root, input.env) : undefined;
+  const oracle = input.env ? await connectOracle(root, input.env, undefined, { commit }) : undefined;
   const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
     ...(oracle ? { oracle } : {}),
@@ -207,13 +216,14 @@ function describe(server: PreviewServer, reused: boolean) {
     apexVersion: APEX_FULL_VERSION,
     pages: server.pages(),
     note: server.options.oracle
-      ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); every request is rolled back. Rendering is still simulated; not import or browser evidence.`
+      ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); ${server.options.oracle.commit ? 'commit mode: successful requests are committed, failed ones rolled back' : 'every request is rolled back'}. Rendering is still simulated; not import or browser evidence.`
       : 'Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.',
     data: server.options.oracle
       ? {
           mode: 'oracle',
           environment: server.options.oracle.environment,
           target: server.options.oracle.target,
+          commit: server.options.oracle.commit === true,
         }
       : { mode: 'sqlite' },
     ...summarize(server.diagnostics()),
@@ -410,6 +420,8 @@ export async function previewCheck(
 export async function previewDispatch(operation: string, parsed: Record<string, unknown>, root: string) {
   const { action, ...input } = parsed as Record<string, never> & { action?: string };
   const selected = operation === 'preview' ? String(action) : operation.slice('preview.'.length);
+  if ((input as { commit?: boolean }).commit && selected !== 'start')
+    throw new Fault('INVALID_INPUT', 'commit applies only to preview start with env', 2);
   switch (selected) {
     case 'setup':
       return previewSetup(input);

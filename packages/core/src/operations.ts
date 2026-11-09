@@ -269,6 +269,12 @@ export const schemas = {
   'preview.start': z.strictObject({
     ...previewSource,
     ...previewRun,
+    commit: z
+      .boolean()
+      .default(false)
+      .describe(
+        'With env, on a database on this computer only: commit each successful request instead of rolling it back (working mode)',
+      ),
     port: z.number().int().min(0).max(65535).optional(),
     reset: z.boolean().default(false),
     user: z.string().min(1).max(128).optional(),
@@ -416,6 +422,7 @@ export const schemas = {
     action: z.enum(['setup', 'start', 'check', 'stop', 'status']),
     sourceDir: z.string().min(1).max(4096).optional(),
     env: env.optional(),
+    commit: z.boolean().optional(),
     zip: z.string().min(1).max(4096).optional(),
     port: z.number().int().min(0).max(65535).optional(),
     reset: z.boolean().optional(),

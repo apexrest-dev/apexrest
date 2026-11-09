@@ -6,10 +6,11 @@ import type { Binds, Row } from '../database.ts';
  * batch is a list of segments; each segment ends with a private marker so one
  * reply can carry several JSON envelopes and error texts without ambiguity.
  * Nothing here commits: the session is opened with exit/auto commit off and
- * COMMIT disabled in procedures (see INIT_SESSION).
+ * COMMIT disabled in procedures (see INIT_SESSION). Commit mode (initSession(true))
+ * keeps auto commit off but lets application code commit, as APEX does.
  */
 
-export const INIT_SESSION = [
+const SESSION_SETTINGS = [
   'set define off',
   'set escape off',
   'set echo off',
@@ -19,12 +20,20 @@ export const INIT_SESSION = [
   'set sqlblanklines on',
   'set exitcommit off',
   'set autocommit off',
-  'alter session disable commit in procedure;',
   "alter session set nls_date_format = 'YYYY-MM-DD HH24:MI:SS';",
   "alter session set nls_timestamp_format = 'YYYY-MM-DD HH24:MI:SS.FF';",
   "alter session set nls_numeric_characters = '.,';",
   'exec dbms_output.enable(null);',
-].join('\n');
+];
+
+/** Session setup; without commit mode COMMIT is disabled in stored code. */
+export function initSession(commit = false): string {
+  return (
+    commit ? SESSION_SETTINGS : [...SESSION_SETTINGS, 'alter session disable commit in procedure;']
+  ).join('\n');
+}
+
+export const INIT_SESSION = initSession(false);
 
 const NAME = /^[A-Za-z][\w$#]{0,127}$/u;
 export const RESULT_BIND = 'APEXREST_RESULT';

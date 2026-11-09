@@ -25,6 +25,7 @@
 
 ## Connected and host qualification
 
+- Connected preview commit mode is limited to confirmed-local databases. Decide whether remote DEV/QA/TEST targets should get it with exact human confirmation; until then they are refused. COMMIT in stored code and autonomous transactions under commit mode were not exercised against Oracle.
 - Repeat the 2026-11-06 Bitcoin Price Monitor comparison (`reset-standard.sh`, `reset-plugin.sh` and `run.sh` in the private evidence folder) at least three times per scenario before stating a speed ratio: each recorded figure is a single run. Keep both scenarios on the same model, effort, task text and starting sources.
 - Investigate why opening the imported Alerts page by URL lost the APEX session in the 2026-11-06 browser-design comparison (plugin run), so the alert form was checked only in the preview. The 2026-11-07 plugin re-run did not write initialization JavaScript, so the visible note and `notAppliedLocally` remain unexercised in an agent run. Its second import came from the chart tooltip: consider making the preview's line-chart tooltip follow Oracle JET's default (series, group label and value format) so tooltip gaps are visible before import.
 - Repeat the browser-design comparison (`docs/evidence/btc-ui-20261106/`) at least three times per scenario with a fixed, wider Chrome window; the recorded standard 1,330.8 s versus plugin 815.5 s is a single run per scenario in a tiled 620 px window.
