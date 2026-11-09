@@ -517,6 +517,15 @@ test('worker bridge answers synchronously and resets after a timeout', () => {
 
 test('a project preview seeds from migrations and project .apex-local and writes outside the source tree', async (t) => {
   const { root, app, assets } = await workspace(t);
+  // A private preview registry: stopping "all" previews must not reach the developer's own ones.
+  const home = await mkdtemp(path.join(tmpdir(), 'apexrest-home-'));
+  const before = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = home;
+  t.after(async () => {
+    if (before === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = before;
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  });
   // Move the fixture's legacy <sourceDir>/.apex-local into project migrations and data folders.
   const schema = await readFile(path.join(app, '.apex-local/01-schema.sql'), 'utf8');
   await rm(path.join(app, '.apex-local'), { recursive: true, force: true });
