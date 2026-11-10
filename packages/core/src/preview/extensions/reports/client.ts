@@ -888,14 +888,70 @@ window.apexLocalReports = (function ($) {
       if (!result.ok) { showGridErrors(ig, result.errors || []); return; }
       apex.message.clearErrors();
       apex.message.showPageSuccess("Changes saved");
+      // As the Interactive Grid does; handlers often refresh the region (coalesced below).
+      ig.root$.trigger("interactivegridsave", {});
       return refreshGrid(ig.cfg.region, true);
     });
   }
 
+  // A refresh asked for while one is running joins it, so a save handler and the save itself
+  // do not replace the region twice at the same time.
+  var refreshing = {};
   function refreshGrid(region, withDetails) {
     var ig = grids[region];
-    return refresh(region).then(function () {
+    if (!refreshing[region]) {
+      refreshing[region] = refresh(region).then(
+        function () { delete refreshing[region]; },
+        function (error) { delete refreshing[region]; throw error; });
+    }
+    return refreshing[region].then(function () {
       if (withDetails && ig) return Promise.all(ig.cfg.details.map(function (detail) { return refresh(detail); }));
+    });
+  }
+
+  /**
+   * apex.region(id) of a grid region behaves like an Interactive Grid region: call("getViews"),
+   * call("getActions").invoke("save"), widget() with the interactivegridsave event, refresh().
+   */
+  function registerGridRegion(ig) {
+    var region = ig.cfg.region;
+    if (!document.getElementById(region)) return;
+    var model = function () { var m = apex.model.get(ig.cfg.modelName); apex.model.release(ig.cfg.modelName); return m; };
+    var view = {
+      internalIdentifier: "grid",
+      view$: ig.grid$,
+      get model() { return model(); },
+      getSelectedRecords: function () { return ig.grid$.grid("getSelectedRecords"); },
+      setSelectedRecords: function (records, focus) { return ig.grid$.grid("setSelectedRecords", records, focus); },
+      getRecords: function (rows) { return ig.grid$.grid("getRecords", rows); }
+    };
+    var actions = ig.actions || (ig.actions = apex.actions.createContext("apexLocalGrid", ig.root$[0]));
+    if (!actions.lookup("save")) actions.add({ name: "save", label: "Save", action: function () { saveGrid(ig); } });
+    if (!actions.lookup("refresh")) actions.add({ name: "refresh", label: "Refresh", action: function () { refreshGrid(region, true); } });
+    var methods = {
+      getViews: function (name) { var views = { grid: view }; return name ? views[name] : views; },
+      getCurrentView: function () { return view; },
+      getCurrentViewId: function () { return "grid"; },
+      getActions: function () { return actions; },
+      getToolbar: function () { return ig.toolbar$ || $(); },
+      getSelectedRecords: function () { return view.getSelectedRecords(); },
+      setSelectedRecords: function (records, focus) { return view.setSelectedRecords(records, focus); },
+      gotoCell: function (recordId, column) { return ig.grid$.grid("gotoCell", recordId, column); },
+      focus: function () { return ig.grid$.grid("focus"); },
+      refresh: function () { return refreshGrid(region, true); }
+    };
+    if (apex.region.isRegion && apex.region.isRegion(region)) apex.region.destroy(region);
+    apex.region.create(region, {
+      type: "InteractiveGrid",
+      refresh: function () { return refreshGrid(region, true); },
+      focus: function () { return methods.focus(); },
+      widget: function () { return ig.root$; },
+      call: function (method) {
+        var fn = methods[method];
+        if (!fn) throw new Error("Interactive Grid method " + method + " is not simulated by the local preview");
+        return fn.apply(null, Array.prototype.slice.call(arguments, 1));
+      },
+      gotoError: function () { var el = document.getElementById(region); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); }
     });
   }
 
@@ -1046,6 +1102,7 @@ window.apexLocalReports = (function ($) {
 
     buildToolbar(ig);
     buildControls(ig);
+    registerGridRegion(ig);
   }
 
 

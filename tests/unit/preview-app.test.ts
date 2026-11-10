@@ -531,3 +531,17 @@ test('interactive grid row processing with a PL/SQL Code target runs the code on
   assert.match(failed.errors[0]!.message, /Quantity must not be negative/u);
   assert.equal(server.db.scalar('select count(*) from picked'), 1, 'a failing row undoes the earlier rows');
 });
+
+test('grid regions expose an Interactive Grid region interface in the browser runtime', async (t) => {
+  const { app, assets } = await workspace(t);
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const runtime = await (await fetch(`${server.url}/__apex/runtime.js`)).text();
+  assert.match(runtime, /type: "InteractiveGrid"/u);
+  for (const method of ['getViews', 'getCurrentView', 'getActions', 'getSelectedRecords', 'gotoCell'])
+    assert.match(runtime, new RegExp(`${method}: function`, 'u'));
+  assert.match(runtime, /trigger\("interactivegridsave"/u);
+  // The generic region registration keeps a grid region's Interactive Grid interface.
+  assert.match(runtime, /querySelector\("\[data-apex-local-ig\]"\)/u);
+});

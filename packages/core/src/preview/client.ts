@@ -345,8 +345,12 @@ window.apexLocal = (function ($) {
   }
 
   function registerRegion(region) {
+    var element = document.getElementById(region.id);
+    // Grid regions get an Interactive Grid interface from the reports client; keep it.
+    if (element && element.querySelector("[data-apex-local-ig]") && apex.region.isRegion && apex.region.isRegion(region.id) &&
+        apex.region(region.id).type === "InteractiveGrid") return;
     if (apex.region.isRegion && apex.region.isRegion(region.id)) apex.region.destroy(region.id);
-    if (!document.getElementById(region.id)) return;
+    if (!element) return;
     apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); },
       // Target of the links of region errors in the page notification (interactive grid rows).
       gotoError: function () { var el = document.getElementById(region.id); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); } });
