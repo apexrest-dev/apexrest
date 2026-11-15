@@ -313,7 +313,7 @@ export function shipGrant(
     workerPid: process.pid,
     ...(confirmation ? { confirmedRisks: plan.risks, confirmationRequest: confirmation.userRequest } : {}),
     operations: ['deploy'],
-    note: userRequest.slice(0, 2000),
+    note: userRequest.slice(0, 16000),
     grantedBy: 'ship',
     grantedAt: new Date().toISOString(),
   };

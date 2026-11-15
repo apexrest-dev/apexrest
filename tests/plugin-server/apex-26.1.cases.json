@@ -938,15 +938,17 @@
     {
       "id": "A261-049",
       "title": "26.1 release isolation and unsupported selected import",
-      "acceptance": ["APEX262-01", "APEX262-02", "APEX262-03", "REF262-01"],
+      "acceptance": ["APEX262-01", "APEX262-02", "APEX262-03", "REF262-01", "AUTHOR262-01"],
       "execution": "manual",
       "surface": "specified-in-steps",
       "authorization": "read-only-or-local",
       "steps": [
-        "Check source/compiler profile; on copied sources request explicit file mode on 26.1; use 26.1 references only."
+        "Check source/compiler profile; on copied sources request explicit file mode on 26.1; use 26.1 references only.",
+        "Request project scaffold on a copied 26.1 starter with a valid report/card/bar specification and compare the complete source inventory before and after."
       ],
       "expected": [
-        "Unsupported partial import refused with no full fallback; 26.2 functionality is not claimed."
+        "Unsupported partial import refused with no full fallback; 26.2 functionality is not claimed.",
+        "Scaffold returns SCAFFOLD_RELEASE_UNSUPPORTED before changing source files or accessing Oracle; successful 26.2 authoring is qualified separately by A262-018."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",

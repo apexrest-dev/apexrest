@@ -154,7 +154,8 @@ test('ship schemas require the literal user request and refuse production apply 
   const f = await workingCopyFixture();
   f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
   t.after(() => rm(f.ctx.root, { recursive: true, force: true }));
-  assert.equal(schemas.ship.safeParse({ env: 'dev', userRequest: 'short' }).success, false);
+  assert.equal(schemas.ship.safeParse({ env: 'dev', userRequest: 'test it' }).success, true);
+  assert.equal(schemas.ship.safeParse({ env: 'dev', userRequest: '   ' }).success, false);
   assert.equal(schemas.ship.parse({ env: 'dev', userRequest: 'Deploy page ten' }).mode, 'plan');
   const config = {
     ...f.ctx.config,
@@ -385,7 +386,7 @@ test('MCP catalog is twelve tools with correct annotations and a bounded footpri
   };
   assert.equal(ship.properties.waitSeconds!.default, 25);
   assert.equal(ship.properties.waitSeconds!.maximum, 120);
-  assert.equal(ship.properties.userRequest!.minLength, 10);
+  assert.equal(ship.properties.userRequest!.minLength, 1);
   assert.ok(
     ship.required.includes('project') &&
       ship.required.includes('env') &&

@@ -27,7 +27,7 @@ Both commands report `npmReady`, `stableReady`, qualification status and each re
 
 ### The retained 2.2.0 npm exception
 
-Source version 2.7.0 does not inherit the retained 2.2.0 npm local-evidence exception.
+Source version 2.8.0 does not inherit the retained 2.2.0 npm local-evidence exception.
 
 - The retained 2.2.0 setting requires both publisher opt-ins, `enabled` and `npmEnabled`.
 - Its explicit `npmReadiness` exception is bound to version `2.2.0`.

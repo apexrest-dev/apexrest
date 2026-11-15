@@ -500,6 +500,93 @@ test('local no-op opens no Oracle session and makes no server freshness claim', 
   assert.deepEqual(f.calls, []);
 });
 
+for (const newApplication of [false, true])
+  test(`26.2 ${newApplication ? 'new application' : 'explicit full'} planning reuses its versioned identity read`, async (t) => {
+    const f = await initialized(t);
+    if (newApplication) {
+      await f.service.sync(f.ctx, 'dev', 'invalidate');
+      f.controls.exists = false;
+    } else await f.edit(page, 'changed page');
+    f.calls.length = 0;
+    let versionReads = 0;
+    f.oracle.versionedTarget = async (env, connection) => {
+      versionReads++;
+      return {
+        target: await f.oracle.verifyTarget(env, connection),
+        versions: await f.oracle.targetVersions(connection),
+      };
+    };
+    const plan = await f.service.plan(f.ctx, 'dev', { importMode: newApplication ? 'auto' : 'full' });
+    assert.equal(plan.scope, 'full-application-import');
+    assert.equal(versionReads, 1);
+    assert.equal(f.calls.filter((call) => call === 'target').length, 1);
+    assert.equal(f.calls.filter((call) => call === 'export:APEXLANG').length, newApplication ? 0 : 1);
+    assert.equal(f.calls.filter((call) => call === 'validate').length, 1);
+  });
+
+test('auto plans and applies pending migrations without an application import', async (t) => {
+  const f = await initialized(t);
+  const file = f.ctx.config.database.migrationsDir + '/0001__fixture.sql';
+  await atomicWrite(path.join(f.ctx.root, file), 'create table fixture_rows (id number);\n');
+  const statements: string[] = [];
+  f.oracle.session = async (sql) => {
+    statements.push(sql);
+    return { output: sql.match(/APEXREST_SCRIPT_COMPLETE_\w+/)?.[0] ?? '' } as Awaited<
+      ReturnType<OracleAdapter['session']>
+    >;
+  };
+  const plan = await f.service.plan(f.ctx, 'dev');
+  assert.equal(plan.scope, 'database-only');
+  assert.deepEqual(
+    plan.operations.map((op) => op.kind),
+    ['migration'],
+  );
+  assert.equal(plan.backupRequired, false);
+  deployPlanSchema.parse(plan);
+  await f.apply(plan);
+  assert.ok(statements.some((sql) => sql.includes('0001__fixture.sql')));
+  assert.deepEqual(f.imports, []);
+  f.calls.length = 0;
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'NO_LOCAL_CHANGES' });
+  assert.deepEqual(f.calls, [], 'successful scripts are not planned again');
+  await atomicWrite(path.join(f.ctx.root, file), '-- mutated applied migration');
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'MIGRATION_HISTORY_CONFLICT' });
+  assert.deepEqual(f.calls, []);
+});
+
+test('auto detects changed packages while explicit unchanged file selection stays a no-op', async (t) => {
+  const f = await initialized(t);
+  const file = f.ctx.config.database.packagesDir + '/fixture.sql';
+  await atomicWrite(path.join(f.ctx.root, file), 'create or replace package fixture as x number; end;\n/\n');
+  await assert.rejects(f.service.plan(f.ctx, 'dev', { importMode: 'files', files: [page] }), {
+    code: 'NO_LOCAL_CHANGES',
+  });
+  assert.deepEqual(f.calls, []);
+  const plan = await f.service.plan(f.ctx, 'dev');
+  assert.equal(plan.scope, 'database-only');
+  assert.deepEqual(
+    plan.operations.map((op) => op.kind),
+    ['package'],
+  );
+  const control = new LocalDeploymentControl(f.env);
+  await control.acquire('fixture');
+  await control.packageApplied('fixture', f.ctx.config.projectId, file, plan.sources[file]!);
+  await control.release('fixture');
+  f.calls.length = 0;
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'NO_LOCAL_CHANGES' });
+  assert.deepEqual(f.calls, []);
+});
+
+test('auto no-op refuses unresolved local migration history before opening Oracle', async (t) => {
+  const f = await initialized(t);
+  const control = new LocalDeploymentControl(f.env);
+  await writeJson(control.file('history.json'), [
+    { version: '0001__fixture.sql', checksum: hash('fixture'), status: 'started', run_id: 'fixture' },
+  ]);
+  await assert.rejects(f.service.plan(f.ctx, 'dev'), { code: 'MIGRATION_HISTORY_CONFLICT' });
+  assert.deepEqual(f.calls, []);
+});
+
 test('APEXlang selected backup restores the previous page without replacing siblings or SQL', async (t) => {
   const f = await initialized(t);
   await f.edit(page, 'page version two');

@@ -394,6 +394,36 @@
       ],
       "budgetMs": null,
       "samples": 20
+    },
+    {
+      "id": "A262-018",
+      "title": "Source-preserving routine scaffold creation and regeneration",
+      "category": "speed+quality",
+      "acceptance": ["AUTHOR262-01", "A08", "A12", "A34", "VERIFY-01"],
+      "execution": "manual",
+      "surface": "CLI-and-stdio-MCP",
+      "authorization": "Identified DEV/QA/TEST application creation or update; SQL observations only when explicitly requested. No business-table writes or authentication changes.",
+      "steps": [
+        "Start with identical Oracle-generated 26.2 Universal Theme sources and verified read-only table columns; retain metadata, authentication, authorization, global and login file hashes.",
+        "Write one JSON specification for reports, KPI cards and a bar chart; call project scaffold, then one guarded ship. Compare required imported pages, report columns, chart mappings and navigation with the task.",
+        "For explicitly requested SQL observations, pass the exact environment key and manually invoke the returned private observation file only after successful import. Retain actual metadata, counts, bounded samples and target identity separately from compiler/import results.",
+        "Regenerate unchanged owned pages, then edit one manually and repeat; separately request an unowned existing page. Compare source inventories and retained staged files.",
+        "For an agent speed comparison use the same task, model, effort, starter, data and independent quality audit with interleaved classic/optimized trials; retain every attempt and raw token counters."
+      ],
+      "expected": [
+        "Native output compiles and imports with the existing identity, authorization, backup, drift and unknown-outcome guards; metadata/security files remain byte-identical.",
+        "Regeneration does not duplicate navigation; manual edits and unowned pages block replacement without losing source changes. Observation generation/execution does not enter the plugin's deployment gate or create an automated application test runner.",
+        "Measurements report sample counts, median time, input/cache/output tokens, calls and failures with bounded scope; no browser or general speed claim is inferred."
+      ],
+      "evidence": [
+        "exact runtime/source/manifest, compiler/MMD and target identity",
+        "before/after file hashes, staged copies and source conflict diagnostics",
+        "Oracle compiler, guarded import and independent metadata/query observations",
+        "task/model/effort bindings, per-attempt wall time and actual host token usage",
+        "explicit not-run or blocked reasons for remaining scope"
+      ],
+      "budgetMs": null,
+      "samples": 3
     }
   ]
 }

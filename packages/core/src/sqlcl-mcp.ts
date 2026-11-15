@@ -180,7 +180,26 @@ export class SqlclMcpClient {
     this.text(result, uncertain);
     return result;
   }
-  async connect(connectionName: string, options: () => CallOptions) {
+  async connect(connectionName: string, options: () => CallOptions, command = false) {
+    if (command) {
+      // SQLcl 26.3's MCP connect tool forces JDBC auto-commit on when a saved
+      // connection omits that property. Its own CONNECT command retains normal
+      // SQLcl transaction semantics. Use this only for CLI-owned servers; native
+      // MCP restriction policy still uses the advertised connect tool below.
+      if (!connectionName || /[\x00-\x1f\x7f"&\\]/.test(connectionName))
+        throw new Fault('INVALID_SQLCL_TOKEN', 'Saved connection name is unsafe for SQLcl CONNECT.', 2);
+      const result = await this.execute(
+        `set define off\nconnect -name "${connectionName}"`,
+        options,
+        () => false,
+      );
+      // SQLcl command errors can arrive in successful MCP envelopes. A failed
+      // CONNECT must not submit a subsequent batch on an unconfirmed session.
+      const output = this.text(result);
+      return /(?:ORA-|SP2-|PLS-)\d+|(?:Unknown connection|Connection not found)\b/i.test(output)
+        ? { ...result, isError: true }
+        : result;
+    }
     if (!this.tools?.connect)
       throw new Fault(
         'UNSUPPORTED_CAPABILITY',

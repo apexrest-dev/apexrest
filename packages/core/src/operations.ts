@@ -130,6 +130,7 @@ export const schemas = {
     workingCopy: z.boolean().default(false),
   }),
   'project.inspect': z.strictObject({ ...base, detail: z.enum(['full', 'summary']).default('full') }),
+  'project.scaffold': z.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   'connection.add': z
     .strictObject({
       ...base,
@@ -311,7 +312,16 @@ export const schemas = {
   project: z.strictObject({
     debugTimings: z.boolean().optional(),
     ...base,
-    action: z.enum(['init', 'adopt', 'inspect', 'connection_add', 'connection_list', 'connection_test']),
+    action: z.enum([
+      'init',
+      'adopt',
+      'inspect',
+      'scaffold',
+      'connection_add',
+      'connection_list',
+      'connection_test',
+    ]),
+    specFile: relativePath.optional().describe('scaffold: JSON spec; see work skill scaffold guide'),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
     alias: refName.optional(),
@@ -359,7 +369,13 @@ export const schemas = {
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     offset: z.number().int().min(0).max(10000000).default(0),
-    limit: z.number().int().min(1).max(8192).optional().describe('search/select: 1-8; read: chars'),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(32768)
+      .optional()
+      .describe('search/select: 1-8; read: capped to 8192 chars, follow nextOffset'),
   }),
   ship: z
     .strictObject({
@@ -378,11 +394,10 @@ export const schemas = {
       ...importOptions,
       userRequest: z
         .string()
-        .min(10)
-        .max(2000)
-        .describe(
-          "The user's literal instruction that authorizes this change (recorded with the deploy grant)",
-        ),
+        .trim()
+        .min(1)
+        .max(16000)
+        .describe('Literal human instruction authorizing this change'),
     })
     .superRefine(checkImportOptions)
     .superRefine((value, ctx) => {
@@ -413,7 +428,7 @@ export const schemas = {
         userRequest: z.string().min(1).max(2000),
       })
       .optional(),
-    userRequest: z.string().min(10).max(2000),
+    userRequest: z.string().trim().min(1).max(16000),
   }),
   'peer.status': z.strictObject(base),
   'peer.review': z.strictObject({
@@ -474,7 +489,7 @@ export const toolCatalog: {
     name: 'apexrest_project',
     operation: 'project',
     description:
-      'App init/adopt/inspect and connection add/list/test. Credentials via private passwordFile/envFile; never in tool text.',
+      'App init/adopt/inspect/scaffold (26.2 reports/cards/bar charts). Connections add/list/test; private passwordFile/envFile.',
     readOnly: false,
     destructive: false,
     openWorld: true,
@@ -482,8 +497,7 @@ export const toolCatalog: {
   {
     name: 'apexrest_reference',
     operation: 'reference',
-    description:
-      'Local references; select components with optional OpenAI Decisions. project required for select. Host writes APEXlang.',
+    description: 'Offline references; select uses optional OpenAI Decisions and requires project.',
     readOnly: true,
     openWorld: true,
   },

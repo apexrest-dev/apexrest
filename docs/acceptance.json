@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "asOf": "2026-11-15",
-  "release": "2.7.0",
+  "release": "2.8.0",
   "overall": "partial-local",
   "statusSemantics": {
     "implemented": "Executable code exists; does not imply live verification.",
@@ -101,8 +101,15 @@
       "criterion": "The new-app template passes real Oracle compiler validation",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["tests/unit/sqlcl-transport.test.ts", "tests/contracts/mcp.test.mjs"],
-      "blocker": "Real Oracle compiler checks require the selected supported SQLcl toolchain; connected imports are separate."
+      "evidence": [
+        "tests/unit/sqlcl-transport.test.ts",
+        "tests/contracts/mcp.test.mjs",
+        "tests/unit/validation-integrity.test.ts",
+        "docs/evidence/box-ab-20261115/report.json",
+        "docs/evidence/box-ab-20261115/common-audit.json",
+        "docs/evidence/box-optimization-20261115/with-readback/report.json"
+      ],
+      "blocker": "Local 26.2 Box-subset apps compiled and imported with SQLcl 26.3 and passed common server metadata/SQL checks. Optimized trials exercise integrated guarded shipping after the initial pilot required a direct SQLcl fallback. Broader compiler/platform combinations and browser behavior remain separate qualification."
     },
     {
       "id": "A09",
@@ -130,7 +137,12 @@
       "criterion": "Source mutation after planning and target drift block apply",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
+      "evidence": [
+        "packages/core/src/deploy.ts",
+        "tests/unit/deployment.test.ts",
+        "tests/unit/inventory.test.ts",
+        "tests/unit/validation-integrity.test.ts"
+      ],
       "blocker": "Source and target-drift behavior tested with fixtures; actual DB drift requires an authorized target."
     },
     {
@@ -138,8 +150,14 @@
       "criterion": "Target DB/service/workspace/schema/application ID are verified before writes",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["packages/core/src/oracle.ts", "tests/unit/oracle-performance.test.ts"],
-      "blocker": "Fresh target identity and mismatch failures are covered by unit fixtures. Actual connected pre-write/post-write checks and the full negative matrix remain unverified."
+      "evidence": [
+        "packages/core/src/oracle.ts",
+        "tests/unit/oracle-performance.test.ts",
+        "tests/unit/partial-import.test.ts",
+        "tests/unit/sqlcl-read-scope.test.ts",
+        "docs/evidence/box-optimization-20261115/mechanical.jsonl"
+      ],
+      "blocker": "Fresh target identity and mismatch failures are covered by unit fixtures; local SQLcl 26.3/26.2 shipping and target-bound read-only observations exercise positive identity checks. Remote/platform combinations and the complete connected negative matrix remain unverified."
     },
     {
       "id": "A13",
@@ -154,8 +172,13 @@
       "criterion": "Migration checksums and journals work without blind reapplication",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
-      "blocker": "Migration history and coordination are local only. The 2026-10-31 local shell/fake-Oracle review reproduced exit-drain descendant termination being accepted as process success and persisted as a succeeded migration. Real Oracle DDL interruption/reconciliation requires an authorized target."
+      "evidence": [
+        "packages/core/src/deploy.ts",
+        "tests/unit/deployment.test.ts",
+        "tests/unit/process-tree.test.ts",
+        "tests/unit/partial-import.test.ts"
+      ],
+      "blocker": "Migration history and coordination are local only. Local fixtures cover automatic database-only planning and POSIX drain-expiry unknown outcomes. Real Oracle DDL interruption/reconciliation and Windows process qualification require separate evidence."
     },
     {
       "id": "A15",
@@ -177,9 +200,10 @@
         "tests/unit/core.test.ts",
         "tests/unit/safety-policy.test.ts",
         "tests/unit/working-copy.test.ts",
-        "docs/deployment-safety.md"
+        "docs/deployment-safety.md",
+        "tests/unit/process-tree.test.ts"
       ],
-      "blocker": "Local recovery fixtures and one authorized connected already-applied reconciliation passed. The 2026-10-31 review reproduced unflagged exit-drain termination and an uncancelled drain SIGKILL after normal process close. Broader lost-response/interruption, multi-host and operation-specific SQL reconciliation remain separate qualification."
+      "blocker": "Local recovery fixtures and one authorized connected already-applied reconciliation passed. POSIX process regressions cover drain-expiry timeout/unknown outcomes and cancellation of the drain timer after normal close. Oracle/JVM interruption, Windows, multi-host and operation-specific SQL reconciliation remain separate qualification."
     },
     {
       "id": "A17",
@@ -270,7 +294,7 @@
       "implementation": "implemented",
       "verification": "passed",
       "evidence": ["scripts/check-release-readiness.mjs", "tests/contracts/release-readiness.test.mjs"],
-      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.7.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
+      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.8.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
       "regeneratedEvidence": ["dist/releases/release-readiness.json"]
     },
     {
@@ -320,16 +344,18 @@
     },
     {
       "id": "A34",
-      "criterion": "Reduce plugin instruction/catalog context, reuse fresh reference normalization and wait for existing jobs within one bounded MCP call without changing authorization, outcomes or effective input constraints",
+      "criterion": "Reduce plugin instruction/catalog context, reuse fresh reference normalization and wait for existing jobs within one bounded MCP call while preserving bounded inputs, authorization and outcomes",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
         "tests/unit/jobs-wait.test.ts",
         "tests/unit/references.test.ts",
+        "tests/unit/scaffold.test.ts",
         "tests/contracts/mcp.test.mjs",
-        "scripts/benchmark-plugin-context.mjs"
+        "scripts/benchmark-plugin-context.mjs",
+        "docs/evidence/box-optimization-20261115/with-readback/report.json"
       ],
-      "blocker": "Local byte and retrieval measurements plus isolated runtime tests only. End-to-end native APEX task latency, Oracle performance and billed-token savings remain unmeasured."
+      "blocker": "Local byte/retrieval and runtime tests are supplemented by a three-per-arm interleaved native Codex CLI Box creation comparison with Oracle audits. Caches are not flushed; marketplace discovery, general task/update speed, other hosts and billed monetary savings remain unqualified."
     },
     {
       "id": "A35",
@@ -342,9 +368,10 @@
         "tests/unit/metadata-batch.test.ts",
         "tests/unit/project-summary.test.ts",
         "tests/unit/mcp-output.test.ts",
-        "tests/contracts/mcp.test.mjs"
+        "tests/contracts/mcp.test.mjs",
+        "docs/evidence/box-optimization-20261115/with-readback/report.json"
       ],
-      "blocker": "Local stdio MCP and CLI contracts are covered. SQLcl 26.3 metadata batching was checked on local APEX 26.2; native task latency and billed-token savings are unmeasured."
+      "blocker": "Local stdio MCP/CLI contracts and SQLcl 26.3 metadata batching are covered. The matched Box creation experiment measures local native Codex CLI task wall time and reported token usage; other tasks, hosts, transports and billed monetary savings remain unqualified."
     },
     {
       "id": "A36",
@@ -821,6 +848,23 @@
       "blocker": "Fresh Codex and Claude Code work cycles, ship/job execution and browser handoff require native-host qualification."
     },
     {
+      "id": "AUTHOR262-01",
+      "criterion": "A bounded JSON specification generates native 26.2 reports, cards, bar charts and navigation while preserving Oracle metadata/security and blocking replacement of unowned or manually edited pages; optional target-bound SQL observations are generated only",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/scaffold.ts",
+        "packages/core/src/scaffold-observations.ts",
+        "resources/scaffold/observations.sql",
+        "tests/unit/scaffold.test.ts",
+        "tests/plugin-server/apex-26.2.extensions.json",
+        "plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md",
+        "docs/evidence/box-optimization-20261115/mechanical-audit.txt",
+        "docs/evidence/box-optimization-20261115/with-readback/report.json"
+      ],
+      "blocker": "Local Oracle compiler/import and native Codex CLI creation cases cover a Universal Theme starter with three reports, KPI cards and a bar chart. Regeneration/conflict behavior has repository coverage; real update performance, custom components, non-26.2 releases, browser behavior and broader platforms remain unqualified. Scaffold and ship never execute the optional observation file or add a test gate."
+    },
+    {
       "id": "VERIFY-01",
       "criterion": "The plugin has no automated application unit/SQL/API/UI runners, no browser-auth-state capture and no browser-install step; repository self-tests remain",
       "implementation": "implemented",
@@ -846,7 +890,7 @@
         "packages/core/src/local-env.ts",
         "docs/deployment-safety.md"
       ],
-      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. The 2026-10-31 review reconfirmed missing remote confirmation for parameterless query calls and calls inside CTAS, and reproduced unflagged exit-drain termination, a delayed group SIGKILL after normal close and a passwordFile parent-symlink escape. These defects remain open. Real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
+      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. Missing remote confirmation for parameterless query calls and calls inside CTAS, and a passwordFile parent-symlink escape remain open. Process-drain classification and stale-timer defects have local POSIX regression coverage; real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
     },
     {
       "id": "REF262-01",

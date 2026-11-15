@@ -158,6 +158,7 @@ The toolbar's Session panel and the `start` result name the environment and targ
   - The connection must be a SQLcl saved connection; ORDS-only connections cannot hold one transaction and are refused.
   - On connect the database unique name, service, parsing schema and workspace must match the environment exactly, as for deployment.
 - **Session.** The preview opens one SQLcl MCP server in a worker thread and keeps its session for the life of the preview. The renderer waits synchronously for each batch. The session starts with `exitcommit` and `autocommit` off and `ALTER SESSION DISABLE COMMIT IN PROCEDURE`.
+- **Named connections.** In CLI transport, the owned server connects through SQLcl's `CONNECT -name` command. This retains normal transaction settings when the saved connection omits `autoCommit`; SQLcl 26.3's MCP `connect` tool enables JDBC auto-commit in that case. Explicit MCP transport retains its advertised connect tool. A rollback probe still refuses a session whose JDBC auto-commit is on, before application queries run. No saved connection properties are changed.
 - **Warm-up.** Before `start` (or `check`) returns, the session reads column, primary-key and key-default metadata for all tables and views of the parsing schema in two dictionary queries and, when the application is installed, creates one APEX session. Both are rolled back. The first page therefore does not pay one dictionary round trip per table or the first APEX initialization; tables of other schemas are still looked up on first use. A warm-up failure is ignored and the per-request lookups remain.
 
 ### Transactions
@@ -168,7 +169,7 @@ The toolbar's Session panel and the `start` result name the environment and targ
   - The session then allows COMMIT in stored code, and page code with `COMMIT`, `ROLLBACK`, dynamic SQL or autonomous transactions is sent to Oracle instead of being skipped.
   - The tripwire is off.
   - The APEX session that each unit creates is deleted before the commit.
-  - Commit mode is refused (`PREVIEW_COMMIT_REMOTE_REFUSED`) unless the saved connection is confirmed local by the same endpoint and server-identity check as deployment (see [deployment safety](deployment-safety.md)); production is refused as always, and the saved connection still needs `autoCommit=false`.
+  - Commit mode is refused (`PREVIEW_COMMIT_REMOTE_REFUSED`) unless the saved connection is confirmed local by the same endpoint and server-identity check as deployment (see [deployment safety](deployment-safety.md)); production is refused as always, and JDBC auto-commit must be off.
   - `check` never commits.
   - DDL from the preview itself is still never sent.
 - **What cannot commit.** Oracle blocks COMMIT only inside stored code, not in anonymous blocks or dynamic SQL.

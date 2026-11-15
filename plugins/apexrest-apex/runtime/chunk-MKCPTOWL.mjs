@@ -7,11 +7,11 @@ import {
   mcpCallOptions,
   mcpFailure,
   mcpResult
-} from "./chunk-4FMLUYZ7.mjs";
+} from "./chunk-J2ZZKOUD.mjs";
 import {
   canonical,
   hash
-} from "./chunk-C7ONAFBZ.mjs";
+} from "./chunk-72F3ZMZP.mjs";
 import {
   Fault
 } from "./chunk-JVBX3L43.mjs";
@@ -52,6 +52,7 @@ function sqlclSessionKey(request) {
       javaHome: request.env?.JAVA_HOME ?? null,
       args: request.args,
       connectionName: request.connectionName ?? null,
+      commandConnect: request.commandConnect ?? false,
       cwd: request.cwd,
       readScope: request.readScope ?? null
     })
@@ -129,7 +130,11 @@ async function prepare(session, request, options, timing) {
     timing.spawnMs = (timing.spawnMs ?? 0) + performance.now() - spawnStarted;
     if (request.connectionName) {
       const connectStarted = performance.now();
-      const connected = await session.client.connect(request.connectionName, options());
+      const connected = await session.client.connect(
+        request.connectionName,
+        options(),
+        request.commandConnect
+      );
       timing.connectMs = (timing.connectMs ?? 0) + performance.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.client.text(connected));
     }

@@ -5,38 +5,40 @@ import {
   registerPreview,
   stopOtherPreview,
   unregisterPreview
-} from "./chunk-WYGOXF3Y.mjs";
+} from "./chunk-RD7P4VAE.mjs";
 import {
   OracleAppData,
   PreviewServer,
   WorkerBridge,
   checkApplication,
   localGaps
-} from "./chunk-6VX56PE4.mjs";
+} from "./chunk-46S3HU25.mjs";
 import {
   APEX_DOWNLOAD_URL,
   APEX_FULL_VERSION,
   defaultAssetsDir,
-  loadApplication,
   loadAssets,
   setupAssets
-} from "./chunk-QF3FUIGG.mjs";
+} from "./chunk-P2HQPB2E.mjs";
+import {
+  loadApplication
+} from "./chunk-VJRFADO6.mjs";
 import "./chunk-N3KQBIVW.mjs";
 import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-RXTQAEKG.mjs";
-import "./chunk-64FD5OTX.mjs";
+} from "./chunk-YI25QNSI.mjs";
+import "./chunk-33BV6A47.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject
-} from "./chunk-GGZKKEXV.mjs";
-import "./chunk-NSJ6MZ2Y.mjs";
-import "./chunk-4FMLUYZ7.mjs";
+} from "./chunk-DFK3P5MT.mjs";
+import "./chunk-MKCPTOWL.mjs";
+import "./chunk-J2ZZKOUD.mjs";
 import "./chunk-WBDBC3GS.mjs";
-import "./chunk-C7ONAFBZ.mjs";
+import "./chunk-72F3ZMZP.mjs";
 import {
   Fault
 } from "./chunk-JVBX3L43.mjs";
@@ -66,7 +68,8 @@ async function workerSettings(connectionName) {
     args: settings.mode === "mcp" && settings.mcpRestrictLevel === "4" ? ["-mcp"] : ["-R", "1", "-mcp"],
     cwd: await adapter.sessionHome(),
     env,
-    connectionName
+    connectionName,
+    commandConnect: settings.mode === "cli"
   };
 }
 function warmUp(data, apex) {
@@ -572,7 +575,7 @@ async function previewDispatch(operation, parsed, root) {
   }
 }
 async function buildWebappOperation(root, input) {
-  const { buildWebapp } = await import("./chunk-ZCBYG3VH.mjs");
+  const { buildWebapp } = await import("./chunk-4AW7ZWSA.mjs");
   const sourceDir = await resolveSource(root, input.sourceDir);
   return buildWebapp({
     sourceDir,

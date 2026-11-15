@@ -450,6 +450,7 @@ export class OracleAdapter {
             mutation,
             completionMarker: marker,
             ...(selected?.name ? { connectionName: selected.name } : {}),
+            ...(pooled && settings.mode === 'cli' ? { commandConnect: true } : {}),
             ...(readScope && pooled ? { readScope } : {}),
           })
         : await this.runner(request);
@@ -868,6 +869,10 @@ export class OracleAdapter {
         'Preserve Oracle-generated .apex/apexlang.json before validation.',
         3,
       );
+    const metadata = await readFile(metadataFile);
+    const expected = { ...before, '.apex/apexlang.json': hash(metadata) };
+    if (before['.apex/apexlang.json'] && before['.apex/apexlang.json'] !== expected['.apex/apexlang.json'])
+      throw new Fault('SOURCE_DRIFT', 'Metadata changed before validation.', 5);
     const stage = await this.stage(),
       copy = path.join(stage, 'application');
     let result;
@@ -877,6 +882,10 @@ export class OracleAdapter {
         await mkdir(path.join(copy, '.apex'), { recursive: true });
         await cp(metadataFile, path.join(copy, '.apex/apexlang.json'));
       }
+      // The compiler must see the inventory we bind, including borrowed metadata. A source
+      // edit while copying can otherwise compile different bytes even if later reverted.
+      if (canonical(await inventory(copy)) !== canonical(expected))
+        throw new Fault('SOURCE_DRIFT', 'Source changed while staging validation.', 5);
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
         undefined,
@@ -902,10 +911,12 @@ export class OracleAdapter {
     if (!compilerSucceeded(result.output)) throw await compilerFault(result.output, source);
     if (canonical(before) !== canonical(await inventory(source)))
       throw new Fault('SOURCE_DRIFT', 'Source changed during validation.', 5);
+    if (hash(await readFile(metadataFile)) !== expected['.apex/apexlang.json'])
+      throw new Fault('SOURCE_DRIFT', 'Metadata changed during validation.', 5);
     return {
       status: 'passed',
       compiler,
-      mmd: JSON.parse(await readFile(metadataFile, 'utf8')) as unknown,
+      mmd: JSON.parse(metadata.toString('utf8')) as unknown,
       sourceDigest: hash(canonical(before)),
       output: result.output,
     };

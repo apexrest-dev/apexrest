@@ -50,7 +50,7 @@ Frozen intermediate sources remain available for inspection, without automatic r
 
 ## Import a page and its LOV on APEX 26.2
 
-The current source bundle supports `auto`, `files` and `full` import modes.
+The current source bundle supports `auto`, `files`, `full` and database-only `none` import modes.
 
 ### Requirements for a partial import
 
@@ -100,6 +100,7 @@ The planner compares baseline **B**, local sources **L** and a fresh server expo
 ### Limits of each mode
 
 - `auto` can resolve to a full plan with reasons for unsupported files, deletions, absent sync/application, transport or database work.
+- With a valid 26.2 checkpoint and unchanged application sources, `auto` plans pending migrations or changed packages as database-only work. Applied scripts remain a local no-op. Use `none` to explicitly request database-only planning.
 - Observed remote changes must be reconciled before a full fallback, and conflicts never become a full import.
 - `files` refuses an ineligible selection without widening it.
 - Themes, templates, plug-ins, workspace components, static files/assets and authentication/authorization files are outside this partial-import implementation.

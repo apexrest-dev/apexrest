@@ -7316,6 +7316,7 @@ async function runProcess(r) {
       timing.spawnMs = performance2.now() - started;
     });
     let stdout = "", stderr = "", bytes = 0, timedOut = false, cancelled = false, truncated = false, settled = false;
+    let drain;
     const decoders = [new StringDecoder("utf8"), new StringDecoder("utf8")];
     const max = r.maxBytes ?? 1024 * 1024;
     const stop = () => stopTree(child);
@@ -7348,6 +7349,7 @@ async function runProcess(r) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       r.signal?.removeEventListener("abort", abort);
       timing.executeMs = performance2.now() - started - (timing.spawnMs ?? 0);
       emitSqlclTiming(r.onSqlclTiming, timing, started);
@@ -7364,17 +7366,20 @@ async function runProcess(r) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       r.signal?.removeEventListener("abort", abort);
       emitSqlclTiming(r.onSqlclTiming, timing, started);
       reject(new Fault("DEPENDENCY_MISSING", e.message, 3, "dependency_missing"));
     });
     child.on("close", (code) => finish(code));
-    child.on("exit", (code) => {
-      const drain = setTimeout(() => {
+    child.on("exit", () => {
+      if (settled) return;
+      drain = setTimeout(() => {
+        timedOut = true;
         killTree(child, "SIGKILL");
         child.stdout?.destroy();
         child.stderr?.destroy();
-        finish(code);
+        finish(null);
       }, DRAIN_AFTER_EXIT_MS);
       drain.unref();
     });
@@ -10901,7 +10906,19 @@ var SqlclMcpClient = class {
     this.text(result, uncertain);
     return result;
   }
-  async connect(connectionName, options) {
+  async connect(connectionName, options, command = false) {
+    if (command) {
+      if (!connectionName || /[\x00-\x1f\x7f"&\\]/.test(connectionName))
+        throw new Fault("INVALID_SQLCL_TOKEN", "Saved connection name is unsafe for SQLcl CONNECT.", 2);
+      const result = await this.execute(
+        `set define off
+connect -name "${connectionName}"`,
+        options,
+        () => false
+      );
+      const output = this.text(result);
+      return /(?:ORA-|SP2-|PLS-)\d+|(?:Unknown connection|Connection not found)\b/i.test(output) ? { ...result, isError: true } : result;
+    }
     if (!this.tools?.connect)
       throw new Fault(
         "UNSUPPORTED_CAPABILITY",

@@ -1,50 +1,33 @@
 # Current release notes
 
-## Source bundle 2.7.0
+## Source bundle 2.8.0
 
-The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
+The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports, [APEX 26.2 partial imports and routine page generation](apex-26.2.md), pinned release profiles and guarded deployment. Use the repository installation for this source version; registry packages are a separate distribution path.
 
-Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
+Application verification uses the host in-app browser when requested. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift, coordination and readback protections remain in the deployment path.
 
-## Changes in 2.7.0
+## Changes
 
-- Deployment of a changed application takes about half the time: the reads of a plan or apply share one connected SQLcl server, a full import runs on a restricted server that already loaded the compiler, and SQLcl capabilities are kept across processes. Measured on a local APEX 26.2 database: 23.8 s instead of 51.4 s to validate and ship one added page. The checks, the backup and the outcome classification are unchanged; three [environment switches](configuration.md#runtime-configuration) restore the previous transport. Remote databases, Windows and SQLcl 26.1 are not yet qualified.
-- Align package, workspace and Codex/Claude Code source versions to 2.7.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+- Generate native 26.2 interactive reports, KPI cards, bar charts and navigation with `project scaffold`, using one bounded JSON specification. Keep Oracle metadata/security and refuse replacement of unowned or manually edited pages. See [routine page generation](apex-26.2.md#generate-routine-pages).
+- Generate a private target-bound observation SQL file when an identified task requests metadata/query observations. The caller runs it manually after import; neither scaffold nor ship executes it or adds an application-test gate.
+- Route supported patterns through scaffold and one guarded ship. Improve bar-chart retrieval and input handling to avoid repeated lookup and validation failures.
+- Fix CLI-owned SQLcl connections whose MCP connect tool enabled JDBC auto-commit when the saved connection omitted the setting. `CONNECT -name` retains normal SQLcl transaction behavior without changing saved connection properties. Rollback and identity checks remain; explicit MCP transport retains its advertised connect tool.
+- Read source inventories with bounded concurrency, plan pending database scripts when application files are unchanged, reuse the new/full-plan identity observation, and validate exact staged bytes including borrowed Oracle metadata.
+- Preserve unknown-outcome classification when a descendant outlives its launcher; cancel stale output-drain timers after normal process completion.
+- Align package, workspace and native plugin versions to 2.8.0.
 
-## Changes in 2.6.0
+## Measured verification
 
-- Add [cross-vendor peer review](configuration.md#cross-vendor-peer-review): `apexrest_peer_review` / `apexrest peer review` asks the other agent CLI (Codex from Claude Code, Claude Code from Codex) for a read-only review of a saved ship plan under the user's own sign-in. The verdict is bound to the plan digest; optional `peerReview.mode` `advisory` reports it at apply and `required` blocks apply without an approving review. Without a plan it reviews the local sources instead, for local-only work with no Oracle target; that source-bound verdict is advisory and never unlocks `required` apply. The MCP catalog grows to twelve tools; its byte budget rises to 14,700 bytes.
-- Component selection on 26.2 returns working APEXlang: each selected component carries an `example` from an Oracle sample page, a modal form request adds a whole sample page, and breadcrumb and list entries get a `skeleton`. `INVALID_PROPERTY` compiler diagnostics end with a `Fix:` hint from the property contract, and diagnostics and metadata reads arrive inline up to 32 KB.
-- The [local preview](local-preview.md) pushes live updates over a WebSocket, sets up its assets on first use, refuses autocommitting connected sessions and requests another web page could send, keeps APEX built-ins out of session state, and checks properties against the component type the compiler uses. Initialization JavaScript functions it never runs are listed as `notAppliedLocally` and marked under the chart.
-- Deployment safety: whole production databases can be marked in production trust, aliases already used in the workspace are detected while planning, SQLcl write sessions get 60 minutes, and a client-side stop no longer triggers automatic recovery.
-- A new [field report](apex-design-race.md) shows the same application built with and without the plugin, including a browser design check.
-- Align package, workspace and Codex/Claude Code source versions to 2.6.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+Three optimized and three classic native Codex CLI trials used the same four-page Box task, starter, schema snapshots, GPT-6.1 Sol/high and independent Oracle audit. Median time was 335.44 seconds with classic skills versus 99.39 seconds with the optimized plugin (70.4% less); reported aggregate tokens were 1,770,625 versus 274,796 (84.5% less, cached input counted once). Every final app passed the audit, preserved its metadata/security files and, for the optimized arm, used integrated shipping without failing MCP calls or manual deployment fallback.
 
-## Changes in 2.5.0
-
-- The [local preview](local-preview.md) follows Oracle semantics more closely: NULL for empty items, real division and Oracle number text, date arithmetic, ANSI date literals and `DEFAULT sysdate` in seed scripts, JSON functions, nested LISTAGG, POSIX regular expressions and ISO dates in form DML.
-- Page submits, server-side code and grid saves are transactional; an unhandled process error is shown to the user and rolls back the page's DML. Interactive grid row validations mark failing cells, validation messages substitute labels, forms detect lost updates and region refreshes submit their page items.
-- APEX 26.2 syntax for show-all pagination, card actions, `&COLUMN.` substitution, list views and calendar views is rendered; template components apply format masks; chart ticks no longer show spurious decimals.
-- Items and layout match APEX more closely (switches, floating labels, grid offsets, native date pickers, static button IDs, region display selector, maps). The preview warns about unknown APEXlang property names and values.
-- The README now presents APEXREST as a Codex and Claude Code plugin.
-- Align package, workspace and Codex/Claude Code source versions to 2.5.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
-
-## Changes in 2.4.0
-
-- Add the [local preview](local-preview.md): `apexrest preview` and `apexrest_preview` run APEXlang sources on Node.js without an Oracle database for fast design iteration. Pages render with Universal Theme 26.2 templates and JavaScript extracted once from the official distribution.
-- Cover most APEX UI/UX locally: interactive reports and editable interactive grids saved to SQLite, faceted search and smart filters on Oracle's own widget, cards and list views, Universal Theme template components with full template directives, tabs, carousel, region display selector and inline dialogs, SVG charts, FullCalendar calendars, offline maps, genuine page item widgets, a PL/SQL subset interpreter wired into processes, validations, conditions, computations and dynamic actions, and a theme-style picker. Each area is a registered feature module.
-- Extend the preview with interactive report Actions-menu views, saved reports and .xlsx downloads, more interactive grid editors, tree and search regions, wizard and legacy features, file uploads, BLOBs and data loading, `apex_collection`, APEX dictionary views generated from the source, a local e-mail outbox, REST data from JSON fixtures, and a developer toolbar with session state, debug log, "view as" roles and tablet/phone viewports.
-- Serve the APEX submit protocol, inline validation messages, modal dialogs, reports, forms, cards, lists and simple dynamic actions against SQLite, with Oracle SQL shims, `.apex-local/*.sql` seeding and on-demand sample tables. PL/SQL beyond plain DML, `APEX_*` views, authentication and several region types are reported as unsupported.
-- The MCP catalog grows to eleven tools; its byte budget rises to 13,600 bytes. The preview is a design aid and does not replace compiler validation, an authorized import or browser verification on DEV/QA/TEST.
-- Optional [OpenAI Decisions selection](component-catalog.md#optional-openai-decisions-selection) from 2.3.0 is unchanged.
-- Align package, workspace and Codex/Claude Code source versions to 2.4.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+The timed build was the optimized 2.7.0 development bundle before the version increment; 2.8.0 contains the same functional implementation. This local Linux/APEX 26.2/SQLcl 26.3 experiment has three samples per arm with unflushed caches. It does not establish a universal speed SLA, browser quality, arbitrary components, real update performance, remote targets, Windows, Claude or native marketplace discovery. See [implementation status](implementation-status.md) for evidence and limits.
 
 ## Upgrade a working copy
 
-Working copies bind their runtime/toolchain version. Reconcile local edits and unresolved outcomes, then explicitly refresh a clean checkpoint with `apexrest apex sync --env dev --action refresh --json` and create new plans. Never edit stored runtime versions or clear unknown ownership to bypass these checks.
+Working copies bind their runtime/toolchain version. Reconcile local edits and unresolved outcomes, then explicitly refresh a clean checkpoint with `apexrest apex sync --env dev --action refresh --json` and create new plans. Never edit stored runtime versions or clear unknown ownership to bypass safeguards.
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.5.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
+Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.8.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
 
-See [implementation status](implementation-status.md), [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Fixtures and offline compilation do not establish connected Oracle, authenticated application browsing or native model-host execution.
+See [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Repository fixtures remain separate from connected Oracle and native-host evidence.

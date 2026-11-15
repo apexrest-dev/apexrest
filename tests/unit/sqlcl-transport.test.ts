@@ -7,7 +7,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { configureSqlcl, sqlclConfig } from '../../packages/core/src/sqlcl-config.ts';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
-import { runSqlclMcp } from '../../packages/core/src/sqlcl-mcp.ts';
+import { runSqlclMcp, SqlclMcpClient } from '../../packages/core/src/sqlcl-mcp.ts';
 import { closeSqlclSessions, sqlclSessionStats } from '../../packages/core/src/sqlcl-session.ts';
 import type { ProcessResult } from '../../packages/core/src/process.ts';
 
@@ -18,6 +18,36 @@ const completed = (stdout: string): ProcessResult => ({
   timedOut: false,
   cancelled: false,
   truncated: false,
+});
+
+test('CLI-owned CONNECT preserves names as data and refuses command injection before execution', async () => {
+  const client = new SqlclMcpClient({ executable: 'unused-fixture', args: [], cwd: tmpdir() });
+  const commands: string[] = [];
+  client.execute = async (sqlcl) => {
+    commands.push(sqlcl);
+    return { content: [{ type: 'text', text: 'Connected.' }] };
+  };
+  const options = () => ({ timeout: 1000 });
+  await client.connect('Dev / Київ', options, true);
+  assert.deepEqual(commands, ['set define off\nconnect -name "Dev / Київ"']);
+  for (const name of ['', 'dev\nhost command', 'dev"\nhost command', 'dev&secret', 'dev\\name'])
+    await assert.rejects(client.connect(name, options, true), { code: 'INVALID_SQLCL_TOKEN' });
+  assert.equal(commands.length, 1);
+  // Native MCP mode must not silently switch to CONNECT when the tool is absent.
+  await assert.rejects(client.connect('dev', options), { code: 'UNSUPPORTED_CAPABILITY' });
+  assert.equal(commands.length, 1);
+});
+
+test('CONNECT command errors fail even when the SQLcl MCP envelope reports success', async () => {
+  const client = new SqlclMcpClient({ executable: 'unused-fixture', args: [], cwd: tmpdir() });
+  for (const text of [
+    'ORA-01017: invalid credentials',
+    'SP2-0157: unable to CONNECT',
+    'Unknown connection: dev',
+  ]) {
+    client.execute = async () => ({ content: [{ type: 'text', text }] });
+    assert.equal((await client.connect('dev', () => ({ timeout: 1000 }), true)).isError, true);
+  }
 });
 
 test('mode persists without touching runtime, invalid configuration fails closed, active adapters keep their mode', async (t) => {

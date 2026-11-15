@@ -84,7 +84,7 @@ export class WarmImportServer {
       const connectStarted = performance.now();
       let connected;
       try {
-        connected = await this.client.connect(request.connectionName, options);
+        connected = await this.client.connect(request.connectionName, options, true);
       } catch {
         return undefined;
       }

@@ -2,12 +2,12 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   browserModeSchema,
   browserPreferences
-} from "./chunk-22JYS76Q.mjs";
+} from "./chunk-3EQFJZ4V.mjs";
 import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-UOYPJUKY.mjs";
+} from "./chunk-OJN2TMPE.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -83,10 +83,10 @@ import {
   syncPath,
   targetIdentitySql,
   withConnectedReads
-} from "./chunk-RXTQAEKG.mjs";
+} from "./chunk-YI25QNSI.mjs";
 import {
   VERSION
-} from "./chunk-64FD5OTX.mjs";
+} from "./chunk-33BV6A47.mjs";
 import {
   environment,
   identifier,
@@ -100,12 +100,12 @@ import {
   relativePath,
   targetDigest,
   updatePolicy
-} from "./chunk-GGZKKEXV.mjs";
+} from "./chunk-DFK3P5MT.mjs";
 import {
   runProcess,
   sqlclTimings,
   withSqlclTimings
-} from "./chunk-4FMLUYZ7.mjs";
+} from "./chunk-J2ZZKOUD.mjs";
 import {
   external_exports
 } from "./chunk-WBDBC3GS.mjs";
@@ -119,7 +119,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-C7ONAFBZ.mjs";
+} from "./chunk-72F3ZMZP.mjs";
 import {
   Fault,
   __commonJS,
@@ -10823,6 +10823,7 @@ var schemas = {
     workingCopy: external_exports.boolean().default(false)
   }),
   "project.inspect": external_exports.strictObject({ ...base, detail: external_exports.enum(["full", "summary"]).default("full") }),
+  "project.scaffold": external_exports.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   "connection.add": external_exports.strictObject({
     ...base,
     name: refName,
@@ -10958,7 +10959,16 @@ var schemas = {
   project: external_exports.strictObject({
     debugTimings: external_exports.boolean().optional(),
     ...base,
-    action: external_exports.enum(["init", "adopt", "inspect", "connection_add", "connection_list", "connection_test"]),
+    action: external_exports.enum([
+      "init",
+      "adopt",
+      "inspect",
+      "scaffold",
+      "connection_add",
+      "connection_list",
+      "connection_test"
+    ]),
+    specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
     template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).optional(),
     alias: refName.optional(),
@@ -10994,7 +11004,7 @@ var schemas = {
     includeUnresolved: external_exports.boolean().default(false),
     cursor: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
     offset: external_exports.number().int().min(0).max(1e7).default(0),
-    limit: external_exports.number().int().min(1).max(8192).optional().describe("search/select: 1-8; read: chars")
+    limit: external_exports.number().int().min(1).max(32768).optional().describe("search/select: 1-8; read: capped to 8192 chars, follow nextOffset")
   }),
   ship: external_exports.strictObject({
     ...base,
@@ -11008,9 +11018,7 @@ var schemas = {
       userRequest: external_exports.string().min(1).max(2e3)
     }).optional(),
     ...importOptions2,
-    userRequest: external_exports.string().min(10).max(2e3).describe(
-      "The user's literal instruction that authorizes this change (recorded with the deploy grant)"
-    )
+    userRequest: external_exports.string().trim().min(1).max(16e3).describe("Literal human instruction authorizing this change")
   }).superRefine(checkImportOptions).superRefine((value, ctx) => {
     if (value.mode === "recover" && !value.run)
       ctx.addIssue({
@@ -11036,7 +11044,7 @@ var schemas = {
       planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
       userRequest: external_exports.string().min(1).max(2e3)
     }).optional(),
-    userRequest: external_exports.string().min(10).max(2e3)
+    userRequest: external_exports.string().trim().min(1).max(16e3)
   }),
   "peer.status": external_exports.strictObject(base),
   "peer.review": external_exports.strictObject({
@@ -11083,7 +11091,7 @@ var toolCatalog = [
   {
     name: "apexrest_project",
     operation: "project",
-    description: "App init/adopt/inspect and connection add/list/test. Credentials via private passwordFile/envFile; never in tool text.",
+    description: "App init/adopt/inspect/scaffold (26.2 reports/cards/bar charts). Connections add/list/test; private passwordFile/envFile.",
     readOnly: false,
     destructive: false,
     openWorld: true
@@ -11091,7 +11099,7 @@ var toolCatalog = [
   {
     name: "apexrest_reference",
     operation: "reference",
-    description: "Local references; select components with optional OpenAI Decisions. project required for select. Host writes APEXlang.",
+    description: "Offline references; select uses optional OpenAI Decisions and requires project.",
     readOnly: true,
     openWorld: true
   },
@@ -13509,14 +13517,43 @@ var DeploymentService = class {
     const stored = await new SyncStore(ctx, environment(ctx, name2), name2).read();
     if (requested.importMode !== "full" && stored && stored.status !== "invalidated") {
       await new SyncStore(ctx, environment(ctx, name2), name2).validate(stored);
-      const local = applicationFiles(ctx, await sourceInventory(ctx));
+      const sources = await sourceInventory(ctx);
+      const local = applicationFiles(ctx, sources);
       const candidates = requested.importMode === "files" ? requested.files : changedFiles(checkpoint(stored).files, local);
-      if (!candidates.length || candidates.every((file) => local[file] === checkpoint(stored).files[file]))
+      if (!candidates.length || candidates.every((file) => local[file] === checkpoint(stored).files[file])) {
+        if (requested.importMode === "auto") {
+          const control = new LocalDeploymentControl(environment(ctx, name2));
+          const [history, packages] = await Promise.all([
+            control.history(),
+            control.packages(ctx.config.projectId)
+          ]);
+          checkMigrations(ctx, sources, history);
+          if (history.some((row) => row.status !== "succeeded"))
+            throw new Fault(
+              "MIGRATION_HISTORY_CONFLICT",
+              "Resolve earlier migration outcomes before deployment.",
+              5
+            );
+          const applied = new Map(history.map((row) => [row.version, row.checksum]));
+          let pending = false;
+          for (const [file, sha] of Object.entries(sources)) {
+            if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
+              const previous = applied.get(path10.basename(file));
+              if (previous && previous !== sha)
+                throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
+              if (!previous) pending = true;
+            }
+            if (file.startsWith(ctx.config.database.packagesDir + "/") && packages[file] !== sha)
+              pending = true;
+          }
+          if (pending) return this.databasePlan(ctx, name2);
+        }
         throw new Fault(
           "NO_LOCAL_CHANGES",
           "No local changes in the requested scope; server freshness was not checked.",
           2
         );
+      }
     }
     const env2 = environment(ctx, name2), connection = await resolveConnection(env2.readConnectionRef);
     const observed = this.oracle.versionedTarget ? await this.oracle.versionedTarget(env2, connection) : void 0;
@@ -13534,7 +13571,8 @@ var DeploymentService = class {
       throw new Fault("PARTIAL_IMPORT_UNSUPPORTED", partial.reasons.join("; "), 3, "blocked", {
         reasons: partial.reasons
       });
-    const full = await this.legacyPlan(ctx, name2, false, true);
+    const reuseIdentity = requested.importMode === "full" || !stored || stored.status === "invalidated";
+    const full = await this.legacyPlan(ctx, name2, false, true, reuseIdentity ? observed : void 0);
     const plan = {
       ...full,
       schemaVersion: 4,
@@ -13737,7 +13775,7 @@ var DeploymentService = class {
     plan.digest = planDigest2(plan);
     return plan;
   }
-  async legacyPlan(ctx, name2, restore = false, fresh = false) {
+  async legacyPlan(ctx, name2, restore = false, fresh = false, observed) {
     const env2 = environment(ctx, name2);
     await refuseProductionDeployment(env2, name2);
     const connection = await resolveConnection(env2.readConnectionRef);
@@ -13747,7 +13785,7 @@ var DeploymentService = class {
     if (restore && stored && ["importing", "outcome_unknown"].includes(stored.status))
       throw new Fault("SYNC_BLOCKED", "Reconcile interrupted writes before restore planning.", 5);
     const [targetCheck, sourceCheck, aliasCheck] = await Promise.allSettled([
-      working && !fresh ? this.workingFingerprint(ctx, name2, working) : this.fingerprint(env2, connection),
+      working && !fresh ? this.workingFingerprint(ctx, name2, working) : this.fingerprint(env2, connection, void 0, observed),
       (async () => {
         const sources2 = await sourceInventory(ctx);
         const validation2 = await this.oracle.validate(
@@ -15405,7 +15443,7 @@ function shipGrant(ctx, plan, userRequest, confirmation) {
     workerPid: process.pid,
     ...confirmation ? { confirmedRisks: plan.risks, confirmationRequest: confirmation.userRequest } : {},
     operations: ["deploy"],
-    note: userRequest.slice(0, 2e3),
+    note: userRequest.slice(0, 16e3),
     grantedBy: "ship",
     grantedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
@@ -15990,7 +16028,7 @@ async function compilerPrewarmed(project2) {
   await compilerPrewarms.get(project2);
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-CJPXXN6F.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-NHRPE5CH.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -16006,6 +16044,8 @@ function routeProject(parsed) {
       return { operation: "project.adopt", input: pick("project", "env", "appId", "workingCopy") };
     case "inspect":
       return { operation: "project.inspect", input: pick("project", "detail") };
+    case "scaffold":
+      return { operation: "project.scaffold", input: pick("project", "specFile", "env") };
     case "connection_add":
       return {
         operation: "connection.add",
@@ -16047,7 +16087,13 @@ function routeReference(parsed) {
     if (typeof id !== "string") throw new Fault("INVALID_INPUT", "id: required for mode read", 2);
     return {
       operation: "docs.read",
-      input: { project: rest.project, version: rest.version, id, offset, ...limit ? { limit } : {} }
+      input: {
+        project: rest.project,
+        version: rest.version,
+        id,
+        offset,
+        ...typeof limit === "number" ? { limit: Math.min(limit, 8192) } : {}
+      }
     };
   }
   if (typeof query !== "string") throw new Fault("INVALID_INPUT", "query: required for mode search", 2);
@@ -16140,11 +16186,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "build.webapp") {
-      const { buildWebappOperation } = await import("./chunk-GDGPYKP5.mjs");
+      const { buildWebappOperation } = await import("./chunk-GJ7SXSYC.mjs");
       return success(operation, await buildWebappOperation(root, parsed));
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GDGPYKP5.mjs");
+      const { previewDispatch } = await import("./chunk-GJ7SXSYC.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16171,29 +16217,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-47DONEWY.mjs");
+        const { ToolchainService } = await import("./chunk-AHF524CB.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-W3J35ATM.mjs");
+        const { uninstallTools } = await import("./chunk-WJUPFW4R.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-SN6PX4RX.mjs");
+        const { setup: setup2 } = await import("./chunk-N3IT63HJ.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-SN6PX4RX.mjs");
+        const { validateNative } = await import("./chunk-N3IT63HJ.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-SN6PX4RX.mjs");
+        const { uninstallNative } = await import("./chunk-N3IT63HJ.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -16206,6 +16252,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           text2("alias") ?? path15.basename(path15.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
+      case "project.scaffold": {
+        const { scaffold } = await import("./chunk-RRW6ONCQ.mjs");
+        data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
+        break;
+      }
       case "connection.add":
         data = await configureConnection(text2("name"), {
           project: text2("project"),
@@ -16485,7 +16536,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-BEEEC3HA.mjs");
+            const { openVerificationBrowser } = await import("./chunk-G4DUPAKM.mjs");
             data = await openVerificationBrowser(
               ctx,
               text2("env"),

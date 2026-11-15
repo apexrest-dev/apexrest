@@ -14,6 +14,7 @@ export interface WorkerSettings {
   cwd: string;
   env: Record<string, string>;
   connectionName: string;
+  commandConnect?: boolean;
   /** Commit mode: application code may commit and successful requests are committed. */
   commit?: boolean;
 }
@@ -40,7 +41,7 @@ async function open(deadline: number) {
   const options = mcpCallOptions({}, deadline);
   try {
     await next.open(options());
-    await next.connect(settings.connectionName, options);
+    await next.connect(settings.connectionName, options, settings.commandConnect);
     await next.execute(initSession(settings.commit === true), options, () => false);
   } catch (error) {
     await next.close();

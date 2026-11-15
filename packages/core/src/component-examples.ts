@@ -46,7 +46,7 @@ const USAGE_KINDS = new Set([
   'branch',
 ]);
 
-type Indexed = ComponentExample & { stems: Set<string>; types: Set<string> };
+type Indexed = ComponentExample & { stems: Set<string>; types: Set<string>; chartType?: string | undefined };
 /**
  * Per component key: how many sample blocks there are, how many state each `group.property` and
  * which name-like values (enum values, not free text) they give it.
@@ -152,8 +152,25 @@ async function load(): Promise<{ index: Map<string, Indexed[]>; usage: Map<strin
             .flatMap((m) => referenceStems(m[1]!))
             .filter((stem) => !SOURCE_TYPES.has(stem)),
         );
-        const example = { id, text: block.text, stems: new Set(referenceStems(block.text)), types };
+        // Oracle's pinned chart contract defaults chart.type to bar. Exported
+        // bars commonly omit the whole chart group, so index that variant too.
+        const chartType =
+          block.keyword === 'region' && block.type === 'chart'
+            ? (/\n\s*chart \{\s*\n\s*type: (\w+)/u.exec(block.text)?.[1]?.toLowerCase() ?? 'bar')
+            : undefined;
+        if (chartType) types.add(chartType);
+        const example = {
+          id,
+          text: block.text,
+          stems: new Set(referenceStems(block.text)),
+          types,
+          chartType,
+        };
         keep(index, key, example);
+        // Keep each chart variant independently: eight tiny pies must not evict
+        // every bar/line example before request-aware ranking can see them.
+        if (block.keyword === 'region' && block.type === 'chart')
+          for (const variant of types) keep(index, `${key}:${variant}`, example);
         if (block.type) keep(index, `*:${block.type}`, example);
       }
     }
@@ -213,11 +230,14 @@ export async function componentExample(
   const wanted = new Set(referenceStems(options.request ?? ''));
   // A nested `type: line` the request names outweighs shared vocabulary; ties keep the smallest.
   const overlap = (example: Indexed) =>
+    (example.chartType && wanted.has(example.chartType) ? 1000 : 0) +
     [...wanted].reduce(
       (score, stem) => score + (example.types.has(stem) ? 100 : 0) + (example.stems.has(stem) ? 1 : 0),
       0,
     );
-  const best = list.reduce((a, b) => (overlap(b) > overlap(a) ? b : a));
+  const variants =
+    type === 'chart' ? [...wanted].flatMap((stem) => index.get(`region:chart:${stem}`) ?? []) : [];
+  const best = [...list, ...variants].reduce((a, b) => (overlap(b) > overlap(a) ? b : a));
   return { id: best.id, text: best.text };
 }
 

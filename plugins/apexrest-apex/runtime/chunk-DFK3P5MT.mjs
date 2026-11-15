@@ -10,7 +10,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-C7ONAFBZ.mjs";
+} from "./chunk-72F3ZMZP.mjs";
 import {
   Fault
 } from "./chunk-JVBX3L43.mjs";
@@ -132,7 +132,7 @@ var policySchema = external_exports.strictObject({
       planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
       // A grant recorded by apexrest_ship keeps the user's literal instruction
       // and its origin so the authorization record stays auditable.
-      note: external_exports.string().max(2e3).optional(),
+      note: external_exports.string().max(16e3).optional(),
       grantedBy: external_exports.enum(["user", "ship"]).optional(),
       grantedAt: external_exports.iso.datetime().optional(),
       workerPid: external_exports.number().int().positive().optional(),

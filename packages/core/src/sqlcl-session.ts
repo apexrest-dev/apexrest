@@ -18,6 +18,8 @@ import { SqlclMcpClient, mcpCallOptions, mcpFailure, mcpResult, type SqlclMcpReq
 export const IDLE_MS = 10 * 60 * 1000;
 export const PROBE_AFTER_MS = 30 * 1000;
 export interface SqlclSessionRequest extends SqlclMcpRequest {
+  /** CLI-owned servers use SQLcl CONNECT, preserving JDBC auto-commit off. */
+  commandConnect?: boolean;
   /** Sessions per key (default 1 for connected sessions, 2 for /nolog). */
   limit?: number;
   completionMarker?: string;
@@ -67,6 +69,7 @@ export function sqlclSessionKey(request: SqlclSessionRequest) {
       javaHome: request.env?.JAVA_HOME ?? null,
       args: request.args,
       connectionName: request.connectionName ?? null,
+      commandConnect: request.commandConnect ?? false,
       cwd: request.cwd,
       readScope: request.readScope ?? null,
     }),
@@ -149,7 +152,11 @@ async function prepare(
     timing.spawnMs = (timing.spawnMs ?? 0) + performance.now() - spawnStarted;
     if (request.connectionName) {
       const connectStarted = performance.now();
-      const connected = await session.client.connect(request.connectionName, options());
+      const connected = await session.client.connect(
+        request.connectionName,
+        options(),
+        request.commandConnect,
+      );
       timing.connectMs = (timing.connectMs ?? 0) + performance.now() - connectStarted;
       if (connected.isError) return mcpResult(connected, session.client.text(connected));
     }

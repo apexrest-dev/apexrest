@@ -2,19 +2,33 @@
 
 **Import a changed page and its shared list of values without re-importing the rest of the application.** APEXREST selects eligible `.apx` files automatically or accepts an explicit list, validates dependencies using retained application context and fresh selected server sources, and preserves unrelated remote changes.
 
-> **Source version:** this guide describes the `2.7.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
+> **Source version:** this guide describes the `2.8.0` source bundle. Use its bundled runtime or plugin; a separately published package must be checked for feature compatibility. APEX 26.1 projects use full imports.
 
 ## Choose an import mode
 
 | Mode             | Planner behavior                                                                               | When to use it                                                              |
 | ---------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `auto` (default) | Selects eligible local changes; reports reasons if a full import is required. Conflicts block. | Routine changes to an existing 26.2 development/test app.                   |
+| `auto` (default) | Selects eligible application changes, or a database-only plan for pending scripts when the application is unchanged. Conflicts block. | Routine changes to an existing 26.2 development/test app. |
 | `files`          | Imports only the listed files; rejects an ineligible selection and never widens it to `full`.  | A specific page, or a page together with changed shared dependencies.       |
 | `full`           | Requests a complete application import through the existing safeguards.                        | Initial application creation or changes requiring the complete application. |
+| `none`           | Plans pending migrations and changed package scripts without importing the application. | Explicit database-only work. |
 
 - The CLI and the `apexrest_ship` MCP tool expose the same modes.
 - The requirement to use **direct SQLcl CLI** describes how APEXREST connects to Oracle; it does not prevent using the feature through Codex or Claude Code's APEXREST MCP tools.
 - SQLcl's own `mcp` execution mode and the ORDS transport are separate options and do not support partial import in this implementation.
+
+## Generate routine pages
+
+For interactive reports, KPI cards and bar charts on an Oracle-generated 26.2 Universal Theme starter, use one JSON specification containing the verified queries, column aliases/types and labels. `project scaffold` emits the APEXlang, chart axes, report columns and navigation together. See the [specification guide](../plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md).
+
+```sh
+apexrest project scaffold --project /abs/project --spec-file catalog.json --env dev --json
+apexrest ship --project /abs/project --env dev --mode apply --user-request "Create the catalog pages in the configured dev app" --json
+```
+
+Scaffolding changes local sources only. It retains Oracle metadata and authentication, appends to a blank Home and refuses to replace unowned or manually edited pages. Unchanged pages it generated can be updated by re-running a specification. Ship remains responsible for compiler validation, exact planning and the normal deployment safeguards; a separate validate/plan call is unnecessary for routine generated output.
+
+If a task requests server metadata and query observations, supplying `env` also generates `readback.sqlFile` in private `.apexrest/` storage. After a successful import, the caller can run that file manually with the authorized SQLcl saved connection. It checks target identity and returns imported metadata, query row counts and bounded samples in a read-only transaction. It does not contain expected business values or a test verdict. Neither scaffold nor ship executes it or adds a deployment gate. Keep observation scripts outside application sources. Browser behavior is checked separately on request.
 
 ## Requirements
 
@@ -163,7 +177,8 @@ Review `importSelection.requestedMode`, `resolvedMode`, `files`, supporting-comp
 
 - Use one `ship --mode apply` call for a routine authorized edit. It includes compiler validation and planning; a separate validate and plan preview add duplicate work.
 - Preview remains available when review is useful or a remote dangerous operation requires exact-plan confirmation.
-- A local no-op stops before Oracle calls and explicitly reports that server freshness was not checked.
+- With a valid working-copy checkpoint and unchanged application files, `auto` checks local migration/package history. Pending migrations or changed packages produce a database-only plan; no APEX application import is scheduled. An explicit `files` selection never expands to database work.
+- A local no-op (including unchanged applied database scripts) stops before Oracle calls and explicitly reports that server freshness was not checked. Changed applied migration checksums or unresolved migration outcomes block planning.
 - Identity and release discovery share a read-only session, identical read/deploy connections reuse the fresh identity observation, and import help is cached by compiler installation.
 
 ## Other 26.2 support

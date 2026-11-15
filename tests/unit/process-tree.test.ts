@@ -6,6 +6,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { runProcess, spawnTree, stopTree } from '../../packages/core/src/process.ts';
 import { SqlclStdioTransport } from '../../packages/core/src/sqlcl-mcp.ts';
+import { oracleDiagnostics } from '../../packages/core/src/oracle.ts';
 
 async function assertDescendantGone(stdout: string) {
   const pid = Number(stdout.trim());
@@ -139,7 +140,7 @@ for (const interruption of ['timeout', 'cancellation'] as const)
   );
 
 test(
-  'a descendant still holding the pipes after a normal launcher exit is stopped',
+  'a descendant stopped after a normal launcher exit leaves an unconfirmed write outcome',
   { skip: process.platform === 'win32' },
   async () => {
     const result = await runProcess({
@@ -148,8 +149,9 @@ test(
       cwd: process.cwd(),
       timeoutMs: 60000,
     });
-    assert.equal(result.code, 0);
-    assert.equal(result.timedOut, false);
+    assert.equal(result.code, null);
+    assert.equal(result.timedOut, true);
+    assert.throws(() => oracleDiagnostics(result, true), { code: 'TIMEOUT', status: 'outcome_unknown' });
     await assertDescendantGone(result.stdout);
   },
 );
@@ -169,6 +171,20 @@ async function recordGroupSignals(run: (signals: [number, string][]) => Promise<
     process.kill = original;
   }
 }
+
+test(
+  'normal process close cancels the drain timer before the process group ID can be reused',
+  { skip: process.platform === 'win32' },
+  async () =>
+    recordGroupSignals(async (signals) => {
+      const result = await runProcess({ executable: 'sh', args: ['-c', 'printf done'], cwd: process.cwd() });
+      assert.equal(result.code, 0);
+      assert.equal(result.timedOut, false);
+      assert.equal(result.stdout, 'done');
+      await new Promise((resolve) => setTimeout(resolve, 3200));
+      assert.deepEqual(signals, []);
+    }),
+);
 
 test(
   'stopTree is idempotent and cancels SIGKILL once the group has closed',

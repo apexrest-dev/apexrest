@@ -43,6 +43,7 @@ for await (const line of createInterface({input:process.stdin})) {
   if(name==='connect') { connected=r.params.arguments.connection_name; result={content:[{type:'text',text:'connected'}]}; }
   else {
    const sqlcl=r.params.arguments.sqlcl;
+   const commandConnect=/connect -name "([^"]+)"/.exec(sqlcl); if(commandConnect) connected=commandConnect[1];
    const lines=sqlcl.split('\\n').flatMap(l=>
      l.startsWith('host echo ')?[args.includes('-R')?'SP2-0738: Restricted command: not available':l.slice(10)]
      :l.startsWith('prompt ')?[l.slice(7)]

@@ -144,7 +144,7 @@ export const policySchema = z.strictObject({
         .optional(),
       // A grant recorded by apexrest_ship keeps the user's literal instruction
       // and its origin so the authorization record stays auditable.
-      note: z.string().max(2000).optional(),
+      note: z.string().max(16000).optional(),
       grantedBy: z.enum(['user', 'ship']).optional(),
       grantedAt: z.iso.datetime().optional(),
       workerPid: z.number().int().positive().optional(),

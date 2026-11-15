@@ -31,6 +31,7 @@ async function workerSettings(connectionName: string): Promise<WorkerSettings> {
     cwd: await adapter.sessionHome(),
     env,
     connectionName,
+    commandConnect: settings.mode === 'cli',
   };
 }
 

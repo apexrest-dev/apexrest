@@ -1017,15 +1017,46 @@ export class DeploymentService {
     const stored = await new SyncStore(ctx, environment(ctx, name), name).read();
     if (requested.importMode !== 'full' && stored && stored.status !== 'invalidated') {
       await new SyncStore(ctx, environment(ctx, name), name).validate(stored);
-      const local = applicationFiles(ctx, await sourceInventory(ctx));
+      const sources = await sourceInventory(ctx);
+      const local = applicationFiles(ctx, sources);
       const candidates =
         requested.importMode === 'files' ? requested.files : changedFiles(checkpoint(stored).files, local);
-      if (!candidates.length || candidates.every((file) => local[file] === checkpoint(stored).files[file]))
+      if (!candidates.length || candidates.every((file) => local[file] === checkpoint(stored).files[file])) {
+        if (requested.importMode === 'auto') {
+          const control = new LocalDeploymentControl(environment(ctx, name));
+          const [history, packages] = await Promise.all([
+            control.history(),
+            control.packages(ctx.config.projectId),
+          ]);
+          checkMigrations(ctx, sources, history);
+          if (history.some((row) => row.status !== 'succeeded'))
+            throw new Fault(
+              'MIGRATION_HISTORY_CONFLICT',
+              'Resolve earlier migration outcomes before deployment.',
+              5,
+            );
+          const applied = new Map(history.map((row) => [row.version, row.checksum]));
+          let pending = false;
+          for (const [file, sha] of Object.entries(sources)) {
+            if (file.startsWith(ctx.config.database.migrationsDir + '/')) {
+              const previous = applied.get(path.basename(file));
+              if (previous && previous !== sha)
+                throw new Fault('MIGRATION_HISTORY_CONFLICT', 'Applied migration changed.', 5);
+              if (!previous) pending = true;
+            }
+            if (file.startsWith(ctx.config.database.packagesDir + '/') && packages[file] !== sha)
+              pending = true;
+          }
+          // Only the no-op decision uses local history. The database plan still performs
+          // its normal fresh identity/export/history checks and exact authorization review.
+          if (pending) return this.databasePlan(ctx, name);
+        }
         throw new Fault(
           'NO_LOCAL_CHANGES',
           'No local changes in the requested scope; server freshness was not checked.',
           2,
         );
+      }
     }
     const env = environment(ctx, name),
       connection = await resolveConnection(env.readConnectionRef);
@@ -1052,7 +1083,11 @@ export class DeploymentService {
       throw new Fault('PARTIAL_IMPORT_UNSUPPORTED', partial.reasons.join('; '), 3, 'blocked', {
         reasons: partial.reasons,
       });
-    const full = await this.legacyPlan(ctx, name, false, true);
+    // Full/new-app planning can use the identity already read with the version check.
+    // A partial attempt may have observed/exported intervening state, so its fallback
+    // deliberately takes a new identity. Apply always performs its own fresh checks.
+    const reuseIdentity = requested.importMode === 'full' || !stored || stored.status === 'invalidated';
+    const full = await this.legacyPlan(ctx, name, false, true, reuseIdentity ? observed : undefined);
     const plan: DeployPlan = {
       ...full,
       schemaVersion: 4,
@@ -1280,6 +1315,7 @@ export class DeploymentService {
     name: string,
     restore = false,
     fresh = false,
+    observed?: Parameters<DeploymentService['fingerprint']>[3],
   ): Promise<DeployPlan> {
     const env = environment(ctx, name);
     await refuseProductionDeployment(env, name);
@@ -1293,7 +1329,9 @@ export class DeploymentService {
     // Target reads and compilation use independent inputs. Settle both before
     // returning an error so a failed preflight leaves no Oracle work running.
     const [targetCheck, sourceCheck, aliasCheck] = await Promise.allSettled([
-      working && !fresh ? this.workingFingerprint(ctx, name, working) : this.fingerprint(env, connection),
+      working && !fresh
+        ? this.workingFingerprint(ctx, name, working)
+        : this.fingerprint(env, connection, undefined, observed),
       (async () => {
         const sources = await sourceInventory(ctx);
         const validation = await this.oracle.validate(

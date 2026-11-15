@@ -7,6 +7,7 @@ import {
   contractComponentType,
   pageExamples,
 } from '../../packages/core/src/component-examples.ts';
+import { get, parseApexLang } from '../../packages/core/src/preview/apexlang.ts';
 
 test('working blocks come from Oracle 26.2 sample pages for regions, items and template components', async () => {
   for (const [type, opener] of [
@@ -59,6 +60,16 @@ test('examples follow the contract kind and prefer the variant the request descr
   assert.match(item!.text.split('\n')[0]!, /^\s*pageItem \S+ \($/u);
   const line = await componentExample('chart', { kind: 'region', request: 'line chart of hourly prices' });
   assert.match(line!.text, /^\s*type: line\s*$/mu);
+  const bar = await componentExample('chart', { kind: 'region', request: 'bar chart of product states' });
+  const [chart] = parseApexLang(bar!.text);
+  assert.equal(get(chart!.props, 'chart.type') ?? 'bar', 'bar');
+  assert.deepEqual(
+    chart!.children
+      .filter((c) => c.type === 'axis')
+      .map((c) => c.id)
+      .sort(),
+    ['x', 'y'],
+  );
   const button = await componentExample(undefined, { kind: 'button' });
   assert.match(button!.text.split('\n')[0]!, /^\s*button \S+ \($/u);
 });

@@ -108,18 +108,37 @@ async function containedPath(root: string, candidate: string, child: boolean): P
 }
 export async function inventory(root: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
+  const files: string[] = [];
   async function walk(dir: string) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       const file = path.join(dir, entry.name);
       if (entry.isSymbolicLink())
         throw new Fault('SYMLINK_NOT_ALLOWED', 'Source and bundle inventories reject symlinks.', 2);
       if (entry.isDirectory()) await walk(file);
-      else if (entry.isFile())
-        out[path.relative(root, file).split(path.sep).join('/')] = hash(await readFile(file));
+      else if (entry.isFile()) files.push(file);
       else throw new Fault('SPECIAL_FILE_NOT_ALLOWED', 'Source inventories accept regular files only.', 2);
     }
   }
   await walk(root);
+  // Bound open files and streaming buffers across the entire tree. Always read fresh bytes:
+  // these digests guard plans/backups, so an mtime-based cache would hide source changes.
+  let next = 0;
+  const results = await Promise.allSettled(
+    Array.from({ length: Math.min(8, files.length) }, async () => {
+      while (next < files.length) {
+        const file = files[next++]!;
+        const info = await lstat(file);
+        if (info.isSymbolicLink())
+          throw new Fault('SYMLINK_NOT_ALLOWED', 'Source and bundle inventories reject symlinks.', 2);
+        if (!info.isFile())
+          throw new Fault('SPECIAL_FILE_NOT_ALLOWED', 'Source inventories accept regular files only.', 2);
+        out[path.relative(root, file).split(path.sep).join('/')] =
+          info.size <= 1024 * 1024 ? hash(await readFile(file)) : await hashFile(file);
+      }
+    }),
+  );
+  // Join all readers even on failure; callers may remove the tree as soon as we return.
+  for (const result of results) if (result.status === 'rejected') throw result.reason;
   return Object.fromEntries(Object.entries(out).sort());
 }
 /** Locks without complete owner records are never silently reclaimed. */

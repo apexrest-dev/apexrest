@@ -103,6 +103,8 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.adopt', input: pick('project', 'env', 'appId', 'workingCopy') };
     case 'inspect':
       return { operation: 'project.inspect', input: pick('project', 'detail') };
+    case 'scaffold':
+      return { operation: 'project.scaffold', input: pick('project', 'specFile', 'env') };
     case 'connection_add':
       return {
         operation: 'connection.add',
@@ -144,7 +146,13 @@ function routeReference(parsed: Record<string, unknown>) {
     if (typeof id !== 'string') throw new Fault('INVALID_INPUT', 'id: required for mode read', 2);
     return {
       operation: 'docs.read',
-      input: { project: rest.project, version: rest.version, id, offset, ...(limit ? { limit } : {}) },
+      input: {
+        project: rest.project,
+        version: rest.version,
+        id,
+        offset,
+        ...(typeof limit === 'number' ? { limit: Math.min(limit, 8192) } : {}),
+      },
     };
   }
   if (typeof query !== 'string') throw new Fault('INVALID_INPUT', 'query: required for mode search', 2);
@@ -324,6 +332,11 @@ async function dispatchObserved(
               .replace(/[^a-z0-9-]/g, '-'),
         );
         break;
+      case 'project.scaffold': {
+        const { scaffold } = await import('./scaffold.ts');
+        data = await scaffold(await loadProject(root), text('specFile'), text('env'));
+        break;
+      }
       case 'connection.add':
         data = await configureConnection(text('name'), {
           project: text('project'),

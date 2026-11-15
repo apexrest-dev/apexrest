@@ -84,6 +84,16 @@
             "additionalProperties": {}
           }
         },
+        "packageHistory": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
         "coordination": {
           "type": "object",
           "properties": {
@@ -109,7 +119,10 @@
         },
         "scope": {
           "type": "string",
-          "const": "full-application-import"
+          "enum": [
+            "full-application-import",
+            "database-only"
+          ]
         },
         "operations": {
           "type": "array",
@@ -374,6 +387,16 @@
             "additionalProperties": {}
           }
         },
+        "packageHistory": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
         "coordination": {
           "type": "object",
           "properties": {
@@ -399,7 +422,10 @@
         },
         "scope": {
           "type": "string",
-          "const": "full-application-import"
+          "enum": [
+            "full-application-import",
+            "database-only"
+          ]
         },
         "operations": {
           "type": "array",
@@ -729,6 +755,16 @@
             "additionalProperties": {}
           }
         },
+        "packageHistory": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
         "coordination": {
           "type": "object",
           "properties": {
@@ -754,7 +790,10 @@
         },
         "scope": {
           "type": "string",
-          "const": "full-application-import"
+          "enum": [
+            "full-application-import",
+            "database-only"
+          ]
         },
         "operations": {
           "type": "array",
@@ -1121,6 +1160,16 @@
               "type": "string"
             },
             "additionalProperties": {}
+          }
+        },
+        "packageHistory": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         },
         "coordination": {

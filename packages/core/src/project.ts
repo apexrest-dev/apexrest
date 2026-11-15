@@ -163,6 +163,8 @@ export function projectSummary(ctx: ProjectContext) {
     },
     toolchainLock: ctx.config.toolchain.lockFile,
     verification: 'host-browser',
+    authoring:
+      '26.2 reports/cards/bar charts: project action:scaffold with specFile; custom components: reference mode:select',
     environments: environments.slice(0, 8).map(([name, env]) => ({
       name,
       kind: env.kind,

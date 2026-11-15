@@ -429,6 +429,30 @@
     },
     "additionalProperties": false
   },
+  "project.scaffold": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "specFile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "env": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      }
+    },
+    "required": [
+      "specFile"
+    ],
+    "additionalProperties": false
+  },
   "connection.add": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -747,10 +771,10 @@
         "pattern": "^26\\.[12](?:@[A-Za-z0-9_.-]+)?$"
       },
       "limit": {
-        "default": 6,
+        "default": 16,
         "type": "integer",
         "minimum": 1,
-        "maximum": 8
+        "maximum": 16
       }
     },
     "required": [
@@ -824,7 +848,9 @@
           "signatures",
           "applications",
           "pages",
-          "apex-capabilities"
+          "apex-capabilities",
+          "runtime-errors",
+          "page-timings"
         ]
       },
       "schema": {
@@ -862,7 +888,9 @@
                 "signatures",
                 "applications",
                 "pages",
-                "apex-capabilities"
+                "apex-capabilities",
+                "runtime-errors",
+                "page-timings"
               ]
             },
             "schema": {
@@ -962,6 +990,7 @@
         "enum": [
           "init",
           "status",
+          "changes",
           "refresh",
           "invalidate"
         ]
@@ -1337,6 +1366,11 @@
         "minimum": 0,
         "maximum": 200
       },
+      "commit": {
+        "default": false,
+        "description": "With env, on a database on this computer only: commit each successful request instead of rolling it back (working mode)",
+        "type": "boolean"
+      },
       "port": {
         "type": "integer",
         "minimum": 0,
@@ -1429,6 +1463,58 @@
     },
     "additionalProperties": false
   },
+  "build.webapp": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "sourceDir": {
+        "description": "APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "out": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "description": "Output folder: new, empty, or a previous build"
+      },
+      "auth": {
+        "description": "Sign-in of the built application; users (accounts file) by default",
+        "type": "string",
+        "enum": [
+          "users",
+          "plsql",
+          "database",
+          "open"
+        ]
+      },
+      "authFunction": {
+        "description": "auth plsql: function(p_username, p_password) return boolean",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "includeAssets": {
+        "description": "Copy the locally extracted APEX browser files (Oracle software) into the output",
+        "type": "boolean"
+      },
+      "assetsDir": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "out"
+    ],
+    "additionalProperties": false
+  },
   "preview.status": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1471,10 +1557,17 @@
           "init",
           "adopt",
           "inspect",
+          "scaffold",
           "connection_add",
           "connection_list",
           "connection_test"
         ]
+      },
+      "specFile": {
+        "description": "scaffold: JSON spec; see work skill scaffold guide",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
       },
       "directory": {
         "description": "init: new or empty directory for the project",
@@ -1672,10 +1765,10 @@
         "maximum": 10000000
       },
       "limit": {
-        "description": "search/select: 1-8; read: chars",
+        "description": "search/select: 1-8; read: capped to 8192 chars, follow nextOffset",
         "type": "integer",
         "minimum": 1,
-        "maximum": 8192
+        "maximum": 32768
       }
     },
     "required": [
@@ -1760,9 +1853,9 @@
       },
       "userRequest": {
         "type": "string",
-        "minLength": 10,
-        "maxLength": 2000,
-        "description": "The user's literal instruction that authorizes this change (recorded with the deploy grant)"
+        "minLength": 1,
+        "maxLength": 16000,
+        "description": "Literal human instruction authorizing this change"
       }
     },
     "required": [
@@ -1810,8 +1903,8 @@
       },
       "userRequest": {
         "type": "string",
-        "minLength": 10,
-        "maxLength": 2000
+        "minLength": 1,
+        "maxLength": 16000
       }
     },
     "required": [
@@ -1983,6 +2076,9 @@
       "env": {
         "type": "string",
         "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "commit": {
+        "type": "boolean"
       },
       "zip": {
         "type": "string",

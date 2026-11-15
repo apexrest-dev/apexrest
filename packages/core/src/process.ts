@@ -111,6 +111,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       cancelled = false,
       truncated = false,
       settled = false;
+    let drain: ReturnType<typeof setTimeout> | undefined;
     const decoders = [new StringDecoder('utf8'), new StringDecoder('utf8')];
     const max = r.maxBytes ?? 1024 * 1024;
     const stop = () => stopTree(child);
@@ -142,6 +143,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       r.signal?.removeEventListener('abort', abort);
       // stdout is returned verbatim: callers parse JSON rows from it and a textual
       // redaction would corrupt them. Secret scrubbing is the adapter's job
@@ -161,6 +163,7 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       r.signal?.removeEventListener('abort', abort);
       emitSqlclTiming(r.onSqlclTiming, timing, started);
       reject(new Fault('DEPENDENCY_MISSING', e.message, 3, 'dependency_missing'));
@@ -168,12 +171,16 @@ export async function runProcess(r: ProcessRequest): Promise<ProcessResult> {
     child.on('close', (code) => finish(code));
     // A descendant that outlived the launcher, or survived the tree kill, may
     // still hold the pipes. Stop it and do not wait for it forever.
-    child.on('exit', (code) => {
-      const drain = setTimeout(() => {
+    child.on('exit', () => {
+      if (settled) return;
+      drain = setTimeout(() => {
+        // A successful launcher exit does not confirm its surviving child completed.
+        // Treat the drain deadline as a timeout so Oracle writes remain outcome_unknown.
+        timedOut = true;
         killTree(child, 'SIGKILL');
         child.stdout?.destroy();
         child.stderr?.destroy();
-        finish(code);
+        finish(null);
       }, DRAIN_AFTER_EXIT_MS);
       drain.unref();
     });

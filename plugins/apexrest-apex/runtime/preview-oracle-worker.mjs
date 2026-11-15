@@ -5,7 +5,7 @@ import {
 import {
   SqlclMcpClient,
   mcpCallOptions
-} from "./chunk-4FMLUYZ7.mjs";
+} from "./chunk-J2ZZKOUD.mjs";
 import "./chunk-WBDBC3GS.mjs";
 import "./chunk-JVBX3L43.mjs";
 
@@ -21,7 +21,7 @@ async function open(deadline) {
   const options = mcpCallOptions({}, deadline);
   try {
     await next.open(options());
-    await next.connect(settings.connectionName, options);
+    await next.connect(settings.connectionName, options, settings.commandConnect);
     await next.execute(initSession(settings.commit === true), options, () => false);
   } catch (error) {
     await next.close();

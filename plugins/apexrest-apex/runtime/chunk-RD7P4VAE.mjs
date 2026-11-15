@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   managedHome
-} from "./chunk-GGZKKEXV.mjs";
+} from "./chunk-DFK3P5MT.mjs";
 
 // packages/core/src/preview/registry.ts
 import fs from "node:fs";

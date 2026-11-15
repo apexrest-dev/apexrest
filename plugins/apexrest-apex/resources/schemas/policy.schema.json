@@ -42,7 +42,7 @@
           },
           "note": {
             "type": "string",
-            "maxLength": 2000
+            "maxLength": 16000
           },
           "grantedBy": {
             "type": "string",
