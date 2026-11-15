@@ -117,6 +117,26 @@ Every preview page keeps a WebSocket to the local server, so the agent sees its 
 
 In the episode, captured from the generated showcase app, four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
 
+## Build a web application: APEXlang as a standalone Node.js app
+
+`apexrest build webapp` turns an APEXlang application into a standalone Node.js web application. It renders the pages with Universal Theme and runs their SQL and PL/SQL in your existing Oracle database through `node-oracledb`. No APEX engine and no ORDS take part in a request.
+
+```sh
+apexrest build webapp --project /abs/project --out /abs/output --include-assets
+cd /abs/output && npm install
+cp .env.example .env      # ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING
+npm start                 # http://127.0.0.1:8080/r/<alias>
+```
+
+- **Not a compiler.** The build packages the sources with the preview's renderer in application mode. The sources are read when the application starts.
+- **Real sign-in.** An accounts file with hashed passwords, a PL/SQL function or database accounts. Pages need a session, and authorization schemes are enforced.
+- **Your database code.** Region SQL, PL/SQL processes, triggers and packages run untranslated. Each request is one transaction.
+- **The application's own messages.** With the APEX error API in the database, the application's error handling function words database errors, as on APEX.
+
+On a local Docker database, a 119-page trading application built in 0.4 s. A scripted browser session passed 23 steps, including a document saved through an interactive grid, posted and unposted. All 118 pages answered for five accounts with role denials enforced, at a median server time of 18 ms per page.
+
+It is a first version and it is not Oracle APEX. Session state protection is not implemented, and one process serves one request at a time. Read the [web application guide](webapp.md) for how it works, how to convert an existing application, and the limits.
+
 ## APEX 26.2: import only what changed
 
 Update a page and its shared list of values without re-importing the rest of the application. APEXREST compares the saved baseline, local edits and a fresh server export. It preserves remote-only changes and blocks conflicts before writing.

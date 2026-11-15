@@ -12,15 +12,16 @@ Oracle operations use SQLcl in `cli` mode (subprocess) or `mcp` mode (the offici
 
 ## Components
 
-| Component                                 | Responsibility                                                                                                                                       |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plugins/apexrest-apex/skills/`           | `apexrest-work` (the end-to-end cycle), `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`, `apexrest-oracle-sync` |
-| `packages/mcp/`                           | Stdio MCP catalog, structured output, in-process and detached job dispatch                                                                           |
-| `packages/cli/`                           | CLI parsing and JSON output, backed by the same operation schemas                                                                                    |
-| `packages/core/`                          | Configuration, connections, references, SQLcl sessions, deployment policy, browser handoff, jobs, artifacts and the status snapshot                  |
-| `packages/core/src/preview/`              | Database-free [local preview](local-preview.md): APEXlang parser, theme export evaluation, renderer, SQLite shims, HTTP server and feature modules   |
-| `packages/installer/`                     | Reviewed downloads, safe extraction, managed runtimes and Codex registration                                                                         |
-| `resources/`, `templates/`, `toolchains/` | Pinned references, component and pattern catalogs, project starters and toolchain definitions                                                        |
+| Component                                 | Responsibility                                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugins/apexrest-apex/skills/`           | `apexrest-work` (the end-to-end cycle), `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`, `apexrest-oracle-sync`    |
+| `packages/mcp/`                           | Stdio MCP catalog, structured output, in-process and detached job dispatch                                                                              |
+| `packages/cli/`                           | CLI parsing and JSON output, backed by the same operation schemas                                                                                       |
+| `packages/core/`                          | Configuration, connections, references, SQLcl sessions, deployment policy, browser handoff, jobs, artifacts and the status snapshot                     |
+| `packages/core/src/preview/`              | Database-free [local preview](local-preview.md): APEXlang parser, theme export evaluation, renderer, SQLite shims, HTTP server and feature modules      |
+| `packages/core/src/webapp/`               | [Built web applications](webapp.md): the build command, the application server (sign-in, sessions, configuration) and the `node-oracledb` driver worker |
+| `packages/installer/`                     | Reviewed downloads, safe extraction, managed runtimes and Codex registration                                                                            |
+| `resources/`, `templates/`, `toolchains/` | Pinned references, component and pattern catalogs, project starters and toolchain definitions                                                           |
 
 `plugins/metadata.json` drives the build in `scripts/build-plugin.mjs`, which writes the Codex manifest (`.codex-plugin/plugin.json`, `.mcp.json`), the Claude Code manifest (`.claude-plugin/plugin.json`) and both marketplace files, shares ESM runtime chunks and copies skills, reference fragments, schemas, templates and locks into one self-contained bundle. `npm run plugin:sync` refreshes the checked-in copy under `plugins/apexrest-apex` and the repository marketplaces. MCP startup performs no dependency downloads and needs no extra global MCP registration.
 

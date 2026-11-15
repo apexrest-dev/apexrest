@@ -20,6 +20,7 @@
 <li><strong>Component library.</strong> 389 pinned Oracle 26.2 definitions, 269 compiler-checked component recipes, UX patterns and 1,350 public Oracle pages, searchable in English or Ukrainian.</li>
 <li><strong>Decisions API selection.</strong> Optional OpenAI ranking of catalog components before generation. A one-page pilot cut active time by 48%.</li>
 <li><strong>Local preview.</strong> Run APEXlang on Node.js and SQLite with the genuine Universal Theme 26.2: reports, grids, forms, items, charts, calendars, maps, dynamic actions and a PL/SQL interpreter.</li>
+<li><strong>Standalone web application.</strong> <code>apexrest build webapp</code> builds an APEXlang application into a Node.js application that renders the pages and runs their SQL and PL/SQL in your Oracle database, without the APEX engine or ORDS. A first version; see the <a href="/apexrest/webapp/">guide</a> for its limits.</li>
 <li><strong>Real compiler validation.</strong> Structured diagnostics with file, line, column and valid values.</li>
 <li><strong>Partial imports on APEX 26.2.</strong> Import only the changed pages and shared components, with drift and conflict checks.</li>
 <li><strong>Safe deployment.</strong> Exact 30-minute plans, backups, drift detection and recovery from unknown outcomes. DEV, QA and TEST targets only.</li>
@@ -68,9 +69,10 @@ claude plugin install apexrest@apexrest
 <h2 id="documentation">Documentation</h2>
 <ul>
 <li><a href="/apexrest/apex-design-race/">Field report: developing with the plugin is 2 times faster</a>: the same APEX app built with and without the plugin, with a browser design check: 2 imports instead of 8, 2.2 times faster and 38% lower model cost, and why.</li>
-<li><a href="/apexrest/features/">Features and videos</a>: the YouTube video series, component library, Decisions selection, local and connected preview, live updates, partial imports, tools and skills.</li>
+<li><a href="/apexrest/features/">Features and videos</a>: the YouTube video series, component library, Decisions selection, local and connected preview, live updates, the web application build, partial imports, tools and skills.</li>
 <li><a href="/apexrest/getting-started/">Getting started</a>: install, connect, create or adopt an application, ship and verify.</li>
 <li><a href="/apexrest/local-preview/">Local preview</a>: run APEXlang without a database.</li>
+<li><a href="/apexrest/webapp/">Build a web application</a>: turn an APEXlang application into a standalone Node.js application for an Oracle database.</li>
 <li><a href="/apexrest/configuration/">Configuration</a>: environments, connection references, trust policy and deployment coordination.</li>
 <li><a href="/apexrest/deployment/">Deployment safety</a>: plans, backups, drift and authorization rules.</li>
 <li><a href="/apexrest/codex-cloud/">Codex Cloud</a>: run the CLI in a Cloud container over ORDS.</li>
