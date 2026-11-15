@@ -1,8 +1,17 @@
 # Pattern catalog
 
-Find a reusable Oracle APEX UX composition and adapt its APEXlang recipe to your application. The pattern catalog is separate from the [component catalog](component-catalog.md): components describe individual building blocks; patterns preserve the layout, data flow and interaction between them. Both are local resources used by the agent through the existing reference tools. Pattern lookup needs no database connection, catalog UI or automatic insertion step.
+Find a reusable Oracle APEX UX composition and adapt its APEXlang recipe to your application. This page is for developers and agents who reuse a pattern, and for maintainers who add patterns from another application.
+
+## When to use
+
+- Use the pattern catalog when you need the layout, data flow and interaction between several components.
+- Use the [component catalog](component-catalog.md) when you need an individual building block. The two catalogs are separate.
+- Both are local resources used by the agent through the existing reference tools.
+- Pattern lookup needs no database connection, catalog UI or automatic insertion step.
 
 ## Search and use
+
+### Search
 
 ```sh
 apexrest docs search --corpus patterns --query "search" --kind template --version 26.1 --limit 3 --json
@@ -21,21 +30,77 @@ The equivalent MCP call is `apexrest_reference` with `mode: "search"`:
 }
 ```
 
-Read a returned `pattern:` ID with `apexrest_reference` `mode: "read"` or `apexrest docs read --id ID --json`. Follow `nextOffset` for the needed continuation and `nextResultOffset` for more matches. English and Ukrainian search names refer to the same records; inflected forms (`панель показників`, `панелі показників`) match the same stem. The default corpus remains `apexlang`; `component:` and existing Oracle reference IDs retain their meaning.
+Read a returned `pattern:` ID with `apexrest_reference` `mode: "read"` or `apexrest docs read --id ID --json`. Follow `nextOffset` for the needed continuation and `nextResultOffset` for more matches.
 
-Search matches any of the query terms (at least half must match) and ranks a ready recipe whose title starts with the query above its pattern contract, so `simple dashboard` returns the composition with its primary `apexlang` block inline (`code`, bounded to 2,500 characters with `truncated` and `length`; `include: "code"` for every hit, `include: "metadata"` for none). Unresolved variants and concepts are hidden unless `includeUnresolved: true` is set; an exact ID always resolves. `requiresReferences` and `relatedReferences` resolve linked `pattern:` IDs to `{ id, title, kind }` (three per hit, sixteen on read); `component:` and `oracle:` targets keep `title: null` and are read through their own corpus. Pages stay within the existing 7,000-byte budget.
+### How search behaves
 
-Inspect the current project's source, APEX version, theme and MMD before choosing a recipe. Read its data contract and required `component:`/`oracle:` references. Adapt page and item names, DOM IDs, keys, SQL projections, submitted items, actions and shared references together. Merge the composition into the existing application without copying the source application's authentication or configuration. Compile the adapted application and use the existing authorized deployment and browser-verification workflow.
+- English and Ukrainian search names refer to the same records. Inflected forms (`панель показників`, `панелі показників`) match the same stem.
+- The default corpus remains `apexlang`. `component:` and existing Oracle reference IDs retain their meaning.
+- Search matches any of the query terms (at least half must match).
+- A ready recipe whose title starts with the query ranks above its pattern contract. For example, `simple dashboard` returns the composition with its primary `apexlang` block inline.
+- Unresolved variants and concepts are hidden unless `includeUnresolved: true` is set. An exact ID always resolves.
 
-Read coverage with `pattern:source/<sourceId>/review`, then a page decision with `pattern:source/<sourceId>/review/page-<id>`. Search the `patterns` corpus with `family: "coverage"` to find these records. Coverage means all observed pages and meaningful variants were reviewed; it does not mean every possible combination of template options has a separate recipe.
+| Field or option                           | Behavior                                                                                                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`                                    | The primary `apexlang` block, bounded to 2,500 characters with `truncated` and `length`.                                                                                              |
+| `include: "code"`                         | Attaches `code` to every hit.                                                                                                                                                         |
+| `include: "metadata"`                     | Attaches `code` to none.                                                                                                                                                              |
+| `requiresReferences`, `relatedReferences` | Resolve linked `pattern:` IDs to `{ id, title, kind }` (three per hit, sixteen on read). `component:` and `oracle:` targets keep `title: null` and are read through their own corpus. |
+| Page budget                               | Pages stay within the existing 7,000-byte budget.                                                                                                                                     |
+
+### Adapt a pattern
+
+1. Inspect the current project's source, APEX version, theme and MMD before choosing a recipe.
+2. Read its data contract and required `component:`/`oracle:` references.
+3. Adapt page and item names, DOM IDs, keys, SQL projections, submitted items, actions and shared references together.
+4. Merge the composition into the existing application without copying the source application's authentication or configuration.
+5. Compile the adapted application and use the existing authorized deployment and browser-verification workflow.
+
+### Read coverage
+
+- Read coverage with `pattern:source/<sourceId>/review`, then a page decision with `pattern:source/<sourceId>/review/page-<id>`.
+- Search the `patterns` corpus with `family: "coverage"` to find these records.
+- Coverage means all observed pages and meaningful variants were reviewed. It does not mean every possible combination of template options has a separate recipe.
 
 ## Sources and evidence
 
-The catalog reviews two sources on APEX 26.1.4 and Universal Theme 26.1: [Universal Theme Reference](https://apex.oracle.com/ut), with 122 pages, and Oracle APEX UX Pattern Catalog, with 28 pages. Every captured page has an explicit review of its structural and behavioral variants. Individual components, visual options, documentation, inert controls and empty concepts remain distinct from reusable compositions. Public records contain safe source attribution, compatibility and content hashes. Raw exports and private target details stay outside the package. Redistribution rights are unverified; the catalog uses factual metadata and original recipes without copying source prose, JavaScript or assets.
+### Reviewed sources
 
-The [local manifest](../resources/patterns/manifest.json) records 150 reviewed pages, 818 variant decisions, 58 pattern contracts and 84 recipes. Sixty-nine recipes contain original implementations and bound offline SQLcl compiler evidence; 15 remain explicit unresolved variants or concepts. Source attribution and compiler records remain part of the functional catalog.
+The catalog reviews two sources on APEX 26.1.4 and Universal Theme 26.1:
 
-A `ready` recipe has a complete declared local dependency set and real offline compiler evidence for its scaffold and MMD. Source inspection, compilation, SQL execution, import and browser verification are separate results. `not-run` does not imply a pass. Unsupported behavior or unresolved dependencies remain explicit. Synthetic examples establish an input shape, not the user's business schema or a runtime guarantee.
+| Source                                                  | Pages |
+| ------------------------------------------------------- | ----: |
+| [Universal Theme Reference](https://apex.oracle.com/ut) |   122 |
+| Oracle APEX UX Pattern Catalog                          |    28 |
+
+- Every captured page has an explicit review of its structural and behavioral variants.
+- Individual components, visual options, documentation, inert controls and empty concepts remain distinct from reusable compositions.
+- Public records contain safe source attribution, compatibility and content hashes.
+- Raw exports and private target details stay outside the package.
+- Redistribution rights are unverified; the catalog uses factual metadata and original recipes without copying source prose, JavaScript or assets.
+
+### Counts
+
+The [local manifest](../resources/patterns/manifest.json) records:
+
+| Item              | Count |
+| ----------------- | ----: |
+| Reviewed pages    |   150 |
+| Variant decisions |   818 |
+| Pattern contracts |    58 |
+| Recipes           |    84 |
+
+Sixty-nine recipes contain original implementations and bound offline SQLcl compiler evidence; 15 remain explicit unresolved variants or concepts. Source attribution and compiler records remain part of the functional catalog.
+
+### What `ready` means
+
+- A `ready` recipe has a complete declared local dependency set and real offline compiler evidence for its scaffold and MMD.
+- Source inspection, compilation, SQL execution, import and browser verification are separate results.
+- `not-run` does not imply a pass.
+- Unsupported behavior or unresolved dependencies remain explicit.
+- Synthetic examples establish an input shape, not the user's business schema or a runtime guarantee.
+
+### Limits
 
 The observed sources and original recipes have concrete limits:
 
@@ -47,9 +112,17 @@ The observed sources and original recipes have concrete limits:
 
 ## Add patterns from another application
 
-Invoke `$apexrest-pattern-catalog` (Codex) or `/apexrest:apexrest-pattern-catalog` (Claude Code) to add or refresh catalog entries from an identified APEX application. The skill handles catalog maintenance; ordinary use of an existing pattern follows `$apexrest-apexlang`.
+This section is for maintainers.
 
-Maintainer capture/build helpers run from the [APEXREST source repository](https://github.com/apexrest-dev/apexrest). An installed plugin can search existing patterns without that checkout. Do not edit the installed plugin cache or assume repository scripts are bundled beside its skills.
+### Before you start
+
+- Invoke `$apexrest-pattern-catalog` (Codex) or `/apexrest:apexrest-pattern-catalog` (Claude Code) to add or refresh catalog entries from an identified APEX application. The skill handles catalog maintenance; ordinary use of an existing pattern follows `$apexrest-apexlang`.
+- Maintainer capture/build helpers run from the [APEXREST source repository](https://github.com/apexrest-dev/apexrest). An installed plugin can search existing patterns without that checkout.
+- Do not edit the installed plugin cache or assume repository scripts are bundled beside its skills.
+- Access to a source application alone does not grant permission to distribute its code.
+- Catalog maintenance does not publish a release or authorize an application import.
+
+### 1. Capture the source
 
 Set `PATTERN_CONNECTION`, `PATTERN_APPLICATION_ID`, `PATTERN_WORKSPACE` and `PATTERN_SCHEMA` to the approved read-only source. Set `PATTERN_SOURCE_ID` to a stable non-sensitive slug; it is required in both capture modes. Capture to a fresh private directory:
 
@@ -57,9 +130,17 @@ Set `PATTERN_CONNECTION`, `PATTERN_APPLICATION_ID`, `PATTERN_WORKSPACE` and `PAT
 node scripts/capture-pattern-snapshot.mjs --connection "$PATTERN_CONNECTION" --application "$PATTERN_APPLICATION_ID" --workspace "$PATTERN_WORKSPACE" --schema "$PATTERN_SCHEMA" --source-id "$PATTERN_SOURCE_ID" --compiler /path/to/sqlcl/lib/apexlang-compiler.jar --output /tmp/apexrest-pattern-snapshot-new
 ```
 
-Capture verifies the live identity before reading metadata and exporting source. It performs no import or business-table writes. Review the private snapshot, select compositions, replace application-specific details and confirm redistribution rights. Access to a source application alone does not grant permission to distribute its code.
+Capture verifies the live identity before reading metadata and exporting source. It performs no import or business-table writes.
 
-Use a stable source ID across refreshes. New applications add separate sources; equal page names must not overwrite another source's patterns. Review source drift, removed entries, ID collisions and compatibility changes before merging. Preserve existing IDs when their meaning is unchanged. Keep raw snapshots private and publish only reviewed metadata, original or authorized recipes and safe attribution.
+### 2. Review the snapshot
+
+- Review the private snapshot, select compositions, replace application-specific details and confirm redistribution rights.
+- Use a stable source ID across refreshes. New applications add separate sources; equal page names must not overwrite another source's patterns.
+- Review source drift, removed entries, ID collisions and compatibility changes before merging.
+- Preserve existing IDs when their meaning is unchanged.
+- Keep raw snapshots private and publish only reviewed metadata, original or authorized recipes and safe attribution.
+
+### 3. Normalize the snapshot
 
 Normalize the reviewed snapshot with the same source ID:
 
@@ -67,9 +148,21 @@ Normalize the reviewed snapshot with the same source ID:
 node scripts/capture-pattern-snapshot.mjs --snapshot /tmp/apexrest-pattern-snapshot-new --publish resources/patterns/source --source-id "$PATTERN_SOURCE_ID"
 ```
 
-Normalization writes `source/<sourceId>/snapshot.json` and `inventory.json`. Existing source IDs are refused unless `--replace` is supplied for a reviewed refresh of the same source. Curate patterns and recipes in `resources/patterns/recipes/registry.json` before verification, preserving their source links and the other sources' entries. Inspect the current builder schema when adding records. The verifier also accepts `--changed`, `--filter=REGEX` and `--catalog=DIR`; the builder accepts an optional catalog directory.
+- Normalization writes `source/<sourceId>/snapshot.json` and `inventory.json`.
+- Existing source IDs are refused unless `--replace` is supplied for a reviewed refresh of the same source.
 
-Keep captured facts immutable. Use the optional `sourceClassifications` registry map to classify new or reclassified pages as `pattern`, `group`, `primitives`, `documentation`, `scaffolding` or `placeholder`. Also provide mandatory `sourceReviews` entries for every page of every source, keyed by source ID and string page ID. For example, this excerpt describes one reviewed page:
+### 4. Curate patterns and reviews
+
+Curate patterns and recipes in `resources/patterns/recipes/registry.json` before verification, preserving their source links and the other sources' entries. Inspect the current builder schema when adding records.
+
+Keep captured facts immutable. The registry takes two maps:
+
+| Map                     | Required  | Purpose                                                                                                                  |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `sourceClassifications` | Optional  | Classify new or reclassified pages as `pattern`, `group`, `primitives`, `documentation`, `scaffolding` or `placeholder`. |
+| `sourceReviews`         | Mandatory | One entry for every page of every source, keyed by source ID and string page ID.                                         |
+
+For example, this excerpt describes one reviewed page:
 
 ```json
 {
@@ -98,9 +191,27 @@ Keep captured facts immutable. Use the optional `sourceClassifications` registry
 }
 ```
 
-Replace the illustrative digest and IDs with actual inventory and catalog values, and review every remaining page. `sourceSha256` must equal that page's exact `provenance.sha256`. Variant dispositions are `pattern`, `component`, `visual`, `documentation` and `unresolved`. Inventory nested declarations, anonymous branches, quoted keys, repeated keys with their parent context, shared dependencies and every meaningful action or state. A button label, `#` link or template name alone does not prove working behavior. Record actual source examples with page IDs and exact inventory component keys; keep unsupported behavior explicit.
+Rules for the review entries:
 
-The builder rejects missing or stale reviews, unknown pages or source anchors, unclassified pages and patterns absent from their source-page reviews. Every page classified as `pattern` needs a pattern reference. A placeholder is not a working recipe. After curation, run:
+- Replace the illustrative digest and IDs with actual inventory and catalog values, and review every remaining page.
+- `sourceSha256` must equal that page's exact `provenance.sha256`.
+- Variant dispositions are `pattern`, `component`, `visual`, `documentation` and `unresolved`.
+- Inventory nested declarations, anonymous branches, quoted keys, repeated keys with their parent context, shared dependencies and every meaningful action or state.
+- A button label, `#` link or template name alone does not prove working behavior.
+- Record actual source examples with page IDs and exact inventory component keys; keep unsupported behavior explicit.
+
+The builder rejects:
+
+- missing or stale reviews;
+- unknown pages or source anchors;
+- unclassified pages;
+- patterns absent from their source-page reviews.
+
+Every page classified as `pattern` needs a pattern reference. A placeholder is not a working recipe.
+
+### 5. Verify and build
+
+After curation, run:
 
 ```sh
 node scripts/verify-pattern-recipes.mjs
@@ -108,6 +219,12 @@ node scripts/build-pattern-catalog.mjs
 node scripts/build-pattern-catalog.mjs --check
 ```
 
-Verify every recipe declared ready, rebuild the catalog and check deterministic output, dependencies, evidence hashes, bounded retrieval and package portability. A focused verification run does not waive evidence requirements for other ready recipes. Update this guide with the catalog counts. Catalog maintenance does not publish a release or authorize an application import.
+- Verify every recipe declared ready, rebuild the catalog and check deterministic output, dependencies, evidence hashes, bounded retrieval and package portability.
+- The verifier also accepts `--changed`, `--filter=REGEX` and `--catalog=DIR`; the builder accepts an optional catalog directory.
+- A focused verification run does not waive evidence requirements for other ready recipes.
+- Update this guide with the catalog counts.
 
-See [implementation status](implementation-status.md), the [acceptance matrix](acceptance.json) and [next actions](next-actions.md) for current evidence and remaining work.
+## Related
+
+- [Component catalog](component-catalog.md): individual building blocks and their recipes.
+- [Implementation status](implementation-status.md), the [acceptance matrix](acceptance.json) and [next actions](next-actions.md): current evidence and remaining work.

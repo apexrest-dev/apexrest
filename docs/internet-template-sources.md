@@ -1,6 +1,17 @@
 # Internet APEXlang template sources
 
-The source inventory was checked on 2026-10-11 and refreshed on 2026-10-14 and 2026-10-15 using web discovery, GitHub repository and code search, live GitHub recursive trees, immutable source archives and license text. It covers Oracle APEXlang `.apx` sources. Source counts describe files and applications, not independently verified ready components.
+This page lists the public Oracle APEXlang `.apx` sources that were reviewed for the reference library: the exact revisions, licenses, counts and exclusions. It is for anyone who starts from a public Oracle sample page or needs to check where a recipe comes from.
+
+- The source inventory was checked on 2026-10-11 and refreshed on 2026-10-14 and 2026-10-15 using web discovery, GitHub repository and code search, live GitHub recursive trees, immutable source archives and license text.
+- It covers Oracle APEXlang `.apx` sources.
+- Source counts describe files and applications, not independently verified ready components.
+
+| Source family                                                           | What it contributes                                                     |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [Official Oracle APEX applications](#official-oracle-apex-applications) | The 1,350-page public reference library and 26 compiler-checked recipes |
+| [Official Oracle skills examples](#official-oracle-skills-examples)     | Example applications, a scaffold and 67 compiler-checked recipes        |
+| [Community sources reviewed](#community-sources-reviewed)               | Seventeen licensed discovery candidates                                 |
+| [Exclusions and search limits](#exclusions-and-search-limits)           | Sources that are not additional ready template content, and why         |
 
 ## Scope and verification
 
@@ -13,9 +24,16 @@ The Oracle page intake is a reference corpus. A recipe becomes ready only after 
 
 ## Official Oracle APEX applications
 
-Repository: [oracle/apex, pinned 26.2 source](https://github.com/oracle/apex/tree/fbe095e4c6e783b3fa930ffae927e4826e549190). All 33 application metadata files declare `mmdVersion: 26.2.0+3479`. The application sources are licensed under [UPL-1.0](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/LICENSE.txt). Preserve the Oracle copyright and license notice when redistributing source or adapted substantial portions. Review applicable [third-party notices](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/THIRD_PARTY_LICENSES.txt) before copying JavaScript libraries, images, fonts or other supporting assets.
+- Repository: [oracle/apex, pinned 26.2 source](https://github.com/oracle/apex/tree/fbe095e4c6e783b3fa930ffae927e4826e549190).
+- All 33 application metadata files declare `mmdVersion: 26.2.0+3479`.
+- The application sources are licensed under [UPL-1.0](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/LICENSE.txt). Preserve the Oracle copyright and license notice when redistributing source or adapted substantial portions.
+- Review applicable [third-party notices](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/THIRD_PARTY_LICENSES.txt) before copying JavaScript libraries, images, fonts or other supporting assets.
 
-Each application link below opens its complete APEXlang source directory at the pinned commit. “Selected” is the numerical page filter described above. Topic labels summarize source names and structure; they are not runtime verification claims.
+How to read the tables:
+
+- Each application link below opens its complete APEXlang source directory at the pinned commit.
+- “Selected” is the numerical page filter described above.
+- Topic labels summarize source names and structure; they are not runtime verification claims.
 
 ### Sample applications
 
@@ -69,9 +87,24 @@ Universal Theme Reference and UX Pattern Catalog overlap with the existing compo
 
 ### Dependencies and adaptation
 
-The full application payloads total 49,883,949 uncompressed bytes. Many examples use `EBA_DEMO_*` tables, supporting SQL packages, shared LOVs, breadcrumbs, authorization schemes, plug-ins, static files or external REST endpoints. Charts, reports and maps may require database features or seeded sample data. Some sample pages perform writes, reset sample data, or change authentication behavior. Source inclusion is not authorization to run those actions or install supporting objects.
+The full application payloads total 49,883,949 uncompressed bytes.
 
-For a reusable recipe: preserve provenance and license; choose the actual component rather than a navigation-only sample page; resolve shared references; replace sample-schema SQL with a documented synthetic projection or explicit project data contract; preserve the destination authentication; and run the required Oracle compiler checks. Import and browser evidence remain separate. Do not remove source-declared MMD requirements or silently claim 26.1 compatibility for 26.2 examples.
+What the pages depend on:
+
+- Many examples use `EBA_DEMO_*` tables, supporting SQL packages, shared LOVs, breadcrumbs, authorization schemes, plug-ins, static files or external REST endpoints.
+- Charts, reports and maps may require database features or seeded sample data.
+- Some sample pages perform writes, reset sample data, or change authentication behavior. Source inclusion is not authorization to run those actions or install supporting objects.
+
+For a reusable recipe:
+
+1. Preserve provenance and license.
+2. Choose the actual component rather than a navigation-only sample page.
+3. Resolve shared references.
+4. Replace sample-schema SQL with a documented synthetic projection or explicit project data contract.
+5. Preserve the destination authentication.
+6. Run the required Oracle compiler checks.
+
+Import and browser evidence remain separate. Do not remove source-declared MMD requirements or silently claim 26.1 compatibility for 26.2 examples.
 
 A useful dependency-light extraction candidate is [Dynamic Actions: Debounce and Throttle](https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/sample-dynamic-actions/apexlang/sample-dynamic-actions/pages/p00021-debounce-and-throttle.apx). Its interaction is client-side, but breadcrumb and authorization references still require adaptation. Most richer reporting, card and chart examples require their source data contract.
 
@@ -85,11 +118,16 @@ The `oracle/apex` [26.2 branch](https://github.com/oracle/apex/tree/244dd3691fa5
 | [Forms Patterns](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/forms-patterns/apexlang/sample-forms)                                         |    12 | Expense report forms, receipts, categories and an editable grid                                                 |
 | [Sample Directory Search](https://github.com/oracle/apex/tree/244dd3691fa5c2897a069fc912b149b9c2853679/sample-apps/sample-directory-search/apexlang/sample-directory-search)            |     8 | Employee directory, hero search, content row and Oracle Text search                                             |
 
-The `main` branch now publishes release downloads instead of `.apx` trees, and `oracle/skills` is unchanged at `014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1`. The 1,350-page public reference library stays pinned to the earlier commit; the new applications are not imported as reference pages. Twenty-six compiler-checked recipes are adapted from this commit (Sample Charts, Sample Maps, Sample Dynamic Actions and the three new applications), and 67 more from the `oracle/skills` 26.1 generation templates. Each recipe records its single upstream path and SHA-256.
+- The `main` branch now publishes release downloads instead of `.apx` trees, and `oracle/skills` is unchanged at `014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1`.
+- The 1,350-page public reference library stays pinned to the earlier commit; the new applications are not imported as reference pages.
+- Twenty-six compiler-checked recipes are adapted from this commit (Sample Charts, Sample Maps, Sample Dynamic Actions and the three new applications), and 67 more from the `oracle/skills` 26.1 generation templates.
+- Each recipe records its single upstream path and SHA-256.
 
 ## Official Oracle skills examples
 
-Repository: [oracle/skills, pinned source](https://github.com/oracle/skills/tree/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/apex/apexlang), [UPL-1.0 license](https://github.com/oracle/skills/blob/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/LICENSE.txt). Current source is organized under `apex/apexlang/26.1` and `apex/apexlang/26.2`. Search-engine results referring to the former unversioned `apex/apexlang/templates` path can be stale.
+- Repository: [oracle/skills, pinned source](https://github.com/oracle/skills/tree/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/apex/apexlang), [UPL-1.0 license](https://github.com/oracle/skills/blob/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/LICENSE.txt).
+- Current source is organized under `apex/apexlang/26.1` and `apex/apexlang/26.2`.
+- Search-engine results referring to the former unversioned `apex/apexlang/templates` path can be stale.
 
 | Source                                                                                                                                                                                       | MMD version   | `.apx` files | Page files |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -----------: | ---------: |
@@ -105,7 +143,12 @@ The 26.1 generation package also contains Markdown template contracts for page l
 
 ## Community sources reviewed
 
-The repositories below expose actual `.apx` source files and verified license text at the listed revisions. The first seven were reviewed on 2026-10-11 and were unchanged on 2026-10-14; the remaining ten were added on 2026-10-14. All ten new candidates declare 26.1 metadata and contain some files byte-identical to Oracle sources (generated shared components and scaffold files). Each link is pinned. Counts may include multiple snapshots, blueprints or experiments; they are not counts of unique production-ready components.
+The repositories below expose actual `.apx` source files and verified license text at the listed revisions.
+
+- The first seven were reviewed on 2026-10-11 and were unchanged on 2026-10-14; the remaining ten were added on 2026-10-14.
+- All ten new candidates declare 26.1 metadata and contain some files byte-identical to Oracle sources (generated shared components and scaffold files).
+- Each link is pinned.
+- Counts may include multiple snapshots, blueprints or experiments; they are not counts of unique production-ready components.
 
 | Repository                                                                                                                                                                                                                                                                                                  | `.apx` files | Declared MMD                 | Useful content and limits                                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -----------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -131,7 +174,12 @@ No community source is claimed to have passed this repository’s compiler, impo
 
 ## Exclusions and search limits
 
-The GitHub repository search for `apexlang` returned 47 repositories on 2026-10-11 and 48 on 2026-10-14. On 2026-10-14 a code search for `.apex/apexlang.json` files declaring `mmdVersion` added repositories whose names do not mention APEXlang. On 2026-10-14 and 2026-10-15 the Oracle `26.2` branch and oracle/skills `main` still matched the pinned commits above. The 2026-10-15 recheck found no new licensed source with original `.apx` application content. Search results were screened for actual Oracle `.apx` files and redistribution terms. The search is not a claim of an exhaustive internet inventory.
+- The GitHub repository search for `apexlang` returned 47 repositories on 2026-10-11 and 48 on 2026-10-14.
+- On 2026-10-14 a code search for `.apex/apexlang.json` files declaring `mmdVersion` added repositories whose names do not mention APEXlang.
+- On 2026-10-14 and 2026-10-15 the Oracle `26.2` branch and oracle/skills `main` still matched the pinned commits above.
+- The 2026-10-15 recheck found no new licensed source with original `.apx` application content.
+- Search results were screened for actual Oracle `.apx` files and redistribution terms.
+- The search is not a claim of an exhaustive internet inventory.
 
 | Source or category                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Reason it is not additional ready template content                                                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -160,3 +208,9 @@ The GitHub repository search for `apexlang` returned 47 repositories on 2026-10-
 | Skill directories and mirrors                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Repackaged Oracle content is not a new independent source.                                                                                                       |
 
 Raw GitHub trees, archive digests, per-page listings and source inspection results belong in ignored `docs/evidence/internet-templates/`. This document is the maintained source-selection reference; generated research evidence is not part of the public package.
+
+## Related
+
+- [Component catalog](component-catalog.md#public-page-templates-and-ready-recipes): search the public page library and the ready recipes.
+- [Pattern catalog](pattern-catalog.md): UX compositions reviewed from Universal Theme Reference and the UX Pattern Catalog.
+- [Oracle APEXlang coverage](oracle-apexlang-coverage.md): the pinned Oracle 26.2 inventory.

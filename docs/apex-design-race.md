@@ -2,6 +2,16 @@
 
 _A field report from 6–7 November 2026. Every figure comes from recorded runs on a local Oracle database. Each setup ran once; the limits are listed at the end._
 
+This report compares two recorded runs of the same task: one agent builds an Oracle APEX application with Oracle's APEXlang skill and SQLcl, the other with the APEXREST plugin. It is for readers who want to see, in measured terms, what the plugin changes and where its limits are.
+
+## In short
+
+- The plugin run took 10 min 4 s; the classic run took 22 min 11 s (2.2 times faster).
+- The plugin run imported the application 2 times instead of 8, because design iterations ran in the local preview.
+- Model cost was $5.01 against $8.04 (−38%), an estimate at API prices.
+- Both dashboards look comparably professional. The plugin does not make the agent a better designer; each design iteration costs less.
+- Each setup ran once, and run-to-run variation is large. Read [Limits of the experiment](#limits-of-the-experiment) before quoting a figure.
+
 ## The task
 
 A Claude Code agent (model claude-opus-5-5, effort high) received the same task twice: build an [Oracle APEX](https://apex.oracle.com/) application called **Bitcoin Price Monitor** on tables that already held a month of hourly prices. The application had five parts:
@@ -106,5 +116,7 @@ The tooltip is exactly why the plugin run needed a second import: in real APEX t
 ## Conclusion
 
 When design is finished in a browser, most of the time goes into the loop of edit, import, reload and check. APEXREST removes the server import and the syntax lookup in reference files from that loop. In this test the agent imported the application 2 times instead of 8, finished 2.2 times faster and spent 38% less. The final check in real APEX stays, because that is where the application runs.
+
+## Related
 
 To try it: [Getting started](getting-started.md), more on the [local preview](local-preview.md), and how imports stay safe in [deployment safety](deployment-safety.md).

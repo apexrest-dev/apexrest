@@ -9,7 +9,9 @@ import { renderMarkdown } from './lib/site-markdown.mjs';
 const documents = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md'];
 for (const root of ['docs', 'site/content', 'templates', 'plugins/apexrest-apex/skills']) {
   for (const file of await files(root)) {
-    if (file.endsWith('.md')) documents.push(root + '/' + file);
+    // docs/evidence/ holds ignored, generated verification output, including third-party files.
+    if (file.endsWith('.md') && !(root === 'docs' && file.startsWith('evidence/')))
+      documents.push(root + '/' + file);
   }
 }
 const site = JSON.parse(await readFile('site/site.config.json', 'utf8'));

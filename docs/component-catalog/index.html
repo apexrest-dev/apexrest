@@ -1,21 +1,42 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Component catalog · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/component-catalog/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/component-catalog/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/" aria-current="page">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Build applications / Component catalog</div><h1 id="component-catalog">Component catalog</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#public-page-templates-and-ready-recipes">Public page templates and ready recipes</a></li><li><a href="#search-and-read">Search and read</a></li><li><a href="#optional-openai-decisions-selection">Optional OpenAI Decisions selection</a></li><li><a href="#adapt-a-recipe">Adapt a recipe</a></li><li><a href="#source-and-compatibility">Source and compatibility</a></li><li><a href="#maintenance-and-distribution">Maintenance and distribution</a></li></ul></details>
-<p>Find a component, inspect its parameters and adapt its APEXlang recipe to your application. The catalog is bundled with APEXREST since 1.1.0 and works offline, without a project or a connection to the reference application. It covers the Universal Theme 26.1 Reference application, including distinct component hosts and examples; it is not a claim to cover every capability of Oracle APEX.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Component catalog · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/component-catalog/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/component-catalog/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/" aria-current="page">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Build applications / Component catalog</div><h1 id="component-catalog">Component catalog</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#what-the-catalog-contains">What the catalog contains</a></li><li><a href="#search-and-read">Search and read</a></li><li><a href="#public-page-templates-and-ready-recipes">Public page templates and ready recipes</a></li><li><a href="#adapt-a-recipe">Adapt a recipe</a></li><li><a href="#optional-openai-decisions-selection">Optional OpenAI Decisions selection</a></li><li><a href="#source-and-compatibility">Source and compatibility</a></li><li><a href="#maintenance-and-distribution">Maintenance and distribution</a></li><li><a href="#related">Related</a></li></ul></details>
+<p>Find a component, inspect its parameters and adapt its APEXlang recipe to your application. This page is for developers and agents who look up a component before writing APEXlang, and for maintainers who refresh the catalog.</p>
+<p>The catalog is bundled with APEXREST since 1.1.0 and works offline, without a project or a connection to the reference application. It covers the Universal Theme 26.1 Reference application, including distinct component hosts and examples; it is not a claim to cover every capability of Oracle APEX.</p>
 <p>Browse the component list and examples in <a href="https://apex.oracle.com/ut">Universal Theme Reference</a>.</p>
-<p>For an explicit <code>version:26.2</code>, <code>corpus:components</code> resolves the complete <a href="/apexrest/oracle-apexlang-coverage/">official Oracle inventory</a> by default, including native/plugin variants and all properties. With <code>kind:template</code>, it searches <strong>1,350 original APEXlang page examples from 33 public Oracle applications</strong>. The local compiler-checked recipe catalog remains independently bound to 26.1. Passing <code>project</code> only supplies context: without <code>version</code>, <code>corpus:components</code> and <code>corpus:patterns</code> still return the recipe and pattern catalogs, labelled with their own 26.1 version, even when the project&#39;s <code>toolchain.profile</code> is <code>26.2</code>.</p>
-<h2 id="public-page-templates-and-ready-recipes">Public page templates and ready recipes</h2>
-<p>The <a href="/apexrest/internet-template-sources/">internet source inventory</a> records the reviewed repositories, exact revisions, licenses and exclusions. The public page library includes Cards, Charts, Calendar, Interactive Grids, Maps, Master Detail, Reporting, Dynamic Actions, Approvals, Search, Customers, Opportunities, Poll, QAsk, Strategic Planner and Team Calendar. Every page retains its original source bytes, source URL, SHA-256, UPL notice and required application dependency guide. Page-number filtering is not a security or runtime readiness classification.</p>
-<p>The 1,350 page records contain 1,349 distinct source hashes: Customers and Opportunities share the same help-dialog source. Both records retain their own application dependency context.</p>
-<pre><code class="language-sh">apexrest docs search --corpus components --version 26.2 --kind template --query &quot;calendar drag drop&quot; --limit 3 --json
-apexrest docs read --id oracle:26.2:public-template/catalog --json
-</code></pre>
-<p>Public pages have <code>readiness:reference</code>: they can depend on sample tables, APIs, plug-ins, assets, shared objects and destination pages. Read the linked dependency inventory, adapt the complete dependency set and compile in the target application. They are not standalone ready recipes, and their source authentication/configuration must not replace an existing application&#39;s security.</p>
-<p>The separate 26.1 catalog adds <strong>30 dependency-closed recipes</strong>: 12 dynamic actions, eight computations, seven validations, Area/Donut charts and a Classic Report with CASE/IF/LOOP directives. They use synthetic data and have exact-source attribution (29 Oracle UPL adaptations and one MIT adaptation with its complete notice). Offline compilation uses SQLcl 26.3 while retaining the original <code>26.1.0+3102</code> MMD; this does not upgrade the recipe&#39;s APEX version. SQL execution, import and browser verification remain <code>not-run</code>.</p>
-<p>The 2026-11-01 expansion adds <strong>93 more dependency-closed recipes</strong> adapted from official Oracle sources: 67 from the <code>oracle/skills</code> 26.1 generation templates and 26 from <code>oracle/apex</code> 26.2 sample applications, including the new Faceted Search Patterns, Forms Patterns and Sample Directory Search applications. They cover 16 chart variants (bar, stacked, dual axis, bubble, scatter, Gantt, status meter gauge, stock, combination, links, tooltips, zoom, series colors, 3D, densification), nine map layers and controls, nine calendar variants, nine faceted search layouts, processes, dialog and message dynamic actions, button behaviors, item variants, Rich Text Editor, Geocoded Address and Display Image items, Help Text and Breadcrumb regions, static-content layouts, report variants and an editable Interactive Grid. All use synthetic data, retain exact UPL source attribution and passed the same SQLcl 26.3 offline compilation with the 26.1 MMD. The editable grid and sectioned form do not save data until a project table and row-processing process are added; Geocoded Address calls Oracle&#39;s geocoding service at runtime. SQL execution, import and browser verification remain <code>not-run</code>.</p>
-<pre><code class="language-sh">apexrest docs search --corpus components --version 26.1 --kind template --query &quot;gantt chart&quot; --limit 3 --json
-apexrest docs search --corpus components --version 26.1 --kind template --query &quot;conditional field visibility&quot; --limit 3 --json
-apexrest docs search --corpus components --version 26.1 --kind template --query &quot;template directives&quot; --limit 3 --json
-</code></pre>
+<h2 id="what-the-catalog-contains">What the catalog contains</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Content</th>
+<th>Version</th>
+<th>Read more</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Compiler-checked recipe catalog</td>
+<td>26.1</td>
+<td><a href="#adapt-a-recipe">Adapt a recipe</a></td>
+</tr>
+<tr>
+<td>Official Oracle inventory</td>
+<td>26.2</td>
+<td><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></td>
+</tr>
+<tr>
+<td>Public Oracle page examples</td>
+<td>26.2</td>
+<td><a href="#public-page-templates-and-ready-recipes">Public page templates and ready recipes</a></td>
+</tr>
+</tbody></table>
+</div>
+<p>Version rules:</p>
+<ul>
+<li>For an explicit <code>version:26.2</code>, <code>corpus:components</code> resolves the complete <a href="/apexrest/oracle-apexlang-coverage/">official Oracle inventory</a> by default, including native/plugin variants and all properties.</li>
+<li>With <code>kind:template</code>, it searches <strong>1,350 original APEXlang page examples from 33 public Oracle applications</strong>.</li>
+<li>The local compiler-checked recipe catalog remains independently bound to 26.1.</li>
+<li>Passing <code>project</code> only supplies context. Without <code>version</code>, <code>corpus:components</code> and <code>corpus:patterns</code> still return the recipe and pattern catalogs, labelled with their own 26.1 version, even when the project&#39;s <code>toolchain.profile</code> is <code>26.2</code>.</li>
+</ul>
 <h2 id="search-and-read">Search and read</h2>
+<p>Search from the CLI, then read the catalog or a returned ID:</p>
 <pre><code class="language-sh">apexrest docs search --corpus components --query &quot;metric card&quot; --kind template --version 26.1 --limit 3 --json
 apexrest docs read --id component:catalog --json
 </code></pre>
@@ -29,14 +50,146 @@ apexrest docs read --id component:catalog --json
   &quot;limit&quot;: 3
 }
 </code></pre>
-<p>Read the returned ID with <code>apexrest_reference</code> <code>mode: &quot;read&quot;</code> (<code>id</code>), following <code>nextOffset</code> for the rest of a document and <code>nextResultOffset</code> for more search matches. The CLI alias <code>apexrest reference search|read</code> maps to the same <code>docs</code> commands. Parameter and recipe documents are separate so a request does not load an entire component family. English and Ukrainian search aliases resolve to the same versioned records; plural, singular and inflected forms match the same stem. The existing reference search defaults to <code>corpus: &quot;apexlang&quot;</code>; existing Oracle IDs keep their meaning.</p>
-<p>Search matches any of the query terms (at least half must match), ranks ready recipes whose title starts with the query above their overview contracts, and returns property-name lookups such as <code>pageItemsToSubmit</code> at the parameter contract. Records with <code>readiness: &quot;unresolved&quot;</code> are hidden unless <code>includeUnresolved: true</code> is set; an exact ID always resolves. The first hit of a page carries <code>code</code>, the recipe&#39;s primary <code>apexlang</code> block read from its checksum-verified document (bounded to 2,500 characters, <code>truncated: true</code> with the full <code>length</code> when a read must continue); <code>include: &quot;code&quot;</code> attaches it to every hit and <code>include: &quot;metadata&quot;</code> to none. <code>requiresReferences</code> and <code>relatedReferences</code> resolve up to three linked IDs to <code>{ id, title, kind }</code> (titles of <code>oracle:</code> or <code>pattern:</code> targets are <code>null</code>), and <code>docs.read</code> resolves up to sixteen. The page budget of 7,000 bytes is unchanged: later snippets shrink first, then inline code, and code is dropped before any hit is omitted.</p>
+<p>Read the returned ID with <code>apexrest_reference</code> <code>mode: &quot;read&quot;</code> (<code>id</code>). Follow <code>nextOffset</code> for the rest of a document and <code>nextResultOffset</code> for more search matches. The CLI alias <code>apexrest reference search|read</code> maps to the same <code>docs</code> commands.</p>
+<h3 id="how-search-behaves">How search behaves</h3>
+<ul>
+<li>Parameter and recipe documents are separate, so a request does not load an entire component family.</li>
+<li>English and Ukrainian search aliases resolve to the same versioned records. Plural, singular and inflected forms match the same stem.</li>
+<li>The existing reference search defaults to <code>corpus: &quot;apexlang&quot;</code>. Existing Oracle IDs keep their meaning.</li>
+<li>Search matches any of the query terms (at least half must match).</li>
+<li>Ready recipes whose title starts with the query rank above their overview contracts.</li>
+<li>Property-name lookups such as <code>pageItemsToSubmit</code> return the parameter contract.</li>
+<li>Records with <code>readiness: &quot;unresolved&quot;</code> are hidden unless <code>includeUnresolved: true</code> is set. An exact ID always resolves.</li>
+</ul>
+<h3 id="what-a-result-page-contains">What a result page contains</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Field or option</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>code</code></td>
+<td>The first hit of a page carries the recipe&#39;s primary <code>apexlang</code> block, read from its checksum-verified document. It is bounded to 2,500 characters, with <code>truncated: true</code> and the full <code>length</code> when a read must continue.</td>
+</tr>
+<tr>
+<td><code>include: &quot;code&quot;</code></td>
+<td>Attaches <code>code</code> to every hit.</td>
+</tr>
+<tr>
+<td><code>include: &quot;metadata&quot;</code></td>
+<td>Attaches <code>code</code> to none.</td>
+</tr>
+<tr>
+<td><code>requiresReferences</code>, <code>relatedReferences</code></td>
+<td>Resolve up to three linked IDs to <code>{ id, title, kind }</code> (titles of <code>oracle:</code> or <code>pattern:</code> targets are <code>null</code>). <code>docs.read</code> resolves up to sixteen.</td>
+</tr>
+<tr>
+<td>Page budget</td>
+<td>The page budget of 7,000 bytes is unchanged: later snippets shrink first, then inline code, and code is dropped before any hit is omitted.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="metric-cards-width">Metric Cards width</h3>
 <p>Metric Cards with <code>display: report</code> use Universal Theme&#39;s report template, which gives each card a fixed 12.5rem width. This matches APEX itself, so three such regions with <code>columnSpan: 4</code> show narrow cards with empty space beside them. When the cards should fill their columns, use the <code>partial</code> Metric Card recipe (<code>display: partial</code>).</p>
+<h2 id="public-page-templates-and-ready-recipes">Public page templates and ready recipes</h2>
+<p>The catalog offers two kinds of starting point: public Oracle pages for reference, and dependency-closed recipes that compile on their own.</p>
+<h3 id="public-oracle-pages-262-reference-only">Public Oracle pages (26.2, reference only)</h3>
+<p>The <a href="/apexrest/internet-template-sources/">internet source inventory</a> records the reviewed repositories, exact revisions, licenses and exclusions.</p>
+<ul>
+<li>The public page library includes Cards, Charts, Calendar, Interactive Grids, Maps, Master Detail, Reporting, Dynamic Actions, Approvals, Search, Customers, Opportunities, Poll, QAsk, Strategic Planner and Team Calendar.</li>
+<li>Every page retains its original source bytes, source URL, SHA-256, UPL notice and required application dependency guide.</li>
+<li>Page-number filtering is not a security or runtime readiness classification.</li>
+<li>The 1,350 page records contain 1,349 distinct source hashes: Customers and Opportunities share the same help-dialog source. Both records retain their own application dependency context.</li>
+</ul>
+<pre><code class="language-sh">apexrest docs search --corpus components --version 26.2 --kind template --query &quot;calendar drag drop&quot; --limit 3 --json
+apexrest docs read --id oracle:26.2:public-template/catalog --json
+</code></pre>
+<p>Public pages have <code>readiness:reference</code>: they can depend on sample tables, APIs, plug-ins, assets, shared objects and destination pages. To use one:</p>
+<ol>
+<li>Read the linked dependency inventory.</li>
+<li>Adapt the complete dependency set.</li>
+<li>Compile in the target application.</li>
+</ol>
+<p>They are not standalone ready recipes, and their source authentication/configuration must not replace an existing application&#39;s security.</p>
+<h3 id="dependency-closed-recipes-261">Dependency-closed recipes (26.1)</h3>
+<p>The separate 26.1 catalog adds <strong>30 dependency-closed recipes</strong>:</p>
+<ul>
+<li>12 dynamic actions, eight computations, seven validations, Area/Donut charts and a Classic Report with CASE/IF/LOOP directives.</li>
+<li>They use synthetic data and have exact-source attribution (29 Oracle UPL adaptations and one MIT adaptation with its complete notice).</li>
+<li>Offline compilation uses SQLcl 26.3 while retaining the original <code>26.1.0+3102</code> MMD; this does not upgrade the recipe&#39;s APEX version.</li>
+<li>SQL execution, import and browser verification remain <code>not-run</code>.</li>
+</ul>
+<p>The 2026-11-01 expansion adds <strong>93 more dependency-closed recipes</strong> adapted from official Oracle sources: 67 from the <code>oracle/skills</code> 26.1 generation templates and 26 from <code>oracle/apex</code> 26.2 sample applications, including the new Faceted Search Patterns, Forms Patterns and Sample Directory Search applications. They cover:</p>
+<ul>
+<li>16 chart variants (bar, stacked, dual axis, bubble, scatter, Gantt, status meter gauge, stock, combination, links, tooltips, zoom, series colors, 3D, densification);</li>
+<li>nine map layers and controls;</li>
+<li>nine calendar variants;</li>
+<li>nine faceted search layouts;</li>
+<li>processes, dialog and message dynamic actions, button behaviors and item variants;</li>
+<li>Rich Text Editor, Geocoded Address and Display Image items;</li>
+<li>Help Text and Breadcrumb regions, static-content layouts, report variants and an editable Interactive Grid.</li>
+</ul>
+<p>Evidence and limits of the expansion:</p>
+<ul>
+<li>All use synthetic data, retain exact UPL source attribution and passed the same SQLcl 26.3 offline compilation with the 26.1 MMD.</li>
+<li>The editable grid and sectioned form do not save data until a project table and row-processing process are added.</li>
+<li>Geocoded Address calls Oracle&#39;s geocoding service at runtime.</li>
+<li>SQL execution, import and browser verification remain <code>not-run</code>.</li>
+</ul>
+<pre><code class="language-sh">apexrest docs search --corpus components --version 26.1 --kind template --query &quot;gantt chart&quot; --limit 3 --json
+apexrest docs search --corpus components --version 26.1 --kind template --query &quot;conditional field visibility&quot; --limit 3 --json
+apexrest docs search --corpus components --version 26.1 --kind template --query &quot;template directives&quot; --limit 3 --json
+</code></pre>
+<h2 id="adapt-a-recipe">Adapt a recipe</h2>
+<ol>
+<li>Inspect the current project&#39;s source, theme and MMD.</li>
+<li>Select the correct host. A Media List list template and a Media List template component have different contracts, as do classic Comments reports and Comments template components.</li>
+<li>Read the selected recipe, its parameter document and its required Oracle contracts.</li>
+<li>Adapt page and item names, DOM IDs, SQL column mappings, keys, shared references and AJAX submitted items together.</li>
+<li>Compile the complete adapted application before the existing authorized deployment workflow.</li>
+</ol>
+<p>Synthetic example data documents the required shape; it is not a connection to your business data. Editable controls require the declared table or API contract.</p>
+<h3 id="what-ready-means">What <code>ready</code> means</h3>
+<ul>
+<li>A recipe marked <code>ready</code> has a complete local dependency set and real offline compiler evidence for its declared scaffold and MMD.</li>
+<li>SQL execution, import and browser verification are separate fields. <code>not-run</code> is not a pass.</li>
+<li>An unsupported example remains discoverable with an explicit reason.</li>
+<li>A template option present in the reference application does not alone establish that an arbitrary APEXlang composition compiles.</li>
+</ul>
 <h2 id="optional-openai-decisions-selection">Optional OpenAI Decisions selection</h2>
 <p>Before composing a page, the host can select several useful references in one operation. The <a href="/apexrest/features/#decisions-api-choose-components-before-generating">features page</a> gives the measured effect and its limits.</p>
 <pre><code class="language-sh">apexrest docs select --project /absolute/project --request &quot;Interactive grid with editable rows, filters and summary cards&quot; --json
 </code></pre>
-<p>The equivalent MCP call is <code>apexrest_reference</code> with <code>mode:&quot;select&quot;</code>, an absolute <code>project</code>, and <code>request</code>. <code>request</code> is a nonempty concise description of UI needs, at most 4,000 characters. Optional <code>version</code> overrides the project profile; <code>limit</code> defaults to six and accepts 1–8. CLI selection defaults to the current project directory. The final APEXlang is composed by the current Codex or Claude Code model.</p>
+<p>The equivalent MCP call is <code>apexrest_reference</code> with <code>mode:&quot;select&quot;</code>, an absolute <code>project</code>, and <code>request</code>.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>request</code></td>
+<td>A nonempty concise description of UI needs, at most 4,000 characters.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>Optional. Overrides the project profile.</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>Defaults to six and accepts 1–8.</td>
+</tr>
+<tr>
+<td><code>project</code></td>
+<td>Absolute for the MCP call. CLI selection defaults to the current project directory.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The final APEXlang is composed by the current Codex or Claude Code model.</p>
+<h3 id="configure-selection">Configure selection</h3>
 <p>Selection is local unless <code>decisionApi.enabled</code> is true in <code>apexrest.json</code>:</p>
 <pre><code class="language-json">{
   &quot;decisionApi&quot;: {
@@ -47,23 +200,118 @@ apexrest docs read --id component:catalog --json
   }
 }
 </code></pre>
-<p>This is an optional configuration fragment. <code>enabled</code> defaults to false, <code>apiKeyEnv</code> to <code>OPENAI_API_KEY</code>, and <code>timeoutMs</code> to 3,000 (allowed: 250–10,000). <code>envFile</code> is optional and project-relative. The environment variable takes precedence; otherwise the named variable is read from that regular, user-owned, Git-ignored and untracked ENV file, parsed literally. Never put the key itself in project configuration or tool arguments. Configure the variable in the plugin process environment, or use the private file when the desktop host does not inherit shell variables.</p>
-<p>Local retrieval builds up to 64 candidates using English/Ukrainian aliases and individual term/phrase matches, without ordinary search&#39;s half-term requirement. For 26.1 it uses compatible components and patterns; for 26.2 it uses official inventory contracts and public page examples. Unresolved and incompatible records are excluded. One <code>POST https://api.openai.com/v1/decisions</code> request with <code>gpt-6-luna</code> asks an independent <code>predicate</code> question for each candidate. Only the supplied description and bounded public catalog metadata leave the host. Sources, history and database contents are not read for the request. See <a href="https://developers.openai.com/api/docs/guides/decisions">OpenAI Decisions documentation</a>.</p>
-<p><code>data.results</code> contains local reference records with dependency links and the top-hit code block when available; full documents use <code>mode:read</code>. Valid probabilities of at least 0.5 are ranked descending, with local order retained on ties. The threshold is an initial heuristic, not a calibrated confidence guarantee. The candidate shortlist can miss a relevant component; the host can supplement it with local search. <code>ready</code> and <code>reference</code> retain their original verification meanings.</p>
-<p><code>data.selection</code> reports <code>method</code> (<code>local</code> or <code>openai-decisions</code>), version, candidate count, duration, and, after an API attempt, model/API duration and validated usage when returned. Missing measurements are omitted. <code>fallbackReason</code> distinguishes disabled selection, no candidates, missing/unreadable credentials, timeout, HTTP/network failures, refusal, malformed answers and no confident match. These conditions return local candidates without automatic network retries. Cancellation stops the operation; catalog or selected-document integrity failures remain errors. The timeout includes response-body reading. Disabling the option prevents credential reads and network requests; ordinary <code>search</code>/<code>read</code> always remain local.</p>
-<p>Local fixtures verify contracts and recovery only. On 2026-10-29 a live run exercised four fixed English/Ukrainian scenarios across 26.1/26.2, with 20 successful warm-process measurements per scenario. Full MCP selection median/p95 ranged from 1.01–1.15 / 1.59–1.90 seconds; all 80 successful measured responses included the declared component/contract groups and stayed release-isolated. Of 92 total attempts including initial calls and warm-ups, 89 used Decisions and three fell back on HTTP errors. Those failures remain in the denominator and are excluded from successful API latency statistics. Backend prompt-cache hits were observed; these are not cold-backend measurements or a general accuracy/SLA claim. Private samples and actual usage are in <code>docs/evidence/decisions/live-benchmark.json</code>.</p>
-<p>A separate 26.1 page-generation pilot used the same <code>gpt-6.1-sol</code> / <code>xhigh</code> model, task and scaffold, with three runs per flag. Mean active time including all repairs was 344.31 s disabled versus 178.05 s enabled; all six final sources passed the offline Oracle compiler and the same 46 checks. The enabled cohort includes one timeout/local fallback. Mean generator tokens were 59,453 versus 35,277, with another 42,242 Decisions tokens across two successful calls; timeout usage is unknown. Mean known combined usage was therefore 59,453 versus at least 49,358 tokens per page. The fixed first-two-ready-template policy and common completion reference pack are documented in private <code>docs/evidence/decisions/page-ab/comparison.md</code>. An adaptive native host can supplement local search, so this one-page pilot does not establish general authoring speed or token savings. SQL checks used a declared synthetic SQLite subset; connected Oracle and browser behavior were not exercised.</p>
-<h2 id="adapt-a-recipe">Adapt a recipe</h2>
-<p>First inspect the current project&#39;s source, theme and MMD. Select the correct host: a Media List list template and a Media List template component have different contracts, as do classic Comments reports and Comments template components. Read the selected recipe, its parameter document and its required Oracle contracts.</p>
-<p>Adapt page and item names, DOM IDs, SQL column mappings, keys, shared references and AJAX submitted items together. Synthetic example data documents the required shape; it is not a connection to your business data. Editable controls require the declared table or API contract. Compile the complete adapted application before the existing authorized deployment workflow.</p>
-<p>A recipe marked <code>ready</code> has a complete local dependency set and real offline compiler evidence for its declared scaffold and MMD. SQL execution, import and browser verification are separate fields. <code>not-run</code> is not a pass. An unsupported example remains discoverable with an explicit reason. A template option present in the reference application does not alone establish that an arbitrary APEXlang composition compiles.</p>
+<p>This is an optional configuration fragment.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>false</td>
+<td>Disabling the option prevents credential reads and network requests.</td>
+</tr>
+<tr>
+<td><code>apiKeyEnv</code></td>
+<td><code>OPENAI_API_KEY</code></td>
+<td>The named environment variable that supplies the key.</td>
+</tr>
+<tr>
+<td><code>timeoutMs</code></td>
+<td>3,000</td>
+<td>Allowed: 250–10,000. The timeout includes response-body reading.</td>
+</tr>
+<tr>
+<td><code>envFile</code></td>
+<td>—</td>
+<td>Optional and project-relative.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Where the key comes from:</p>
+<ul>
+<li>The environment variable takes precedence. Otherwise the named variable is read from that regular, user-owned, Git-ignored and untracked ENV file, parsed literally.</li>
+<li>Never put the key itself in project configuration or tool arguments.</li>
+<li>Configure the variable in the plugin process environment, or use the private file when the desktop host does not inherit shell variables.</li>
+</ul>
+<h3 id="how-selection-works">How selection works</h3>
+<ol>
+<li>Local retrieval builds up to 64 candidates using English/Ukrainian aliases and individual term/phrase matches, without ordinary search&#39;s half-term requirement.<ul>
+<li>For 26.1 it uses compatible components and patterns.</li>
+<li>For 26.2 it uses official inventory contracts and public page examples.</li>
+<li>Unresolved and incompatible records are excluded.</li>
+</ul>
+</li>
+<li>One <code>POST https://api.openai.com/v1/decisions</code> request with <code>gpt-6-luna</code> asks an independent <code>predicate</code> question for each candidate.</li>
+<li>Valid probabilities of at least 0.5 are ranked descending, with local order retained on ties.</li>
+</ol>
+<p>Only the supplied description and bounded public catalog metadata leave the host. Sources, history and database contents are not read for the request. See <a href="https://developers.openai.com/api/docs/guides/decisions">OpenAI Decisions documentation</a>.</p>
+<h3 id="what-selection-returns">What selection returns</h3>
+<p><code>data.results</code> contains local reference records with dependency links and the top-hit code block when available; full documents use <code>mode:read</code>.</p>
+<ul>
+<li>The threshold is an initial heuristic, not a calibrated confidence guarantee.</li>
+<li>The candidate shortlist can miss a relevant component; the host can supplement it with local search.</li>
+<li><code>ready</code> and <code>reference</code> retain their original verification meanings.</li>
+</ul>
+<p><code>data.selection</code> reports <code>method</code> (<code>local</code> or <code>openai-decisions</code>), version, candidate count, duration, and, after an API attempt, model/API duration and validated usage when returned. Missing measurements are omitted.</p>
+<h3 id="fallback-and-errors">Fallback and errors</h3>
+<ul>
+<li><code>fallbackReason</code> distinguishes disabled selection, no candidates, missing/unreadable credentials, timeout, HTTP/network failures, refusal, malformed answers and no confident match.</li>
+<li>These conditions return local candidates without automatic network retries.</li>
+<li>Cancellation stops the operation.</li>
+<li>Catalog or selected-document integrity failures remain errors.</li>
+<li>Ordinary <code>search</code>/<code>read</code> always remain local.</li>
+</ul>
+<h3 id="measured-results">Measured results</h3>
+<p>Local fixtures verify contracts and recovery only.</p>
+<p><strong>Live selection run, 2026-10-29.</strong></p>
+<ul>
+<li>The run exercised four fixed English/Ukrainian scenarios across 26.1/26.2, with 20 successful warm-process measurements per scenario.</li>
+<li>Full MCP selection median/p95 ranged from 1.01–1.15 / 1.59–1.90 seconds.</li>
+<li>All 80 successful measured responses included the declared component/contract groups and stayed release-isolated.</li>
+<li>Of 92 total attempts including initial calls and warm-ups, 89 used Decisions and three fell back on HTTP errors. Those failures remain in the denominator and are excluded from successful API latency statistics.</li>
+<li>Backend prompt-cache hits were observed; these are not cold-backend measurements or a general accuracy/SLA claim.</li>
+<li>Private samples and actual usage are in <code>docs/evidence/decisions/live-benchmark.json</code>.</li>
+</ul>
+<p><strong>26.1 page-generation pilot.</strong></p>
+<ul>
+<li>A separate pilot used the same <code>gpt-6.1-sol</code> / <code>xhigh</code> model, task and scaffold, with three runs per flag.</li>
+<li>Mean active time including all repairs was 344.31 s disabled versus 178.05 s enabled.</li>
+<li>All six final sources passed the offline Oracle compiler and the same 46 checks.</li>
+<li>The enabled cohort includes one timeout/local fallback.</li>
+<li>Mean generator tokens were 59,453 versus 35,277, with another 42,242 Decisions tokens across two successful calls; timeout usage is unknown.</li>
+<li>Mean known combined usage was therefore 59,453 versus at least 49,358 tokens per page.</li>
+<li>The fixed first-two-ready-template policy and common completion reference pack are documented in private <code>docs/evidence/decisions/page-ab/comparison.md</code>.</li>
+<li>An adaptive native host can supplement local search, so this one-page pilot does not establish general authoring speed or token savings.</li>
+<li>SQL checks used a declared synthetic SQLite subset; connected Oracle and browser behavior were not exercised.</li>
+</ul>
 <h2 id="source-and-compatibility">Source and compatibility</h2>
-<p>The initial source is Universal Theme 26.1 Reference: APEX 26.1.4, Universal Theme 26.1, SQLcl 26.1.2 and MMD 26.1.0+3102. The inventory includes 122 pages, 987 regions, 539 template options and 164 Universal Theme component attributes. Documentation and helper regions are classified; they are not all reusable recipes.</p>
-<p>The catalog combines an application snapshot, allowlisted APEX metadata, matching compiler metadata and pinned Oracle APEXlang references. Parameters retain their full context, value mappings, defaults, conditions and provenance. Region appearance and component-template options are separate. Current selections, defaults and presets are distinct; <code>#DEFAULT#</code> is a marker, not a CSS class.</p>
-<p>Catalog revisions bind source and content hashes. The manifest records APEX, theme and MMD separately. Select the matching version and inspect compatibility before adapting a recipe. The catalog does not silently substitute a different target build.</p>
+<p><strong>Source.</strong> The initial source is Universal Theme 26.1 Reference: APEX 26.1.4, Universal Theme 26.1, SQLcl 26.1.2 and MMD 26.1.0+3102. The inventory includes 122 pages, 987 regions, 539 template options and 164 Universal Theme component attributes. Documentation and helper regions are classified; they are not all reusable recipes.</p>
+<p><strong>What a record holds.</strong></p>
+<ul>
+<li>The catalog combines an application snapshot, allowlisted APEX metadata, matching compiler metadata and pinned Oracle APEXlang references.</li>
+<li>Parameters retain their full context, value mappings, defaults, conditions and provenance.</li>
+<li>Region appearance and component-template options are separate.</li>
+<li>Current selections, defaults and presets are distinct; <code>#DEFAULT#</code> is a marker, not a CSS class.</li>
+</ul>
+<p><strong>Versions.</strong></p>
+<ul>
+<li>Catalog revisions bind source and content hashes.</li>
+<li>The manifest records APEX, theme and MMD separately.</li>
+<li>Select the matching version and inspect compatibility before adapting a recipe.</li>
+<li>The catalog does not silently substitute a different target build.</li>
+</ul>
 <h2 id="maintenance-and-distribution">Maintenance and distribution</h2>
-<p>Source capture is a separate maintainer operation with an explicit saved SQLcl connection, application, workspace and schema. It verifies target identity before exporting or reading application metadata. Capture writes private local research files; it performs no application import or business-table writes. Ordinary catalog search never refreshes the database snapshot.</p>
-<p>Set <code>REFERENCE_CONNECTION</code>, <code>REFERENCE_APPLICATION_ID</code> (a numeric ID), <code>REFERENCE_WORKSPACE</code> and <code>REFERENCE_SCHEMA</code> to the approved read-only source. Capture to a new private directory outside the repository, then normalize the reviewed snapshot:</p>
+<p>This section is for maintainers. Ordinary catalog search never refreshes the database snapshot.</p>
+<h3 id="capture-and-rebuild-the-catalog">Capture and rebuild the catalog</h3>
+<p>Source capture is a separate maintainer operation with an explicit saved SQLcl connection, application, workspace and schema. It verifies target identity before exporting or reading application metadata. Capture writes private local research files; it performs no application import or business-table writes.</p>
+<ol>
+<li><p>Set <code>REFERENCE_CONNECTION</code>, <code>REFERENCE_APPLICATION_ID</code> (a numeric ID), <code>REFERENCE_WORKSPACE</code> and <code>REFERENCE_SCHEMA</code> to the approved read-only source.</p>
+</li>
+<li><p>Capture to a new private directory outside the repository, then normalize the reviewed snapshot:</p>
 <pre><code class="language-sh">node scripts/capture-component-snapshot.mjs --connection &quot;$REFERENCE_CONNECTION&quot; --application &quot;$REFERENCE_APPLICATION_ID&quot; --workspace &quot;$REFERENCE_WORKSPACE&quot; --schema &quot;$REFERENCE_SCHEMA&quot; --compiler /path/to/sqlcl/lib/apexlang-compiler.jar --output /tmp/apexrest-component-snapshot-new
 node scripts/capture-component-snapshot.mjs --snapshot /tmp/apexrest-component-snapshot-new --publish resources/components/source
 npm run catalog:verify
@@ -71,7 +319,30 @@ npm run catalog:build
 npm run catalog:check
 npm run build
 </code></pre>
-<p><code>catalog:verify</code> invokes SQLcl without a database connection and validates every supported recipe against its exact scaffold. It records file hashes and compiler output; it never executes prerequisite SQL. Review any source-count diff, unresolved recipe and version mismatch before packaging. For faster local iteration, <code>node scripts/verify-component-recipes.mjs --changed</code> rechecks changed inputs; the builder still requires valid evidence for every <code>ready</code> recipe.</p>
-<p><code>npm run templates:check</code> verifies the public page library, exact file membership, source bytes, attribution and dependency links. To reproduce it, download the immutable archive identified in <code>resources/public-templates/26.2/source-lock.json</code> and run <code>node scripts/build-public-template-catalog.mjs --archive /path/to/archive.zip</code>. The importer enforces its reviewed archive hash and never runs upstream code. Ordinary builds are offline. Per-recipe public provenance is validated separately by the component builder; MIT recipes must include a retained license notice, whose completeness is reviewed during intake.</p>
-<p>The reviewed package contains factual metadata, original explanations, reusable examples and source attribution. It excludes raw application exports, deployment credentials, private URLs and the compiler bundle. A new source snapshot is reviewed through its inventory and content diff before it replaces the bundled revision. Preserve existing IDs where their meaning is unchanged.</p>
+</li>
+<li><p>Review any source-count diff, unresolved recipe and version mismatch before packaging.</p>
+</li>
+</ol>
+<p><code>catalog:verify</code> invokes SQLcl without a database connection and validates every supported recipe against its exact scaffold. It records file hashes and compiler output; it never executes prerequisite SQL. For faster local iteration, <code>node scripts/verify-component-recipes.mjs --changed</code> rechecks changed inputs; the builder still requires valid evidence for every <code>ready</code> recipe.</p>
+<h3 id="check-the-public-page-library">Check the public page library</h3>
+<p><code>npm run templates:check</code> verifies the public page library, exact file membership, source bytes, attribution and dependency links. To reproduce it:</p>
+<ol>
+<li>Download the immutable archive identified in <code>resources/public-templates/26.2/source-lock.json</code>.</li>
+<li>Run <code>node scripts/build-public-template-catalog.mjs --archive /path/to/archive.zip</code>.</li>
+</ol>
+<p>The importer enforces its reviewed archive hash and never runs upstream code. Ordinary builds are offline. Per-recipe public provenance is validated separately by the component builder; MIT recipes must include a retained license notice, whose completeness is reviewed during intake.</p>
+<h3 id="what-the-package-contains">What the package contains</h3>
+<ul>
+<li>The reviewed package contains factual metadata, original explanations, reusable examples and source attribution.</li>
+<li>It excludes raw application exports, deployment credentials, private URLs and the compiler bundle.</li>
+<li>A new source snapshot is reviewed through its inventory and content diff before it replaces the bundled revision.</li>
+<li>Preserve existing IDs where their meaning is unchanged.</li>
+</ul>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="/apexrest/pattern-catalog/">Pattern catalog</a>: UX compositions across components.</li>
+<li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a>: the reviewed public sources.</li>
+<li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a>: the pinned Oracle 26.2 inventory.</li>
+<li><a href="/apexrest/features/#decisions-api-choose-components-before-generating">Features</a>: the measured effect of Decisions selection.</li>
+</ul>
 <p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/component-catalog.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>

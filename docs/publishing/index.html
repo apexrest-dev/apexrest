@@ -1,21 +1,125 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Publishing policy · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/publishing/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/publishing/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/" aria-current="page">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Publishing policy</div><h1 id="publishing-policy">Publishing policy</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#documentation-on-github-pages">Documentation on GitHub Pages</a></li></ul></details>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Publishing policy · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/publishing/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/publishing/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/" aria-current="page">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Publishing policy</div><h1 id="publishing-policy">Publishing policy</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#what-this-policy-does-not-do">What this policy does not do</a></li><li><a href="#npm-eligibility-and-full-qualification">npm eligibility and full qualification</a></li><li><a href="#documentation-on-github-pages">Documentation on GitHub Pages</a></li><li><a href="#related">Related</a></li></ul></details>
+<p>This page states what must be true before APEXREST is published to npm or released as a signed build, and how the documentation website is built and served. It is for maintainers who prepare a release or edit the documentation site.</p>
 <p><a href="https://github.com/apexrest-dev/apexrest">apexrest-dev/apexrest</a> is the canonical source repository. Git commits, registry packages, signed release artifacts and a deployed website are separate distribution outcomes.</p>
-<p>Source version 2.7.0 does not inherit the retained 2.2.0 npm local-evidence exception. Any requested publication requires current applicable evidence and authorization. The retained 2.2.0 setting requires both publisher opt-ins, <code>enabled</code> and <code>npmEnabled</code>. Its explicit <code>npmReadiness</code> exception is bound to version <code>2.2.0</code>: the three current local reports (<code>composer-local.json</code>, <code>local-checks.json</code>, <code>oracle-local.json</code>) block npm when missing, failed or stale. The six external Composer runtime/new-chat, native macOS/Linux/Windows and connected Oracle reports are advisory for this npm version. Their actual missing, blocked and stale states remain visible; they still block full qualification. A different package version does not inherit this exception.</p>
-<p>Run <code>npm run check-release-readiness -- --npm</code> for npm eligibility. The default <code>npm run check-release-readiness</code> continues to require all nine reports for full qualification and signed release packaging. Both commands report <code>npmReady</code>, <code>stableReady</code>, qualification status and each report&#39;s required scope. npm eligibility does not establish full Oracle/native qualification.</p>
-<p>These settings run no publication command. Keep local checks, successful CI on the final source, package inventory/integrity, verified registry ownership and fresh registry installation with CLI/MCP/reference checks. The release and trusted Oracle/native integration workflows remain disabled in GitHub, and their jobs use <code>if: ${{ false }}</code>. CI runs automatically only on pushes to <code>main</code>. GitHub release/tag and integration execution require separate authorization.</p>
-<p>Full qualification and signed releases require current evidence bound to the exact immutable source, archive integrity, protected target/approval settings and an externally managed signing key where required. Missing, blocked or stale required evidence fails its applicable gate. Database deployment safeguards, production refusal and unknown-outcome recovery are unchanged.</p>
+<h2 id="what-this-policy-does-not-do">What this policy does not do</h2>
+<ul>
+<li>These settings run no publication command.</li>
+<li>The release and trusted Oracle/native integration workflows remain disabled in GitHub, and their jobs use <code>if: ${{ false }}</code>.</li>
+<li>CI runs automatically only on pushes to <code>main</code>.</li>
+<li>GitHub release/tag and integration execution require separate authorization.</li>
+<li>Any requested publication requires current applicable evidence and authorization.</li>
+<li>Building or previewing the documentation website publishes nothing.</li>
+<li>Database deployment safeguards, production refusal and unknown-outcome recovery are unchanged.</li>
+</ul>
+<h2 id="npm-eligibility-and-full-qualification">npm eligibility and full qualification</h2>
+<p>Each gate has its own command:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Gate</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm run check-release-readiness -- --npm</code></td>
+<td>npm eligibility.</td>
+</tr>
+<tr>
+<td><code>npm run check-release-readiness</code></td>
+<td>The default. Continues to require all nine reports for full qualification and signed release packaging.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Both commands report <code>npmReady</code>, <code>stableReady</code>, qualification status and each report&#39;s required scope. npm eligibility does not establish full Oracle/native qualification.</p>
+<h3 id="the-retained-220-npm-exception">The retained 2.2.0 npm exception</h3>
+<p>Source version 2.7.0 does not inherit the retained 2.2.0 npm local-evidence exception.</p>
+<ul>
+<li>The retained 2.2.0 setting requires both publisher opt-ins, <code>enabled</code> and <code>npmEnabled</code>.</li>
+<li>Its explicit <code>npmReadiness</code> exception is bound to version <code>2.2.0</code>.</li>
+<li>The three current local reports (<code>composer-local.json</code>, <code>local-checks.json</code>, <code>oracle-local.json</code>) block npm when missing, failed or stale.</li>
+<li>The six external Composer runtime/new-chat, native macOS/Linux/Windows and connected Oracle reports are advisory for this npm version. Their actual missing, blocked and stale states remain visible; they still block full qualification.</li>
+<li>A different package version does not inherit this exception.</li>
+</ul>
+<h3 id="checks-to-keep-for-any-publication">Checks to keep for any publication</h3>
+<p>Keep:</p>
+<ul>
+<li>local checks;</li>
+<li>successful CI on the final source;</li>
+<li>package inventory/integrity;</li>
+<li>verified registry ownership;</li>
+<li>fresh registry installation with CLI/MCP/reference checks.</li>
+</ul>
+<h3 id="full-qualification-and-signed-releases">Full qualification and signed releases</h3>
+<p>Full qualification and signed releases require:</p>
+<ul>
+<li>current evidence bound to the exact immutable source;</li>
+<li>archive integrity;</li>
+<li>protected target/approval settings;</li>
+<li>an externally managed signing key where required.</li>
+</ul>
+<p>Missing, blocked or stale required evidence fails its applicable gate.</p>
 <h2 id="documentation-on-github-pages">Documentation on GitHub Pages</h2>
-<p>The documentation website is <a href="/apexrest/">apexrest-dev.github.io/apexrest</a>. The repository&#39;s Pages configuration serves the <code>/docs</code> directory on <code>main</code>, with no custom domain. Its entry point is <code>docs/index.html</code>, and all page, asset and search routes use the <code>/apexrest/</code> base path.</p>
-<p>The existing Markdown renderer builds the website locally:</p>
+<p>The documentation website is <a href="/apexrest/">apexrest-dev.github.io/apexrest</a>.</p>
+<ul>
+<li>The repository&#39;s Pages configuration serves the <code>/docs</code> directory on <code>main</code>, with no custom domain.</li>
+<li>Its entry point is <code>docs/index.html</code>.</li>
+<li>All page, asset and search routes use the <code>/apexrest/</code> base path.</li>
+<li>Search uses a local JSON index; the website needs no server-side runtime, external fonts or third-party search service.</li>
+<li>No additional Pages workflow is required for this configured branch source.</li>
+</ul>
+<h3 id="build-and-preview-the-website">Build and preview the website</h3>
+<p>The existing Markdown renderer builds the website locally.</p>
+<ol>
+<li><p>Edit the Markdown sources and <code>site/</code> theme/configuration.</p>
+</li>
+<li><p>Rebuild, check and preview:</p>
 <pre><code class="language-sh">npm ci --ignore-scripts
 npm run site:build
 npm run site:check
 npm run docs:check
 npm run site:preview
 </code></pre>
-<p>Open the preview at <code>http://127.0.0.1:4173/apexrest/</code>. It serves the same tracked HTML and assets that Pages will serve. Search uses a local JSON index; the website needs no server-side runtime, external fonts or third-party search service. The optional <code>APEXREST_SITE_PORT</code> changes the preview port.</p>
-<p>Edit the Markdown sources and <code>site/</code> theme/configuration, then rebuild. Commit the generated HTML, CSS, JavaScript, search index, <code>.nojekyll</code> and <code>docs/site-manifest.json</code> together with their sources. The manifest lists files owned by the generator; the build preserves authored Markdown, catalog/reference data, diagrams and examples. <code>site:check</code> detects stale tracked output. The <code>.nojekyll</code> file lets Pages serve the prepared static files directly, following <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site">GitHub&#39;s static-site instructions</a>. Existing flat <code>.html</code> guide URLs remain readable with their original anchors.</p>
-<p><code>site-dist/</code> remains an ignored staging directory for release packaging. For an alternate local preview only, use <code>APEXREST_SITE_BASE_PATH=/ node scripts/build-site.mjs --preview</code>; this does not update the branch-hosted <code>docs/</code> output. <code>scripts/publish-site.sh</code> supports an explicitly authorized mounted copy, with <code>--dry-run</code> before <code>--apply</code>; it is not needed for GitHub Pages.</p>
-<p>Building or previewing changes publishes nothing. An authorized push to <code>main</code> updates the branch-hosted Pages site independently of the disabled product-release publisher. Confirm the live Pages build and browser result separately after that push. No additional Pages workflow is required for this configured branch source.</p>
+</li>
+<li><p>Open the preview at <code>http://127.0.0.1:4173/apexrest/</code>. It serves the same tracked HTML and assets that Pages will serve. The optional <code>APEXREST_SITE_PORT</code> changes the preview port.</p>
+</li>
+<li><p>Commit the generated HTML, CSS, JavaScript, search index, <code>.nojekyll</code> and <code>docs/site-manifest.json</code> together with their sources.</p>
+</li>
+</ol>
+<h3 id="what-the-build-produces">What the build produces</h3>
+<ul>
+<li>The manifest lists files owned by the generator; the build preserves authored Markdown, catalog/reference data, diagrams and examples.</li>
+<li><code>site:check</code> detects stale tracked output.</li>
+<li>The <code>.nojekyll</code> file lets Pages serve the prepared static files directly, following <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site">GitHub&#39;s static-site instructions</a>.</li>
+<li>Existing flat <code>.html</code> guide URLs remain readable with their original anchors.</li>
+</ul>
+<h3 id="other-site-commands">Other site commands</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Command or path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>site-dist/</code></td>
+<td>Remains an ignored staging directory for release packaging.</td>
+</tr>
+<tr>
+<td><code>APEXREST_SITE_BASE_PATH=/ node scripts/build-site.mjs --preview</code></td>
+<td>For an alternate local preview only; this does not update the branch-hosted <code>docs/</code> output.</td>
+</tr>
+<tr>
+<td><code>scripts/publish-site.sh</code></td>
+<td>Supports an explicitly authorized mounted copy, with <code>--dry-run</code> before <code>--apply</code>; it is not needed for GitHub Pages.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="when-the-live-site-changes">When the live site changes</h3>
+<ul>
+<li>Building or previewing changes publishes nothing.</li>
+<li>An authorized push to <code>main</code> updates the branch-hosted Pages site independently of the disabled product-release publisher.</li>
+<li>Confirm the live Pages build and browser result separately after that push.</li>
+</ul>
+<h2 id="related">Related</h2>
 <p>See <a href="/apexrest/release-notes/">release notes</a>, <a href="/apexrest/testing/">testing</a> and <a href="/apexrest/next-actions/">next actions</a>.</p>
 <p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/publishing.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>

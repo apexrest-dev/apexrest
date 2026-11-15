@@ -1,9 +1,64 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Getting started · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/getting-started/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/getting-started/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/" aria-current="page">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Getting started</div><h1 id="getting-started">Getting started</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#codex-cloud">Codex Cloud</a></li><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#install-in-codex">Install in Codex</a></li><li><a href="#install-in-claude-code">Install in Claude Code</a></li><li><a href="#check-the-setup">Check the setup</a></li><li><a href="#install-java-and-sqlcl">Install Java and SQLcl</a></li><li><a href="#connect-and-configure">Connect and configure</a></li><li><a href="#create-or-adopt-a-project">Create or adopt a project</a></li><li><a href="#edit-validate-ship-and-verify">Edit, validate, ship and verify</a></li><li><a href="#use-the-cli">Use the CLI</a></li><li><a href="#remove-the-plugin-and-managed-tools">Remove the plugin and managed tools</a></li><li><a href="#next-steps">Next steps</a></li></ul></details>
-<p>Install the plugin in Codex or Claude Code, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or <code>npm ci</code> is needed for installation.</p>
-<p>This guide describes the current 2.7.0 source bundle, including APEX 26.2 partial imports. Install from the source repository for these features; check the version and capabilities of a separately published npm package. See <a href="/apexrest/release-notes/">release notes</a> and <a href="/apexrest/implementation-status/">implementation status</a> for the current scope and qualification requirements.</p>
-<p>Already using APEX 26.2? Start with <a href="/apexrest/apex-26.2/#quick-start-from-an-updated-checkout">partial imports: update a page and its shared components</a>. Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.</p>
-<h2 id="codex-cloud">Codex Cloud</h2>
-<p>For a cloud task, follow <a href="/apexrest/codex-cloud/">Run APEXREST in Codex Cloud</a>. It provides a pinned CLI bootstrap, setup/maintenance scripts and ORDS HTTPS configuration for a Linux container. Plugin registration below applies to desktop and CLI hosts; the Cloud example uses the CLI only.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Getting started · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/getting-started/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/getting-started/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/" aria-current="page">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Getting started</div><h1 id="getting-started">Getting started</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#the-path-at-a-glance">The path at a glance</a></li><li><a href="#which-version-this-guide-describes">Which version this guide describes</a></li><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#install-in-codex">Install in Codex</a></li><li><a href="#install-in-claude-code">Install in Claude Code</a></li><li><a href="#check-the-setup">Check the setup</a></li><li><a href="#install-java-and-sqlcl">Install Java and SQLcl</a></li><li><a href="#connect-and-configure">Connect and configure</a></li><li><a href="#create-or-adopt-a-project">Create or adopt a project</a></li><li><a href="#edit-validate-ship-and-verify">Edit, validate, ship and verify</a></li><li><a href="#use-the-cli">Use the CLI</a></li><li><a href="#codex-cloud">Codex Cloud</a></li><li><a href="#remove-the-plugin-and-managed-tools">Remove the plugin and managed tools</a></li><li><a href="#next-steps">Next steps</a></li></ul></details>
+<p>This guide takes you from plugin installation to a first change shipped to a development or test Oracle APEX application. It is for anyone who installs APEXREST in Codex or Claude Code for the first time.</p>
+<p>You install the plugin, let it install Java and SQLcl, configure a direct SQLcl or ORDS HTTP(S) connection, then describe the change you want in the conversation. The repository and the npm package both include the built runtime, so no Git build, TypeScript compilation or <code>npm ci</code> is needed for installation.</p>
+<h2 id="the-path-at-a-glance">The path at a glance</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What you do</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Confirm the requirements</td>
+<td><a href="#prerequisites">Prerequisites</a></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Register the plugin in your host</td>
+<td><a href="#install-in-codex">Install in Codex</a> or <a href="#install-in-claude-code">Install in Claude Code</a></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Ask the agent to check the setup</td>
+<td><a href="#check-the-setup">Check the setup</a></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Install the missing Oracle tools</td>
+<td><a href="#install-java-and-sqlcl">Install Java and SQLcl</a></td>
+</tr>
+<tr>
+<td>5</td>
+<td>Register connection references and describe the target</td>
+<td><a href="#connect-and-configure">Connect and configure</a></td>
+</tr>
+<tr>
+<td>6</td>
+<td>Create a new application or adopt an existing one</td>
+<td><a href="#create-or-adopt-a-project">Create or adopt a project</a></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Ask for a change; the agent edits, ships and reports</td>
+<td><a href="#edit-validate-ship-and-verify">Edit, validate, ship and verify</a></td>
+</tr>
+</tbody></table>
+</div>
+<p>Two other starting points:</p>
+<ul>
+<li><strong>Already using APEX 26.2?</strong> Start with <a href="/apexrest/apex-26.2/#quick-start-from-an-updated-checkout">partial imports: update a page and its shared components</a>. Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.</li>
+<li><strong>Working in a cloud task?</strong> See <a href="#codex-cloud">Codex Cloud</a>.</li>
+</ul>
+<h2 id="which-version-this-guide-describes">Which version this guide describes</h2>
+<p>This guide describes the current 2.7.0 source bundle, including APEX 26.2 partial imports.</p>
+<ul>
+<li>Install from the source repository for these features.</li>
+<li>Check the version and capabilities of a separately published npm package.</li>
+<li>See <a href="/apexrest/release-notes/">release notes</a> and <a href="/apexrest/implementation-status/">implementation status</a> for the current scope and qualification requirements.</li>
+</ul>
 <h2 id="prerequisites">Prerequisites</h2>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
@@ -34,46 +89,175 @@
 </tr>
 </tbody></table>
 </div>
-<p>A clean APEX installation is enough for ordinary deployment. APEXREST service tables, utPLSQL and a provisioned sandbox are not prerequisites for an application-only import. Installation does not include Oracle binaries, browser credentials or a database account.</p>
+<p>What you do not need:</p>
+<ul>
+<li>A clean APEX installation is enough for ordinary deployment.</li>
+<li>APEXREST service tables, utPLSQL and a provisioned sandbox are not prerequisites for an application-only import.</li>
+</ul>
+<p>What installation does not include: Oracle binaries, browser credentials or a database account.</p>
 <h2 id="install-in-codex">Install in Codex</h2>
-<p>In a terminal where Node 24 and the Codex CLI are available:</p>
+<ol>
+<li><p>Open a terminal where Node 24 and the Codex CLI are available.</p>
+</li>
+<li><p>Run:</p>
 <pre><code class="language-sh">node --version
 codex --version
 codex plugin marketplace add apexrest-dev/apexrest
 codex plugin add apexrest-apex@apexrest
 codex plugin list --json
 </code></pre>
-<p>To find the installed plugin in the desktop app, open <strong>Plugins</strong> and look for <strong>APEXREST for Codex and Claude Code</strong>; use <code>@</code> in the message box or <code>$apexrest-work</code> to invoke a skill. The plugin adds no sidebar or menu button. If the tools are not listed, see <a href="/apexrest/troubleshooting/#the-plugin-is-installed-but-tools-are-missing">troubleshooting</a>.</p>
+</li>
+<li><p>To find the installed plugin in the desktop app, open <strong>Plugins</strong> and look for <strong>APEXREST for Codex and Claude Code</strong>.</p>
+</li>
+<li><p>To invoke a skill, use <code>@</code> in the message box or <code>$apexrest-work</code>.</p>
+</li>
+</ol>
+<p>The plugin adds no sidebar or menu button. If the tools are not listed, see <a href="/apexrest/troubleshooting/#the-plugin-is-installed-but-tools-are-missing">troubleshooting</a>.</p>
 <h2 id="install-in-claude-code">Install in Claude Code</h2>
-<p>The same bundle carries a Claude Code manifest (<code>.claude-plugin/plugin.json</code>, plugin name <code>apexrest</code>) and the repository root holds <code>.claude-plugin/marketplace.json</code>:</p>
+<p>The same bundle carries a Claude Code manifest (<code>.claude-plugin/plugin.json</code>, plugin name <code>apexrest</code>) and the repository root holds <code>.claude-plugin/marketplace.json</code>.</p>
+<ol>
+<li><p>Run:</p>
 <pre><code class="language-sh">claude plugin marketplace add apexrest-dev/apexrest
 claude plugin install apexrest@apexrest
 </code></pre>
-<p>For a local checkout, pass the checkout path to <code>marketplace add</code>; to try a checkout for one session without installing, start <code>claude --plugin-dir &lt;checkout&gt;/plugins/apexrest-apex</code>. The manifest declares the six skills and the MCP server <code>node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs</code>; no global MCP registration is needed. The <code>node</code> on the <code>PATH</code> of the shell that starts <code>claude</code> must be Node.js 24 or newer. Start a new Claude Code session after installation.</p>
+</li>
+<li><p>Start a new Claude Code session after installation.</p>
+</li>
+</ol>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Install from a local checkout</td>
+<td>Pass the checkout path to <code>marketplace add</code>.</td>
+</tr>
+<tr>
+<td>Try a checkout for one session without installing</td>
+<td>Start <code>claude --plugin-dir &lt;checkout&gt;/plugins/apexrest-apex</code>.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The manifest declares the six skills and the MCP server <code>node ${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs</code>; no global MCP registration is needed. The <code>node</code> on the <code>PATH</code> of the shell that starts <code>claude</code> must be Node.js 24 or newer.</p>
 <h2 id="check-the-setup">Check the setup</h2>
 <p>In a new session, ask:</p>
 <blockquote>
 <p>Use APEXREST to check my setup. Report the compiler, connection and target checks that still need attention.</p>
 </blockquote>
-<p>The agent calls <code>apexrest_status</code> with <code>detail: &quot;doctor&quot;</code>, which probes the host, SQLcl and Java without downloads or database calls and reports the SQLcl mode (<code>cli</code> or <code>mcp</code>) and database transport (<code>direct</code> or <code>ords</code>). A detected tool is not a validated compiler or a live connection; a successful registration or plugin listing alone does not prove that the MCP server started.</p>
+<p>The agent calls <code>apexrest_status</code> with <code>detail: &quot;doctor&quot;</code>. The doctor:</p>
+<ul>
+<li>probes the host, SQLcl and Java without downloads or database calls;</li>
+<li>reports the SQLcl mode (<code>cli</code> or <code>mcp</code>) and the database transport (<code>direct</code> or <code>ords</code>).</li>
+</ul>
+<p>What the doctor does not prove:</p>
+<ul>
+<li>A detected tool is not a validated compiler or a live connection.</li>
+<li>A successful registration or plugin listing alone does not prove that the MCP server started.</li>
+</ul>
 <h2 id="install-java-and-sqlcl">Install Java and SQLcl</h2>
-<p>Missing SQLcl or Java is a reason to install, not to stop. The setup skill (<code>$apexrest-setup</code> in Codex, <code>/apexrest:apexrest-setup</code> in Claude Code) runs the bundled installer; you can run it yourself from a checkout or the installed plugin directory:</p>
+<p>Missing SQLcl or Java is a reason to install, not to stop. The setup skill (<code>$apexrest-setup</code> in Codex, <code>/apexrest:apexrest-setup</code> in Claude Code) runs the bundled installer. You can also run it yourself from a checkout or the installed plugin directory:</p>
+<ol>
+<li><p>Preview the installation:</p>
 <pre><code class="language-sh">node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --dry-run --json
-node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --accept-oracle-license --json
 </code></pre>
-<p>Read the preview first: it lists versions, destinations, download hosts and the <a href="https://www.oracle.com/downloads/licenses/oracle-free-license.html">Oracle terms</a>. Run the second command only after accepting those terms; <code>--accept-oracle-license</code> records that separate consent. <code>--offline</code> uses cached downloads, <code>--home</code> and <code>--cache-dir</code> select managed storage. Tools install under <code>~/.apexrest</code> (or <code>APEXREST_HOME</code>); a custom <code>--home</code> must also be set as <code>APEXREST_HOME</code> for later CLI and MCP processes. The installer does not provision APEX, install utPLSQL or change database connections. Rerun the doctor afterwards.</p>
+</li>
+<li><p>Read the preview first. It lists versions, destinations, download hosts and the <a href="https://www.oracle.com/downloads/licenses/oracle-free-license.html">Oracle terms</a>.</p>
+</li>
+<li><p>Run the installer only after accepting those terms; <code>--accept-oracle-license</code> records that separate consent:</p>
+<pre><code class="language-sh">node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --accept-oracle-license --json
+</code></pre>
+</li>
+<li><p>Rerun the doctor afterwards.</p>
+</li>
+</ol>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--offline</code></td>
+<td>Uses cached downloads.</td>
+</tr>
+<tr>
+<td><code>--home</code>, <code>--cache-dir</code></td>
+<td>Select managed storage.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Tools install under <code>~/.apexrest</code> (or <code>APEXREST_HOME</code>). A custom <code>--home</code> must also be set as <code>APEXREST_HOME</code> for later CLI and MCP processes.</p>
+<p>The installer does not provision APEX, install utPLSQL or change database connections.</p>
 <h3 id="managed-runtime-installation-and-the-launcher">Managed runtime installation and the launcher</h3>
-<p><code>apexrest setup</code> combines dependency installation with Codex registration and creates the <code>apexrest</code> launcher at <code>~/.apexrest/bin/apexrest</code> (macOS/Linux) or <code>apexrest.ps1</code> and <code>apexrest.cmd</code> on Windows; direct <code>codex plugin add</code> or <code>claude plugin install</code> does not create that launcher. From a reviewed checkout:</p>
+<p><code>apexrest setup</code> combines dependency installation with Codex registration and creates the <code>apexrest</code> launcher. Direct <code>codex plugin add</code> or <code>claude plugin install</code> does not create that launcher.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Launcher</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>macOS/Linux</td>
+<td><code>~/.apexrest/bin/apexrest</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>apexrest.ps1</code> and <code>apexrest.cmd</code></td>
+</tr>
+</tbody></table>
+</div>
+<ol>
+<li><p>From a reviewed checkout, preview and then run the setup:</p>
 <pre><code class="language-sh">node plugins/apexrest-apex/runtime/apexrest.mjs setup --dry-run --json
 node plugins/apexrest-apex/runtime/apexrest.mjs setup --yes --accept-oracle-license --json
 </code></pre>
-<p><code>--native-only</code> registers the plugin with the existing runtime without downloads; <code>--codex-home</code> selects a Codex profile and <code>--codex</code> the Codex executable. A foreign or ambiguous marketplace stays blocked with <code>MARKETPLACE_OWNERSHIP_CONFLICT</code>. Add the launcher to <code>PATH</code> for future shells (APEXREST never edits shell startup files):</p>
+</li>
+<li><p>Add the launcher to <code>PATH</code> for future shells (APEXREST never edits shell startup files):</p>
 <pre><code class="language-sh">export PATH=&quot;$HOME/.apexrest/bin:$PATH&quot;
 apexrest --help
 </code></pre>
-<p>In PowerShell, invoke <code>&amp; &quot;$env:USERPROFILE\.apexrest\bin\apexrest.ps1&quot;</code>. <code>npm install -g apexrest</code> provides the same command through npm&#39;s global <code>bin</code> directory. Managed setup registers Codex only, but its payload contains both host manifests and marketplaces. To reuse it in Claude Code, add the <code>native.destination</code> returned by setup as the marketplace path, then install <code>apexrest@apexrest</code>. Both MCP bindings use the managed Node executable and home; Claude resolves its own cached runtime path. Direct repository installations instead inherit <code>APEXREST_HOME</code> from the launching shell.</p>
+<p>In PowerShell, invoke <code>&amp; &quot;$env:USERPROFILE\.apexrest\bin\apexrest.ps1&quot;</code>.</p>
+</li>
+</ol>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--native-only</code></td>
+<td>Registers the plugin with the existing runtime without downloads.</td>
+</tr>
+<tr>
+<td><code>--codex-home</code></td>
+<td>Selects a Codex profile.</td>
+</tr>
+<tr>
+<td><code>--codex</code></td>
+<td>Selects the Codex executable.</td>
+</tr>
+</tbody></table>
+</div>
+<p>A foreign or ambiguous marketplace stays blocked with <code>MARKETPLACE_OWNERSHIP_CONFLICT</code>.</p>
+<p><code>npm install -g apexrest</code> provides the same command through npm&#39;s global <code>bin</code> directory.</p>
+<p><strong>Reuse a managed setup in Claude Code.</strong> Managed setup registers Codex only, but its payload contains both host manifests and marketplaces. To reuse it in Claude Code:</p>
+<ol>
+<li>Add the <code>native.destination</code> returned by setup as the marketplace path.</li>
+<li>Install <code>apexrest@apexrest</code>.</li>
+</ol>
+<p>Both MCP bindings use the managed Node executable and home; Claude resolves its own cached runtime path. Direct repository installations instead inherit <code>APEXREST_HOME</code> from the launching shell.</p>
 <h2 id="connect-and-configure">Connect and configure</h2>
-<p>APEXREST stores connection references, not passwords. Choose the SQLcl mode and database transport once per managed home, then register references:</p>
+<p>APEXREST stores connection references, not passwords. You choose the SQLcl mode and database transport once per managed home, register connection references, then give the agent the target identity.</p>
+<p>The commands below use the <code>apexrest</code> command; see <a href="#managed-runtime-installation-and-the-launcher">the launcher</a>.</p>
+<h3 id="option-a-direct-oracle-listener">Option A: direct Oracle listener</h3>
+<p>Saved direct connections come from SQLcl&#39;s own store; create them interactively in SQLcl first.</p>
 <pre><code class="language-sh"># Direct Oracle listener: map saved SQLcl connections.
 apexrest sqlcl configure --mode cli --database-transport direct --json
 apexrest connection list --saved --json
@@ -81,36 +265,152 @@ apexrest connection add dev-read --sqlcl-name saved-read-connection --json
 apexrest connection add dev-deploy --sqlcl-name saved-deploy-connection --json
 apexrest connection test dev-read --json
 </code></pre>
-<p>Saved direct connections come from SQLcl&#39;s own store; create them interactively in SQLcl first. <code>--saved</code> lists or tests that store without an APEXREST reference. <code>--mode mcp</code> selects the official SQLcl stdio server (<code>sql -mcp</code>) instead of the SQLcl subprocess; existing sessions keep their mode.</p>
-<p>For ORDS HTTP(S), when the listener on port 1521 is unreachable, use the existing database account and the schema&#39;s ORDS URL. The password is read from a private local file (owner-only, not a symlink) and kept at plugin level under <code>$APEXREST_HOME/credentials/</code>:</p>
+<ul>
+<li><code>--saved</code> lists or tests SQLcl&#39;s store without an APEXREST reference.</li>
+<li><code>--mode mcp</code> selects the official SQLcl stdio server (<code>sql -mcp</code>) instead of the SQLcl subprocess; existing sessions keep their mode.</li>
+</ul>
+<h3 id="option-b-ords-over-https">Option B: ORDS over HTTP(S)</h3>
+<p>Use ORDS HTTP(S) when the listener on port 1521 is unreachable. Use the existing database account and the schema&#39;s ORDS URL. The password is read from a private local file (owner-only, not a symlink) and kept at plugin level under <code>$APEXREST_HOME/credentials/</code>.</p>
 <pre><code class="language-sh">apexrest connection add dev-read --ords-url https://ords.example.invalid/ords/app_user/ --ords-username app_user --password-file /path/to/local/file --json
 apexrest sqlcl configure --mode cli --database-transport ords --json
 apexrest connection test dev-read --json
 </code></pre>
-<p>ORDS requires <code>cli</code> mode. See <a href="/apexrest/ords/">SQL through ORDS</a>. In the conversation, the agent registers references with <code>apexrest_project</code> <code>action:connection_add</code> (<code>name</code> plus <code>sqlclName</code>, or <code>ordsUrl</code>, <code>ordsUsername</code> and <code>passwordFile</code>) and checks them with <code>connection_list</code> and <code>connection_test</code>; it never asks for a password in chat.</p>
-<p>Then give the agent the non-secret target identity for an environment:</p>
+<p>ORDS requires <code>cli</code> mode. See <a href="/apexrest/ords/">SQL through ORDS</a>.</p>
+<h3 id="in-the-conversation">In the conversation</h3>
+<p>The agent registers references with <code>apexrest_project</code> <code>action:connection_add</code> (<code>name</code> plus <code>sqlclName</code>, or <code>ordsUrl</code>, <code>ordsUsername</code> and <code>passwordFile</code>) and checks them with <code>connection_list</code> and <code>connection_test</code>. It never asks for a password in chat.</p>
+<h3 id="describe-the-target-environment">Describe the target environment</h3>
+<p>Give the agent the non-secret target identity for an environment:</p>
 <blockquote>
 <p>Configure an APEXREST test environment using the connection references <code>dev-read</code> and <code>dev-deploy</code>. The workspace is <code>YOUR_WORKSPACE</code>, parsing schema <code>YOUR_SCHEMA</code>, application ID <code>YOUR_APPLICATION_ID</code>, database unique name <code>YOUR_DB</code>, service <code>YOUR_SERVICE</code>, and application URL <code>https://your-host.example/ords/r/workspace/app/</code>. Verify that the read connection matches this identity.</p>
 </blockquote>
 <p>Replace every placeholder with the actual target. No environment is invented by project initialization. Follow <a href="/apexrest/configuration/">configuration</a> for the exact environment schema, task authorization and allowed origins described in the <a href="/apexrest/deployment/">safety rules</a>.</p>
 <h2 id="create-or-adopt-a-project">Create or adopt a project</h2>
-<p>For a new application, name a new or empty directory and a template:</p>
+<p>Choose one of the two routes.</p>
+<h3 id="new-application">New application</h3>
+<p>Name a new or empty directory and a template:</p>
 <blockquote>
 <p>Use APEXREST to create a blank application in a new <code>sales-app</code> project. Configure the identified test target, add a dashboard using real source measures, then ship it to that target and verify it in the browser.</p>
 </blockquote>
-<p>The agent calls <code>apexrest_project</code> <code>action:init</code> with <code>directory</code> and <code>template</code> (<code>blank-app</code> or <code>customer-crm</code>); initialization generates real Oracle sources and rejects nonempty directories. For an existing application:</p>
+<p>The agent calls <code>apexrest_project</code> <code>action:init</code> with <code>directory</code> and <code>template</code> (<code>blank-app</code> or <code>customer-crm</code>). Initialization generates real Oracle sources and rejects nonempty directories.</p>
+<h3 id="existing-application">Existing application</h3>
 <blockquote>
 <p>Use APEXREST to initialize an existing-app project in a new <code>sales-app</code> directory and adopt the identified test application as a working copy. Preserve all Oracle IDs, <code>.apex</code> metadata, unrelated pages, shared components and authentication. Add the requested dashboard, ship it into that same app and verify the result.</p>
 </blockquote>
-<p>Adoption (<code>action:adopt</code> with <code>env</code>, <code>appId</code> and <code>workingCopy</code>) exports into a new local directory and fails rather than overwrite local edits. Keep the generated Oracle metadata under version control and reuse the working source for later changes; see <a href="/apexrest/existing-app/">existing applications</a>. The CLI equivalents are <code>apexrest project init DIR --template existing-app</code> and <code>apexrest project adopt --env dev --app-id ID --working-copy --json</code>.</p>
-<p><strong>Review the target.</strong> No manual folder trust list is required. An identified DEV/QA/TEST app task authorizes its import; production deploy/restore is forbidden. Read the <a href="/apexrest/deployment/">current safety rules</a> before database work.</p>
+<ul>
+<li>Adoption (<code>action:adopt</code> with <code>env</code>, <code>appId</code> and <code>workingCopy</code>) exports into a new local directory and fails rather than overwrite local edits.</li>
+<li>Keep the generated Oracle metadata under version control and reuse the working source for later changes; see <a href="/apexrest/existing-app/">existing applications</a>.</li>
+<li>The CLI equivalents are <code>apexrest project init DIR --template existing-app</code> and <code>apexrest project adopt --env dev --app-id ID --working-copy --json</code>.</li>
+</ul>
+<h3 id="review-the-target">Review the target</h3>
+<ul>
+<li>No manual folder trust list is required.</li>
+<li>An identified DEV/QA/TEST app task authorizes its import.</li>
+<li>Production deploy/restore is forbidden.</li>
+</ul>
+<p>Read the <a href="/apexrest/deployment/">current safety rules</a> before database work.</p>
 <h2 id="edit-validate-ship-and-verify">Edit, validate, ship and verify</h2>
-<p>For an existing qualified APEX 26.2 application, initialize a sync baseline before editing, then use <code>importMode:auto</code> to select eligible changed files or <code>importMode:files</code> with an explicit page/dependency list. Review <code>importSelection.resolvedMode</code>, selected files and any full-import reasons before applying. The <a href="/apexrest/apex-26.2/">partial-import guide</a> gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.</p>
-<p>The work skill (<code>$apexrest-work</code> in Codex, <code>/apexrest:apexrest-work</code> in Claude Code) drives one cycle per change: inspect the project, read at most three references, edit the <code>.apx</code> sources and use one <code>apexrest_ship mode:apply</code> call to compile, plan and apply. Standalone validation is for diagnostics and a separate plan is for explicit review. Report confirmed server completion and inspect requested pages with the selected browser. Browser checks run only when requested. The steps are listed in the <a href="/apexrest/features/#work-in-one-session">features page</a>.</p>
-<p>Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The runtime records it as a deploy grant bound to the exact project, target and plan digest, imports with a checksummed backup of an existing app, identity and drift checks, verifies and removes the grant; the agent does not ask the same permission twice. Plans expire after 30 minutes. Unrelated schema writes, authentication changes, other targets and production are outside that scope. A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see <a href="/apexrest/deployment/">deployment safety</a>.</p>
-<p>For a page or dashboard, the agent reconciles the read-only sources and confirmed server import. It inspects the imported page in the selected browser only when requested. Browser observations are recorded separately from compiler and import results. Application verification uses the host in-app browser. See <a href="/apexrest/testing/">testing</a>.</p>
+<p>Describe the change, or invoke the work skill (<code>$apexrest-work</code> in Codex, <code>/apexrest:apexrest-work</code> in Claude Code). The work skill drives one cycle per change:</p>
+<ol>
+<li>Inspect the project.</li>
+<li>Read at most three references.</li>
+<li>Edit the <code>.apx</code> sources.</li>
+<li>Use one <code>apexrest_ship mode:apply</code> call to compile, plan and apply.</li>
+<li>Report confirmed server completion.</li>
+<li>Inspect requested pages with the selected browser. Browser checks run only when requested.</li>
+</ol>
+<p>Standalone validation is for diagnostics and a separate plan is for explicit review. The steps are listed in the <a href="/apexrest/features/#work-in-one-session">features page</a>.</p>
+<h3 id="apex-262-partial-imports">APEX 26.2 partial imports</h3>
+<p>For an existing qualified APEX 26.2 application:</p>
+<ol>
+<li>Initialize a sync baseline before editing.</li>
+<li>Use <code>importMode:auto</code> to select eligible changed files, or <code>importMode:files</code> with an explicit page/dependency list.</li>
+<li>Review <code>importSelection.resolvedMode</code>, selected files and any full-import reasons before applying.</li>
+</ol>
+<p>The <a href="/apexrest/apex-26.2/">partial-import guide</a> gives matching CLI plan/apply examples and explains conflicts, backups and readback. APEX 26.1 continues to use full imports.</p>
+<h3 id="authorization-and-safety">Authorization and safety</h3>
+<p>Your explicit request to create, update or import an identified development/test application is the authorization for the apply step. The agent does not ask the same permission twice.</p>
+<p>The runtime:</p>
+<ol>
+<li>records the request as a deploy grant bound to the exact project, target and plan digest;</li>
+<li>imports with a checksummed backup of an existing app, and with identity and drift checks;</li>
+<li>verifies the import;</li>
+<li>removes the grant.</li>
+</ol>
+<p>Limits:</p>
+<ul>
+<li>Plans expire after 30 minutes.</li>
+<li>Unrelated schema writes, authentication changes, other targets and production are outside that scope.</li>
+<li>A failed or unknown write outcome requires diagnosis or reconciliation before any retry; see <a href="/apexrest/deployment/">deployment safety</a>.</li>
+</ul>
+<h3 id="verification">Verification</h3>
+<ul>
+<li>For a page or dashboard, the agent reconciles the read-only sources and confirmed server import.</li>
+<li>It inspects the imported page in the selected browser only when requested.</li>
+<li>Browser observations are recorded separately from compiler and import results.</li>
+<li>Application verification uses the host in-app browser.</li>
+</ul>
+<p>See <a href="/apexrest/testing/">testing</a>.</p>
 <h2 id="use-the-cli">Use the CLI</h2>
-<p>Every MCP operation has a CLI command with <code>--json</code> output and the same exit codes (0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown or cancelled). <code>apexrest --help</code> lists the commands; <code>apexrest &lt;command&gt; --help</code> (for example <code>apexrest ship --help</code> or <code>apexrest preview stop --help</code>) shows only that command&#39;s usage and options, and <code>apexrest deploy --help</code> lists a command group. <code>apexrest apex validate --source-dir PATH</code> compiles any APEXlang folder that holds <code>application.apx</code>, also outside a project: it uses the folder&#39;s own <code>.apex/apexlang.json</code>, else that of the nearest project application, and otherwise fails with <code>MMD_METADATA_REQUIRED</code>. There is no interactive terminal menu.</p>
+<p>Every MCP operation has a CLI command with <code>--json</code> output and the same exit codes. There is no interactive terminal menu.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Exit code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0</td>
+<td>success</td>
+</tr>
+<tr>
+<td>1</td>
+<td>failed</td>
+</tr>
+<tr>
+<td>2</td>
+<td>input</td>
+</tr>
+<tr>
+<td>3</td>
+<td>dependency</td>
+</tr>
+<tr>
+<td>4</td>
+<td>approval</td>
+</tr>
+<tr>
+<td>5</td>
+<td>conflict</td>
+</tr>
+<tr>
+<td>6</td>
+<td>unknown or cancelled</td>
+</tr>
+</tbody></table>
+</div>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Help command</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>apexrest --help</code></td>
+<td>The commands.</td>
+</tr>
+<tr>
+<td><code>apexrest &lt;command&gt; --help</code></td>
+<td>Only that command&#39;s usage and options, for example <code>apexrest ship --help</code> or <code>apexrest preview stop --help</code>.</td>
+</tr>
+<tr>
+<td><code>apexrest deploy --help</code></td>
+<td>A command group.</td>
+</tr>
+</tbody></table>
+</div>
+<p>A typical cycle:</p>
 <pre><code class="language-sh">apexrest status --detail doctor --json
 apexrest project inspect --project ./crm --detail summary --json
 apexrest reference search metric card --corpus components --limit 3 --json
@@ -120,8 +420,21 @@ apexrest job status JOB_ID --wait-seconds 30 --project ./crm --json
 # Only when browser verification was requested:
 apexrest browser open --project ./crm --env dev --json
 </code></pre>
-<p><code>ship --mode plan</code> validates with the Oracle compiler, reads the target and writes <code>.apexrest/plans/ship-&lt;id&gt;.json</code> for review; <code>--mode apply</code> and granular deploy/restore refuse production targets. The granular commands (<code>deploy plan|apply|status|restore-plan</code>, <code>apex export|generate|sync|diff</code>, <code>jobs status|cancel</code>, <code>compose plan|materialize</code>, <code>status</code>) remain available. The CRM template includes schema changes, so its import needs authorization for that schema scope; verify its interactions in the selected browser when requested.</p>
-<p>When calling project-scoped MCP tools, pass the absolute application project directory as <code>project</code>: the MCP server starts in its plugin directory and rejects missing or relative paths. CLI examples resolve <code>--project</code> from the terminal&#39;s working directory.</p>
+<p>What the commands do:</p>
+<ul>
+<li><code>ship --mode plan</code> validates with the Oracle compiler, reads the target and writes <code>.apexrest/plans/ship-&lt;id&gt;.json</code> for review.</li>
+<li><code>--mode apply</code> and granular deploy/restore refuse production targets.</li>
+<li>The granular commands (<code>deploy plan|apply|status|restore-plan</code>, <code>apex export|generate|sync|diff</code>, <code>jobs status|cancel</code>, <code>compose plan|materialize</code>, <code>status</code>) remain available.</li>
+<li><code>apexrest apex validate --source-dir PATH</code> compiles any APEXlang folder that holds <code>application.apx</code>, also outside a project: it uses the folder&#39;s own <code>.apex/apexlang.json</code>, else that of the nearest project application, and otherwise fails with <code>MMD_METADATA_REQUIRED</code>.</li>
+<li>The CRM template includes schema changes, so its import needs authorization for that schema scope; verify its interactions in the selected browser when requested.</li>
+</ul>
+<p>Project paths:</p>
+<ul>
+<li>When calling project-scoped MCP tools, pass the absolute application project directory as <code>project</code>: the MCP server starts in its plugin directory and rejects missing or relative paths.</li>
+<li>CLI examples resolve <code>--project</code> from the terminal&#39;s working directory.</li>
+</ul>
+<h2 id="codex-cloud">Codex Cloud</h2>
+<p>For a cloud task, follow <a href="/apexrest/codex-cloud/">Run APEXREST in Codex Cloud</a>. It provides a pinned CLI bootstrap, setup/maintenance scripts and ORDS HTTPS configuration for a Linux container. Plugin registration in this guide applies to desktop and CLI hosts; the Cloud example uses the CLI only.</p>
 <h2 id="remove-the-plugin-and-managed-tools">Remove the plugin and managed tools</h2>
 <p>Codex:</p>
 <pre><code class="language-sh">codex plugin remove apexrest-apex@apexrest
@@ -131,7 +444,31 @@ codex plugin marketplace remove apexrest
 <pre><code class="language-sh">claude plugin uninstall apexrest@apexrest
 claude plugin marketplace remove apexrest
 </code></pre>
-<p>Managed installation has its own ownership-checked commands: <code>apexrest dependencies uninstall --yes</code> removes recorded managed tools while preserving external runtimes, projects, backups, SQLcl connections and the download cache; <code>apexrest plugin uninstall</code> removes the managed Codex registration and plugin files (<code>--keep-runtime</code> retains them). Uninstall tools first when removing both. Start a new session after removal. Uninstalling never deletes application projects, backups, credentials, deployment history or database deployments.</p>
+<p>Managed installation has its own ownership-checked commands:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>apexrest dependencies uninstall --yes</code></td>
+<td>Removes recorded managed tools while preserving external runtimes, projects, backups, SQLcl connections and the download cache.</td>
+</tr>
+<tr>
+<td><code>apexrest plugin uninstall</code></td>
+<td>Removes the managed Codex registration and plugin files (<code>--keep-runtime</code> retains them).</td>
+</tr>
+</tbody></table>
+</div>
+<p>Uninstall tools first when removing both. Start a new session after removal.</p>
+<p>Uninstalling never deletes application projects, backups, credentials, deployment history or database deployments.</p>
 <h2 id="next-steps">Next steps</h2>
-<p>Read <a href="/apexrest/deployment/">deployment safety</a> before operating a target, <a href="/apexrest/security/">security</a> before sharing artifacts and the <a href="/apexrest/implementation-status/">verification status</a> before selecting this build for production work. The <a href="/apexrest/docs/">documentation index</a> links every guide and evidence record.</p>
+<ul>
+<li>Read <a href="/apexrest/deployment/">deployment safety</a> before operating a target.</li>
+<li>Read <a href="/apexrest/security/">security</a> before sharing artifacts.</li>
+<li>Read the <a href="/apexrest/implementation-status/">verification status</a> before selecting this build for production work.</li>
+<li>The <a href="/apexrest/docs/">documentation index</a> links every guide and evidence record.</li>
+</ul>
 <p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/getting-started.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>

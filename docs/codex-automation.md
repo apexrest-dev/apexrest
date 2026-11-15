@@ -1,5 +1,7 @@
 # Programmatic automation for the agent surface
 
+This page lists what each APEXREST tool executes as ordinary program code and what is left to the host model. Read it to understand which steps of a work cycle need no model, how many calls a typical task takes, and how `ship` records authorization.
+
 The plugin targets Codex (desktop and CLI) and Claude Code with the same skills and the same MCP tools. Its [12 MCP tools](../packages/core/src/operations.ts) execute ordinary program code; mechanical compilation, metadata reads, planning, backups, imports and status need no model. The host model supplies task understanding, source changes and assessment in the current conversation.
 
 ## What runs without AI
@@ -18,22 +20,20 @@ Names below omit the `apexrest_` MCP prefix. Programmatic execution still requir
 | `job`, `artifact_read` | Wait with `phase` reporting, cancel, and read bounded sanitized artifacts                                                                                  | Interpret the result; reconcile an unknown outcome before retrying writes    |
 | `status`               | `doctor` probes local tools; `project` aggregates settings, connections, sync, jobs, deployments and grants                                                | Interpret missing prerequisites                                              |
 
-The CLI keeps its granular commands (`project init|adopt|inspect`, `connection ...`, `apex validate|export|sync|diff`, `deploy plan|apply|status|restore-plan`, `compose ...`, `jobs status|cancel`, `panel status`, plus `ship` and `status`). Composer and `apex export/generate` are CLI-only.
+### CLI commands
 
-## Partial imports through the agent surface
+The CLI keeps its granular commands:
 
-The source checkout supports [APEX 26.2 partial imports](apex-26.2.md) through the same `apexrest_ship` MCP tool used by Codex and Claude Code, and through the CLI. APEX 26.1 sources use full imports. Direct SQLcl CLI transport is required inside the runtime, with the reviewed SQLcl `26.3.0.260.1620` / MMD `26.2.0+3479` tuple and a compatible 26.2 target. This does not prevent the host from calling APEXREST over MCP.
+- `project init|adopt|inspect`
+- `connection ...`
+- `apex validate|export|sync|diff`
+- `deploy plan|apply|status|restore-plan`
+- `compose ...`
+- `jobs status|cancel`
+- `panel status`
+- `ship` and `status`
 
-For an existing dev/test application, initialize a trusted checkpoint with `apexrest_apex_sync` `action: "init"`, edit a page and its shared LOV, then pass one of these selections to both the plan and apply calls:
-
-| `apexrest_ship` inputs                                                                       | Behavior                                                                                                                  |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `importMode: "auto"`                                                                         | Default; select eligible local changes or explain why a full plan is needed.                                              |
-| `importMode: "files", files: ["pages/p00001-home.apx", "shared-components/lovs/status.apx"]` | Import only the selected eligible files; retain other local work. Paths are relative to the application source directory. |
-| `importMode: "full"`                                                                         | Plan a complete application import.                                                                                       |
-| `importMode: "none"`                                                                         | Deploy only pending migrations and changed package scripts; the application is not backed up or imported.                 |
-
-The model reviews `importSelection.requestedMode`, `resolvedMode`, `files`, `dependencies` and `reasons`; the saved plan holds the complete lists if the preview is truncated. The program compares checkpoint/local/fresh-server inventories, preserves remote-only edits and blocks unequal edits to the same component before fallback. It validates the effective tree, so selected pages must have their required components on the server or included explicitly. `files` never adds dependencies or becomes `full`; observed remote changes must be reconciled before an automatic full fallback. Partial apply retains a scoped APEXlang backup and verifies selected sources while leaving unselected local edits dirty. Pages use native selected export; shared files disclose full APEXlang observation. Unselected server freshness is not established by scoped readback. Browser verification remains a separate host action. See [deployment safeguards](deployment-safety.md#apex-262-partial-imports).
+Composer and `apex export/generate` are CLI-only.
 
 ## Round trips
 
@@ -48,12 +48,96 @@ Reference files load on demand. Validation repairs, authorization requirements a
 
 ## Implemented reductions
 
-- `apex_validate` runs in-process (no job, no polling) and returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete. Domain faults carry `nextActions` (for example `VALIDATION_FAILED`, `SOURCE_DRIFT`, `DEPLOY_APPROVAL_REQUIRED`, `PRODUCTION_DEPLOY_DENIED`).
-- `ship` folds validate, plan, grant, apply and verify into one call. `mode:plan` runs in-process; `mode:apply` validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to `waitSeconds` (default 25, maximum 120). Job status carries `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`).
-- Jobs for `apex_sync` run inside the MCP process (same `state.json` and heartbeat, so `job` observes them identically) and reuse one `OracleAdapter` per managed-home settings digest, keeping the offline SQLcl JVM pool and capability cache warm. Connected sessions are discarded after each batch; no warm connected-session pool is claimed. The ship apply phase runs in a detached worker. Browser verification uses the host controls after the import.
-- `metadata_read` accepts `requests` containing 1–8 scoped requests; `project inspect` defaults to `detail: "summary"`.
-- Tool annotations: `destructiveHint` only for `ship` and `job`; `readOnlyHint`/`idempotentHint` for `reference`, `apex_validate`, `metadata_read`, `artifact_read` and `status`; `openWorldHint` only for tools that can reach the database, a browser or the network.
+### `apex_validate`
+
+- Runs in-process (no job, no polling).
+- Returns up to 50 structured diagnostics without truncation; a compacted result keeps the first five complete.
+- Domain faults carry `nextActions` (for example `VALIDATION_FAILED`, `SOURCE_DRIFT`, `DEPLOY_APPROVAL_REQUIRED`, `PRODUCTION_DEPLOY_DENIED`).
+
+### `ship`
+
+- Folds validate, plan, grant, apply and verify into one call.
+- `mode:plan` runs in-process.
+- `mode:apply` validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination, waiting up to `waitSeconds` (default 25, maximum 120).
+- Job status carries `phase` (`validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`).
+
+### `apex_sync` jobs and sessions
+
+- Jobs for `apex_sync` run inside the MCP process (same `state.json` and heartbeat, so `job` observes them identically).
+- They reuse one `OracleAdapter` per managed-home settings digest, keeping the offline SQLcl JVM pool and capability cache warm.
+- Connected sessions are discarded after each batch; no warm connected-session pool is claimed.
+- The ship apply phase runs in a detached worker.
+- Browser verification uses the host controls after the import.
+
+### `metadata_read` and `project inspect`
+
+- `metadata_read` accepts `requests` containing 1–8 scoped requests.
+- `project inspect` defaults to `detail: "summary"`.
+
+### Tool annotations
+
+| Annotation                        | Tools                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `destructiveHint`                 | Only `ship` and `job`.                                                    |
+| `readOnlyHint` / `idempotentHint` | `reference`, `apex_validate`, `metadata_read`, `artifact_read`, `status`. |
+| `openWorldHint`                   | Only tools that can reach the database, a browser or the network.         |
+
+## Partial imports through the agent surface
+
+The source checkout supports [APEX 26.2 partial imports](apex-26.2.md) through the same `apexrest_ship` MCP tool used by Codex and Claude Code, and through the CLI.
+
+### Requirements
+
+- APEX 26.1 sources use full imports.
+- Direct SQLcl CLI transport is required inside the runtime, with the reviewed SQLcl `26.3.0.260.1620` / MMD `26.2.0+3479` tuple and a compatible 26.2 target. This does not prevent the host from calling APEXREST over MCP.
+
+### Procedure
+
+For an existing dev/test application:
+
+1. Initialize a trusted checkpoint with `apexrest_apex_sync` `action: "init"`.
+2. Edit a page and its shared LOV.
+3. Pass one of these selections to both the plan and apply calls:
+
+| `apexrest_ship` inputs                                                                       | Behavior                                                                                                                  |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `importMode: "auto"`                                                                         | Default; select eligible local changes or explain why a full plan is needed.                                              |
+| `importMode: "files", files: ["pages/p00001-home.apx", "shared-components/lovs/status.apx"]` | Import only the selected eligible files; retain other local work. Paths are relative to the application source directory. |
+| `importMode: "full"`                                                                         | Plan a complete application import.                                                                                       |
+| `importMode: "none"`                                                                         | Deploy only pending migrations and changed package scripts; the application is not backed up or imported.                 |
+
+### What the model reviews
+
+The model reviews `importSelection.requestedMode`, `resolvedMode`, `files`, `dependencies` and `reasons`; the saved plan holds the complete lists if the preview is truncated.
+
+### What the program does
+
+- It compares checkpoint/local/fresh-server inventories, preserves remote-only edits and blocks unequal edits to the same component before fallback.
+- It validates the effective tree, so selected pages must have their required components on the server or included explicitly.
+- `files` never adds dependencies or becomes `full`; observed remote changes must be reconciled before an automatic full fallback.
+- Partial apply retains a scoped APEXlang backup and verifies selected sources while leaving unselected local edits dirty.
+- Pages use native selected export; shared files disclose full APEXlang observation.
+
+### What a partial import does not establish
+
+- Unselected server freshness is not established by scoped readback.
+- Browser verification remains a separate host action.
+
+See [deployment safeguards](deployment-safety.md#apex-262-partial-imports).
 
 ## Authorization recorded by ship
 
-An explicit user request to create, update or import an identified development/test application authorizes that import. `ship apply` requires `userRequest` (the user's literal instruction) and records it in the user policy as a grant bound to the canonical project root, target digest and plan digest, deploy only, expiring with the plan and marked `grantedBy: "ship"`. The grant is removed after the attempt whether it succeeded or failed; a removal failure is reported in `grant.removed`. Production targets (`kind: production` or listed in the administrator-owned production trust file) and plans with unreviewed risks are refused before any grant is written. Trust, backup, identity, drift, coordination and unknown-outcome protections are unchanged.
+An explicit user request to create, update or import an identified development/test application authorizes that import.
+
+- `ship apply` requires `userRequest` (the user's literal instruction).
+- It records the request in the user policy as a grant bound to the canonical project root, target digest and plan digest, deploy only, expiring with the plan and marked `grantedBy: "ship"`.
+- The grant is removed after the attempt whether it succeeded or failed; a removal failure is reported in `grant.removed`.
+- Production targets (`kind: production` or listed in the administrator-owned production trust file) and plans with unreviewed risks are refused before any grant is written.
+- Trust, backup, identity, drift, coordination and unknown-outcome protections are unchanged.
+
+## Related
+
+- [Work in the current session](chat-workflow.md): the application workflow the tools serve.
+- [APEX 26.2 partial imports](apex-26.2.md): import only the changed pages and components.
+- [Deployment safety](deployment-safety.md): the plan, grant, import and recovery model.
+- [Architecture](architecture.md): jobs, the SQLcl engine and durable state.

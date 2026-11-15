@@ -1,38 +1,49 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Configuration · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/" aria-current="page">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Run and deploy / Configuration</div><h1 id="configuration-and-connections">Configuration and connections</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#cross-vendor-peer-review">Cross-vendor peer review</a></li><li><a href="#configure-an-environment">Configure an environment</a></li><li><a href="#list-and-test-saved-sqlcl-connections">List and test saved SQLcl connections</a></li><li><a href="#save-connection-references">Save connection references</a></li><li><a href="#application-authorization">Application authorization</a></li><li><a href="#deployment-coordination">Deployment coordination</a></li><li><a href="#application-verification">Application verification</a></li><li><a href="#runtime-configuration">Runtime configuration</a></li></ul></details>
-<p>Implementation uses the current host session (Codex or Claude Code) and its permissions. The verification browser preference (<code>host</code> in-app browser, alias <code>codex</code>) is stored per project in <code>.apexrest/panel/preferences.json</code>; the default <code>{&quot;browserMode&quot;:&quot;codex&quot;}</code> is the legacy name of <code>host</code> and behaves identically; <code>apexrest_browser_open</code> accepts <code>browserMode</code> to override it for one call, and <code>apexrest_status</code> <code>detail:project</code> reports the current value.</p>
-<p>A project has one <code>apexrest.json</code> and one pinned toolchain lock. <code>project init</code> creates both, with an empty environment map. Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.</p>
-<p>Optional <code>toolchain.profile</code> selects <code>26.1</code> or <code>26.2</code> authoring references. Existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See <a href="/apexrest/apex-26.2/">APEX 26.2 support</a> for the matching compiler lock and partial-import requirements.</p>
-<p>Optional <code>decisionApi</code> configures component selection only: <code>enabled</code> (default false), <code>apiKeyEnv</code> (default <code>OPENAI_API_KEY</code>), optional project-relative <code>envFile</code>, and <code>timeoutMs</code> (default 3000, range 250–10000). The key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See <a href="/apexrest/component-catalog/#optional-openai-decisions-selection">Decisions selection</a> for configuration and CLI/MCP examples.</p>
-<p>Optional <code>peerReview</code> enables cross-vendor review of saved ship plans: <code>mode</code> (<code>off</code> default, <code>advisory</code>, <code>required</code>), <code>vendor</code> (<code>auto</code> default, <code>codex</code>, <code>claude</code>), optional <code>model</code> passed to the peer CLI, and <code>timeoutSeconds</code> (default 600, range 60–1800). See <a href="#cross-vendor-peer-review">Peer review</a>.</p>
-<h2 id="cross-vendor-peer-review">Cross-vendor peer review</h2>
-<p>Claude Code and Codex can review each other&#39;s APEX changes. The host agent prepares a plan with <code>apexrest_ship mode:plan</code>, then calls <code>apexrest_peer_review action:review plan:&lt;planPath&gt;</code>. The runtime runs the other vendor&#39;s CLI in the project directory with the user&#39;s existing sign-in (ChatGPT or <code>OPENAI_API_KEY</code> for Codex; Claude subscription or <code>ANTHROPIC_API_KEY</code> for Claude Code). APEXREST never handles those credentials. On Windows the CLI is found on absolute <code>PATH</code> entries (never in the project folder): a native <code>codex.exe</code> or <code>claude.exe</code> runs directly, and an npm-installed <code>codex.cmd</code> or <code>claude.cmd</code> shim runs the Node script it points to, without cmd.exe. <code>APEXREST_CODEX_BIN</code> and <code>APEXREST_CLAUDE_BIN</code> override the CLI; a <code>.js</code>, <code>.mjs</code> or <code>.cjs</code> override runs through Node.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Configuration · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/configuration/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/" aria-current="page">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Run and deploy / Configuration</div><h1 id="configuration-and-connections">Configuration and connections</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#before-you-start">Before you start</a></li><li><a href="#optional-project-settings">Optional project settings</a></li><li><a href="#configure-an-environment">Configure an environment</a></li><li><a href="#list-and-test-saved-sqlcl-connections">List and test saved SQLcl connections</a></li><li><a href="#save-connection-references">Save connection references</a></li><li><a href="#application-authorization">Application authorization</a></li><li><a href="#cross-vendor-peer-review">Cross-vendor peer review</a></li><li><a href="#deployment-coordination">Deployment coordination</a></li><li><a href="#application-verification">Application verification</a></li><li><a href="#runtime-configuration">Runtime configuration</a></li><li><a href="#related">Related</a></li></ul></details>
+<p>This page describes the project file <code>apexrest.json</code>, environments, connection references, authorization policy and runtime variables. Use it when you set up a target or change how the plugin connects, reviews and deploys.</p>
+<h2 id="before-you-start">Before you start</h2>
+<ul>
+<li>Implementation uses the current host session (Codex or Claude Code) and its permissions.</li>
+<li>A project has one <code>apexrest.json</code> and one pinned toolchain lock. <code>project init</code> creates both, with an empty environment map.</li>
+<li>Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.</li>
+</ul>
+<h2 id="optional-project-settings">Optional project settings</h2>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
-<th>Host</th>
-<th>Peer command (read-only)</th>
+<th>Setting</th>
+<th>Purpose</th>
+<th>Values</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Claude Code</td>
-<td><code>codex exec --sandbox read-only --ephemeral --output-schema …</code></td>
+<td><code>toolchain.profile</code></td>
+<td>Selects <code>26.1</code> or <code>26.2</code> authoring references</td>
+<td><code>26.1</code>, <code>26.2</code></td>
 </tr>
 <tr>
-<td>Codex</td>
-<td><code>claude -p --restricted --tools Read,Grep,Glob --strict-mcp-config --json-schema …</code></td>
+<td><code>decisionApi</code></td>
+<td>Configures component selection only</td>
+<td><code>enabled</code> (default false), <code>apiKeyEnv</code> (default <code>OPENAI_API_KEY</code>), optional project-relative <code>envFile</code>, and <code>timeoutMs</code> (default 3000, range 250–10000)</td>
+</tr>
+<tr>
+<td><code>peerReview</code></td>
+<td>Enables cross-vendor review of saved ship plans</td>
+<td><code>mode</code> (<code>off</code> default, <code>advisory</code>, <code>required</code>), <code>vendor</code> (<code>auto</code> default, <code>codex</code>, <code>claude</code>), optional <code>model</code> passed to the peer CLI, and <code>timeoutSeconds</code> (default 600, range 60–1800)</td>
 </tr>
 </tbody></table>
 </div>
-<p><code>vendor: auto</code> picks the opposite of the detected host (<code>APEXREST_HOST</code>, then the MCP client name sent at initialization, then the host&#39;s own environment); pass <code>vendor</code> explicitly when detection is unavailable. The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns <code>approve</code> or <code>changes_requested</code> with findings. The verdict is written to <code>.apexrest/reviews/&lt;planDigest&gt;.json</code>.</p>
-<p>Local-only work without an Oracle target can still be reviewed: omit <code>plan</code> (CLI <code>apexrest peer review</code> without <code>--plan</code>). The reviewer then receives the list of application and database sources and the Git diff, and the verdict is written to <code>.apexrest/reviews/source-&lt;sourceDigest&gt;.json</code>. A source review is advisory only; it never satisfies the <code>required</code> apply gate, which needs a review of the exact saved plan.</p>
-<p>Gate modes apply to <code>apexrest_ship mode:apply</code> (and the CLI <code>ship --mode apply</code>):</p>
 <ul>
-<li><code>off</code>: no review state is read.</li>
-<li><code>advisory</code>: apply proceeds and reports <code>peerReview</code> status (<code>approve</code>, <code>changes_requested</code> or <code>missing</code>).</li>
-<li><code>required</code>: apply fails with <code>PEER_REVIEW_REQUIRED</code> or <code>PEER_REVIEW_CHANGES_REQUESTED</code> unless an approving review of the exact plan digest exists. A fresh plan created by apply itself is never reviewed, so review the saved plan and apply that path. In <code>required</code> mode the reviewer must be the other vendor: a review by the host agent itself (for example <code>vendor: claude</code> from Claude Code) is refused with <code>PEER_REVIEW_SAME_VENDOR</code> and does not satisfy the gate.</li>
+<li><code>toolchain.profile</code>: existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See <a href="/apexrest/apex-26.2/">APEX 26.2 support</a> for the matching compiler lock and partial-import requirements.</li>
+<li><code>decisionApi</code>: the key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See <a href="/apexrest/component-catalog/#optional-openai-decisions-selection">Decisions selection</a> for configuration and CLI/MCP examples.</li>
+<li><code>peerReview</code>: see <a href="#cross-vendor-peer-review">Peer review</a>.</li>
 </ul>
-<p>Before the reviewer runs, the saved plan must match its own digest and pass the same local checks as apply (sources, configuration, toolchain, project, target and lifetime); otherwise the review fails with <code>PLAN_TAMPERED</code> or the apply-time code and nothing is recorded. The optional <code>focus</code> text is passed to the reviewer as a fenced request from the reviewed agent, not as review rules.</p>
-<p>Interrupted-import recovery is not gated. The gate is a single-user workflow control, not a security boundary: the host agent can edit local files. <code>apexrest_peer_review action:status</code> (CLI <code>apexrest peer status</code>) reports which CLIs are installed and signed in. Peer runs use the other vendor&#39;s subscription limits or API billing; headless Claude usage (<code>claude -p</code>) is subject to Anthropic&#39;s current plan terms.</p>
+<h3 id="verification-browser-preference">Verification browser preference</h3>
+<ul>
+<li>The verification browser preference (<code>host</code> in-app browser, alias <code>codex</code>) is stored per project in <code>.apexrest/panel/preferences.json</code>.</li>
+<li>The default <code>{&quot;browserMode&quot;:&quot;codex&quot;}</code> is the legacy name of <code>host</code> and behaves identically.</li>
+<li><code>apexrest_browser_open</code> accepts <code>browserMode</code> to override it for one call.</li>
+<li><code>apexrest_status</code> <code>detail:project</code> reports the current value.</li>
+</ul>
 <h2 id="configure-an-environment">Configure an environment</h2>
 <p>Add an entry such as <code>environments.dev</code> to the generated <code>apexrest.json</code>:</p>
 <pre><code class="language-json">{
@@ -51,31 +62,204 @@
   &quot;expectedMarker&quot;: &quot;apexrest-crm&quot;
 }
 </code></pre>
-<p>These are placeholders, not a working target. Use the actual database unique name and service, workspace, parsing schema and app ID. <code>expectedMarker</code> can identify the expected application during browser inspection. <code>allowedOrigins</code> lists approved application origins. Adding an origin does not grant permission to mutate its data.</p>
-<p>The generated <code>schemas/project.schema.json</code> is the exact public schema. Unknown fields are rejected. Existing project files may still contain retired <code>tests</code> and <code>database.testsDir</code> fields: loading ignores these fields; remove them when updating configuration. Old plans must be regenerated against the current configuration. Source, migration, package, artifact and toolchain paths must remain inside the project.</p>
+<ul>
+<li>These are placeholders, not a working target. Use the actual database unique name and service, workspace, parsing schema and app ID.</li>
+<li><code>expectedMarker</code> can identify the expected application during browser inspection.</li>
+<li><code>allowedOrigins</code> lists approved application origins. Adding an origin does not grant permission to mutate its data.</li>
+</ul>
+<h3 id="schema-rules">Schema rules</h3>
+<ul>
+<li>The generated <code>schemas/project.schema.json</code> is the exact public schema. Unknown fields are rejected.</li>
+<li>Existing project files may still contain retired <code>tests</code> and <code>database.testsDir</code> fields: loading ignores these fields; remove them when updating configuration.</li>
+<li>Old plans must be regenerated against the current configuration.</li>
+<li>Source, migration, package, artifact and toolchain paths must remain inside the project.</li>
+</ul>
 <h2 id="list-and-test-saved-sqlcl-connections">List and test saved SQLcl connections</h2>
 <p>Checking database access requires no project or APEXREST alias:</p>
 <pre><code class="language-sh">apexrest connection list --saved --json
 apexrest connection test &#39;Development connection&#39; --saved --json
 </code></pre>
-<p>These commands read the SQLcl store directly and test the exact saved name with a read-only identity query. If the store is empty or credentials are missing, configure them in SQLcl. You can then register references for a project environment as described below. CLI commands without <code>--saved</code> use those references; in the conversation, <code>apexrest_project</code> <code>action:connection_list</code> and <code>action:connection_test</code> do the same.</p>
-<p>The SQLcl mode (<code>cli</code> subprocess or <code>mcp</code>, the official SQLcl stdio server) and the database transport (<code>direct</code> listener or <code>ords</code>) are saved per managed home with <code>apexrest sqlcl configure --mode cli|mcp --database-transport direct|ords --json</code>; <code>apexrest sqlcl status --json</code> reads them. For HTTP access when the listener is unreachable, configure plugin-level ORDS URL, username and password and select the <code>ords</code> transport. See <a href="/apexrest/ords/">SQL through ORDS</a>. The saved SQLcl connections below apply to direct access.</p>
+<ul>
+<li>These commands read the SQLcl store directly and test the exact saved name with a read-only identity query.</li>
+<li>If the store is empty or credentials are missing, configure them in SQLcl.</li>
+<li>You can then register references for a project environment as described below.</li>
+<li>CLI commands without <code>--saved</code> use those references; in the conversation, <code>apexrest_project</code> <code>action:connection_list</code> and <code>action:connection_test</code> do the same.</li>
+</ul>
+<h3 id="sqlcl-mode-and-database-transport">SQLcl mode and database transport</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SQLcl mode</td>
+<td><code>cli</code> subprocess or <code>mcp</code>, the official SQLcl stdio server</td>
+</tr>
+<tr>
+<td>Database transport</td>
+<td><code>direct</code> listener or <code>ords</code></td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li>Both are saved per managed home with <code>apexrest sqlcl configure --mode cli|mcp --database-transport direct|ords --json</code>; <code>apexrest sqlcl status --json</code> reads them.</li>
+<li>For HTTP access when the listener is unreachable, configure plugin-level ORDS URL, username and password and select the <code>ords</code> transport. See <a href="/apexrest/ords/">SQL through ORDS</a>.</li>
+<li>The saved SQLcl connections below apply to direct access.</li>
+</ul>
 <h2 id="save-connection-references">Save connection references</h2>
-<p>Create named connections interactively in SQLcl&#39;s local connection store. Then register their names:</p>
+<ol>
+<li><p>Create named connections interactively in SQLcl&#39;s local connection store.</p>
+</li>
+<li><p>Register their names:</p>
 <pre><code class="language-sh">apexrest connection add dev-read --sqlcl-name saved-read-connection
 apexrest connection add dev-deploy --sqlcl-name saved-deploy-connection
 apexrest connection test dev-read --json
 </code></pre>
-<p>The examples assume the <a href="/apexrest/getting-started/#use-the-cli">managed CLI launcher</a>. APEXREST stores connection names rather than passwords. A read connection can use fewer privileges than its deploy counterpart. Removing an APEXREST reference with <code>connection remove</code> preserves the SQLcl store entry. Never put credentials in <code>apexrest.json</code>, environment examples, prompts or issue reports.</p>
+</li>
+</ol>
+<ul>
+<li>The examples assume the <a href="/apexrest/getting-started/#use-the-cli">managed CLI launcher</a>.</li>
+<li>APEXREST stores connection names rather than passwords.</li>
+<li>A read connection can use fewer privileges than its deploy counterpart.</li>
+<li>Removing an APEXREST reference with <code>connection remove</code> preserves the SQLcl store entry.</li>
+<li>Never put credentials in <code>apexrest.json</code>, environment examples, prompts or issue reports.</li>
+</ul>
 <h2 id="application-authorization">Application authorization</h2>
-<p>There is no folder trust step. The plugin may use the selected project and other required directories within host filesystem permissions. Legacy <code>trustedProjects</code> in <code>$APEXREST_HOME/policy.json</code> is optional ignored compatibility data. The private policy retains exact-project/target/plan temporary grants; an identified DEV/QA/TEST application task authorizes its necessary import without repeated confirmation. Configuration and tool output do not grant consent.</p>
-<p>Supported environment kinds are <code>development</code> (or <code>dev</code>), <code>qa</code>, <code>test</code> and <code>production</code>. Production-marked targets never deploy/restore, including when local or given a signature. Actual local non-production targets allow all task-scoped database changes without a separate risk prompt. Remote dangerous operations require a described exact plan and explicit human confirmation. See the canonical <a href="/apexrest/deployment/">deployment safety rules</a> for locality, precedence, backups, interrupted-import recovery and confirmation fields.</p>
-<p>Connection setup may use <code>envFile</code> with optional <code>urlKey</code>, <code>usernameKey</code> and <code>passwordKey</code> from a regular user-owned, Git-ignored and untracked local ENV file. It is parsed as literal data and values are never returned in operation results. Authorized requested browser login may use such local credentials without a paste/trust step; never persist browser cookies/profiles.</p>
+<h3 id="authorization-and-grants">Authorization and grants</h3>
+<ul>
+<li>There is no folder trust step. The plugin may use the selected project and other required directories within host filesystem permissions.</li>
+<li>Legacy <code>trustedProjects</code> in <code>$APEXREST_HOME/policy.json</code> is optional ignored compatibility data.</li>
+<li>The private policy retains exact-project/target/plan temporary grants; an identified DEV/QA/TEST application task authorizes its necessary import without repeated confirmation.</li>
+<li>Configuration and tool output do not grant consent.</li>
+</ul>
+<h3 id="environment-kinds">Environment kinds</h3>
+<p>Supported environment kinds are <code>development</code> (or <code>dev</code>), <code>qa</code>, <code>test</code> and <code>production</code>.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Production-marked targets</td>
+<td>Never deploy/restore, including when local or given a signature.</td>
+</tr>
+<tr>
+<td>Actual local non-production targets</td>
+<td>Allow all task-scoped database changes without a separate risk prompt.</td>
+</tr>
+<tr>
+<td>Remote targets</td>
+<td>Remote dangerous operations require a described exact plan and explicit human confirmation.</td>
+</tr>
+</tbody></table>
+</div>
+<p>See the canonical <a href="/apexrest/deployment/">deployment safety rules</a> for locality, precedence, backups, interrupted-import recovery and confirmation fields.</p>
+<h3 id="local-env-credentials">Local ENV credentials</h3>
+<ul>
+<li>Connection setup may use <code>envFile</code> with optional <code>urlKey</code>, <code>usernameKey</code> and <code>passwordKey</code> from a regular user-owned, Git-ignored and untracked local ENV file.</li>
+<li>It is parsed as literal data and values are never returned in operation results.</li>
+<li>Authorized requested browser login may use such local credentials without a paste/trust step; never persist browser cookies/profiles.</li>
+</ul>
+<h2 id="cross-vendor-peer-review">Cross-vendor peer review</h2>
+<p>Claude Code and Codex can review each other&#39;s APEX changes.</p>
+<h3 id="run-a-review">Run a review</h3>
+<ol>
+<li>The host agent prepares a plan with <code>apexrest_ship mode:plan</code>.</li>
+<li>It calls <code>apexrest_peer_review action:review plan:&lt;planPath&gt;</code>.</li>
+<li>The runtime runs the other vendor&#39;s CLI in the project directory with the user&#39;s existing sign-in (ChatGPT or <code>OPENAI_API_KEY</code> for Codex; Claude subscription or <code>ANTHROPIC_API_KEY</code> for Claude Code). APEXREST never handles those credentials.</li>
+<li>The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns <code>approve</code> or <code>changes_requested</code> with findings.</li>
+<li>The verdict is written to <code>.apexrest/reviews/&lt;planDigest&gt;.json</code>.</li>
+</ol>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Peer command (read-only)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Claude Code</td>
+<td><code>codex exec --sandbox read-only --ephemeral --output-schema …</code></td>
+</tr>
+<tr>
+<td>Codex</td>
+<td><code>claude -p --restricted --tools Read,Grep,Glob --strict-mcp-config --json-schema …</code></td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="how-the-peer-cli-is-found">How the peer CLI is found</h3>
+<ul>
+<li><code>vendor: auto</code> picks the opposite of the detected host (<code>APEXREST_HOST</code>, then the MCP client name sent at initialization, then the host&#39;s own environment); pass <code>vendor</code> explicitly when detection is unavailable.</li>
+<li>On Windows the CLI is found on absolute <code>PATH</code> entries (never in the project folder): a native <code>codex.exe</code> or <code>claude.exe</code> runs directly, and an npm-installed <code>codex.cmd</code> or <code>claude.cmd</code> shim runs the Node script it points to, without cmd.exe.</li>
+<li><code>APEXREST_CODEX_BIN</code> and <code>APEXREST_CLAUDE_BIN</code> override the CLI; a <code>.js</code>, <code>.mjs</code> or <code>.cjs</code> override runs through Node.</li>
+</ul>
+<h3 id="review-local-only-work">Review local-only work</h3>
+<ul>
+<li>Local-only work without an Oracle target can still be reviewed: omit <code>plan</code> (CLI <code>apexrest peer review</code> without <code>--plan</code>).</li>
+<li>The reviewer then receives the list of application and database sources and the Git diff, and the verdict is written to <code>.apexrest/reviews/source-&lt;sourceDigest&gt;.json</code>.</li>
+<li>A source review is advisory only; it never satisfies the <code>required</code> apply gate, which needs a review of the exact saved plan.</li>
+</ul>
+<h3 id="gate-modes">Gate modes</h3>
+<p>Gate modes apply to <code>apexrest_ship mode:apply</code> (and the CLI <code>ship --mode apply</code>):</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>off</code></td>
+<td>No review state is read.</td>
+</tr>
+<tr>
+<td><code>advisory</code></td>
+<td>Apply proceeds and reports <code>peerReview</code> status (<code>approve</code>, <code>changes_requested</code> or <code>missing</code>).</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>Apply fails with <code>PEER_REVIEW_REQUIRED</code> or <code>PEER_REVIEW_CHANGES_REQUESTED</code> unless an approving review of the exact plan digest exists.</td>
+</tr>
+</tbody></table>
+</div>
+<p>In <code>required</code> mode:</p>
+<ul>
+<li>A fresh plan created by apply itself is never reviewed, so review the saved plan and apply that path.</li>
+<li>The reviewer must be the other vendor: a review by the host agent itself (for example <code>vendor: claude</code> from Claude Code) is refused with <code>PEER_REVIEW_SAME_VENDOR</code> and does not satisfy the gate.</li>
+</ul>
+<h3 id="limits-of-peer-review">Limits of peer review</h3>
+<ul>
+<li>Before the reviewer runs, the saved plan must match its own digest and pass the same local checks as apply (sources, configuration, toolchain, project, target and lifetime); otherwise the review fails with <code>PLAN_TAMPERED</code> or the apply-time code and nothing is recorded.</li>
+<li>The optional <code>focus</code> text is passed to the reviewer as a fenced request from the reviewed agent, not as review rules.</li>
+<li>Interrupted-import recovery is not gated.</li>
+<li>The gate is a single-user workflow control, not a security boundary: the host agent can edit local files.</li>
+<li><code>apexrest_peer_review action:status</code> (CLI <code>apexrest peer status</code>) reports which CLIs are installed and signed in.</li>
+<li>Peer runs use the other vendor&#39;s subscription limits or API billing; headless Claude usage (<code>claude -p</code>) is subject to Anthropic&#39;s current plan terms.</li>
+</ul>
 <h2 id="deployment-coordination">Deployment coordination</h2>
-<p>Coordination is always local and is not configurable: durable migration history and schema ownership live in <code>$APEXREST_HOME/deployment-control/</code>, scoped to the database identity and parsing schema. No APEXREST service tables are needed or created. Plans bind the store identity. Deleting the local history or silently switching to a fresh home is not a recovery procedure.</p>
-<p>The local store serializes runners that share one managed home. Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job. Database-backed coordination was removed. For older project files, <code>deploymentControl</code> is still accepted only with the value <code>&quot;local&quot;</code> and has no effect; any other value is rejected. Remove the field when convenient.</p>
+<ul>
+<li>Coordination is always local and is not configurable: durable migration history and schema ownership live in <code>$APEXREST_HOME/deployment-control/</code>, scoped to the database identity and parsing schema.</li>
+<li>No APEXREST service tables are needed or created.</li>
+<li>Plans bind the store identity.</li>
+<li>Deleting the local history or silently switching to a fresh home is not a recovery procedure.</li>
+<li>The local store serializes runners that share one managed home.</li>
+<li>Independent machines or homes are not coordinated: preserve one durable deployment runner/home and serialize other machines externally, for example through a single CI deploy job.</li>
+<li>Database-backed coordination was removed. For older project files, <code>deploymentControl</code> is still accepted only with the value <code>&quot;local&quot;</code> and has no effect; any other value is rejected. Remove the field when convenient.</li>
+</ul>
+<p>See <a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a>.</p>
 <h2 id="application-verification">Application verification</h2>
-<p>When the user requests browser verification, use the built-in or user-selected browser to inspect the requested interaction. Confirmed error-free server deployment is success without a mandatory browser step. Compiler, metadata and import checks remain separate. The plugin has no automatic application test runners or saved browser-authentication state. Repository self-tests validate the plugin implementation. See <a href="/apexrest/testing/">testing</a>.</p>
+<ul>
+<li>When the user requests browser verification, use the built-in or user-selected browser to inspect the requested interaction.</li>
+<li>Confirmed error-free server deployment is success without a mandatory browser step.</li>
+<li>Compiler, metadata and import checks remain separate.</li>
+<li>The plugin has no automatic application test runners or saved browser-authentication state.</li>
+<li>Repository self-tests validate the plugin implementation.</li>
+</ul>
+<p>See <a href="/apexrest/testing/">testing</a>.</p>
 <h2 id="runtime-configuration">Runtime configuration</h2>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
@@ -106,6 +290,41 @@ apexrest connection test dev-read --json
 </tr>
 </tbody></table>
 </div>
-<p>Three switches turn off the deployment speed-ups described in <a href="/apexrest/architecture/#persistent-sqlcl-engine">architecture</a>; each restores the previous behavior when set to <code>0</code>: <code>APEXREST_CONNECTED_READS</code> (one connected SQLcl server for the reads of a plan or apply), <code>APEXREST_WARM_IMPORT</code> (the prepared import server) and <code>APEXREST_CAPABILITY_CACHE</code> (the capability file in the managed home).</p>
-<p>These overrides belong to the trusted local host, not project-controlled inputs. The bootstrap supports Node 24 environment proxies through <code>--use-env-proxy</code>. Vendor downloads honor <code>HTTPS_PROXY</code>/<code>HTTP_PROXY</code> and <code>NO_PROXY</code> through Node&#39;s environment proxy support; when a proxy is configured but this Node cannot apply it, setup fails with <code>PROXY_UNSUPPORTED</code> instead of bypassing the proxy. Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.</p>
+<h3 id="deployment-speed-up-switches">Deployment speed-up switches</h3>
+<p>Three switches turn off the deployment speed-ups described in <a href="/apexrest/architecture/#persistent-sqlcl-engine">architecture</a>; each restores the previous behavior when set to <code>0</code>:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Switch</th>
+<th>Speed-up it turns off</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>APEXREST_CONNECTED_READS</code></td>
+<td>One connected SQLcl server for the reads of a plan or apply</td>
+</tr>
+<tr>
+<td><code>APEXREST_WARM_IMPORT</code></td>
+<td>The prepared import server</td>
+</tr>
+<tr>
+<td><code>APEXREST_CAPABILITY_CACHE</code></td>
+<td>The capability file in the managed home</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="trust-proxies-and-paths">Trust, proxies and paths</h3>
+<ul>
+<li>These overrides belong to the trusted local host, not project-controlled inputs.</li>
+<li>The bootstrap supports Node 24 environment proxies through <code>--use-env-proxy</code>.</li>
+<li>Vendor downloads honor <code>HTTPS_PROXY</code>/<code>HTTP_PROXY</code> and <code>NO_PROXY</code> through Node&#39;s environment proxy support; when a proxy is configured but this Node cannot apply it, setup fails with <code>PROXY_UNSUPPORTED</code> instead of bypassing the proxy.</li>
+<li>Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.</li>
+</ul>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="/apexrest/deployment/">Deployment safety</a>: the canonical authorization, plan, backup and recovery rules.</li>
+<li><a href="/apexrest/ords/">SQL through ORDS</a>: the <code>ords</code> database transport.</li>
+<li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a>: the 26.2 toolchain and import modes.</li>
+<li><a href="/apexrest/status/">Development status</a>: read the current configuration and connections.</li>
+</ul>
 <p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/configuration.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>

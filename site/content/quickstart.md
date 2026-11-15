@@ -1,8 +1,12 @@
 # From source to a verified application
 
-Follow the canonical [Getting started guide](../../docs/getting-started.md) for plugin installation, toolchain setup and your first application. The `apexrest-work` skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change:
+This page summarizes the cycle that takes one change from APEXlang source to a verified application. For plugin installation, toolchain setup and your first application, follow the canonical [Getting started guide](../../docs/getting-started.md).
 
 ![Authorized deployment passes validation, target checks, backup, import and runtime verification](../../docs/assets/deployment-flow.svg)
+
+## The cycle
+
+The `apexrest-work` skill (`$apexrest-work` in Codex, `/apexrest:apexrest-work` in Claude Code) drives one cycle per change:
 
 1. Inspect the project (`apexrest_project`) or create it from a template. No folder trust list is required; see [getting started](../../docs/getting-started.md#create-or-adopt-a-project).
 2. Read at most three references (`apexrest_reference`).
@@ -13,4 +17,8 @@ Follow the canonical [Getting started guide](../../docs/getting-started.md) for 
 7. When requested, verify the changed pages in the built-in or selected browser (`apexrest_browser_open`).
 8. Report what changed, what was verified and what was not.
 
-See [Existing applications](../../docs/existing-app.md), [Deployment safety](../../docs/deployment-safety.md) and [Testing](../../docs/testing.md) for details.
+## Related
+
+- [Existing applications](../../docs/existing-app.md)
+- [Deployment safety](../../docs/deployment-safety.md)
+- [Testing](../../docs/testing.md)

@@ -1,38 +1,113 @@
 # Troubleshooting
 
-Start with `apexrest status --detail doctor --json` (or `apexrest_status` with `detail: "doctor"` in the conversation), then use the reported capability or fault code. A detected executable, a validated compiler, plugin discovery in the host and a working database connection are separate states. Every failed result carries `nextActions`; follow them before retrying.
+This page is organized by symptom. Find the message or fault code you see, then follow the actions in that section. It covers setup, connections, the compiler, deployment, jobs, browser verification and downloads.
+
+## Before you start
+
+1. Run `apexrest status --detail doctor --json` (or `apexrest_status` with `detail: "doctor"` in the conversation).
+2. Use the reported capability or fault code to find the section below.
+3. Every failed result carries `nextActions`; follow them before retrying.
+
+A detected executable, a validated compiler, plugin discovery in the host and a working database connection are separate states. One of them working does not establish the others.
+
+## Find your symptom
+
+| Symptom or fault code                                                                                                                                                                                                                  | Section                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| The `apexrest` command is not found                                                                                                                                                                                                    | [The apexrest command is missing](#the-apexrest-command-is-missing)                                                  |
+| `SQLCL_CONNECTION_NOT_FOUND`, a saved connection is not listed or fails its test                                                                                                                                                       | [Saved connections are missing or fail their test](#saved-connections-are-missing-or-fail-their-test)                |
+| No APEXREST tools in the session, `APEXREST requires Node.js 24 or newer.`, a rejected `project` argument                                                                                                                              | [The plugin is installed but tools are missing](#the-plugin-is-installed-but-tools-are-missing)                      |
+| Compiler diagnostics, `VALIDATION_UNCONFIRMED`                                                                                                                                                                                         | [SQLcl is present but compilation fails](#sqlcl-is-present-but-compilation-fails)                                    |
+| `PARTIAL_IMPORT_UNSUPPORTED`, `APEX_VERSION_MISMATCH`, `SYNC_COMPILER_CHANGED`, `IMPORT_CONFLICT`, `SYNC_SERVER_CHANGED`, `POST_DEPLOY_CONTENT_FAILED`, `LOCAL_RECONCILIATION_REQUIRED`, `auto` resolves to `full`                     | [APEX 26.2 partial imports](#apex-262-partial-imports)                                                               |
+| `SOURCE_DRIFT`, `TARGET_DRIFT`, `PLAN_EXPIRED`, `SYNC_REPLAN_REQUIRED`, `PLAN_TAMPERED`, `DATABASE_CONFIRMATION_REQUIRED`, `DEPLOY_APPROVAL_REQUIRED`, `PRODUCTION_TRUST_*`, `APPROVAL_*`, `PASSWORD_FILE_UNSAFE`, a production target | [General deployment checks](#general-deployment-checks)                                                              |
+| `OUTCOME_UNKNOWN`, `JOB_OUTCOME_UNKNOWN`, a `jobId` instead of a result                                                                                                                                                                | [A job is still running, failed or has an unknown outcome](#a-job-is-still-running-failed-or-has-an-unknown-outcome) |
+| An empty chart, a login screen, an `external` browser preference                                                                                                                                                                       | [Browser verification or charts do not work](#browser-verification-or-charts-do-not-work)                            |
+| `PROXY_UNSUPPORTED`, `UNSAFE_CACHE_DIRECTORY`, a cache miss with `--offline`                                                                                                                                                           | [Offline, proxy or download errors](#offline-proxy-or-download-errors)                                               |
+| `LOCKED`, `LOCK_CORRUPT`                                                                                                                                                                                                               | [Setup is locked or interrupted](#setup-is-locked-or-interrupted)                                                    |
+| `PREVIEW_NOT_RUNNING`, `PREVIEW_COMMIT_REMOTE_REFUSED`                                                                                                                                                                                 | [Local preview](local-preview.md)                                                                                    |
 
 ## The apexrest command is missing
 
-`apexrest setup` (managed installation) and `npm install -g apexrest` create the `apexrest` command; `codex plugin add`, `claude plugin install` and installing tools alone do not. Follow [the launcher instructions](getting-started.md#managed-runtime-installation-and-the-launcher), or run the bundled runtime from a checkout:
+**Cause.** `apexrest setup` (managed installation) and `npm install -g apexrest` create the `apexrest` command; `codex plugin add`, `claude plugin install` and installing tools alone do not.
+
+**Fix.** Follow [the launcher instructions](getting-started.md#managed-runtime-installation-and-the-launcher), or run the bundled runtime from a checkout:
 
 ```sh
 node plugins/apexrest-apex/runtime/apexrest.mjs --help
 ```
 
-`apexrest` without arguments prints help. Use the current source bundle and run `npm run plugin:sync` after changing runtime source. If managed plugin files were removed, their launcher has no runtime to start; install again from a checkout or npm.
+- `apexrest` without arguments prints help.
+- Use the current source bundle and run `npm run plugin:sync` after changing runtime source.
+- If managed plugin files were removed, their launcher has no runtime to start; install again from a checkout or npm.
 
 ## Saved connections are missing or fail their test
 
-`connection add --sqlcl-name NAME` records an APEXREST reference; it does not create a connection in SQLcl. Save the connection interactively in SQLcl, then `apexrest connection list --saved --json` reads that store and `apexrest connection test NAME --saved --json` tests the exact saved name, including case and spaces. ORDS references are tested with `apexrest connection test REF --json` after `sqlcl configure --database-transport ords`.
+**Cause.** `connection add --sqlcl-name NAME` records an APEXREST reference; it does not create a connection in SQLcl.
 
-When a referenced SQLcl saved name does not exist, plan, apply and reads fail with `SQLCL_CONNECTION_NOT_FOUND` (blocked), not a validation error: the application sources were not checked. Create the saved connection in SQLcl (`conn -save NAME -savepwd USER@HOST:PORT/SERVICE`), test it with `apexrest connection test NAME --saved --json`, or point the reference at an existing saved name with `apexrest connection add REF --sqlcl-name NAME`.
+**Fix.**
 
-Check `APEXREST_SQLCL`, `APEXREST_JAVA_HOME` and `APEXREST_HOME` if tools were installed elsewhere. Repair missing or expired credentials in SQLcl; a successful doctor run does not establish database connectivity.
+1. Save the connection interactively in SQLcl.
+2. Run `apexrest connection list --saved --json` to read that store.
+3. Run `apexrest connection test NAME --saved --json` to test the exact saved name, including case and spaces.
+
+ORDS references are tested with `apexrest connection test REF --json` after `sqlcl configure --database-transport ords`.
+
+### `SQLCL_CONNECTION_NOT_FOUND`
+
+When a referenced SQLcl saved name does not exist, plan, apply and reads fail with `SQLCL_CONNECTION_NOT_FOUND` (blocked), not a validation error: the application sources were not checked. Do one of the following:
+
+- Create the saved connection in SQLcl (`conn -save NAME -savepwd USER@HOST:PORT/SERVICE`), then test it with `apexrest connection test NAME --saved --json`.
+- Point the reference at an existing saved name with `apexrest connection add REF --sqlcl-name NAME`.
+
+### Tools installed elsewhere, or credentials expired
+
+- Check `APEXREST_SQLCL`, `APEXREST_JAVA_HOME` and `APEXREST_HOME` if tools were installed elsewhere.
+- Repair missing or expired credentials in SQLcl.
+- A successful doctor run does not establish database connectivity.
 
 ## The plugin is installed but tools are missing
 
-Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog. Check that the plugin is listed and enabled in the same profile: `codex plugin list --json`, or `claude plugin list`. The MCP server is `node <plugin-root>/runtime/mcp.mjs`, started by the host from the installed plugin directory with no downloads; do not add a second global MCP server to conceal a failed installation. In Claude Code, `claude plugin validate --strict <plugin-root>` checks the manifest and `/mcp` shows whether the `apexrest` server started. The server exits with `APEXREST requires Node.js 24 or newer.` when the `node` on the `PATH` of the shell that started `claude` is older (for example an older nvm default); switch Node before starting `claude`. Plugin MCP servers inherit that shell's environment, so export `APEXREST_HOME` there when you use a custom managed home.
+| Check                                    | Action                                                                                                                                                                                 |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The session is older than the install    | Start a new session after installing or updating the plugin; hosts cache the skill and tool catalog.                                                                                   |
+| The plugin is not listed or not enabled  | Check that the plugin is listed and enabled in the same profile: `codex plugin list --json`, or `claude plugin list`.                                                                  |
+| The manifest or server in Claude Code    | `claude plugin validate --strict <plugin-root>` checks the manifest and `/mcp` shows whether the `apexrest` server started.                                                            |
+| `APEXREST requires Node.js 24 or newer.` | The server exits with this message when the `node` on the `PATH` of the shell that started `claude` is older (for example an older nvm default); switch Node before starting `claude`. |
+| A custom managed home                    | Plugin MCP servers inherit that shell's environment, so export `APEXREST_HOME` there when you use a custom managed home.                                                               |
+| A rejected `project` argument            | Project-scoped tools reject a missing or relative `project` argument: pass the absolute directory that contains `apexrest.json`, never the plugin directory.                           |
 
-Project-scoped tools reject a missing or relative `project` argument: pass the absolute directory that contains `apexrest.json`, never the plugin directory. No folder trust list is required; host filesystem permissions govern project access.
+The MCP server is `node <plugin-root>/runtime/mcp.mjs`, started by the host from the installed plugin directory with no downloads. Do not add a second global MCP server to conceal a failed installation.
+
+No folder trust list is required; host filesystem permissions govern project access.
 
 ## SQLcl is present but compilation fails
 
-Select the compiler for the source profile: SQLcl `26.1.2.132.1334` for the reviewed 26.1 workflow, or `26.3.0.260.1620` with MMD `26.2.0+3479` for [26.2 partial imports](apex-26.2.md). The managed Java baseline is 21; `APEXREST_JAVA_HOME` selects an existing compatible runtime. `apexrest_apex_validate` returns structured `diagnostics` (file, line, column, type, message, `validValues`, hint): repair the named file and line and rerun. SQLcl can print an error and still exit zero, so validation requires a success marker and no error indication; otherwise it reports `VALIDATION_UNCONFIRMED` with the compiler output.
+### Select the right compiler
 
-Offline validation and help reuse a pooled SQLcl process. Generation on 26.3 is isolated to avoid a verified compiler-state issue; 26.1 retains its established pooling behavior. A timed-out, cancelled or failed command kills its session and the next call starts a fresh one; a session idle for ten minutes is reaped. If the pool itself cannot start (for example after replacing the SQLcl installation), restart the host session so the MCP server restarts.
+| Source profile                       | SQLcl             | Notes                  |
+| ------------------------------------ | ----------------- | ---------------------- |
+| The reviewed 26.1 workflow           | `26.1.2.132.1334` |                        |
+| [26.2 partial imports](apex-26.2.md) | `26.3.0.260.1620` | With MMD `26.2.0+3479` |
 
-Preserve Oracle-generated `.apex/apexlang.json` and component IDs. Never invent an MMD version or edit internal APEX tables to work around a compiler incompatibility. Use the references for the selected toolchain version and make a focused source correction.
+The managed Java baseline is 21; `APEXREST_JAVA_HOME` selects an existing compatible runtime.
+
+### Read the diagnostics
+
+- `apexrest_apex_validate` returns structured `diagnostics` (file, line, column, type, message, `validValues`, hint): repair the named file and line and rerun.
+- SQLcl can print an error and still exit zero, so validation requires a success marker and no error indication; otherwise it reports `VALIDATION_UNCONFIRMED` with the compiler output.
+
+### The compiler session
+
+- Offline validation and help reuse a pooled SQLcl process.
+- Generation on 26.3 is isolated to avoid a verified compiler-state issue; 26.1 retains its established pooling behavior.
+- A timed-out, cancelled or failed command kills its session and the next call starts a fresh one; a session idle for ten minutes is reaped.
+- If the pool itself cannot start (for example after replacing the SQLcl installation), restart the host session so the MCP server restarts.
+
+### What not to do
+
+- Preserve Oracle-generated `.apex/apexlang.json` and component IDs.
+- Never invent an MMD version or edit internal APEX tables to work around a compiler incompatibility.
+- Use the references for the selected toolchain version and make a focused source correction.
 
 ## Ship, target or policy checks fail
 
@@ -50,44 +125,94 @@ The [partial-import guide](apex-26.2.md) lists exclusions and the narrowly allow
 
 ### General deployment checks
 
-| Symptom                                                                | Action                                                                                                                   |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Missing environment or identity mismatch                               | Check the selected `env`, connection, database/service, workspace, schema and application ID.                            |
-| `SOURCE_DRIFT`, `TARGET_DRIFT`, `PLAN_EXPIRED`, `SYNC_REPLAN_REQUIRED` | Run `apexrest_ship` `mode:plan` again and review the new preview; plans expire after 30 minutes.                         |
-| `PLAN_TAMPERED`                                                        | The plan no longer matches the live target, history or sources; create and review a new plan.                            |
-| `DATABASE_CONFIRMATION_REQUIRED`                                             | The requested security change is outside task scope; describe the exact change and obtain its authorization. |
-| `DEPLOY_APPROVAL_REQUIRED`                                             | `ship apply` records the grant itself; for `deploy apply`, record a grant with this plan's exact `planDigest`.           |
-| Production target                                                      | `ship apply` is refused by design; production uses the protected external approval path.                                 |
-| `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.                         |
-| Missing service tables                                                 | None are required: coordination and migration history are local under `APEXREST_HOME`.                                   |
-| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                              |
+| Symptom                                                                | Action                                                                                                         |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Missing environment or identity mismatch                               | Check the selected `env`, connection, database/service, workspace, schema and application ID.                  |
+| `SOURCE_DRIFT`, `TARGET_DRIFT`, `PLAN_EXPIRED`, `SYNC_REPLAN_REQUIRED` | Run `apexrest_ship` `mode:plan` again and review the new preview; plans expire after 30 minutes.               |
+| `PLAN_TAMPERED`                                                        | The plan no longer matches the live target, history or sources; create and review a new plan.                  |
+| `DATABASE_CONFIRMATION_REQUIRED`                                       | The requested security change is outside task scope; describe the exact change and obtain its authorization.   |
+| `DEPLOY_APPROVAL_REQUIRED`                                             | `ship apply` records the grant itself; for `deploy apply`, record a grant with this plan's exact `planDigest`. |
+| Production target                                                      | `ship apply` is refused by design; production uses the protected external approval path.                       |
+| `PRODUCTION_TRUST_*` or `APPROVAL_*`                                   | Ask the runner administrator to check `production-trust.json`, the approval key and attestation.               |
+| Missing service tables                                                 | None are required: coordination and migration history are local under `APEXREST_HOME`.                         |
+| `PASSWORD_FILE_UNSAFE`                                                 | Use a regular, non-symlink password file; on POSIX, restrict it to its owner (`chmod 600`).                    |
 
 Connection credentials belong in SQLcl's store or the private ORDS credential file. Do not put them in an issue or prompt. See [configuration](configuration.md) and the [safety skill](../plugins/apexrest-apex/skills/apexrest-safety/SKILL.md).
 
 ## A job is still running, failed or has an unknown outcome
 
-`apexrest_ship` returns a `jobId` when they exceed `waitSeconds`. Read `apexrest_job` `action:status` with that ID (waits up to 120 seconds and reports the `phase`: `validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `syncing`); never rerun the operation to fetch its result. A `completed` job can still carry a failed operation result: read its diagnostics. A job whose worker never started is `failed` and needs a new job after the diagnostic is resolved.
+### The job is still running
 
-`OUTCOME_UNKNOWN`, `JOB_OUTCOME_UNKNOWN`, an expired heartbeat or a lost import response mean the database may have changed. Do not blindly replay writes or clear ownership. Inspect the deployment state, journal, target history and APEXlang snapshot (or legacy SQL backup) with `apexrest deploy status --project PROJECT --run RUN_ID`. Use `apexrest_ship mode:recover` with the original run and user request for server-first readback; the runtime recognizes already-applied sources or safely replans remaining APEX metadata. Database-operation uncertainty and conflicts require explicit review before a retry. Cancellation never implies rollback. Restore has its own plan and exact approval and restores APEX metadata only. See [deployment and recovery](deployment-safety.md).
+`apexrest_ship` returns a `jobId` when they exceed `waitSeconds`.
+
+- Read `apexrest_job` `action:status` with that ID. It waits up to 120 seconds and reports the `phase`: `validating`, `planning`, `backing_up`, `migrating`, `importing`, `verifying`, `syncing`.
+- Never rerun the operation to fetch its result.
+
+### The job failed
+
+- A `completed` job can still carry a failed operation result: read its diagnostics.
+- A job whose worker never started is `failed` and needs a new job after the diagnostic is resolved.
+
+### The outcome is unknown
+
+`OUTCOME_UNKNOWN`, `JOB_OUTCOME_UNKNOWN`, an expired heartbeat or a lost import response mean the database may have changed. Do not blindly replay writes or clear ownership.
+
+1. Inspect the deployment state, journal, target history and APEXlang snapshot (or legacy SQL backup) with `apexrest deploy status --project PROJECT --run RUN_ID`.
+2. Use `apexrest_ship mode:recover` with the original run and user request for server-first readback. The runtime recognizes already-applied sources or safely replans remaining APEX metadata.
+3. Database-operation uncertainty and conflicts require explicit review before a retry.
+
+Limits of recovery:
+
+- Cancellation never implies rollback.
+- Restore has its own plan and exact approval and restores APEX metadata only.
+
+See [deployment and recovery](deployment-safety.md).
 
 ## Browser verification or charts do not work
 
-`apexrest_browser_open` returns the configured URL for the host in-app browser (`host`, legacy alias `codex`). Complete login in that browser and exercise the affected pages; opening a page is not verification. No external browser is launched and no saved authentication state or automatic application suite is used. If an old preference says `external`, change it to `host` or select `browserMode:host` for the call.
+### The browser does not open the page as expected
 
-Wait for asynchronous APEX chart regions to finish loading before judging an empty chart. After a filter action, verify that the relevant page items were submitted and every affected region refreshed. A loading overlay or an old tab with a pending navigation may require a fresh page inspection before changing source. Record an unavailable browser or deployed change as missing verification with a reason, following the [browser verification rule](testing.md#browser-verification).
+- `apexrest_browser_open` returns the configured URL for the host in-app browser (`host`, legacy alias `codex`).
+- Complete login in that browser and exercise the affected pages; opening a page is not verification.
+- No external browser is launched and no saved authentication state or automatic application suite is used.
+- If an old preference says `external`, change it to `host` or select `browserMode:host` for the call.
+
+### A chart is empty or a region does not refresh
+
+- Wait for asynchronous APEX chart regions to finish loading before judging an empty chart.
+- After a filter action, verify that the relevant page items were submitted and every affected region refreshed.
+- A loading overlay or an old tab with a pending navigation may require a fresh page inspection before changing source.
+
+Record an unavailable browser or deployed change as missing verification with a reason, following the [browser verification rule](testing.md#browser-verification).
 
 ## Offline, proxy or download errors
 
-Preload the exact SHA-keyed vendor artifacts and client-tool archives. `--offline` never falls back to the network; a cache miss is a dependency blocker and a corrupt artifact fails integrity. Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total. `PROXY_UNSUPPORTED` means a proxy is configured but the running Node cannot apply it: run with `NODE_USE_ENV_PROXY=1` on Node 24 or later, or preload the offline cache. `UNSAFE_CACHE_DIRECTORY` means the download cache is not owned by the current user or is group/world writable.
+| Symptom                       | Cause and action                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A cache miss with `--offline` | `--offline` never falls back to the network; a cache miss is a dependency blocker. Preload the exact SHA-keyed vendor artifacts and client-tool archives. |
+| An integrity failure          | A corrupt artifact fails integrity.                                                                                                                       |
+| A download stalls or fails    | Each download attempt fails after 60 seconds without new data and is retried up to three attempts in total.                                               |
+| `PROXY_UNSUPPORTED`           | A proxy is configured but the running Node cannot apply it: run with `NODE_USE_ENV_PROXY=1` on Node 24 or later, or preload the offline cache.            |
+| `UNSAFE_CACHE_DIRECTORY`      | The download cache is not owned by the current user or is group/world writable.                                                                           |
 
 ## Setup is locked or interrupted
 
-Concurrent setup reports `LOCKED`. A proven dead process on the same host can be recovered through the dedicated recovery gate. Unknown ownership, another host or an interrupted recovery gate requires inspection; do not guess that a live lock is stale.
-
-`LOCK_CORRUPT` reports a lock file without a readable owner that is older than 30 seconds, usually left by an interrupted process. Confirm that no apexrest operation is running on any host, then delete the lock file named in the message and retry. There is no automated recovery command for this case.
+| Symptom        | Cause and action                                                                                                                                                                                                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOCKED`       | Concurrent setup reports `LOCKED`. A proven dead process on the same host can be recovered through the dedicated recovery gate. Unknown ownership, another host or an interrupted recovery gate requires inspection; do not guess that a live lock is stale.                           |
+| `LOCK_CORRUPT` | A lock file without a readable owner that is older than 30 seconds, usually left by an interrupted process. Confirm that no apexrest operation is running on any host, then delete the lock file named in the message and retry. There is no automated recovery command for this case. |
 
 Native packages are copied through staging and atomic rename. A rerun probes completed components. Preserve unrelated plugins and the private managed state; deleting everything is not a normal repair step.
 
 ## Report a reproducible problem
 
-Include the plugin version, OS/architecture, host (Codex or Claude Code) and its version, exact sanitized command or tool call, fault code and the smallest source example that reproduces the issue. Distinguish local fixture results from Oracle or host observations. Review diagnostics for paths, credentials and business data before attaching them to [an issue](https://github.com/apexrest-dev/apexrest/issues). Use [private reporting guidance](../SECURITY.md) for sensitive findings.
+Include:
+
+- the plugin version;
+- OS/architecture;
+- the host (Codex or Claude Code) and its version;
+- the exact sanitized command or tool call;
+- the fault code;
+- the smallest source example that reproduces the issue.
+
+Distinguish local fixture results from Oracle or host observations. Review diagnostics for paths, credentials and business data before attaching them to [an issue](https://github.com/apexrest-dev/apexrest/issues). Use [private reporting guidance](../SECURITY.md) for sensitive findings.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rewrite the guides for clarity: purpose first, procedures as numbered steps, options as tables, limits in their own sections. Commands, settings, numbers and safety rules are unchanged. Correct stale tool and catalog counts on the site's entry pages.
 - Redesign the README and the documentation: a task-oriented documentation hub, a features page with an overview table, regrouped site navigation and a guide to how `build webapp` works. Remove the video series from the documentation.
 - Add `apexrest build webapp`: a standalone Node.js application for an APEXlang application that renders the pages with Universal Theme and runs their SQL and PL/SQL in an existing Oracle database through `node-oracledb`, with real sign-in, login-required pages and enforced authorization. A first version: session state protection is not implemented and one process serves one request at a time. See [build a web application](docs/webapp.md).
 - Word errors with the application's error handling function in a built web application and the connected preview: an error that carries an ORA code is passed to the function in Oracle (needs the APEX error API in the database) and its message replaces the database error stack.

@@ -4,6 +4,17 @@
 
 It is the [local preview](local-preview.md) renderer in application mode. What the preview renders, the built application renders; what the preview reports as not simulated, the built application does not do. It is not Oracle APEX, and a page that works here is not evidence of how it behaves on APEX.
 
+## Before you start
+
+You need:
+
+- **The APEXlang sources** of the application: a project, or a folder with `application.apx`, `pages/` and `shared-components/`.
+- **Node.js 24 or later** on the machine that runs the built application.
+- **An Oracle database** that holds the application's tables, and a database user that can read and change them.
+- **Oracle's APEX 26.2 browser files** from your own APEX download; see [APEX browser files](#apex-browser-files).
+
+Read the [limits](#limits) first. Session state protection is not implemented, and one process handles one request at a time.
+
 ## How it works
 
 The build does not compile pages. It packages the sources with an interpreter:
@@ -47,7 +58,12 @@ apexrest build webapp --source-dir /abs/app --out /abs/output --include-assets
 | `--include-assets`                    | Copy the locally extracted APEX browser files into the output                     |
 | `--assets-dir PATH`                   | Where those files are; defaults to the preview's cache (`apexrest preview setup`) |
 
-The build only writes files. It never connects to a database, and it refuses an output folder that is not empty unless an earlier build wrote it. A rebuild replaces `app/` and `runtime/` and keeps `config/` and `.env`; the same sources give a byte-identical `build-manifest.json`.
+What the build does:
+
+- It only writes files. It never connects to a database.
+- It refuses an output folder that is not empty unless an earlier build wrote it.
+- A rebuild replaces `app/` and `runtime/` and keeps `config/` and `.env`.
+- The same sources give a byte-identical `build-manifest.json`.
 
 Output:
 
@@ -71,11 +87,21 @@ cp .env.example .env      # ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING
 npm start                 # http://127.0.0.1:8080/r/<alias>
 ```
 
-Node.js 24 or later is required. The database user must be able to read and change the application's tables; set `schema` in `config/default.json` when another schema owns them. Each HTTP request is one transaction: it is committed when the request succeeds and rolled back when page processing fails, and package state is reset between requests.
+What to know:
+
+- Node.js 24 or later is required.
+- The database user must be able to read and change the application's tables. Set `schema` in `config/default.json` when another schema owns them.
+- Each HTTP request is one transaction. It is committed when the request succeeds and rolled back when page processing fails.
+- Package state is reset between requests.
 
 ### APEX browser files
 
-The APEX look comes from Oracle's own JavaScript, CSS, fonts and Universal Theme. They are Oracle software and are never part of this plugin. Either pass `--include-assets` to copy the files you extracted from your own APEX 26.2 download into the output, or set `APEX_ASSETS_DIR` on the server to such a folder. Whether you may use or distribute them outside an APEX installation depends on your Oracle license; the build records your choice in `build-manifest.json`.
+The APEX look comes from Oracle's own JavaScript, CSS, fonts and Universal Theme. They are Oracle software and are never part of this plugin. Provide them in one of two ways:
+
+- Pass `--include-assets` to copy the files you extracted from your own APEX 26.2 download into the output.
+- Set `APEX_ASSETS_DIR` on the server to such a folder.
+
+Whether you may use or distribute them outside an APEX installation depends on your Oracle license. The build records your choice in `build-manifest.json`.
 
 ### Sign-in and authorization
 
@@ -86,9 +112,20 @@ The APEX look comes from Oracle's own JavaScript, CSS, fonts and Universal Theme
 | `database`  | Oracle database accounts                                                                                                      |
 | `open`      | Any name without a password; only for a closed test network                                                                   |
 
-A page needs a signed-in session unless its authentication is "Page Is Public". The application's login page is used when it has one, otherwise a built-in form. Sign-in issues a new session id, five failed attempts lock a user name for a minute, and an idle session ends after `sessionTimeoutMinutes`.
+Sign-in:
 
-Authorization schemes are enforced on pages and components. Roles decide "is in role" schemes and `apex_acl` checks: list them per user (`users`) or set `auth.rolesQuery`, a query that returns the role static IDs of `:APP_USER`. PL/SQL and SQL schemes run in Oracle. A scheme type the runtime cannot evaluate allows access.
+- A page needs a signed-in session unless its authentication is "Page Is Public".
+- The application's login page is used when it has one, otherwise a built-in form.
+- Sign-in issues a new session id.
+- Five failed attempts lock a user name for a minute.
+- An idle session ends after `sessionTimeoutMinutes`.
+
+Authorization:
+
+- Authorization schemes are enforced on pages and components.
+- Roles decide "is in role" schemes and `apex_acl` checks: list them per user (`users`) or set `auth.rolesQuery`, a query that returns the role static IDs of `:APP_USER`.
+- PL/SQL and SQL schemes run in Oracle.
+- A scheme type the runtime cannot evaluate allows access.
 
 ### Deployment
 
@@ -100,9 +137,9 @@ Authorization schemes are enforced on pages and components. Roles decide "is in 
 
 Everything the local preview supports in [connected mode](local-preview.md#connected-oracle-mode), without its SQLcl limits: reports, interactive grids with saves, forms, charts (SVG), cards, faceted search, trees, calendars, maps, page items, dynamic actions, validations, computations, processes and branches, with region SQL and PL/SQL running untranslated in Oracle. CLOB values and HTP output have no 32 KB limit.
 
-When the application declares an error handling function and the database has the APEX error API (`apex_error`), an error that carries an ORA code is passed to that function in Oracle and its message is shown, as APEX does. Without the function or the API, the user sees the database error text, including its `ORA-06512` lines.
+**Error handling.** When the application declares an error handling function and the database has the APEX error API (`apex_error`), an error that carries an ORA code is passed to that function in Oracle and its message is shown, as APEX does. Without the function or the API, the user sees the database error text, including its `ORA-06512` lines.
 
-With APEX installed in the database and `applicationId` set in `config/default.json` (the application imported there), database code gets an APEX session, so `v()` and `apex_util` work inside packages. Without it, page items reach PL/SQL as bind variables and `v()` returns NULL in stored code.
+**APEX session.** With APEX installed in the database and `applicationId` set in `config/default.json` (the application imported there), database code gets an APEX session, so `v()` and `apex_util` work inside packages. Without it, page items reach PL/SQL as bind variables and `v()` returns NULL in stored code.
 
 ## Limits
 
@@ -127,3 +164,9 @@ Checked on 2026-11-15 on local Docker (database 23.26.3, APEX 26.2 installed, a 
 - Unit tests cover the build output and its refusals, password hashing, and application mode (sign-in, public pages, enforced roles, closed developer routes, host names) without a database.
 
 Not checked: a person using a browser, a comparison with the same pages on APEX, concurrent users, a remote database, HTTPS behind a proxy, `plsql` and `database` sign-in against real accounts, an APEX session with an imported application. Next steps are in [next actions](next-actions.md).
+
+## Related
+
+- [Local preview](local-preview.md): what the renderer supports and what it does not simulate.
+- [Existing applications](existing-app.md): export an application from APEX to APEXlang sources.
+- [Testing](testing.md): how `tests/webapp/e2e.mjs` is run.

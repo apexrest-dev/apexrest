@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "version": "2.7.0",
-  "sourceDigest": "1e21a8cb0c0ec254cec5c129537d73d04c62ac99b8a6b79d08b9e3980f752463",
+  "sourceDigest": "85b4fcf91b41ecf68da5bf478ed48f1574420f084b59b89b481893efcfa58f7c",
   "files": {
     ".claude-plugin/plugin.json": "443c108e4a3cc1473db5a81d4b7ef050c72a0c376e106df74e3354176fbde88f",
     ".codex-plugin/plugin.json": "47624d32d18f4410e47b06d73d5f40c8c0cf8eae8b6059a3fba7dd2a2e359bdf",
@@ -1535,7 +1535,7 @@
     "resources/patterns/source/universal-theme-reference/snapshot.json": "c9ade33b001d9692e5e9df909d4bf8033ee9b6399eac8dd6330cea73d76c42b9",
     "resources/patterns/source/ux-pattern-catalog/inventory.json": "12ef617167ccef66dc96cc978bdd326fa5212d866f52da56ec08627611c5e33c",
     "resources/patterns/source/ux-pattern-catalog/snapshot.json": "7142713f31d44a6554ff1e25d47c7829688b0a87142b10fb81e7941c465a7b15",
-    "resources/policy/deployment-safety.md": "b67cde9ad9368d3df1e2168bef5736d807f198f9b2979f48152c5121d8063c13",
+    "resources/policy/deployment-safety.md": "b0ad5a80c9405418abd2b7b5701a10abaca437aa50fd323d5b4ca099eb24b58d",
     "resources/public-templates/26.2/ORACLE-LICENSE.txt": "c52a56e8644aca190408972b21ce775a389dd03c05a5a91c490756f0a4788ee4",
     "resources/public-templates/26.2/documents/apex-pwa-reference/dependencies.md": "f0395d7d8ae0001593f283d135415b8beeaa3efbe4f7b72dedaa4a0b15b894b5",
     "resources/public-templates/26.2/documents/apex-pwa-reference/p00001-home.md": "7dc6ce14a8adc2b6d7a5abba14a25b6ba93eb17716e60ed4d80d67bc5ea5d351",

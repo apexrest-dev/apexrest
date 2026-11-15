@@ -1,20 +1,53 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Local preview · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/" aria-current="page">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Build applications / Local preview</div><h1 id="local-apexlang-preview">Local APEXlang preview</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#how-it-works">How it works</a></li><li><a href="#commands">Commands</a></li><li><a href="#live-updates-over-websocket">Live updates over WebSocket</a></li><li><a href="#connected-oracle-mode">Connected Oracle mode</a></li><li><a href="#supported-locally">Supported locally</a></li><li><a href="#not-simulated">Not simulated</a></li><li><a href="#verification-boundary">Verification boundary</a></li></ul></details>
-<p><code>apexrest preview</code> runs an APEXlang application on Node.js without an Oracle database, or, with <code>--env</code>, against the application&#39;s own DEV/QA/TEST Oracle database (<a href="#connected-oracle-mode">connected mode</a>). It exists for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them. It is a simulation. It never replaces <code>apexrest_apex_validate</code>, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.</p>
-<h2 id="how-it-works">How it works</h2>
-<ul>
-<li><strong>Assets.</strong> <code>preview setup</code> downloads the official APEX 26.2 distribution (<code>apex_26.2_en.zip</code>, about 255 MB) once, or uses a local copy passed with <code>--zip</code>. It extracts only the browser runtime (about 70 MB: <code>libraries/apex</code>, jQuery, Font APEX, Oracle fonts, FullCalendar, marked, Cropper.js, JointJS+, the carousel plug-in, <code>themes/theme_42/26.2</code>, <code>app_ui</code>; Oracle JET is not extracted) and evaluates the Universal Theme export <code>core/themes/f8842.262.sql</code> into page, region, label, button, list, report and breadcrumb templates. Nothing from the distribution is stored in this repository. The cache lives in <code>~/.apexrest/preview/26.2</code>, or in <code>APEXREST_PREVIEW_ASSETS</code> when set.</li>
-<li><strong>Rendering.</strong> Pages are rendered with the genuine 26.2 templates, display points (<code>slot</code> → <code>#PLACEHOLDER#</code>), template options, the 12-column grid and theme style. The genuine <code>desktop_all.min.js</code> and <code>theme42.min.js</code> run in the browser, so modal dialogs, side navigation and messages use Oracle&#39;s own client code.</li>
-<li><strong>Submit protocol.</strong> The server implements <code>wwv_flow.accept</code> for <code>apex.page.submit</code> (<code>p_json</code>, <code>{ redirectURL }</code> or <code>{ errors }</code>), so validation errors appear inline and in the page notification exactly as <code>apex.message</code> shows them.</li>
-<li><strong>Data.</strong> SQLite (<code>node:sqlite</code>) stands in for Oracle.<ul>
-<li><strong>Project application.</strong> When the preview runs a project&#39;s own application (<code>apexrest.json</code>), nothing is written into the deployed source tree. The database is <code>&lt;project&gt;/.apexrest/preview/preview.sqlite</code>. On first start it is seeded from the project migrations followed by <code>&lt;project&gt;/.apex-local/*.sql</code> (data); PL/SQL units in them are kept for the <a href="#application-database-code">application database code</a>.</li>
-<li><strong>Folder without a project, or a legacy <code>&lt;sourceDir&gt;/.apex-local</code>.</strong> The database is <code>&lt;sourceDir&gt;/.apex-local/preview.sqlite</code>, seeded from <code>.apex-local/*.sql</code> in name order, or from the supporting objects&#39; install scripts in the order <code>supporting-objects/install-scripts.apx</code> declares (<code>execution.sequence</code>).</li>
-<li><strong>Translation.</strong> Common Oracle syntax is translated or provided as functions: <code>nvl</code>, <code>nvl2</code>, <code>decode</code>, <code>to_char</code>, <code>to_date</code>, <code>to_number</code>, <code>trunc</code>, <code>initcap</code>, <code>lpad</code>/<code>rpad</code>, <code>add_months</code>, <code>months_between</code>, <code>regexp_like</code>, <code>listagg</code>, <code>sysdate</code>, <code>from dual</code>, <code>fetch first … rows only</code>, identity columns and <code>v(&#39;ITEM&#39;)</code>. Bind variables use session state. Install scripts written for Oracle load as Oracle would run them: statements without a local meaning (<code>COMMENT ON</code>, <code>ALTER TRIGGER</code>, grants, <code>ALTER SESSION</code>, domain indexes, foreign key and check constraints added later) are skipped, <code>ALTER TABLE … ADD PRIMARY KEY/UNIQUE</code> becomes a unique index, identity options, time zones, <code>NUMBER(*,0)</code> and storage clauses are dropped, and SQL*Plus commands such as <code>SHOW ERRORS</code> are ignored.</li>
-</ul>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Local preview · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/local-preview/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/" aria-current="page">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Build applications / Local preview</div><h1 id="local-apexlang-preview">Local APEXlang preview</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#when-to-use">When to use</a></li><li><a href="#quick-start">Quick start</a></li><li><a href="#commands">Commands</a></li><li><a href="#how-it-works">How it works</a></li><li><a href="#live-updates-over-websocket">Live updates over WebSocket</a></li><li><a href="#connected-oracle-mode">Connected Oracle mode</a></li><li><a href="#supported-locally">Supported locally</a></li><li><a href="#not-simulated">Not simulated</a></li><li><a href="#verification-boundary">Verification boundary</a></li><li><a href="#related">Related</a></li></ul></details>
+<p><code>apexrest preview</code> runs an APEXlang application on Node.js without an Oracle database, or, with <code>--env</code>, against the application&#39;s own DEV/QA/TEST Oracle database (<a href="#connected-oracle-mode">connected mode</a>). Use it for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them.</p>
+<p>The preview is a simulation. It never replaces <code>apexrest_apex_validate</code>, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.</p>
+<h2 id="when-to-use">When to use</h2>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>You want to</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>See and click through pages without a database</td>
+<td><code>apexrest preview start</code> (data in SQLite)</td>
+</tr>
+<tr>
+<td>List the features of an application that the preview does not run</td>
+<td><code>apexrest preview check</code></td>
+</tr>
+<tr>
+<td>Preview pages that depend on project packages, procedures, views or real rows</td>
+<td><a href="#connected-oracle-mode">Connected mode</a>: <code>--env &lt;name&gt;</code>, every request rolled back</td>
+</tr>
+<tr>
+<td>Use the connected preview as a working application on a local database</td>
+<td>Commit mode: <code>--env &lt;name&gt; --commit</code></td>
+</tr>
+<tr>
+<td>Confirm how the application behaves in Oracle APEX</td>
+<td>Not the preview: the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="quick-start">Quick start</h2>
+<ol>
+<li><p>Download and extract the APEX 26.2 browser runtime once:</p>
+<pre><code class="language-sh">apexrest preview setup
+</code></pre>
 </li>
-<li><strong>Sample tables.</strong> A table that a page uses but the database lacks is created automatically with sample rows. Column types, keys and lengths come from form items anywhere in the application; columns referenced later are added on demand. Each such action is reported. Put real DDL and data in <code>.apex-local/*.sql</code> (add <code>.apex-local/</code> to <code>.gitignore</code> if the data is private).</li>
-<li><strong>Extensions.</strong> Feature modules under <code>packages/core/src/preview/extensions/</code> register region, item, column, process, condition, validation and code handlers, server routes and browser code with the renderer; see <code>extensions.ts</code>.</li>
-<li><strong>Hot reload.</strong> <code>.apx</code> changes are picked up on the next request; no restart is needed. Open pages reload themselves over the <a href="#live-updates-over-websocket">live connection</a>. Use <code>--reset</code> to rebuild the database.</li>
-</ul>
+<li><p>Render every page and list the unsupported features:</p>
+<pre><code class="language-sh">apexrest preview check --project /abs/app
+</code></pre>
+</li>
+<li><p>Start the preview and open one of the printed page URLs:</p>
+<pre><code class="language-sh">apexrest preview start --project /abs/app
+</code></pre>
+</li>
+<li><p>Edit the <code>.apx</code> sources. Open pages reload themselves; no restart is needed.</p>
+</li>
+</ol>
 <h2 id="commands">Commands</h2>
 <pre><code class="language-sh">apexrest preview setup                      # once; or: --zip /path/apex_26.2_en.zip [--sha256 HEX]
 apexrest preview check --project /abs/app   # render every page; list unsupported features
@@ -26,30 +59,168 @@ apexrest preview status                     # every running preview, from any AP
 apexrest preview stop --project /abs/app    # stop the project&#39;s previews, also from another terminal
 apexrest preview stop --port 8765           # or select by --source-dir, --port; --all stops every preview
 </code></pre>
-<p><code>--source-dir</code> overrides <code>application.sourceDir</code> from <code>apexrest.json</code>; a folder that directly contains <code>application.apx</code> also works without a project file. In MCP hosts the same actions are available as <code>apexrest_preview action:setup|start|check|stop|status</code>; the started server lives as long as the MCP process and only listens on the loopback interface.</p>
-<p>Every running preview is recorded in <code>APEXREST_HOME/preview/servers/</code> (process ID, port, URL and source folder) and removed when it stops; entries whose process has exited or whose port is closed are pruned when read. <code>preview status</code> and <code>preview stop</code> therefore see previews started by other processes and accept the same selectors: <code>--source-dir</code> (one application folder), <code>--project</code> (every preview inside the project), <code>--port</code>, and for stop <code>--all</code>. Without a selector, status lists everything and stop targets the current project&#39;s application. A foreground <code>apexrest preview start</code> is stopped with SIGTERM, and stop waits until its port closes. A preview hosted by an MCP process is listed but never signalled from another process; stop it from that session. A stop that finds nothing to stop fails with <code>PREVIEW_NOT_RUNNING</code> (status <code>not_found</code>, exit code 2) and names the running previews. Because pages run SQL and PL/SQL sent by the browser, the server also refuses requests whose <code>Host</code> is not its own loopback address and port (DNS rebinding), unsafe requests with a foreign or <code>null</code> <code>Origin</code>, and cross-site or same-site requests other than top-level GET navigations, so another web page cannot drive it. Execute Server-side Code and SQL/PL/SQL Set Value actions run only the code of the rendered page: the browser sends a reference, never code, and only the declared Items to Submit and Items to Return pass. As in APEX, that code takes values through bind variables, not <code>&amp;ITEM.</code> substitution. Open the preview through the printed <code>127.0.0.1</code> URL or <code>localhost</code> on the same port. URL parameters set page and application items, but never APEX built-ins such as <code>APP_USER</code>, <code>APP_ID</code> or <code>APP_SESSION</code>; use the developer toolbar&#39;s view-as roles to preview other authorization outcomes.</p>
-<p>The developer toolbar at the bottom of every page follows APEX&#39;s runtime developer toolbar. It shows the page diagnostics, and it lets you view and edit session state and read a debug log of recent requests (computations, processes, validations, branches, authorization checks and timings). You can also open any page, preview the page at tablet or phone size, reset the local database from its seed scripts, open the local e-mail outbox, and pick a theme style (for example Vita, Vita - Dark or Redwood Light). &quot;View as&quot; is off by default, so every authorization scheme allows access; when you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden. <code>GET /__apex/diagnostics</code> returns all diagnostics as JSON. Legacy <code>f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES</code> links redirect to the friendly page URLs.</p>
+<h3 id="select-the-application">Select the application</h3>
+<ul>
+<li><code>--source-dir</code> overrides <code>application.sourceDir</code> from <code>apexrest.json</code>.</li>
+<li>A folder that directly contains <code>application.apx</code> also works without a project file.</li>
+<li>In MCP hosts the same actions are available as <code>apexrest_preview action:setup|start|check|stop|status</code>. The started server lives as long as the MCP process and only listens on the loopback interface.</li>
+</ul>
+<h3 id="status-and-stop">Status and stop</h3>
+<p>Every running preview is recorded in <code>APEXREST_HOME/preview/servers/</code> (process ID, port, URL and source folder) and removed when it stops. Entries whose process has exited or whose port is closed are pruned when read. <code>preview status</code> and <code>preview stop</code> therefore see previews started by other processes and accept the same selectors:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Selector</th>
+<th>Selects</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--source-dir</code></td>
+<td>One application folder</td>
+</tr>
+<tr>
+<td><code>--project</code></td>
+<td>Every preview inside the project</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td>The preview on that port</td>
+</tr>
+<tr>
+<td><code>--all</code></td>
+<td>Every preview (stop only)</td>
+</tr>
+<tr>
+<td>None</td>
+<td>Status lists everything; stop targets the current project&#39;s application</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li>A foreground <code>apexrest preview start</code> is stopped with SIGTERM, and stop waits until its port closes.</li>
+<li>A preview hosted by an MCP process is listed but never signalled from another process; stop it from that session.</li>
+<li>A stop that finds nothing to stop fails with <code>PREVIEW_NOT_RUNNING</code> (status <code>not_found</code>, exit code 2) and names the running previews.</li>
+</ul>
+<h3 id="request-safeguards">Request safeguards</h3>
+<p>Pages run SQL and PL/SQL sent by the browser, so the server protects itself against other web pages:</p>
+<ul>
+<li>It refuses requests whose <code>Host</code> is not its own loopback address and port (DNS rebinding), unsafe requests with a foreign or <code>null</code> <code>Origin</code>, and cross-site or same-site requests other than top-level GET navigations, so another web page cannot drive it.</li>
+<li>Execute Server-side Code and SQL/PL/SQL Set Value actions run only the code of the rendered page: the browser sends a reference, never code, and only the declared Items to Submit and Items to Return pass. As in APEX, that code takes values through bind variables, not <code>&amp;ITEM.</code> substitution.</li>
+<li>Open the preview through the printed <code>127.0.0.1</code> URL or <code>localhost</code> on the same port.</li>
+<li>URL parameters set page and application items, but never APEX built-ins such as <code>APP_USER</code>, <code>APP_ID</code> or <code>APP_SESSION</code>. Use the developer toolbar&#39;s view-as roles to preview other authorization outcomes.</li>
+</ul>
+<h3 id="developer-toolbar">Developer toolbar</h3>
+<p>The developer toolbar at the bottom of every page follows APEX&#39;s runtime developer toolbar. With it you can:</p>
+<ul>
+<li>read the page diagnostics;</li>
+<li>view and edit session state;</li>
+<li>read a debug log of recent requests (computations, processes, validations, branches, authorization checks and timings);</li>
+<li>open any page;</li>
+<li>preview the page at tablet or phone size;</li>
+<li>reset the local database from its seed scripts;</li>
+<li>open the local e-mail outbox;</li>
+<li>pick a theme style (for example Vita, Vita - Dark or Redwood Light).</li>
+</ul>
+<p>&quot;View as&quot; is off by default, so every authorization scheme allows access. When you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden.</p>
+<p><code>GET /__apex/diagnostics</code> returns all diagnostics as JSON. Legacy <code>f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES</code> links redirect to the friendly page URLs.</p>
+<h2 id="how-it-works">How it works</h2>
+<ul>
+<li><strong>Assets.</strong> <code>preview setup</code> downloads the official APEX 26.2 distribution (<code>apex_26.2_en.zip</code>, about 255 MB) once, or uses a local copy passed with <code>--zip</code>.<ul>
+<li>It extracts only the browser runtime (about 70 MB: <code>libraries/apex</code>, jQuery, Font APEX, Oracle fonts, FullCalendar, marked, Cropper.js, JointJS+, the carousel plug-in, <code>themes/theme_42/26.2</code>, <code>app_ui</code>; Oracle JET is not extracted).</li>
+<li>It evaluates the Universal Theme export <code>core/themes/f8842.262.sql</code> into page, region, label, button, list, report and breadcrumb templates.</li>
+<li>Nothing from the distribution is stored in this repository.</li>
+<li>The cache lives in <code>~/.apexrest/preview/26.2</code>, or in <code>APEXREST_PREVIEW_ASSETS</code> when set.</li>
+</ul>
+</li>
+<li><strong>Rendering.</strong> Pages are rendered with the genuine 26.2 templates, display points (<code>slot</code> → <code>#PLACEHOLDER#</code>), template options, the 12-column grid and theme style. The genuine <code>desktop_all.min.js</code> and <code>theme42.min.js</code> run in the browser, so modal dialogs, side navigation and messages use Oracle&#39;s own client code.</li>
+<li><strong>Submit protocol.</strong> The server implements <code>wwv_flow.accept</code> for <code>apex.page.submit</code> (<code>p_json</code>, <code>{ redirectURL }</code> or <code>{ errors }</code>), so validation errors appear inline and in the page notification exactly as <code>apex.message</code> shows them.</li>
+<li><strong>Data.</strong> SQLite (<code>node:sqlite</code>) stands in for Oracle.<ul>
+<li><strong>Project application.</strong> When the preview runs a project&#39;s own application (<code>apexrest.json</code>), nothing is written into the deployed source tree. The database is <code>&lt;project&gt;/.apexrest/preview/preview.sqlite</code>. On first start it is seeded from the project migrations followed by <code>&lt;project&gt;/.apex-local/*.sql</code> (data); PL/SQL units in them are kept for the <a href="#application-database-code">application database code</a>.</li>
+<li><strong>Folder without a project, or a legacy <code>&lt;sourceDir&gt;/.apex-local</code>.</strong> The database is <code>&lt;sourceDir&gt;/.apex-local/preview.sqlite</code>, seeded from <code>.apex-local/*.sql</code> in name order, or from the supporting objects&#39; install scripts in the order <code>supporting-objects/install-scripts.apx</code> declares (<code>execution.sequence</code>).</li>
+<li><strong>Translation.</strong> Common Oracle syntax is translated or provided as functions: <code>nvl</code>, <code>nvl2</code>, <code>decode</code>, <code>to_char</code>, <code>to_date</code>, <code>to_number</code>, <code>trunc</code>, <code>initcap</code>, <code>lpad</code>/<code>rpad</code>, <code>add_months</code>, <code>months_between</code>, <code>regexp_like</code>, <code>listagg</code>, <code>sysdate</code>, <code>from dual</code>, <code>fetch first … rows only</code>, identity columns and <code>v(&#39;ITEM&#39;)</code>. Bind variables use session state.</li>
+<li><strong>Install scripts.</strong> Install scripts written for Oracle load as Oracle would run them: statements without a local meaning (<code>COMMENT ON</code>, <code>ALTER TRIGGER</code>, grants, <code>ALTER SESSION</code>, domain indexes, foreign key and check constraints added later) are skipped, <code>ALTER TABLE … ADD PRIMARY KEY/UNIQUE</code> becomes a unique index, identity options, time zones, <code>NUMBER(*,0)</code> and storage clauses are dropped, and SQL*Plus commands such as <code>SHOW ERRORS</code> are ignored.</li>
+</ul>
+</li>
+<li><strong>Sample tables.</strong> A table that a page uses but the database lacks is created automatically with sample rows. Column types, keys and lengths come from form items anywhere in the application; columns referenced later are added on demand. Each such action is reported. Put real DDL and data in <code>.apex-local/*.sql</code> (add <code>.apex-local/</code> to <code>.gitignore</code> if the data is private).</li>
+<li><strong>Extensions.</strong> Feature modules under <code>packages/core/src/preview/extensions/</code> register region, item, column, process, condition, validation and code handlers, server routes and browser code with the renderer; see <code>extensions.ts</code>.</li>
+<li><strong>Hot reload.</strong> <code>.apx</code> changes are picked up on the next request; no restart is needed. Open pages reload themselves over the <a href="#live-updates-over-websocket">live connection</a>. Use <code>--reset</code> to rebuild the database.</li>
+</ul>
 <h2 id="live-updates-over-websocket">Live updates over WebSocket</h2>
 <p>Every page with the developer toolbar keeps a WebSocket to the preview server (<code>&lt;app&gt;/__apex/live</code>). It is a preview feature for design work; APEX itself does not push changes to open pages.</p>
 <ul>
-<li><strong>Data regions follow their tables.</strong> When the page renders, each data region is mapped to the local tables its SQL, table or PL/SQL source reads; views resolve to their base tables, chart series and map layers count as part of their region, and static HTML or text is not read as SQL. When any request writes one of those tables (a page submit, an interactive grid save, Execute Server-side Code, Set Value, the toolbar&#39;s data reset), every open page refreshes the affected regions in place through <code>apex.region().refresh()</code>. This covers classic and interactive reports, interactive grids, cards, list views, template components, trees, charts, calendars, maps, and faceted search and smart filter counts (through the region they filter). The page that made the change refreshes its other regions quietly; other tabs and sessions show who changed which tables. Refreshed regions are briefly outlined.</li>
-<li><strong>Safeguards.</strong> A grid with unsaved edits is not refreshed; it shows a notice. Form regions are never refreshed; they show a notice with a Reload button. Refreshes of one region are coalesced to at most one every 800 ms. Region refreshes and Ajax reads do not publish changes, so two pages cannot keep refreshing each other.</li>
+<li><strong>Data regions follow their tables.</strong><ul>
+<li>When the page renders, each data region is mapped to the local tables its SQL, table or PL/SQL source reads. Views resolve to their base tables, chart series and map layers count as part of their region, and static HTML or text is not read as SQL.</li>
+<li>When any request writes one of those tables (a page submit, an interactive grid save, Execute Server-side Code, Set Value, the toolbar&#39;s data reset), every open page refreshes the affected regions in place through <code>apex.region().refresh()</code>.</li>
+<li>This covers classic and interactive reports, interactive grids, cards, list views, template components, trees, charts, calendars, maps, and faceted search and smart filter counts (through the region they filter).</li>
+<li>The page that made the change refreshes its other regions quietly; other tabs and sessions show who changed which tables. Refreshed regions are briefly outlined.</li>
+</ul>
+</li>
+<li><strong>Safeguards.</strong><ul>
+<li>A grid with unsaved edits is not refreshed; it shows a notice.</li>
+<li>Form regions are never refreshed; they show a notice with a Reload button.</li>
+<li>Refreshes of one region are coalesced to at most one every 800 ms.</li>
+<li>Region refreshes and Ajax reads do not publish changes, so two pages cannot keep refreshing each other.</li>
+</ul>
+</li>
 <li><strong>Source edits.</strong> An <code>.apx</code> or static-file change reloads open pages and keeps the scroll position. A page with unsaved changes gets a Reload button instead. A parse error is shown on the page.</li>
 <li><strong>Presence and control.</strong> The toolbar&#39;s <strong>Live</strong> button shows the connection state and how many tabs view the same page, and as which users. Clicking it turns live updates off or on for the browser. After a server restart, a page offers a reload instead of reconnecting with a session the server no longer knows.</li>
-<li><strong>Scope.</strong> The socket accepts only same-origin pages with a known preview session on the loopback server. Write tracking uses the SQLite authorizer (Node.js 24.10 or later). Writes made outside the preview, for example with the <code>sqlite3</code> CLI, are not seen. In <a href="#connected-oracle-mode">connected mode</a> only source reloads and presence are pushed, also in commit mode. Dialog pages and pages without the toolbar do not connect.</li>
+<li><strong>Scope.</strong><ul>
+<li>The socket accepts only same-origin pages with a known preview session on the loopback server.</li>
+<li>Write tracking uses the SQLite authorizer (Node.js 24.10 or later).</li>
+<li>Writes made outside the preview, for example with the <code>sqlite3</code> CLI, are not seen.</li>
+<li>In <a href="#connected-oracle-mode">connected mode</a> only source reloads and presence are pushed, also in commit mode.</li>
+<li>Dialog pages and pages without the toolbar do not connect.</li>
+</ul>
+</li>
 </ul>
 <h2 id="connected-oracle-mode">Connected Oracle mode</h2>
 <p>Without a database the preview simulates data in SQLite and interprets a subset of PL/SQL. When the project has an Oracle DEV/QA/TEST environment with a SQLcl saved connection, <code>--env &lt;name&gt;</code> (MCP: <code>env</code>) on <code>start</code> or <code>check</code> runs the application&#39;s data and server logic in that database instead. Rendering stays in Node.js. Choose this when a page depends on project packages, procedures, functions, views or real rows.</p>
+<pre><code class="language-sh">apexrest preview start --project /abs/app --env dev
+apexrest preview start --project /abs/app --env dev --commit
+</code></pre>
+<p>The toolbar&#39;s Session panel and the <code>start</code> result name the environment and target. Connected results come from a real database, but rendering, session handling and transaction scope are still the preview&#39;s. They are not compiler, import or browser evidence.</p>
+<h3 id="target-and-session">Target and session</h3>
 <ul>
-<li><strong>Target guard.</strong> The environment comes from <code>apexrest.json</code> and uses its <code>readConnectionRef</code>. Production is refused: either <code>kind: production</code> or a target registered in <code>production-trust.json</code> (see <a href="/apexrest/deployment/">deployment safety</a>). The connection must be a SQLcl saved connection; ORDS-only connections cannot hold one transaction and are refused. On connect the database unique name, service, parsing schema and workspace must match the environment exactly, as for deployment.</li>
+<li><strong>Target guard.</strong><ul>
+<li>The environment comes from <code>apexrest.json</code> and uses its <code>readConnectionRef</code>.</li>
+<li>Production is refused: either <code>kind: production</code> or a target registered in <code>production-trust.json</code> (see <a href="/apexrest/deployment/">deployment safety</a>).</li>
+<li>The connection must be a SQLcl saved connection; ORDS-only connections cannot hold one transaction and are refused.</li>
+<li>On connect the database unique name, service, parsing schema and workspace must match the environment exactly, as for deployment.</li>
+</ul>
+</li>
 <li><strong>Session.</strong> The preview opens one SQLcl MCP server in a worker thread and keeps its session for the life of the preview. The renderer waits synchronously for each batch. The session starts with <code>exitcommit</code> and <code>autocommit</code> off and <code>ALTER SESSION DISABLE COMMIT IN PROCEDURE</code>.</li>
 <li><strong>Warm-up.</strong> Before <code>start</code> (or <code>check</code>) returns, the session reads column, primary-key and key-default metadata for all tables and views of the parsing schema in two dictionary queries and, when the application is installed, creates one APEX session. Both are rolled back. The first page therefore does not pay one dictionary round trip per table or the first APEX initialization; tables of other schemas are still looked up on first use. A warm-up failure is ignored and the per-request lookups remain.</li>
+</ul>
+<h3 id="transactions">Transactions</h3>
+<ul>
 <li><strong>Every request is rolled back.</strong> Each HTTP request ends with <code>ROLLBACK</code>, whatever it changed. Because nothing persists, a row inserted by a form is gone on the next page.</li>
-<li><strong>Commit mode (working mode).</strong> <code>start --env &lt;name&gt; --commit</code> (MCP: <code>commit: true</code> with <code>action: start</code>) uses the connected preview as a working application. A request that ends without an error status and without failed page processing is committed; a submit or Ajax call that fails is rolled back, as APEX does. The session then allows COMMIT in stored code, and page code with <code>COMMIT</code>, <code>ROLLBACK</code>, dynamic SQL or autonomous transactions is sent to Oracle instead of being skipped. The tripwire is off. The APEX session that each unit creates is deleted before the commit. Commit mode is refused (<code>PREVIEW_COMMIT_REMOTE_REFUSED</code>) unless the saved connection is confirmed local by the same endpoint and server-identity check as deployment (see <a href="/apexrest/deployment/">deployment safety</a>); production is refused as always, and the saved connection still needs <code>autoCommit=false</code>. <code>check</code> never commits. DDL from the preview itself is still never sent.</li>
-<li><strong>What cannot commit.</strong> Oracle blocks COMMIT only inside stored code, not in anonymous blocks or dynamic SQL. Page code that contains <code>COMMIT</code>, <code>ROLLBACK</code> (other than <code>ROLLBACK TO SAVEPOINT</code>), <code>EXECUTE IMMEDIATE</code>, <code>DBMS_SQL</code> or <code>PRAGMA AUTONOMOUS_TRANSACTION</code> is therefore never sent; it is skipped with a diagnostic. DDL from the preview itself (sample tables, schema repair, seeding, data-load targets) is never sent either. Page code and region SQL containing a line SQLcl acts on regardless of quoting — only <code>/</code>, only <code>.</code>, a leading <code>#</code>, or in SQL a line ending with <code>;</code> — are refused the same way, because SQLcl would run the rest as separate statements; bind values are sent without raw line breaks.</li>
+<li><strong>Commit mode (working mode).</strong> <code>start --env &lt;name&gt; --commit</code> (MCP: <code>commit: true</code> with <code>action: start</code>) uses the connected preview as a working application.<ul>
+<li>A request that ends without an error status and without failed page processing is committed; a submit or Ajax call that fails is rolled back, as APEX does.</li>
+<li>The session then allows COMMIT in stored code, and page code with <code>COMMIT</code>, <code>ROLLBACK</code>, dynamic SQL or autonomous transactions is sent to Oracle instead of being skipped.</li>
+<li>The tripwire is off.</li>
+<li>The APEX session that each unit creates is deleted before the commit.</li>
+<li>Commit mode is refused (<code>PREVIEW_COMMIT_REMOTE_REFUSED</code>) unless the saved connection is confirmed local by the same endpoint and server-identity check as deployment (see <a href="/apexrest/deployment/">deployment safety</a>); production is refused as always, and the saved connection still needs <code>autoCommit=false</code>.</li>
+<li><code>check</code> never commits.</li>
+<li>DDL from the preview itself is still never sent.</li>
+</ul>
+</li>
+<li><strong>What cannot commit.</strong> Oracle blocks COMMIT only inside stored code, not in anonymous blocks or dynamic SQL.<ul>
+<li>Page code that contains <code>COMMIT</code>, <code>ROLLBACK</code> (other than <code>ROLLBACK TO SAVEPOINT</code>), <code>EXECUTE IMMEDIATE</code>, <code>DBMS_SQL</code> or <code>PRAGMA AUTONOMOUS_TRANSACTION</code> is therefore never sent; it is skipped with a diagnostic.</li>
+<li>DDL from the preview itself (sample tables, schema repair, seeding, data-load targets) is never sent either.</li>
+<li>Page code and region SQL containing a line SQLcl acts on regardless of quoting — only <code>/</code>, only <code>.</code>, a leading <code>#</code>, or in SQL a line ending with <code>;</code> — are refused the same way, because SQLcl would run the rest as separate statements; bind values are sent without raw line breaks.</li>
+</ul>
+</li>
 <li><strong>Tripwire.</strong> Every unit records <code>DBMS_TRANSACTION.LOCAL_TRANSACTION_ID</code> before and after it runs. If a package still ends the transaction, the unit fails with an error diagnostic that says earlier work may have been committed.</li>
 <li><strong>Not undone.</strong> Autonomous transactions in stored code (they are listed as a warning at start), sequence numbers and side effects outside the database (mail, HTTP calls, jobs).</li>
-<li><strong>Data.</strong> Region, LOV, report, grid, chart, card, facet, tree and form SQL runs in Oracle untranslated, with page items as binds. Forms let Oracle fill keys (identity, default or trigger) instead of the local max + 1. Preview-internal state stays in an in-memory SQLite database: session tables, collections, files, mail outbox and the generated <code>APEX_APPLICATION_*</code> views. File, BLOB and data-load features therefore remain local and do not reach Oracle tables.</li>
+</ul>
+<h3 id="data-and-plsql-in-oracle">Data and PL/SQL in Oracle</h3>
+<ul>
+<li><strong>Data.</strong><ul>
+<li>Region, LOV, report, grid, chart, card, facet, tree and form SQL runs in Oracle untranslated, with page items as binds.</li>
+<li>Forms let Oracle fill keys (identity, default or trigger) instead of the local max + 1.</li>
+<li>Preview-internal state stays in an in-memory SQLite database: session tables, collections, files, mail outbox and the generated <code>APEX_APPLICATION_*</code> views. File, BLOB and data-load features therefore remain local and do not reach Oracle tables.</li>
+</ul>
+</li>
 <li><strong>PL/SQL.</strong> Processes, validations, conditions, computations, item sources, authorization schemes and dynamic content run as whole anonymous blocks in Oracle. They are not interpreted locally. Referenced binds are IN OUT session state, so assignments to <code>:P1_X</code> come back to the page.<ul>
 <li>Function bodies and expressions are first wrapped as values. When Oracle reports the wrong type, the preview retries once as a boolean condition and remembers the result.</li>
 <li>When the application ID is installed in the target workspace, each request also creates an APEX session (<code>apex_session.create_session</code>) and copies installed item values into it, so <code>v()</code> and <code>apex_util</code> work inside packages. Page items are read back afterwards. Without an installed application, or if the session cannot be created, database code runs with binds only and <code>v()</code> returns NULL.</li>
@@ -58,26 +229,72 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </li>
 <li><strong>Not covered.</strong> <code>apex_error.add_error</code> inline errors raised inside Oracle code, REST-enabled SQL processes, BLOB columns, LOB values larger than 32 KB and binds longer than 32,767 bytes are not supported in connected mode.</li>
 </ul>
-<p>The toolbar&#39;s Session panel and the <code>start</code> result name the environment and target. Connected results come from a real database, but rendering, session handling and transaction scope are still the preview&#39;s. They are not compiler, import or browser evidence.</p>
 <h2 id="supported-locally">Supported locally</h2>
 <h3 id="pages-theme-and-navigation">Pages, theme and navigation</h3>
-<p>All Universal Theme 26.2 page templates (standard, side columns, marquee, modal dialog, drawer, wizard, login) with their slots and grid, navigation menus and bars, breadcrumbs, the theme style of the application or the toolbar picker (including the theme&#39;s own styles: a subscribed style uses its master&#39;s files, and a Theme Roller style loads its <code>outputCssFileUrl</code>, with <code>#THEME_DB_IMAGES#</code> served from the theme&#39;s <code>static-files</code> folder), and success/error messages through the genuine <code>apex.message</code> templates.</p>
-<p>Dynamic lists (<code>source.type: sqlQuery</code>) run their query, locally or in Oracle in connected mode, and read the columns by position as APEX does: level, label, target, is_current_list_entry (<code>YES</code>/<code>NO</code>, or decided from the target page when empty), image, image_attribute, image_alt_attribute and attribute1–10. Rows nest by level in query order. A failing query renders an empty list with a warning; other list source types are reported as not simulated.</p>
-<p>Page URLs that Oracle APEX generated — <code>http://:/r/ws/app/page?…&amp;session=…&amp;cs=…</code> in PL/SQL dynamic content, or <code>/ords/r/ws/app/page?…</code> in list targets and report values — open the matching preview page: dynamic content and list targets are rewritten, and such requests are redirected. <code>session</code> and <code>cs</code> are dropped; other parameters are kept.</p>
+<ul>
+<li><strong>Page templates.</strong> All Universal Theme 26.2 page templates (standard, side columns, marquee, modal dialog, drawer, wizard, login) with their slots and grid.</li>
+<li><strong>Navigation.</strong> Navigation menus and bars, and breadcrumbs.</li>
+<li><strong>Theme style.</strong> The theme style of the application or the toolbar picker, including the theme&#39;s own styles: a subscribed style uses its master&#39;s files, and a Theme Roller style loads its <code>outputCssFileUrl</code>, with <code>#THEME_DB_IMAGES#</code> served from the theme&#39;s <code>static-files</code> folder.</li>
+<li><strong>Messages.</strong> Success/error messages through the genuine <code>apex.message</code> templates.</li>
+<li><strong>Dynamic lists.</strong> Dynamic lists (<code>source.type: sqlQuery</code>) run their query, locally or in Oracle in connected mode, and read the columns by position as APEX does: level, label, target, is_current_list_entry (<code>YES</code>/<code>NO</code>, or decided from the target page when empty), image, image_attribute, image_alt_attribute and attribute1–10. Rows nest by level in query order. A failing query renders an empty list with a warning; other list source types are reported as not simulated.</li>
+<li><strong>APEX-generated page URLs.</strong> Page URLs that Oracle APEX generated — <code>http://:/r/ws/app/page?…&amp;session=…&amp;cs=…</code> in PL/SQL dynamic content, or <code>/ords/r/ws/app/page?…</code> in list targets and report values — open the matching preview page: dynamic content and list targets are rewritten, and such requests are redirected. <code>session</code> and <code>cs</code> are dropped; other parameters are kept.</li>
+</ul>
 <h3 id="reports-and-grids">Reports and grids</h3>
-<p>Interactive reports use the real Universal Theme markup for search, column-heading menus, the Actions menu (columns, filter, rows per page, sort, reset, CSV/HTML download) and filter chips, starting from the primary saved report. Interactive grids run APEX&#39;s own grid, toolbar and model JavaScript over local data, with inline editing, add/duplicate/delete rows, master-detail and filters; Save, or a page submit with &quot;Interactive Grid - Automatic Row Processing (DML)&quot;, writes the changes to SQLite. With a PL/SQL Code target (<code>target.targetType: plsqlCode</code>) the row processing runs that code once per changed row instead, with the row&#39;s columns and <code>:APEX$ROW_STATUS</code> (C, U or D) as binds — locally in the interpreter, or in Oracle in connected mode; a failing row undoes the rows before it and its message is shown. <code>apex.region(id)</code> of a grid region is an Interactive Grid region interface, so page JavaScript can use <code>call(&quot;getViews&quot;, &quot;grid&quot;).model</code>, <code>call(&quot;getCurrentView&quot;)</code>, <code>call(&quot;getActions&quot;).invoke(&quot;save&quot;)</code> or <code>invoke(&quot;refresh&quot;)</code>, <code>call(&quot;getSelectedRecords&quot;)</code>, <code>widget()</code> with the <code>interactivegridsave</code> event after a save, and <code>refresh()</code>; other <code>call</code> methods throw a &quot;not simulated&quot; error. Classic reports support sortable headings, the pagination types, rows per page, break formatting and CSV links. Report settings are kept per preview session, and anything not simulated (charts, group by, pivot, highlights, single-row view, PDF/Excel) appears as a diagnostic.</p>
-<p>Interactive reports also simulate the Actions menu views: control breaks, highlights, computed columns (SQL over column identifiers, evaluated in SQLite), aggregates, Group By, Pivot and Chart views (drawn by the local SVG renderer), and the single row view, both from APEXlang saved reports and from the menu dialogs. Primary, alternative and public saved reports appear in the reports select list, and named private reports are kept per preview session. Downloads produce CSV, HTML, a real .xlsx workbook, and a labelled print page in place of PDF. Interactive grids add popup LOV, radio and checkbox groups, switch, star rating, color and date editors, edit authorization under the &quot;view as&quot; policy, and saved-report control breaks, highlights and aggregates.</p>
+<p><strong>Interactive reports</strong></p>
+<ul>
+<li>They use the real Universal Theme markup for search, column-heading menus, the Actions menu (columns, filter, rows per page, sort, reset, CSV/HTML download) and filter chips, starting from the primary saved report.</li>
+<li>They also simulate the Actions menu views: control breaks, highlights, computed columns (SQL over column identifiers, evaluated in SQLite), aggregates, Group By, Pivot and Chart views (drawn by the local SVG renderer), and the single row view, both from APEXlang saved reports and from the menu dialogs.</li>
+<li>Primary, alternative and public saved reports appear in the reports select list, and named private reports are kept per preview session.</li>
+<li>Downloads produce CSV, HTML, a real .xlsx workbook, and a labelled print page in place of PDF.</li>
+</ul>
+<p><strong>Interactive grids</strong></p>
+<ul>
+<li>They run APEX&#39;s own grid, toolbar and model JavaScript over local data, with inline editing, add/duplicate/delete rows, master-detail and filters.</li>
+<li>Save, or a page submit with &quot;Interactive Grid - Automatic Row Processing (DML)&quot;, writes the changes to SQLite.</li>
+<li>With a PL/SQL Code target (<code>target.targetType: plsqlCode</code>) the row processing runs that code once per changed row instead, with the row&#39;s columns and <code>:APEX$ROW_STATUS</code> (C, U or D) as binds — locally in the interpreter, or in Oracle in connected mode; a failing row undoes the rows before it and its message is shown.</li>
+<li><code>apex.region(id)</code> of a grid region is an Interactive Grid region interface, so page JavaScript can use <code>call(&quot;getViews&quot;, &quot;grid&quot;).model</code>, <code>call(&quot;getCurrentView&quot;)</code>, <code>call(&quot;getActions&quot;).invoke(&quot;save&quot;)</code> or <code>invoke(&quot;refresh&quot;)</code>, <code>call(&quot;getSelectedRecords&quot;)</code>, <code>widget()</code> with the <code>interactivegridsave</code> event after a save, and <code>refresh()</code>; other <code>call</code> methods throw a &quot;not simulated&quot; error.</li>
+<li>They add popup LOV, radio and checkbox groups, switch, star rating, color and date editors, edit authorization under the &quot;view as&quot; policy, and saved-report control breaks, highlights and aggregates.</li>
+</ul>
+<p><strong>Classic reports</strong></p>
+<ul>
+<li>They support sortable headings, the pagination types, rows per page, break formatting and CSV links.</li>
+</ul>
+<p><strong>All reports</strong></p>
+<ul>
+<li>Report settings are kept per preview session, and anything not simulated (charts, group by, pivot, highlights, single-row view, PDF/Excel) appears as a diagnostic.</li>
+</ul>
 <h3 id="search-cards-and-lists">Search, cards and lists</h3>
-<p>Faceted Search and Smart Filters run Oracle&#39;s own <code>apex.facets</code> widget. The preview answers its count requests locally and filters the bound region (classic report, interactive report, cards or list view) on the server, so counts, chips, &quot;show all&quot;, clear and live refresh behave as in APEX. Supported facets are checkbox and radio groups, ranges, select lists, input fields, search, star ratings and facet groups, with distinct, static, SQL or shared LOVs. Cards render the native <code>a-CardView</code> markup with icons, badges, media, card actions, ordering items and pagination. List View is supported too.</p>
-<p>Search regions use the genuine <code>apex.search</code> widget over search configurations with local SQL, table or list sources.</p>
+<ul>
+<li><strong>Faceted Search and Smart Filters</strong> run Oracle&#39;s own <code>apex.facets</code> widget. The preview answers its count requests locally and filters the bound region (classic report, interactive report, cards or list view) on the server, so counts, chips, &quot;show all&quot;, clear and live refresh behave as in APEX. Supported facets are checkbox and radio groups, ranges, select lists, input fields, search, star ratings and facet groups, with distinct, static, SQL or shared LOVs.</li>
+<li><strong>Cards</strong> render the native <code>a-CardView</code> markup with icons, badges, media, card actions, ordering items and pagination.</li>
+<li><strong>List View</strong> is supported too.</li>
+<li><strong>Search regions</strong> use the genuine <code>apex.search</code> widget over search configurations with local SQL, table or list sources.</li>
+</ul>
 <h3 id="trees-wizards-and-legacy-regions">Trees, wizards and legacy regions</h3>
-<p>Tree regions run on Oracle&#39;s own treeView widget, built from pre-computed level/status columns or from node and parent key columns. Oracle <code>start with … connect by prior</code> queries (with <code>level</code>, <code>connect_by_isleaf</code>, <code>sys_connect_by_path</code>, <code>connect_by_root</code> and <code>order siblings by</code>) are translated to SQLite recursive CTEs in any region. Wizards work through Next/Previous/Reset Page and Trigger Action buttons, Form Pagination, Reset Pagination and legacy Automatic Row Fetch/Processing, with Stop and Start Grid Layout items. Tabular forms, reflow and column toggle reports, the legacy calendar, legacy charts and the jQuery date picker are mapped onto modern renderers, each with a diagnostic.</p>
+<ul>
+<li><strong>Trees.</strong> Tree regions run on Oracle&#39;s own treeView widget, built from pre-computed level/status columns or from node and parent key columns. Oracle <code>start with … connect by prior</code> queries (with <code>level</code>, <code>connect_by_isleaf</code>, <code>sys_connect_by_path</code>, <code>connect_by_root</code> and <code>order siblings by</code>) are translated to SQLite recursive CTEs in any region.</li>
+<li><strong>Wizards.</strong> Wizards work through Next/Previous/Reset Page and Trigger Action buttons, Form Pagination, Reset Pagination and legacy Automatic Row Fetch/Processing, with Stop and Start Grid Layout items.</li>
+<li><strong>Legacy regions.</strong> Tabular forms, reflow and column toggle reports, the legacy calendar, legacy charts and the jQuery date picker are mapped onto modern renderers, each with a diagnostic.</li>
+</ul>
 <h3 id="universal-theme-components-and-region-behavior">Universal Theme components and region behavior</h3>
-<p>Template components (<code>themeTemplateComponent/…</code>, such as Content Row, Media List, Metric Card, Badge, Avatar, Comments, Timeline and Flexbox Container) render with the genuine partial and report templates from the theme export, including Single, Multiple and Region Only display, attribute groups, grouping, pagination, and row actions and menus; they also work as report column types. Template directives (<code>{if}</code>, <code>{case}</code>, <code>{loop}</code>, <code>{with/}{apply/}</code> and escape filters) are evaluated as <code>apex.util.applyTemplate</code> does. Tabs and Carousel containers, the Region Display Selector, collapsible regions, and inline dialogs, drawers and popups (opened by Open/Close Region dynamic actions) use Oracle&#39;s own widgets.</p>
+<ul>
+<li><strong>Template components.</strong> Template components (<code>themeTemplateComponent/…</code>, such as Content Row, Media List, Metric Card, Badge, Avatar, Comments, Timeline and Flexbox Container) render with the genuine partial and report templates from the theme export, including Single, Multiple and Region Only display, attribute groups, grouping, pagination, and row actions and menus; they also work as report column types.</li>
+<li><strong>Template directives.</strong> Template directives (<code>{if}</code>, <code>{case}</code>, <code>{loop}</code>, <code>{with/}{apply/}</code> and escape filters) are evaluated as <code>apex.util.applyTemplate</code> does.</li>
+<li><strong>Region behavior.</strong> Tabs and Carousel containers, the Region Display Selector, collapsible regions, and inline dialogs, drawers and popups (opened by Open/Close Region dynamic actions) use Oracle&#39;s own widgets.</li>
+</ul>
 <h3 id="charts-calendars-and-maps">Charts, calendars and maps</h3>
-<p>Charts are drawn by a local SVG renderer styled after Oracle JET&#39;s Redwood theme: bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, status meter gauge, radar and polar charts, with legends, axis titles, value labels, links and hover tooltips, redrawn at the region&#39;s real width. A Refresh dynamic action updates a chart without reloading the page; <code>source.pageItemsToSubmit</code> from every series is combined with region declarations and used for both refresh and width redraws. Calendar regions use the genuine FullCalendar shipped with APEX (month, week, day and list views), fed from the region SQL. Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. Layers read longitude/latitude columns, GeoJSON text, or an Oracle <code>SDO_GEOMETRY</code> object as a built web application receives it from the database: points, lines and polygons with straight edges, optimized rectangles and their multi forms; arcs and compound elements are not drawn. The SQLite preview has no <code>SDO_GEOMETRY</code> type. None of this is Oracle JET. Initialization JavaScript functions (<code>componentAdvanced</code> or <code>advanced.initJavaScriptFunction</code>) are not run: a chart that has one shows a visible note under it and a warning, and <code>start</code>, <code>check</code> and <code>status</code> list every such function in <code>notAppliedLocally</code>. Check its axes, formats and tooltips on the imported application.</p>
+<ul>
+<li><strong>Charts.</strong> Charts are drawn by a local SVG renderer styled after Oracle JET&#39;s Redwood theme: bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, status meter gauge, radar and polar charts, with legends, axis titles, value labels, links and hover tooltips, redrawn at the region&#39;s real width. A Refresh dynamic action updates a chart without reloading the page; <code>source.pageItemsToSubmit</code> from every series is combined with region declarations and used for both refresh and width redraws.</li>
+<li><strong>Calendars.</strong> Calendar regions use the genuine FullCalendar shipped with APEX (month, week, day and list views), fed from the region SQL.</li>
+<li><strong>Maps.</strong> Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. Layers read longitude/latitude columns, GeoJSON text, or an Oracle <code>SDO_GEOMETRY</code> object as a built web application receives it from the database: points, lines and polygons with straight edges, optimized rectangles and their multi forms; arcs and compound elements are not drawn. The SQLite preview has no <code>SDO_GEOMETRY</code> type.</li>
+<li><strong>Not Oracle JET.</strong> None of this is Oracle JET. Initialization JavaScript functions (<code>componentAdvanced</code> or <code>advanced.initJavaScriptFunction</code>) are not run: a chart that has one shows a visible note under it and a warning, and <code>start</code>, <code>check</code> and <code>status</code> list every such function in <code>notAppliedLocally</code>. Check its axes, formats and tooltips on the imported application.</li>
+</ul>
 <h3 id="page-items">Page items</h3>
-<p>Page items render with the genuine APEX 26.2 item widgets: the <code>a-date-picker</code> web component, the popup LOV dialog with search and multi-column grids, Select One/Many and combobox, shuttle, switch, star rating, color picker, markdown editor, file drop zones, QR codes and percent graphs, plus text, number, textarea and list items with their format masks, pre/post text, icons and template options. Cascading LOV refreshes, popup LOV search and paging, combobox lookups and item help are answered from the APEXlang source and SQLite. Read-only conditions on items or regions render display-only markup.</p>
+<ul>
+<li>Page items render with the genuine APEX 26.2 item widgets: the <code>a-date-picker</code> web component, the popup LOV dialog with search and multi-column grids, Select One/Many and combobox, shuttle, switch, star rating, color picker, markdown editor, file drop zones, QR codes and percent graphs, plus text, number, textarea and list items with their format masks, pre/post text, icons and template options.</li>
+<li>Cascading LOV refreshes, popup LOV search and paging, combobox lookups and item help are answered from the APEXlang source and SQLite.</li>
+<li>Read-only conditions on items or regions render display-only markup.</li>
+</ul>
 <h3 id="application-database-code">Application database code</h3>
 <p>The application&#39;s own PL/SQL runs locally. Packages (specification and body), standalone functions and procedures and anonymous blocks are read from the seed and install scripts:</p>
 <ul>
@@ -91,27 +308,150 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </ul>
 <p>Legacy package names (<code>htmldb_lang</code>, <code>wwv_flow_utilities</code>, <code>wwv_flow_collection</code>, …) map to their <code>APEX_</code> packages in PL/SQL and SQL. Connected mode runs the application&#39;s packages in Oracle instead.</p>
 <h3 id="plug-ins">Plug-ins</h3>
-<p>Region and item plug-ins written in PL/SQL (<code>shared-components/plugins/&lt;kind&gt;/&lt;name&gt;/plugin.apx</code> with <code>source.plsqlCode</code>) run their render callback: <code>p_region</code>/<code>p_item</code> and <code>p_plugin</code> records come from the component, its <code>settings</code> and the plug-in&#39;s custom attributes with their defaults (substituted when the plug-in asks for it), and the HTML the callback prints with <code>htp</code> is the region body or item. Both callback styles work (function with <code>p_is_printer_friendly</code>, procedure with <code>p_param</code>/<code>p_result</code>). The plug-in&#39;s declared CSS and JavaScript files and <code>apex_javascript</code>/<code>apex_css</code> calls are added to the page, its <code>static-files</code> are served as <code>#PLUGIN_FILES#</code>, <code>apex_plugin_util.get_data</code>/<code>get_data2</code> read the region source, and <code>apex.server.plugin</code> calls with <code>apex_plugin.get_ajax_identifier</code> run the ajax callback, whose <code>apex_json</code> output is the response. Dynamic action and process plug-ins are reported as not simulated.</p>
+<p>Region and item plug-ins written in PL/SQL (<code>shared-components/plugins/&lt;kind&gt;/&lt;name&gt;/plugin.apx</code> with <code>source.plsqlCode</code>) run their render callback:</p>
+<ul>
+<li><strong>Records.</strong> <code>p_region</code>/<code>p_item</code> and <code>p_plugin</code> records come from the component, its <code>settings</code> and the plug-in&#39;s custom attributes with their defaults (substituted when the plug-in asks for it).</li>
+<li><strong>Output.</strong> The HTML the callback prints with <code>htp</code> is the region body or item.</li>
+<li><strong>Callback styles.</strong> Both callback styles work (function with <code>p_is_printer_friendly</code>, procedure with <code>p_param</code>/<code>p_result</code>).</li>
+<li><strong>Files.</strong> The plug-in&#39;s declared CSS and JavaScript files and <code>apex_javascript</code>/<code>apex_css</code> calls are added to the page, and its <code>static-files</code> are served as <code>#PLUGIN_FILES#</code>.</li>
+<li><strong>Data and Ajax.</strong> <code>apex_plugin_util.get_data</code>/<code>get_data2</code> read the region source, and <code>apex.server.plugin</code> calls with <code>apex_plugin.get_ajax_identifier</code> run the ajax callback, whose <code>apex_json</code> output is the response.</li>
+</ul>
+<p>Dynamic action and process plug-ins are reported as not simulated.</p>
 <h3 id="server-logic">Server logic</h3>
-<p>The preview interprets a subset of PL/SQL: anonymous blocks, variables, IF/CASE, loops including cursor FOR loops, SELECT INTO, DML with RETURNING, exceptions, <code>raise_application_error</code>, local and package subprograms, records and collections accessed through chains such as <code>list(i).value_list(j).varchar2_value</code>. A statement the interpreter cannot express (an assignment to an unsupported target) is reported when it runs instead of failing the whole unit. Control flow runs in Node.js and every expression and SQL statement runs in SQLite through the Oracle shims (also sequences, MERGE, ROWNUM, <code>connect by level</code>, ordered LISTAGG and date masks). Processes, validations, server-side conditions, computations, item defaults and sources, branches, PL/SQL dynamic content regions, dynamic actions, and application processes and computations use it. Common APEX APIs (<code>apex_util</code>, <code>apex_error</code>, <code>apex_page</code>, <code>apex_string</code>, <code>apex_escape</code>, <code>apex_lang</code>, <code>htp</code>, <code>v()</code>) are stubbed; other package calls are reported and skipped. Authorization schemes are evaluated and reported, but every page stays accessible.</p>
-<p>The SQL shims follow Oracle semantics where SQLite differs: empty item values bind as NULL, <code>/</code> is real division, <code>||</code> and implicit number-to-text conversion print numbers as Oracle does (<code>15</code>, <code>.5</code>), date ± number and date - date work on any date expression, ANSI <code>date &#39;…&#39;</code>/<code>timestamp &#39;…&#39;</code> literals, <code>DEFAULT sysdate</code>/<code>seq.nextval</code> and identity columns work in seed DDL, <code>json_value</code>/<code>json_query</code>/<code>json_exists</code> take Oracle paths, and <code>regexp_*</code> functions and regular-expression validations accept POSIX classes and match parameters. Form processing stores date items in canonical date form and shows them in the item&#39;s format mask. When an inserted form row has no primary key value and the local schema declares no identity, default or <code>before insert</code> trigger for it, the preview generates max + 1 and reports a warning, because Oracle would need a key.</p>
-<p>Page submits, Execute Server-side Code, grid saves and Set Value calls run in one SQLite transaction: an unhandled process, branch or row-processing error stops processing, is shown to the user like an APEX error and rolls back the page&#39;s DML. PL/SQL <code>COMMIT</code>, <code>ROLLBACK</code> and savepoints work; autonomous transactions are reported, not simulated. Validation messages substitute <code>#LABEL#</code> and <code>#COLUMN_HEADER#</code>; interactive grid row validations (<code>editableRegion</code>) run per changed row on Save and on submit and mark the failing cells. Form regions detect lost updates by row version column or row checksum. Region refreshes submit the region&#39;s page items to submit.</p>
-<p>When the application loads, property paths and enumerated values are checked against the APEXlang component catalog (Oracle MMD 26.1 metadata and the native plug-in declarations) for pages, regions, items, buttons, dynamic actions and their actions, validations, computations, branches, report and grid columns, and chart/map parts. Each component is checked against the component type the compiler uses for it: a classic report column against classic report column properties, an interactive grid column against the settings of its item type. A property whose display condition is false is reported too, as the compiler rejects it (a legend position on a pyramid chart, the first hour of a calendar without time display, a selector that depends on an invalid selection type). Further checks: link targets with a <code>url</code> need <code>type: url</code>; <code>advanced.staticId</code> is rejected because the component identifier is the static ID; page items need <code>layout.slot</code>; report columns need <code>layout.sequence</code>; public saved reports need <code>settings.appUser</code>; interactive report computations are named <code>C01</code>, <code>C02</code>…; shared component files the compiler does not read (<code>shared-components/lists-b.apx</code> instead of <code>lists.apx</code>, a REST data source outside <code>rest-data-sources/</code>) are reported because references to their components do not resolve. Values added in 26.2, such as the classic report pagination <code>showAll</code>, are accepted unless <code>.apex/apexlang.json</code> declares an earlier <code>mmdVersion</code>. All findings are warnings in <code>preview check</code> and the toolbar; the SQLcl compiler remains the authority. Not checked: process groups and values (they depend on the process type), saved report views and their children other than the rules above, plug-in and template component settings, minimum child counts (a template component report without columns, a chart without axes), and display conditions that depend on plug-in features (a column span on a hidden item).</p>
+<h4 id="plsql-interpreter">PL/SQL interpreter</h4>
+<ul>
+<li>The preview interprets a subset of PL/SQL: anonymous blocks, variables, IF/CASE, loops including cursor FOR loops, SELECT INTO, DML with RETURNING, exceptions, <code>raise_application_error</code>, local and package subprograms, records and collections accessed through chains such as <code>list(i).value_list(j).varchar2_value</code>.</li>
+<li>A statement the interpreter cannot express (an assignment to an unsupported target) is reported when it runs instead of failing the whole unit.</li>
+<li>Control flow runs in Node.js and every expression and SQL statement runs in SQLite through the Oracle shims (also sequences, MERGE, ROWNUM, <code>connect by level</code>, ordered LISTAGG and date masks).</li>
+<li>Processes, validations, server-side conditions, computations, item defaults and sources, branches, PL/SQL dynamic content regions, dynamic actions, and application processes and computations use it.</li>
+<li>Common APEX APIs (<code>apex_util</code>, <code>apex_error</code>, <code>apex_page</code>, <code>apex_string</code>, <code>apex_escape</code>, <code>apex_lang</code>, <code>htp</code>, <code>v()</code>) are stubbed; other package calls are reported and skipped.</li>
+<li>Authorization schemes are evaluated and reported, but every page stays accessible.</li>
+</ul>
+<h4 id="oracle-semantics-in-sqlite">Oracle semantics in SQLite</h4>
+<p>The SQL shims follow Oracle semantics where SQLite differs:</p>
+<ul>
+<li>Empty item values bind as NULL.</li>
+<li><code>/</code> is real division.</li>
+<li><code>||</code> and implicit number-to-text conversion print numbers as Oracle does (<code>15</code>, <code>.5</code>).</li>
+<li>Date ± number and date - date work on any date expression.</li>
+<li>ANSI <code>date &#39;…&#39;</code>/<code>timestamp &#39;…&#39;</code> literals, <code>DEFAULT sysdate</code>/<code>seq.nextval</code> and identity columns work in seed DDL.</li>
+<li><code>json_value</code>/<code>json_query</code>/<code>json_exists</code> take Oracle paths.</li>
+<li><code>regexp_*</code> functions and regular-expression validations accept POSIX classes and match parameters.</li>
+<li>Form processing stores date items in canonical date form and shows them in the item&#39;s format mask.</li>
+<li>When an inserted form row has no primary key value and the local schema declares no identity, default or <code>before insert</code> trigger for it, the preview generates max + 1 and reports a warning, because Oracle would need a key.</li>
+</ul>
+<h4 id="transactions-and-validations">Transactions and validations</h4>
+<ul>
+<li>Page submits, Execute Server-side Code, grid saves and Set Value calls run in one SQLite transaction: an unhandled process, branch or row-processing error stops processing, is shown to the user like an APEX error and rolls back the page&#39;s DML.</li>
+<li>PL/SQL <code>COMMIT</code>, <code>ROLLBACK</code> and savepoints work; autonomous transactions are reported, not simulated.</li>
+<li>Validation messages substitute <code>#LABEL#</code> and <code>#COLUMN_HEADER#</code>; interactive grid row validations (<code>editableRegion</code>) run per changed row on Save and on submit and mark the failing cells.</li>
+<li>Form regions detect lost updates by row version column or row checksum.</li>
+<li>Region refreshes submit the region&#39;s page items to submit.</li>
+</ul>
+<h4 id="source-checks-against-the-component-catalog">Source checks against the component catalog</h4>
+<p>When the application loads, property paths and enumerated values are checked against the APEXlang component catalog (Oracle MMD 26.1 metadata and the native plug-in declarations) for pages, regions, items, buttons, dynamic actions and their actions, validations, computations, branches, report and grid columns, and chart/map parts.</p>
+<ul>
+<li>Each component is checked against the component type the compiler uses for it: a classic report column against classic report column properties, an interactive grid column against the settings of its item type.</li>
+<li>A property whose display condition is false is reported too, as the compiler rejects it (a legend position on a pyramid chart, the first hour of a calendar without time display, a selector that depends on an invalid selection type).</li>
+<li>Further checks:<ul>
+<li>link targets with a <code>url</code> need <code>type: url</code>;</li>
+<li><code>advanced.staticId</code> is rejected because the component identifier is the static ID;</li>
+<li>page items need <code>layout.slot</code>;</li>
+<li>report columns need <code>layout.sequence</code>;</li>
+<li>public saved reports need <code>settings.appUser</code>;</li>
+<li>interactive report computations are named <code>C01</code>, <code>C02</code>…;</li>
+<li>shared component files the compiler does not read (<code>shared-components/lists-b.apx</code> instead of <code>lists.apx</code>, a REST data source outside <code>rest-data-sources/</code>) are reported because references to their components do not resolve.</li>
+</ul>
+</li>
+<li>Values added in 26.2, such as the classic report pagination <code>showAll</code>, are accepted unless <code>.apex/apexlang.json</code> declares an earlier <code>mmdVersion</code>.</li>
+<li>All findings are warnings in <code>preview check</code> and the toolbar; the SQLcl compiler remains the authority.</li>
+<li>Not checked: process groups and values (they depend on the process type), saved report views and their children other than the rules above, plug-in and template component settings, minimum child counts (a template component report without columns, a chart without axes), and display conditions that depend on plug-in features (a column span on a hidden item).</li>
+</ul>
 <h3 id="files-and-data">Files and data</h3>
-<p>Page submits with files arrive as multipart requests and are stored in SQLite: in <code>APEX_APPLICATION_TEMP_FILES</code> or <code>APEX_APPLICATION_FILES</code>, or in the form&#39;s BLOB column; item values hold the generated file name, as in APEX. Display Image items, Display Image and Download BLOB report columns, the Download process and action, and <code>wpg_docload</code>/<code>apex_http.download</code> serve stored BLOBs with their MIME type. Data load definitions and <code>apex_data_parser</code>/<code>apex_data_loading</code> parse CSV, TSV, JSON, XML and XLSX and insert into local tables, reporting processed and error rows. Report printing opens a print-friendly HTML page, not a PDF.</p>
+<ul>
+<li><strong>Uploads.</strong> Page submits with files arrive as multipart requests and are stored in SQLite: in <code>APEX_APPLICATION_TEMP_FILES</code> or <code>APEX_APPLICATION_FILES</code>, or in the form&#39;s BLOB column; item values hold the generated file name, as in APEX.</li>
+<li><strong>Downloads.</strong> Display Image items, Display Image and Download BLOB report columns, the Download process and action, and <code>wpg_docload</code>/<code>apex_http.download</code> serve stored BLOBs with their MIME type.</li>
+<li><strong>Data load.</strong> Data load definitions and <code>apex_data_parser</code>/<code>apex_data_loading</code> parse CSV, TSV, JSON, XML and XLSX and insert into local tables, reporting processed and error rows.</li>
+<li><strong>Printing.</strong> Report printing opens a print-friendly HTML page, not a PDF.</li>
+</ul>
 <h3 id="platform-services">Platform services</h3>
-<p><code>apex_collection</code> and the <code>APEX_COLLECTIONS</code> view live in SQLite per preview session. APEX dictionary views (<code>APEX_APPLICATION_*</code>, <code>APEX_APPL_ACL_*</code>, <code>APEX_ACTIVITY_LOG</code>, <code>APEX_TEAM_FEEDBACK</code>, <code>APEX_APPL_AUTOMATIONS</code>, <code>APEX_TASKS</code>, <code>APEX_WORKFLOWS</code>, …) are generated from the APEXlang source on every reload and filled by the preview&#39;s own page views, feedback and ACL changes, so generated administration pages show real data. E-mail from <code>apex_mail</code>, Send E-Mail processes and e-mail templates goes to a local outbox; nothing is sent. Execution chains, user preferences, application settings and workflow/task processes are recorded locally.</p>
-<p>REST Data Sources, Invoke API processes and <code>apex_web_service.make_rest_request</code> are answered from <code>.apex-local/rest/*.json</code>. A fixture is either the response body or <code>{ &quot;status&quot;: 200, &quot;headers&quot;: {...}, &quot;body&quot;: ... }</code>, looked up as <code>&lt;staticId&gt;.&lt;operation&gt;.json</code>, <code>&lt;staticId&gt;.&lt;httpMethod&gt;.json</code>, then <code>&lt;staticId&gt;.json</code> (for URLs, the path segments joined with <code>_</code>, then the last segment). Rows come from the data profile&#39;s row selector (or <code>items</code>), with columns mapped by the data profile column selectors; a missing fixture gives a diagnostic and an empty result.</p>
+<ul>
+<li><strong>Collections.</strong> <code>apex_collection</code> and the <code>APEX_COLLECTIONS</code> view live in SQLite per preview session.</li>
+<li><strong>Dictionary views.</strong> APEX dictionary views (<code>APEX_APPLICATION_*</code>, <code>APEX_APPL_ACL_*</code>, <code>APEX_ACTIVITY_LOG</code>, <code>APEX_TEAM_FEEDBACK</code>, <code>APEX_APPL_AUTOMATIONS</code>, <code>APEX_TASKS</code>, <code>APEX_WORKFLOWS</code>, …) are generated from the APEXlang source on every reload and filled by the preview&#39;s own page views, feedback and ACL changes, so generated administration pages show real data.</li>
+<li><strong>E-mail.</strong> E-mail from <code>apex_mail</code>, Send E-Mail processes and e-mail templates goes to a local outbox; nothing is sent.</li>
+<li><strong>Recorded locally.</strong> Execution chains, user preferences, application settings and workflow/task processes are recorded locally.</li>
+<li><strong>REST.</strong> REST Data Sources, Invoke API processes and <code>apex_web_service.make_rest_request</code> are answered from <code>.apex-local/rest/*.json</code>.<ul>
+<li>A fixture is either the response body or <code>{ &quot;status&quot;: 200, &quot;headers&quot;: {...}, &quot;body&quot;: ... }</code>.</li>
+<li>It is looked up as <code>&lt;staticId&gt;.&lt;operation&gt;.json</code>, <code>&lt;staticId&gt;.&lt;httpMethod&gt;.json</code>, then <code>&lt;staticId&gt;.json</code> (for URLs, the path segments joined with <code>_</code>, then the last segment).</li>
+<li>Rows come from the data profile&#39;s row selector (or <code>items</code>), with columns mapped by the data profile column selectors.</li>
+<li>A missing fixture gives a diagnostic and an empty result.</li>
+</ul>
+</li>
+</ul>
 <h3 id="dynamic-actions">Dynamic actions</h3>
-<p>Client events (including custom events, event scope and debounce/throttle) and client-side conditions (comparisons, lists, JavaScript expressions) drive Execute JavaScript, Refresh, Show/Hide, Enable/Disable, Set Value (static, JavaScript, SQL, PL/SQL, dialog return), Clear, Set Focus, Add/Remove Class, Set Style, Open/Close Region, Alert/Confirm, success and error messages, Cancel Event, Submit Page, dialog close/cancel, Execute Server-side Code, geolocation and share.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Supported</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Client events</td>
+<td>Client events, including custom events, event scope and debounce/throttle</td>
+</tr>
+<tr>
+<td>Client-side conditions</td>
+<td>Comparisons, lists, JavaScript expressions</td>
+</tr>
+<tr>
+<td>Actions</td>
+<td>Execute JavaScript, Refresh, Show/Hide, Enable/Disable, Set Value (static, JavaScript, SQL, PL/SQL, dialog return), Clear, Set Focus, Add/Remove Class, Set Style, Open/Close Region, Alert/Confirm, success and error messages, Cancel Event, Submit Page, dialog close/cancel, Execute Server-side Code, geolocation and share</td>
+</tr>
+</tbody></table>
+</div>
 <h2 id="not-simulated">Not simulated</h2>
-<p>Authentication (any login succeeds and sets <code>APP_USER</code>), session state protection, <code>EXECUTE IMMEDIATE</code>, explicit cursors (OPEN/FETCH/CLOSE), AFTER, statement-level and compound triggers, dynamic action and process plug-ins, TinyMCE (the rich text editor is a simple stand-in), Oracle JET itself (charts are SVG), facet charts, Flashback and report subscriptions, interactive grid pivot/group by, real PDF output (print pages are HTML), Oracle Text/vector/REST search sources, workflow execution (diagrams are static outlines), generative AI (labelled placeholder text), geocoding and push notifications, translations and other plug-ins. These appear as diagnostics instead of silent omissions. Interpreted and simulated results are a design aid, not evidence of how the application behaves in Oracle.</p>
+<p>These appear as diagnostics instead of silent omissions:</p>
+<ul>
+<li>Authentication (any login succeeds and sets <code>APP_USER</code>)</li>
+<li>Session state protection</li>
+<li><code>EXECUTE IMMEDIATE</code></li>
+<li>Explicit cursors (OPEN/FETCH/CLOSE)</li>
+<li>AFTER, statement-level and compound triggers</li>
+<li>Dynamic action and process plug-ins</li>
+<li>TinyMCE (the rich text editor is a simple stand-in)</li>
+<li>Oracle JET itself (charts are SVG)</li>
+<li>Facet charts</li>
+<li>Flashback and report subscriptions</li>
+<li>Interactive grid pivot/group by</li>
+<li>Real PDF output (print pages are HTML)</li>
+<li>Oracle Text/vector/REST search sources</li>
+<li>Workflow execution (diagrams are static outlines)</li>
+<li>Generative AI (labelled placeholder text)</li>
+<li>Geocoding and push notifications</li>
+<li>Translations and other plug-ins</li>
+</ul>
+<p>Interpreted and simulated results are a design aid, not evidence of how the application behaves in Oracle.</p>
 <h2 id="verification-boundary">Verification boundary</h2>
-<p>Repository tests use a synthetic theme export and a generated zip. The real 26.2 distribution was exercised manually against the three public Oracle example applications: every page of all three renders with no errors or warnings, 43 pages of the HR demo load in Chrome without console errors, and report, grid, facet, form, dialog, upload, data-load and administration flows were checked in Chrome. That is local evidence only. Connected mode was run on 2026-11-01 against a TEST Autonomous Database (APEX 26.1.6, application 102), both from a probe script and in the built-in browser:</p>
+<p><strong>Repository tests.</strong> Repository tests use a synthetic theme export and a generated zip.</p>
+<p><strong>Real 26.2 distribution, database-free.</strong> The real 26.2 distribution was exercised manually against the three public Oracle example applications:</p>
+<ul>
+<li>Every page of all three renders with no errors or warnings.</li>
+<li>43 pages of the HR demo load in Chrome without console errors.</li>
+<li>Report, grid, facet, form, dialog, upload, data-load and administration flows were checked in Chrome.</li>
+</ul>
+<p>That is local evidence only.</p>
+<p><strong>Connected mode.</strong> Connected mode was run on 2026-11-01 against a TEST Autonomous Database (APEX 26.1.6, application 102), both from a probe script and in the built-in browser:</p>
 <ul>
 <li><strong>Data and binds.</strong> Data types and IN OUT binds were correct, region SQL ran in Oracle, and the <code>v()</code> values came from a real APEX session.</li>
 <li><strong>Rollback.</strong> A form insert showed its success message and was absent on the next page; an independent session confirmed that no row persisted.</li>
 <li><strong>COMMIT.</strong> That run also showed that Oracle does not block COMMIT in anonymous blocks, which led to the skip rule and the tripwire above.</li>
 </ul>
-<p>COMMIT and DDL inside stored code, autonomous transactions and ORDS were not exercised. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.</p>
+<p><strong>Not exercised.</strong> COMMIT and DDL inside stored code, autonomous transactions and ORDS were not exercised. Confirm final behavior with the Oracle compiler, an authorized import and browser verification on DEV/QA/TEST.</p>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="/apexrest/webapp/">Build a web application</a>: the same renderer as a standalone Node.js application.</li>
+<li><a href="/apexrest/testing/">Testing</a>: which checks establish what.</li>
+<li><a href="/apexrest/deployment/">Deployment safety</a>: production marks and the local-target check that commit mode uses.</li>
+</ul>
 <p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/local-preview.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>
