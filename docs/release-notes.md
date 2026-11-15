@@ -26,7 +26,7 @@ Application verification uses the host in-app browser. The bundle has no automat
 - Page submits, server-side code and grid saves are transactional; an unhandled process error is shown to the user and rolls back the page's DML. Interactive grid row validations mark failing cells, validation messages substitute labels, forms detect lost updates and region refreshes submit their page items.
 - APEX 26.2 syntax for show-all pagination, card actions, `&COLUMN.` substitution, list views and calendar views is rendered; template components apply format masks; chart ticks no longer show spurious decimals.
 - Items and layout match APEX more closely (switches, floating labels, grid offsets, native date pickers, static button IDs, region display selector, maps). The preview warns about unknown APEXlang property names and values.
-- The README now presents APEXREST as a Codex and Claude Code plugin with three feature videos, including a new tour of a 22-page showcase application running in the preview.
+- The README now presents APEXREST as a Codex and Claude Code plugin.
 - Align package, workspace and Codex/Claude Code source versions to 2.5.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
 
 ## Changes in 2.4.0

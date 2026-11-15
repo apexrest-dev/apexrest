@@ -11,8 +11,4 @@ The SVG diagrams below are maintained directly in this repository in English onl
 | [overview.svg](overview.svg)               | Codex skills, shared MCP/CLI runtime, SQLcl and Oracle APEX        | [Architecture](../architecture.md)           |
 | [deployment-flow.svg](deployment-flow.svg) | Delivery steps, coordination defaults and authorization boundaries | [Deployment safety](../deployment-safety.md) |
 
-### Videos
-
-The video series is published on YouTube, not stored in this repository. See [Features and videos](../features.md#video-series) for the episode list and the playlist link.
-
 Use meaningful alternative text when embedding these images in Markdown. Keep the linked text documentation available so the graphics are never the only source of operational instructions.

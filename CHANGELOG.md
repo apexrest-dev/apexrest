@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Redesign the README and the documentation: a task-oriented documentation hub, a features page with an overview table, regrouped site navigation and a guide to how `build webapp` works. Remove the video series from the documentation.
 - Add `apexrest build webapp`: a standalone Node.js application for an APEXlang application that renders the pages with Universal Theme and runs their SQL and PL/SQL in an existing Oracle database through `node-oracledb`, with real sign-in, login-required pages and enforced authorization. A first version: session state protection is not implemented and one process serves one request at a time. See [build a web application](docs/webapp.md).
 - Word errors with the application's error handling function in a built web application and the connected preview: an error that carries an ORA code is passed to the function in Oracle (needs the APEX error API in the database) and its message replaces the database error stack.
 - Load the interactive grid model once: a page with a popup LOV and an interactive grid loaded Oracle's model script twice and raised a JavaScript error on load.
@@ -46,7 +47,6 @@
 - Check preview properties against the component type the compiler uses. Report columns, dynamic action actions, display conditions, grid column settings, required slots and sequences are now checked. The generated showcase application had 173 distinct compiler errors and no preview warnings; `preview check` now reports 161 of them. Oracle's 1,350 public sample pages still produce no findings.
 - Make CLI previews discoverable and stoppable across processes: `preview status|stop` accept `--project`, `--source-dir` and `--port`. A stop that stops nothing reports `PREVIEW_NOT_RUNNING`. Add `apex validate --source-dir`, per-command `--help` and bare boolean flags, and remove the unsupported `sandbox` stub.
 - Refuse production-marked environments before any connection or SQLcl call in plan, apply and restore. Report a missing SQLcl saved connection as `SQLCL_CONNECTION_NOT_FOUND`. Keep component recipes and patterns in reference searches scoped by a project. Explain composer compiler mismatches with the matching blueprints. Warm up connected previews before the URL is returned.
-- Replace the repository's feature videos with the seven-episode YouTube series "Oracle APEX with AI agents". The features page lists every episode with its thumbnail and links each feature to its episode. The old MP4, caption and poster files are removed from `docs/assets`.
 - Fix local preview chart text in dark theme styles, the grid Color editor rewriting values that were not edited, a grid null error after a save, and toolbar times (now local) and counts (now pluralized). Truncated compiler reports now say where the full diagnostic list is.
 - Add `productionDatabases` to `$APEXREST_HOME/production-trust.json`: listing a `DB_UNIQUE_NAME` makes every service name, workspace, schema and application on that database production, so a production mark no longer depends on the service name or application ID a project configures.
 - Bind peer reviews to the real plan: the saved plan must match its digest and pass apply's local checks before the reviewer runs, `required` mode refuses and ignores reviews by the host agent's own vendor, and the agent's `focus` text is fenced as an untrusted request in the reviewer prompt.
@@ -64,7 +64,7 @@
 - Run page submits, server-side code and grid saves in one transaction: unhandled process errors stop processing, are shown to the user and roll back. Add interactive grid row validations, `#LABEL#`/`#COLUMN_HEADER#` substitution, lost-update detection, region items to submit on refresh, `clearCache` lists and synchronous Cancel Event.
 - Render 26.2 report and card syntax: show-all pagination, card actions, `&COLUMN.` substitution, list view features, calendar views, template directives in HTML expressions, template component format masks, FILESIZE/SINCE_SHORT masks, interactive report aliases and integer chart ticks.
 - Fix switch styling, floating labels, grid column offsets and label spans, native date pickers, button static IDs, the region display selector, and map height, row assignment, styles, heat maps and info windows. Warn about unknown APEXlang properties and values; Oracle's 1,350 public sample pages produce no findings.
-- Rewrite the README around the Codex and Claude Code plugin and its three feature videos, adding a tour of the local preview on a 22-page showcase application. Align package and Codex/Claude Code source versions to 2.5.0; registry publication remains a separate outcome.
+- Rewrite the README around the Codex and Claude Code plugin. Align package and Codex/Claude Code source versions to 2.5.0; registry publication remains a separate outcome.
 
 ## 2.4.0
 

@@ -57,7 +57,7 @@ Metric Cards with `display: report` use Universal Theme's report template, which
 
 ## Optional OpenAI Decisions selection
 
-Before composing a page, the host can select several useful references in one operation. [Episode 4 on YouTube](https://youtu.be/aGGKPqKG5kI) shows the measured effect and its limits.
+Before composing a page, the host can select several useful references in one operation. The [features page](features.md#decisions-api-choose-components-before-generating) gives the measured effect and its limits.
 
 ```sh
 apexrest docs select --project /absolute/project --request "Interactive grid with editable rows, filters and summary cards" --json

@@ -2,8 +2,6 @@
 
 `apexrest preview` runs an APEXlang application on Node.js without an Oracle database, or, with `--env`, against the application's own DEV/QA/TEST Oracle database ([connected mode](#connected-oracle-mode)). It exists for fast design and UX iteration: page layout, Universal Theme styling and components, navigation, reports and grids, faceted search, charts, forms, page items, dynamic actions and the server logic behind them. It is a simulation. It never replaces `apexrest_apex_validate`, an import, or browser verification on a real APEX target, and its results are not Oracle evidence.
 
-[Watch episode 5 on YouTube](https://youtu.be/l_JsL2q8ij4): a 22-page showcase application running in the preview, from reports and forms to charts, grids and hot reload.
-
 ## How it works
 
 - **Assets.** `preview setup` downloads the official APEX 26.2 distribution (`apex_26.2_en.zip`, about 255 MB) once, or uses a local copy passed with `--zip`. It extracts only the browser runtime (about 70 MB: `libraries/apex`, jQuery, Font APEX, Oracle fonts, FullCalendar, marked, Cropper.js, JointJS+, the carousel plug-in, `themes/theme_42/26.2`, `app_ui`; Oracle JET is not extracted) and evaluates the Universal Theme export `core/themes/f8842.262.sql` into page, region, label, button, list, report and breadcrumb templates. Nothing from the distribution is stored in this repository. The cache lives in `~/.apexrest/preview/26.2`, or in `APEXREST_PREVIEW_ASSETS` when set.
@@ -39,8 +37,6 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
 
 ## Live updates over WebSocket
 
-[Watch episode 7 on YouTube](https://youtu.be/zFN1-eS8BXo): an agent edits the APEXlang source and the open page follows; a grid save in the agent's session redraws ten dashboard charts in another session.
-
 Every page with the developer toolbar keeps a WebSocket to the preview server (`<app>/__apex/live`). It is a preview feature for design work; APEX itself does not push changes to open pages.
 
 - **Data regions follow their tables.** When the page renders, each data region is mapped to the local tables its SQL, table or PL/SQL source reads; views resolve to their base tables, chart series and map layers count as part of their region, and static HTML or text is not read as SQL. When any request writes one of those tables (a page submit, an interactive grid save, Execute Server-side Code, Set Value, the toolbar's data reset), every open page refreshes the affected regions in place through `apex.region().refresh()`. This covers classic and interactive reports, interactive grids, cards, list views, template components, trees, charts, calendars, maps, and faceted search and smart filter counts (through the region they filter). The page that made the change refreshes its other regions quietly; other tabs and sessions show who changed which tables. Refreshed regions are briefly outlined.
@@ -50,8 +46,6 @@ Every page with the developer toolbar keeps a WebSocket to the preview server (`
 - **Scope.** The socket accepts only same-origin pages with a known preview session on the loopback server. Write tracking uses the SQLite authorizer (Node.js 24.10 or later). Writes made outside the preview, for example with the `sqlite3` CLI, are not seen. In [connected mode](#connected-oracle-mode) only source reloads and presence are pushed, also in commit mode. Dialog pages and pages without the toolbar do not connect.
 
 ## Connected Oracle mode
-
-[Watch episode 6 on YouTube](https://youtu.be/WiudC_UkVQ8): a stock-control app posting documents through its own PL/SQL package on a demo Autonomous Database, with every request rolled back.
 
 Without a database the preview simulates data in SQLite and interprets a subset of PL/SQL. When the project has an Oracle DEV/QA/TEST environment with a SQLcl saved connection, `--env <name>` (MCP: `env`) on `start` or `check` runs the application's data and server logic in that database instead. Rendering stays in Node.js. Choose this when a page depends on project packages, procedures, functions, views or real rows.
 

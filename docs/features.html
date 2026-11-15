@@ -1,62 +1,47 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Features and videos · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/features/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/features/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/" aria-current="page">Features and videos</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Features and videos</div><h1 id="features-and-videos">Features and videos</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#video-series">Video series</a></li><li><a href="#component-library-read-before-writing">Component library: read before writing</a></li><li><a href="#decisions-api-choose-components-before-generating">Decisions API: choose components before generating</a></li><li><a href="#local-preview-run-apexlang-without-a-database">Local preview: run APEXlang without a database</a></li><li><a href="#connected-preview-run-the-backend-in-your-database">Connected preview: run the backend in your database</a></li><li><a href="#live-preview-the-page-follows-the-agent">Live preview: the page follows the agent</a></li><li><a href="#build-a-web-application-apexlang-as-a-standalone-nodejs-app">Build a web application: APEXlang as a standalone Node.js app</a></li><li><a href="#apex-262-import-only-what-changed">APEX 26.2: import only what changed</a></li><li><a href="#safe-deployment">Safe deployment</a></li><li><a href="#oracle-access">Oracle access</a></li><li><a href="#work-in-one-session">Work in one session</a></li><li><a href="#tools">Tools</a></li><li><a href="#skills">Skills</a></li></ul></details>
-<p>APEXREST is one Oracle APEX plugin for Codex and Claude Code. This page explains its main capabilities. The video series on YouTube shows each one with real screen captures and measured results.</p>
-<h2 id="video-series">Video series</h2>
-<p>Watch the <a href="https://www.youtube.com/playlist?list=PLe3nsyhtHRGk">Oracle APEX with AI agents</a> playlist in order. Each episode has English narration from a synthetic voice (Kokoro-82M) and English subtitles.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Features · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/features/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/features/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/" aria-current="page">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Start here / Features</div><h1 id="features">Features</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#component-library-read-before-writing">Component library: read before writing</a></li><li><a href="#decisions-api-choose-components-before-generating">Decisions API: choose components before generating</a></li><li><a href="#local-preview-run-apexlang-without-a-database">Local preview: run APEXlang without a database</a></li><li><a href="#connected-preview-run-the-backend-in-your-database">Connected preview: run the backend in your database</a></li><li><a href="#live-preview-the-page-follows-the-agent">Live preview: the page follows the agent</a></li><li><a href="#build-a-web-application-apexlang-as-a-standalone-nodejs-app">Build a web application: APEXlang as a standalone Node.js app</a></li><li><a href="#apex-262-import-only-what-changed">APEX 26.2: import only what changed</a></li><li><a href="#safe-deployment">Safe deployment</a></li><li><a href="#oracle-access">Oracle access</a></li><li><a href="#work-in-one-session">Work in one session</a></li><li><a href="#tools">Tools</a></li><li><a href="#skills">Skills</a></li></ul></details>
+<p>APEXREST is one Oracle APEX plugin for Codex and Claude Code. It helps an agent write APEXlang, see the result, run it and ship it. This page explains each capability, the command behind it and its limits.</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
-<th>#</th>
-<th>Watch</th>
-<th>Episode</th>
-<th>Length</th>
+<th>You want to</th>
+<th>Feature</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>1</td>
-<td><a href="https://youtu.be/JJNva5WGreA"><img src="https://i.ytimg.com/vi/JJNva5WGreA/mqdefault.jpg" alt="Episode 1 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/JJNva5WGreA">APEXlang: Oracle APEX as source code, and agent skills</a></td>
-<td>7:30</td>
+<td>Write correct APEXlang the first time</td>
+<td><a href="#component-library-read-before-writing">Component library</a>, <a href="#decisions-api-choose-components-before-generating">Decisions selection</a></td>
 </tr>
 <tr>
-<td>2</td>
-<td><a href="https://youtu.be/FXia3u3E5L0"><img src="https://i.ytimg.com/vi/FXia3u3E5L0/mqdefault.jpg" alt="Episode 2 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/FXia3u3E5L0">The plugin for Codex and Claude Code</a></td>
-<td>8:49</td>
+<td>See pages without a database</td>
+<td><a href="#local-preview-run-apexlang-without-a-database">Local preview</a></td>
 </tr>
 <tr>
-<td>3</td>
-<td><a href="https://youtu.be/lswZLhfpmH0"><img src="https://i.ytimg.com/vi/lswZLhfpmH0/mqdefault.jpg" alt="Episode 3 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/lswZLhfpmH0">APEX component library: how the agent picks proven parts</a></td>
-<td>6:04</td>
+<td>See pages with your real data and PL/SQL</td>
+<td><a href="#connected-preview-run-the-backend-in-your-database">Connected preview</a></td>
 </tr>
 <tr>
-<td>4</td>
-<td><a href="https://youtu.be/aGGKPqKG5kI"><img src="https://i.ytimg.com/vi/aGGKPqKG5kI/mqdefault.jpg" alt="Episode 4 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/aGGKPqKG5kI">The Decisions API: picking APEX page components faster</a></td>
-<td>7:38</td>
+<td>Watch the page follow each edit</td>
+<td><a href="#live-preview-the-page-follows-the-agent">Live preview</a></td>
 </tr>
 <tr>
-<td>5</td>
-<td><a href="https://youtu.be/l_JsL2q8ij4"><img src="https://i.ytimg.com/vi/l_JsL2q8ij4/mqdefault.jpg" alt="Episode 5 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/l_JsL2q8ij4">Run Oracle APEX locally, no database</a></td>
-<td>8:12</td>
+<td>Run the application without the APEX engine or ORDS</td>
+<td><a href="#build-a-web-application-apexlang-as-a-standalone-nodejs-app">Web application build</a></td>
 </tr>
 <tr>
-<td>6</td>
-<td><a href="https://youtu.be/WiudC_UkVQ8"><img src="https://i.ytimg.com/vi/WiudC_UkVQ8/mqdefault.jpg" alt="Episode 6 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/WiudC_UkVQ8">Local Oracle APEX with your real database backend</a></td>
-<td>8:46</td>
+<td>Import only what changed</td>
+<td><a href="#apex-262-import-only-what-changed">Partial imports</a></td>
 </tr>
 <tr>
-<td>7</td>
-<td><a href="https://youtu.be/zFN1-eS8BXo"><img src="https://i.ytimg.com/vi/zFN1-eS8BXo/mqdefault.jpg" alt="Episode 7 thumbnail" loading="lazy" decoding="async"></a></td>
-<td><a href="https://youtu.be/zFN1-eS8BXo">APEX live preview over WebSocket</a></td>
-<td>8:13</td>
+<td>Deploy without surprises</td>
+<td><a href="#safe-deployment">Safe deployment</a>, <a href="#oracle-access">Oracle access</a></td>
+</tr>
+<tr>
+<td>Know what the agent can call</td>
+<td><a href="#work-in-one-session">Work in one session</a>, <a href="#tools">Tools</a>, <a href="#skills">Skills</a></td>
 </tr>
 </tbody></table>
 </div>
 <h2 id="component-library-read-before-writing">Component library: read before writing</h2>
-<p><a href="https://youtu.be/lswZLhfpmH0">Watch episode 3 on YouTube</a></p>
 <p>A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read before it writes:</p>
 <ul>
 <li><strong>Oracle definitions.</strong> The complete <a href="/apexrest/oracle-apexlang-coverage/">26.2 Oracle inventory</a>: 389 definitions and 32,187 contextual property occurrences.</li>
@@ -65,9 +50,7 @@
 <li><strong>Retrieval.</strong> <code>apexrest_reference</code> searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit&#39;s code. A change uses at most three lookups.</li>
 <li><strong>Recipes as contracts.</strong> Each recipe carries a data shape, adaptation rules, working APEXlang, and compiler evidence bound to file checksums.</li>
 </ul>
-<p>The episode shows real <code>docs search</code> and <code>docs read</code> results, the simple dashboard pattern adapted into a new page, an <code>LOV_NOT_FOUND</code> compiler diagnostic from a deliberate typo and the passing validation after the fix.</p>
 <h2 id="decisions-api-choose-components-before-generating">Decisions API: choose components before generating</h2>
-<p><a href="https://youtu.be/aGGKPqKG5kI">Watch episode 4 on YouTube</a></p>
 <p>The optional <a href="/apexrest/component-catalog/#optional-openai-decisions-selection">OpenAI Decisions selection</a> runs through <code>apexrest_reference mode:select</code> and <code>apexrest docs select</code>. One bounded predicate batch ranks up to 64 compatible local catalog candidates. The host model then writes the page from the verified local contracts. When selection is disabled, search and read stay fully local.</p>
 <p>In a one-page pilot, the same model built the same APEXlang page three times with selection and three times without it:</p>
 <ul>
@@ -78,8 +61,7 @@
 </ul>
 <p>This is a single-page pilot, not a general benchmark. The pilot page uses synthetic data.</p>
 <h2 id="local-preview-run-apexlang-without-a-database">Local preview: run APEXlang without a database</h2>
-<p><a href="https://youtu.be/l_JsL2q8ij4">Watch episode 5 on YouTube</a></p>
-<p><code>apexrest preview</code> serves an APEXlang application from Node.js and SQLite on <code>127.0.0.1</code>. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an <code>.apx</code> edit on the next reload, before anything is compiled or imported. The episode tours a 22-page showcase application with one page per component family. <code>preview check</code> renders all 22 pages with 0 errors and 0 warnings.</p>
+<p><code>apexrest preview</code> serves an APEXlang application from Node.js and SQLite on <code>127.0.0.1</code>. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an <code>.apx</code> edit on the next reload, before anything is compiled or imported. On a 22-page showcase application with one page per component family, <code>preview check</code> renders all 22 pages with 0 errors and 0 warnings.</p>
 <pre><code class="language-sh">apexrest preview setup                        # once: extracts the APEX 26.2 browser runtime and theme templates
 apexrest preview check --project /abs/app     # render every page, list what is not simulated
 apexrest preview start --project /abs/app     # serve pages and print their URLs
@@ -134,7 +116,6 @@ apexrest preview start --project /abs/app     # serve pages and print their URLs
 </ul>
 <p>The preview is a design aid, not Oracle evidence. Charts are SVG rather than Oracle JET, maps have no tiles, and anything it does not simulate is listed in diagnostics. Read the <a href="/apexrest/local-preview/">local preview guide</a>.</p>
 <h2 id="connected-preview-run-the-backend-in-your-database">Connected preview: run the backend in your database</h2>
-<p><a href="https://youtu.be/WiudC_UkVQ8">Watch episode 6 on YouTube</a></p>
 <p>The local UI can run its backend in your own DEV, QA or TEST database. Add <code>--env</code> and the Node.js preview opens one session through your saved SQLcl connection.</p>
 <ul>
 <li><strong>SQL.</strong> Region, report, LOV and form SQL runs in Oracle as written, with page items as binds.</li>
@@ -150,7 +131,7 @@ apexrest preview start --project /abs/app     # serve pages and print their URLs
 <pre><code class="language-sh">apexrest preview check --project /abs/app --env test   # every page against the real database
 apexrest preview start --project /abs/app --env test   # local UI, data and PL/SQL in Oracle
 </code></pre>
-<p>The episode shows an original stock-control application on a demo Oracle Autonomous Database:</p>
+<p>Measured on an original stock-control application on a demo Oracle Autonomous Database:</p>
 <ul>
 <li>all 17 pages checked in 24 seconds with 0 errors;</li>
 <li>a receipt posted through the project&#39;s package and then rolled back;</li>
@@ -158,7 +139,6 @@ apexrest preview start --project /abs/app --env test   # local UI, data and PL/S
 </ul>
 <p>It is a verification aid, not import evidence. Read <a href="/apexrest/local-preview/#connected-oracle-mode">Connected Oracle mode</a>.</p>
 <h2 id="live-preview-the-page-follows-the-agent">Live preview: the page follows the agent</h2>
-<p><a href="https://youtu.be/zFN1-eS8BXo">Watch episode 7 on YouTube</a></p>
 <p>Every preview page keeps a WebSocket to the local server, so the agent sees its changes without navigating or reloading.</p>
 <ul>
 <li><strong>Source edits.</strong> Saving an <code>.apx</code> file reloads the open page, which takes about a quarter of a second on localhost. A typo shows its parse error, with file and line, on that page.</li>
@@ -166,7 +146,7 @@ apexrest preview start --project /abs/app --env test   # local UI, data and PL/S
 <li><strong>Presence.</strong> The toolbar shows who views the page, so the agent can work as its own user while you watch as yours.</li>
 <li><strong>Safeguards.</strong> Unsaved grid edits are never overwritten, forms only show a notice, refresh loops are blocked, and the socket stays on localhost.</li>
 </ul>
-<p>In the episode, captured from the generated showcase app, four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read <a href="/apexrest/local-preview/#live-updates-over-websocket">Live updates over WebSocket</a>.</p>
+<p>Measured on the generated showcase application: four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read <a href="/apexrest/local-preview/#live-updates-over-websocket">Live updates over WebSocket</a>.</p>
 <h2 id="build-a-web-application-apexlang-as-a-standalone-nodejs-app">Build a web application: APEXlang as a standalone Node.js app</h2>
 <p><code>apexrest build webapp</code> turns an APEXlang application into a standalone Node.js web application. It renders the pages with Universal Theme and runs their SQL and PL/SQL in your existing Oracle database through <code>node-oracledb</code>. No APEX engine and no ORDS take part in a request.</p>
 <pre><code class="language-sh">apexrest build webapp --project /abs/project --out /abs/output --include-assets

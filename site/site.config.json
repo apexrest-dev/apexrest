@@ -1,7 +1,7 @@
 {
   "basePath": "/apexrest/",
   "title": "APEXREST for Codex and Claude Code",
-  "groups": ["Start here", "Application work", "Reference", "Project"],
+  "groups": ["Start here", "Build applications", "Run and deploy", "Reference", "Project"],
   "pages": [
     {
       "slug": "",
@@ -14,18 +14,10 @@
     },
     {
       "slug": "features",
-      "title": "Features and videos",
+      "title": "Features",
       "source": "docs/features.md",
       "lang": "en",
       "key": "features",
-      "group": "Start here"
-    },
-    {
-      "slug": "apex-design-race",
-      "title": "Field report: with and without the plugin",
-      "source": "docs/apex-design-race.md",
-      "lang": "en",
-      "key": "apex-design-race",
       "group": "Start here"
     },
     {
@@ -37,14 +29,6 @@
       "group": "Start here"
     },
     {
-      "slug": "docs",
-      "title": "Documentation",
-      "source": "docs/index.md",
-      "lang": "en",
-      "key": "docs",
-      "group": "Start here"
-    },
-    {
       "slug": "getting-started",
       "title": "Getting started",
       "source": "docs/getting-started.md",
@@ -53,84 +37,20 @@
       "group": "Start here"
     },
     {
-      "slug": "apex-26.2",
-      "title": "APEX 26.2 partial imports",
-      "source": "docs/apex-26.2.md",
+      "slug": "docs",
+      "title": "Documentation",
+      "source": "docs/index.md",
       "lang": "en",
-      "key": "apex-26.2",
-      "group": "Application work"
+      "key": "docs",
+      "group": "Start here"
     },
     {
-      "slug": "codex-cloud",
-      "title": "Codex Cloud",
-      "source": "docs/codex-cloud.md",
+      "slug": "apex-design-race",
+      "title": "Field report: with and without the plugin",
+      "source": "docs/apex-design-race.md",
       "lang": "en",
-      "key": "codex-cloud",
-      "group": "Application work"
-    },
-    {
-      "slug": "existing-app",
-      "title": "Existing applications",
-      "source": "docs/existing-app.md",
-      "lang": "en",
-      "key": "existing-app",
-      "group": "Application work"
-    },
-    {
-      "slug": "configuration",
-      "title": "Configuration",
-      "source": "docs/configuration.md",
-      "lang": "en",
-      "key": "configuration",
-      "group": "Application work"
-    },
-    {
-      "slug": "deployment",
-      "title": "Deployment safety",
-      "source": "docs/deployment-safety.md",
-      "lang": "en",
-      "key": "deployment",
-      "group": "Application work"
-    },
-    {
-      "slug": "testing",
-      "title": "Testing",
-      "source": "docs/testing.md",
-      "lang": "en",
-      "key": "testing",
-      "group": "Application work"
-    },
-    {
-      "slug": "local-preview",
-      "title": "Local preview",
-      "source": "docs/local-preview.md",
-      "lang": "en",
-      "key": "local-preview",
-      "group": "Application work"
-    },
-    {
-      "slug": "webapp",
-      "title": "Build a web application",
-      "source": "docs/webapp.md",
-      "lang": "en",
-      "key": "webapp",
-      "group": "Application work"
-    },
-    {
-      "slug": "plugin-qualification-harness",
-      "title": "Plugin qualification harness",
-      "source": "docs/plugin-qualification-harness.md",
-      "lang": "en",
-      "key": "plugin-qualification-harness",
-      "group": "Application work"
-    },
-    {
-      "slug": "troubleshooting",
-      "title": "Troubleshooting",
-      "source": "docs/troubleshooting.md",
-      "lang": "en",
-      "key": "troubleshooting",
-      "group": "Application work"
+      "key": "apex-design-race",
+      "group": "Start here"
     },
     {
       "slug": "chat-workflow",
@@ -138,23 +58,87 @@
       "source": "docs/chat-workflow.md",
       "lang": "en",
       "key": "chat-workflow",
-      "group": "Application work"
+      "group": "Build applications"
     },
     {
-      "slug": "ords",
-      "title": "SQL through ORDS",
-      "source": "docs/ords.md",
+      "slug": "existing-app",
+      "title": "Existing applications",
+      "source": "docs/existing-app.md",
       "lang": "en",
-      "key": "ords",
-      "group": "Application work"
+      "key": "existing-app",
+      "group": "Build applications"
     },
     {
-      "slug": "status",
-      "title": "Development status",
-      "source": "docs/status.md",
+      "slug": "local-preview",
+      "title": "Local preview",
+      "source": "docs/local-preview.md",
       "lang": "en",
-      "key": "status",
-      "group": "Application work"
+      "key": "local-preview",
+      "group": "Build applications"
+    },
+    {
+      "slug": "component-catalog",
+      "title": "Component catalog",
+      "source": "docs/component-catalog.md",
+      "lang": "en",
+      "key": "component-catalog",
+      "group": "Build applications"
+    },
+    {
+      "slug": "pattern-catalog",
+      "title": "Pattern catalog",
+      "source": "docs/pattern-catalog.md",
+      "lang": "en",
+      "key": "pattern-catalog",
+      "group": "Build applications"
+    },
+    {
+      "slug": "internet-template-sources",
+      "title": "Public APEXlang templates",
+      "source": "docs/internet-template-sources.md",
+      "lang": "en",
+      "key": "internet-template-sources",
+      "group": "Build applications"
+    },
+    {
+      "slug": "testing",
+      "title": "Testing",
+      "source": "docs/testing.md",
+      "lang": "en",
+      "key": "testing",
+      "group": "Build applications"
+    },
+    {
+      "slug": "troubleshooting",
+      "title": "Troubleshooting",
+      "source": "docs/troubleshooting.md",
+      "lang": "en",
+      "key": "troubleshooting",
+      "group": "Build applications"
+    },
+    {
+      "slug": "webapp",
+      "title": "Build a web application",
+      "source": "docs/webapp.md",
+      "lang": "en",
+      "key": "webapp",
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "apex-26.2",
+      "title": "APEX 26.2 partial imports",
+      "source": "docs/apex-26.2.md",
+      "lang": "en",
+      "key": "apex-26.2",
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "deployment",
+      "title": "Deployment safety",
+      "source": "docs/deployment-safety.md",
+      "lang": "en",
+      "key": "deployment",
+      "group": "Run and deploy"
     },
     {
       "slug": "clean-apex-deployment",
@@ -162,7 +146,39 @@
       "source": "docs/clean-apex-deployment.md",
       "lang": "en",
       "key": "clean-apex-deployment",
-      "group": "Application work"
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "configuration",
+      "title": "Configuration",
+      "source": "docs/configuration.md",
+      "lang": "en",
+      "key": "configuration",
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "ords",
+      "title": "SQL through ORDS",
+      "source": "docs/ords.md",
+      "lang": "en",
+      "key": "ords",
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "codex-cloud",
+      "title": "Codex Cloud",
+      "source": "docs/codex-cloud.md",
+      "lang": "en",
+      "key": "codex-cloud",
+      "group": "Run and deploy"
+    },
+    {
+      "slug": "status",
+      "title": "Development status",
+      "source": "docs/status.md",
+      "lang": "en",
+      "key": "status",
+      "group": "Run and deploy"
     },
     {
       "slug": "versions",
@@ -189,30 +205,6 @@
       "group": "Reference"
     },
     {
-      "slug": "component-catalog",
-      "title": "Component catalog",
-      "source": "docs/component-catalog.md",
-      "lang": "en",
-      "key": "component-catalog",
-      "group": "Reference"
-    },
-    {
-      "slug": "internet-template-sources",
-      "title": "Public APEXlang templates",
-      "source": "docs/internet-template-sources.md",
-      "lang": "en",
-      "key": "internet-template-sources",
-      "group": "Reference"
-    },
-    {
-      "slug": "pattern-catalog",
-      "title": "Pattern catalog",
-      "source": "docs/pattern-catalog.md",
-      "lang": "en",
-      "key": "pattern-catalog",
-      "group": "Reference"
-    },
-    {
       "slug": "composer",
       "title": "Composer (experimental)",
       "source": "docs/composer.md",
@@ -234,6 +226,14 @@
       "source": "docs/codex-automation.md",
       "lang": "en",
       "key": "codex-automation",
+      "group": "Reference"
+    },
+    {
+      "slug": "plugin-qualification-harness",
+      "title": "Plugin qualification harness",
+      "source": "docs/plugin-qualification-harness.md",
+      "lang": "en",
+      "key": "plugin-qualification-harness",
       "group": "Reference"
     },
     {

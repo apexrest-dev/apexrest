@@ -1,24 +1,19 @@
-# Features and videos
+# Features
 
-APEXREST is one Oracle APEX plugin for Codex and Claude Code. This page explains its main capabilities. The video series on YouTube shows each one with real screen captures and measured results.
+APEXREST is one Oracle APEX plugin for Codex and Claude Code. It helps an agent write APEXlang, see the result, run it and ship it. This page explains each capability, the command behind it and its limits.
 
-## Video series
-
-Watch the [Oracle APEX with AI agents](https://www.youtube.com/playlist?list=PLe3nsyhtHRGk) playlist in order. Each episode has English narration from a synthetic voice (Kokoro-82M) and English subtitles.
-
-| #   | Watch                                                                                                    | Episode                                                                                  | Length |
-| --- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------ |
-| 1   | [![Episode 1 thumbnail](https://i.ytimg.com/vi/JJNva5WGreA/mqdefault.jpg)](https://youtu.be/JJNva5WGreA) | [APEXlang: Oracle APEX as source code, and agent skills](https://youtu.be/JJNva5WGreA)   | 7:30   |
-| 2   | [![Episode 2 thumbnail](https://i.ytimg.com/vi/FXia3u3E5L0/mqdefault.jpg)](https://youtu.be/FXia3u3E5L0) | [The plugin for Codex and Claude Code](https://youtu.be/FXia3u3E5L0)                     | 8:49   |
-| 3   | [![Episode 3 thumbnail](https://i.ytimg.com/vi/lswZLhfpmH0/mqdefault.jpg)](https://youtu.be/lswZLhfpmH0) | [APEX component library: how the agent picks proven parts](https://youtu.be/lswZLhfpmH0) | 6:04   |
-| 4   | [![Episode 4 thumbnail](https://i.ytimg.com/vi/aGGKPqKG5kI/mqdefault.jpg)](https://youtu.be/aGGKPqKG5kI) | [The Decisions API: picking APEX page components faster](https://youtu.be/aGGKPqKG5kI)   | 7:38   |
-| 5   | [![Episode 5 thumbnail](https://i.ytimg.com/vi/l_JsL2q8ij4/mqdefault.jpg)](https://youtu.be/l_JsL2q8ij4) | [Run Oracle APEX locally, no database](https://youtu.be/l_JsL2q8ij4)                     | 8:12   |
-| 6   | [![Episode 6 thumbnail](https://i.ytimg.com/vi/WiudC_UkVQ8/mqdefault.jpg)](https://youtu.be/WiudC_UkVQ8) | [Local Oracle APEX with your real database backend](https://youtu.be/WiudC_UkVQ8)        | 8:46   |
-| 7   | [![Episode 7 thumbnail](https://i.ytimg.com/vi/zFN1-eS8BXo/mqdefault.jpg)](https://youtu.be/zFN1-eS8BXo) | [APEX live preview over WebSocket](https://youtu.be/zFN1-eS8BXo)                         | 8:13   |
+| You want to                                         | Feature                                                                                                                                |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Write correct APEXlang the first time               | [Component library](#component-library-read-before-writing), [Decisions selection](#decisions-api-choose-components-before-generating) |
+| See pages without a database                        | [Local preview](#local-preview-run-apexlang-without-a-database)                                                                        |
+| See pages with your real data and PL/SQL            | [Connected preview](#connected-preview-run-the-backend-in-your-database)                                                               |
+| Watch the page follow each edit                     | [Live preview](#live-preview-the-page-follows-the-agent)                                                                               |
+| Run the application without the APEX engine or ORDS | [Web application build](#build-a-web-application-apexlang-as-a-standalone-nodejs-app)                                                  |
+| Import only what changed                            | [Partial imports](#apex-262-import-only-what-changed)                                                                                  |
+| Deploy without surprises                            | [Safe deployment](#safe-deployment), [Oracle access](#oracle-access)                                                                   |
+| Know what the agent can call                        | [Work in one session](#work-in-one-session), [Tools](#tools), [Skills](#skills)                                                        |
 
 ## Component library: read before writing
-
-[Watch episode 3 on YouTube](https://youtu.be/lswZLhfpmH0)
 
 A single Metric Card page is 69 lines of nested APEXlang, and every guessed property costs another compile round. APEXREST gives the agent an offline library to read before it writes:
 
@@ -28,11 +23,7 @@ A single Metric Card page is 69 lines of nested APEXlang, and every guessed prop
 - **Retrieval.** `apexrest_reference` searches plain English or Ukrainian terms, ranks ready recipes first and returns the top hit's code. A change uses at most three lookups.
 - **Recipes as contracts.** Each recipe carries a data shape, adaptation rules, working APEXlang, and compiler evidence bound to file checksums.
 
-The episode shows real `docs search` and `docs read` results, the simple dashboard pattern adapted into a new page, an `LOV_NOT_FOUND` compiler diagnostic from a deliberate typo and the passing validation after the fix.
-
 ## Decisions API: choose components before generating
-
-[Watch episode 4 on YouTube](https://youtu.be/aGGKPqKG5kI)
 
 The optional [OpenAI Decisions selection](component-catalog.md#optional-openai-decisions-selection) runs through `apexrest_reference mode:select` and `apexrest docs select`. One bounded predicate batch ranks up to 64 compatible local catalog candidates. The host model then writes the page from the verified local contracts. When selection is disabled, search and read stay fully local.
 
@@ -47,9 +38,7 @@ This is a single-page pilot, not a general benchmark. The pilot page uses synthe
 
 ## Local preview: run APEXlang without a database
 
-[Watch episode 5 on YouTube](https://youtu.be/l_JsL2q8ij4)
-
-`apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an `.apx` edit on the next reload, before anything is compiled or imported. The episode tours a 22-page showcase application with one page per component family. `preview check` renders all 22 pages with 0 errors and 0 warnings.
+`apexrest preview` serves an APEXlang application from Node.js and SQLite on `127.0.0.1`. Pages render with the genuine Universal Theme 26.2 templates, CSS and JavaScript. You or the agent can open real pages, submit forms and see an `.apx` edit on the next reload, before anything is compiled or imported. On a 22-page showcase application with one page per component family, `preview check` renders all 22 pages with 0 errors and 0 warnings.
 
 ```sh
 apexrest preview setup                        # once: extracts the APEX 26.2 browser runtime and theme templates
@@ -79,8 +68,6 @@ The preview is a design aid, not Oracle evidence. Charts are SVG rather than Ora
 
 ## Connected preview: run the backend in your database
 
-[Watch episode 6 on YouTube](https://youtu.be/WiudC_UkVQ8)
-
 The local UI can run its backend in your own DEV, QA or TEST database. Add `--env` and the Node.js preview opens one session through your saved SQLcl connection.
 
 - **SQL.** Region, report, LOV and form SQL runs in Oracle as written, with page items as binds.
@@ -96,7 +83,7 @@ apexrest preview check --project /abs/app --env test   # every page against the 
 apexrest preview start --project /abs/app --env test   # local UI, data and PL/SQL in Oracle
 ```
 
-The episode shows an original stock-control application on a demo Oracle Autonomous Database:
+Measured on an original stock-control application on a demo Oracle Autonomous Database:
 
 - all 17 pages checked in 24 seconds with 0 errors;
 - a receipt posted through the project's package and then rolled back;
@@ -106,8 +93,6 @@ It is a verification aid, not import evidence. Read [Connected Oracle mode](loca
 
 ## Live preview: the page follows the agent
 
-[Watch episode 7 on YouTube](https://youtu.be/zFN1-eS8BXo)
-
 Every preview page keeps a WebSocket to the local server, so the agent sees its changes without navigating or reloading.
 
 - **Source edits.** Saving an `.apx` file reloads the open page, which takes about a quarter of a second on localhost. A typo shows its parse error, with file and line, on that page.
@@ -115,7 +100,7 @@ Every preview page keeps a WebSocket to the local server, so the agent sees its 
 - **Presence.** The toolbar shows who views the page, so the agent can work as its own user while you watch as yours.
 - **Safeguards.** Unsaved grid edits are never overwritten, forms only show a notice, refresh loops are blocked, and the socket stays on localhost.
 
-In the episode, captured from the generated showcase app, four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
+Measured on the generated showcase application: four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
 
 ## Build a web application: APEXlang as a standalone Node.js app
 

@@ -12,76 +12,84 @@
       "route": "/apexrest/features/"
     },
     {
-      "source": "docs/apex-design-race.md",
-      "route": "/apexrest/apex-design-race/"
-    },
-    {
       "source": "site/content/install.md",
       "route": "/apexrest/install/"
-    },
-    {
-      "source": "docs/index.md",
-      "route": "/apexrest/docs/"
     },
     {
       "source": "docs/getting-started.md",
       "route": "/apexrest/getting-started/"
     },
     {
-      "source": "docs/apex-26.2.md",
-      "route": "/apexrest/apex-26.2/"
+      "source": "docs/index.md",
+      "route": "/apexrest/docs/"
     },
     {
-      "source": "docs/codex-cloud.md",
-      "route": "/apexrest/codex-cloud/"
-    },
-    {
-      "source": "docs/existing-app.md",
-      "route": "/apexrest/existing-app/"
-    },
-    {
-      "source": "docs/configuration.md",
-      "route": "/apexrest/configuration/"
-    },
-    {
-      "source": "docs/deployment-safety.md",
-      "route": "/apexrest/deployment/"
-    },
-    {
-      "source": "docs/testing.md",
-      "route": "/apexrest/testing/"
-    },
-    {
-      "source": "docs/local-preview.md",
-      "route": "/apexrest/local-preview/"
-    },
-    {
-      "source": "docs/webapp.md",
-      "route": "/apexrest/webapp/"
-    },
-    {
-      "source": "docs/plugin-qualification-harness.md",
-      "route": "/apexrest/plugin-qualification-harness/"
-    },
-    {
-      "source": "docs/troubleshooting.md",
-      "route": "/apexrest/troubleshooting/"
+      "source": "docs/apex-design-race.md",
+      "route": "/apexrest/apex-design-race/"
     },
     {
       "source": "docs/chat-workflow.md",
       "route": "/apexrest/chat-workflow/"
     },
     {
-      "source": "docs/ords.md",
-      "route": "/apexrest/ords/"
+      "source": "docs/existing-app.md",
+      "route": "/apexrest/existing-app/"
     },
     {
-      "source": "docs/status.md",
-      "route": "/apexrest/status/"
+      "source": "docs/local-preview.md",
+      "route": "/apexrest/local-preview/"
+    },
+    {
+      "source": "docs/component-catalog.md",
+      "route": "/apexrest/component-catalog/"
+    },
+    {
+      "source": "docs/pattern-catalog.md",
+      "route": "/apexrest/pattern-catalog/"
+    },
+    {
+      "source": "docs/internet-template-sources.md",
+      "route": "/apexrest/internet-template-sources/"
+    },
+    {
+      "source": "docs/testing.md",
+      "route": "/apexrest/testing/"
+    },
+    {
+      "source": "docs/troubleshooting.md",
+      "route": "/apexrest/troubleshooting/"
+    },
+    {
+      "source": "docs/webapp.md",
+      "route": "/apexrest/webapp/"
+    },
+    {
+      "source": "docs/apex-26.2.md",
+      "route": "/apexrest/apex-26.2/"
+    },
+    {
+      "source": "docs/deployment-safety.md",
+      "route": "/apexrest/deployment/"
     },
     {
       "source": "docs/clean-apex-deployment.md",
       "route": "/apexrest/clean-apex-deployment/"
+    },
+    {
+      "source": "docs/configuration.md",
+      "route": "/apexrest/configuration/"
+    },
+    {
+      "source": "docs/ords.md",
+      "route": "/apexrest/ords/"
+    },
+    {
+      "source": "docs/codex-cloud.md",
+      "route": "/apexrest/codex-cloud/"
+    },
+    {
+      "source": "docs/status.md",
+      "route": "/apexrest/status/"
     },
     {
       "source": "site/content/versions.md",
@@ -96,18 +104,6 @@
       "route": "/apexrest/oracle-apexlang-coverage/"
     },
     {
-      "source": "docs/component-catalog.md",
-      "route": "/apexrest/component-catalog/"
-    },
-    {
-      "source": "docs/internet-template-sources.md",
-      "route": "/apexrest/internet-template-sources/"
-    },
-    {
-      "source": "docs/pattern-catalog.md",
-      "route": "/apexrest/pattern-catalog/"
-    },
-    {
       "source": "docs/composer.md",
       "route": "/apexrest/composer/"
     },
@@ -118,6 +114,10 @@
     {
       "source": "docs/codex-automation.md",
       "route": "/apexrest/codex-automation/"
+    },
+    {
+      "source": "docs/plugin-qualification-harness.md",
+      "route": "/apexrest/plugin-qualification-harness/"
     },
     {
       "source": "site/content/releases.md",
