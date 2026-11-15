@@ -20,6 +20,8 @@ import type { ProcessRequest, ProcessResult } from './process.ts';
 import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
 import { runPooledSqlcl } from './sqlcl-session.ts';
+import { currentReadScope } from './sqlcl-read-scope.ts';
+import { WarmImportServer, warmImportDisabled } from './sqlcl-warm.ts';
 import { runOrdsBridge, type OrdsBridgeJob } from './ords.ts';
 import {
   evaluatePartialImportCompatibility,
@@ -94,6 +96,7 @@ export interface SqlclCapabilities {
 // launcher, the compiler libraries and the Java runtime; every adapter in the
 // process shares it, so an import after a validate never re-probes.
 const capabilityCache = new Map<string, Promise<SqlclCapabilities>>();
+const CAPABILITY_CACHE_MS = 24 * 60 * 60 * 1000;
 const importHelpCache = new Map<string, Promise<string>>();
 export function resetCapabilityCache() {
   capabilityCache.clear();
@@ -289,6 +292,7 @@ export class OracleAdapter {
     restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
     isolated = false,
     label: SqlclLabel = 'session',
+    warm?: WarmImportServer,
   ) {
     if (restrictLevel && (await this.settings()).mode === 'mcp')
       throw new Fault(
@@ -309,6 +313,7 @@ export class OracleAdapter {
         restrictLevel,
         isolated,
         label,
+        warm,
       );
     } finally {
       if (!cwd) await this.discardStage(work);
@@ -324,6 +329,7 @@ export class OracleAdapter {
     restrictLevel: typeof SCRIPT_RESTRICT_LEVEL | undefined,
     isolated: boolean,
     label: SqlclLabel,
+    warm?: WarmImportServer,
   ) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
@@ -380,16 +386,42 @@ export class OracleAdapter {
     // every batch through the session pool, but a connected batch releases its
     // server afterwards (sqlcl-session.ts), so connected work is also one server
     // per call. Injected test runners keep the per-call path.
+    // Inside an operation's read scope (sqlcl-read-scope.ts) a read-only batch on a
+    // saved connection also uses a server, kept for the next read of that operation.
+    // Writes and restricted scripts never run on it.
+    const readScope =
+      !mutation && !restrictLevel && !isolated && selected?.name && !selected.ords
+        ? currentReadScope()
+        : undefined;
     const pooled =
       !isolated &&
       (settings.mode === 'mcp'
         ? this.mcpRunner === runSqlclMcp
-        : this.runner === runProcess && !selected && settings.databaseTransport !== 'ords');
-    const viaServer = settings.mode === 'mcp' || pooled;
+        : this.runner === runProcess && (!selected || !!readScope) && settings.databaseTransport !== 'ords');
+    let viaServer = settings.mode === 'mcp' || pooled;
     const executionStarted = performance.now();
-    let raw: ProcessResult;
+    let raw: ProcessResult | undefined;
     try {
-      raw = viaServer
+      // A prepared import server (sqlcl-warm.ts) runs the one write it was started for.
+      // It keeps the import process's fail-stop preamble: on an error SQLcl rolls back
+      // and stops the batch, so the COMMIT and the completion marker are reached only
+      // after a successful import (the process's final EXIT committed the same way).
+      if (warm && mutation && !viaServer && selected?.name && !selected.ords) {
+        raw = await warm.run({
+          input:
+            preamble +
+            'set serveroutput off\nset sqlformat default\n' +
+            input +
+            `\ncommit;\nprompt\nprompt ${marker}\n`,
+          timeoutMs: SQLCL_WRITE_TIMEOUT_MS,
+          ...(signal ? { signal } : {}),
+          onSqlclTiming: request.onSqlclTiming!,
+          connectionName: selected.name,
+          completionMarker: marker,
+        });
+        if (raw) viaServer = true;
+      }
+      raw ??= viaServer
         ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
             ...request,
             cwd: pooled ? await this.sessionHome() : work,
@@ -412,10 +444,13 @@ export class OracleAdapter {
               'set serveroutput off\nset sqlformat default\n' +
               input +
               (mutation ? '\ncommit;\n' : '\n') +
-              `prompt ${marker}\n`,
+              // SQLcl 26.3's JSON formatter can omit its final newline; an empty
+              // PROMPT keeps the completion marker on a line of its own.
+              `prompt\nprompt ${marker}\n`,
             mutation,
             completionMarker: marker,
             ...(selected?.name ? { connectionName: selected.name } : {}),
+            ...(readScope && pooled ? { readScope } : {}),
           })
         : await this.runner(request);
     } finally {
@@ -544,6 +579,56 @@ export class OracleAdapter {
       return;
     }
   }
+  /**
+   * Capabilities of an unchanged SQLcl installation, kept across processes. Each
+   * deployment worker is a new process and would otherwise start two SQLcl JVMs
+   * (`-version`, `help apex`) before its first read. The key covers the launcher,
+   * the compiler libraries and the settings, so a changed installation probes
+   * again; entries expire after a day. Injected test runners never use it.
+   */
+  private async capabilityFile(key: string | undefined) {
+    if (
+      !key ||
+      this.runner !== runProcess ||
+      /^(?:0|false|off)$/i.test(process.env.APEXREST_CAPABILITY_CACHE ?? '')
+    )
+      return undefined;
+    return path.join(managedHome(), 'cache', 'sqlcl-capabilities', key + '.json');
+  }
+  private async storedCapabilities(key: string | undefined): Promise<SqlclCapabilities | undefined> {
+    const file = await this.capabilityFile(key);
+    if (!file) return undefined;
+    try {
+      const stored = (await readJson(file)) as { savedAt?: number; capabilities?: SqlclCapabilities };
+      const value = stored.capabilities;
+      if (
+        typeof stored.savedAt !== 'number' ||
+        Date.now() - stored.savedAt > CAPABILITY_CACHE_MS ||
+        stored.savedAt > Date.now() ||
+        !value ||
+        typeof value.version !== 'string' ||
+        typeof value.help !== 'string' ||
+        value.helpHash !== hash(value.help) ||
+        typeof value.commands !== 'object'
+      )
+        return undefined;
+      return value;
+    } catch {
+      return undefined;
+    }
+  }
+  private async storeCapabilities(key: string | undefined, capabilities: SqlclCapabilities) {
+    const file = await this.capabilityFile(key);
+    // Saving is an optimization only; the probed answer is returned either way.
+    if (file && capabilities.version && key === (await this.capabilityKey(await this.settings())))
+      try {
+        await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+        await writeJson(file, { savedAt: Date.now(), capabilities });
+      } catch {
+        /* A read-only managed home keeps probing. */
+      }
+    return capabilities;
+  }
   private async probeCapabilities(
     settings: Awaited<ReturnType<OracleAdapter['settings']>>,
     key: string | undefined,
@@ -592,7 +677,11 @@ export class OracleAdapter {
     if (!pending) {
       // The shared probe runs without any caller's cancellation: one cancelled
       // caller must never cancel an unrelated caller's capability check.
-      pending = this.probeCapabilities(settings, key);
+      pending = this.storedCapabilities(key).then(
+        (stored) =>
+          stored ??
+          this.probeCapabilities(settings, key).then((probed) => this.storeCapabilities(key, probed)),
+      );
       if (key) {
         capabilityCache.set(key, pending);
         pending.catch(() => {
@@ -1396,6 +1485,55 @@ export class OracleAdapter {
       await this.discardStage(path.dirname(config));
     }
   }
+  private warmImport: { source: string; server: WarmImportServer } | undefined;
+  /**
+   * Start loading the APEXlang compiler for a full import of `source` that this
+   * deployment is about to run (sqlcl-warm.ts). Returns nothing when the transport
+   * is not a saved SQLcl connection in CLI mode; the import then runs as before.
+   * The caller closes the returned handle when the deployment ends.
+   */
+  async prepareImport(source: string, connection: Connection) {
+    if (warmImportDisabled() || this.runner !== runProcess || this.warmImport) return undefined;
+    const settings = await this.settings();
+    if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct') return undefined;
+    const selected = await this.selectedConnection(connection);
+    if (!selected?.name || selected.ords) return undefined;
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      SQLPATH: '',
+      ORACLE_PATH: '',
+      TNS_ADMIN: process.env.TNS_ADMIN,
+      JAVA_HOME: settings.javaHome,
+    };
+    delete env.NODE_OPTIONS;
+    delete env.JAVA_TOOL_OPTIONS;
+    delete env._JAVA_OPTIONS;
+    delete env.JDK_JAVA_OPTIONS;
+    // The compiler loads while the target is exported; keep that background work
+    // from taking the cores the export needs. The import itself is short.
+    env.JAVA_TOOL_OPTIONS = '-XX:ActiveProcessorCount=2';
+    const server = new WarmImportServer({
+      executable: settings.executable,
+      cwd: await this.sessionHome(),
+      env,
+      restrictLevel: SCRIPT_RESTRICT_LEVEL,
+      warmup: `apex validate -input ${sqlclToken(source)}`,
+    });
+    const entry = { source: path.resolve(source), server };
+    this.warmImport = entry;
+    return {
+      close: async () => {
+        if (this.warmImport === entry) this.warmImport = undefined;
+        await server.close();
+      },
+    };
+  }
+  /** The prepared server serves one import, of any frozen copy of the application it was started for. */
+  private takeWarmImport(_source: string) {
+    const entry = this.warmImport;
+    this.warmImport = undefined;
+    return entry?.server;
+  }
   private async importWith(
     env: Environment,
     connection: Connection,
@@ -1432,6 +1570,7 @@ export class OracleAdapter {
         SCRIPT_RESTRICT_LEVEL,
         false,
         'import',
+        selectedFiles ? undefined : this.takeWarmImport(source),
       );
     } catch (error) {
       // Compiler output arrives as text with exit code 0; keep the fault, add structure.

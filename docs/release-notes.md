@@ -1,10 +1,15 @@
 # Current release notes
 
-## Source bundle 2.6.0
+## Source bundle 2.7.0
 
 The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports and [APEX 26.2 partial imports](apex-26.2.md), pinned release profiles, advisory scanner/upgrade diagnostics and read-only capability checks. Use the repository installation for this source version; registry packages are a separate distribution path.
 
 Application verification uses the host in-app browser. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift and readback protections remain in the deployment path. Full imports can end the interactive session; sign in again in the host browser when needed.
+
+## Changes in 2.7.0
+
+- Deployment of a changed application takes about half the time: the reads of a plan or apply share one connected SQLcl server, a full import runs on a restricted server that already loaded the compiler, and SQLcl capabilities are kept across processes. Measured on a local APEX 26.2 database: 23.8 s instead of 51.4 s to validate and ship one added page. The checks, the backup and the outcome classification are unchanged; three [environment switches](configuration.md#runtime-configuration) restore the previous transport. Remote databases, Windows and SQLcl 26.1 are not yet qualified.
+- Align package, workspace and Codex/Claude Code source versions to 2.7.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
 
 ## Changes in 2.6.0
 

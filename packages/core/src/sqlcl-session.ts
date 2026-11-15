@@ -21,6 +21,13 @@ export interface SqlclSessionRequest extends SqlclMcpRequest {
   /** Sessions per key (default 1 for connected sessions, 2 for /nolog). */
   limit?: number;
   completionMarker?: string;
+  /**
+   * Operation scope that owns this connected server (see withConnectedReads in
+   * sqlcl-read-scope.ts). A scoped read-only batch leaves its server open for the
+   * next read of the same scope; without a scope a connected server is released
+   * after its batch.
+   */
+  readScope?: string;
 }
 class PooledSession {
   busy = true;
@@ -33,7 +40,9 @@ class PooledSession {
     request: SqlclSessionRequest,
   ) {
     this.client = new SqlclMcpClient(request);
+    this.readScope = request.readScope;
   }
+  readonly readScope: string | undefined;
   get alive() {
     return !this.dead && this.client.alive;
   }
@@ -59,6 +68,7 @@ export function sqlclSessionKey(request: SqlclSessionRequest) {
       args: request.args,
       connectionName: request.connectionName ?? null,
       cwd: request.cwd,
+      readScope: request.readScope ?? null,
     }),
   );
 }
@@ -204,8 +214,11 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
     // SET options, current schema) carries over between connected calls. Offline
     // servers stay in the pool. The idle probe in prepare() therefore applies only
     // when a connected server is handed to a waiter before this release.
+    // The exception is a read-only batch inside an operation's read scope: its
+    // server serves the next read of the same operation (the adapter resets the
+    // session state at the start of every batch) and is closed with the scope.
     if (
-      request.connectionName ||
+      (request.connectionName && !request.readScope) ||
       request.mutation ||
       result.isError ||
       /(?:ORA-|SP2-|PLS-)\d+/i.test(output) ||
@@ -249,6 +262,15 @@ export async function closeSqlclSessions() {
   pools.clear();
   await Promise.all(sessions.map((session) => session.client.close()));
   for (const session of sessions) session.kill();
+}
+/** Close the connected servers of one read scope; servers of other scopes and offline servers stay. */
+export async function closeSqlclReadScope(readScope: string) {
+  const owned = [...pools.values()].flatMap((p) => p.sessions).filter((s) => s.readScope === readScope);
+  for (const session of owned) {
+    // A busy server is discarded by its own release() once it is marked dead.
+    if (session.busy) session.kill();
+    else discard(session);
+  }
 }
 export function sqlclSessionStats() {
   return [...pools.entries()].map(([key, p]) => ({

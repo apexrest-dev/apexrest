@@ -1,5 +1,14 @@
 # Current changes
 
+## 2.7.0
+
+- Deploy a changed application in about half the time. On a local APEX 26.2 database with SQLcl 26.3, adding one page through `apexrest_apex_validate` and `apexrest_ship mode:apply` (full import) took 23.8 s instead of 51.4 s at 7-9 pages and 28.7 s instead of 56.6 s at 23-28 pages. The identity checks, the three exports, the backup, the SQLcl restriction level and the outcome classification are unchanged. See [architecture](docs/architecture.md#persistent-sqlcl-engine).
+  - The reads of one plan or one apply share one connected SQLcl server instead of starting a process each (`APEXREST_CONNECTED_READS=0` restores one process per read).
+  - A full APEXlang import runs on a restricted server (`-R 2 -mcp`) that loaded the compiler while the target was backed up; each start checks that SQLcl refuses `HOST` in server mode and otherwise the ordinary import process runs (`APEXREST_WARM_IMPORT=0` disables it).
+  - SQLcl capabilities are kept for one day in the managed home, so a deployment worker does not start two JVMs to read them (`APEXREST_CAPABILITY_CACHE=0` disables the file).
+- Keep the completion marker of a SQLcl server batch on its own line: SQLcl 26.3 can end JSON output without a newline.
+- Align package, workspace and Codex/Claude Code source versions to 2.7.0. Registry distribution and full native/Oracle qualification remain separate outcomes.
+
 ## 2.6.0
 
 - Report source the local preview never runs: `apexrest_preview` `start`, `check` and `status` return initialization JavaScript functions (`componentAdvanced` or `advanced.initJavaScriptFunction`, both accepted by the compiler and run by APEX) as `notAppliedLocally`; chart and calendar diagnostics for them are warnings, and a chart with one shows a visible note in the preview page. The work skill tells the agent to check such code in APEX.

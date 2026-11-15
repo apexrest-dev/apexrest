@@ -7,7 +7,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-KE5D4DRK.mjs";
+} from "./chunk-B3XQMZTL.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -57,8 +57,9 @@ import {
   stageSelection,
   supportedFile,
   syncPath,
-  targetIdentitySql
-} from "./chunk-PRQBG3KY.mjs";
+  targetIdentitySql,
+  withConnectedReads
+} from "./chunk-5MAXHXR5.mjs";
 import {
   environment,
   identifier,
@@ -10896,6 +10897,9 @@ var schemas = {
   "preview.start": external_exports.strictObject({
     ...previewSource,
     ...previewRun,
+    commit: external_exports.boolean().default(false).describe(
+      "With env, on a database on this computer only: commit each successful request instead of rolling it back (working mode)"
+    ),
     port: external_exports.number().int().min(0).max(65535).optional(),
     reset: external_exports.boolean().default(false),
     user: external_exports.string().min(1).max(128).optional(),
@@ -11019,6 +11023,7 @@ var schemas = {
     action: external_exports.enum(["setup", "start", "check", "stop", "status"]),
     sourceDir: external_exports.string().min(1).max(4096).optional(),
     env: env.optional(),
+    commit: external_exports.boolean().optional(),
     zip: external_exports.string().min(1).max(4096).optional(),
     port: external_exports.number().int().min(0).max(65535).optional(),
     reset: external_exports.boolean().optional(),
@@ -13713,7 +13718,11 @@ var DeploymentService = class {
   async releaseLease(env2, runId) {
     await new LocalDeploymentControl(env2).release(runId);
   }
+  /** Planning only reads the target: its reads share one connected SQLcl server. */
   async plan(ctx, name2, options = {}) {
+    return withConnectedReads(() => this.planObserved(ctx, name2, options));
+  }
+  async planObserved(ctx, name2, options = {}) {
     const configured = name2 ? ctx.config.environments[name2] : void 0;
     if (configured) await refuseProductionDeployment(configured, name2);
     if (typeof options === "boolean") return this.legacyPlan(ctx, name2, options);
@@ -14245,7 +14254,7 @@ var DeploymentService = class {
     else await control.assertOwner(runId);
   }
   async apply(ctx, value, signal, progress) {
-    return withSqlclTimings(() => this.applyObserved(ctx, value, signal, progress));
+    return withSqlclTimings(() => withConnectedReads(() => this.applyObserved(ctx, value, signal, progress)));
   }
   async applyObserved(ctx, value, signal, progress) {
     const applyTimingStart = sqlclTimings().length;
@@ -14280,6 +14289,29 @@ var DeploymentService = class {
     const fresh = plan.schemaVersion !== 1 && plan.backupStrategy === "fresh-export";
     const readConnection = await resolveConnection(env2.readConnectionRef), deployConnection = await resolveConnection(env2.deployConnectionRef);
     let working = await this.checkWorkingPlan(ctx, plan);
+    const syncStore = new SyncStore(ctx, env2, plan.environment);
+    const warmImport = !selection && !plan.restore && plan.scope !== "database-only" && this.oracle.prepareImport ? await this.oracle.prepareImport(await contained(ctx.root, ctx.config.application.sourceDir), deployConnection).catch(() => void 0) : void 0;
+    try {
+      return await this.applyPrepared(
+        ctx,
+        plan,
+        env2,
+        runId,
+        selection,
+        scoped,
+        fresh,
+        working,
+        signal,
+        progress,
+        applyTimingStart
+      );
+    } finally {
+      await warmImport?.close().catch(() => {
+      });
+    }
+  }
+  async applyPrepared(ctx, plan, env2, runId, selection, scoped, fresh, working, signal, progress, applyTimingStart) {
+    const readConnection = await resolveConnection(env2.readConnectionRef), deployConnection = await resolveConnection(env2.deployConnectionRef);
     const syncStore = new SyncStore(ctx, env2, plan.environment);
     const freshTarget = working && !selection && !fresh ? this.workingFingerprint(ctx, plan.environment, working) : this.fingerprint(env2, readConnection, scoped);
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
@@ -16115,7 +16147,7 @@ async function sharedOracle() {
   return new OracleAdapter();
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-WS22Y7YS.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-UCQNFK57.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -16265,7 +16297,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-K3O6TMAW.mjs");
+      const { previewDispatch } = await import("./chunk-7WTSFVMB.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16292,29 +16324,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-X4FXJTO5.mjs");
+        const { ToolchainService } = await import("./chunk-MYGLWUWF.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-7HNOHFUB.mjs");
+        const { uninstallTools } = await import("./chunk-LISS65ST.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-RMRKDHO7.mjs");
+        const { setup: setup2 } = await import("./chunk-4SW36ODO.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-RMRKDHO7.mjs");
+        const { validateNative } = await import("./chunk-4SW36ODO.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-RMRKDHO7.mjs");
+        const { uninstallNative } = await import("./chunk-4SW36ODO.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

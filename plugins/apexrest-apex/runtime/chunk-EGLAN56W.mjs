@@ -24,6 +24,7 @@ var PooledSession = class {
   constructor(key, request) {
     this.key = key;
     this.client = new SqlclMcpClient(request);
+    this.readScope = request.readScope;
   }
   key;
   busy = true;
@@ -31,6 +32,7 @@ var PooledSession = class {
   lastUsed = Date.now();
   idleTimer;
   client;
+  readScope;
   get alive() {
     return !this.dead && this.client.alive;
   }
@@ -50,7 +52,8 @@ function sqlclSessionKey(request) {
       javaHome: request.env?.JAVA_HOME ?? null,
       args: request.args,
       connectionName: request.connectionName ?? null,
-      cwd: request.cwd
+      cwd: request.cwd,
+      readScope: request.readScope ?? null
     })
   );
 }
@@ -185,7 +188,7 @@ async function runPooledSqlcl(request) {
     const result = await session.client.execute(request.input ?? "", options(), () => request.mutation);
     timing.executeMs = performance.now() - executeStarted;
     const output = session.client.text(result, request.mutation);
-    if (request.connectionName || request.mutation || result.isError || /(?:ORA-|SP2-|PLS-)\d+/i.test(output) || request.completionMarker && !output.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
+    if (request.connectionName && !request.readScope || request.mutation || result.isError || /(?:ORA-|SP2-|PLS-)\d+/i.test(output) || request.completionMarker && !output.split(/\r?\n/).some((line) => line.trim() === request.completionMarker))
       session.kill();
     return mcpResult(result, output);
   } catch (error) {
@@ -216,6 +219,13 @@ async function closeSqlclSessions() {
   await Promise.all(sessions.map((session) => session.client.close()));
   for (const session of sessions) session.kill();
 }
+async function closeSqlclReadScope(readScope) {
+  const owned = [...pools.values()].flatMap((p) => p.sessions).filter((s) => s.readScope === readScope);
+  for (const session of owned) {
+    if (session.busy) session.kill();
+    else discard(session);
+  }
+}
 function sqlclSessionStats() {
   return [...pools.entries()].map(([key, p]) => ({
     key,
@@ -231,5 +241,6 @@ export {
   sqlclSessionKey,
   runPooledSqlcl,
   closeSqlclSessions,
+  closeSqlclReadScope,
   sqlclSessionStats
 };

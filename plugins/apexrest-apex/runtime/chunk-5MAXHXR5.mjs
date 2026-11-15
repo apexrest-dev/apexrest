@@ -8,11 +8,18 @@ import {
   targetDigest
 } from "./chunk-PWI5SWBA.mjs";
 import {
+  closeSqlclReadScope,
   runPooledSqlcl
-} from "./chunk-ZA5GNFQJ.mjs";
+} from "./chunk-EGLAN56W.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
+  SqlclMcpClient,
+  emitSqlclTiming,
+  executionTiming,
+  mcpCallOptions,
+  mcpFailure,
+  mcpResult,
   recordSqlclTiming,
   recordStatementTimings,
   runProcess,
@@ -40,7 +47,7 @@ import {
 // plugins/metadata.json
 var metadata_default = {
   name: "apexrest-apex",
-  version: "2.6.0",
+  version: "2.7.0",
   description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
   author: {
     name: "APEXREST",
@@ -236,9 +243,9 @@ async function contractSkeleton(id) {
 }
 
 // packages/core/src/oracle.ts
-import { performance } from "node:perf_hooks";
+import { performance as performance2 } from "node:perf_hooks";
 import path12 from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomUUID as randomUUID2 } from "node:crypto";
 import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile6, readdir as readdir3, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
@@ -560,6 +567,118 @@ async function configureSqlcl(mode, level, transport) {
     return configuration;
   });
 }
+
+// packages/core/src/sqlcl-read-scope.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
+var storage = new AsyncLocalStorage();
+function connectedReadsDisabled() {
+  return /^(?:0|false|off)$/i.test(process.env.APEXREST_CONNECTED_READS ?? "");
+}
+async function withConnectedReads(action) {
+  if (storage.getStore() || connectedReadsDisabled()) return action();
+  const scope = { id: randomUUID() };
+  try {
+    return await storage.run(scope, action);
+  } finally {
+    await closeSqlclReadScope(scope.id);
+  }
+}
+function currentReadScope() {
+  return storage.getStore()?.id;
+}
+
+// packages/core/src/sqlcl-warm.ts
+import { performance } from "node:perf_hooks";
+var READY_TIMEOUT_MS = 6e4;
+var PROBE = "APEXREST_RESTRICT_PROBE";
+function warmImportDisabled() {
+  return /^(?:0|false|off)$/i.test(process.env.APEXREST_WARM_IMPORT ?? "");
+}
+var WarmImportServer = class {
+  constructor(request) {
+    this.request = request;
+    this.client = new SqlclMcpClient({
+      executable: request.executable,
+      args: ["-R", request.restrictLevel, "-mcp"],
+      cwd: request.cwd,
+      ...request.env ? { env: request.env } : {}
+    });
+    this.ready = this.prepare().catch(() => false);
+  }
+  request;
+  client;
+  started = performance.now();
+  ready;
+  taken = false;
+  closed = false;
+  warmMs;
+  async prepare() {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    const options = mcpCallOptions({ timeoutMs: READY_TIMEOUT_MS }, deadline);
+    await this.client.open(options());
+    const probe = this.client.text(await this.client.execute(`host echo ${PROBE}`, options, () => false));
+    if (!/SP2-0738/.test(probe) || probe.split(/\r?\n/).some((line) => line.trim() === PROBE)) return false;
+    await this.client.execute(this.request.warmup, options, () => false);
+    this.warmMs = performance.now() - this.started;
+    return this.client.alive && !this.closed;
+  }
+  /**
+   * Run the import batch. Resolves `undefined` when the server cannot be used and
+   * nothing was submitted (the caller then runs the ordinary process). After the
+   * batch is submitted every failure is reported like an interrupted import process.
+   */
+  async run(request) {
+    if (this.taken || this.closed) return void 0;
+    this.taken = true;
+    const started = performance.now();
+    const timing = executionTiming("mcp", true, true);
+    timing.reused = true;
+    let submitted = false;
+    let executeStarted;
+    const deadline = Date.now() + (request.timeoutMs ?? SQLCL_WRITE_TIMEOUT_MS);
+    const options = mcpCallOptions(request, deadline);
+    try {
+      if (!await this.ready || request.signal?.aborted) return void 0;
+      timing.queueMs = performance.now() - started;
+      const connectStarted = performance.now();
+      let connected;
+      try {
+        connected = await this.client.connect(request.connectionName, options);
+      } catch {
+        return void 0;
+      }
+      timing.connectMs = performance.now() - connectStarted;
+      if (connected.isError) return void 0;
+      submitted = true;
+      executeStarted = performance.now();
+      const result = await this.client.execute(request.input ?? "", options, () => true);
+      return mcpResult(result, this.client.text(result, true));
+    } catch (error) {
+      if (!submitted) return void 0;
+      const interrupted = request.signal?.aborted ? "cancelled" : Date.now() >= deadline ? "timedOut" : void 0;
+      if (interrupted)
+        return {
+          code: null,
+          stdout: "",
+          stderr: "",
+          timedOut: interrupted === "timedOut",
+          cancelled: interrupted === "cancelled",
+          truncated: false
+        };
+      throw mcpFailure(error, { ...this.request, args: [], mutation: true }, true);
+    } finally {
+      if (executeStarted !== void 0) timing.executeMs = performance.now() - executeStarted;
+      await this.close();
+      if (submitted) emitSqlclTiming(request.onSqlclTiming, timing, started);
+    }
+  }
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    await this.client.close();
+  }
+};
 
 // packages/core/src/ords.ts
 import path5 from "node:path";
@@ -1984,6 +2103,7 @@ function parseStatementMs(output) {
   return value;
 }
 var capabilityCache = /* @__PURE__ */ new Map();
+var CAPABILITY_CACHE_MS = 24 * 60 * 60 * 1e3;
 var importHelpCache = /* @__PURE__ */ new Map();
 function resetCapabilityCache() {
   capabilityCache.clear();
@@ -2136,7 +2256,7 @@ var OracleAdapter = class {
     }
     return selected;
   }
-  async session(input, connection, mutation = false, signal, cwd, format = "text", restrictLevel, isolated = false, label = "session") {
+  async session(input, connection, mutation = false, signal, cwd, format = "text", restrictLevel, isolated = false, label = "session", warm) {
     if (restrictLevel && (await this.settings()).mode === "mcp")
       throw new Fault(
         "SQLCL_MCP_SCRIPT_RESTRICT_UNAVAILABLE",
@@ -2155,13 +2275,14 @@ var OracleAdapter = class {
         format,
         restrictLevel,
         isolated,
-        label
+        label,
+        warm
       );
     } finally {
       if (!cwd) await this.discardStage(work);
     }
   }
-  async sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated, label) {
+  async sessionIn(work, input, connection, mutation, signal, format, restrictLevel, isolated, label, warm) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
     const selected = connection ? await this.selectedConnection(connection) : void 0;
@@ -2186,7 +2307,7 @@ var OracleAdapter = class {
     const connect = selected?.ords ? `set history filter default connect
 connect -orest -user "${selected.ords.username}" -password "${selected.ords.password}" -url "${selected.ords.url}"
 ` : "";
-    const marker = `APEXREST_COMPLETE_${randomUUID().replaceAll("-", "")}`;
+    const marker = `APEXREST_COMPLETE_${randomUUID2().replaceAll("-", "")}`;
     let timingRecorded = false;
     const request = {
       mutation,
@@ -2203,12 +2324,28 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       timeoutMs: mutation ? SQLCL_WRITE_TIMEOUT_MS : SQLCL_READ_TIMEOUT_MS,
       ...signal ? { signal } : {}
     };
-    const pooled = !isolated && (settings.mode === "mcp" ? this.mcpRunner === runSqlclMcp : this.runner === runProcess && !selected && settings.databaseTransport !== "ords");
-    const viaServer = settings.mode === "mcp" || pooled;
-    const executionStarted = performance.now();
+    const readScope = !mutation && !restrictLevel && !isolated && selected?.name && !selected.ords ? currentReadScope() : void 0;
+    const pooled = !isolated && (settings.mode === "mcp" ? this.mcpRunner === runSqlclMcp : this.runner === runProcess && (!selected || !!readScope) && settings.databaseTransport !== "ords");
+    let viaServer = settings.mode === "mcp" || pooled;
+    const executionStarted = performance2.now();
     let raw;
     try {
-      raw = viaServer ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
+      if (warm && mutation && !viaServer && selected?.name && !selected.ords) {
+        raw = await warm.run({
+          input: preamble + "set serveroutput off\nset sqlformat default\n" + input + `
+commit;
+prompt
+prompt ${marker}
+`,
+          timeoutMs: SQLCL_WRITE_TIMEOUT_MS,
+          ...signal ? { signal } : {},
+          onSqlclTiming: request.onSqlclTiming,
+          connectionName: selected.name,
+          completionMarker: marker
+        });
+        if (raw) viaServer = true;
+      }
+      raw ??= viaServer ? await (pooled ? runPooledSqlcl : this.mcpRunner)({
         ...request,
         cwd: pooled ? await this.sessionHome() : work,
         // Let SQLcl apply its MCP default. In 26.1, explicit -R 4
@@ -2217,15 +2354,19 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
         // CLI's final EXIT commits on success. Preserve that transaction
         // boundary before acknowledging a write over a persistent session.
         input: (settings.mode === "cli" ? preamble.replace(/exit failure rollback/g, "continue") : preamble) + // Persistent servers keep SET state between batches; start neutral.
-        (selected?.name ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n" : "") + "set serveroutput off\nset sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + `prompt ${marker}
+        (selected?.name ? "rollback;\nbegin dbms_session.reset_package; execute immediate 'alter session set current_schema = ' || dbms_assert.enquote_name(sys_context('USERENV', 'SESSION_USER'), false); end;\n/\n" : "") + "set serveroutput off\nset sqlformat default\n" + input + (mutation ? "\ncommit;\n" : "\n") + // SQLcl 26.3's JSON formatter can omit its final newline; an empty
+        // PROMPT keeps the completion marker on a line of its own.
+        `prompt
+prompt ${marker}
 `,
         mutation,
         completionMarker: marker,
-        ...selected?.name ? { connectionName: selected.name } : {}
+        ...selected?.name ? { connectionName: selected.name } : {},
+        ...readScope && pooled ? { readScope } : {}
       }) : await this.runner(request);
     } finally {
       if (!timingRecorded) {
-        const elapsed = performance.now() - executionStarted;
+        const elapsed = performance2.now() - executionStarted;
         recordSqlclTiming(label, {
           queueMs: 0,
           spawnMs: null,
@@ -2339,6 +2480,41 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
       return;
     }
   }
+  /**
+   * Capabilities of an unchanged SQLcl installation, kept across processes. Each
+   * deployment worker is a new process and would otherwise start two SQLcl JVMs
+   * (`-version`, `help apex`) before its first read. The key covers the launcher,
+   * the compiler libraries and the settings, so a changed installation probes
+   * again; entries expire after a day. Injected test runners never use it.
+   */
+  async capabilityFile(key) {
+    if (!key || this.runner !== runProcess || /^(?:0|false|off)$/i.test(process.env.APEXREST_CAPABILITY_CACHE ?? ""))
+      return void 0;
+    return path12.join(managedHome(), "cache", "sqlcl-capabilities", key + ".json");
+  }
+  async storedCapabilities(key) {
+    const file = await this.capabilityFile(key);
+    if (!file) return void 0;
+    try {
+      const stored = await readJson(file);
+      const value = stored.capabilities;
+      if (typeof stored.savedAt !== "number" || Date.now() - stored.savedAt > CAPABILITY_CACHE_MS || stored.savedAt > Date.now() || !value || typeof value.version !== "string" || typeof value.help !== "string" || value.helpHash !== hash(value.help) || typeof value.commands !== "object")
+        return void 0;
+      return value;
+    } catch {
+      return void 0;
+    }
+  }
+  async storeCapabilities(key, capabilities) {
+    const file = await this.capabilityFile(key);
+    if (file && capabilities.version && key === await this.capabilityKey(await this.settings()))
+      try {
+        await mkdir4(path12.dirname(file), { recursive: true, mode: 448 });
+        await writeJson(file, { savedAt: Date.now(), capabilities });
+      } catch {
+      }
+    return capabilities;
+  }
   async probeCapabilities(settings, key) {
     const versionStage = await this.stage();
     let version;
@@ -2379,7 +2555,9 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     const key = await this.capabilityKey(settings);
     let pending = key ? capabilityCache.get(key) : void 0;
     if (!pending) {
-      pending = this.probeCapabilities(settings, key);
+      pending = this.storedCapabilities(key).then(
+        (stored) => stored ?? this.probeCapabilities(settings, key).then((probed) => this.storeCapabilities(key, probed))
+      );
       if (key) {
         capabilityCache.set(key, pending);
         pending.catch(() => {
@@ -2756,7 +2934,7 @@ connect -orest -user "${selected.ords.username}" -password "${selected.ords.pass
     );
   }
   async savedConnections(signal) {
-    const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll("-", "")}`;
+    const marker = `APEXREST_CONNECTIONS_${randomUUID2().replaceAll("-", "")}`;
     const result = await this.session(
       `prompt ${marker}_BEGIN
 connmgr list -flat
@@ -2836,7 +3014,7 @@ ${sql};`,
   async jsonQueryBatch(queries, connection, signal, label = "metadata-batch", debugTimings = false) {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === "ords";
-    const token = `APEXREST_ROWS_${randomUUID().replaceAll("-", "")}`;
+    const token = `APEXREST_ROWS_${randomUUID2().replaceAll("-", "")}`;
     const input = queries.map(
       (query, index) => `${this.bindPreamble(query.bindings ?? {}, ords)}
 set sqlformat json
@@ -3068,6 +3246,53 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
       await this.discardStage(path12.dirname(config));
     }
   }
+  warmImport;
+  /**
+   * Start loading the APEXlang compiler for a full import of `source` that this
+   * deployment is about to run (sqlcl-warm.ts). Returns nothing when the transport
+   * is not a saved SQLcl connection in CLI mode; the import then runs as before.
+   * The caller closes the returned handle when the deployment ends.
+   */
+  async prepareImport(source, connection) {
+    if (warmImportDisabled() || this.runner !== runProcess || this.warmImport) return void 0;
+    const settings = await this.settings();
+    if (settings.mode !== "cli" || (settings.databaseTransport ?? "direct") !== "direct") return void 0;
+    const selected = await this.selectedConnection(connection);
+    if (!selected?.name || selected.ords) return void 0;
+    const env = {
+      ...process.env,
+      SQLPATH: "",
+      ORACLE_PATH: "",
+      TNS_ADMIN: process.env.TNS_ADMIN,
+      JAVA_HOME: settings.javaHome
+    };
+    delete env.NODE_OPTIONS;
+    delete env.JAVA_TOOL_OPTIONS;
+    delete env._JAVA_OPTIONS;
+    delete env.JDK_JAVA_OPTIONS;
+    env.JAVA_TOOL_OPTIONS = "-XX:ActiveProcessorCount=2";
+    const server = new WarmImportServer({
+      executable: settings.executable,
+      cwd: await this.sessionHome(),
+      env,
+      restrictLevel: SCRIPT_RESTRICT_LEVEL,
+      warmup: `apex validate -input ${sqlclToken(source)}`
+    });
+    const entry = { source: path12.resolve(source), server };
+    this.warmImport = entry;
+    return {
+      close: async () => {
+        if (this.warmImport === entry) this.warmImport = void 0;
+        await server.close();
+      }
+    };
+  }
+  /** The prepared server serves one import, of any frozen copy of the application it was started for. */
+  takeWarmImport(_source) {
+    const entry = this.warmImport;
+    this.warmImport = void 0;
+    return entry?.server;
+  }
   async importWith(env, connection, source, config, signal, selectedFiles) {
     if ((await this.settings()).databaseTransport === "ords") {
       await this.requireMutationSupport();
@@ -3096,7 +3321,8 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         "text",
         SCRIPT_RESTRICT_LEVEL,
         false,
-        "import"
+        "import",
+        selectedFiles ? void 0 : this.takeWarmImport(source)
       );
     } catch (error) {
       if (error instanceof Fault && error.code === "ORACLE_COMMAND_FAILED" && !error.details)
@@ -3501,6 +3727,7 @@ export {
   databaseTransport,
   sqlclConfig,
   configureSqlcl,
+  withConnectedReads,
   APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,

@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 
 // packages/core/src/preview/oracle/protocol.ts
 import { randomUUID } from "node:crypto";
-var INIT_SESSION = [
+var SESSION_SETTINGS = [
   "set define off",
   "set escape off",
   "set echo off",
@@ -12,12 +12,15 @@ var INIT_SESSION = [
   "set sqlblanklines on",
   "set exitcommit off",
   "set autocommit off",
-  "alter session disable commit in procedure;",
   "alter session set nls_date_format = 'YYYY-MM-DD HH24:MI:SS';",
   "alter session set nls_timestamp_format = 'YYYY-MM-DD HH24:MI:SS.FF';",
   "alter session set nls_numeric_characters = '.,';",
   "exec dbms_output.enable(null);"
-].join("\n");
+];
+function initSession(commit = false) {
+  return (commit ? SESSION_SETTINGS : [...SESSION_SETTINGS, "alter session disable commit in procedure;"]).join("\n");
+}
+var INIT_SESSION = initSession(false);
 var NAME = /^[A-Za-z][\w$#]{0,127}$/u;
 var RESULT_BIND = "APEXREST_RESULT";
 var ROWS_BIND = "APEXREST_ROWS";
@@ -223,7 +226,7 @@ function jsonRows(text) {
 }
 
 export {
-  INIT_SESSION,
+  initSession,
   RESULT_BIND,
   ROWS_BIND,
   ROWID_BIND,

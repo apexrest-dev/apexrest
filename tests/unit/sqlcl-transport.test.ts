@@ -87,7 +87,7 @@ test('adapter uses the selected MCP runner with exact names, safe environment an
     async (request) => {
       assert.deepEqual(request.args, ['-R', '1', '-mcp']);
       assert.match(request.input!, /whenever sqlerror exit failure rollback/);
-      assert.match(request.input!, /\ncommit;\nprompt APEXREST_COMPLETE_/);
+      assert.match(request.input!, /\ncommit;\nprompt\nprompt APEXREST_COMPLETE_/);
       return completed('partial');
     },
   );

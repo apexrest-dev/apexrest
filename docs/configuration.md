@@ -14,10 +14,10 @@ Optional `peerReview` enables cross-vendor review of saved ship plans: `mode` (`
 
 Claude Code and Codex can review each other's APEX changes. The host agent prepares a plan with `apexrest_ship mode:plan`, then calls `apexrest_peer_review action:review plan:<planPath>`. The runtime runs the other vendor's CLI in the project directory with the user's existing sign-in (ChatGPT or `OPENAI_API_KEY` for Codex; Claude subscription or `ANTHROPIC_API_KEY` for Claude Code). APEXREST never handles those credentials. On Windows the CLI is found on absolute `PATH` entries (never in the project folder): a native `codex.exe` or `claude.exe` runs directly, and an npm-installed `codex.cmd` or `claude.cmd` shim runs the Node script it points to, without cmd.exe. `APEXREST_CODEX_BIN` and `APEXREST_CLAUDE_BIN` override the CLI; a `.js`, `.mjs` or `.cjs` override runs through Node.
 
-| Host | Peer command (read-only) |
-| --- | --- |
-| Claude Code | `codex exec --sandbox read-only --ephemeral --output-schema …` |
-| Codex | `claude -p --restricted --tools Read,Grep,Glob --strict-mcp-config --json-schema …` |
+| Host        | Peer command (read-only)                                                            |
+| ----------- | ----------------------------------------------------------------------------------- |
+| Claude Code | `codex exec --sandbox read-only --ephemeral --output-schema …`                      |
+| Codex       | `claude -p --restricted --tools Read,Grep,Glob --strict-mcp-config --json-schema …` |
 
 `vendor: auto` picks the opposite of the detected host (`APEXREST_HOST`, then the MCP client name sent at initialization, then the host's own environment); pass `vendor` explicitly when detection is unavailable. The reviewer receives the plan preview, database operations and a bounded Git diff of the deployable sources and returns `approve` or `changes_requested` with findings. The verdict is written to `.apexrest/reviews/<planDigest>.json`.
 
@@ -111,5 +111,7 @@ When the user requests browser verification, use the built-in or user-selected b
 | `APEXREST_JAVA_HOME`  | Java runtime selected for SQLcl                                   |
 | `APEXREST_RESOURCES`  | Trusted host override for bundled resources                       |
 | `NODE_EXTRA_CA_CERTS` | Additional certificate authorities for Node connections           |
+
+Three switches turn off the deployment speed-ups described in [architecture](architecture.md#persistent-sqlcl-engine); each restores the previous behavior when set to `0`: `APEXREST_CONNECTED_READS` (one connected SQLcl server for the reads of a plan or apply), `APEXREST_WARM_IMPORT` (the prepared import server) and `APEXREST_CAPABILITY_CACHE` (the capability file in the managed home).
 
 These overrides belong to the trusted local host, not project-controlled inputs. The bootstrap supports Node 24 environment proxies through `--use-env-proxy`. Vendor downloads honor `HTTPS_PROXY`/`HTTP_PROXY` and `NO_PROXY` through Node's environment proxy support; when a proxy is configured but this Node cannot apply it, setup fails with `PROXY_UNSUPPORTED` instead of bypassing the proxy. Paths with spaces and Unicode are supported; quotes, substitutions and control characters in SQLcl tokens are rejected.

@@ -29,19 +29,19 @@ import {
   segments,
   selectBindsSegment,
   sqlText
-} from "./chunk-JUHM743I.mjs";
+} from "./chunk-N3KQBIVW.mjs";
 import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-PRQBG3KY.mjs";
+} from "./chunk-5MAXHXR5.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject,
   managedHome
 } from "./chunk-PWI5SWBA.mjs";
-import "./chunk-ZA5GNFQJ.mjs";
+import "./chunk-EGLAN56W.mjs";
 import "./chunk-H2VLYI5A.mjs";
 import "./chunk-A5P52BZT.mjs";
 import "./chunk-SBZ36R7Y.mjs";
@@ -2475,9 +2475,12 @@ var OracleAppData = class {
   #keys = /* @__PURE__ */ new Map();
   #dirty = false;
   #prefetched = false;
-  constructor(link, schema) {
+  /** Commit mode: endRequest(true) commits, and units that end the transaction are not errors. */
+  commit;
+  constructor(link, schema, options3 = {}) {
     this.link = link;
     this.schema = schema.toUpperCase();
+    this.commit = options3.commit === true;
   }
   /** Runs segments; the failing segment's error is returned, transport failures throw. */
   #run(parts, dirty = true) {
@@ -2663,6 +2666,7 @@ end;`
       );
     parts.push(plsqlSegment(DBMS_OUTPUT_BLOCK));
     if (call.htp) parts.push(plsqlSegment(HTP_READ_BLOCK));
+    if (call.apex && this.commit) parts.push(plsqlSegment("begin\n  apex_session.delete_session;\nend;"));
     const names = [...Object.keys(declared), TX_BEFORE, TX_AFTER].map(bindName);
     parts.push(selectBindsSegment(names));
     const { texts, errors } = this.#run(parts);
@@ -2672,7 +2676,7 @@ end;`
     if (read) throw read;
     const row = jsonRows(texts.at(-1)).rows[0] ?? {};
     const values = Object.fromEntries(names.map((name) => [name, text(row[name])]));
-    const ended = values[TX_BEFORE] !== values[TX_AFTER];
+    const ended = !this.commit && values[TX_BEFORE] !== values[TX_AFTER];
     delete values[TX_BEFORE];
     delete values[TX_AFTER];
     const error = ended ? new OracleError(
@@ -2687,7 +2691,6 @@ end;`
       htp: (values[HTP_BIND] ?? "").replace(/^(?:[\w-]+:[^\n]*\n)+\n/u, "")
     };
   }
-  /** Ends the preview request: everything it changed in Oracle is rolled back. */
   /**
    * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
    * once and a rollback fails with ORA-17274; the preview must then not run at all.
@@ -2698,10 +2701,14 @@ end;`
     if (errors[0]) throw errors[0];
     return true;
   }
-  endRequest() {
+  /**
+   * Ends the preview request. Its Oracle work is rolled back, unless the data is in commit mode
+   * and `succeeded` is true: then it is committed, as APEX commits a page request without errors.
+   */
+  endRequest(succeeded = false) {
     if (!this.#dirty) return;
     this.#dirty = false;
-    const { errors } = this.#run(["rollback;"], false);
+    const { errors } = this.#run([this.commit && succeeded ? "commit;" : "rollback;"], false);
     if (errors[0]) throw errors[0];
   }
   close() {
@@ -2864,7 +2871,8 @@ function savedConnectionProperties(name, home = os.homedir()) {
   }
   return void 0;
 }
-async function connectOracle(root, name, link) {
+async function connectOracle(root, name, link, options3 = {}) {
+  const commit = options3.commit === true;
   const ctx = await loadProject(root);
   const env = environment(ctx, name);
   if (await isProductionTarget(env))
@@ -2882,8 +2890,27 @@ async function connectOracle(root, name, link) {
       3,
       "blocked"
     );
-  const settings2 = await workerSettings(connection.name);
-  const data = new OracleAppData(link ? link(settings2) : new WorkerBridge({ settings: settings2 }), env.parsingSchema);
+  if (commit) {
+    let locality;
+    try {
+      locality = await (options3.locality ?? ((target2) => new OracleAdapter().connectionLocality(target2)))(
+        connection
+      );
+    } catch (error) {
+      locality = { local: false, evidence: `unconfirmed (${error.message})` };
+    }
+    if (!locality.local)
+      throw new Fault(
+        "PREVIEW_COMMIT_REMOTE_REFUSED",
+        `Commit mode writes application data permanently and runs only against a database on this computer; connection ${connection.name} of ${name} is not confirmed local (${locality.evidence}). Start the connected preview without commit; every request is then rolled back.`,
+        4,
+        "blocked"
+      );
+  }
+  const settings2 = { ...await workerSettings(connection.name), ...commit ? { commit } : {} };
+  const data = new OracleAppData(link ? link(settings2) : new WorkerBridge({ settings: settings2 }), env.parsingSchema, {
+    commit
+  });
   try {
     const rows = data.query(targetIdentitySql, {
       P_WORKSPACE: env.workspace,
@@ -2946,13 +2973,19 @@ async function connectOracle(root, name, link) {
       { APEXREST_OWNER: env.parsingSchema },
       200
     );
-    if (autonomous.rows.length)
+    if (commit)
       warnings.push(
-        `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(", ")}`
+        `Commit mode: every successful request is committed to ${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}; a failed request is rolled back`
       );
-    warnings.push(
-      "Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback"
-    );
+    else {
+      if (autonomous.rows.length)
+        warnings.push(
+          `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(", ")}`
+        );
+      warnings.push(
+        "Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback"
+      );
+    }
     warmUp(data, apex);
     data.endRequest();
     return {
@@ -2960,6 +2993,7 @@ async function connectOracle(root, name, link) {
       environment: name,
       target: `${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}`,
       ...apex ? { apex } : {},
+      ...commit ? { commit } : {},
       warnings
     };
   } catch (error) {
@@ -3457,8 +3491,12 @@ window.apexLocal = (function ($) {
   }
 
   function registerRegion(region) {
+    var element = document.getElementById(region.id);
+    // Grid regions get an Interactive Grid interface from the reports client; keep it.
+    if (element && element.querySelector("[data-apex-local-ig]") && apex.region.isRegion && apex.region.isRegion(region.id) &&
+        apex.region(region.id).type === "InteractiveGrid") return;
     if (apex.region.isRegion && apex.region.isRegion(region.id)) apex.region.destroy(region.id);
-    if (!document.getElementById(region.id)) return;
+    if (!element) return;
     apex.region.create(region.id, { type: "ApexLocal", refresh: function () { return replaceRegion(region.id); },
       // Target of the links of region errors in the page notification (interactive grid rows).
       gotoError: function () { var el = document.getElementById(region.id); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); } });
@@ -8818,7 +8856,7 @@ function sessionPanel(renderer, ctx) {
     ["View as", viewAsLabel(renderer, session.viewAs)],
     [
       "Data",
-      renderer.oracle ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) \xB7 every request rolled back` : "Local SQLite simulation"
+      renderer.oracle ? `Oracle ${renderer.oracle.environment} (${renderer.oracle.target}) \xB7 ${renderer.oracle.commit ? "commit mode: successful requests are committed" : "every request rolled back"}` : "Local SQLite simulation"
     ]
   ].map(([name, value2]) => `<tr><th scope="row">${name}</th><td>${escapeHtml(value2)}</td></tr>`).join("");
   const body4 = `<form class="apex-local-session" data-apex-local-session><table class="apex-local-table">${info}</table>
@@ -21202,14 +21240,70 @@ window.apexLocalReports = (function ($) {
       if (!result.ok) { showGridErrors(ig, result.errors || []); return; }
       apex.message.clearErrors();
       apex.message.showPageSuccess("Changes saved");
+      // As the Interactive Grid does; handlers often refresh the region (coalesced below).
+      ig.root$.trigger("interactivegridsave", {});
       return refreshGrid(ig.cfg.region, true);
     });
   }
 
+  // A refresh asked for while one is running joins it, so a save handler and the save itself
+  // do not replace the region twice at the same time.
+  var refreshing = {};
   function refreshGrid(region, withDetails) {
     var ig = grids[region];
-    return refresh(region).then(function () {
+    if (!refreshing[region]) {
+      refreshing[region] = refresh(region).then(
+        function () { delete refreshing[region]; },
+        function (error) { delete refreshing[region]; throw error; });
+    }
+    return refreshing[region].then(function () {
       if (withDetails && ig) return Promise.all(ig.cfg.details.map(function (detail) { return refresh(detail); }));
+    });
+  }
+
+  /**
+   * apex.region(id) of a grid region behaves like an Interactive Grid region: call("getViews"),
+   * call("getActions").invoke("save"), widget() with the interactivegridsave event, refresh().
+   */
+  function registerGridRegion(ig) {
+    var region = ig.cfg.region;
+    if (!document.getElementById(region)) return;
+    var model = function () { var m = apex.model.get(ig.cfg.modelName); apex.model.release(ig.cfg.modelName); return m; };
+    var view = {
+      internalIdentifier: "grid",
+      view$: ig.grid$,
+      get model() { return model(); },
+      getSelectedRecords: function () { return ig.grid$.grid("getSelectedRecords"); },
+      setSelectedRecords: function (records, focus) { return ig.grid$.grid("setSelectedRecords", records, focus); },
+      getRecords: function (rows) { return ig.grid$.grid("getRecords", rows); }
+    };
+    var actions = ig.actions || (ig.actions = apex.actions.createContext("apexLocalGrid", ig.root$[0]));
+    if (!actions.lookup("save")) actions.add({ name: "save", label: "Save", action: function () { saveGrid(ig); } });
+    if (!actions.lookup("refresh")) actions.add({ name: "refresh", label: "Refresh", action: function () { refreshGrid(region, true); } });
+    var methods = {
+      getViews: function (name) { var views = { grid: view }; return name ? views[name] : views; },
+      getCurrentView: function () { return view; },
+      getCurrentViewId: function () { return "grid"; },
+      getActions: function () { return actions; },
+      getToolbar: function () { return ig.toolbar$ || $(); },
+      getSelectedRecords: function () { return view.getSelectedRecords(); },
+      setSelectedRecords: function (records, focus) { return view.setSelectedRecords(records, focus); },
+      gotoCell: function (recordId, column) { return ig.grid$.grid("gotoCell", recordId, column); },
+      focus: function () { return ig.grid$.grid("focus"); },
+      refresh: function () { return refreshGrid(region, true); }
+    };
+    if (apex.region.isRegion && apex.region.isRegion(region)) apex.region.destroy(region);
+    apex.region.create(region, {
+      type: "InteractiveGrid",
+      refresh: function () { return refreshGrid(region, true); },
+      focus: function () { return methods.focus(); },
+      widget: function () { return ig.root$; },
+      call: function (method) {
+        var fn = methods[method];
+        if (!fn) throw new Error("Interactive Grid method " + method + " is not simulated by the local preview");
+        return fn.apply(null, Array.prototype.slice.call(arguments, 1));
+      },
+      gotoError: function () { var el = document.getElementById(region); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); }
     });
   }
 
@@ -21360,6 +21454,7 @@ window.apexLocalReports = (function ($) {
 
     buildToolbar(ig);
     buildControls(ig);
+    registerGridRegion(ig);
   }
 
 
@@ -23593,6 +23688,233 @@ td.num,th.num{text-align:right}thead{display:table-header-group}tr{break-inside:
 </style></head><body><p class="note"><strong>Local preview:</strong> PDF files are not generated without the database. This print-friendly page stands in for the PDF download; use your browser's Print \u2192 Save as PDF. <button type="button" onclick="window.print()">Print</button></p><h1>${escapeHtml(title)}</h1><table><thead><tr>${headings2.map((heading3, index) => `<th${align(index)}>${escapeHtml(heading3)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell, index) => `<td${align(index)}>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
 }
 
+// packages/core/src/preview/oracle/plsql.ts
+var shapes = /* @__PURE__ */ new Map();
+var BOOLEAN_RESULT = `:${RESULT_BIND} := case when l_result then 'Y' when not l_result then 'N' end;`;
+function oracleBlock(code, mode, shape) {
+  const body4 = code.trim().replace(/;\s*$/u, mode === "block" || mode === "functionBody" ? ";" : "");
+  switch (mode) {
+    case "block":
+      return `begin
+${body4}
+end;`;
+    case "functionBody":
+      return shape === "boolean" ? `declare
+  l_result boolean;
+  function apexrest_fn return boolean is
+  begin
+${body4}
+  end;
+begin
+  l_result := apexrest_fn;
+  ${BOOLEAN_RESULT}
+end;` : `declare
+  function apexrest_fn return varchar2 is
+  begin
+${body4}
+  end;
+begin
+  :${RESULT_BIND} := apexrest_fn;
+end;`;
+    case "plsqlExpression":
+      return shape === "boolean" ? `declare
+  l_result boolean;
+begin
+  l_result := (${body4});
+  ${BOOLEAN_RESULT}
+end;` : `begin
+  :${RESULT_BIND} := (${body4});
+end;`;
+    case "sqlExpression":
+      return shape === "boolean" ? `begin
+  select case when (${body4}) then 'Y' else 'N' end into :${RESULT_BIND} from dual;
+end;` : `begin
+  select (${body4}) into :${RESULT_BIND} from dual;
+end;`;
+  }
+}
+var QUOTE_CLOSE = { "[": "]", "{": "}", "(": ")", "<": ">" };
+var IDENTIFIER_CHAR = /[\p{L}\p{N}_$#]/u;
+function codeOutsideLiterals(code) {
+  let out = "";
+  let index = 0;
+  const blank = (end) => {
+    out += code.slice(index, end).replace(/[^\r\n]/gu, " ");
+    index = end;
+  };
+  while (index < code.length) {
+    const char = code[index];
+    const next = code[index + 1] ?? "";
+    if (char === "-" && next === "-") {
+      const match = /[\r\n]/u.exec(code.slice(index));
+      blank(match ? index + match.index : code.length);
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = code.indexOf("*/", index + 2);
+      if (end < 0) return void 0;
+      blank(end + 2);
+      continue;
+    }
+    const startsWord = index === 0 || !IDENTIFIER_CHAR.test(code[index - 1]);
+    const q = !startsWord ? -1 : /[qQ]/u.test(char) && next === "'" ? index : /[nN]/u.test(char) && /[qQ]/u.test(next) && code[index + 2] === "'" ? index + 1 : -1;
+    if (q >= 0) {
+      const open2 = code[q + 2];
+      if (open2 === void 0) return void 0;
+      const end = code.indexOf(`${QUOTE_CLOSE[open2] ?? open2}'`, q + 3);
+      if (end < 0) return void 0;
+      blank(end + 2);
+      continue;
+    }
+    if (char === "'") {
+      let end = index + 1;
+      for (; ; ) {
+        end = code.indexOf("'", end);
+        if (end < 0) return void 0;
+        if (code[end + 1] !== "'") break;
+        end += 2;
+      }
+      blank(end + 1);
+      continue;
+    }
+    if (char === '"') {
+      const end = code.indexOf('"', index + 1);
+      if (end < 0) return void 0;
+      blank(end + 1);
+      continue;
+    }
+    out += char;
+    index += 1;
+  }
+  return out;
+}
+function transactionRisk(code) {
+  const bare = codeOutsideLiterals(code);
+  if (bare === void 0) return "An unterminated string, quoted identifier or comment";
+  if (/\bcommit\b/iu.test(bare)) return "COMMIT";
+  if (/\brollback\b(?!\s+to\b)/iu.test(bare)) return "ROLLBACK";
+  if (/\bexecute\s+immediate\b/iu.test(bare)) return "EXECUTE IMMEDIATE";
+  if (/\bdbms_sql\s*\./iu.test(bare)) return "DBMS_SQL";
+  if (/\bpragma\s+autonomous_transaction\b/iu.test(bare)) return "PRAGMA AUTONOMOUS_TRANSACTION";
+  return void 0;
+}
+function apexPage(installed, page2) {
+  return installed.includes(page2) ? page2 : installed.find((id) => id > 0) ?? installed[0] ?? page2;
+}
+function wrongShape(error, mode) {
+  if (mode === "block") return false;
+  if (/PLS-00382|PLS-00306/u.test(error.message)) return true;
+  return mode === "sqlExpression" && /ORA-00(?:905|907|920|923|933|936)\b/u.test(error.message);
+}
+function failure(error) {
+  const first = error.message.split("\n")[0] ?? error.message;
+  if (error.code === -20997) return { message: error.message, kind: "engine" };
+  if (error.code === -34)
+    return {
+      message: `${first} (the connected preview disables COMMIT; every request is rolled back)`,
+      kind: "engine"
+    };
+  if (error.code <= -2e4 && error.code >= -20999) return { message: first, kind: "app" };
+  return { message: error.message, kind: "engine" };
+}
+function runOraclePlsql(renderer, ctx, oracle, code, mode, owner2) {
+  const result = { ok: true, value: null, output: "", errors: [] };
+  const risk = oracle.commit ? void 0 : transactionRisk(code);
+  if (risk) {
+    result.ok = false;
+    result.failure = {
+      message: `${risk} is not sent to Oracle by the connected preview because it could commit; the unit was skipped`,
+      kind: "unsupported"
+    };
+    return result;
+  }
+  const breakout = scriptLineRisk(code, "plsql");
+  if (breakout) {
+    result.ok = false;
+    result.failure = {
+      message: `Code with ${breakout} is not sent to Oracle by the connected preview because SQLcl would run what follows as separate commands; the unit was skipped`,
+      kind: "unsupported"
+    };
+    return result;
+  }
+  const builtins = renderer.builtin(ctx.session, ctx.page);
+  const all2 = {
+    ...renderer.binds(ctx.session, ctx.page),
+    REQUEST: ctx.request
+  };
+  const names = bindNames(code).map((name) => name.toUpperCase());
+  const binds = Object.fromEntries(
+    [...names, RESULT_BIND].map((name) => [name, all2[name] === "" ? null : all2[name] ?? null])
+  );
+  const apex = oracle.apex && !oracle.apexError ? oracle.apex : void 0;
+  const after = apex ? Object.fromEntries(
+    renderer.pageComponents(ctx, "pageItem").map((item2) => item2.id.toUpperCase()).filter((name) => apex.items.has(name) && !names.includes(name)).map((name) => [name, `v('${name}')`])
+  ) : {};
+  for (const name of Object.keys(after)) binds[name] = ctx.session.items[name] || null;
+  const key = `${mode}
+${code}`;
+  let shape = shapes.get(key) ?? "text";
+  try {
+    for (let attempt = 0; ; attempt += 1) {
+      let reply2;
+      try {
+        reply2 = oracle.data.plsql({
+          block: oracleBlock(code, mode, shape),
+          binds,
+          after,
+          apex: apex ? {
+            ...apex,
+            pageId: apexPage(apex.pages, Number(ctx.pageId)),
+            user: ctx.session.user || "APEXREST_PREVIEW"
+          } : void 0,
+          htp: mode === "block" || mode === "functionBody"
+        });
+      } catch (error) {
+        if (!apex || !(error instanceof OracleError) || error.code === -20989 || error.code === -20994 || error.code === -20995)
+          throw error;
+        oracle.apexError = error.message.split("\n")[0] ?? error.message;
+        renderer.diagnose(
+          "warning",
+          `Connected preview: APEX session context is unavailable (${oracle.apexError}); v() returns NULL in database code`
+        );
+        return runOraclePlsql(renderer, ctx, oracle, code, mode, owner2);
+      }
+      if (reply2.error && attempt === 0 && shape === "text" && wrongShape(reply2.error, mode)) {
+        shape = "boolean";
+        continue;
+      }
+      shapes.set(key, shape);
+      if (reply2.error?.code === -20997)
+        renderer.diagnose("error", `${owner2.label}: ${reply2.error.message}`, ctx.pageId, owner2.component);
+      if (reply2.output.trim())
+        renderer.diagnose(
+          "info",
+          `${owner2.label}: DBMS_OUTPUT ${reply2.output.trim().slice(0, 500)}`,
+          ctx.pageId,
+          owner2.component
+        );
+      result.output = renderer.localizeOracleHtml(reply2.htp);
+      if (reply2.error) {
+        result.ok = false;
+        result.failure = failure(reply2.error);
+        return result;
+      }
+      const value2 = reply2.values[RESULT_BIND] ?? null;
+      result.value = shape === "boolean" ? value2 === "Y" : value2;
+      for (const name of [...names, ...Object.keys(after)]) {
+        if (name in builtins || name === "REQUEST") continue;
+        const next = reply2.values[name] ?? "";
+        if (next !== (ctx.session.items[name] ?? "")) ctx.session.items[name] = next;
+      }
+      return result;
+    }
+  } catch (error) {
+    result.ok = false;
+    result.failure = error instanceof OracleError ? failure(error) : { message: error.message ?? String(error), kind: "engine" };
+    return result;
+  }
+}
+
 // packages/core/src/preview/extensions/server/rows.ts
 var ROW_STATUS = { insert: "C", update: "U", delete: "D" };
 function regionValidations(renderer, ctx, region) {
@@ -24142,11 +24464,57 @@ function rowProcess(renderer, ctx, region) {
     (process2) => str(process2.props, "type") === "interactiveGridAutoRowProcessing" && ref(process2.props, "editableRegion") === region.id
   );
 }
+var ROW_STATUS2 = { insert: "C", update: "U", delete: "D" };
+function applyGrid(renderer, ctx, region, process2, changes) {
+  if (str(process2.props, "target.targetType") !== "plsqlCode")
+    return saveGrid(renderer, ctx, region, changes);
+  const code = str(process2.props, "target.dmlPlsqlCode");
+  if (!code.trim()) return { ok: true, saved: 0, errors: [] };
+  const who = { label: `process ${process2.id}`, component: process2.id };
+  const items = ctx.session.items;
+  let saved = 0;
+  rememberRenderer(renderer);
+  renderer.data.execute("savepoint apex_local_ig");
+  for (const change of changes) {
+    const overlay = { APEX$ROW_STATUS: ROW_STATUS2[change.op] };
+    for (const [name, value2] of Object.entries(change.values)) overlay[name.toUpperCase()] = value2 ?? "";
+    const before = {};
+    for (const [name, value2] of Object.entries(overlay)) {
+      before[name] = Object.hasOwn(items, name) ? items[name] : void 0;
+      items[name] = value2;
+    }
+    let result;
+    try {
+      result = renderer.oracle ? runOraclePlsql(renderer, ctx, renderer.oracle, code, "block", who) : runPlsql(renderer, ctx, code, "block", who);
+    } finally {
+      for (const [name, value2] of Object.entries(before)) {
+        if (value2 === void 0) delete items[name];
+        else items[name] = value2;
+      }
+    }
+    if (!result.ok) {
+      renderer.data.execute("rollback to savepoint apex_local_ig");
+      renderer.data.execute("release savepoint apex_local_ig");
+      const message = (result.failure?.message ?? "PL/SQL failed").replace(/^ORA-20\d{3}:\s*/u, "");
+      renderer.diagnose(
+        result.failure?.kind === "app" ? "info" : "warning",
+        `${who.label}: row ${change.op} failed \u2014 ${message}`,
+        ctx.pageId,
+        process2.id
+      );
+      return { ok: false, saved: 0, errors: [{ ...change.id ? { id: change.id } : {}, message }] };
+    }
+    saved += 1;
+  }
+  renderer.data.execute("release savepoint apex_local_ig");
+  return { ok: true, saved, errors: [] };
+}
 function saveRoute(renderer, session, request) {
   const input = body(request);
   const found = target(renderer, session, text8(input.page), text8(input.region));
   if (typeof found === "string") return json4({ ok: false, errors: [{ message: found }] }, 404);
-  if (!rowProcess(renderer, found.ctx, found.region)) {
+  const process2 = rowProcess(renderer, found.ctx, found.region);
+  if (!process2) {
     renderer.diagnose(
       "warning",
       `Interactive Grid ${found.region.id} has no Interactive Grid - Automatic Row Processing (DML) process; changes are not saved`,
@@ -24166,7 +24534,7 @@ function saveRoute(renderer, session, request) {
   const changes = changesOf(input);
   const rowErrors = validateRows(renderer, found.ctx, found.region, changes);
   if (rowErrors.length) return json4({ ok: false, saved: 0, errors: rowErrors });
-  return json4(saveGrid(renderer, found.ctx, found.region, changes));
+  return json4(applyGrid(renderer, found.ctx, found.region, process2, changes));
 }
 function stageRoute(renderer, session, request) {
   const input = body(request);
@@ -24201,7 +24569,7 @@ registerExtension({
       const pending2 = state2?.pending;
       if (!state2 || !pending2?.changes.length) return { ran: true };
       state2.pending = void 0;
-      const result = saveGrid(renderer, ctx, region, pending2.changes);
+      const result = applyGrid(renderer, ctx, region, process2, pending2.changes);
       return result.ok ? { ran: true } : { ran: false, errors: pageErrors(region, result) };
     }
   },
@@ -24218,233 +24586,6 @@ ${REPORTS_CLIENT}
 apex.jQuery(function () { apexLocalReports.init(); });`,
   css: REPORTS_CSS
 });
-
-// packages/core/src/preview/oracle/plsql.ts
-var shapes = /* @__PURE__ */ new Map();
-var BOOLEAN_RESULT = `:${RESULT_BIND} := case when l_result then 'Y' when not l_result then 'N' end;`;
-function oracleBlock(code, mode, shape) {
-  const body4 = code.trim().replace(/;\s*$/u, mode === "block" || mode === "functionBody" ? ";" : "");
-  switch (mode) {
-    case "block":
-      return `begin
-${body4}
-end;`;
-    case "functionBody":
-      return shape === "boolean" ? `declare
-  l_result boolean;
-  function apexrest_fn return boolean is
-  begin
-${body4}
-  end;
-begin
-  l_result := apexrest_fn;
-  ${BOOLEAN_RESULT}
-end;` : `declare
-  function apexrest_fn return varchar2 is
-  begin
-${body4}
-  end;
-begin
-  :${RESULT_BIND} := apexrest_fn;
-end;`;
-    case "plsqlExpression":
-      return shape === "boolean" ? `declare
-  l_result boolean;
-begin
-  l_result := (${body4});
-  ${BOOLEAN_RESULT}
-end;` : `begin
-  :${RESULT_BIND} := (${body4});
-end;`;
-    case "sqlExpression":
-      return shape === "boolean" ? `begin
-  select case when (${body4}) then 'Y' else 'N' end into :${RESULT_BIND} from dual;
-end;` : `begin
-  select (${body4}) into :${RESULT_BIND} from dual;
-end;`;
-  }
-}
-var QUOTE_CLOSE = { "[": "]", "{": "}", "(": ")", "<": ">" };
-var IDENTIFIER_CHAR = /[\p{L}\p{N}_$#]/u;
-function codeOutsideLiterals(code) {
-  let out = "";
-  let index = 0;
-  const blank = (end) => {
-    out += code.slice(index, end).replace(/[^\r\n]/gu, " ");
-    index = end;
-  };
-  while (index < code.length) {
-    const char = code[index];
-    const next = code[index + 1] ?? "";
-    if (char === "-" && next === "-") {
-      const match = /[\r\n]/u.exec(code.slice(index));
-      blank(match ? index + match.index : code.length);
-      continue;
-    }
-    if (char === "/" && next === "*") {
-      const end = code.indexOf("*/", index + 2);
-      if (end < 0) return void 0;
-      blank(end + 2);
-      continue;
-    }
-    const startsWord = index === 0 || !IDENTIFIER_CHAR.test(code[index - 1]);
-    const q = !startsWord ? -1 : /[qQ]/u.test(char) && next === "'" ? index : /[nN]/u.test(char) && /[qQ]/u.test(next) && code[index + 2] === "'" ? index + 1 : -1;
-    if (q >= 0) {
-      const open2 = code[q + 2];
-      if (open2 === void 0) return void 0;
-      const end = code.indexOf(`${QUOTE_CLOSE[open2] ?? open2}'`, q + 3);
-      if (end < 0) return void 0;
-      blank(end + 2);
-      continue;
-    }
-    if (char === "'") {
-      let end = index + 1;
-      for (; ; ) {
-        end = code.indexOf("'", end);
-        if (end < 0) return void 0;
-        if (code[end + 1] !== "'") break;
-        end += 2;
-      }
-      blank(end + 1);
-      continue;
-    }
-    if (char === '"') {
-      const end = code.indexOf('"', index + 1);
-      if (end < 0) return void 0;
-      blank(end + 1);
-      continue;
-    }
-    out += char;
-    index += 1;
-  }
-  return out;
-}
-function transactionRisk(code) {
-  const bare = codeOutsideLiterals(code);
-  if (bare === void 0) return "An unterminated string, quoted identifier or comment";
-  if (/\bcommit\b/iu.test(bare)) return "COMMIT";
-  if (/\brollback\b(?!\s+to\b)/iu.test(bare)) return "ROLLBACK";
-  if (/\bexecute\s+immediate\b/iu.test(bare)) return "EXECUTE IMMEDIATE";
-  if (/\bdbms_sql\s*\./iu.test(bare)) return "DBMS_SQL";
-  if (/\bpragma\s+autonomous_transaction\b/iu.test(bare)) return "PRAGMA AUTONOMOUS_TRANSACTION";
-  return void 0;
-}
-function apexPage(installed, page2) {
-  return installed.includes(page2) ? page2 : installed.find((id) => id > 0) ?? installed[0] ?? page2;
-}
-function wrongShape(error, mode) {
-  if (mode === "block") return false;
-  if (/PLS-00382|PLS-00306/u.test(error.message)) return true;
-  return mode === "sqlExpression" && /ORA-00(?:905|907|920|923|933|936)\b/u.test(error.message);
-}
-function failure(error) {
-  const first = error.message.split("\n")[0] ?? error.message;
-  if (error.code === -20997) return { message: error.message, kind: "engine" };
-  if (error.code === -34)
-    return {
-      message: `${first} (the connected preview disables COMMIT; every request is rolled back)`,
-      kind: "engine"
-    };
-  if (error.code <= -2e4 && error.code >= -20999) return { message: first, kind: "app" };
-  return { message: error.message, kind: "engine" };
-}
-function runOraclePlsql(renderer, ctx, oracle, code, mode, owner2) {
-  const result = { ok: true, value: null, output: "", errors: [] };
-  const risk = transactionRisk(code);
-  if (risk) {
-    result.ok = false;
-    result.failure = {
-      message: `${risk} is not sent to Oracle by the connected preview because it could commit; the unit was skipped`,
-      kind: "unsupported"
-    };
-    return result;
-  }
-  const breakout = scriptLineRisk(code, "plsql");
-  if (breakout) {
-    result.ok = false;
-    result.failure = {
-      message: `Code with ${breakout} is not sent to Oracle by the connected preview because SQLcl would run what follows as separate commands; the unit was skipped`,
-      kind: "unsupported"
-    };
-    return result;
-  }
-  const builtins = renderer.builtin(ctx.session, ctx.page);
-  const all2 = {
-    ...renderer.binds(ctx.session, ctx.page),
-    REQUEST: ctx.request
-  };
-  const names = bindNames(code).map((name) => name.toUpperCase());
-  const binds = Object.fromEntries(
-    [...names, RESULT_BIND].map((name) => [name, all2[name] === "" ? null : all2[name] ?? null])
-  );
-  const apex = oracle.apex && !oracle.apexError ? oracle.apex : void 0;
-  const after = apex ? Object.fromEntries(
-    renderer.pageComponents(ctx, "pageItem").map((item2) => item2.id.toUpperCase()).filter((name) => apex.items.has(name) && !names.includes(name)).map((name) => [name, `v('${name}')`])
-  ) : {};
-  for (const name of Object.keys(after)) binds[name] = ctx.session.items[name] || null;
-  const key = `${mode}
-${code}`;
-  let shape = shapes.get(key) ?? "text";
-  try {
-    for (let attempt = 0; ; attempt += 1) {
-      let reply2;
-      try {
-        reply2 = oracle.data.plsql({
-          block: oracleBlock(code, mode, shape),
-          binds,
-          after,
-          apex: apex ? {
-            ...apex,
-            pageId: apexPage(apex.pages, Number(ctx.pageId)),
-            user: ctx.session.user || "APEXREST_PREVIEW"
-          } : void 0,
-          htp: mode === "block" || mode === "functionBody"
-        });
-      } catch (error) {
-        if (!apex || !(error instanceof OracleError) || error.code === -20989 || error.code === -20994 || error.code === -20995)
-          throw error;
-        oracle.apexError = error.message.split("\n")[0] ?? error.message;
-        renderer.diagnose(
-          "warning",
-          `Connected preview: APEX session context is unavailable (${oracle.apexError}); v() returns NULL in database code`
-        );
-        return runOraclePlsql(renderer, ctx, oracle, code, mode, owner2);
-      }
-      if (reply2.error && attempt === 0 && shape === "text" && wrongShape(reply2.error, mode)) {
-        shape = "boolean";
-        continue;
-      }
-      shapes.set(key, shape);
-      if (reply2.error?.code === -20997)
-        renderer.diagnose("error", `${owner2.label}: ${reply2.error.message}`, ctx.pageId, owner2.component);
-      if (reply2.output.trim())
-        renderer.diagnose(
-          "info",
-          `${owner2.label}: DBMS_OUTPUT ${reply2.output.trim().slice(0, 500)}`,
-          ctx.pageId,
-          owner2.component
-        );
-      result.output = reply2.htp;
-      if (reply2.error) {
-        result.ok = false;
-        result.failure = failure(reply2.error);
-        return result;
-      }
-      const value2 = reply2.values[RESULT_BIND] ?? null;
-      result.value = shape === "boolean" ? value2 === "Y" : value2;
-      for (const name of [...names, ...Object.keys(after)]) {
-        if (name in builtins || name === "REQUEST") continue;
-        const next = reply2.values[name] ?? "";
-        if (next !== (ctx.session.items[name] ?? "")) ctx.session.items[name] = next;
-      }
-      return result;
-    }
-  } catch (error) {
-    result.ok = false;
-    result.failure = error instanceof OracleError ? failure(error) : { message: error.message ?? String(error), kind: "engine" };
-    return result;
-  }
-}
 
 // packages/core/src/preview/extensions/server.ts
 var owner = (component) => ({
@@ -24630,7 +24771,7 @@ function dynamicContent(renderer, ctx, region) {
     const message = report(renderer, ctx, owner(region), result, "the region shows a placeholder");
     return `<div class="apex-local-unsupported"><span class="fa fa-info-circle" aria-hidden="true"></span> PL/SQL dynamic content \u201C${escapeHtml(str(region.props, "name", region.id))}\u201D could not run locally${message ? `: ${escapeHtml(message)}` : ""}.</div>`;
   }
-  return result.output + (body4 ? itemText(result.value) : "");
+  return renderer.localizeOracleHtml(result.output + (body4 ? itemText(result.value) : ""));
 }
 var sharedOf2 = (renderer, type) => [...renderer.app.shared, ...renderer.app.app.children].filter((component) => component.type === type);
 var startedSessions = /* @__PURE__ */ new WeakSet();
@@ -26853,13 +26994,48 @@ var ApexRenderer = class {
     const current3 = ref(this.app.app.props, "userInterface.currentTheme");
     return this.shared("theme", current3) ?? this.app.shared.find((component) => component.type === "theme");
   }
+  /** Folder of the current theme's own files (`#THEME_DB_IMAGES#`), next to its theme.apx. */
+  themeFilesDir() {
+    const theme = this.themeComponent();
+    return theme ? path12.join(path12.dirname(path12.resolve(this.app.root, theme.file)), "static-files") : void 0;
+  }
+  /**
+   * Theme styles the application offers, keyed by lower-case static ID: the theme's own `style`
+   * components (a subscribed style inherits its master's files; a Theme Roller style uses its
+   * `outputCssFileUrl`), or the built-in Universal Theme styles when the theme declares none.
+   */
+  themeStyles() {
+    const own = this.themeComponent()?.children.filter((child) => child.type === "style") ?? [];
+    if (!own.length) return this.theme.styles;
+    const styles = /* @__PURE__ */ new Map();
+    for (const style2 of own) {
+      const master = ref(style2.props, "subscription.master");
+      const base = master && this.theme.styles.get(master.toLowerCase()) || this.theme.styles.get(style2.id.toLowerCase());
+      const css = strings6(list(style2.props, "css.fileUrls"));
+      const output = str(style2.props, "themeRollerAttributes.outputCssFileUrl");
+      styles.set(style2.id.toLowerCase(), {
+        ...base,
+        static_id: style2.id,
+        name: str(style2.props, "name", text2(base, "name") || style2.id),
+        css_file_urls: css.length ? css.join("\n") : text2(base, "css_file_urls"),
+        theme_roller_output_file_url: output || text2(base, "theme_roller_output_file_url")
+      });
+      if (master && !styles.has(master.toLowerCase()))
+        styles.set(master.toLowerCase(), styles.get(style2.id.toLowerCase()));
+    }
+    return styles;
+  }
   // ---------------------------------------------------------------- substitutions
+  /** URL of the theme's own files, served from the theme's static-files folder. */
+  themeDbImages() {
+    return `${this.baseUrl}/files/theme/v1/`;
+  }
   filePrefix() {
     return `${IMAGE_PREFIX}themes/theme_42/${this.assets.manifest.apexVersion.split(".").slice(0, 2).join(".")}/`;
   }
   /** `#APEX_FILES#`-style prefixes used in file URLs and HTML. */
   urls(value2) {
-    return value2.replaceAll("#APEX_FILES#", IMAGE_PREFIX).replaceAll("#IMAGE_PREFIX#", IMAGE_PREFIX).replaceAll("#THEME_FILES#", this.filePrefix()).replaceAll("#THEME_IMAGES#", this.filePrefix()).replaceAll("#APP_FILES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#APP_IMAGES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#WORKSPACE_FILES#", `${this.baseUrl}/files/workspace/`).replaceAll("#WORKSPACE_IMAGES#", `${this.baseUrl}/files/workspace/`).replaceAll("#MIN_DIRECTORY#", "minified/").replaceAll("#MIN#", ".min").replaceAll("#APEX_VERSION#", APEX_FULL_VERSION).replaceAll("#APEX_BASE_VERSION#", APEX_FULL_VERSION.split(".").slice(0, 2).join(".")).replaceAll("#APP_VERSION#", "");
+    return value2.replaceAll("#APEX_FILES#", IMAGE_PREFIX).replaceAll("#IMAGE_PREFIX#", IMAGE_PREFIX).replaceAll("#THEME_FILES#", this.filePrefix()).replaceAll("#THEME_IMAGES#", this.filePrefix()).replaceAll("#THEME_DB_IMAGES#", this.themeDbImages()).replaceAll("#APP_FILES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#APP_IMAGES#", `${this.baseUrl}/files/static/v1/`).replaceAll("#WORKSPACE_FILES#", `${this.baseUrl}/files/workspace/`).replaceAll("#WORKSPACE_IMAGES#", `${this.baseUrl}/files/workspace/`).replaceAll("#MIN_DIRECTORY#", "minified/").replaceAll("#MIN#", ".min").replaceAll("#APEX_VERSION#", APEX_FULL_VERSION).replaceAll("#APEX_BASE_VERSION#", APEX_FULL_VERSION.split(".").slice(0, 2).join(".")).replaceAll("#APP_VERSION#", "");
   }
   builtin(session, page2) {
     const app = this.app.app.props;
@@ -26879,6 +27055,7 @@ var ApexRenderer = class {
       LOGOUT_URL: `${this.baseUrl}/__logout`,
       APP_IMAGES: `${this.baseUrl}/files/static/v1/`,
       APP_FILES: `${this.baseUrl}/files/static/v1/`,
+      THEME_DB_IMAGES: this.themeDbImages(),
       IMAGE_PREFIX,
       DEBUG: "NO",
       REQUEST: "",
@@ -28085,8 +28262,9 @@ var ApexRenderer = class {
     );
     const themeComponent = this.themeComponent();
     const styleId = (ctx.session.themeStyle ?? ref(themeComponent?.props ?? {}, "style.currentThemeStyle") ?? defaultStaticId(this.theme, "current_theme_style_id", "vita")).toLowerCase();
-    const style2 = this.theme.styles.get(styleId) ?? this.theme.styles.get("vita");
-    if (!this.theme.styles.has(styleId))
+    const themeStyles2 = this.themeStyles();
+    const style2 = themeStyles2.get(styleId) ?? this.theme.styles.get("vita");
+    if (!themeStyles2.has(styleId))
       this.diagnose("info", `Theme style ${styleId} not found; used Vita`, ctx.pageId);
     const css = [
       `${IMAGE_PREFIX}app_ui/css/Core.min.css?v=${APEX_FULL_VERSION}`,
@@ -28277,7 +28455,8 @@ ${onload2.join("\n")}
       (diagnostic) => `<li class="is-${diagnostic.level}"><span class="apex-local-level">${diagnostic.level}</span>${diagnostic.component ? `<code>${escapeHtml(diagnostic.component)}</code> ` : ""}${escapeHtml(diagnostic.message)}</li>`
     ).join("");
     const current3 = (ctx.session.themeStyle ?? "").toLowerCase();
-    const styles = [...this.theme.styles.entries()].map(
+    const ownStyles = this.themeComponent()?.children.filter((child) => child.type === "style") ?? [];
+    const styles = [...this.themeStyles().entries()].filter(([id, style2]) => !ownStyles.length || text2(style2, "static_id").toLowerCase() === id).map(
       ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text2(style2, "name") || id)}</option>`
     ).join("");
     const picker = `<label class="apex-local-style" title="Theme style"><span class="fa fa-paint-brush" aria-hidden="true"></span><span class="apex-local-tb-label">Theme style</span> <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
@@ -28845,40 +29024,25 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
       ctx.jsFiles.add(file);
     for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
-    const entries = listComponent.children.filter(
-      (child) => child.type === "entry" && this.visible(ctx, child)
-    );
-    const childrenOf = (parent) => bySequence3(entries.filter((entry) => ref(entry.props, "layout.parentEntry") === parent));
-    const isCurrent = (entry) => {
-      const target2 = get(entry.props, "link.target");
-      const pages2 = str(entry.props, "currentForPages") || str(entry.props, "link.currentForPages");
-      if (pages2)
-        return pages2.split(",").map((page2) => page2.trim()).includes(ctx.pageId);
-      return isObject(target2) && target2.page !== void 0 && this.findPage(String(target2.page))?.id === ctx.pageId;
-    };
-    const render = (entry, level) => {
-      const kids = childrenOf(entry.id);
-      const current3 = isCurrent(entry) || kids.some(isCurrent);
-      const attributes2 = get(entry.props, "userDefinedAttributes");
+    const nodes = this.listNodes(ctx, listComponent);
+    const isCurrent = (node) => node.current || node.children.some(isCurrent);
+    const render = (node, level) => {
+      const kids = node.children;
+      const current3 = isCurrent(node);
       const values = {
-        LINK: escapeHtml(this.link(ctx, get(entry.props, "link.target"))),
-        TEXT: this.substitute(ctx.session, str(entry.props, "label", entry.id), ctx.page, "HTML"),
-        TEXT_ESC_SC: this.substitute(ctx.session, str(entry.props, "label", entry.id), ctx.page, "HTML"),
-        ICON_CSS_CLASSES: iconClasses2(
-          str(entry.props, "icon.imageIconCssClasses") || str(entry.props, "icon.iconCssClasses")
-        ),
-        IMAGE: iconClasses2(str(entry.props, "icon.imageIconCssClasses")),
-        IMAGE_ATTR: "",
+        LINK: escapeHtml(node.href),
+        TEXT: node.label,
+        TEXT_ESC_SC: node.label,
+        ICON_CSS_CLASSES: iconClasses2(node.icon),
+        IMAGE: iconClasses2(node.image),
+        IMAGE_ATTR: node.imageAttr,
         LINK_ATTR: "",
-        LIST_ITEM_ID: `${listId}_${slug(entry.id)}`,
-        PARENT_LIST_ITEM_ID: `${listId}_${slug(entry.id)}`,
+        LIST_ITEM_ID: `${listId}_${slug(node.key)}`,
+        PARENT_LIST_ITEM_ID: `${listId}_${slug(node.key)}`,
         LEVEL: String(level)
       };
-      for (let index = 1; index <= 20; index += 1) {
-        const key = `A${String(index).padStart(2, "0")}`;
-        const value2 = isObject(attributes2) ? attributes2[String(index)] : void 0;
-        values[key] = typeof value2 === "string" ? this.substitute(ctx.session, value2, ctx.page, "HTML") : "";
-      }
+      for (let index = 1; index <= 20; index += 1)
+        values[`A${String(index).padStart(2, "0")}`] = node.attributes[index - 1] ?? "";
       const sub = level > 1;
       const field = kids.length ? sub ? current3 ? "sub_templ_curr_w_child" : "sub_templ_noncurr_w_child" : current3 ? "item_templ_curr_w_child" : "item_templ_noncurr_w_child" : sub ? current3 ? "sub_list_item_current" : "sub_list_item_noncurrent" : current3 ? "list_template_current" : "list_template_noncurrent";
       let html = fill(
@@ -28898,7 +29062,141 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     };
     if (text2(template, "javascript_code_onload"))
       ctx.onload.push(fill(text2(template, "javascript_code_onload"), shared3, false));
-    return fill(text2(template, "list_template_before_rows"), shared3) + childrenOf(void 0).map((entry) => render(entry, 1)).join("") + fill(text2(template, "list_template_after_rows"), shared3);
+    return fill(text2(template, "list_template_before_rows"), shared3) + nodes.map((node) => render(node, 1)).join("") + fill(text2(template, "list_template_after_rows"), shared3);
+  }
+  /** Top-level entries of a list as a tree: static entries, or the rows of a dynamic list query. */
+  listNodes(ctx, listComponent) {
+    const sourceType = str(listComponent.props, "source.type");
+    if (sourceType === "sqlQuery") return this.dynamicListNodes(ctx, listComponent);
+    if (sourceType && sourceType !== "static" && sourceType !== "staticValues") {
+      this.diagnose(
+        "warning",
+        `List ${listComponent.id} source type ${sourceType} is not simulated; the list is empty`,
+        ctx.pageId,
+        listComponent.id
+      );
+      return [];
+    }
+    const entries = listComponent.children.filter(
+      (child) => child.type === "entry" && this.visible(ctx, child)
+    );
+    const isCurrent = (entry) => {
+      const target2 = get(entry.props, "link.target");
+      const pages2 = str(entry.props, "currentForPages") || str(entry.props, "link.currentForPages");
+      if (pages2)
+        return pages2.split(",").map((page2) => page2.trim()).includes(ctx.pageId);
+      return isObject(target2) && target2.page !== void 0 && this.findPage(String(target2.page))?.id === ctx.pageId;
+    };
+    const build = (parent) => bySequence3(entries.filter((entry) => ref(entry.props, "layout.parentEntry") === parent)).map(
+      (entry) => {
+        const attributes2 = get(entry.props, "userDefinedAttributes");
+        const label = this.substitute(ctx.session, str(entry.props, "label", entry.id), ctx.page, "HTML");
+        return {
+          key: entry.id,
+          label,
+          href: this.link(ctx, get(entry.props, "link.target")),
+          icon: str(entry.props, "icon.imageIconCssClasses") || str(entry.props, "icon.iconCssClasses"),
+          image: str(entry.props, "icon.imageIconCssClasses"),
+          imageAttr: "",
+          current: isCurrent(entry),
+          attributes: Array.from({ length: 20 }, (_, index) => {
+            const value2 = isObject(attributes2) ? attributes2[String(index + 1)] : void 0;
+            return typeof value2 === "string" ? this.substitute(ctx.session, value2, ctx.page, "HTML") : "";
+          }),
+          children: build(entry.id)
+        };
+      }
+    );
+    return build(void 0);
+  }
+  /**
+   * A dynamic list runs its query and reads the columns by position, as APEX does: level, label,
+   * target, is_current_list_entry, image, image_attribute, image_alt_attribute, attribute1..10.
+   * Rows nest by level in query order.
+   */
+  dynamicListNodes(ctx, listComponent) {
+    const sql = str(listComponent.props, "source.sqlQuery");
+    let result;
+    try {
+      result = this.data.query(sql, this.binds(ctx.session, ctx.page), 5e3);
+    } catch (error) {
+      this.diagnose(
+        "warning",
+        `Dynamic list ${listComponent.id} query failed: ${error.message}`,
+        ctx.pageId,
+        listComponent.id
+      );
+      return [];
+    }
+    const roots = [];
+    const stack = [];
+    result.rows.forEach((row, index) => {
+      const at = (position2) => {
+        const column2 = result.columns[position2];
+        const value2 = column2 === void 0 ? void 0 : row[column2];
+        return value2 === null || value2 === void 0 ? "" : String(value2);
+      };
+      const level = Math.max(1, Number(at(0)) || 1);
+      const href = this.localUrl(at(2));
+      const flag3 = at(3).toUpperCase();
+      const targetPage = this.pageOfUrl(href);
+      const node = {
+        key: `${index + 1}`,
+        label: escapeHtml(at(1)),
+        href,
+        icon: at(4),
+        image: at(4),
+        imageAttr: at(5),
+        current: flag3 === "YES" || flag3 === "TRUE" ? true : flag3 === "NO" || flag3 === "FALSE" ? false : targetPage === ctx.pageId,
+        attributes: Array.from({ length: 10 }, (_, attribute3) => escapeHtml(at(7 + attribute3))),
+        children: []
+      };
+      while (stack.length && stack[stack.length - 1].level >= level) stack.pop();
+      (stack.length ? stack[stack.length - 1].node.children : roots).push(node);
+      stack.push({ level, node });
+    });
+    return roots;
+  }
+  /**
+   * Maps a URL that Oracle APEX produced (`/ords/r/ws/app/page?…&session=…&cs=…` or `f?p=…`) to the
+   * preview's own page path; other URLs are returned unchanged.
+   */
+  localUrl(url2) {
+    if (!url2) return "#";
+    const fp = /^(?:.*\/)?f\?p=([^&#]*)/iu.exec(url2);
+    if (fp) return `${this.baseUrl}/f?p=${fp[1]}`;
+    const friendly = /^(?:https?:\/\/[^/]+)?(?:\/[^/?#]+)*?\/r\/[^/?#]+\/[^/?#]+\/([^/?#]+)(\?[^#]*)?(#.*)?$/iu.exec(url2);
+    if (!friendly) return url2;
+    const page2 = this.findPage(decodeURIComponent(friendly[1]));
+    if (!page2) return url2;
+    const query = new URLSearchParams(friendly[2] ?? "");
+    query.delete("session");
+    query.delete("cs");
+    return `${this.pagePath(page2)}${query.size ? `?${query}` : ""}${friendly[3] ?? ""}`;
+  }
+  /**
+   * Rewrites the page URLs inside HTML that Oracle APEX generated (PL/SQL dynamic content, `htp`
+   * output). Outside ORDS, APEX writes them as `http://:/r/ws/app/page?…&amp;session=…&amp;cs=…`, which
+   * a browser cannot open.
+   */
+  localizeOracleHtml(html) {
+    if (!html.includes("/r/")) return html;
+    return html.replace(
+      /(["'])((?:https?:\/\/[^/"'\s]*)?(?:\/[^/"'\s?#<>]+)*?\/r\/[^/"'\s?#<>]+\/[^/"'\s?#<>]+\/[^/"'\s?#<>]+(?:\?[^"'\s<>#]*)?(?:#[^"'\s<>]*)?)\1/gu,
+      (whole, quote5, url2) => {
+        const plain2 = url2.replaceAll("&amp;", "&");
+        const local = this.localUrl(plain2);
+        if (local === plain2) return whole;
+        return `${quote5}${url2 === plain2 ? local : local.replaceAll("&", "&amp;")}${quote5}`;
+      }
+    );
+  }
+  /** ID of the preview page a local URL opens, if any. */
+  pageOfUrl(href) {
+    if (!href.startsWith(`${this.baseUrl}/`)) return void 0;
+    const rest = href.slice(this.baseUrl.length + 1);
+    if (rest.startsWith("f?p=")) return this.findPage(rest.slice(4).split(":")[1] ?? "")?.id;
+    return this.findPage(decodeURIComponent(rest.split(/[?#]/u)[0] ?? ""))?.id;
   }
   // ---------------------------------------------------------------- buttons & items
   renderButton(ctx, button2) {
@@ -29481,7 +29779,7 @@ var PreviewServer = class {
         if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
         response.end(`APEX preview error: ${error.message}`);
       }).finally(() => {
-        this.#endRequest();
+        this.#endRequest(response);
         this.#publishWrites(request);
       });
     });
@@ -29512,14 +29810,28 @@ var PreviewServer = class {
     } catch {
     }
   }
-  /** Connected mode: nothing a request did in Oracle survives it. */
-  #endRequest() {
+  /** Responses whose page processing failed; commit mode rolls their Oracle work back. */
+  #failed = /* @__PURE__ */ new WeakSet();
+  /** Wraps a transaction failure test so a failed submit or Ajax call is also rolled back in Oracle. */
+  #failure(response, failed2) {
+    return (result) => {
+      const failure3 = failed2(result);
+      if (failure3) this.#failed.add(response);
+      return failure3;
+    };
+  }
+  /**
+   * Connected mode: nothing a request did in Oracle survives it, except in commit mode, where a
+   * request that ended without an error status or failed processing is committed.
+   */
+  #endRequest(response) {
+    const succeeded = response.statusCode < 400 && !this.#failed.has(response);
     try {
-      this.options.oracle?.data.endRequest();
+      this.options.oracle?.data.endRequest(succeeded);
     } catch (error) {
       this.renderer.diagnose(
         "error",
-        `Connected preview: rollback failed (${error.message}); the Oracle session was reset`
+        `Connected preview: ${this.options.oracle?.commit && succeeded ? "commit" : "rollback"} failed (${error.message}); the Oracle session was reset`
       );
       this.options.oracle?.data.link.close();
     }
@@ -29643,6 +29955,13 @@ var PreviewServer = class {
         `APEXlang parse error: ${this.#loadError}`
       );
     const renderer = this.renderer;
+    if (/^(?:\/[^/]+)*?\/r\/[^/]+\/[^/]+\/[^/]+$/u.test(pathname)) {
+      const location = renderer.localUrl(`${pathname}${url2.search}`);
+      if (location !== `${pathname}${url2.search}`) {
+        response.writeHead(302, { location }).end();
+        return;
+      }
+    }
     if ((pathname === "/f" || pathname.endsWith(`${renderer.baseUrl}/f`)) && url2.searchParams.has("p")) {
       const [, pageKey = "", , requestValue = "", , clear = "", names = "", values = ""] = (url2.searchParams.get("p") ?? "").split(":");
       const target2 = renderer.findPage(pageKey || renderer.homePage());
@@ -29670,6 +29989,11 @@ var PreviewServer = class {
         rest.slice(16),
         false
       );
+    if (rest.startsWith("files/theme/v1/")) {
+      const themeDir = renderer.themeFilesDir();
+      if (!themeDir) return this.#send(response, 404, "text/plain", "Not found");
+      return this.#static(response, themeDir, rest.slice(15), false);
+    }
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
@@ -29702,7 +30026,7 @@ var PreviewServer = class {
           for (const step of finish) accepted = step(accepted);
           return accepted;
         },
-        (accepted) => Boolean(accepted.errors?.length)
+        this.#failure(response, (accepted) => Boolean(accepted.errors?.length))
       );
       return this.#send(
         response,
@@ -29732,7 +30056,7 @@ var PreviewServer = class {
         files: posted.files
       });
       const name = rest.slice(LOCAL_PREFIX.length + 2);
-      const result = TRANSACTIONAL_ROUTES.has(name) ? transaction(renderer.db.db, call, failedResponse) : call();
+      const result = TRANSACTIONAL_ROUTES.has(name) ? transaction(renderer.db.db, call, this.#failure(response, failedResponse)) : call();
       return this.#respond(response, result);
     }
     if (rest === "__logout") {
@@ -29789,7 +30113,7 @@ var PreviewServer = class {
       const values = transaction(
         renderer.db.db,
         () => renderer.executeServerCode(session, action.pageId, action.code, items, returns, errors),
-        () => errors.length > 0
+        this.#failure(response, () => errors.length > 0)
       );
       return this.#send(
         response,
@@ -29982,13 +30306,20 @@ async function previewSetup(input) {
   };
 }
 async function previewStart(root, input) {
+  const commit = input.commit === true;
+  if (commit && !input.env)
+    throw new Fault(
+      "INVALID_INPUT",
+      "commit needs env: it commits requests to that environment's local Oracle database. The SQLite preview keeps its data anyway.",
+      2
+    );
   const sourceDir = await resolveSource(root, input.sourceDir);
   await assetsReady(input.assetsDir);
   const previous = running.get(sourceDir);
-  if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env)
+  if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env && previous.options.oracle?.commit === true === commit)
     return describe(previous, true);
   if (previous) await stopServer(sourceDir, previous);
-  const oracle = input.env ? await connectOracle(root, input.env) : void 0;
+  const oracle = input.env ? await connectOracle(root, input.env, void 0, { commit }) : void 0;
   const data = await projectData(root, sourceDir);
   const server = new PreviewServer({
     ...oracle ? { oracle } : {},
@@ -30032,11 +30363,12 @@ function describe(server, reused) {
     database: server.db.file,
     apexVersion: APEX_FULL_VERSION,
     pages: server.pages(),
-    note: server.options.oracle ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); every request is rolled back. Rendering is still simulated; not import or browser evidence.` : "Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.",
+    note: server.options.oracle ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); ${server.options.oracle.commit ? "commit mode: successful requests are committed, failed ones rolled back" : "every request is rolled back"}. Rendering is still simulated; not import or browser evidence.` : "Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.",
     data: server.options.oracle ? {
       mode: "oracle",
       environment: server.options.oracle.environment,
-      target: server.options.oracle.target
+      target: server.options.oracle.target,
+      commit: server.options.oracle.commit === true
     } : { mode: "sqlite" },
     ...summarize(server.diagnostics()),
     ...gapsFor(server.options.sourceDir)
@@ -30185,6 +30517,8 @@ async function previewCheck(root, input) {
 async function previewDispatch(operation2, parsed2, root) {
   const { action, ...input } = parsed2;
   const selected = operation2 === "preview" ? String(action) : operation2.slice("preview.".length);
+  if (input.commit && selected !== "start")
+    throw new Fault("INVALID_INPUT", "commit applies only to preview start with env", 2);
   switch (selected) {
     case "setup":
       return previewSetup(input);

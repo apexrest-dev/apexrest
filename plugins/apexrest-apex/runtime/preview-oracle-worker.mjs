@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  INIT_SESSION
-} from "./chunk-JUHM743I.mjs";
+  initSession
+} from "./chunk-N3KQBIVW.mjs";
 import {
   SqlclMcpClient,
   mcpCallOptions
@@ -22,7 +22,7 @@ async function open(deadline) {
   try {
     await next.open(options());
     await next.connect(settings.connectionName, options);
-    await next.execute(INIT_SESSION, options, () => false);
+    await next.execute(initSession(settings.commit === true), options, () => false);
   } catch (error) {
     await next.close();
     throw error;

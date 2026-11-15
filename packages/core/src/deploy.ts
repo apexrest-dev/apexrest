@@ -1,4 +1,5 @@
 import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
+import { withConnectedReads } from './sqlcl-read-scope.ts';
 import path from 'node:path';
 import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -858,7 +859,15 @@ export class DeploymentService {
   async releaseLease(env: Environment, runId: string) {
     await new LocalDeploymentControl(env).release(runId);
   }
+  /** Planning only reads the target: its reads share one connected SQLcl server. */
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
+    return withConnectedReads(() => this.planObserved(ctx, name, options));
+  }
+  private async planObserved(
+    ctx: ProjectContext,
+    name: string,
+    options: ImportOptions | boolean = {},
+  ): Promise<DeployPlan> {
     // Production is refused from configuration before any connection or SQLcl call. An unknown
     // environment is reported where it was before, after the source-level checks.
     const configured = name ? ctx.config.environments[name] : undefined;
@@ -1493,7 +1502,7 @@ export class DeploymentService {
     signal?: AbortSignal,
     progress?: (state: DeployState) => void,
   ) {
-    return withSqlclTimings(() => this.applyObserved(ctx, value, signal, progress));
+    return withSqlclTimings(() => withConnectedReads(() => this.applyObserved(ctx, value, signal, progress)));
   }
   private async applyObserved(
     ctx: ProjectContext,
@@ -1548,6 +1557,55 @@ export class DeploymentService {
     const readConnection = await resolveConnection(env.readConnectionRef),
       deployConnection = await resolveConnection(env.deployConnectionRef);
     let working = await this.checkWorkingPlan(ctx, plan);
+    const syncStore = new SyncStore(ctx, env, plan.environment);
+    // A full APEXlang import follows: load the compiler while the target is observed.
+    // The server holds no connection until the import and is closed with this run.
+    const warmImport =
+      !selection && !plan.restore && plan.scope !== 'database-only' && this.oracle.prepareImport
+        ? await this.oracle
+            .prepareImport(await contained(ctx.root, ctx.config.application.sourceDir), deployConnection)
+            .catch(() => undefined)
+        : undefined;
+    try {
+      return await this.applyPrepared(
+        ctx,
+        plan,
+        env,
+        runId,
+        selection,
+        scoped,
+        fresh,
+        working,
+        signal,
+        progress,
+        applyTimingStart,
+      );
+    } finally {
+      await warmImport?.close().catch(() => {});
+    }
+  }
+  private async applyPrepared(
+    ctx: ProjectContext,
+    plan: DeployPlan,
+    env: Environment,
+    runId: string,
+    selection: (DeployPlan & { schemaVersion: 4 })['importSelection'] | null,
+    scoped:
+      | {
+          files: string[];
+          source: string;
+          knownFiles: Record<string, string>;
+          exportScope: 'selected' | 'full';
+        }
+      | undefined,
+    fresh: boolean,
+    working: Awaited<ReturnType<DeploymentService['checkWorkingPlan']>>,
+    signal: AbortSignal | undefined,
+    progress: ((state: DeployState) => void) | undefined,
+    applyTimingStart: number,
+  ) {
+    const readConnection = await resolveConnection(env.readConnectionRef),
+      deployConnection = await resolveConnection(env.deployConnectionRef);
     const syncStore = new SyncStore(ctx, env, plan.environment);
     const freshTarget =
       working && !selection && !fresh

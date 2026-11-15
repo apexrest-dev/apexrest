@@ -5,15 +5,15 @@ import {
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-KE5D4DRK.mjs";
+} from "./chunk-B3XQMZTL.mjs";
 import {
   VERSION,
   resourceRoot
-} from "./chunk-PRQBG3KY.mjs";
+} from "./chunk-5MAXHXR5.mjs";
 import {
   managedHome
 } from "./chunk-PWI5SWBA.mjs";
-import "./chunk-ZA5GNFQJ.mjs";
+import "./chunk-EGLAN56W.mjs";
 import {
   Client,
   ReadBuffer,
