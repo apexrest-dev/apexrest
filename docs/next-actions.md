@@ -1,5 +1,10 @@
 # Next actions and verification limits
 
+## Local test environment after cleanup
+
+- User applications, application schemas and local evidence folders were explicitly selected for deletion on 2026-11-15. Recreate a development workspace/schema and reconfigure connections before further app deployment. Existing saved connections and deployment history do not establish a valid current database baseline.
+- Home Finance source remains under `examples/home-finance-test/`; app 16250 was deleted. Re-run required qualification to produce fresh evidence before release claims; deleted evidence paths below are historical references.
+
 ## Creation/update optimization qualification
 
 - Qualify the routine 26.2 scaffold beyond interactive reports, KPI cards and bar charts on a Universal Theme starter. Existing generated pages support regeneration with edit-conflict checks; measure actual update/import workflows separately. Forms, grids, custom components and a full Box application need their own cases before extending the creation speed claim.

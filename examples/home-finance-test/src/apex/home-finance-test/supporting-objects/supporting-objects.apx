@@ -1,0 +1,5 @@
+supportingObject (
+    deinstall {
+        scriptFile: deinstall-script.sql
+    }
+)

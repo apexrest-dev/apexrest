@@ -1,0 +1,80 @@
+page 1 (
+    name: "Overview"
+    alias: "OVERVIEW"
+    title: "Overview"
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    region r1 (
+        name: "This month — fictional EUR data"
+        type: cards
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select 'Income (EUR)' title, to_char(sum(case when amount>0 then amount else 0 end),'FM999G990D00') value from transactions union all select 'Expenses (EUR)',to_char(-sum(case when amount<0 then amount else 0 end),'FM999G990D00') from transactions union all select 'Available (EUR)',to_char(sum(amount),'FM999G990D00') from transactions
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/cards-container
+            templateOptions: #DEFAULT#
+        }
+        title {
+            column: TITLE
+        }
+        body {
+            column: VALUE
+        }
+    )
+
+    region r2 (
+        name: "Monthly spending by category"
+        type: chart
+        layout {
+            sequence: 20
+            slot: body
+        }
+        appearance {
+            template: @/standard
+            templateOptions: #DEFAULT#
+        }
+        security {
+            escapeSpecialChars: true
+        }
+        chart {
+            type: bar
+        }
+        axis x (
+            name: x
+            title: "Category"
+        )
+        axis y (
+            name: y
+            title: "EUR"
+        )
+        series values (
+            name: "Monthly spending by category"
+            execution {
+                sequence: 10
+            }
+            source {
+                location: localDatabase
+                type: sqlQuery
+                sqlQuery:
+                    ```sql
+                    with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select category label, -sum(amount) value from transactions where amount<0 group by category order by 2 desc
+                    ```
+            }
+            columnMapping {
+                label: LABEL
+                value: VALUE
+            }
+        )
+    )
+)

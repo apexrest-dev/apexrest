@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "projectId": "home-finance-test",
+  "application": {
+    "sourceDir": "src/apex/home-finance-test",
+    "alias": "home-finance-test"
+  },
+  "database": {
+    "migrationsDir": "src/database/migrations",
+    "packagesDir": "src/database/packages"
+  },
+  "toolchain": {
+    "lockFile": "apexrest.toolchain.lock.json",
+    "profile": "26.2"
+  },
+  "environments": {
+    "dev": {
+      "kind": "dev",
+      "readConnectionRef": "local-dev",
+      "deployConnectionRef": "local-dev",
+      "workspace": "DEV",
+      "parsingSchema": "DEV_APP",
+      "applicationId": 16250,
+      "baseUrl": "http://localhost:8080/ords/",
+      "databaseIdentity": {
+        "dbUniqueName": "FREE",
+        "serviceName": "freepdb1"
+      },
+      "allowedOrigins": [
+        "http://localhost:8080"
+      ]
+    }
+  },
+  "artifacts": {
+    "directory": ".apexrest/artifacts",
+    "retentionDays": 7
+  }
+}

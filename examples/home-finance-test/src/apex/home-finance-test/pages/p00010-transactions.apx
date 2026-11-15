@@ -1,0 +1,137 @@
+page 10 (
+    name: "Transactions"
+    alias: "TRANSACTIONS"
+    title: "Transactions"
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    region r1 (
+        name: "Sample transactions"
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select * from transactions order by transaction_date desc
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToYOfZ
+        }
+        messages {
+            whenNoDataFound: "No rows found. Clear filters or add source data."
+        }
+        link {
+            linkColumn: exclude
+        }
+        column TRANSACTION_ID (
+            type: plainText
+            heading {
+                heading: "Transaction Id"
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+        )
+        column TRANSACTION_DATE (
+            type: plainText
+            heading {
+                heading: "Transaction Date"
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: date
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+        column DESCRIPTION (
+            type: plainText
+            heading {
+                heading: "Description"
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+        column CATEGORY (
+            type: plainText
+            heading {
+                heading: "Category"
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+        column AMOUNT (
+            type: plainText
+            heading {
+                heading: "Amount"
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+        savedReport 1001 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 25
+            }
+            displayColumn TRANSACTION_ID (
+                sequence: 1
+            )
+            displayColumn TRANSACTION_DATE (
+                sequence: 2
+            )
+            displayColumn DESCRIPTION (
+                sequence: 3
+            )
+            displayColumn CATEGORY (
+                sequence: 4
+            )
+            displayColumn AMOUNT (
+                sequence: 5
+            )
+        )
+    )
+)

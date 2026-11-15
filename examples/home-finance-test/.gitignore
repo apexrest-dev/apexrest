@@ -1,0 +1,3 @@
+.apexrest/
+node_modules/
+.env

@@ -1,0 +1,137 @@
+page 30 (
+    name: "Savings goals"
+    alias: "SAVINGS-GOALS"
+    title: "Savings goals"
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+    region r1 (
+        name: "Sample savings goals (EUR)"
+        type: interactiveReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Emergency fund' goal, 10000 target, 6200 saved, 3800 remaining, 62 progress_percent from dual union all select 'Holiday',2500,1400,1100,56 from dual union all select 'Home improvements',5000,1750,3250,35 from dual
+                ```
+        }
+        layout {
+            sequence: 10
+            slot: body
+        }
+        appearance {
+            template: @/interactive-report
+            templateOptions: #DEFAULT#
+        }
+        pagination {
+            type: rowRangesXToYOfZ
+        }
+        messages {
+            whenNoDataFound: "No rows found. Clear filters or add source data."
+        }
+        link {
+            linkColumn: exclude
+        }
+        column GOAL (
+            type: plainText
+            heading {
+                heading: "Goal"
+            }
+            layout {
+                sequence: 1
+            }
+            source {
+                dataType: varchar2
+            }
+            advanced {
+                endUserAlias: A
+            }
+            accessibility {
+                valueIdentifiesRow: true
+            }
+        )
+        column TARGET (
+            type: plainText
+            heading {
+                heading: "Target"
+            }
+            layout {
+                sequence: 2
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: B
+            }
+        )
+        column SAVED (
+            type: plainText
+            heading {
+                heading: "Saved"
+            }
+            layout {
+                sequence: 3
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: C
+            }
+        )
+        column REMAINING (
+            type: plainText
+            heading {
+                heading: "Remaining"
+            }
+            layout {
+                sequence: 4
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: D
+            }
+        )
+        column PROGRESS_PERCENT (
+            type: plainText
+            heading {
+                heading: "Progress Percent"
+            }
+            layout {
+                sequence: 5
+            }
+            source {
+                dataType: number
+            }
+            advanced {
+                endUserAlias: E
+            }
+        )
+        savedReport 1001 (
+            visibility: primaryDefault
+            view {
+                rowsPerPage: 25
+            }
+            displayColumn GOAL (
+                sequence: 1
+            )
+            displayColumn TARGET (
+                sequence: 2
+            )
+            displayColumn SAVED (
+                sequence: 3
+            )
+            displayColumn REMAINING (
+                sequence: 4
+            )
+            displayColumn PROGRESS_PERCENT (
+                sequence: 5
+            )
+        )
+    )
+)
