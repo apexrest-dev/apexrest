@@ -2,24 +2,26 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   ArtifactService,
   JobService,
+  compilerPrewarmed,
   dispatch,
   jobToolResult,
+  prewarmCompiler,
   schemas,
   settleInlineJobs,
   shutdownOracle,
   toolCatalog
-} from "./chunk-SVAO2263.mjs";
-import "./chunk-L7BXOT7W.mjs";
-import "./chunk-GCYH7STV.mjs";
-import "./chunk-F4DDWU7G.mjs";
+} from "./chunk-TRPPKCDK.mjs";
+import "./chunk-22JYS76Q.mjs";
+import "./chunk-UOYPJUKY.mjs";
+import "./chunk-RXTQAEKG.mjs";
 import {
   VERSION
 } from "./chunk-64FD5OTX.mjs";
 import {
   loadProject,
   parse
-} from "./chunk-PWI5SWBA.mjs";
-import "./chunk-EGLAN56W.mjs";
+} from "./chunk-GGZKKEXV.mjs";
+import "./chunk-NSJ6MZ2Y.mjs";
 import {
   AjvJsonSchemaValidator,
   CallToolRequestSchema,
@@ -48,19 +50,19 @@ import {
   mergeCapabilities,
   safeParse,
   serializeMessage
-} from "./chunk-H2VLYI5A.mjs";
+} from "./chunk-4FMLUYZ7.mjs";
 import {
   external_exports
-} from "./chunk-A5P52BZT.mjs";
+} from "./chunk-WBDBC3GS.mjs";
 import {
   hash
-} from "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-C7ONAFBZ.mjs";
 import {
   Fault,
   failure,
   sanitized,
   success
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/server.js
 var ExperimentalServerTasks = class {
@@ -1062,6 +1064,8 @@ async function startMcp() {
       const peerStatus = tool.operation === "peer" && input.action === "status";
       const inProcess = localSync || planOnly || peerStatus;
       if (inProcess) delete input.waitSeconds;
+      if (project && ["apex.validate", "ship", "preview"].includes(tool.operation))
+        await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === "ship" && input.mode === "apply") {
@@ -1114,6 +1118,7 @@ async function startMcp() {
     } catch (e) {
       result = failure(tool?.operation ?? "unknown", e);
     }
+    if (project && result.ok) prewarmCompiler(project);
     return toolOutput(result, project);
   });
   const transport = new StdioServerTransport();

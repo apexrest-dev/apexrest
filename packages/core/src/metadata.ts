@@ -17,6 +17,8 @@ export const metadataRequest = z.strictObject({
     'applications',
     'pages',
     'apex-capabilities',
+    'runtime-errors',
+    'page-timings',
   ]),
   schema: identifier,
   name: identifier.optional(),
@@ -38,6 +40,12 @@ export const metadataInputSchema = z.strictObject({
 });
 const queries = {
   'apex-capabilities': apexCapabilitiesQuery,
+  // Runtime diagnosis of the mapped application from the APEX activity log (kept about two weeks
+  // by default). No user, session, address or request value is read; error text is database content.
+  'runtime-errors':
+    'select page_id,page_name,to_char(view_date,\'YYYY-MM-DD"T"HH24:MI:SS\') viewed_at,page_view_type,error_on_component_type,error_on_component_name,error_message from apex_workspace_activity_log where application_id=:p_app_id and workspace=:p_workspace and error_message is not null order by view_date desc',
+  'page-timings':
+    'select page_id,page_name,count(*) page_views,round(avg(elapsed_time),3) avg_seconds,round(max(elapsed_time),3) max_seconds,sum(case when error_message is not null then 1 else 0 end) errors from apex_workspace_activity_log where application_id=:p_app_id and workspace=:p_workspace and view_date > sysdate - 7 group by page_id,page_name order by avg(elapsed_time) desc',
   objects:
     "select object_name, object_type from all_objects where owner=:p_owner and object_type in ('TABLE','VIEW','PACKAGE') and (:p_name is null or object_name=:p_name) order by object_name, object_type",
   columns:

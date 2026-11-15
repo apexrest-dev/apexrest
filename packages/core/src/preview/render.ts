@@ -105,6 +105,8 @@ interface Column {
 
 export interface Diagnostic {
   level: 'error' | 'warning' | 'info';
+  /** Finding code of a source check (`SLOT-001`, `ITEM-001`, `A11Y-002`, …); absent otherwise. */
+  code?: string;
   page?: string;
   component?: string;
   message: string;
@@ -416,12 +418,24 @@ export class ApexRenderer {
     return `/r/${this.alias}`;
   }
 
-  diagnose(level: Diagnostic['level'], message: string, page?: string, component?: string): void {
+  diagnose(
+    level: Diagnostic['level'],
+    message: string,
+    page?: string,
+    component?: string,
+    code?: string,
+  ): void {
     this.trace(undefined, { type: 'diagnostic', name: component ?? '', detail: message, level });
     const key = `${level}|${page}|${component}|${message}`;
     if (this.#diagnosticKeys.has(key)) return;
     this.#diagnosticKeys.add(key);
-    this.diagnostics.push({ level, message, ...(page ? { page } : {}), ...(component ? { component } : {}) });
+    this.diagnostics.push({
+      level,
+      ...(code ? { code } : {}),
+      message,
+      ...(page ? { page } : {}),
+      ...(component ? { component } : {}),
+    });
   }
 
   /** Debug trace for the developer toolbar; extensions receive it through `trace`. */
@@ -2517,6 +2531,17 @@ end;`,
       ref(defaults, 'componentDefaults.region') ??
       defaultStaticId(this.theme, 'default_region_template', 'standard')
     ).toLowerCase();
+  }
+
+  /**
+   * Slots the region's template offers to buttons, items and sub-regions; undefined when the
+   * template is not one of the installed theme's (a template the application defines itself).
+   */
+  regionSlots(region: ApxComponent): { template: string; slots: string[] } | undefined {
+    const templateId = this.regionTemplateId(region);
+    const template = this.theme.regions.get(templateId);
+    if (!template) return undefined;
+    return { template: templateId, slots: [...(this.theme.slots.get(text(template, 'id'))?.keys() ?? [])] };
   }
 
   regionDomId(region: ApxComponent): string {

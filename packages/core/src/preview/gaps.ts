@@ -14,7 +14,26 @@ export interface LocalGap {
   message: string;
 }
 
-const NOT_APPLIED = new Set(['initJavaScriptFunction']);
+/**
+ * Initialization JavaScript of the 26.2 catalog: `initJavaScriptFunction` (chart, interactive grid,
+ * cards, map, calendar and other region attributes in `componentAdvanced`; page items, interactive
+ * grid columns and actions in `advanced`) and `columnInitJavaScriptFunction` (interactive grid
+ * columns). The interactive report has no such property.
+ */
+const NOT_APPLIED = new Set(['initJavaScriptFunction', 'columnInitJavaScriptFunction']);
+
+/** What the function usually changes, by the component that carries it. */
+const EFFECTS: Record<string, string> = {
+  chart: 'axis and value formats, tooltips, colors and other Oracle JET chart options',
+  interactiveGrid: 'toolbar, features, default view and column options of the grid widget',
+  cards: 'card view options',
+  map: 'map options, layers and controls',
+  calendar: 'FullCalendar options, views and event rendering',
+  facetedSearch: 'facet options',
+  smartFilters: 'filter options',
+  column: 'column and cell widget options of the interactive grid',
+  pageItem: 'item widget options',
+};
 
 function properties(props: ApxObject, prefix = ''): string[] {
   return Object.entries(props).flatMap(([key, value]) => {
@@ -25,6 +44,8 @@ function properties(props: ApxObject, prefix = ''): string[] {
 }
 
 function collect(pageId: string, component: ApxComponent, into: LocalGap[]): void {
+  const kind = component.type === 'region' ? str(component.props, 'type') : component.type;
+  const effect = EFFECTS[kind] ?? 'formats, axes, tooltips and widget options';
   for (const property of properties(component.props))
     into.push({
       pageId,
@@ -32,7 +53,7 @@ function collect(pageId: string, component: ApxComponent, into: LocalGap[]): voi
       property,
       file: component.file,
       line: component.line,
-      message: `Page ${pageId}, ${component.type} ${component.id}: ${property} does not run in the local preview; check its effect (formats, axes, tooltips, widget options) on the imported application.`,
+      message: `Page ${pageId}, ${component.type} ${component.id}: ${property} does not run in the local preview; check its effect (${effect}) on the imported application.`,
     });
   for (const child of component.children) collect(pageId, child, into);
 }

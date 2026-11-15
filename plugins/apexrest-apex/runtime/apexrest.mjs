@@ -2,7 +2,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   setPreviewOwner
-} from "./chunk-N43MMRVF.mjs";
+} from "./chunk-WYGOXF3Y.mjs";
 import {
   dispatch,
   executeJob,
@@ -10,22 +10,22 @@ import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-SVAO2263.mjs";
-import "./chunk-L7BXOT7W.mjs";
-import "./chunk-GCYH7STV.mjs";
-import "./chunk-F4DDWU7G.mjs";
+} from "./chunk-TRPPKCDK.mjs";
+import "./chunk-22JYS76Q.mjs";
+import "./chunk-UOYPJUKY.mjs";
+import "./chunk-RXTQAEKG.mjs";
 import "./chunk-64FD5OTX.mjs";
 import {
   loadProject
-} from "./chunk-PWI5SWBA.mjs";
-import "./chunk-EGLAN56W.mjs";
-import "./chunk-H2VLYI5A.mjs";
-import "./chunk-A5P52BZT.mjs";
-import "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-GGZKKEXV.mjs";
+import "./chunk-NSJ6MZ2Y.mjs";
+import "./chunk-4FMLUYZ7.mjs";
+import "./chunk-WBDBC3GS.mjs";
+import "./chunk-C7ONAFBZ.mjs";
 import {
   Fault,
   failure
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -133,8 +133,8 @@ function help() {
   if (key === "apex.sync")
     lines.push(
       "",
-      "--env NAME --action init|status|refresh|invalidate",
-      "status is local only. init reuses a valid baseline; refresh refuses dirty sources.",
+      "--env NAME --action init|status|changes|refresh|invalidate",
+      "status is local only. changes exports once and lists files changed on the server since the checkpoint; it writes nothing. init reuses a valid baseline; refresh refuses dirty sources.",
       "The initial SQL backup restores the baseline only. Interrupted imports require reconciliation."
     );
   if (key === "apex.diff")
@@ -268,7 +268,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-6D4UPV6B.mjs");
+    const { startMcp } = await import("./chunk-ECTGWDEK.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

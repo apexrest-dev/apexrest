@@ -6,7 +6,7 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { dispatch, shutdownOracle } from '../../core/src/service.ts';
+import { compilerPrewarmed, dispatch, prewarmCompiler, shutdownOracle } from '../../core/src/service.ts';
 import { schemas, toolCatalog } from '../../core/src/operations.ts';
 import type { Operation } from '../../core/src/operations.ts';
 import { failure, Fault } from '../../core/src/result.ts';
@@ -132,6 +132,9 @@ export async function startMcp() {
       const peerStatus = tool.operation === 'peer' && input.action === 'status';
       const inProcess = localSync || planOnly || peerStatus;
       if (inProcess) delete input.waitSeconds;
+      // Operations that compile wait for a running compiler preload instead of starting beside it.
+      if (project && ['apex.validate', 'ship', 'preview'].includes(tool.operation))
+        await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === 'ship' && input.mode === 'apply') {
@@ -186,6 +189,8 @@ export async function startMcp() {
     } catch (e) {
       result = failure(tool?.operation ?? 'unknown', e);
     }
+    // The first tool call of a session names the project: load its compiler while the agent works.
+    if (project && result.ok) prewarmCompiler(project);
     return toolOutput(result, project);
   });
   const transport = new StdioServerTransport();

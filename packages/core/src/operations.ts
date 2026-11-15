@@ -212,7 +212,7 @@ export const schemas = {
     ...base,
     debugTimings: z.boolean().optional(),
     env,
-    action: z.enum(['init', 'status', 'refresh', 'invalidate']),
+    action: z.enum(['init', 'status', 'changes', 'refresh', 'invalidate']),
   }),
   'apex.export': z.strictObject({ ...base, env, output: relativePath }),
   'apex.validate': z.strictObject({
@@ -517,7 +517,7 @@ export const toolCatalog: {
     name: 'apexrest_apex_sync',
     operation: 'apex.sync',
     description:
-      'Single-editor dev/test working copy: init, local status, explicit refresh/invalidate. Reconcile blocked outcomes.',
+      'Single-editor dev/test working copy: init, local status, changes (read-only server diff), explicit refresh/invalidate. Reconcile blocked outcomes.',
     readOnly: false,
     destructive: false,
     long: true,

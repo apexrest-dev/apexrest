@@ -10,6 +10,38 @@
 <li><strong>Not checked.</strong> A browser session, concurrent users, a remote database, HTTPS behind a proxy, <code>plsql</code>/<code>database</code> sign-in against real accounts, an APEX session with an imported application. Session state protection is not implemented, one process serves one request at a time, and sessions are in memory.</li>
 </ul>
 </li>
+<li><p>Authoring and deployment round trip (2026-11-15). Unit tests and offline checks only: none of this was run against Oracle, imported, or measured in an agent run.</p>
+<ul>
+<li><strong>Deployment.</strong><ul>
+<li>A plan keeps the export it observed; apply proves it is the planned one (identity, history and file digest reproduce the plan fingerprint) and uses it as the backup, so a fresh-export apply exports once before the import instead of twice. The export immediately before the first write is unchanged and remains the drift check. See <a href="/apexrest/deployment/#backups">deployment safety</a>.</li>
+<li>Selected-file imports use the prepared import server, started in the run&#39;s frozen source directory. Offline check: SQLcl 26.3 in <code>-R 2 -mcp</code> mode wrote nothing into that directory while loading the compiler.</li>
+<li>An import that Oracle rejects is reported as <code>IMPORT_REJECTED</code> with Oracle&#39;s message when a fresh read shows the target unchanged; lost connections and client-side stops stay <code>OUTCOME_UNKNOWN</code>. See <a href="/apexrest/deployment/#an-import-oracle-rejects">deployment safety</a>.</li>
+<li><code>help apex import</code> is cached across processes like the capability probe, and the MCP server preloads the compiler for a project after its first tool call (<code>APEXREST_PREWARM=0</code> disables it).</li>
+<li>Read-back equivalence accepts three more forms found in retained local 26.2 exports of hand-written pages: an omitted select list <code>lov.displayNullValue: true</code>, an omitted button <code>behavior.action: submitPage</code> and a server-assigned process <code>executionMappingIdentifier</code>. Of 45 imported-versus-exported page pairs in the speed lab that differ in bytes, 21 now compare as equivalent (none did before); chart, interactive report and form pages still differ.</li>
+</ul>
+</li>
+<li><strong>Authoring.</strong><ul>
+<li>26.2 component selection lists the allowed values of enum properties next to each example and sample page (<code>values</code>), chosen by Oracle sample usage, within 1,500 bytes on top of the unchanged 30,000-byte budget, and states once that every process keeps its own <code>executionMappingIdentifier</code>.</li>
+<li><code>MISSING_REQUIRED_PROPERTY</code> diagnostics name the component and carry a <code>Fix:</code> with group, property and values; a heading on a hidden classic report column gets a removal hint.</li>
+<li>The work skill tells the agent to take enum values from the selection or <code>validValues</code>, to fix preview check findings on changed pages before shipping, and to resolve security advisory findings on the pages it changed.</li>
+</ul>
+</li>
+<li><strong>Preview check findings from sources</strong> (codes in the message; warnings unless noted):<ul>
+<li><code>SLOT-001</code>: a region slot the template or region type does not provide.</li>
+<li><code>ITEM-001</code>, <code>ITEM-002</code>: references to page items that are not defined.</li>
+<li><code>DUP-001</code>, <code>DUP-002</code>: duplicate item names and DOM IDs.</li>
+<li><code>A11Y-001</code> to <code>A11Y-005</code>: page title, item label, report row header (info), image alternative text, page reload on selection (info).</li>
+<li><code>CHART-001</code> to <code>CHART-004</code>: non-numeric values, unmapped value column, non-date time axis, nothing to plot (info). <code>notAppliedLocally</code> also covers <code>columnInitJavaScriptFunction</code>.</li>
+<li>On the 33-application corpus: 0 page errors before and after; warnings rose from 603 to 1,436 before the row-header rule was lowered to info (685 of them); the count after that change was not re-measured.</li>
+</ul>
+</li>
+<li><strong>Existing applications.</strong><ul>
+<li><code>apexrest_apex_sync action:changes</code> (CLI <code>apex sync --action changes</code>) exports once and lists files changed on the server since the checkpoint next to local changes and conflicts; it writes nothing.</li>
+<li><code>apexrest_metadata_read</code> kinds <code>runtime-errors</code> and <code>page-timings</code> read the mapped application&#39;s rows of the APEX activity log (no user, session or address columns). Column names were checked against the local 26.2 dictionary; the queries were not executed.</li>
+</ul>
+</li>
+</ul>
+</li>
 <li><p>Local preview runs the application&#39;s database code (2026-11-15): packages, standalone routines, install blocks and BEFORE row triggers from the install scripts, PL/SQL region and item plug-ins (render and ajax callbacks), Oracle outer joins, hierarchical queries in every statement and Oracle dictionary views over the local schema. See <a href="/apexrest/local-preview/#application-database-code">local preview</a>. <code>npm run preview:corpus</code> renders every page of the 33 public Oracle APEX 26.2 applications without a database; the same scorecard before and after the change (same rules, same pinned archive):</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>

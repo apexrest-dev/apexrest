@@ -148,8 +148,8 @@ function help() {
   if (key === 'apex.sync')
     lines.push(
       '',
-      '--env NAME --action init|status|refresh|invalidate',
-      'status is local only. init reuses a valid baseline; refresh refuses dirty sources.',
+      '--env NAME --action init|status|changes|refresh|invalidate',
+      'status is local only. changes exports once and lists files changed on the server since the checkpoint; it writes nothing. init reuses a valid baseline; refresh refuses dirty sources.',
       'The initial SQL backup restores the baseline only. Interrupted imports require reconciliation.',
     );
   if (key === 'apex.diff')

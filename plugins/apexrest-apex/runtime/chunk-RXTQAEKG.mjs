@@ -9,11 +9,11 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-PWI5SWBA.mjs";
+} from "./chunk-GGZKKEXV.mjs";
 import {
   closeSqlclReadScope,
   runPooledSqlcl
-} from "./chunk-EGLAN56W.mjs";
+} from "./chunk-NSJ6MZ2Y.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
@@ -27,10 +27,10 @@ import {
   recordStatementTimings,
   runProcess,
   runSqlclMcp
-} from "./chunk-H2VLYI5A.mjs";
+} from "./chunk-4FMLUYZ7.mjs";
 import {
   external_exports
-} from "./chunk-A5P52BZT.mjs";
+} from "./chunk-WBDBC3GS.mjs";
 import {
   atomicWrite,
   canonical,
@@ -41,15 +41,15 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-C7ONAFBZ.mjs";
 import {
   Fault,
   __export
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // packages/core/src/project.ts
-import path13 from "node:path";
-import { cp as cp4, mkdir as mkdir5, lstat as lstat3, readdir as readdir4, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
+import path14 from "node:path";
+import { cp as cp4, mkdir as mkdir5, lstat as lstat3, readdir as readdir5, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename3 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // packages/core/src/oracle.ts
@@ -74,8 +74,498 @@ __export(oracle_exports, {
 });
 
 // packages/core/src/contract-hints.ts
+import path2 from "node:path";
+import { readdir as readdir2, readFile as readFile2 } from "node:fs/promises";
+
+// packages/core/src/component-examples.ts
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
+
+// packages/core/src/reference-index.ts
+var referenceWords = (text) => text.replace(/([a-z\d])([A-Z])/g, "$1 $2").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+function buildReferencePostings(entries) {
+  const postings = /* @__PURE__ */ Object.create(null);
+  entries.forEach((entry, position) => {
+    for (const word of new Set(referenceWords(entry.id + " " + (entry.title ?? "") + " " + entry.text)))
+      (postings[word] ??= []).push(position);
+  });
+  return postings;
+}
+var stopwords = /* @__PURE__ */ new Set(["a", "an", "the", "for", "with", "and", "of", "to", "in", "on", "by"]);
+var cyrillic = /^[Ѐ-ӿ]+$/u;
+var ukrainianSuffixes = [
+  "\u0430\u043C\u0438",
+  "\u044F\u043C\u0438",
+  "\u043E\u0432\u0456",
+  "\u0435\u0432\u0456",
+  "\u043E\u0433\u043E",
+  "\u043E\u043C\u0443",
+  "\u0438\u043C\u0438",
+  "\u0456\u043C\u0438",
+  "\u0456\u0441\u0442\u044C",
+  "\u044F\u0445",
+  "\u0430\u0445",
+  "\u0456\u0432",
+  "\u0457\u0432",
+  "\u0430\u043C",
+  "\u044F\u043C",
+  "\u043E\u044E",
+  "\u0435\u044E",
+  "\u0454\u044E",
+  "\u043E\u043C",
+  "\u0435\u043C",
+  "\u0438\u0439",
+  "\u0456\u0439",
+  "\u043E\u0457",
+  "\u0438\u0445",
+  "\u0456\u0445",
+  "\u0430",
+  "\u044F",
+  "\u0443",
+  "\u044E",
+  "\u0456",
+  "\u0438",
+  "\u0435",
+  "\u0454",
+  "\u043E",
+  "\u044C",
+  "\u0439"
+];
+function referenceStem(word) {
+  if (cyrillic.test(word)) {
+    if (word.length < 4) return word;
+    for (const suffix of ukrainianSuffixes)
+      if (word.endsWith(suffix) && word.length - suffix.length >= 3) return word.slice(0, -suffix.length);
+    return word;
+  }
+  if (word.length < 4 || /\d$/.test(word)) return word;
+  if (word.endsWith("ies")) return word.slice(0, -3) + "y";
+  if (word.endsWith("sses")) return word.slice(0, -2);
+  if (/(?:x|ch|sh|ss)es$/.test(word)) return word.slice(0, -2);
+  if (word.endsWith("s") && !/(?:ss|us|is)$/.test(word)) return word.slice(0, -1);
+  return word;
+}
+var referenceTerms = (text) => referenceWords(text).filter((word) => !stopwords.has(word));
+var referenceStems = (text) => referenceTerms(text).map(referenceStem);
+var stemmedReference = (text) => " " + referenceStems(text).join(" ") + " ";
+var aliases = {
+  textarea: [["text", "area"]],
+  textfield: [["text", "field"]],
+  textbox: [["text", "field"]],
+  datepicker: [["date", "picker"]],
+  dropdown: [["select", "list"]],
+  combo: [["combobox"]],
+  toggle: [["switch"]],
+  graph: [["chart"]],
+  lov: [["list", "value"]],
+  ir: [["interactive", "report"]],
+  ig: [["interactive", "grid"]],
+  da: [["dynamic", "action"]],
+  nav: [["navigation"]],
+  auth: [["authentication"], ["authorization"]],
+  javascript: [["java", "script"]],
+  plsql: [["pl", "sql"]],
+  \u043A\u043D\u043E\u043F\u043A: [["button"]],
+  \u0441\u0442\u043E\u0440\u0456\u043D\u043A: [["page"]],
+  \u0444\u043E\u0440\u043C: [["form"]],
+  \u0434\u0456\u0430\u0433\u0440\u0430\u043C: [["chart"]],
+  \u0433\u0440\u0430\u0444\u0456\u043A: [["chart"]],
+  \u0437\u0432\u0456\u0442: [["report"]],
+  \u0456\u043D\u0442\u0435\u0440\u0430\u043A\u0442\u0438\u0432\u043D: [["interactive"]],
+  \u043A\u0430\u0440\u0442\u043A: [["card"]],
+  \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440: [["calendar"]],
+  \u043F\u0435\u0440\u0435\u043C\u0438\u043A\u0430\u0447: [["switch"]],
+  \u043F\u0435\u0440\u0435\u0432\u0456\u0440\u043A: [["validation"]],
+  \u0432\u0430\u043B\u0456\u0434\u0430\u0446\u0456: [["validation"]],
+  \u043F\u0440\u043E\u0446\u0435\u0441: [["process"]],
+  \u043E\u0431\u0447\u0438\u0441\u043B\u0435\u043D\u043D: [["computation"]],
+  \u0434\u0438\u043D\u0430\u043C\u0456\u0447\u043D: [["dynamic"]],
+  \u0434\u0456\u044F: [["action"]],
+  \u0434\u0456\u0457: [["action"]],
+  \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0456: [["authorization"]],
+  \u0430\u0432\u0442\u0435\u043D\u0442\u0438\u0444\u0456\u043A\u0430\u0446\u0456: [["authentication"]],
+  \u043D\u0430\u0432\u0456\u0433\u0430\u0446\u0456: [["navigation"]],
+  \u043C\u0435\u043D\u044E: [["menu"]],
+  \u0440\u0435\u0433\u0456\u043E\u043D: [["region"]],
+  \u0444\u0430\u0441\u0435\u0442\u043D: [["faceted"]],
+  \u043F\u043E\u0448\u0443\u043A: [["search"]],
+  \u043C\u043E\u0434\u0430\u043B\u044C\u043D: [["modal"]],
+  \u0432\u0456\u043A\u043D: [["dialog"]],
+  \u0434\u0456\u0430\u043B\u043E\u0433: [["dialog"]],
+  \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043D: [["upload"]],
+  \u0444\u0430\u0439\u043B: [["file"]],
+  \u0434\u0430\u0442: [["date"]],
+  \u0442\u0435\u043A\u0441\u0442: [["text"]],
+  \u043F\u043E\u043B: [["field"]],
+  \u043F\u0440\u0438\u0445\u043E\u0432\u0430\u043D: [["hidden"]],
+  \u0435\u043B\u0435\u043C\u0435\u043D\u0442: [["item"]],
+  \u0441\u043F\u0438\u0441\u043E\u043A: [["list"]],
+  \u0441\u043F\u0438\u0441\u043A: [["list"]],
+  \u0437\u043D\u0430\u0447\u0435\u043D\u043D: [["value"]],
+  \u0441\u0442\u0430\u0442\u0438\u0447\u043D: [["static"]],
+  \u0432\u043C\u0456\u0441\u0442: [["content"]],
+  \u0441\u0456\u0442\u043A: [["grid"]],
+  \u0433\u0440\u0456\u0434: [["grid"]],
+  \u0440\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u043D\u043D: [["edit"]],
+  \u0440\u0435\u0434\u0430\u0433\u043E\u0432\u0430\u043D: [["editable"]],
+  \u0432\u0438\u0431\u0456\u0440: [["select"]],
+  \u043F\u0435\u0440\u0435\u0445\u0456\u0434: [["redirect"], ["branch"]],
+  \u0433\u0456\u043B\u043A: [["branch"]],
+  \u043E\u043D\u043E\u0432\u043B\u0435\u043D\u043D: [["refresh"]],
+  \u043F\u043E\u043A\u0430\u0437\u043D\u0438\u043A: [["metric"]],
+  \u043F\u0430\u043D\u0435\u043B: [["dashboard"], ["panel"]],
+  \u0433\u043E\u043B\u043E\u0432\u043D: [["home"]],
+  \u0432\u0445\u0456\u0434: [["login"]],
+  \u0433\u043B\u043E\u0431\u0430\u043B\u044C\u043D: [["global"]],
+  \u043F\u0456\u043A\u0442\u043E\u0433\u0440\u0430\u043C: [["icon"]],
+  \u0456\u043A\u043E\u043D\u043A: [["icon"]],
+  \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A: [["title"]],
+  \u043A\u043E\u043B\u043E\u043D\u043A: [["column"]],
+  \u0441\u0442\u043E\u0432\u043F\u0447\u0438\u043A: [["bar"]],
+  \u043B\u0456\u043D\u0456\u0439\u043D: [["line"]],
+  \u043A\u0440\u0443\u0433\u043E\u0432: [["pie"]],
+  \u043C\u0430\u043F: [["map"]],
+  \u043A\u0430\u0440\u0442: [["map"]],
+  \u0441\u0435\u043A\u0446\u0456: [["section"]],
+  \u0432\u0432\u0435\u0434\u0435\u043D\u043D: [["entry"], ["data", "entry"]]
+};
+function referenceQueryTerms(query, limit2 = 16) {
+  const seen = /* @__PURE__ */ new Set();
+  const terms = [];
+  for (const stem of referenceStems(query)) {
+    if (seen.has(stem)) continue;
+    seen.add(stem);
+    terms.push({ stem, alternatives: [[stem], ...aliases[stem] ?? []] });
+    if (terms.length === limit2) break;
+  }
+  return terms;
+}
+var queryPhrase = (terms) => " " + terms.map((term) => term.stem).join(" ") + " ";
+var routingPattern = /(?:^|[._/])_(?:index|common|shared|template_options|configuration-modules|common_variables)\b|(?:^|\/)README$/;
+var routingReference = (id, title) => routingPattern.test(id) || routingPattern.test(title);
+var navigationalWords = /* @__PURE__ */ new Set([
+  "index",
+  "common",
+  "readme",
+  "routing",
+  "contract",
+  "contracts",
+  "load",
+  "order"
+]);
+var navigationalQuery = (query) => /[:/]/.test(query.trim()) || referenceWords(query).some((word) => navigationalWords.has(word));
+function primaryCodeBlock(text, limit2 = 2500) {
+  const lines = text.split("\n");
+  const blocks2 = [];
+  let open4;
+  for (const line of lines) {
+    if (open4) {
+      const close = line.match(/^(\s*)(`{3,}|~{3,})\s*$/);
+      if (close && close[1] === open4.indent && close[2][0] === open4.fence[0] && close[2].length >= open4.fence.length) {
+        blocks2.push({ language: open4.language, lines: open4.lines });
+        open4 = void 0;
+      } else open4.lines.push(line.startsWith(open4.indent) ? line.slice(open4.indent.length) : line);
+      continue;
+    }
+    const start = line.match(/^(\s*)(`{3,}|~{3,})\s*([\w.+-]*)\s*$/);
+    if (start) open4 = { indent: start[1], fence: start[2], language: start[3].toLowerCase(), lines: [] };
+  }
+  const chosen = blocks2.find((block) => block.language === "apexlang") ?? blocks2.find((block) => !block.language) ?? blocks2.sort((a, b) => b.lines.join("\n").length - a.lines.join("\n").length)[0];
+  if (!chosen) return null;
+  const full = chosen.lines.join("\n");
+  if (!full.trim()) return null;
+  return boundCode({ language: chosen.language, text: full, truncated: false, length: full.length }, limit2);
+}
+function boundCode(code, limit2) {
+  if (code.text.length <= limit2) return code;
+  const cut = code.text.lastIndexOf("\n", limit2);
+  return { ...code, text: code.text.slice(0, cut > limit2 / 2 ? cut : limit2), truncated: true };
+}
+function codeWanted(include, offset, position) {
+  return include === "code" || include !== "metadata" && offset === 0 && position === 0;
+}
+var CODE_LIMIT = 2500;
+var SEARCH_LINKS = 3;
+function fitResults(results, budget, size) {
+  const halve = (hit, floor) => {
+    if (typeof hit.text !== "string" || hit.text.length <= floor) return false;
+    const next = Math.floor(hit.text.length / 2);
+    hit.text = hit.text.slice(0, Math.max(floor, next));
+    return true;
+  };
+  const shrinkCode = (hit, floor) => {
+    if (!hit.code || hit.code.text.length <= floor) return false;
+    hit.code = boundCode(hit.code, Math.max(floor, Math.floor(hit.code.text.length / 2)));
+    return true;
+  };
+  while (size(results) > budget) {
+    if (results.slice(1).some((hit) => halve(hit, 300))) continue;
+    if (results.some((hit) => shrinkCode(hit, 600))) continue;
+    if (results.slice(1).some((hit) => "relatedReferences" in hit && delete hit.relatedReferences)) continue;
+    if (results.slice(1).some((hit) => "requiresReferences" in hit && delete hit.requiresReferences))
+      continue;
+    if (results.some((hit) => halve(hit, 100))) continue;
+    if (results.some((hit) => hit.code && delete hit.code)) continue;
+    break;
+  }
+  return results;
+}
+var identifierQuery = (query) => /^[A-Za-z][\w.:/-]*$/.test(query.trim()) && /[a-z][A-Z]|[-_.:/]/.test(query.trim());
+var canonicalPattern = /[._/](?:standard|basic|minimal|example|default)(?:-[a-z-]+)?$|\/recipes\/basic$/;
+var canonicalReference = (id) => canonicalPattern.test(id);
+var lengthPenalty = (length) => Math.min(150, Math.max(0, Math.log2(length / 2e3)) * 25);
+function scoreReference(input) {
+  const { terms, matched } = input;
+  if (matched * 2 < terms.length && !input.exact) return null;
+  let titleHits = 0;
+  let titleOrder = 0;
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
+    let hit = false;
+    for (const alternative of term.alternatives) {
+      hit = true;
+      for (const stem of alternative) if (!input.titleStems.has(stem)) hit = false;
+      if (hit) break;
+    }
+    if (hit) {
+      titleHits++;
+      titleOrder += 50 + 10 * (terms.length - i);
+    }
+  }
+  const coverage = matched / terms.length;
+  let score = (input.exact ? 1e4 : 0) + (input.titleText === input.phrase || input.titleText.startsWith(input.phrase) ? input.titleWeight : 0) + (input.titleText.includes(input.phrase) ? 400 : 0) + titleOrder + (titleHits === terms.length ? 200 : 0) + 300 * coverage * coverage + (input.quoted ? 150 : 0) + input.prior + // Routing documents sink below concrete templates unless the query asks for them.
+  (input.routing ? input.navigational ? 150 : -250 : 0) + (input.canonical && !input.navigational ? 60 : 0) - lengthPenalty(input.length) + 1 / (1 + input.length / 1e3);
+  if (input.bodyText && terms.length) {
+    const body = input.bodyText();
+    if (body.includes(input.phrase)) score += 40;
+    for (let i = 1; i < terms.length; i++)
+      if (body.includes(" " + terms[i - 1].stem + " " + terms[i].stem + " ")) score += 60;
+  }
+  return score;
+}
+
+// packages/core/src/component-examples.ts
+var MIN_BLOCK = 250;
+var MAX_BLOCK = 4e3;
+var KEEP = 8;
+var TYPE_LINE = /^\s*type: (?:[A-Za-z]+\/)?([A-Za-z][A-Za-z0-9]*)\s*$/u;
+var SOURCE_TYPES = /* @__PURE__ */ new Set([
+  "sql",
+  "query",
+  "plsql",
+  "function",
+  "body",
+  "expression",
+  "static",
+  "table",
+  "local",
+  "item",
+  "page",
+  "region",
+  "none",
+  "default",
+  "code"
+]);
+var OPENER = /^(\s*)([a-z][A-Za-z]*)\b.*\($/u;
+var USAGE_KINDS = /* @__PURE__ */ new Set([
+  "region",
+  "pageItem",
+  "button",
+  "process",
+  "dynamicAction",
+  "validation",
+  "branch"
+]);
+var MAX_VALUES = 32;
+var examples;
+var indent = (line) => line.length - line.trimStart().length;
+function sourceOf(document) {
+  const begin = document.indexOf("````apexlang\n");
+  if (begin < 0) return void 0;
+  const end = document.indexOf("\n````", begin + 13);
+  return end < 0 ? void 0 : document.slice(begin + 13, end);
+}
+function* blocks(lines) {
+  for (const [start, line] of lines.entries()) {
+    const opener = OPENER.exec(line.trimEnd());
+    if (!opener) continue;
+    const depth = opener[1].length;
+    let end = start + 1;
+    while (end < lines.length && !(lines[end].trim() === ")" && indent(lines[end]) === depth)) end += 1;
+    if (end >= lines.length) continue;
+    let type;
+    for (let at = start + 1; at < end && !type; at += 1)
+      if (indent(lines[at]) === depth + 4) type = TYPE_LINE.exec(lines[at])?.[1];
+    yield { keyword: opener[2], type, text: lines.slice(start, end + 1).join("\n") };
+  }
+}
+function ownProperties(text) {
+  const lines = text.split("\n");
+  const depth = indent(lines[0]);
+  const found = /* @__PURE__ */ new Map();
+  let group = "";
+  let skip = -1;
+  for (const line of lines.slice(1, -1)) {
+    const at = indent(line);
+    if (!line.trim() || skip >= 0 && at > skip) continue;
+    skip = -1;
+    if (at === depth + 4) {
+      group = /^\s*([A-Za-z]\w*) \{$/u.exec(line)?.[1] ?? "";
+      if (OPENER.test(line.trimEnd())) skip = at;
+    }
+    const property = /^\s*([A-Za-z]\w*): (\S.*)$/u.exec(line);
+    if (property && (at === depth + 4 || group && at === depth + 8))
+      found.set(at === depth + 4 ? property[1] : `${group}.${property[1]}`, property[2].trimEnd());
+  }
+  return found;
+}
+function keep(index, key, example) {
+  const list2 = index.get(key) ?? [];
+  list2.push(example);
+  list2.sort((a, b) => a.text.length - b.text.length);
+  index.set(key, list2.slice(0, KEEP));
+}
+async function load() {
+  const root = path.join(resourceRoot(), "public-templates", "26.2", "documents");
+  const index = /* @__PURE__ */ new Map();
+  const usage = /* @__PURE__ */ new Map();
+  let applications;
+  try {
+    applications = (await readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return { index, usage };
+  }
+  for (const application of applications.sort()) {
+    const pages2 = (await readdir(path.join(root, application))).filter((f) => /^p\d+.*\.md$/u.test(f)).sort();
+    for (const page of pages2) {
+      const source = sourceOf(await readFile(path.join(root, application, page), "utf8"));
+      if (!source) continue;
+      const id = `oracle:26.2:public-template/${application}/${page.replace(/\.md$/u, "")}`;
+      for (const block of blocks(source.split("\n"))) {
+        const key = block.type ? `${block.keyword}:${block.type}` : block.keyword;
+        if (USAGE_KINDS.has(block.keyword)) {
+          const counted = usage.get(key) ?? { blocks: 0, properties: /* @__PURE__ */ new Map() };
+          counted.blocks += 1;
+          for (const [property, value] of ownProperties(block.text)) {
+            const seen = counted.properties.get(property) ?? { count: 0, values: /* @__PURE__ */ new Map() };
+            seen.count += 1;
+            if (/^[A-Za-z][\w/-]*$/u.test(value) && (seen.values.has(value) || seen.values.size < MAX_VALUES))
+              seen.values.set(value, (seen.values.get(value) ?? 0) + 1);
+            counted.properties.set(property, seen);
+          }
+          usage.set(key, counted);
+        }
+        if (block.text.length < MIN_BLOCK || block.text.length > MAX_BLOCK) continue;
+        const types = new Set(
+          [...block.text.matchAll(/^\s*type: (?:[A-Za-z]+\/)?([A-Za-z]\w*)\s*$/gmu)].flatMap((m) => referenceStems(m[1])).filter((stem) => !SOURCE_TYPES.has(stem))
+        );
+        const example = { id, text: block.text, stems: new Set(referenceStems(block.text)), types };
+        keep(index, key, example);
+        if (block.type) keep(index, `*:${block.type}`, example);
+      }
+    }
+  }
+  return { index, usage };
+}
+async function componentUsage(kind, type) {
+  examples ??= load();
+  const counted = (await examples).usage.get(type ? `${kind}:${type}` : kind);
+  if (!counted) return [];
+  return [...counted.properties].map(([property, seen]) => {
+    const values = [...seen.values].sort((a, b) => b[1] - a[1]);
+    const total = values.reduce((sum, [, count]) => sum + count, 0);
+    return {
+      property,
+      share: seen.count / counted.blocks,
+      values: values.map(([value]) => value),
+      dominance: total ? values[0][1] / total : 1
+    };
+  }).sort((a, b) => b.share - a.share);
+}
+async function componentExample(type, options = {}) {
+  examples ??= load();
+  const { index } = await examples;
+  const key = type ? `${options.kind ?? "*"}:${type}` : options.kind;
+  const list2 = key ? index.get(key) ?? (type ? index.get(`*:${type}`) : void 0) : void 0;
+  if (!list2?.length) return void 0;
+  const wanted = new Set(referenceStems(options.request ?? ""));
+  const overlap = (example) => [...wanted].reduce(
+    (score, stem) => score + (example.types.has(stem) ? 100 : 0) + (example.stems.has(stem) ? 1 : 0),
+    0
+  );
+  const best = list2.reduce((a, b) => overlap(b) > overlap(a) ? b : a);
+  return { id: best.id, text: best.text };
+}
+function contractComponentType(title) {
+  const name = title.split(" \u2014 ")[0].split("/").at(-1).trim();
+  return /^[A-Za-z][A-Za-z0-9]*$/u.test(name) ? name : void 0;
+}
+function contractComponent(id) {
+  const at = id.indexOf("inventory/app/page/");
+  if (at < 0) return void 0;
+  const segments = id.slice(at + "inventory/app/page/".length).split("/");
+  const camel2 = (s) => s.replace(/-([a-z])/gu, (_m, c) => c.toUpperCase());
+  const variant = segments.findIndex((s) => s === "plugin-variants" || s === "template-component");
+  if (variant === 1) return { kind: camel2(segments[0]), type: camel2(segments[2]) };
+  if (segments.length === 2 && segments[0] === segments[1]) return { kind: camel2(segments[0]) };
+  return void 0;
+}
+var PAGE_PATTERNS = [
+  {
+    pattern: "modal form page (create, save, delete, cancel, close dialog, row processing)",
+    request: [/\b(?:modal|dialog)\b/iu, /\bform\b/iu],
+    contains: [
+      /^\s*pageMode: modalDialog\s*$/mu,
+      /^\s{4}region \S+ \(\n\s+name: .*\n\s+type: form\s*$/mu,
+      /^\s*type: formAutoRowProcessing\s*$/mu,
+      /^\s*type: closeDialog\s*$/mu,
+      /^\s*type: formInitialization\s*$/mu,
+      /^\s{4}button create \(/mu,
+      /^\s{4}button delete \(/mu,
+      /^\s{4}button save \(/mu,
+      /^\s{4}dynamicAction /mu
+    ]
+  }
+];
+var MAX_PAGE = 9e3;
+var pages;
+async function loadPages() {
+  const root = path.join(resourceRoot(), "public-templates", "26.2", "documents");
+  const best = /* @__PURE__ */ new Map();
+  let applications;
+  try {
+    applications = (await readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    return best;
+  }
+  for (const application of applications.sort())
+    for (const page of (await readdir(path.join(root, application))).filter((f) => /^p\d+.*\.md$/u.test(f)).sort()) {
+      const text = sourceOf(await readFile(path.join(root, application, page), "utf8"));
+      if (!text || text.length > MAX_PAGE) continue;
+      for (const { pattern, contains } of PAGE_PATTERNS) {
+        if (!contains.every((re) => re.test(text))) continue;
+        const current = best.get(pattern);
+        if (!current || text.length < current.text.length)
+          best.set(pattern, {
+            id: `oracle:26.2:public-template/${application}/${page.replace(/\.md$/u, "")}`,
+            text
+          });
+      }
+    }
+  return best;
+}
+async function pageExamples(request) {
+  const wanted = PAGE_PATTERNS.filter(({ request: words }) => words.every((re) => re.test(request)));
+  if (!wanted.length) return [];
+  pages ??= loadPages();
+  const found = await pages;
+  return wanted.flatMap(({ pattern }) => {
+    const page = found.get(pattern);
+    return page ? [{ pattern, ...page }] : [];
+  });
+}
+
+// packages/core/src/contract-hints.ts
 var contracts;
 var camel = (s) => s.replace(/-([a-z])/gu, (_m, c) => c.toUpperCase());
 function parseContract(text, segments) {
@@ -96,32 +586,44 @@ function parseContract(text, segments) {
     const type = / — `(<[^`]+>)`/u.exec(line)?.[1];
     const required = /`; [^;]*; (Yes|No); /u.exec(line)?.[1];
     const enumeration = /`<enum:\[(.*?)\]>`/u.exec(line)?.[1];
-    const values = enumeration ? [...enumeration.matchAll(/(?:^|, )([\w-]+):"/gu)].map((m) => m[1]) : void 0;
+    const labelled = enumeration ? [...enumeration.matchAll(/(?:^|, )([\w-]+):"/gu)].map((m) => m[1]) : void 0;
+    const plain = enumeration && !labelled.length ? enumeration.split(", ") : [];
+    const values = labelled?.length ? [...new Set(labelled)] : plain.every((name) => /^[A-Za-z][\w-]*$/u.test(name)) ? [...new Set(plain)] : void 0;
     properties.push({
       group,
       name: property[1],
       ...condition ? { condition } : {},
       ...type ? { type } : {},
       ...required ? { required: required === "Yes" } : {},
-      ...values?.length ? { values } : {}
+      ...values?.length ? { values } : {},
+      .../; lovType=EVENTS; /u.test(line) ? { namedList: true } : {}
     });
   }
-  return { kind, ...at >= 0 ? { variant: camel(segments[at + 1]) } : {}, segments, properties };
+  const parentType = /^- appliesWhen: `[a-zA-Z]+\[identification\.type\] = ([A-Za-z]\w*)`\s*$/mu.exec(
+    text
+  )?.[1];
+  return {
+    kind,
+    ...at >= 0 ? { variant: camel(segments[at + 1]) } : {},
+    segments,
+    ...parentType ? { parentType } : {},
+    properties
+  };
 }
-async function load() {
-  const root = path.join(resourceRoot(), "references", "26.2", "documents", "app");
+async function load2() {
+  const root = path2.join(resourceRoot(), "references", "26.2", "documents", "app");
   const found = [];
   const walk = async (dir, segments) => {
     let entries;
     try {
-      entries = await readdir(dir, { withFileTypes: true });
+      entries = await readdir2(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
-      if (entry.isDirectory()) await walk(path.join(dir, entry.name), [...segments, entry.name]);
+      if (entry.isDirectory()) await walk(path2.join(dir, entry.name), [...segments, entry.name]);
       else if (entry.name.endsWith(".md") && entry.name === `${segments.at(-1)}.md`) {
-        const contract = parseContract(await readFile(path.join(dir, entry.name), "utf8"), segments);
+        const contract = parseContract(await readFile2(path2.join(dir, entry.name), "utf8"), segments);
         if (contract) found.push(contract);
       }
     }
@@ -138,26 +640,34 @@ function labels(hint) {
   });
 }
 function contractFor(all, component, parent) {
-  const matching = all.filter(
-    (c) => c.kind === component.kind && (component.type ? c.variant === component.type : !c.variant)
-  );
   const kebab = parent?.kind.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`);
-  return (kebab && matching.find((c) => c.segments.includes(kebab))) ?? matching[0];
+  const pick = (matching) => parent?.type && matching.find((c) => c.parentType === parent.type) || kebab && matching.find((c) => c.segments.includes(kebab)) || matching[0];
+  const variant = pick(
+    all.filter(
+      (c) => c.kind === component.kind && (component.type ? c.variant === component.type : !c.variant)
+    )
+  );
+  if (variant || !component.type) return variant;
+  const plain = pick(all.filter((c) => c.kind === component.kind && !c.variant));
+  return plain?.properties.some((p) => !p.group && p.name === "type" && p.values?.includes(component.type)) ? plain : void 0;
 }
 var list = (names) => [...new Set(names)].slice(0, 30).join(", ");
 async function propertyFix(type, message, hint) {
   if (type === "DUPLICATED_COMPONENT" && /executionMappingIdentifier: null/u.test(message))
     return "give every process of the page its own advanced { executionMappingIdentifier: <unique 20-digit number> }";
+  if (type.startsWith("MISSING_REQUIRED")) return missingFix(message, hint);
   if (type !== "INVALID_PROPERTY" || !hint) return void 0;
   const property = /Invalid property: ([A-Za-z]\w*)/u.exec(message)?.[1];
   if (!property) return void 0;
   try {
-    contracts ??= load();
+    contracts ??= load2();
     const all = await contracts;
     const chain = labels(hint);
     const named = chain.findIndex((label) => label.name);
     if (named < 0) return void 0;
     const group = chain.slice(0, named).map((label) => label.kind).reverse().join(".");
+    if (group === "heading" && chain[named].kind === "column" && chain[named].type === "hidden" && chain[named + 1]?.type === "classicReport")
+      return `remove the whole heading { \u2026 } group from column ${chain[named].name}: a hidden classicReport column takes no heading (keep layout { sequence })`;
     const contract = contractFor(all, chain[named], chain[named + 1]);
     if (!contract) return void 0;
     const where = contract.properties.filter((p) => p.name === property);
@@ -178,6 +688,137 @@ async function propertyFix(type, message, hint) {
     return void 0;
   }
 }
+var choices = (values, limit2) => values.slice(0, limit2).join(" | ") + (values.length > limit2 ? ` | \u2026 ${values.length - limit2} more` : "");
+async function missingFix(message, hint) {
+  const missing = /Missing required parameter(?: \(\d+\))?: (\w+) - (\w+)(?: \((\w+)\))?/u.exec(message);
+  if (!missing) return void 0;
+  const group = missing[1] === "identification" ? "" : missing[1];
+  const name = missing[2];
+  let value = `<${missing[3] ?? "value"}>`;
+  let target = "the component that starts at the reported line";
+  let note = "";
+  try {
+    const chain = hint ? labels(hint) : [];
+    const component = chain[0]?.name ? chain[0] : void 0;
+    contracts ??= load2();
+    const contract = component && contractFor(await contracts, component, chain[1]);
+    const found = contract?.properties.filter((p) => p.group === group && p.name === name) ?? [];
+    if (component && found.length) {
+      target = `${component.kind} ${component.name}`;
+      const used = (await componentUsage(component.kind, component.type)).find(
+        (entry) => entry.property === (group ? `${group}.${name}` : name)
+      );
+      const values = valueList(contract, group, name, void 0, used?.values ?? []);
+      const sample = (await componentExample(component.type, { kind: component.kind }))?.text.match(
+        new RegExp(`^\\s*${name}: (\\S{1,80})$`, "mu")
+      )?.[1];
+      if (values) value = values;
+      else if (sample?.startsWith("@/")) value = sample;
+      else if (found[0].type) value = found[0].type;
+      const condition = found.every((p) => p.condition) ? found[0].condition : "";
+      if (condition && !condition.includes("= sample")) note = ` (required when ${condition.slice(0, 160)})`;
+    }
+  } catch {
+  }
+  return `add to ${target}: ${group ? `${group} { ${name}: ${value} }` : `${name}: ${value}`}${note}`;
+}
+function componentNote(kind) {
+  return kind === "process" ? "Keep advanced { executionMappingIdentifier } on every process, a different integer for each process of the page (for example page * 100 + n): 26.2 reports DUPLICATED_COMPONENT without it." : void 0;
+}
+var COMMON_SHARE = 0.25;
+var PARTIAL = "(most used in Oracle samples; the compiler error lists all)";
+function valueList(contract, group, name, shown, sampled) {
+  const defined = contract.properties.filter((p) => p.group === group && p.name === name);
+  const lists = [
+    ...new Map(defined.flatMap((p) => p.values ? [[p.values.join(), p.values]] : [])).values()
+  ];
+  if (!lists.length) {
+    const used = sampled.filter((value) => !value.includes("/")).slice(0, 12);
+    return defined.some((p) => p.namedList) && used.length ? `${used.join(" | ")} | \u2026 ${PARTIAL}` : void 0;
+  }
+  const score = (list2) => (shown && list2.includes(shown) ? 1e3 : 0) + sampled.filter((value) => list2.includes(value)).length;
+  const ranked = lists.map((list2) => ({ list: list2, score: score(list2) })).sort((a, b) => b.score - a.score);
+  if (ranked.length > 1 && ranked[0].score === ranked[1].score) return void 0;
+  return ranked[0].list.length > 1 ? choices(ranked[0].list, 12) : void 0;
+}
+async function exampleValues(text, id) {
+  try {
+    contracts ??= load2();
+    const all = await contracts;
+    const at = id?.indexOf("inventory/app/") ?? -1;
+    const path15 = at < 0 ? void 0 : id.slice(at + "inventory/app/".length).split("/").slice(0, -1).join("/");
+    const root = path15 === void 0 ? void 0 : all.find((c) => c.segments.join("/") === path15);
+    const lines = text.split("\n");
+    const indent2 = (line) => line.length - line.trimStart().length;
+    const found = /* @__PURE__ */ new Map();
+    const usage = /* @__PURE__ */ new Map();
+    const sampled = async (label, property) => {
+      const key = `${label.kind}:${label.type ?? ""}`;
+      if (!usage.has(key)) usage.set(key, await componentUsage(label.kind, label.type));
+      return usage.get(key).find((entry) => entry.property === property);
+    };
+    const stack = [];
+    let first;
+    for (const [i, line] of lines.entries()) {
+      if (!line.trim()) continue;
+      const depth = indent2(line);
+      while (stack.length && stack.at(-1).depth >= depth) stack.pop();
+      const parent = stack.at(-1);
+      const opener = /^\s*([a-z][A-Za-z]*)(?: (\S+))? \($/u.exec(line);
+      if (opener) {
+        let type;
+        for (let j = i + 1; j < lines.length && !type; j += 1) {
+          if (lines[j].trim() && indent2(lines[j]) <= depth) break;
+          if (indent2(lines[j]) === depth + 4)
+            type = /^\s*type: (?:[A-Za-z]+\/)?([A-Za-z]\w*)\s*$/u.exec(lines[j])?.[1];
+        }
+        const label = { kind: opener[1], ...type ? { type } : {} };
+        const contract = !stack.length && root ? root : contractFor(all, label, parent?.label);
+        stack.push({ depth, label, contract, path: stack.length ? `${parent.path}${opener[1]}.` : "" });
+        first ??= stack[0];
+        continue;
+      }
+      if (!parent) continue;
+      const group = /^\s*([A-Za-z]\w*) \{$/u.exec(line)?.[1];
+      if (group) {
+        stack.push({ ...parent, depth, group: parent.group ? `${parent.group}.${group}` : group });
+        continue;
+      }
+      const property = /^\s*([A-Za-z]\w*): (\S.*)$/u.exec(line);
+      if (!property || !parent.contract || property[1] === "type" && !parent.group) continue;
+      const name = `${parent.group ? `${parent.group}.` : ""}${property[1]}`;
+      if (found.has(parent.path + name)) continue;
+      const used = await sampled(parent.label, name);
+      const values = valueList(
+        parent.contract,
+        parent.group ?? "",
+        property[1],
+        property[2].trimEnd(),
+        used?.values ?? []
+      );
+      if (values)
+        found.set(parent.path + name, {
+          values,
+          nested: Boolean(parent.path),
+          open: used ? used.share * (1 - used.dominance) : 0
+        });
+    }
+    if (first?.contract)
+      for (const entry of await componentUsage(first.label.kind, first.label.type)) {
+        if (entry.share < COMMON_SHARE) break;
+        const [group, name] = entry.property.split(".");
+        if (!name || found.has(entry.property)) continue;
+        const values = valueList(first.contract, group, name, void 0, entry.values);
+        if (values)
+          found.set(entry.property, { values, nested: false, open: entry.share * (1 - entry.dominance) });
+      }
+    const rank = (entry) => (entry.open <= 0 ? 4 : entry.nested ? 2 : 0) - (entry.values.endsWith(PARTIAL) ? 1 : entry.open);
+    const ordered = [...found].sort((a, b) => rank(a[1]) - rank(b[1]));
+    return ordered.length ? Object.fromEntries(ordered.map(([key, entry]) => [key, entry.values])) : void 0;
+  } catch {
+    return void 0;
+  }
+}
 var SKELETON_SKIP = /* @__PURE__ */ new Set([
   "security",
   "config",
@@ -193,7 +834,7 @@ async function contractSkeleton(id) {
   if (at < 0) return void 0;
   const segments = id.slice(at + "inventory/app/".length).split("/").slice(0, -1);
   try {
-    contracts ??= load();
+    contracts ??= load2();
     const contract = (await contracts).find((c) => c.segments.join("/") === segments.join("/"));
     if (!contract) return void 0;
     const value = (p) => p.values ? p.values.slice(0, 6).join(" | ") + (p.values.length > 6 ? " | \u2026" : "") : p.type ?? "<value>";
@@ -215,16 +856,16 @@ async function contractSkeleton(id) {
 
 // packages/core/src/oracle.ts
 import { performance as performance2 } from "node:perf_hooks";
-import path12 from "node:path";
+import path13 from "node:path";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile6, readdir as readdir3, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
+import { cp as cp3, mkdir as mkdir4, mkdtemp, readFile as readFile7, readdir as readdir4, realpath as realpath4, rename as rename2, rm as rm5, stat as stat3 } from "node:fs/promises";
 
 // packages/core/src/connections.ts
-import path3 from "node:path";
+import path4 from "node:path";
 import { chmod, constants as constants2, lstat, mkdir, open as open2, rm, stat } from "node:fs/promises";
 
 // packages/core/src/local-env.ts
-import path2 from "node:path";
+import path3 from "node:path";
 import { constants, open, realpath } from "node:fs/promises";
 function parseLocalEnv(contents) {
   const result = /* @__PURE__ */ Object.create(null);
@@ -245,10 +886,10 @@ function parseLocalEnv(contents) {
   return result;
 }
 async function readLocalEnv(file) {
-  const requested = path2.resolve(file), physical = await realpath(requested);
+  const requested = path3.resolve(file), physical = await realpath(requested);
   if (requested !== physical)
     throw new Fault("ENV_FILE_UNSAFE", "Credential ENV paths cannot use symlink aliases.", 2);
-  const cwd = path2.dirname(physical);
+  const cwd = path3.dirname(physical);
   const root = await runProcess({
     executable: "git",
     args: ["rev-parse", "--show-toplevel"],
@@ -257,7 +898,7 @@ async function readLocalEnv(file) {
   });
   if (root.code !== 0)
     throw new Fault("ENV_FILE_UNSAFE", "Credential ENV files must belong to a Git working tree.", 2);
-  const relative = path2.relative(root.stdout.trim(), physical);
+  const relative = path3.relative(root.stdout.trim(), physical);
   const tracked = await runProcess({
     executable: "git",
     args: ["ls-files", "--error-unmatch", "--", relative],
@@ -320,7 +961,7 @@ function checkPassword(password) {
 }
 async function credentialPath(name) {
   parse(refName, name);
-  return contained(managedHome(), path3.join("credentials", name + ".json"));
+  return contained(managedHome(), path4.join("credentials", name + ".json"));
 }
 async function ordsCredentials(connection) {
   const name = references.get(connection);
@@ -368,7 +1009,7 @@ async function ordsCredentials(connection) {
   return value;
 }
 async function connections() {
-  const file = path3.join(managedHome(), "connections.json");
+  const file = path4.join(managedHome(), "connections.json");
   return await exists(file) ? parse(storeSchema, await readJson(file)) : {};
 }
 async function resolveConnection(name) {
@@ -385,7 +1026,7 @@ async function resolveConnection(name) {
 }
 async function editConnection(name, value) {
   parse(refName, name);
-  return withLock(path3.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path4.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     let credentialsDeleted = false;
     if (value) current[name] = parse(connectionSchema, { ...current[name], ...value });
@@ -395,7 +1036,7 @@ async function editConnection(name, value) {
       credentialsDeleted = await exists(file);
       await rm(file, { force: true });
     }
-    await writeJson(path3.join(managedHome(), "connections.json"), current);
+    await writeJson(path4.join(managedHome(), "connections.json"), current);
     return { name, status: value ? "configured" : "removed", credentialsDeleted };
   });
 }
@@ -450,7 +1091,7 @@ async function configureConnection(name, input) {
       ordsUrl: input.ordsUrl ?? url
     };
   }
-  return withLock(path3.join(managedHome(), "connections.lock"), async () => {
+  return withLock(path4.join(managedHome(), "connections.lock"), async () => {
     const current = await connections();
     const previous = current[name];
     const ords = input.ordsUrl || input.ordsUsername ? parse(ordsSchema, { url: input.ordsUrl, username: input.ordsUsername }) : previous?.ords;
@@ -463,11 +1104,11 @@ async function configureConnection(name, input) {
     let password = input.password;
     if (input.passwordFile) {
       if (password !== void 0) throw new Fault("INVALID_INPUT", "Supply one local password source.", 2);
-      const file = path3.resolve(input.passwordFile);
-      const roots = [managedHome(), ...input.project ? [path3.resolve(input.project)] : [], process.cwd()];
+      const file = path4.resolve(input.passwordFile);
+      const roots = [managedHome(), ...input.project ? [path4.resolve(input.project)] : [], process.cwd()];
       const inside = (root) => {
-        const relative = path3.relative(root, file);
-        return relative !== "" && !relative.startsWith("..") && !path3.isAbsolute(relative);
+        const relative = path4.relative(root, file);
+        return relative !== "" && !relative.startsWith("..") && !path4.isAbsolute(relative);
       };
       if (!roots.some(inside))
         throw new Fault(
@@ -495,13 +1136,13 @@ async function configureConnection(name, input) {
       }
     }
     current[name] = value;
-    await writeJson(path3.join(managedHome(), "connections.json"), current);
+    await writeJson(path4.join(managedHome(), "connections.json"), current);
     return { name, status: "configured" };
   });
 }
 
 // packages/core/src/sqlcl-config.ts
-import path4 from "node:path";
+import path5 from "node:path";
 var sqlclMode = external_exports.enum(["cli", "mcp"]);
 var sqlclRestriction = external_exports.enum(["4", "1"]);
 var databaseTransport = external_exports.enum(["direct", "ords"]);
@@ -519,7 +1160,7 @@ async function sqlclConfig() {
 }
 async function configureSqlcl(mode, level, transport) {
   const home = managedHome();
-  return withLock(path4.join(home, "sqlcl-config.lock"), async () => {
+  return withLock(path5.join(home, "sqlcl-config.lock"), async () => {
     const previous = await sqlclConfig();
     const configuration = parse(sqlclConfigSchema, {
       ...previous,
@@ -652,16 +1293,16 @@ var WarmImportServer = class {
 };
 
 // packages/core/src/ords.ts
-import path5 from "node:path";
+import path6 from "node:path";
 import { realpath as realpath2, rm as rm2 } from "node:fs/promises";
 async function sqlclHome(executable) {
-  const candidates = path5.isAbsolute(executable) ? [executable] : executable.includes(path5.sep) ? [path5.resolve(executable)] : (process.env.PATH ?? "").split(path5.delimiter).flatMap(
-    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path5.join(directory, executable + extension)) : [path5.join(directory, executable)]
+  const candidates = path6.isAbsolute(executable) ? [executable] : executable.includes(path6.sep) ? [path6.resolve(executable)] : (process.env.PATH ?? "").split(path6.delimiter).flatMap(
+    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path6.join(directory, executable + extension)) : [path6.join(directory, executable)]
   );
   for (const candidate of candidates) {
     if (!await exists(candidate)) continue;
-    const home = path5.dirname(path5.dirname(await realpath2(candidate)));
-    if (await exists(path5.join(home, "lib", "jdbcrest.jar"))) return home;
+    const home = path6.dirname(path6.dirname(await realpath2(candidate)));
+    if (await exists(path6.join(home, "lib", "jdbcrest.jar"))) return home;
     break;
   }
   throw new Fault(
@@ -674,7 +1315,7 @@ async function sqlclHome(executable) {
 async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess) {
   const executableName = process.platform === "win32" ? "java.exe" : "java";
   const candidates = [
-    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path5.join(home, "bin", executableName), javaHome: home })),
+    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path6.join(home, "bin", executableName), javaHome: home })),
     { executable: executableName, javaHome: void 0 }
   ];
   const attempted = /* @__PURE__ */ new Set();
@@ -710,11 +1351,11 @@ async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess
 async function runOrdsBridge(settings, job, credentials, stage, signal, runner = runProcess) {
   if (signal?.aborted) throw new Fault("CANCELLED", "ORDS operation cancelled.", 6, "cancelled");
   const home = await sqlclHome(settings.executable);
-  const helper = path5.join(resourceRoot(), "ords", "OrdsBridge.java");
+  const helper = path6.join(resourceRoot(), "ords", "OrdsBridge.java");
   if (!await exists(helper))
     throw new Fault("ORDS_HELPER_REQUIRED", "The installed plugin is missing its ORDS helper.", 3, "blocked");
-  const jobFile = path5.join(stage, "ords-job.json");
-  const output = path5.join(stage, "ords-result.json");
+  const jobFile = path6.join(stage, "ords-job.json");
+  const output = path6.join(stage, "ords-result.json");
   await rm2(output, { force: true });
   await writeJson(jobFile, { ...job, output });
   const env = { ...process.env, JAVA_HOME: settings.javaHome };
@@ -729,7 +1370,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
     executable: java.executable,
     args: [
       "-cp",
-      [path5.join(home, "lib", "*"), path5.join(home, "lib", "ext", "*")].join(path5.delimiter),
+      [path6.join(home, "lib", "*"), path6.join(home, "lib", "ext", "*")].join(path6.delimiter),
       helper,
       jobFile
     ],
@@ -768,8 +1409,8 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
 }
 
 // packages/core/src/compatibility.ts
-import path6 from "node:path";
-import { readFile as readFile2 } from "node:fs/promises";
+import path7 from "node:path";
+import { readFile as readFile3 } from "node:fs/promises";
 var APEX_262_PROFILE = {
   id: "apex262-sqlcl263-mmd3479",
   apex: "26.2",
@@ -786,7 +1427,7 @@ function databaseMeetsApex262Minimum(version) {
 }
 async function sourceMmdVersion(source) {
   try {
-    const value = JSON.parse(await readFile2(path6.join(source, ".apex/apexlang.json"), "utf8"));
+    const value = JSON.parse(await readFile3(path7.join(source, ".apex/apexlang.json"), "utf8"));
     const version = value?.mmdVersion;
     return typeof version === "string" && /^\d+\.\d+\.\d+\+\d+$/.test(version) ? version : null;
   } catch {
@@ -810,8 +1451,8 @@ function evaluatePartialImportCompatibility(input) {
 }
 
 // packages/core/src/upgrade-audit.ts
-import path7 from "node:path";
-import { readFile as readFile3, stat as stat2, opendir } from "node:fs/promises";
+import path8 from "node:path";
+import { readFile as readFile4, stat as stat2, opendir } from "node:fs/promises";
 function parseCodeScan(output, source) {
   const clean = output.replace(/\x1b\[[0-9;]*m/g, "");
   const from = clean.indexOf("["), to = clean.lastIndexOf("]");
@@ -822,8 +1463,8 @@ function parseCodeScan(output, source) {
   for (const entry of report) {
     if (!entry || typeof entry.file !== "string" || !Array.isArray(entry.issues))
       throw new Error("CodeScan report entry is incomplete.");
-    const file = path7.relative(source, path7.resolve(source, entry.file)).replaceAll(path7.sep, "/");
-    if (!file || file.startsWith("../") || path7.isAbsolute(file))
+    const file = path8.relative(source, path8.resolve(source, entry.file)).replaceAll(path8.sep, "/");
+    if (!file || file.startsWith("../") || path8.isAbsolute(file))
       throw new Error("CodeScan returned a file outside the inspected source.");
     for (const issue of entry.issues) {
       if (typeof issue?.ruleNo !== "string" || typeof issue.msg !== "string" || !Number.isInteger(issue.line) || issue.line < 0 || !Number.isInteger(issue.col) || issue.col < 0)
@@ -873,12 +1514,12 @@ async function auditUpgradeSource(source) {
   let inspected = 0, traversalTruncated = false;
   discovery: while (directories.length) {
     const relative = directories.pop();
-    for await (const entry of await opendir(path7.join(source, relative))) {
+    for await (const entry of await opendir(path8.join(source, relative))) {
       if (++inspected > 1e4) {
         traversalTruncated = true;
         break discovery;
       }
-      const file = path7.posix.join(relative, entry.name);
+      const file = path8.posix.join(relative, entry.name);
       if (entry.isSymbolicLink()) skipped.push(file);
       else if (entry.isDirectory()) directories.push(file);
       else if (entry.isFile() && /\.(?:apx|sql|js)$/i.test(file)) files.push(file);
@@ -887,14 +1528,14 @@ async function auditUpgradeSource(source) {
   files.sort();
   let bytes = 0, scannedFiles = 0;
   for (const file of files) {
-    const absolute = path7.join(source, file), size = (await stat2(absolute)).size;
+    const absolute = path8.join(source, file), size = (await stat2(absolute)).size;
     if (size > 1024 * 1024 || bytes + size > 16 * 1024 * 1024 || scannedFiles >= 2e3) {
       skipped.push(file);
       continue;
     }
     bytes += size;
     scannedFiles++;
-    const lines = (await readFile3(absolute, "utf8")).split(/\r?\n/);
+    const lines = (await readFile4(absolute, "utf8")).split(/\r?\n/);
     for (const rule of upgradeRules) {
       const at = lines.findIndex((line) => rule.pattern.test(line));
       if (at >= 0)
@@ -992,15 +1633,15 @@ async function localServerHost(serverHost) {
 }
 
 // packages/core/src/partial-import.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { cp as cp2, mkdir as mkdir3, rename, rm as rm4 } from "node:fs/promises";
 
 // packages/core/src/sync.ts
-import path9 from "node:path";
-import { lstat as lstat2, mkdir as mkdir2, readdir as readdir2, realpath as realpath3, open as open3, cp, chmod as chmod2 } from "node:fs/promises";
+import path10 from "node:path";
+import { lstat as lstat2, mkdir as mkdir2, readdir as readdir3, realpath as realpath3, open as open3, cp, chmod as chmod2 } from "node:fs/promises";
 
 // packages/core/src/deployment-control.ts
-import path8 from "node:path";
+import path9 from "node:path";
 import { hostname as hostname2 } from "node:os";
 import { rm as rm3 } from "node:fs/promises";
 function coordination(env) {
@@ -1031,10 +1672,10 @@ var LocalDeploymentControl = class {
   directory;
   constructor(env) {
     const key = hash(canonical({ ...env.databaseIdentity, schema: env.parsingSchema }));
-    this.directory = path8.join(managedHome(), "deployment-control", key);
+    this.directory = path9.join(managedHome(), "deployment-control", key);
   }
   file(name) {
-    return path8.join(this.directory, name);
+    return path9.join(this.directory, name);
   }
   async history() {
     const file = this.file("history.json");
@@ -1219,8 +1860,8 @@ var syncStateSchema = external_exports.strictObject({
 async function syncPath(ctx, relative) {
   const file = await contained(ctx.root, relative);
   let probe = ctx.root;
-  for (const part of path9.relative(ctx.root, file).split(path9.sep).filter(Boolean)) {
-    probe = path9.join(probe, part);
+  for (const part of path10.relative(ctx.root, file).split(path10.sep).filter(Boolean)) {
+    probe = path10.join(probe, part);
     if (await exists(probe)) {
       if ((await lstat2(probe)).isSymbolicLink())
         throw new Fault("SYNC_PATH_UNSAFE", "Working-copy storage rejects symlinks.", 5);
@@ -1232,9 +1873,9 @@ async function privateCopy(source, destination) {
   await cp(source, destination, { recursive: true });
   async function secure(directory) {
     await chmod2(directory, 448);
-    for (const entry of await readdir2(directory, { withFileTypes: true })) {
+    for (const entry of await readdir3(directory, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Private copies reject symlinks.", 5);
-      const file = path9.join(directory, entry.name);
+      const file = path10.join(directory, entry.name);
       if (entry.isDirectory()) await secure(file);
       else if (entry.isFile()) await chmod2(file, 384);
       else throw new Fault("SYNC_PATH_UNSAFE", "Private copies accept regular files only.", 5);
@@ -1282,7 +1923,7 @@ var SyncStore = class {
     const base = await syncPath(this.ctx, ".apexrest/sync");
     if (!await exists(base)) return null;
     const matches = [];
-    for (const entry of await readdir2(base, { withFileTypes: true })) {
+    for (const entry of await readdir3(base, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Fault("SYNC_PATH_UNSAFE", "Sync storage contains a symlink.", 5);
       if (!entry.isDirectory() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
       const file = await this.file(entry.name);
@@ -1324,8 +1965,8 @@ var SyncStore = class {
     return state;
   }
   async checkMapping(state) {
-    const { readFile: readFile7 } = await import("node:fs/promises");
-    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile7(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
+    const { readFile: readFile8 } = await import("node:fs/promises");
+    if (state.projectRoot !== await realpath3(this.ctx.root) || state.projectId !== this.ctx.config.projectId || state.environment !== this.name || state.targetDigest !== targetDigest(this.env) || state.sourceDir !== this.ctx.config.application.sourceDir || state.runtimeVersion !== VERSION || state.toolchainDigest !== hash(await readFile8(await contained(this.ctx.root, this.ctx.config.toolchain.lockFile))) || await isProductionTarget(this.env))
       throw new Fault(
         "SYNC_MAPPING_CHANGED",
         "Project, target, source directory or toolchain changed. Explicit refresh or invalidate is required.",
@@ -1365,7 +2006,7 @@ var SyncStore = class {
   async write(state) {
     const valid = syncStateSchema.parse(state);
     const file = await this.file(valid.targetDigest);
-    await mkdir2(path9.dirname(file), { recursive: true, mode: 448 });
+    await mkdir2(path10.dirname(file), { recursive: true, mode: 448 });
     const journalFile = await syncPath(this.ctx, ".apexrest/sync/" + valid.targetDigest + "/journal.jsonl");
     const journal = await open3(journalFile, "a", 384);
     try {
@@ -1386,7 +2027,7 @@ var SyncStore = class {
       await journal.close();
     }
     await writeJson(file, valid);
-    const directory = process.platform !== "win32" ? await open3(path9.dirname(file), "r") : null;
+    const directory = process.platform !== "win32" ? await open3(path10.dirname(file), "r") : null;
     try {
       await directory?.sync();
     } finally {
@@ -1430,8 +2071,8 @@ var SyncStore = class {
 };
 
 // packages/core/src/apexlang-equivalence.ts
-import path10 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
+import path11 from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
 var APEXLANG_EQUIVALENCE_POLICY = "apex262-selected-source-v1";
 var formattingRule = "structural-whitespace-and-comments";
 var defaultRule = "pageItem.selectList.layout.startNewRow:true-default";
@@ -1449,6 +2090,9 @@ var invokeDefaultRule = "invokeApi.parameter.direction:in,dataType:varchar2,igno
 var invokeCaseRule = "invokeApi.invoke.identifier-case";
 var eventDefaultRule = "dynamicAction.when.items.event:change-default";
 var componentOrderRule = "key-ordered-page-components";
+var lovNullDefaultRule = "pageItem.selectList.lov.displayNullValue:true-default";
+var buttonActionDefaultRule = "button.behavior.action:submitPage-default";
+var assignedIdentifierRule = "process.advanced.executionMappingIdentifier:server-assigned";
 var limit = 8 * 1024 * 1024;
 function readStructure(source) {
   if (Buffer.byteLength(source) > limit) throw new Error("Source exceeds the comparison limit.");
@@ -1707,9 +2351,64 @@ function normalizeForms(nodes, rules, parent) {
         rules.add(eventDefaultRule);
       }
     }
+    if (node.kind === "group" && node.name === "lov" && parent?.kind === "component" && parent.name === "pageItem" && parent.children.some(
+      (entry) => entry.kind === "property" && entry.name === "type" && entry.value === "selectList"
+    )) {
+      const entry = scalar("displayNullValue");
+      if (entry?.kind === "property" && entry.value === "true") {
+        children = children.filter((child) => child !== entry);
+        rules.add(lovNullDefaultRule);
+      }
+    }
+    if (node.kind === "group" && node.name === "behavior" && parent?.kind === "component" && parent.name === "button") {
+      const entry = scalar("action");
+      if (entry?.kind === "property" && entry.value === "submitPage") {
+        children = children.filter((child) => child !== entry);
+        rules.add(buttonActionDefaultRule);
+        if (!children.length) continue;
+      }
+    }
     result.push({ ...node, children });
   }
   return result;
+}
+function dropAssignedIdentifiers(expected, actual, rules) {
+  const group = (node, name) => node && "children" in node ? node.children.filter((child) => child.kind === "group" && child.name === name) : [];
+  const identifier2 = (process2) => group(process2, "advanced").flatMap(
+    (advanced) => "children" in advanced ? advanced.children.filter(
+      (child) => child.kind === "property" && child.name === "executionMappingIdentifier"
+    ) : []
+  );
+  return actual.map((page) => {
+    if (!("children" in page) || page.kind !== "component" || page.name !== "page") return page;
+    const reviewedPages = expected.filter(
+      (node) => "children" in node && node.kind === "component" && node.name === "page" && node.key === page.key
+    );
+    if (reviewedPages.length !== 1) return page;
+    const reviewedPage = reviewedPages[0];
+    return {
+      ...page,
+      children: page.children.map((process2) => {
+        if (!("children" in process2) || process2.kind !== "component" || process2.name !== "process")
+          return process2;
+        const reviewed = reviewedPage.children.filter(
+          (node) => "children" in node && node.kind === "component" && node.name === "process" && node.key === process2.key
+        );
+        const assigned = identifier2(process2);
+        if (reviewed.length !== 1 || identifier2(reviewed[0]).length || assigned.length !== 1 || assigned[0].kind !== "property" || !/^\d+$/.test(assigned[0].value))
+          return process2;
+        rules.add(assignedIdentifierRule);
+        return {
+          ...process2,
+          children: process2.children.map(
+            (child) => "children" in child && child.kind === "group" && child.name === "advanced" ? { ...child, children: child.children.filter((entry) => entry !== assigned[0]) } : child
+          ).filter(
+            (child) => !("children" in child && child.kind === "group" && child.name === "advanced" && !child.children.length)
+          )
+        };
+      })
+    };
+  });
 }
 var sequencedComponents = {
   page: {
@@ -1796,6 +2495,9 @@ function compareApexlangSource(expected, actual) {
     );
     if (canonical(normalized(left)) === canonical(normalized(right)))
       return { equivalent: true, rules: [formattingRule, ...formRules] };
+    const assignedRules = new Set(formRules);
+    if (canonical(normalized(left)) === canonical(normalized(dropAssignedIdentifiers(left, right, assignedRules))))
+      return { equivalent: true, rules: [formattingRule, ...assignedRules] };
     return {
       equivalent: false,
       rules: [],
@@ -1821,10 +2523,10 @@ async function compareApplicationExports(expectedRoot, actualRoot, expectedFiles
   for (const file of [.../* @__PURE__ */ new Set([...Object.keys(expectedFiles), ...Object.keys(actualFiles)])].sort()) {
     if (expectedFiles[file] === actualFiles[file]) continue;
     let reason = "File bytes differ outside the selected APEXlang normalization scope.";
-    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path10.posix.extname(file) === ".apx") {
+    if (expectedFiles[file] && actualFiles[file] && allowed.has(file) && path11.posix.extname(file) === ".apx") {
       const [expected, actual] = await Promise.all([
-        readFile4(await contained(expectedRoot, file)),
-        readFile4(await contained(actualRoot, file))
+        readFile5(await contained(expectedRoot, file)),
+        readFile5(await contained(actualRoot, file))
       ]);
       if (hash(expected) !== expectedFiles[file] || hash(actual) !== actualFiles[file])
         reason = "Source changed during readback comparison.";
@@ -1881,7 +2583,7 @@ function importOptions(value = {}) {
       2
     );
   const files = (value.files ?? []).map((file) => {
-    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path11.posix.normalize(file) !== file || file === ".")
+    if (!relativePath.safeParse(file).success || /[\\*?\[\]]/.test(file) || /^[A-Za-z]:/.test(file) || file.startsWith("-") || path12.posix.normalize(file) !== file || file === ".")
       throw new Fault(
         "IMPORT_FILE_UNSAFE",
         "Use normalized application-relative file paths without globs.",
@@ -1895,7 +2597,7 @@ function importOptions(value = {}) {
 }
 async function sourceRelease(root) {
   try {
-    const value = await readJson(path11.join(root, ".apex/apexlang.json"));
+    const value = await readJson(path12.join(root, ".apex/apexlang.json"));
     return typeof value.mmdVersion === "string" ? value.mmdVersion.match(/^\d+\.\d+/)?.[0] ?? null : null;
   } catch {
     return null;
@@ -1919,7 +2621,7 @@ async function overlaySelection(source, exported, files, destination) {
     const target = await contained(destination, file);
     if (!observed[file]) await rm4(target, { force: true });
     else {
-      await mkdir3(path11.dirname(target), { recursive: true, mode: 448 });
+      await mkdir3(path12.dirname(target), { recursive: true, mode: 448 });
       await cp2(await contained(exported, file), target);
     }
   }
@@ -1961,18 +2663,18 @@ function selectImport(base, local, remote, options) {
 }
 async function persistSnapshot(ctx, source, directory) {
   const destination = await syncPath(ctx, directory);
-  await mkdir3(path11.dirname(destination), { recursive: true, mode: 448 });
+  await mkdir3(path12.dirname(destination), { recursive: true, mode: 448 });
   await privateCopy(source, destination);
   const files = await inventory(destination);
   return { directory, files, digest: hash(canonical(files)) };
 }
 async function stageSelection(ctx, before, localRoot, files, expected, directory) {
   const root = await syncPath(ctx, directory);
-  await mkdir3(path11.dirname(root), { recursive: true, mode: 448 });
+  await mkdir3(path12.dirname(root), { recursive: true, mode: 448 });
   await privateCopy(await syncPath(ctx, before.directory), root);
   for (const file of files) {
     const destination = await contained(root, file);
-    await mkdir3(path11.dirname(destination), { recursive: true, mode: 448 });
+    await mkdir3(path12.dirname(destination), { recursive: true, mode: 448 });
     await cp2(await contained(localRoot, file), destination);
   }
   const actual = await inventory(root);
@@ -2000,7 +2702,7 @@ async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, sele
     const destination = await contained(replacement, file);
     if (!server.files[file]) await rm4(destination, { force: true });
     else {
-      await mkdir3(path11.dirname(destination), { recursive: true });
+      await mkdir3(path12.dirname(destination), { recursive: true });
       await cp2(await contained(await syncPath(ctx, server.directory), file), destination);
     }
   }
@@ -2194,13 +2896,13 @@ var OracleAdapter = class {
   selectedTransport;
   selectedConnections = /* @__PURE__ */ new Map();
   async settings() {
-    const file = path12.join(managedHome(), "runtime.json");
+    const file = path13.join(managedHome(), "runtime.json");
     const state = await exists(file) ? await readJson(file) : {};
     const transport = await (this.selectedTransport ??= sqlclConfig());
     return {
       ...transport,
       executable: process.env.APEXREST_SQLCL ?? state.sqlcl ?? this.executable,
-      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path12.dirname(path12.dirname(state.java)) : process.env.JAVA_HOME)
+      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path13.dirname(path13.dirname(state.java)) : process.env.JAVA_HOME)
     };
   }
   async selectedConnection(connection) {
@@ -2375,7 +3077,7 @@ prompt ${marker}
   }
   /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
   async sessionHome() {
-    const root = path12.join(managedHome(), "staging");
+    const root = path13.join(managedHome(), "staging");
     await mkdir4(root, { recursive: true, mode: 448 });
     return root;
   }
@@ -2392,14 +3094,14 @@ prompt ${marker}
       );
   }
   async stage() {
-    const root = path12.join(managedHome(), "staging");
+    const root = path13.join(managedHome(), "staging");
     await mkdir4(root, { recursive: true, mode: 448 });
-    return mkdtemp(path12.join(root, "oracle-"));
+    return mkdtemp(path13.join(root, "oracle-"));
   }
   /** Remove a private staging directory created by stage(). Other paths are never removed. */
   async discardStage(stage) {
     if (!stage) return;
-    const relative = path12.relative(path12.join(managedHome(), "staging"), path12.resolve(stage));
+    const relative = path13.relative(path13.join(managedHome(), "staging"), path13.resolve(stage));
     if (!/^oracle-[^/\\]+$/.test(relative)) return;
     await rm5(stage, { recursive: true, force: true });
   }
@@ -2421,12 +3123,12 @@ prompt ${marker}
     }
   }
   async capabilityKey(settings) {
-    if (!path12.isAbsolute(settings.executable)) return;
+    if (!path13.isAbsolute(settings.executable)) return;
     try {
       const executable = await realpath4(settings.executable);
-      const bin = path12.dirname(executable);
-      if (path12.basename(bin) !== "bin") return;
-      const lib = path12.join(path12.dirname(bin), "lib");
+      const bin = path13.dirname(executable);
+      if (path13.basename(bin) !== "bin") return;
+      const lib = path13.join(path13.dirname(bin), "lib");
       const mark = async (file, required) => {
         try {
           const info = await stat3(file, { bigint: true });
@@ -2439,11 +3141,11 @@ prompt ${marker}
       const marks = {
         executable: await mark(executable, true),
         lib: await mark(lib, true),
-        apex: await mark(path12.join(lib, "dbtools-apex.jar"), false),
-        apexlang: await mark(path12.join(lib, "apexlang-compiler.jar"), false),
-        ext: await mark(path12.join(lib, "ext"), false),
-        extApex: await mark(path12.join(lib, "ext/dbtools-apex.jar"), false),
-        extApexlang: await mark(path12.join(lib, "ext/apexlang-compiler.jar"), false)
+        apex: await mark(path13.join(lib, "dbtools-apex.jar"), false),
+        apexlang: await mark(path13.join(lib, "apexlang-compiler.jar"), false),
+        ext: await mark(path13.join(lib, "ext"), false),
+        extApex: await mark(path13.join(lib, "ext/dbtools-apex.jar"), false),
+        extApexlang: await mark(path13.join(lib, "ext/apexlang-compiler.jar"), false)
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -2461,7 +3163,7 @@ prompt ${marker}
   async capabilityFile(key) {
     if (!key || this.runner !== runProcess || /^(?:0|false|off)$/i.test(process.env.APEXREST_CAPABILITY_CACHE ?? ""))
       return void 0;
-    return path12.join(managedHome(), "cache", "sqlcl-capabilities", key + ".json");
+    return path13.join(managedHome(), "cache", "sqlcl-capabilities", key + ".json");
   }
   async storedCapabilities(key) {
     const file = await this.capabilityFile(key);
@@ -2480,7 +3182,7 @@ prompt ${marker}
     const file = await this.capabilityFile(key);
     if (file && capabilities.version && key === await this.capabilityKey(await this.settings()))
       try {
-        await mkdir4(path12.dirname(file), { recursive: true, mode: 448 });
+        await mkdir4(path13.dirname(file), { recursive: true, mode: 448 });
         await writeJson(file, { savedAt: Date.now(), capabilities });
       } catch {
       }
@@ -2550,8 +3252,8 @@ prompt ${marker}
     const key = await this.capabilityKey(await this.settings());
     let pending = key ? importHelpCache.get(key) : void 0;
     if (!pending) {
-      pending = this.session("help apex import").then(
-        (result) => result.output.replace(/\x1b\[[0-9;]*m/g, "")
+      pending = this.storedImportHelp(key).then(
+        (stored) => stored ?? this.session("help apex import").then((result) => result.output.replace(/\x1b\[[0-9;]*m/g, "")).then((help) => this.storeImportHelp(key, help))
       );
       if (key) {
         importHelpCache.set(key, pending);
@@ -2559,6 +3261,36 @@ prompt ${marker}
       }
     }
     return raceCancellation(pending, signal, "Import capability check cancelled.");
+  }
+  /**
+   * `help apex import` of an unchanged SQLcl installation, kept across processes like the
+   * capabilities above: a deployment worker otherwise starts one more SQLcl JVM to read it.
+   */
+  async importHelpFile(key) {
+    const file = await this.capabilityFile(key);
+    return file?.replace(/\.json$/, ".import-help.json");
+  }
+  async storedImportHelp(key) {
+    const file = await this.importHelpFile(key);
+    if (!file) return void 0;
+    try {
+      const stored = await readJson(file);
+      if (typeof stored.savedAt !== "number" || Date.now() - stored.savedAt > CAPABILITY_CACHE_MS || stored.savedAt > Date.now() || typeof stored.help !== "string" || !stored.help || stored.helpHash !== hash(stored.help))
+        return void 0;
+      return stored.help;
+    } catch {
+      return void 0;
+    }
+  }
+  async storeImportHelp(key, help) {
+    const file = await this.importHelpFile(key);
+    if (file && help && key === await this.capabilityKey(await this.settings()))
+      try {
+        await mkdir4(path13.dirname(file), { recursive: true, mode: 448 });
+        await writeJson(file, { savedAt: Date.now(), help, helpHash: hash(help) });
+      } catch {
+      }
+    return help;
   }
   async partialImportCapabilities(source, target, signal) {
     const compiler = await this.requireCapability("import", signal);
@@ -2582,7 +3314,7 @@ prompt ${marker}
         findings: [],
         reason: "APEXlang CodeScan is qualified only for SQLcl 26.3."
       };
-    const stage = await this.stage(), copy = path12.join(stage, "application");
+    const stage = await this.stage(), copy = path13.join(stage, "application");
     try {
       await cp3(source, copy, { recursive: true });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
@@ -2630,16 +3362,16 @@ prompt ${marker}
     return { directory, compiler, output: result.output, files: await inventory(directory) };
   }
   async findApplication(root) {
-    if (await exists(path12.join(root, "application.apx"))) return root;
+    if (await exists(path13.join(root, "application.apx"))) return root;
     const found = [];
-    for (const entry of await readdir3(root, { withFileTypes: true }))
+    for (const entry of await readdir4(root, { withFileTypes: true }))
       if (entry.isDirectory()) {
-        const dir = path12.join(root, entry.name);
-        if (await exists(path12.join(dir, "application.apx"))) found.push(dir);
+        const dir = path13.join(root, entry.name);
+        if (await exists(path13.join(dir, "application.apx"))) found.push(dir);
         else
-          for (const sub of await readdir3(dir, { withFileTypes: true }))
-            if (sub.isDirectory() && await exists(path12.join(dir, sub.name, "application.apx")))
-              found.push(path12.join(dir, sub.name));
+          for (const sub of await readdir4(dir, { withFileTypes: true }))
+            if (sub.isDirectory() && await exists(path13.join(dir, sub.name, "application.apx")))
+              found.push(path13.join(dir, sub.name));
       }
     if (found.length !== 1)
       throw new Fault(
@@ -2656,20 +3388,20 @@ prompt ${marker}
   async validate(source, signal, options = {}) {
     const compiler = await this.requireCapability("validate", signal);
     const before = await inventory(source);
-    const metadataFile = before[".apex/apexlang.json"] ? path12.join(source, ".apex/apexlang.json") : options.metadataFile;
+    const metadataFile = before[".apex/apexlang.json"] ? path13.join(source, ".apex/apexlang.json") : options.metadataFile;
     if (!metadataFile)
       throw new Fault(
         "MMD_METADATA_REQUIRED",
         "Preserve Oracle-generated .apex/apexlang.json before validation.",
         3
       );
-    const stage = await this.stage(), copy = path12.join(stage, "application");
+    const stage = await this.stage(), copy = path13.join(stage, "application");
     let result;
     try {
       await cp3(source, copy, { recursive: true });
       if (!before[".apex/apexlang.json"]) {
-        await mkdir4(path12.join(copy, ".apex"), { recursive: true });
-        await cp3(metadataFile, path12.join(copy, ".apex/apexlang.json"));
+        await mkdir4(path13.join(copy, ".apex"), { recursive: true });
+        await cp3(metadataFile, path13.join(copy, ".apex/apexlang.json"));
       }
       result = await this.session(
         `apex validate -input ${sqlclToken(copy)}`,
@@ -2697,7 +3429,7 @@ prompt ${marker}
     return {
       status: "passed",
       compiler,
-      mmd: JSON.parse(await readFile6(metadataFile, "utf8")),
+      mmd: JSON.parse(await readFile7(metadataFile, "utf8")),
       sourceDigest: hash(canonical(before)),
       output: result.output
     };
@@ -2706,7 +3438,7 @@ prompt ${marker}
     const compiler = await this.requireCapability("export");
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === "ords";
-    const exportRoot = ords ? path12.join(stage, "export") : stage;
+    const exportRoot = ords ? path13.join(stage, "export") : stage;
     const result = ords ? {
       output: String(
         (await this.ordsBridge(
@@ -2763,7 +3495,7 @@ prompt ${marker}
         3
       );
     const compiler = await this.requireCapability("export");
-    const stage = await this.stage(), directory = path12.join(stage, "selection");
+    const stage = await this.stage(), directory = path13.join(stage, "selection");
     await mkdir4(directory, { mode: 448 });
     try {
       if (exportScope === "full") {
@@ -2778,7 +3510,7 @@ prompt ${marker}
               throw new Fault("PARTIAL_EXPORT_AMBIGUOUS", "Export has duplicate selected identities.", 5);
             if (!matches.length) continue;
             const target = await contained(directory, file);
-            await mkdir4(path12.dirname(target), { recursive: true, mode: 448 });
+            await mkdir4(path13.dirname(target), { recursive: true, mode: 448 });
             await cp3(await contained(exported.directory, matches[0]), target);
           }
           const files2 = await inventory(directory);
@@ -2820,7 +3552,7 @@ prompt ${marker}
       const outputs = [];
       const observed = /* @__PURE__ */ new Set();
       for (const [index, mapping] of mappings.entries()) {
-        const exportDirectory = path12.join(stage, "component-" + (index + 1));
+        const exportDirectory = path13.join(stage, "component-" + (index + 1));
         await mkdir4(exportDirectory, { mode: 448 });
         const result = await this.session(
           `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(exportDirectory)} -expComponents ${sqlclToken(mapping.type + ":" + mapping.id)}`,
@@ -2847,7 +3579,7 @@ prompt ${marker}
             );
           observed.add(mapping.file);
           const target = await contained(directory, mapping.file);
-          await mkdir4(path12.dirname(target), { recursive: true, mode: 448 });
+          await mkdir4(path13.dirname(target), { recursive: true, mode: 448 });
           await cp3(await contained(exportDirectory, file), target);
         }
       }
@@ -3148,9 +3880,9 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     return { target, metadata: parseApplicationMetadata(rows[1]) };
   }
   async nativeDeployment(ctx, env, source) {
-    const output = path12.join(await this.stage(), "deployment.json");
-    const defaults = path12.join(source, "deployments/default.json");
-    const native = await exists(defaults) ? JSON.parse(await readFile6(defaults, "utf8")) : {};
+    const output = path13.join(await this.stage(), "deployment.json");
+    const defaults = path13.join(source, "deployments/default.json");
+    const native = await exists(defaults) ? JSON.parse(await readFile7(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output, {
       ...native,
@@ -3182,7 +3914,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
           2
         );
       for (const file of selectedFiles) {
-        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path12.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
+        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path13.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
           throw new Fault(
             "PARTIAL_IMPORT_FILES_INVALID",
             "Partial-import files must be literal contained APEXlang paths without globs.",
@@ -3191,7 +3923,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         let valid = false;
         try {
           const physical = await realpath4(await contained(source, file));
-          valid = path12.relative(await realpath4(source), physical).replaceAll(path12.sep, "/") === file && (await stat3(physical)).isFile();
+          valid = path13.relative(await realpath4(source), physical).replaceAll(path13.sep, "/") === file && (await stat3(physical)).isFile();
         } catch {
         }
         if (!valid)
@@ -3214,17 +3946,22 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     try {
       return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
-      await this.discardStage(path12.dirname(config));
+      await this.discardStage(path13.dirname(config));
     }
   }
   warmImport;
   /**
-   * Start loading the APEXlang compiler for a full import of `source` that this
+   * Start loading the APEXlang compiler for an import of `source` that this
    * deployment is about to run (sqlcl-warm.ts). Returns nothing when the transport
    * is not a saved SQLcl connection in CLI mode; the import then runs as before.
    * The caller closes the returned handle when the deployment ends.
+   *
+   * A selected-file import names its files relative to SQLcl's working directory.
+   * `importDirectory` is the existing directory that import will read; the server
+   * starts in it and serves only a selected-file import of exactly that directory.
+   * Without it the server serves a full import.
    */
-  async prepareImport(source, connection) {
+  async prepareImport(source, connection, importDirectory) {
     if (warmImportDisabled() || this.runner !== runProcess || this.warmImport) return void 0;
     const settings = await this.settings();
     if (settings.mode !== "cli" || (settings.databaseTransport ?? "direct") !== "direct") return void 0;
@@ -3244,12 +3981,16 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     env.JAVA_TOOL_OPTIONS = "-XX:ActiveProcessorCount=2";
     const server = new WarmImportServer({
       executable: settings.executable,
-      cwd: await this.sessionHome(),
+      cwd: importDirectory ?? await this.sessionHome(),
       env,
       restrictLevel: SCRIPT_RESTRICT_LEVEL,
       warmup: `apex validate -input ${sqlclToken(source)}`
     });
-    const entry = { source: path12.resolve(source), server };
+    const entry = {
+      source: path13.resolve(source),
+      server,
+      ...importDirectory ? { importDirectory: path13.resolve(importDirectory) } : {}
+    };
     this.warmImport = entry;
     return {
       close: async () => {
@@ -3258,11 +3999,17 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
       }
     };
   }
-  /** The prepared server serves one import, of any frozen copy of the application it was started for. */
-  takeWarmImport(_source) {
+  /**
+   * The prepared server serves one import: a full import of any frozen copy of the application
+   * it was started for, or a selected-file import of the directory it was started in. A server
+   * prepared for the other kind is left for its owner to close.
+   */
+  takeWarmImport(source, selected) {
     const entry = this.warmImport;
+    if (!entry || selected !== !!entry.importDirectory) return void 0;
+    if (selected && entry.importDirectory !== path13.resolve(source)) return void 0;
     this.warmImport = void 0;
-    return entry?.server;
+    return entry.server;
   }
   async importWith(env, connection, source, config, signal, selectedFiles) {
     if ((await this.settings()).databaseTransport === "ords") {
@@ -3293,7 +4040,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         SCRIPT_RESTRICT_LEVEL,
         false,
         "import",
-        selectedFiles ? void 0 : this.takeWarmImport(source)
+        this.takeWarmImport(source, selectedFiles !== void 0)
       );
     } catch (error) {
       if (error instanceof Fault && error.code === "ORACLE_COMMAND_FAILED" && !error.details)
@@ -3321,8 +4068,8 @@ end;
       await this.requireMutationSupport();
       const stage = await this.stage();
       try {
-        const input = path12.join(stage, "restore.sql");
-        await (await import("./chunk-XLCW2IED.mjs")).atomicWrite(input, setup + await readFile6(file, "utf8"));
+        const input = path13.join(stage, "restore.sql");
+        await (await import("./chunk-N5REIRNV.mjs")).atomicWrite(input, setup + await readFile7(file, "utf8"));
         return await this.ordsBridge({ operation: "script", input }, connection, signal, stage);
       } finally {
         await this.discardStage(stage);
@@ -3385,24 +4132,26 @@ async function diagnosticHint(root, diagnostic) {
     return;
   try {
     const file = await contained(root, diagnostic.file);
-    const lines = (await readFile6(file, "utf8")).split(/\r?\n/);
-    const indent = (text) => text.match(/^\s*/)[0].length;
+    const lines = (await readFile7(file, "utf8")).split(/\r?\n/);
+    const indent2 = (text) => text.match(/^\s*/)[0].length;
     const open4 = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain = [];
-    let level = indent(lines[diagnostic.line - 1] ?? "");
-    for (let i = diagnostic.line - 2; i >= 0 && chain.length < 3; i--) {
+    const reported = lines[diagnostic.line - 1] ?? "";
+    const own = /^MISSING_REQUIRED/.test(diagnostic.type) && /\(\s*$/.test(reported) && open4.test(reported);
+    let level = indent2(reported) + (own ? 1 : 0);
+    for (let i = diagnostic.line - (own ? 1 : 2); i >= 0 && chain.length < 3; i--) {
       const text = lines[i];
-      if (!text.trim() || indent(text) >= level) continue;
+      if (!text.trim() || indent2(text) >= level) continue;
       const match = text.match(open4);
       if (!match) continue;
-      level = indent(text);
+      level = indent2(text);
       const kind = match[1], name = match[2];
       let label = name ? `${kind} ${name}` : kind;
       if (name) {
         for (let j = i + 1; j < lines.length && j < i + 40; j++) {
           const property = lines[j].match(/^\s*type:\s*(\S+)/);
-          if (indent(lines[j]) <= level && lines[j].trim()) break;
-          if (property && indent(lines[j]) === level + (indent(lines[i + 1] ?? "") - level || 4)) {
+          if (indent2(lines[j]) <= level && lines[j].trim()) break;
+          if (property && indent2(lines[j]) === level + (indent2(lines[i + 1] ?? "") - level || 4)) {
             label += ` (type: ${property[1]})`;
             break;
           }
@@ -3460,8 +4209,8 @@ async function installSources(source, root, destination) {
       5,
       "conflict"
     );
-  await mkdir4(path12.dirname(target), { recursive: true });
-  const staging = await mkdtemp(path12.join(path12.dirname(target), ".apexrest-copy-"));
+  await mkdir4(path13.dirname(target), { recursive: true });
+  const staging = await mkdtemp(path13.join(path13.dirname(target), ".apexrest-copy-"));
   await inventory(source);
   await cp3(source, staging, { recursive: true });
   await rename2(staging, target);
@@ -3470,15 +4219,15 @@ async function installSources(source, root, destination) {
 
 // packages/core/src/project.ts
 function resourceRoot() {
-  return process.env.APEXREST_RESOURCES ?? path13.resolve(path13.dirname(fileURLToPath(import.meta.url)), "../resources");
+  return process.env.APEXREST_RESOURCES ?? path14.resolve(path14.dirname(fileURLToPath(import.meta.url)), "../resources");
 }
 async function projectInit(directory, template, alias) {
   parse(refName, alias);
-  const destination = path13.resolve(directory);
-  await mkdir5(path13.dirname(destination), { recursive: true });
+  const destination = path14.resolve(directory);
+  await mkdir5(path14.dirname(destination), { recursive: true });
   return withLock(destination + ".init.lock", async () => {
     if (await exists(destination)) {
-      if (!(await lstat3(destination)).isDirectory() || (await readdir4(destination)).length)
+      if (!(await lstat3(destination)).isDirectory() || (await readdir5(destination)).length)
         throw new Fault("LOCAL_EDITS_CONFLICT", "Project init requires an empty directory.", 5, "conflict");
     }
     const root = await mkdtemp2(destination + ".init-");
@@ -3490,7 +4239,7 @@ async function projectInit(directory, template, alias) {
         "conflict"
       );
       if (!await exists(root)) await mkdir5(root, { recursive: true, mode: 448 });
-      if (!(await lstat3(root)).isDirectory() || (await readdir4(root)).length !== 0) throw conflict();
+      if (!(await lstat3(root)).isDirectory() || (await readdir5(root)).length !== 0) throw conflict();
       const createFile = async (file, content) => {
         try {
           await writeFile(file, content, { flag: "wx", mode: 384 });
@@ -3511,45 +4260,45 @@ async function projectInit(directory, template, alias) {
         environments: {},
         artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
       };
-      await createFile(path13.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
-      await createFile(path13.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
+      await createFile(path14.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+      await createFile(path14.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
       for (const dir of Object.values(config.database))
-        await mkdir5(path13.join(root, dir), { recursive: true });
+        await mkdir5(path14.join(root, dir), { recursive: true });
       await cp4(
-        path13.join(resourceRoot(), "toolchains/toolchain.lock.json"),
-        path13.join(root, config.toolchain.lockFile),
+        path14.join(resourceRoot(), "toolchains/toolchain.lock.json"),
+        path14.join(root, config.toolchain.lockFile),
         { force: false, errorOnExist: true }
       );
       if (template !== "existing-app") {
         const generated = await new OracleAdapter().generate(alias, alias);
         await installSources(generated.directory, root, config.application.sourceDir);
-        const release = await sourceRelease(path13.join(root, config.application.sourceDir));
+        const release = await sourceRelease(path14.join(root, config.application.sourceDir));
         if (release === "26.2") {
           config.toolchain.profile = "26.2";
           await cp4(
-            path13.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
-            path13.join(root, config.toolchain.lockFile)
+            path14.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
+            path14.join(root, config.toolchain.lockFile)
           );
-          await atomicWrite(path13.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+          await atomicWrite(path14.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
         }
         if (template === "customer-crm") {
-          await cp4(path13.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
+          await cp4(path14.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
           await cp4(
-            path13.join(
+            path14.join(
               resourceRoot(),
               "templates/customer-crm",
               release === "26.2" ? "apex-overlay-26.2" : "apex-overlay"
             ),
-            path13.join(root, config.application.sourceDir),
+            path14.join(root, config.application.sourceDir),
             { recursive: true }
           );
-          const { readFile: readFile7 } = await import("node:fs/promises");
-          const file = path13.join(
+          const { readFile: readFile8 } = await import("node:fs/promises");
+          const file = path14.join(
             root,
             config.application.sourceDir,
             release === "26.2" ? "shared-components/lists/navigation-menu.apx" : "shared-components/lists.apx"
           );
-          const lists = await readFile7(file, "utf8"), index = lists.lastIndexOf(")");
+          const lists = await readFile8(file, "utf8"), index = lists.lastIndexOf(")");
           if (index < 0 || !lists.includes("list navigation-menu ("))
             throw new Fault(
               "UNSUPPORTED_TEMPLATE",
@@ -3574,16 +4323,16 @@ async function projectInit(directory, template, alias) {
         }
       }
       if (await exists(destination)) {
-        if ((await readdir4(destination)).length) throw conflict();
+        if ((await readdir5(destination)).length) throw conflict();
         const moved = [];
         try {
-          for (const entry of await readdir4(root)) {
-            await rename3(path13.join(root, entry), path13.join(destination, entry));
+          for (const entry of await readdir5(root)) {
+            await rename3(path14.join(root, entry), path14.join(destination, entry));
             moved.push(entry);
           }
         } catch (error) {
           for (const entry of moved.reverse())
-            await rename3(path13.join(destination, entry), path13.join(root, entry));
+            await rename3(path14.join(destination, entry), path14.join(root, entry));
           throw error;
         }
       } else await rename3(root, destination);
@@ -3691,6 +4440,31 @@ export {
   resourceRoot,
   projectInit,
   projectInspect,
+  referenceWords,
+  buildReferencePostings,
+  referenceStem,
+  referenceTerms,
+  referenceStems,
+  stemmedReference,
+  referenceQueryTerms,
+  queryPhrase,
+  routingReference,
+  navigationalQuery,
+  primaryCodeBlock,
+  boundCode,
+  codeWanted,
+  CODE_LIMIT,
+  SEARCH_LINKS,
+  fitResults,
+  identifierQuery,
+  canonicalReference,
+  scoreReference,
+  componentExample,
+  contractComponentType,
+  contractComponent,
+  pageExamples,
+  componentNote,
+  exampleValues,
   contractSkeleton,
   sqlclMode,
   sqlclRestriction,

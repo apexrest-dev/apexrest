@@ -5,32 +5,24 @@ description: Write or edit Oracle APEXlang (.apx) sources using pinned Oracle re
 
 # APEXlang
 
-Pass the absolute project directory as `project`. Reuse source already read; retrieve only what changes the edit, with at most 3 `apexrest_reference` lookups per change. Never guess grammar or leave placeholders; `apexrest_apex_validate` is the arbiter.
+Pass the absolute project directory as `project`. Reuse source already read; retrieve only what changes the edit, with at most 3 `apexrest_reference` lookups per change ([work](../apexrest-work/SKILL.md) step 2): adapt the select result's examples first. Never guess grammar or leave placeholders; `apexrest_apex_validate` is the arbiter.
 
 ## Retrieval
 
 - Page composition: call `apexrest_reference mode:select` once with `project` and concise UI-only `request` (no private source/data/credentials). Optional project Decisions settings or local retrieval select candidates. Read contracts/dependencies, adapt recipes and compose final APEXlang in this host. Supplement gaps with search; selection proves neither compilation nor runtime behavior.
 - Known entry: `apexrest_reference` `mode:read` with the ID. `oracle:` is a complete document, `grammar:production-name` one production, `component:`/`pattern:` a bundled recipe. Follow only the `requires` and `related` links you need; page with `offset`/`nextOffset`.
-- Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` from the table below and `limit:3`. `version` selects `26.1` or `26.2`; otherwise the project profile selects it, defaulting to 26.1. Pass the same version on reads. Empty results do not prove a feature absent.
+- Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` and `limit:3`. With `project`, `toolchain.profile` in apexrest.json selects the release (`26.2` or `26.1`; unset means 26.1); `version` overrides it. Pass the same version on reads. Empty results do not prove a feature absent.
 - Reusable component: `mode:search`, `corpus:components`, `kind:template`, English or Ukrainian name, `limit:3`; read the `component:` recipe and its parameter contract. `ready` proves offline compilation only.
 - For 26.2, `corpus:components`, `kind:template`, `version:26.2` searches the public Oracle page library. Read its `oracle:26.2:public-template/` result and required application dependency guide. These pages are source references, not standalone compiler-ready recipes; adapt SQL, shared objects, plug-ins, assets and destination pages, then compile the complete target application.
 - UX flow across components: `corpus:patterns` the same way; read the `pattern:` recipe and its required `component:`/`oracle:` contracts and keep its page, item and action relationships.
 
-Entry IDs are `oracle:templates/<family>/<name>._index`; `family` is the search filter:
-
-- Form page `page-examples/form-page`; form region `region-components/form`.
-- Interactive report, interactive grid, classic report: `region-components/<name>`.
-- Dashboard page `page-examples/dashboard-page`; chart `region-components/chart`; cards `region-components/cards`; metric card `template-components/metric-card`.
-- Media List, Comments: `template-components/<name>`.
-- Smart Filters/Search `region-components/smart-filter-search`; Region Display Selector `region-components/region-display-selector`.
-- Dynamic actions, processes, validations: `business-logic/<name>`.
-- Buttons `buttons`; select list, date picker, popup LOV: `items/<name>`; shared SQL LOV `shared-components/lovs` (`lovs.dynamic.query`).
+Entry IDs and search families for the 21 common forms, reports, charts, cards, items, buttons and business logic: [component routes](references/component-routes.md); IDs are `oracle:templates/<family>/<name>._index`.
 
 Other families: search the English type with `kind:contract`, then use the returned `family`. Read the owning component production to establish valid nesting; grammar presence does not prove that a combination compiles.
 
 ## Contract notes
 
-For 26.2, read `oracle:26.2:inventory-catalog` for layout, syntax and containment, then search `corpus:components`, `version:26.2` for the complete official component contracts. Read the returned `oracle:26.2:inventory/...` ID and follow `nextOffset`; summaries do not replace full properties or applicability. Deployment: `oracle:26.2:guide/file-import`. Local UX recipes and patterns remain independently bound to 26.1; do not use them as 26.2 property definitions. Partial import uses direct SQLcl CLI on a qualified 26.2 target; preserve unselected local/server work.
+26.2 ordinary page work: the select result and `Fix:` hints suffice. Only for a property, enum or containment they do not cover, search `corpus:components`, `version:26.2` and read the returned `oracle:26.2:inventory/...` contract, following `nextOffset` to that property (`oracle:26.2:inventory-catalog` gives layout and syntax); summaries do not replace full properties or applicability. Deployment: `oracle:26.2:guide/file-import`. Local UX recipes and patterns remain independently bound to 26.1; do not use them as 26.2 property definitions. Partial import uses direct SQLcl CLI on a qualified 26.2 target; preserve unselected local/server work.
 
 Upgrades: `oracle:26.2:guide/upgrade-audit` via [work](../apexrest-work/SKILL.md); never hand-edit MMD versions.
 

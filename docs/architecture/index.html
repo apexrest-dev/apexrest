@@ -214,11 +214,12 @@
 <li><code>APEXREST_CONNECTED_READS=0</code> restores one process per read.</li>
 </ul>
 </li>
-<li><strong>Prepared import server</strong> (<code>sqlcl-warm.ts</code>). A full APEXlang import runs on a server started at the beginning of apply with the same restriction level as the import process (<code>-R 2 -mcp</code>).<ul>
+<li><strong>Prepared import server</strong> (<code>sqlcl-warm.ts</code>). A full or selected-file APEXlang import runs on a server started at the beginning of apply with the same restriction level as the import process (<code>-R 2 -mcp</code>).<ul>
 <li>It loads the compiler with an offline <code>apex validate</code> while the target is observed and backed up.</li>
 <li>It runs the one import with the import process&#39;s fail-stop preamble, an explicit <code>COMMIT</code> and the completion marker, and is closed.</li>
 <li>Each start proves that the SQLcl build refuses <code>HOST</code> in server mode. When that proof, the warm-up or the connection fails, nothing has been submitted and the ordinary import process runs.</li>
-<li>Selected-file imports, SQL restores, database scripts, ORDS and <code>mcp</code> mode keep the import process.</li>
+<li>A selected-file import names its files relative to SQLcl&#39;s working directory, so its server starts in the run&#39;s frozen source directory, which is created empty and then filled in place.</li>
+<li>SQL restores, database scripts, ORDS and <code>mcp</code> mode keep the import process.</li>
 <li><code>APEXREST_WARM_IMPORT=0</code> disables it.</li>
 </ul>
 </li>
@@ -226,7 +227,8 @@
 <h3 id="capability-probe-and-diagnostics">Capability probe and diagnostics</h3>
 <ul>
 <li>The capability probe (<code>help apex</code>, compiler version) runs once per SQLcl installation per process and is invalidated when the installation changes.</li>
-<li>Its answer is also kept for one day in <code>$APEXREST_HOME/cache/sqlcl-capabilities/</code>, keyed by the same installation marks, so a deployment worker does not start two JVMs for it. <code>APEXREST_CAPABILITY_CACHE=0</code> disables the file.</li>
+<li>Its answer is also kept for one day in <code>$APEXREST_HOME/cache/sqlcl-capabilities/</code>, keyed by the same installation marks, so a deployment worker does not start two JVMs for it. <code>help apex import</code> (selected-file support) is kept the same way. <code>APEXREST_CAPABILITY_CACHE=0</code> disables the files.</li>
+<li><strong>Compiler preload</strong> (MCP server). After the first successful tool call that names a project, the server validates that project&#39;s sources offline in the background on the pooled server, so the first real validation does not wait for a cold compiler. The result is discarded; validate, ship and preview calls wait for a running preload. Once per project per process; <code>APEXREST_PREWARM=0</code> disables it.</li>
 <li>Connected timing requires separate qualification.</li>
 <li>Compiler output is parsed into structured diagnostics (<code>file</code>, <code>line</code>, <code>column</code>, <code>type</code>, <code>message</code>, <code>validValues</code>, <code>hint</code>).</li>
 </ul>
@@ -248,7 +250,11 @@
 </tr>
 <tr>
 <td><code>APEXREST_CAPABILITY_CACHE=0</code></td>
-<td>Disables the capability cache file.</td>
+<td>Disables the capability cache files.</td>
+</tr>
+<tr>
+<td><code>APEXREST_PREWARM=0</code></td>
+<td>Disables the compiler preload.</td>
 </tr>
 </tbody></table>
 </div>

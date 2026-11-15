@@ -1,17 +1,17 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-F4DDWU7G.mjs";
+} from "./chunk-RXTQAEKG.mjs";
 import {
   managedHome,
   parse
-} from "./chunk-PWI5SWBA.mjs";
+} from "./chunk-GGZKKEXV.mjs";
 import {
   runProcess
-} from "./chunk-H2VLYI5A.mjs";
+} from "./chunk-4FMLUYZ7.mjs";
 import {
   external_exports
-} from "./chunk-A5P52BZT.mjs";
+} from "./chunk-WBDBC3GS.mjs";
 import {
   atomicWrite,
   contained,
@@ -21,13 +21,13 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-C7ONAFBZ.mjs";
 import {
   Fault,
   __commonJS,
   __require,
   __toESM
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // node_modules/pend/index.js
 var require_pend = __commonJS({

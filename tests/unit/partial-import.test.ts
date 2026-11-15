@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { cp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { workingCopyFixture } from '../fixtures/working-copy.ts';
 import { atomicWrite, canonical, hash, inventory, writeJson } from '../../packages/core/src/fs.ts';
 import { deployPlanSchema, planDigest, type DeployPlan } from '../../packages/core/src/deploy.ts';
@@ -563,4 +563,105 @@ test('canonical-only server rewrites after an import are not remote changes; rea
     ['IMPORT_CONFLICT', 'SYNC_SERVER_CHANGED'].includes(error.code),
   );
   await assert.rejects(f.service.plan(f.ctx, 'dev', { importMode: 'full' }), { code: 'SYNC_SERVER_CHANGED' });
+});
+
+test('selected apply reuses the selection export the plan kept: one export before import, one read-back', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'kept selection export');
+  const plan = await f.service.plan(f.ctx, 'dev');
+  f.calls.length = 0;
+  const result = await f.apply(plan);
+  assert.deepEqual(
+    f.calls.filter((call) => call.startsWith('export:')),
+    ['export:selection:' + page, 'export:selection:' + page],
+    'pre-import barrier and read-back only',
+  );
+  const backup = JSON.parse(
+    await readFile(path.join(f.ctx.root, '.apexrest/backups', result.backupId!, 'backup.json'), 'utf8'),
+  );
+  assert.deepEqual(Object.keys(backup.files), [page]);
+  assert.equal(
+    await readFile(path.join(f.ctx.root, '.apexrest/backups', result.backupId!, 'application', page), 'utf8'),
+    'baseline ' + page,
+  );
+});
+
+test('a selected import gets a prepared import server started in the directory it later imports from', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'warm selected import');
+  const plan = await f.service.plan(f.ctx, 'dev');
+  const prepared: Array<{ directory: string | undefined; inode: bigint; empty: boolean }> = [];
+  let closed = 0;
+  f.oracle.prepareImport = async (_source, _connection, importDirectory) => {
+    prepared.push({
+      directory: importDirectory,
+      inode: (await stat(importDirectory!, { bigint: true })).ino,
+      empty: !(await readdir(importDirectory!)).length,
+    });
+    return { close: async () => void closed++ };
+  };
+  const importApplication = f.oracle.importApplication.bind(f.oracle);
+  const imported: Array<{ source: string; inode: bigint; content: string }> = [];
+  f.oracle.importApplication = async (ctx, env, connection, source, signal, files) => {
+    imported.push({
+      source,
+      inode: (await stat(source, { bigint: true })).ino,
+      content: await readFile(path.join(source, page), 'utf8'),
+    });
+    return importApplication(ctx, env, connection, source, signal, files);
+  };
+  const result = await f.apply(plan);
+  assert.equal(prepared.length, 1);
+  assert.equal(
+    prepared[0]!.directory,
+    path.join(result.directory, 'snapshot', f.ctx.config.application.sourceDir),
+  );
+  assert.equal(prepared[0]!.empty, true, 'the server starts before any source is frozen');
+  assert.equal(imported[0]!.source, prepared[0]!.directory);
+  assert.equal(imported[0]!.inode, prepared[0]!.inode, 'the directory is filled in place, never replaced');
+  assert.equal(imported[0]!.content, 'warm selected import');
+  assert.equal(closed, 1);
+});
+
+test('a selected apply that stops before freezing leaves no empty run directory', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'stopped early');
+  const plan = await f.service.plan(f.ctx, 'dev');
+  f.oracle.prepareImport = async () => ({ close: async () => {} });
+  await f.edit(page, 'remote change after plan', true);
+  await assert.rejects(f.apply(plan), { code: 'TARGET_DRIFT' });
+  const runs = path.join(f.ctx.root, '.apexrest/deployments');
+  for (const run of await readdir(runs).catch(() => [] as string[]))
+    assert.ok((await readdir(path.join(runs, run))).includes('journal.jsonl'), 'only journaled runs remain');
+  assert.deepEqual(f.imports, []);
+});
+
+test('sync changes lists server edits since the checkpoint next to local edits and writes nothing', async (t) => {
+  const f = await initialized(t);
+  const before = await f.store.read();
+  await f.edit(sibling, 'page designer edit', true);
+  await f.edit(page, 'local edit');
+  await f.edit(lov, 'server lov', true);
+  await f.edit(lov, 'local lov');
+  const changes = (await f.service.serverChanges(f.ctx, 'dev')) as {
+    baseline: string;
+    serverChanged: Array<{ file: string; change: string }>;
+    localChanged: Array<{ file: string; change: string }>;
+    conflicts: string[];
+    nextAction: string;
+  };
+  assert.equal(changes.baseline, 'initial-baseline');
+  assert.deepEqual(changes.serverChanged, [
+    { file: sibling, change: 'modified' },
+    { file: lov, change: 'modified' },
+  ]);
+  assert.deepEqual(changes.localChanged, [
+    { file: page, change: 'modified' },
+    { file: lov, change: 'modified' },
+  ]);
+  assert.deepEqual(changes.conflicts, [lov]);
+  assert.match(changes.nextAction, /Reconcile/);
+  assert.deepEqual(f.imports, []);
+  assert.deepEqual(await f.store.read(), before, 'sync state is untouched');
+  assert.equal(await f.content(sibling), 'baseline ' + sibling, 'local sources are untouched');
 });

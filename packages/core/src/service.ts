@@ -47,6 +47,38 @@ export const parseDiagnostics: DiagnosticParser = (output) =>
 export async function sharedOracle() {
   return new OracleAdapter();
 }
+const compilerPrewarms = new Map<string, Promise<void>>();
+/**
+ * Load the APEXlang compiler for a project in the background (MCP server only). The first
+ * validation of a session otherwise waits for a cold compiler (7.7-14.1 s measured against
+ * about 1 s warm). It validates the project's sources offline on the pooled SQLcl server that
+ * later validations reuse; the result is discarded and failures are ignored. Once per project
+ * per process. `APEXREST_PREWARM=0` disables it.
+ */
+export function prewarmCompiler(project: string) {
+  if (/^(?:0|false|off)$/i.test(process.env.APEXREST_PREWARM ?? '') || compilerPrewarms.has(project)) return;
+  compilerPrewarms.set(
+    project,
+    (async () => {
+      try {
+        const ctx = await loadProject(project);
+        const source = await contained(ctx.root, ctx.config.application.sourceDir);
+        if (!(await exists(path.join(source, '.apex/apexlang.json')))) {
+          // Nothing to compile yet (before project init): let a later call try again.
+          compilerPrewarms.delete(project);
+          return;
+        }
+        await (await sharedOracle()).validate(source);
+      } catch {
+        /* Preloading never reports: the real validation gives the diagnostics. */
+      }
+    })(),
+  );
+}
+/** Wait for a running preload so a validation reuses its server instead of starting a second one. */
+export async function compilerPrewarmed(project: string) {
+  await compilerPrewarms.get(project);
+}
 /** Close pooled SQLcl sessions on process exit; safe when the engine has no pool. */
 export async function shutdownOracle() {
   const close =
@@ -394,6 +426,10 @@ async function dispatchObserved(
             break;
           }
           case 'apex.sync':
+            if (parsed.action === 'changes') {
+              data = await deployment.serverChanges(ctx, text('env'));
+              break;
+            }
             data = await deployment.sync(
               ctx,
               text('env'),

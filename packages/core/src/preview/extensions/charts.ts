@@ -58,7 +58,7 @@ function renderChartRegion(renderer: ApexRenderer, ctx: RenderContext, region: A
 }
 
 function asBar(region: ApxComponent): ApxComponent {
-  return { ...region, props: { ...region.props, chart: { type: 'bar' } } };
+  return { ...region, props: { ...region.props, chart: { type: 'bar', standIn: true } } };
 }
 
 function findRegion(renderer: ApexRenderer, ctx: RenderContext, id: string): ApxComponent | undefined {

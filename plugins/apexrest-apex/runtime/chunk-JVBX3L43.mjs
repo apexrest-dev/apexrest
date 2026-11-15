@@ -58,6 +58,7 @@ var Fault = class extends Error {
 var faultNextActions = {
   VALIDATION_FAILED: "Fix the listed diagnostics in the named .apx files, then rerun apexrest_apex_validate until it reports no errors.",
   VALIDATION_UNCONFIRMED: "The compiler returned no success marker. Read the diagnostics, fix the source and rerun apexrest_apex_validate.",
+  IMPORT_REJECTED: "Oracle rejected the import and a fresh read confirmed the target is unchanged. Fix the source named in the message, rerun apexrest_apex_validate, then apexrest_ship mode:apply. No recovery is needed.",
   SOURCE_DRIFT: "Sources changed after review. Rerun apexrest_ship with mode:plan, review it, then apply.",
   TARGET_DRIFT: "The target changed after review. Rerun apexrest_ship with mode:plan and review the new plan.",
   PLAN_EXPIRED: "Rerun apexrest_ship with mode:plan; plans expire 30 minutes after creation.",

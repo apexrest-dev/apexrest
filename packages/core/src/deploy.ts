@@ -1,7 +1,7 @@
 import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import { withConnectedReads } from './sqlcl-read-scope.ts';
 import path from 'node:path';
-import { readFile, mkdir, cp, open, rename, rm } from 'node:fs/promises';
+import { readFile, mkdir, cp, open, readdir, rename, rm, rmdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
@@ -54,6 +54,14 @@ import {
 export type { ImportOptions } from './partial-import.ts';
 export type DeploymentPlanOptions = ImportOptions;
 export { targetDigest } from './sync.ts';
+/** The export a plan observed, kept in private project storage for its apply. */
+const planObservationDirectory = (planId: string) => '.apexrest/plans/' + planId + '/live-before';
+/**
+ * Oracle errors after which the database session's fate is not known to the client (lost or
+ * killed connection). An import that failed this way is never classified as rejected.
+ */
+const CONNECTION_LOST =
+  /ORA-(?:03113|03114|03135|00028|01012|125\d\d|17002|17008)|not connected|closed connection|IO Error|broken pipe/i;
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const filesSchema = z.record(z.string(), digestSchema);
 const legacyPlanSchema = z.strictObject({
@@ -588,6 +596,60 @@ export class DeploymentService {
     // Migration history is local and durable; no Oracle control table is read.
     return new LocalDeploymentControl(env).history();
   }
+  /**
+   * Keep the export a plan observed. Apply reuses it as the pre-import backup instead of
+   * exporting the same content again (planObservation). Keeping it is an optimization:
+   * when it fails, apply exports as before.
+   */
+  private async keepPlanObservation(ctx: ProjectContext, planId: string, exported: string) {
+    const directory = planObservationDirectory(planId);
+    try {
+      await rm(await syncPath(ctx, directory), { recursive: true, force: true });
+      await persistSnapshot(ctx, exported, directory);
+    } catch {
+      await rm(await syncPath(ctx, directory), { recursive: true, force: true }).catch(() => {});
+    }
+  }
+  /**
+   * The plan's kept export, proven to be the one the plan fingerprinted: target identity and
+   * migration history are read again and, together with the kept files' digest, must reproduce
+   * `plan.fingerprint`. The kept copy cannot be altered without breaking that fingerprint.
+   * Server content that changed after the plan is not seen here; the fresh export immediately
+   * before the first write (checkBeforeImport) must still equal the plan, which also proves the
+   * kept copy equals the server state the write replaces. Returns null when there is nothing
+   * usable; the caller then exports.
+   */
+  private async planObservation(
+    ctx: ProjectContext,
+    plan: DeployPlan,
+    env: Environment,
+    connection: Connection,
+    selected: boolean,
+  ) {
+    try {
+      const directory = await syncPath(ctx, planObservationDirectory(plan.id));
+      if (!(await exists(directory))) return null;
+      const files = await inventory(directory);
+      const digest = hash(canonical(files));
+      const inspection =
+        selected && this.oracle.versionedTarget ? await this.oracle.versionedTarget(env, connection) : null;
+      const target = inspection?.target ?? (await this.oracle.verifyTarget(env, connection));
+      if (!target.application) return null;
+      const history = await this.history(env, connection);
+      const fingerprint = hash(canonical({ target, history, exportDigest: digest }));
+      if (fingerprint !== plan.fingerprint) return null;
+      return {
+        target,
+        history,
+        exported: { directory, files, digest },
+        versions: inspection?.versions ?? null,
+        fingerprint,
+        kept: true as const,
+      };
+    } catch {
+      return null;
+    }
+  }
   async fingerprint(
     env: Environment,
     connection: Connection,
@@ -655,6 +717,71 @@ export class DeploymentService {
       versions: null,
       fingerprint: hash(canonical({ target, history, metadata })),
     };
+  }
+  /**
+   * What changed on the server since the working copy's checkpoint (for example Page Designer
+   * edits), next to what changed locally. Read-only: one export, nothing is written to the
+   * project sources, the sync state or Oracle. Server rewrites that are canonical forms of the
+   * same source are not reported. Without a checkpoint the server is compared with local files.
+   */
+  async serverChanges(ctx: ProjectContext, name: string) {
+    return withConnectedReads(async () => {
+      const env = environment(ctx, name),
+        store = new SyncStore(ctx, env, name),
+        connection = await resolveConnection(env.readConnectionRef);
+      const stored = await store.read();
+      const state = stored && stored.status !== 'invalidated' ? stored : null;
+      if (state) await store.validate(state);
+      const target = await this.oracle.verifyTarget(env, connection);
+      if (!target.application)
+        throw new Fault(
+          'APPLICATION_NOT_FOUND',
+          `Application ${env.applicationId} does not exist in workspace ${env.workspace}; there is nothing to compare.`,
+          3,
+          'blocked',
+        );
+      const exported = await this.oracle.exportApplication(env, connection, 'APEXLANG');
+      try {
+        const local = applicationFiles(ctx, await sourceInventory(ctx));
+        const kind = (before: Record<string, string>, after: Record<string, string>, file: string) =>
+          !after[file] ? 'deleted' : !before[file] ? 'added' : 'modified';
+        if (!state) {
+          const differs = changedFiles(exported.files, local);
+          return {
+            baseline: 'none',
+            completeness: 'textual-file-hashes-only',
+            differsFromLocal: differs.map((file) => ({ file, local: kind(exported.files, local, file) })),
+            nextAction: differs.length
+              ? 'No sync checkpoint exists, so server and local edits cannot be told apart. apexrest_apex_sync action:init on unchanged sources records one.'
+              : 'Server and local sources are identical.',
+          };
+        }
+        const baseline = checkpoint(state);
+        const changed = changedFiles(baseline.files, exported.files);
+        const canonicalOnly = await canonicalOnlyChanges(ctx, baseline, exported, changed);
+        const server = changed.filter((file) => !canonicalOnly.has(file));
+        const localChanged = changedFiles(baseline.files, local);
+        const conflicts = server.filter(
+          (file) => localChanged.includes(file) && exported.files[file] !== local[file],
+        );
+        return {
+          baseline: state.lastSuccessfulImport ? 'last-successful-import' : 'initial-baseline',
+          completeness: 'textual-file-hashes-only',
+          serverChanged: server.map((file) => ({ file, change: kind(baseline.files, exported.files, file) })),
+          localChanged: localChanged.map((file) => ({ file, change: kind(baseline.files, local, file) })),
+          conflicts,
+          nextAction: conflicts.length
+            ? 'The same files changed on the server and locally. Reconcile them before shipping; ship refuses to overwrite them.'
+            : server.length
+              ? localChanged.length
+                ? 'Server and local changes touch different files: a selected-file ship keeps the server changes. apexrest_apex_sync action:refresh needs clean local sources.'
+                : 'apexrest_apex_sync action:refresh brings the server changes into the working copy.'
+              : 'The server matches the checkpoint.',
+        };
+      } finally {
+        await this.oracle.discardStage?.((exported as { stage?: string }).stage);
+      }
+    });
   }
   async sync(
     ctx: ProjectContext,
@@ -1079,6 +1206,7 @@ export class DeploymentService {
       ))
         ? ['authentication-or-authorization-change']
         : [];
+      await this.keepPlanObservation(ctx, id, current.exported.directory);
       const createdAt = Date.now();
       const plan: DeployPlan = {
         schemaVersion: 4,
@@ -1257,6 +1385,7 @@ export class DeploymentService {
         if (!previous) operations.push({ kind: 'migration', file, sha256 });
       } else if (runs) operations.push({ kind: 'package', file, sha256 });
     }
+    const id = randomUUID();
     if (current.exported) {
       try {
         if (
@@ -1269,6 +1398,8 @@ export class DeploymentService {
           )
         )
           risks.push('authentication-or-authorization-change');
+        if (!working || fresh)
+          await this.keepPlanObservation(ctx, id, path.resolve(ctx.root, current.exported.directory));
       } finally {
         if (!working || fresh)
           await this.oracle.discardStage?.((current.exported as { stage?: string }).stage);
@@ -1282,7 +1413,7 @@ export class DeploymentService {
       mode: working ? 'working-copy' : 'full-export',
       backupStrategy: working && !fresh ? 'initial-backup' : 'fresh-export',
       workingCopy: working ? this.syncBinding(working) : null,
-      id: randomUUID(),
+      id,
       projectId: ctx.config.projectId,
       projectRoot: ctx.root,
       environment: name,
@@ -1558,14 +1689,22 @@ export class DeploymentService {
       deployConnection = await resolveConnection(env.deployConnectionRef);
     let working = await this.checkWorkingPlan(ctx, plan);
     const syncStore = new SyncStore(ctx, env, plan.environment);
-    // A full APEXlang import follows: load the compiler while the target is observed.
+    // An APEXlang import follows: load the compiler while the target is observed.
     // The server holds no connection until the import and is closed with this run.
-    const warmImport =
-      !selection && !plan.restore && plan.scope !== 'database-only' && this.oracle.prepareImport
-        ? await this.oracle
-            .prepareImport(await contained(ctx.root, ctx.config.application.sourceDir), deployConnection)
-            .catch(() => undefined)
-        : undefined;
+    // A selected-file import names files relative to SQLcl's working directory, so its
+    // server starts in the directory the frozen selected source is later copied into.
+    const prepare = !plan.restore && plan.scope !== 'database-only' && !!this.oracle.prepareImport;
+    const runDir = path.join(ctx.root, '.apexrest/deployments', runId);
+    const importDirectory =
+      prepare && selection ? path.join(runDir, 'snapshot', ctx.config.application.sourceDir) : undefined;
+    if (importDirectory) await mkdir(importDirectory, { recursive: true, mode: 0o700 });
+    const warmImport = prepare
+      ? await this.oracle.prepareImport!(
+          await contained(ctx.root, ctx.config.application.sourceDir),
+          deployConnection,
+          importDirectory,
+        ).catch(() => undefined)
+      : undefined;
     try {
       return await this.applyPrepared(
         ctx,
@@ -1582,6 +1721,18 @@ export class DeploymentService {
       );
     } finally {
       await warmImport?.close().catch(() => {});
+      // A run that stopped before freezing its sources leaves no empty run directory behind.
+      for (
+        let directory = importDirectory;
+        directory && directory.startsWith(runDir);
+        directory = path.dirname(directory)
+      ) {
+        try {
+          await rmdir(directory);
+        } catch {
+          break;
+        }
+      }
     }
   }
   private async applyPrepared(
@@ -1607,10 +1758,17 @@ export class DeploymentService {
     const readConnection = await resolveConnection(env.readConnectionRef),
       deployConnection = await resolveConnection(env.deployConnectionRef);
     const syncStore = new SyncStore(ctx, env, plan.environment);
-    const freshTarget =
-      working && !selection && !fresh
-        ? this.workingFingerprint(ctx, plan.environment, working)
-        : this.fingerprint(env, readConnection, scoped);
+    // A fresh-export plan kept its observed export: prove it is the planned one and read only
+    // identity and history here. Content drift is caught by the export before the first write.
+    type Observation =
+      | Awaited<ReturnType<DeploymentService['fingerprint']>>
+      | Awaited<ReturnType<DeploymentService['workingFingerprint']>>
+      | NonNullable<Awaited<ReturnType<DeploymentService['planObservation']>>>;
+    const freshTarget = (async (): Promise<Observation> => {
+      if (working && !selection && !fresh) return this.workingFingerprint(ctx, plan.environment, working);
+      const kept = fresh ? await this.planObservation(ctx, plan, env, readConnection, !!selection) : null;
+      return kept ?? this.fingerprint(env, readConnection, scoped);
+    })();
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
       canonical(readConnection) === canonical(deployConnection)
         ? freshTarget.then((observation) => observation.target)
@@ -1629,12 +1787,23 @@ export class DeploymentService {
       const live = fingerprintCheck.value;
       if (live.fingerprint !== plan.fingerprint)
         throw new Fault('TARGET_DRIFT', 'Target or migration history changed after review.', 5);
-      if (fresh && live.exported)
-        backupSource = await persistSnapshot(
-          ctx,
-          live.exported.directory,
-          '.apexrest/plans/' + plan.id + '/live-before',
-        );
+      if (fresh && live.exported) {
+        if ('kept' in live)
+          backupSource = {
+            directory: planObservationDirectory(plan.id),
+            files: live.exported.files,
+            digest: live.exported.digest,
+          };
+        else {
+          // An unusable kept copy must not mix into the backup of the export just taken.
+          await rm(await syncPath(ctx, planObservationDirectory(plan.id)), { recursive: true, force: true });
+          backupSource = await persistSnapshot(
+            ctx,
+            live.exported.directory,
+            planObservationDirectory(plan.id),
+          );
+        }
+      }
       // The fingerprint covers the observed target; the plan's own copies must match it too.
       if (
         canonical(live.target) !== canonical(plan.target) ||
@@ -1688,6 +1857,7 @@ export class DeploymentService {
     let state: DeployState = 'planned',
       writeStarted = false,
       importConfirmed = false,
+      importRejected = false,
       syncMarked = false,
       syncSucceeded = false;
     let freshBackupId: string | null = null;
@@ -1782,7 +1952,8 @@ export class DeploymentService {
       }
       // Execute a frozen copy. A later working-tree edit cannot alter reviewed bytes.
       const snapshot = path.join(runDir, 'snapshot');
-      await mkdir(snapshot, { mode: 0o700 });
+      // A selected-file run already created it for the prepared import server.
+      await mkdir(snapshot, { recursive: true, mode: 0o700 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source = await contained(ctx.root, file),
           destination = await contained(snapshot, file);
@@ -1794,7 +1965,9 @@ export class DeploymentService {
       if (selection) {
         await checkSnapshot(ctx, selection.effective!);
         const application = path.join(snapshot, ctx.config.application.sourceDir);
-        await rm(application, { recursive: true });
+        // Empty the directory instead of replacing it: the prepared import server runs in it.
+        for (const entry of await readdir(application))
+          await rm(path.join(application, entry), { recursive: true });
         await privateCopy(await syncPath(ctx, selection.effective!.directory), application);
         if (canonical(await inventory(application)) !== canonical(selection.effective!.files))
           throw new Fault('SOURCE_DRIFT', 'Selected source changed while freezing deployment.', 5);
@@ -2002,14 +2175,41 @@ export class DeploymentService {
         if (controller.signal.aborted)
           throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
-        await this.oracle.importApplication(
-          ctx,
-          env,
-          deployConnection,
-          importSource,
-          controller.signal,
-          selection?.files,
-        );
+        try {
+          await this.oracle.importApplication(
+            ctx,
+            env,
+            deployConnection,
+            importSource,
+            controller.signal,
+            selection?.files,
+          );
+        } catch (error) {
+          // SQLcl ran the import to its end and reported an Oracle or compiler error: the batch
+          // stopped and rolled back. That alone is not trusted. Only when a fresh read then shows
+          // the target exactly as planned (plus this run's own migrations) is the import reported
+          // as rejected with Oracle's message; anything else stays an unknown outcome.
+          if (
+            !(error instanceof Fault) ||
+            error.code !== 'ORACLE_COMMAND_FAILED' ||
+            CONNECTION_LOST.test(error.message) ||
+            controller.signal.aborted
+          )
+            throw error;
+          try {
+            await checkBeforeImport();
+          } catch {
+            throw error;
+          }
+          importRejected = true;
+          throw new Fault(
+            'IMPORT_REJECTED',
+            `Oracle rejected the import and the target is unchanged (confirmed by a fresh read). Fix the reported source and ship again.\n${error.message}`,
+            1,
+            'failed',
+            { ...error.details, targetUnchanged: true },
+          );
+        }
       }
       importConfirmed = true;
       let serverSnapshot: Awaited<ReturnType<typeof persistSnapshot>> | null = null;
@@ -2138,20 +2338,25 @@ export class DeploymentService {
       await record('succeeded');
       return { runId, state, directory: runDir, ...(freshBackupId ? { backupId: freshBackupId } : {}) };
     } catch (error) {
-      const unknown = writeStarted && (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
+      const unknown =
+        writeStarted &&
+        !importRejected &&
+        (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
+      // A rejected import changed nothing: the working copy is as it was before this run.
+      const applicationWritten = writeStarted && !importRejected;
       if (working && syncMarked) {
         try {
           await syncStore.lock(async () => {
             const owned = await syncStore.read();
             if (!owned || (owned.importingRunId !== runId && owned.lastSuccessfulImport?.runId !== runId))
               throw new Error('Sync ownership changed during failure recording.');
-            const status = unknown ? 'outcome_unknown' : writeStarted ? 'verification_failed' : 'ready';
+            const status = unknown ? 'outcome_unknown' : applicationWritten ? 'verification_failed' : 'ready';
             // Once this run's success checkpoint is durable, never roll it back
             // to the pre-import state; only the status may change.
             await syncStore.write(
               syncSucceeded || owned.lastSuccessfulImport?.runId === runId
                 ? { ...owned, status, importingRunId: status === 'ready' ? null : runId }
-                : { ...working!, importingRunId: writeStarted ? runId : null, status },
+                : { ...working!, importingRunId: applicationWritten ? runId : null, status },
             );
           });
         } catch {

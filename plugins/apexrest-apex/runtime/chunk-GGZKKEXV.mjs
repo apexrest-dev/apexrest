@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   external_exports
-} from "./chunk-A5P52BZT.mjs";
+} from "./chunk-WBDBC3GS.mjs";
 import {
   canonical,
   contained,
@@ -10,10 +10,10 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-C7ONAFBZ.mjs";
 import {
   Fault
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // packages/core/src/config.ts
 import path from "node:path";

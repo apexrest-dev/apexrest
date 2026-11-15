@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   managedHome
-} from "./chunk-PWI5SWBA.mjs";
+} from "./chunk-GGZKKEXV.mjs";
 
 // packages/core/src/preview/assets.ts
 import crypto from "node:crypto";

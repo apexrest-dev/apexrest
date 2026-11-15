@@ -19,6 +19,9 @@ const invokeDefaultRule = 'invokeApi.parameter.direction:in,dataType:varchar2,ig
 const invokeCaseRule = 'invokeApi.invoke.identifier-case';
 const eventDefaultRule = 'dynamicAction.when.items.event:change-default';
 const componentOrderRule = 'key-ordered-page-components';
+const lovNullDefaultRule = 'pageItem.selectList.lov.displayNullValue:true-default';
+const buttonActionDefaultRule = 'button.behavior.action:submitPage-default';
+const assignedIdentifierRule = 'process.advanced.executionMappingIdentifier:server-assigned';
 const limit = 8 * 1024 * 1024;
 
 type Node =
@@ -311,7 +314,9 @@ const identifier = /^[A-Za-z][A-Za-z0-9_$#]*$/;
  * (local DEV readbacks, 2026-10-15): single-line fenced code is exported as a
  * JSON-quoted scalar, invokeApi parameter defaults and empty parameter groups are
  * elided, invoke identifiers are upper-cased, and an items-selection dynamic
- * action omits its default change event. Nothing else is rewritten.
+ * action omits its default change event. Exports of hand-written pages (local DEV
+ * backups, 2026-11-15) also omit a select list's `lov.displayNullValue: true` and a
+ * button's `behavior.action: submitPage`. Nothing else is rewritten.
  */
 function normalizeForms(
   nodes: Node[],
@@ -410,9 +415,109 @@ function normalizeForms(
         rules.add(eventDefaultRule);
       }
     }
+    if (
+      node.kind === 'group' &&
+      node.name === 'lov' &&
+      parent?.kind === 'component' &&
+      parent.name === 'pageItem' &&
+      parent.children.some(
+        (entry) => entry.kind === 'property' && entry.name === 'type' && entry.value === 'selectList',
+      )
+    ) {
+      const entry = scalar('displayNullValue');
+      if (entry?.kind === 'property' && entry.value === 'true') {
+        children = children.filter((child) => child !== entry);
+        rules.add(lovNullDefaultRule);
+      }
+    }
+    if (
+      node.kind === 'group' &&
+      node.name === 'behavior' &&
+      parent?.kind === 'component' &&
+      parent.name === 'button'
+    ) {
+      const entry = scalar('action');
+      if (entry?.kind === 'property' && entry.value === 'submitPage') {
+        children = children.filter((child) => child !== entry);
+        rules.add(buttonActionDefaultRule);
+        if (!children.length) continue;
+      }
+    }
     result.push({ ...node, children });
   }
   return result;
+}
+
+/**
+ * Oracle assigns `advanced.executionMappingIdentifier` to a page process imported without one
+ * and exports it (local DEV backups, 2026-11-15). Only that case is accepted: the identifier is
+ * removed from an exported process when the reviewed process with the same key has none. An
+ * identifier the reviewed source states must still match exactly.
+ */
+function dropAssignedIdentifiers(expected: Node[], actual: Node[], rules: Set<string>): Node[] {
+  const group = (node: Node | undefined, name: string) =>
+    node && 'children' in node
+      ? node.children.filter((child) => child.kind === 'group' && child.name === name)
+      : [];
+  const identifier = (process: Node) =>
+    group(process, 'advanced').flatMap((advanced) =>
+      'children' in advanced
+        ? advanced.children.filter(
+            (child) => child.kind === 'property' && child.name === 'executionMappingIdentifier',
+          )
+        : [],
+    );
+  return actual.map((page) => {
+    if (!('children' in page) || page.kind !== 'component' || page.name !== 'page') return page;
+    const reviewedPages = expected.filter(
+      (node) =>
+        'children' in node && node.kind === 'component' && node.name === 'page' && node.key === page.key,
+    );
+    if (reviewedPages.length !== 1) return page;
+    const reviewedPage = reviewedPages[0] as Extract<Node, { children: Node[] }>;
+    return {
+      ...page,
+      children: page.children.map((process) => {
+        if (!('children' in process) || process.kind !== 'component' || process.name !== 'process')
+          return process;
+        const reviewed = reviewedPage.children.filter(
+          (node) =>
+            'children' in node &&
+            node.kind === 'component' &&
+            node.name === 'process' &&
+            node.key === process.key,
+        );
+        const assigned = identifier(process);
+        if (
+          reviewed.length !== 1 ||
+          identifier(reviewed[0]!).length ||
+          assigned.length !== 1 ||
+          assigned[0]!.kind !== 'property' ||
+          !/^\d+$/.test(assigned[0]!.value)
+        )
+          return process;
+        rules.add(assignedIdentifierRule);
+        return {
+          ...process,
+          children: process.children
+            .map((child) =>
+              'children' in child && child.kind === 'group' && child.name === 'advanced'
+                ? { ...child, children: child.children.filter((entry) => entry !== assigned[0]) }
+                : child,
+            )
+            .filter(
+              (child) =>
+                !(
+                  'children' in child &&
+                  child.kind === 'group' &&
+                  child.name === 'advanced' &&
+                  !child.children.length
+                ),
+            ),
+        };
+      }),
+    };
+  });
 }
 
 /**
@@ -528,6 +633,12 @@ export function compareApexlangSource(expected: string, actual: string): SourceE
       );
     if (canonical(normalized(left)) === canonical(normalized(right)))
       return { equivalent: true, rules: [formattingRule, ...formRules] };
+    const assignedRules = new Set(formRules);
+    if (
+      canonical(normalized(left)) ===
+      canonical(normalized(dropAssignedIdentifiers(left, right, assignedRules)))
+    )
+      return { equivalent: true, rules: [formattingRule, ...assignedRules] };
     return {
       equivalent: false,
       rules: [],

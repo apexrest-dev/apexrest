@@ -5,14 +5,14 @@ import {
   registerPreview,
   stopOtherPreview,
   unregisterPreview
-} from "./chunk-N43MMRVF.mjs";
+} from "./chunk-WYGOXF3Y.mjs";
 import {
   OracleAppData,
   PreviewServer,
   WorkerBridge,
   checkApplication,
   localGaps
-} from "./chunk-44WIKPQQ.mjs";
+} from "./chunk-6VX56PE4.mjs";
 import {
   APEX_DOWNLOAD_URL,
   APEX_FULL_VERSION,
@@ -20,26 +20,26 @@ import {
   loadApplication,
   loadAssets,
   setupAssets
-} from "./chunk-SYFWCGMZ.mjs";
+} from "./chunk-QF3FUIGG.mjs";
 import "./chunk-N3KQBIVW.mjs";
 import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-F4DDWU7G.mjs";
+} from "./chunk-RXTQAEKG.mjs";
 import "./chunk-64FD5OTX.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject
-} from "./chunk-PWI5SWBA.mjs";
-import "./chunk-EGLAN56W.mjs";
-import "./chunk-H2VLYI5A.mjs";
-import "./chunk-A5P52BZT.mjs";
-import "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-GGZKKEXV.mjs";
+import "./chunk-NSJ6MZ2Y.mjs";
+import "./chunk-4FMLUYZ7.mjs";
+import "./chunk-WBDBC3GS.mjs";
+import "./chunk-C7ONAFBZ.mjs";
 import {
   Fault
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // packages/core/src/preview/service.ts
 import fs2 from "node:fs";
@@ -291,9 +291,8 @@ async function projectData(root, sourceDir) {
 }
 function summarize(diagnostics) {
   const count = (level) => diagnostics.filter((entry) => entry.level === level).length;
-  const ranked = [...diagnostics].sort(
-    (a, b) => ["error", "warning", "info"].indexOf(a.level) - ["error", "warning", "info"].indexOf(b.level)
-  );
+  const rank = (entry) => ["error", "warning", "info"].indexOf(entry.level) * 2 + (entry.code?.startsWith("A11Y-") ? 1 : 0);
+  const ranked = [...diagnostics].sort((a, b) => rank(a) - rank(b));
   return {
     counts: { error: count("error"), warning: count("warning"), info: count("info") },
     diagnostics: ranked.slice(0, DIAGNOSTICS_LIMIT),
@@ -573,7 +572,7 @@ async function previewDispatch(operation, parsed, root) {
   }
 }
 async function buildWebappOperation(root, input) {
-  const { buildWebapp } = await import("./chunk-T7PF7PKJ.mjs");
+  const { buildWebapp } = await import("./chunk-ZCBYG3VH.mjs");
   const sourceDir = await resolveSource(root, input.sourceDir);
   return buildWebapp({
     sourceDir,

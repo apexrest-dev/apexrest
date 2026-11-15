@@ -35,9 +35,26 @@ const SOURCE_TYPES = new Set([
   'code',
 ]);
 const OPENER = /^(\s*)([a-z][A-Za-z]*)\b.*\($/u;
+/** Page components whose property usage is counted across the samples. */
+const USAGE_KINDS = new Set([
+  'region',
+  'pageItem',
+  'button',
+  'process',
+  'dynamicAction',
+  'validation',
+  'branch',
+]);
 
 type Indexed = ComponentExample & { stems: Set<string>; types: Set<string> };
-let examples: Promise<Map<string, Indexed[]>> | undefined;
+/**
+ * Per component key: how many sample blocks there are, how many state each `group.property` and
+ * which name-like values (enum values, not free text) they give it.
+ */
+type Usage = { blocks: number; properties: Map<string, { count: number; values: Map<string, number> }> };
+/** Distinct values remembered per property; free text exhausts it without growing further. */
+const MAX_VALUES = 32;
+let examples: Promise<{ index: Map<string, Indexed[]>; usage: Map<string, Usage> }> | undefined;
 
 const indent = (line: string) => line.length - line.trimStart().length;
 
@@ -68,6 +85,28 @@ function* blocks(lines: string[]) {
   }
 }
 
+/** The block's own `group.property` paths (direct properties as `property`) and values, nested blocks excluded. */
+function ownProperties(text: string): Map<string, string> {
+  const lines = text.split('\n');
+  const depth = indent(lines[0]!);
+  const found = new Map<string, string>();
+  let group = '';
+  let skip = -1;
+  for (const line of lines.slice(1, -1)) {
+    const at = indent(line);
+    if (!line.trim() || (skip >= 0 && at > skip)) continue;
+    skip = -1;
+    if (at === depth + 4) {
+      group = /^\s*([A-Za-z]\w*) \{$/u.exec(line)?.[1] ?? '';
+      if (OPENER.test(line.trimEnd())) skip = at;
+    }
+    const property = /^\s*([A-Za-z]\w*): (\S.*)$/u.exec(line);
+    if (property && (at === depth + 4 || (group && at === depth + 8)))
+      found.set(at === depth + 4 ? property[1]! : `${group}.${property[1]}`, property[2]!.trimEnd());
+  }
+  return found;
+}
+
 function keep(index: Map<string, Indexed[]>, key: string, example: Indexed) {
   const list = index.get(key) ?? [];
   list.push(example);
@@ -75,16 +114,17 @@ function keep(index: Map<string, Indexed[]>, key: string, example: Indexed) {
   index.set(key, list.slice(0, KEEP));
 }
 
-async function load(): Promise<Map<string, Indexed[]>> {
+async function load(): Promise<{ index: Map<string, Indexed[]>; usage: Map<string, Usage> }> {
   const root = path.join(resourceRoot(), 'public-templates', '26.2', 'documents');
   const index = new Map<string, Indexed[]>();
+  const usage = new Map<string, Usage>();
   let applications: string[];
   try {
     applications = (await readdir(root, { withFileTypes: true }))
       .filter((e) => e.isDirectory())
       .map((e) => e.name);
   } catch {
-    return index;
+    return { index, usage };
   }
   for (const application of applications.sort()) {
     const pages = (await readdir(path.join(root, application))).filter((f) => /^p\d+.*\.md$/u.test(f)).sort();
@@ -93,6 +133,19 @@ async function load(): Promise<Map<string, Indexed[]>> {
       if (!source) continue;
       const id = `oracle:26.2:public-template/${application}/${page.replace(/\.md$/u, '')}`;
       for (const block of blocks(source.split('\n'))) {
+        const key = block.type ? `${block.keyword}:${block.type}` : block.keyword;
+        if (USAGE_KINDS.has(block.keyword)) {
+          const counted: Usage = usage.get(key) ?? { blocks: 0, properties: new Map() };
+          counted.blocks += 1;
+          for (const [property, value] of ownProperties(block.text)) {
+            const seen = counted.properties.get(property) ?? { count: 0, values: new Map<string, number>() };
+            seen.count += 1;
+            if (/^[A-Za-z][\w/-]*$/u.test(value) && (seen.values.has(value) || seen.values.size < MAX_VALUES))
+              seen.values.set(value, (seen.values.get(value) ?? 0) + 1);
+            counted.properties.set(property, seen);
+          }
+          usage.set(key, counted);
+        }
         if (block.text.length < MIN_BLOCK || block.text.length > MAX_BLOCK) continue;
         const types = new Set(
           [...block.text.matchAll(/^\s*type: (?:[A-Za-z]+\/)?([A-Za-z]\w*)\s*$/gmu)]
@@ -100,12 +153,46 @@ async function load(): Promise<Map<string, Indexed[]>> {
             .filter((stem) => !SOURCE_TYPES.has(stem)),
         );
         const example = { id, text: block.text, stems: new Set(referenceStems(block.text)), types };
-        keep(index, block.type ? `${block.keyword}:${block.type}` : block.keyword, example);
+        keep(index, key, example);
         if (block.type) keep(index, `*:${block.type}`, example);
       }
     }
   }
-  return index;
+  return { index, usage };
+}
+
+/** How Oracle's sample blocks of a component use one `group.property`. */
+export interface PropertyUsage {
+  property: string;
+  /** Share of the component's sample blocks that state the property. */
+  share: number;
+  /** Name-like values the samples give it, most frequent first. */
+  values: string[];
+  /** Share of those values taken by the most frequent one: 1 when the samples never vary it. */
+  dominance: number;
+}
+
+/**
+ * The `group.property` paths that Oracle's sample blocks of a component state, most frequent
+ * first: what a first draft of the component will probably set, whether or not the one attached
+ * example shows it, and which values the samples really use.
+ */
+export async function componentUsage(kind: string, type: string | undefined): Promise<PropertyUsage[]> {
+  examples ??= load();
+  const counted = (await examples).usage.get(type ? `${kind}:${type}` : kind);
+  if (!counted) return [];
+  return [...counted.properties]
+    .map(([property, seen]) => {
+      const values = [...seen.values].sort((a, b) => b[1] - a[1]);
+      const total = values.reduce((sum, [, count]) => sum + count, 0);
+      return {
+        property,
+        share: seen.count / counted.blocks,
+        values: values.map(([value]) => value),
+        dominance: total ? values[0]![1] / total : 1,
+      };
+    })
+    .sort((a, b) => b.share - a.share);
 }
 
 /**
@@ -119,7 +206,7 @@ export async function componentExample(
   options: { kind?: string | undefined; request?: string | undefined } = {},
 ): Promise<ComponentExample | undefined> {
   examples ??= load();
-  const index = await examples;
+  const { index } = await examples;
   const key = type ? `${options.kind ?? '*'}:${type}` : options.kind;
   const list = key ? (index.get(key) ?? (type ? index.get(`*:${type}`) : undefined)) : undefined;
   if (!list?.length) return undefined;

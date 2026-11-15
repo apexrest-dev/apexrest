@@ -389,6 +389,52 @@ test('eight 26.2 selections retain the grid contract after compacting metadata t
   assert.ok(Buffer.byteLength(JSON.stringify(output)) <= 32768);
 });
 
+test('26.2 examples carry the allowed values of their enum properties within a small allowance', async (t) => {
+  const ctx = await setup(t, false);
+  ctx.config.toolchain.profile = '26.2';
+  await writeJson(path.join(ctx.root, 'apexrest.json'), ctx.config);
+  const request =
+    'Metric cards, line chart, interactive report, modal dialog form with select list and switch, classic report with select list filter, button with execute code process, navigation menu entries, breadcrumb.';
+  const result = await referenceSelect({ project: ctx.root, request, limit: 16 }, undefined, unavailable);
+  type Entry = { id: string; values?: Record<string, string>; note?: string; example?: { note?: string } };
+  const results = result.results as unknown as Entry[];
+  const pages = (result.pageExamples ?? []) as unknown as Entry[];
+  const classic = results.find((entry) => entry.id.endsWith('/classic-report/classic-report'))!;
+  // The list the compiler accepts for a classic report, not the union of every region's lists.
+  assert.match(classic.values!['pagination.type']!, /^showAll \| .* \| nextAndPreviousLinks$/u);
+  assert.doesNotMatch(classic.values!['pagination.type']!, /rowRangesXToY\b|scroll/u);
+  // The modal form page lists the values of the buttons and dynamic actions it shows.
+  assert.match(pages[0]!.values!['button.behavior.action']!, /\bredirectThisApp\b/u);
+  assert.match(pages[0]!.values!['dynamicAction.when.event']!, /\bapexafterclosedialog\b/u);
+  // The process rule is said once, on the first process.
+  const notes = [...results, ...pages].flatMap((entry) => [entry.note, entry.example?.note]).filter(Boolean);
+  assert.equal(notes.length, 1);
+  assert.match(notes[0]!, /executionMappingIdentifier/u);
+  assert.match(results.find((entry) => /\/process\//u.test(entry.id))!.example!.note!, /different integer/u);
+  // A list is given once, and all lists together stay within 1,500 bytes on top of the budget.
+  const lists = [...results, ...pages].flatMap((entry) => Object.values(entry.values ?? {}));
+  assert.ok(lists.length >= 8);
+  assert.equal(new Set(lists).size, lists.length);
+  const bytes = (value: unknown) => Buffer.byteLength(JSON.stringify(sanitized(value)));
+  const bare = structuredClone(result) as unknown as { results: Entry[]; pageExamples: Entry[] };
+  for (const entry of [...bare.results, ...bare.pageExamples]) delete entry.values;
+  assert.ok(bytes(bare) <= 30000);
+  assert.ok(bytes(result) - bytes(bare) <= 1500);
+  const output = await toolOutput(
+    {
+      ...(await dispatch('docs.select', { project: ctx.root, request: 'cards' })),
+      operation: 'reference',
+      data: result,
+    },
+    ctx.root,
+  );
+  // Inline: the whole selection travels in the tool result, not as an artifact preview.
+  const text = (output as unknown as { content: { text: string }[] }).content[0]!.text;
+  assert.ok(text.includes('pagination.type') && text.includes('"pageExamples"'));
+  assert.ok(text.length <= 32768);
+  assert.ok(text.length - JSON.stringify(sanitized(result)).length < 400, 'envelope overhead');
+});
+
 test('catalog and selected document integrity failures cannot become successful fallback results', async (t) => {
   const ctx = await setup(t, false);
   const privateResources = path.join(ctx.root, 'resources');

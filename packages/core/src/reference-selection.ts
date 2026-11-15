@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { contractSkeleton } from './contract-hints.ts';
+import { componentNote, contractSkeleton, exampleValues } from './contract-hints.ts';
 import {
   componentExample,
   contractComponent,
   contractComponentType,
   pageExamples,
+  type PageExample,
 } from './component-examples.ts';
 import { loadProject } from './config.ts';
 import { contained } from './fs.ts';
@@ -16,6 +17,8 @@ import type { SelectionCandidate } from './selection-index.ts';
 
 const model = 'gpt-6-luna';
 const endpoint = 'https://api.openai.com/v1/decisions';
+/** Bytes all `values` lists of one selection may add on top of its response budget. */
+const VALUES_BYTES = 1500;
 const count = z.number().int().nonnegative();
 const usageSchema = z.object({
   input_tokens: count,
@@ -242,6 +245,40 @@ export async function referenceSelect(
     ...(usage ? { usage } : {}),
     durationMs: Math.round(performance.now() - started),
   };
+  // An example shows one value per property; `values` lists the others. All lists share one small
+  // allowance, handed out in rounds (one list per component per round), and a list is given once
+  // per component kind (every page item has the same label alignments).
+  const wanting: { target: object; kind: string; lists: [string, string][]; nested: boolean }[] = [];
+  const shareValues = (kept: Set<object>) => {
+    const listed = new Set<string>();
+    let allowance = VALUES_BYTES;
+    for (let granted = true; granted;) {
+      granted = false;
+      for (const { target, kind, lists, nested } of wanting) {
+        if (!kept.has(target)) continue;
+        for (let entry = lists.shift(); entry; entry = lists.shift()) {
+          const [key, list] = entry;
+          const name = `${nested || key.split('.').length > 2 ? key : `${kind}.${key}`}=${list}`;
+          const holder = target as { values?: Record<string, string> };
+          // Quotes, colon and comma of the entry, and the `"values":{}` wrapper of a first list.
+          const cost = key.length + list.length + 6 + (holder.values ? 0 : 12);
+          if (listed.has(name) || cost > allowance) continue;
+          listed.add(name);
+          allowance -= cost;
+          holder.values = { ...holder.values, [key]: list };
+          granted = true;
+          break;
+        }
+      }
+    }
+  };
+  // Said once per selection: on the first process, or on a sample page that has processes.
+  let processNote = componentNote('process');
+  const noteOnce = (kind: string) => {
+    const note = kind === 'process' ? processNote : componentNote(kind);
+    if (kind === 'process') processNote = undefined;
+    return note;
+  };
   // 26.2 inventory contracts list property addresses, not code. Attach the smallest working block
   // of each selected component from Oracle's sample applications so it can be adapted directly.
   for (const result of results) {
@@ -250,7 +287,12 @@ export async function referenceSelect(
     if (!component) continue;
     const example = await componentExample(component.type, { kind: component.kind, request: input.request });
     const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
-    if (example) Object.assign(result, { example: { componentType, ...example } });
+    const note = noteOnce(component.kind);
+    if (example) Object.assign(result, { example: { componentType, ...example, ...(note ? { note } : {}) } });
+    else if (note) Object.assign(result, { note });
+    const values = example && (await exampleValues(example.text, String(result.id)));
+    if (values)
+      wanting.push({ target: result, kind: component.kind, lists: Object.entries(values), nested: false });
   }
   // Shared-component contracts (breadcrumb and list entries) have no sample page code: outline
   // them with the properties in the groups they belong to.
@@ -274,7 +316,23 @@ export async function referenceSelect(
         'relatedCount',
       ])
         delete (result as Record<string, unknown>)[key];
-  const pages = String(version).startsWith('26.2') ? await pageExamples(input.request) : [];
+  const pages: (PageExample & { note?: string; values?: Record<string, string> })[] = String(
+    version,
+  ).startsWith('26.2')
+    ? await pageExamples(input.request)
+    : [];
+  for (const page of pages) {
+    const note = /^\s*process \S+ \($/mu.test(page.text) ? noteOnce('process') : undefined;
+    const values = await exampleValues(page.text);
+    if (note) Object.assign(page, { note });
+    // A page holds many components: each kind on it takes its own turn.
+    const kinds = new Map<string, [string, string][]>();
+    for (const entry of Object.entries(values ?? {})) {
+      const kind = entry[0].split('.')[0]!;
+      kinds.set(kind, [...(kinds.get(kind) ?? []), entry]);
+    }
+    for (const lists of kinds.values()) wanting.push({ target: page, kind: 'page', lists, nested: true });
+  }
   const budget = results.some((result) => 'example' in result) || pages.length ? 30000 : 7000;
   const size = (page: typeof results) =>
     Buffer.byteLength(
@@ -285,6 +343,9 @@ export async function referenceSelect(
     );
   fitResults(results, budget, size);
   while (results.length && size(results) > budget) results.pop();
+  // The components are fitted first, as without value lists; the lists then add at most
+  // VALUES_BYTES, which keeps the MCP envelope inside its 32,768-byte inline limit.
+  shareValues(new Set<object>([...results, ...pages]));
   cancelled(signal);
   return { selection, results, ...(pages.length ? { pageExamples: pages } : {}) };
 }

@@ -126,6 +126,8 @@ The runtime checks the exact digest; confirmation cannot authorize another plan,
 
 - Ordinary imports use checksummed, target-bound, private APEXlang snapshots.
 - Page changes retain only the selected pages; full imports retain the full application.
+- A plan that exports the target keeps that export in private project storage. Apply reuses it as the backup only after proving it is the planned one: the target identity and migration history are read again and, with the kept files' digest, must reproduce the plan fingerprint. An altered or missing copy is ignored and apply exports as before.
+- The export taken immediately before the first write must still equal the plan. That is the drift check, and it also proves the backup equals the content the write replaces.
 - Restore uses a separate exact plan and a fresh snapshot; production restore is blocked.
 - Existing legacy SQL backups remain explicitly restorable.
 - Application backups restore APEX metadata, not business data.
@@ -146,7 +148,7 @@ The runtime checks the exact digest; confirmation cannot authorize another plan,
 - Eligible partial plans bind an exact page/shared-component file list, baseline, fresh server snapshot and validated effective tree.
 - Pages use native selected export.
 - Oracle 26.2 rejects native APEXlang LOV/list export selectors, so shared-component imports explicitly bind a full APEXlang source observation while retaining backups and readback comparisons only for the selected files.
-- The runtime reuses its pre-apply observation as the backup source, freezes sources and executes one SQLcl `apex import -files` call.
+- The runtime reuses the plan's kept observation as the backup source, freezes sources and executes one SQLcl `apex import -files` call.
 - It never silently expands an explicit file import to a full import.
 - A page file is the import unit; this does not claim child-region granularity.
 
@@ -174,6 +176,17 @@ An interrupted/lost response is initially `outcome_unknown`. The runtime first r
 | Still the baseline or a compatible partial result | Preserves evidence, reconciles the working checkpoint, releases only the stopped run's ownership and creates a fresh exact plan for the required remaining application import. |
 
 The ship worker makes at most one automatic retry per attempt.
+
+### An import Oracle rejects
+
+When SQLcl runs the import to its end and reports an Oracle or compiler error, the batch has stopped and rolled back. The runtime does not rely on that: it exports the target again and compares it with the plan (allowing only this run's own completed migrations).
+
+| Fresh read after the error                    | Result                                                                                              |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Target equals the plan                        | `IMPORT_REJECTED` (failed) with Oracle's message and located diagnostics; no recovery, no reimport. |
+| Target differs, or the read fails             | `OUTCOME_UNKNOWN`, as before.                                                                       |
+| The error is a lost or killed connection      | `OUTCOME_UNKNOWN`, as before: the server session's fate is not known.                               |
+| APEXREST stopped SQLcl (timeout, cancel, ...) | `OUTCOME_UNKNOWN` without automatic recovery, as below.                                             |
 
 ### When APEXREST stopped SQLcl
 

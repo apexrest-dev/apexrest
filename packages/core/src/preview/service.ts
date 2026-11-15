@@ -69,9 +69,10 @@ async function projectData(
 
 function summarize(diagnostics: Diagnostic[]) {
   const count = (level: Diagnostic['level']) => diagnostics.filter((entry) => entry.level === level).length;
-  const ranked = [...diagnostics].sort(
-    (a, b) => ['error', 'warning', 'info'].indexOf(a.level) - ['error', 'warning', 'info'].indexOf(b.level),
-  );
+  // Within a level, accessibility advice comes last so that it never crowds out a fault.
+  const rank = (entry: Diagnostic) =>
+    ['error', 'warning', 'info'].indexOf(entry.level) * 2 + (entry.code?.startsWith('A11Y-') ? 1 : 0);
+  const ranked = [...diagnostics].sort((a, b) => rank(a) - rank(b));
   return {
     counts: { error: count('error'), warning: count('warning'), info: count('info') },
     diagnostics: ranked.slice(0, DIAGNOSTICS_LIMIT),

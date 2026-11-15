@@ -236,6 +236,9 @@ function reportUnsupported(
     );
 }
 
+/** Chart types whose points are not read from `columnMapping.value`. */
+const NO_VALUE_COLUMN = new Set(['scatter', 'bubble', 'stock', 'gantt', 'boxPlot', 'range']);
+
 const numberOf = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
   const parsed = typeof value === 'number' ? value : Number(String(value).replace(/,/gu, ''));
@@ -286,6 +289,8 @@ function seriesSql(renderer: ApexRenderer, ctx: RenderContext, region: ApxCompon
 export function chartModel(renderer: ApexRenderer, ctx: RenderContext, region: ApxComponent): ChartModel {
   const props = region.props;
   const type = str(props, 'chart.type', 'bar');
+  // A bar chart standing in for a type that is not simulated (gantt): its mappings differ.
+  const standIn = bool(props, 'chart.standIn', false);
   const value: ChartModel['value'] = {
     format: str(props, 'value.format') || undefined,
     decimalPlaces: optionalNumber(str(props, 'value.decimalPlaces')),
@@ -346,6 +351,8 @@ export function chartModel(renderer: ApexRenderer, ctx: RenderContext, region: A
   for (const entry of axes)
     reportUnsupported(renderer, ctx, region, entry, Object.keys(entry.props), SUPPORTED_AXIS, 'Axis');
   const groups = new Map<string, true>();
+  // A fault already reported for this chart explains why nothing is plotted.
+  let reported = false;
   for (const definition of definitions) {
     if (!renderer.condition(ctx, definition.props)) continue;
     reportUnsupported(renderer, ctx, region, definition, SERIES_GROUPS, SUPPORTED_SERIES, 'Series');
@@ -429,6 +436,36 @@ export function chartModel(renderer: ApexRenderer, ctx: RenderContext, region: A
         tooltip: customTooltip ? String(row[customTooltip] ?? '') : undefined,
       });
     }
+    // Oracle JET draws a value it cannot read as a number as NaN, or drops the point; the local
+    // renderer would skip it silently.
+    const seriesType = base.type;
+    if (!standIn && !NO_VALUE_COLUMN.has(type) && !seriesType.endsWith('Range') && result.rows.length) {
+      const seriesName = str(definition.props, 'name', definition.id);
+      if (str(definition.props, 'columnMapping.value') && !result.columns.includes(valueColumn)) {
+        reported = true;
+        renderer.diagnose(
+          'warning',
+          `[CHART-002] Chart ${region.id}, series ${seriesName}: columnMapping.value names ${valueColumn}, which the query does not return (${result.columns.join(', ')}); the chart has no values`,
+          ctx.pageId,
+          region.id,
+          'CHART-002',
+        );
+      } else {
+        const unreadable = result.rows.filter((row) => {
+          const raw = row[valueColumn];
+          return raw !== null && raw !== undefined && raw !== '' && numberOf(raw) === null;
+        });
+        if (unreadable.length) reported = true;
+        if (unreadable.length)
+          renderer.diagnose(
+            'warning',
+            `[CHART-001] Chart ${region.id}, series ${seriesName}: ${unreadable.length} of ${result.rows.length} values of ${valueColumn} are not numbers (for example "${String(unreadable[0]![valueColumn]).slice(0, 40)}"); Oracle JET shows NaN or omits them, and the local chart skips them`,
+            ctx.pageId,
+            region.id,
+            'CHART-001',
+          );
+      }
+    }
     if (type === 'stock') {
       for (const series of bySeries.values()) {
         const close = mapping('close');
@@ -447,8 +484,31 @@ export function chartModel(renderer: ApexRenderer, ctx: RenderContext, region: A
       dated.sort((a, b) => a[1]!.getTime() - b[1]!.getTime());
       model.groups = dated.map(([group]) => group);
       model.timeAxis = true;
+    } else if (model.timeAxis && !standIn && !NO_VALUE_COLUMN.has(type)) {
+      const sample = dated.find(([, date]) => !date)![0];
+      renderer.diagnose(
+        'warning',
+        `[CHART-003] Chart ${region.id}: the time axis is enabled (settings.timeAxisType), but the label values are not dates (for example "${sample.slice(0, 40)}"); Oracle JET labels such an axis NaN or Invalid Date. Map the label to a DATE or TIMESTAMP column`,
+        ctx.pageId,
+        region.id,
+        'CHART-003',
+      );
     }
   }
+  const plottable = model.series.some((series) =>
+    series.points.some(
+      (point) =>
+        point.value !== null || point.x !== undefined || point.low !== undefined || point.high !== undefined,
+    ),
+  );
+  if (!plottable && !reported && !model.errors.length && definitions.length)
+    renderer.diagnose(
+      'info',
+      `[CHART-004] Chart ${region.id} has no data to plot locally: its axes, value formats and tooltips stay unverified until the chart has rows`,
+      ctx.pageId,
+      region.id,
+      'CHART-004',
+    );
   return model;
 }
 

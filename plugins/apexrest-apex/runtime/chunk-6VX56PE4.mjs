@@ -13,7 +13,7 @@ import {
   parseApexLang,
   ref,
   str
-} from "./chunk-SYFWCGMZ.mjs";
+} from "./chunk-QF3FUIGG.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -40,7 +40,18 @@ import {
 } from "./chunk-N3KQBIVW.mjs";
 
 // packages/core/src/preview/gaps.ts
-var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction"]);
+var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction", "columnInitJavaScriptFunction"]);
+var EFFECTS = {
+  chart: "axis and value formats, tooltips, colors and other Oracle JET chart options",
+  interactiveGrid: "toolbar, features, default view and column options of the grid widget",
+  cards: "card view options",
+  map: "map options, layers and controls",
+  calendar: "FullCalendar options, views and event rendering",
+  facetedSearch: "facet options",
+  smartFilters: "filter options",
+  column: "column and cell widget options of the interactive grid",
+  pageItem: "item widget options"
+};
 function properties(props, prefix = "") {
   return Object.entries(props).flatMap(([key, value2]) => {
     const dotted = prefix ? `${prefix}.${key}` : key;
@@ -49,6 +60,8 @@ function properties(props, prefix = "") {
   });
 }
 function collect(pageId, component, into) {
+  const kind = component.type === "region" ? str(component.props, "type") : component.type;
+  const effect = EFFECTS[kind] ?? "formats, axes, tooltips and widget options";
   for (const property2 of properties(component.props))
     into.push({
       pageId,
@@ -56,7 +69,7 @@ function collect(pageId, component, into) {
       property: property2,
       file: component.file,
       line: component.line,
-      message: `Page ${pageId}, ${component.type} ${component.id}: ${property2} does not run in the local preview; check its effect (formats, axes, tooltips, widget options) on the imported application.`
+      message: `Page ${pageId}, ${component.type} ${component.id}: ${property2} does not run in the local preview; check its effect (${effect}) on the imported application.`
     });
   for (const child of component.children) collect(pageId, child, into);
 }
@@ -709,6 +722,291 @@ var LiveHub = class {
   }
 };
 
+// packages/core/src/preview/lint.ts
+var BODY_SLOTS = ["regionBody", "body", "contentBody", "subRegions"];
+var TYPE_SLOTS = {
+  interactiveReport: ["rightOfInteractiveReportSearchBar"]
+};
+var LEGACY_BUTTON_SLOTS = ["top", "bottom", "belowBox"];
+var LEGACY_BUTTON_POSITIONS = /* @__PURE__ */ new Set(["top", "topandbottom", "abovebox", "belowbox", "bottom"]);
+function slotFindings(page2, global, options3) {
+  const findings = [];
+  const regionSlots = options3.regionSlots;
+  if (!regionSlots) return findings;
+  const components = [...page2.children, ...global && global !== page2 ? global.children : []];
+  const regions = /* @__PURE__ */ new Map();
+  for (const component of components) if (component.type === "region") regions.set(component.id, component);
+  for (const component of page2.children) {
+    const kind = component.type === "button" ? "Button" : component.type === "pageItem" ? "Item" : component.type === "region" ? "Sub-region" : void 0;
+    if (!kind) continue;
+    const parentId = ref(
+      component.props,
+      component.type === "region" ? "layout.parentRegion" : "layout.region"
+    );
+    const slot2 = str(component.props, "layout.slot");
+    if (!parentId || !slot2 || /[&#]/u.test(slot2)) continue;
+    const parent = regions.get(parentId);
+    if (!parent) continue;
+    const type = str(parent.props, "type");
+    if (!type || type.includes("/")) continue;
+    const template = regionSlots(parent);
+    if (!template) continue;
+    const valid = [
+      .../* @__PURE__ */ new Set([
+        ...BODY_SLOTS,
+        ...template.slots,
+        ...TYPE_SLOTS[type] ?? [],
+        ...component.type === "button" ? LEGACY_BUTTON_SLOTS : []
+      ])
+    ];
+    const lower2 = slot2.toLowerCase();
+    if (valid.some((entry) => entry.toLowerCase() === lower2)) continue;
+    if (component.type === "button" && LEGACY_BUTTON_POSITIONS.has(lower2.replace(/[^a-z]/gu, ""))) continue;
+    const elsewhere = Object.entries(TYPE_SLOTS).find(
+      ([, slots]) => slots.some((entry) => entry.toLowerCase() === lower2)
+    );
+    findings.push({
+      code: "SLOT-001",
+      level: "warning",
+      page: page2.id,
+      component: component.id,
+      file: component.file,
+      line: component.line,
+      message: `${kind} ${component.id} uses slot "${slot2}", which region ${parent.id} (type ${type}, template ${template.template}) does not provide${elsewhere ? ` (only ${elsewhere[0]} regions have it)` : ""}; APEX compiles and imports it but does not show the component. Valid slots: ${valid.join(", ")}`
+    });
+  }
+  return findings;
+}
+var ITEM_NAME = /^P(\d+)_[A-Z0-9_$#]+$/iu;
+var BIND = /(?<![\w$#:]):(P\d+_[A-Za-z0-9_$#]+)/gu;
+var SUBSTITUTION = /&(P\d+_[A-Za-z0-9_$#]+)(?:![A-Z]+)?\./gu;
+var SESSION_STATE = /\bn?v\s*\(\s*'(P\d+_[A-Za-z0-9_$#]+)'\s*\)/giu;
+var CODE_KEY = /sql|plsql|code|expression|query|functionBody|whereClause|orderByClause/iu;
+var MARKUP_KEY = /html|css|javascript|^js|Js[A-Z]/iu;
+function stripSqlComments(text12) {
+  return text12.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/--[^\n]*/gu, " ");
+}
+function walk(component, visit) {
+  visit(component);
+  for (const child of component.children) walk(child, visit);
+}
+function definedItems(app) {
+  const names = /* @__PURE__ */ new Set();
+  for (const page2 of app.pages.values())
+    walk(page2, (component) => {
+      if (component.type === "pageItem" || ITEM_NAME.test(component.id))
+        names.add(component.id.toUpperCase());
+    });
+  for (const component of app.shared)
+    walk(component, (entry) => {
+      if (entry.type === "appItem" || ITEM_NAME.test(entry.id)) names.add(entry.id.toUpperCase());
+    });
+  return names;
+}
+function references(props) {
+  const found = [];
+  const names = (value2) => {
+    if (typeof value2 === "string") return value2.split(/[\s,:]+/u).filter((token) => ITEM_NAME.test(token));
+    if (isRef(value2)) return ITEM_NAME.test(value2.ref) ? [value2.ref] : [];
+    if (Array.isArray(value2)) return value2.flatMap(names);
+    return [];
+  };
+  const visit = (value2, key, path12) => {
+    if (typeof value2 === "string") {
+      if (/help|comment/iu.test(path12)) return;
+      if (/item/iu.test(key))
+        for (const name of names(value2)) found.push({ name, property: path12, how: "property" });
+      for (const match of value2.matchAll(SUBSTITUTION))
+        found.push({ name: match[1], property: path12, how: "substitution" });
+      if (CODE_KEY.test(key) && !MARKUP_KEY.test(key)) {
+        const code = stripSqlComments(value2);
+        for (const match of code.matchAll(BIND)) found.push({ name: match[1], property: path12, how: "bind" });
+        for (const match of code.matchAll(SESSION_STATE))
+          found.push({ name: match[1], property: path12, how: "bind" });
+      }
+      return;
+    }
+    if (isRef(value2)) {
+      if (/item/iu.test(key))
+        for (const name of names(value2)) found.push({ name, property: path12, how: "property" });
+      return;
+    }
+    if (Array.isArray(value2)) {
+      for (const entry of value2) visit(entry, key, path12);
+      return;
+    }
+    if (isObject(value2)) {
+      for (const [name, entry] of Object.entries(value2)) {
+        if (key === "items" && ITEM_NAME.test(name))
+          found.push({ name, property: `${path12}.${name}`, how: "property" });
+        visit(entry, name, path12 ? `${path12}.${name}` : name);
+      }
+    }
+  };
+  visit(props, "", "");
+  return found;
+}
+function itemFindings(app) {
+  const findings = [];
+  const defined = definedItems(app);
+  const check = (pageId, component) => {
+    const seen = /* @__PURE__ */ new Set();
+    for (const reference of references(component.props)) {
+      const name = reference.name.toUpperCase();
+      const owner2 = ITEM_NAME.exec(name)[1];
+      if (!app.pages.has(String(Number(owner2))) || defined.has(name)) continue;
+      const key = `${name}|${reference.how === "property" ? "p" : "c"}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const where2 = reference.how === "property" ? `${reference.property} names` : reference.how === "bind" ? `${reference.property} reads the value of` : `${reference.property} substitutes &${name}., the value of`;
+      findings.push({
+        code: reference.how === "property" ? "ITEM-001" : "ITEM-002",
+        level: "warning",
+        page: pageId,
+        component: component.id,
+        file: component.file,
+        line: component.line,
+        message: `${component.type} ${component.id}: ${where2} item ${name}, which no page item or application item in these sources defines; APEX leaves it empty or fails at run time`
+      });
+    }
+  };
+  for (const [pageId, page2] of app.pages) walk(page2, (component) => check(pageId, component));
+  return findings;
+}
+function conditional(component) {
+  return isObject(component.props.serverSideCondition) || get(component.props, "config.buildOption") !== void 0 || get(component.props, "security.authorizationScheme") !== void 0;
+}
+function duplicateFindings(page2) {
+  const findings = [];
+  const items = /* @__PURE__ */ new Map();
+  for (const component of page2.children) {
+    if (component.type !== "pageItem") continue;
+    const name = component.id.toUpperCase();
+    const first = items.get(name);
+    if (!first) {
+      items.set(name, component);
+      continue;
+    }
+    findings.push({
+      code: "DUP-001",
+      level: "warning",
+      page: page2.id,
+      component: component.id,
+      file: component.file,
+      line: component.line,
+      message: `Page item ${component.id} is defined twice on page ${page2.id} (first at ${first.file}:${first.line}); item names must be unique`
+    });
+  }
+  const ids = /* @__PURE__ */ new Map();
+  for (const [name, component] of items)
+    if (!conditional(component)) ids.set(name, { component, label: `page item ${component.id}` });
+  for (const component of page2.children) {
+    if (component.type !== "region" && component.type !== "button") continue;
+    const id = str(component.props, "advanced.htmlDomId");
+    if (!id || /[&#]/u.test(id) || conditional(component)) continue;
+    const label = `${component.type} ${component.id}`;
+    const first = ids.get(id);
+    if (!first) {
+      ids.set(id, { component, label });
+      continue;
+    }
+    findings.push({
+      code: "DUP-002",
+      level: "warning",
+      page: page2.id,
+      component: component.id,
+      file: component.file,
+      line: component.line,
+      message: `${label}: HTML DOM ID "${id}" is already used by ${first.label} (${first.component.file}:${first.component.line}) on page ${page2.id}; duplicate ids break dynamic actions, JavaScript and accessibility`
+    });
+  }
+  return findings;
+}
+var ROW_HEADER_REGIONS = /* @__PURE__ */ new Set(["classicReport", "interactiveReport", "interactiveGrid"]);
+var NO_HEADER_COLUMN_TYPES = /* @__PURE__ */ new Set([
+  "hidden",
+  "hiddenColumn",
+  "rowSelector",
+  "rowActions",
+  "actionsMenu"
+]);
+var UNLABELLED_ITEM_TYPES = /* @__PURE__ */ new Set(["hidden", "stopAndStartGridLayout"]);
+function accessibilityFindings(page2) {
+  const findings = [];
+  const add = (code, level, component, message) => findings.push({
+    code,
+    level,
+    page: page2.id,
+    component: component.id,
+    file: component.file,
+    line: component.line,
+    message
+  });
+  if (page2.id !== "0" && !str(page2.props, "title").trim())
+    add(
+      "A11Y-001",
+      "warning",
+      page2,
+      `Page ${page2.id} has no title; screen readers announce the page title (APEX Advisor: page has a title)`
+    );
+  for (const component of page2.children) {
+    if (component.type === "pageItem") {
+      const type = str(component.props, "type");
+      if (type && !UNLABELLED_ITEM_TYPES.has(type) && !type.includes("/") && !str(component.props, "label.label").trim())
+        add(
+          "A11Y-002",
+          "warning",
+          component,
+          `Page item ${component.id} (${type}) has no label${str(component.props, "appearance.valuePlaceholder") ? "; a placeholder does not replace it" : ""}. Set label.label; a hidden-label field template keeps it off screen (APEX Advisor: page item has a label)`
+        );
+      if (type === "displayImage" && !str(component.props, "settings.altText").trim() && !str(component.props, "settings.altTextColumn").trim())
+        add(
+          "A11Y-004",
+          "warning",
+          component,
+          `Display Image item ${component.id} has no alternative text; set settings.altText or settings.altTextColumn (APEX Advisor: image has ALT text)`
+        );
+      const action = str(component.props, "settings.pageActionOnSelection");
+      if ((type === "selectList" || type === "radioGroup") && (action === "submitPage" || action === "redirectSetValue"))
+        add(
+          "A11Y-005",
+          "info",
+          component,
+          `Page item ${component.id} reloads the page when its value changes (settings.pageActionOnSelection: ${action}); tell users in the label or help text, or use a button or a dynamic action (APEX Advisor: avoid unexpected context change)`
+        );
+    }
+    if (component.type === "region" && ROW_HEADER_REGIONS.has(str(component.props, "type"))) {
+      const reportTemplate = (ref(component.props, "componentAppearance.template") ?? ref(component.props, "appearance.reportTemplate") ?? "standard").toLowerCase();
+      if (str(component.props, "type") === "classicReport" && reportTemplate !== "standard") continue;
+      const columns = component.children.filter(
+        (child) => child.type === "column" && !NO_HEADER_COLUMN_TYPES.has(str(child.props, "type"))
+      );
+      if (columns.length && !columns.some((column2) => get(column2.props, "accessibility.valueIdentifiesRow") === true))
+        add(
+          "A11Y-003",
+          // Advisory: most reports, Oracle's samples included, set no row header.
+          "info",
+          component,
+          `${str(component.props, "type")} region ${component.id} has no row header column; set accessibility.valueIdentifiesRow: true on the column that identifies a row (APEX Advisor: report has a row header)`
+        );
+    }
+  }
+  return findings;
+}
+function lintApplication(app, options3 = {}) {
+  const findings = [];
+  const global = app.pages.get("0");
+  for (const page2 of app.pages.values()) {
+    findings.push(...slotFindings(page2, global, options3));
+    findings.push(...duplicateFindings(page2));
+    findings.push(...accessibilityFindings(page2));
+  }
+  findings.push(...itemFindings(app));
+  return findings.sort(
+    (a, b) => Number(a.page) - Number(b.page) || a.file.localeCompare(b.file) || a.line - b.line
+  );
+}
+
 // packages/core/src/preview/properties.ts
 import fs2 from "node:fs";
 import path2 from "node:path";
@@ -1127,7 +1425,7 @@ var Checker = class {
     for (const dotted of extraPaths) if (!paths.has(dotted)) typedGroups.add(dotted.split(".")[0]);
     const report2 = this.reporter(component);
     const typeRejected = type ? this.checkValue(scope2, "type", type, paths.get("type") ?? [], report2) : false;
-    const walk2 = (props, prefix) => {
+    const walk3 = (props, prefix) => {
       for (const [key, value2] of Object.entries(props)) {
         const dotted = prefix ? `${prefix}.${key}` : key;
         if (dotted === "type") continue;
@@ -1135,7 +1433,7 @@ var Checker = class {
         if (extra.has(group2)) continue;
         if (group2 === "settings" && typeRejected) {
           if (isObject(value2)) {
-            walk2(value2, dotted);
+            walk3(value2, dotted);
           } else report2(`unknown property "${dotted}" (type ${type} is not valid here)`);
           continue;
         }
@@ -1152,7 +1450,7 @@ var Checker = class {
           continue;
         }
         if (isObject(value2) && !entries.length) {
-          walk2(value2, dotted);
+          walk3(value2, dotted);
           continue;
         }
         if (!entries.length) {
@@ -1170,7 +1468,7 @@ var Checker = class {
         this.checkValue(scope2, dotted, value2, entries, report2);
       }
     };
-    walk2(component.props, "");
+    walk3(component.props, "");
     this.checkRules(scope2, report2);
   }
   reporter(component) {
@@ -5610,6 +5908,7 @@ function reportUnsupported(renderer, ctx, owner2, component, groups, supported, 
       owner2.id
     );
 }
+var NO_VALUE_COLUMN = /* @__PURE__ */ new Set(["scatter", "bubble", "stock", "gantt", "boxPlot", "range"]);
 var numberOf = (value2) => {
   if (value2 === null || value2 === void 0 || value2 === "") return null;
   const parsed2 = typeof value2 === "number" ? value2 : Number(String(value2).replace(/,/gu, ""));
@@ -5654,6 +5953,7 @@ function seriesSql(renderer, ctx, region, series) {
 function chartModel(renderer, ctx, region) {
   const props = region.props;
   const type = str(props, "chart.type", "bar");
+  const standIn = bool(props, "chart.standIn", false);
   const value2 = {
     format: str(props, "value.format") || void 0,
     decimalPlaces: optionalNumber(str(props, "value.decimalPlaces")),
@@ -5711,6 +6011,7 @@ function chartModel(renderer, ctx, region) {
   for (const entry of axes)
     reportUnsupported(renderer, ctx, region, entry, Object.keys(entry.props), SUPPORTED_AXIS, "Axis");
   const groups = /* @__PURE__ */ new Map();
+  let reported = false;
   for (const definition of definitions) {
     if (!renderer.condition(ctx, definition.props)) continue;
     reportUnsupported(renderer, ctx, region, definition, SERIES_GROUPS, SUPPORTED_SERIES, "Series");
@@ -5791,6 +6092,34 @@ function chartModel(renderer, ctx, region) {
         tooltip: customTooltip ? String(row[customTooltip] ?? "") : void 0
       });
     }
+    const seriesType = base.type;
+    if (!standIn && !NO_VALUE_COLUMN.has(type) && !seriesType.endsWith("Range") && result.rows.length) {
+      const seriesName = str(definition.props, "name", definition.id);
+      if (str(definition.props, "columnMapping.value") && !result.columns.includes(valueColumn)) {
+        reported = true;
+        renderer.diagnose(
+          "warning",
+          `[CHART-002] Chart ${region.id}, series ${seriesName}: columnMapping.value names ${valueColumn}, which the query does not return (${result.columns.join(", ")}); the chart has no values`,
+          ctx.pageId,
+          region.id,
+          "CHART-002"
+        );
+      } else {
+        const unreadable = result.rows.filter((row) => {
+          const raw2 = row[valueColumn];
+          return raw2 !== null && raw2 !== void 0 && raw2 !== "" && numberOf(raw2) === null;
+        });
+        if (unreadable.length) reported = true;
+        if (unreadable.length)
+          renderer.diagnose(
+            "warning",
+            `[CHART-001] Chart ${region.id}, series ${seriesName}: ${unreadable.length} of ${result.rows.length} values of ${valueColumn} are not numbers (for example "${String(unreadable[0][valueColumn]).slice(0, 40)}"); Oracle JET shows NaN or omits them, and the local chart skips them`,
+            ctx.pageId,
+            region.id,
+            "CHART-001"
+          );
+      }
+    }
     if (type === "stock") {
       for (const series of bySeries.values()) {
         const close3 = mapping("close");
@@ -5809,8 +6138,30 @@ function chartModel(renderer, ctx, region) {
       dated.sort((a, b) => a[1].getTime() - b[1].getTime());
       model.groups = dated.map(([group2]) => group2);
       model.timeAxis = true;
+    } else if (model.timeAxis && !standIn && !NO_VALUE_COLUMN.has(type)) {
+      const sample = dated.find(([, date]) => !date)[0];
+      renderer.diagnose(
+        "warning",
+        `[CHART-003] Chart ${region.id}: the time axis is enabled (settings.timeAxisType), but the label values are not dates (for example "${sample.slice(0, 40)}"); Oracle JET labels such an axis NaN or Invalid Date. Map the label to a DATE or TIMESTAMP column`,
+        ctx.pageId,
+        region.id,
+        "CHART-003"
+      );
     }
   }
+  const plottable = model.series.some(
+    (series) => series.points.some(
+      (point) => point.value !== null || point.x !== void 0 || point.low !== void 0 || point.high !== void 0
+    )
+  );
+  if (!plottable && !reported && !model.errors.length && definitions.length)
+    renderer.diagnose(
+      "info",
+      `[CHART-004] Chart ${region.id} has no data to plot locally: its axes, value formats and tooltips stay unverified until the chart has rows`,
+      ctx.pageId,
+      region.id,
+      "CHART-004"
+    );
   return model;
 }
 function heightOption(props) {
@@ -7725,7 +8076,7 @@ function renderChartRegion(renderer, ctx, region) {
   return `<div class="apex-local-jet a-JET-chart" id="${escapeHtml(domId)}_jet" data-chart-region="${escapeHtml(region.id)}" data-chart-type="${escapeHtml(type)}" data-width="${DEFAULT_WIDTH}" style="${maxWidth}min-height:${model.height}px">${renderChartSvg(model, DEFAULT_WIDTH)}</div>${note2}`;
 }
 function asBar(region) {
-  return { ...region, props: { ...region.props, chart: { type: "bar" } } };
+  return { ...region, props: { ...region.props, chart: { type: "bar", standIn: true } } };
 }
 function findRegion(renderer, ctx, id) {
   return renderer.pageComponents(ctx, "region").find((candidate) => candidate.id === id || renderer.regionDomId(candidate) === id);
@@ -17001,10 +17352,10 @@ var yesNo = (value2) => value2 ? "Yes" : "No";
 var strings5 = (value2) => (Array.isArray(value2) ? value2 : value2 === void 0 ? [] : [value2]).map((entry) => refName(entry));
 var lastUpdated = { last_updated_by: "APEX_LOCAL", last_updated_on: "" };
 var COMMON = "workspace, workspace_display_name, application_id n, application_name";
-function walk(components, type) {
+function walk2(components, type) {
   return components.flatMap((component) => [
     ...component.type === type ? [component] : [],
-    ...walk(component.children, type)
+    ...walk2(component.children, type)
   ]);
 }
 function ensureStateTables(db2) {
@@ -17142,7 +17493,7 @@ function pageRows(context) {
       ...lastUpdated,
       last_updated_on: now()
     });
-    for (const region of walk(page2.children, "region")) {
+    for (const region of walk2(page2.children, "region")) {
       const source = isObject(region.props.source) ? region.props.source : {};
       const parent = ref(region.props, "layout.parentRegion");
       regions.push({
@@ -17184,7 +17535,7 @@ function pageRows(context) {
           tree_source: str(source, "tableName")
         });
     }
-    for (const item2 of walk(page2.children, "pageItem")) {
+    for (const item2 of walk2(page2.children, "pageItem")) {
       const region = ref(item2.props, "layout.region");
       items.push({
         ...pageBase,
@@ -17208,7 +17559,7 @@ function pageRows(context) {
         ...lastUpdated
       });
     }
-    for (const button2 of walk(page2.children, "button")) {
+    for (const button2 of walk2(page2.children, "button")) {
       buttons.push({
         ...pageBase,
         button_id: hashId(context.appId, page2.id, "button", button2.id),
@@ -27957,12 +28308,18 @@ var ApexRenderer = class {
   get baseUrl() {
     return `/r/${this.alias}`;
   }
-  diagnose(level, message, page2, component) {
+  diagnose(level, message, page2, component, code) {
     this.trace(void 0, { type: "diagnostic", name: component ?? "", detail: message, level });
     const key = `${level}|${page2}|${component}|${message}`;
     if (this.#diagnosticKeys.has(key)) return;
     this.#diagnosticKeys.add(key);
-    this.diagnostics.push({ level, message, ...page2 ? { page: page2 } : {}, ...component ? { component } : {} });
+    this.diagnostics.push({
+      level,
+      ...code ? { code } : {},
+      message,
+      ...page2 ? { page: page2 } : {},
+      ...component ? { component } : {}
+    });
   }
   /** Debug trace for the developer toolbar; extensions receive it through `trace`. */
   trace(ctx, event) {
@@ -29693,6 +30050,16 @@ ${onload2.join("\n")}
       return (ref(defaults, "regionDefaults.interactiveReports") ?? "interactive-report").toLowerCase();
     return (ref(defaults, "componentDefaults.region") ?? defaultStaticId(this.theme, "default_region_template", "standard")).toLowerCase();
   }
+  /**
+   * Slots the region's template offers to buttons, items and sub-regions; undefined when the
+   * template is not one of the installed theme's (a template the application defines itself).
+   */
+  regionSlots(region) {
+    const templateId = this.regionTemplateId(region);
+    const template = this.theme.regions.get(templateId);
+    if (!template) return void 0;
+    return { template: templateId, slots: [...this.theme.slots.get(text(template, "id"))?.keys() ?? []] };
+  }
   regionDomId(region) {
     return str(region.props, "advanced.htmlDomId") || str(region.props, "advanced.staticId") || slug(region.id);
   }
@@ -30844,6 +31211,16 @@ var PreviewServer = class {
     for (const [id, page2] of renderer.app.pages)
       for (const finding of checkComponentProperties([page2], id, void 0, mmdVersion ? { mmdVersion } : {}))
         renderer.diagnose("warning", finding.message, finding.page, finding.component);
+    for (const finding of lintApplication(renderer.app, {
+      regionSlots: (region) => renderer.regionSlots(region)
+    }))
+      renderer.diagnose(
+        finding.level,
+        `[${finding.code}] ${finding.message} (${finding.file}:${finding.line})`,
+        finding.page,
+        finding.component,
+        finding.code
+      );
     return renderer;
   }
   /** Re-parses the APEXlang tree when any .apx file changed, so edits show on the next reload. */

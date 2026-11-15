@@ -367,3 +367,98 @@ test('new Oracle 26.2 rules never hide value, order or default changes', () => {
     false,
   );
 });
+
+const handWritten = (extra = '') => `page 6 (
+    name: Speed 6
+    pageItem P6_ALERT_ID (
+        type: selectList
+        lov {
+            type: sqlQuery
+            displayNullValue: true
+            nullDisplayValue: - All -
+        }
+    )
+    button save (
+        buttonName: SAVE
+        behavior {
+            action: submitPage
+        }
+    )
+    process acknowledge (
+        name: Acknowledge
+        type: executeCode
+        execution {
+            sequence: 10
+        }${extra}
+    )
+)
+`;
+const serverForm = (identifier = '9634373364248393') => `page 6 (
+    name: Speed 6
+    pageItem P6_ALERT_ID (
+        type: selectList
+        lov {
+            type: sqlQuery
+            nullDisplayValue: - All -
+        }
+    )
+    button save (
+        buttonName: SAVE
+    )
+    process acknowledge (
+        name: Acknowledge
+        type: executeCode
+        execution {
+            sequence: 10
+        }
+        advanced {
+            executionMappingIdentifier: ${identifier}
+        }
+    )
+)
+`;
+
+test('a hand-written page equals its Oracle export: omitted defaults and a server-assigned process identifier', () => {
+  const result = compareApexlangSource(handWritten(), serverForm());
+  assert.equal(result.equivalent, true);
+  for (const rule of [
+    'pageItem.selectList.lov.displayNullValue:true-default',
+    'button.behavior.action:submitPage-default',
+    'process.advanced.executionMappingIdentifier:server-assigned',
+  ])
+    assert.ok(result.rules.includes(rule), rule);
+});
+
+test('the new default rules accept nothing but the pinned values', () => {
+  assert.equal(
+    compareApexlangSource(
+      handWritten().replace('displayNullValue: true', 'displayNullValue: false'),
+      serverForm(),
+    ).equivalent,
+    false,
+  );
+  assert.equal(
+    compareApexlangSource(handWritten().replace('action: submitPage', 'action: redirectToPage'), serverForm())
+      .equivalent,
+    false,
+  );
+  // A non-select-list item keeps its explicit value.
+  assert.equal(
+    compareApexlangSource(
+      handWritten().replace('type: selectList', 'type: radioGroup'),
+      serverForm().replace('type: selectList', 'type: radioGroup'),
+    ).equivalent,
+    false,
+  );
+});
+
+test('a process identifier the reviewed source states must match the server exactly', () => {
+  const stated = handWritten(`
+        advanced {
+            executionMappingIdentifier: 1111111111111111
+        }`);
+  assert.equal(compareApexlangSource(stated, serverForm('1111111111111111')).equivalent, true);
+  assert.equal(compareApexlangSource(stated, serverForm('2222222222222222')).equivalent, false);
+  // The server may add an identifier; it may not lose one the source states.
+  assert.equal(compareApexlangSource(serverForm(), handWritten()).equivalent, false);
+});

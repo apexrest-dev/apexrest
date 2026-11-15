@@ -5,17 +5,17 @@ import {
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-GCYH7STV.mjs";
+} from "./chunk-UOYPJUKY.mjs";
 import {
   resourceRoot
-} from "./chunk-F4DDWU7G.mjs";
+} from "./chunk-RXTQAEKG.mjs";
 import {
   VERSION
 } from "./chunk-64FD5OTX.mjs";
 import {
   managedHome
-} from "./chunk-PWI5SWBA.mjs";
-import "./chunk-EGLAN56W.mjs";
+} from "./chunk-GGZKKEXV.mjs";
+import "./chunk-NSJ6MZ2Y.mjs";
 import {
   Client,
   ReadBuffer,
@@ -36,8 +36,8 @@ import {
   require_validation,
   require_validation_error,
   serializeMessage
-} from "./chunk-H2VLYI5A.mjs";
-import "./chunk-A5P52BZT.mjs";
+} from "./chunk-4FMLUYZ7.mjs";
+import "./chunk-WBDBC3GS.mjs";
 import {
   atomicWrite,
   canonical,
@@ -49,13 +49,13 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-SBZ36R7Y.mjs";
+} from "./chunk-C7ONAFBZ.mjs";
 import {
   Fault,
   __commonJS,
   __require,
   __toESM
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // node_modules/isexe/windows.js
 var require_windows = __commonJS({

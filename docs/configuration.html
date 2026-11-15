@@ -291,7 +291,7 @@ apexrest connection test dev-read --json
 </tbody></table>
 </div>
 <h3 id="deployment-speed-up-switches">Deployment speed-up switches</h3>
-<p>Three switches turn off the deployment speed-ups described in <a href="/apexrest/architecture/#persistent-sqlcl-engine">architecture</a>; each restores the previous behavior when set to <code>0</code>:</p>
+<p>Four switches turn off the deployment speed-ups described in <a href="/apexrest/architecture/#persistent-sqlcl-engine">architecture</a>; each restores the previous behavior when set to <code>0</code>:</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
@@ -309,7 +309,11 @@ apexrest connection test dev-read --json
 </tr>
 <tr>
 <td><code>APEXREST_CAPABILITY_CACHE</code></td>
-<td>The capability file in the managed home</td>
+<td>The capability files in the managed home</td>
+</tr>
+<tr>
+<td><code>APEXREST_PREWARM</code></td>
+<td>The background compiler preload in the MCP server</td>
 </tr>
 </tbody></table>
 </div>

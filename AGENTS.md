@@ -24,7 +24,7 @@ Application deployment completion uses Oracle compiler validation, authorized re
 
 # Browser verification
 
-When the user requests browser verification, inspect the requested pages and behavior in the built-in or user-selected browser when its controls are available. Follow plugins/apexrest-apex/skills/apexrest-work/SKILL.md, step 7. Record actual observations separately from automated results; report missing browser access or deployed changes with the reason.
+When the user requests browser verification, inspect the requested pages and behavior in the built-in or user-selected browser when its controls are available. Follow plugins/apexrest-apex/skills/apexrest-work/SKILL.md, step 10. Record actual observations separately from automated results; report missing browser access or deployed changes with the reason.
 
 # Clean APEX deployment and coordination
 

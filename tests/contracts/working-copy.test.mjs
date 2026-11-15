@@ -38,7 +38,13 @@ test('built CLI/MCP sync status is local, bounded and parity-compatible; adoptio
     }),
   );
   const tool = (await client.listTools()).tools.find((t) => t.name === 'apexrest_apex_sync');
-  assert.deepEqual(tool.inputSchema.properties.action.enum, ['init', 'status', 'refresh', 'invalidate']);
+  assert.deepEqual(tool.inputSchema.properties.action.enum, [
+    'init',
+    'status',
+    'changes',
+    'refresh',
+    'invalidate',
+  ]);
   assert.ok(tool.inputSchema.required.includes('env'));
   const response = await client.callTool({
     name: tool.name,

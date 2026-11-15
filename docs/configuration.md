@@ -216,13 +216,14 @@ See [testing](testing.md).
 
 ### Deployment speed-up switches
 
-Three switches turn off the deployment speed-ups described in [architecture](architecture.md#persistent-sqlcl-engine); each restores the previous behavior when set to `0`:
+Four switches turn off the deployment speed-ups described in [architecture](architecture.md#persistent-sqlcl-engine); each restores the previous behavior when set to `0`:
 
 | Switch                      | Speed-up it turns off                                       |
 | --------------------------- | ----------------------------------------------------------- |
 | `APEXREST_CONNECTED_READS`  | One connected SQLcl server for the reads of a plan or apply |
 | `APEXREST_WARM_IMPORT`      | The prepared import server                                  |
-| `APEXREST_CAPABILITY_CACHE` | The capability file in the managed home                     |
+| `APEXREST_CAPABILITY_CACHE` | The capability files in the managed home                    |
+| `APEXREST_PREWARM`          | The background compiler preload in the MCP server           |
 
 ### Trust, proxies and paths
 

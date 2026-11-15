@@ -702,8 +702,12 @@ export class OracleAdapter {
     const key = await this.capabilityKey(await this.settings());
     let pending = key ? importHelpCache.get(key) : undefined;
     if (!pending) {
-      pending = this.session('help apex import').then((result) =>
-        result.output.replace(/\x1b\[[0-9;]*m/g, ''),
+      pending = this.storedImportHelp(key).then(
+        (stored) =>
+          stored ??
+          this.session('help apex import')
+            .then((result) => result.output.replace(/\x1b\[[0-9;]*m/g, ''))
+            .then((help) => this.storeImportHelp(key, help)),
       );
       if (key) {
         importHelpCache.set(key, pending);
@@ -711,6 +715,45 @@ export class OracleAdapter {
       }
     }
     return raceCancellation(pending, signal, 'Import capability check cancelled.');
+  }
+  /**
+   * `help apex import` of an unchanged SQLcl installation, kept across processes like the
+   * capabilities above: a deployment worker otherwise starts one more SQLcl JVM to read it.
+   */
+  private async importHelpFile(key: string | undefined) {
+    const file = await this.capabilityFile(key);
+    return file?.replace(/\.json$/, '.import-help.json');
+  }
+  private async storedImportHelp(key: string | undefined): Promise<string | undefined> {
+    const file = await this.importHelpFile(key);
+    if (!file) return undefined;
+    try {
+      const stored = (await readJson(file)) as { savedAt?: number; help?: string; helpHash?: string };
+      if (
+        typeof stored.savedAt !== 'number' ||
+        Date.now() - stored.savedAt > CAPABILITY_CACHE_MS ||
+        stored.savedAt > Date.now() ||
+        typeof stored.help !== 'string' ||
+        !stored.help ||
+        stored.helpHash !== hash(stored.help)
+      )
+        return undefined;
+      return stored.help;
+    } catch {
+      return undefined;
+    }
+  }
+  private async storeImportHelp(key: string | undefined, help: string) {
+    const file = await this.importHelpFile(key);
+    // Saving is an optimization only; the read answer is returned either way.
+    if (file && help && key === (await this.capabilityKey(await this.settings())))
+      try {
+        await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+        await writeJson(file, { savedAt: Date.now(), help, helpHash: hash(help) });
+      } catch {
+        /* A read-only managed home keeps reading the help. */
+      }
+    return help;
   }
   async partialImportCapabilities(source: string, target: TargetVersions, signal?: AbortSignal) {
     const compiler = await this.requireCapability('import', signal);
@@ -1485,14 +1528,19 @@ export class OracleAdapter {
       await this.discardStage(path.dirname(config));
     }
   }
-  private warmImport: { source: string; server: WarmImportServer } | undefined;
+  private warmImport: { source: string; server: WarmImportServer; importDirectory?: string } | undefined;
   /**
-   * Start loading the APEXlang compiler for a full import of `source` that this
+   * Start loading the APEXlang compiler for an import of `source` that this
    * deployment is about to run (sqlcl-warm.ts). Returns nothing when the transport
    * is not a saved SQLcl connection in CLI mode; the import then runs as before.
    * The caller closes the returned handle when the deployment ends.
+   *
+   * A selected-file import names its files relative to SQLcl's working directory.
+   * `importDirectory` is the existing directory that import will read; the server
+   * starts in it and serves only a selected-file import of exactly that directory.
+   * Without it the server serves a full import.
    */
-  async prepareImport(source: string, connection: Connection) {
+  async prepareImport(source: string, connection: Connection, importDirectory?: string) {
     if (warmImportDisabled() || this.runner !== runProcess || this.warmImport) return undefined;
     const settings = await this.settings();
     if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct') return undefined;
@@ -1514,12 +1562,16 @@ export class OracleAdapter {
     env.JAVA_TOOL_OPTIONS = '-XX:ActiveProcessorCount=2';
     const server = new WarmImportServer({
       executable: settings.executable,
-      cwd: await this.sessionHome(),
+      cwd: importDirectory ?? (await this.sessionHome()),
       env,
       restrictLevel: SCRIPT_RESTRICT_LEVEL,
       warmup: `apex validate -input ${sqlclToken(source)}`,
     });
-    const entry = { source: path.resolve(source), server };
+    const entry = {
+      source: path.resolve(source),
+      server,
+      ...(importDirectory ? { importDirectory: path.resolve(importDirectory) } : {}),
+    };
     this.warmImport = entry;
     return {
       close: async () => {
@@ -1528,11 +1580,17 @@ export class OracleAdapter {
       },
     };
   }
-  /** The prepared server serves one import, of any frozen copy of the application it was started for. */
-  private takeWarmImport(_source: string) {
+  /**
+   * The prepared server serves one import: a full import of any frozen copy of the application
+   * it was started for, or a selected-file import of the directory it was started in. A server
+   * prepared for the other kind is left for its owner to close.
+   */
+  private takeWarmImport(source: string, selected: boolean) {
     const entry = this.warmImport;
+    if (!entry || selected !== !!entry.importDirectory) return undefined;
+    if (selected && entry.importDirectory !== path.resolve(source)) return undefined;
     this.warmImport = undefined;
-    return entry?.server;
+    return entry.server;
   }
   private async importWith(
     env: Environment,
@@ -1570,7 +1628,7 @@ export class OracleAdapter {
         SCRIPT_RESTRICT_LEVEL,
         false,
         'import',
-        selectedFiles ? undefined : this.takeWarmImport(source),
+        this.takeWarmImport(source, selectedFiles !== undefined),
       );
     } catch (error) {
       // Compiler output arrives as text with exit code 0; keep the fault, add structure.
@@ -1686,8 +1744,12 @@ export async function diagnosticHint(root: string, diagnostic: CompilerDiagnosti
     const indent = (text: string) => text.match(/^\s*/)![0].length;
     const open = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain: string[] = [];
-    let level = indent(lines[diagnostic.line - 1] ?? '');
-    for (let i = diagnostic.line - 2; i >= 0 && chain.length < 3; i--) {
+    const reported = lines[diagnostic.line - 1] ?? '';
+    // A missing required property is reported at the opening line of the component that lacks it:
+    // name that component, not only its parent.
+    const own = /^MISSING_REQUIRED/.test(diagnostic.type) && /\(\s*$/.test(reported) && open.test(reported);
+    let level = indent(reported) + (own ? 1 : 0);
+    for (let i = diagnostic.line - (own ? 1 : 2); i >= 0 && chain.length < 3; i--) {
       const text = lines[i]!;
       if (!text.trim() || indent(text) >= level) continue;
       const match = text.match(open);

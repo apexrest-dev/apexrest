@@ -9,6 +9,7 @@ import { loadAssets, type ApexAssets } from './assets.ts';
 import { rejectUpgrade } from './websocket.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
 import { LiveHub } from './live.ts';
+import { lintApplication } from './lint.ts';
 import { applicationMmdVersion, checkComponentProperties, checkSharedComponentFiles } from './properties.ts';
 import { LocalDatabase } from './database.ts';
 import type { ConnectedOracle } from './oracle/app-data.ts';
@@ -257,6 +258,18 @@ export class PreviewServer {
     for (const [id, page] of renderer.app.pages)
       for (const finding of checkComponentProperties([page], id, undefined, mmdVersion ? { mmdVersion } : {}))
         renderer.diagnose('warning', finding.message, finding.page, finding.component);
+    // Faults the compiler accepts and the rendering hides: slots, item references, duplicate ids,
+    // and the APEX Advisor accessibility rules.
+    for (const finding of lintApplication(renderer.app, {
+      regionSlots: (region) => renderer.regionSlots(region),
+    }))
+      renderer.diagnose(
+        finding.level,
+        `[${finding.code}] ${finding.message} (${finding.file}:${finding.line})`,
+        finding.page,
+        finding.component,
+        finding.code,
+      );
     return renderer;
   }
 

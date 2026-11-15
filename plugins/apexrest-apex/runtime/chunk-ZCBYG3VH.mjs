@@ -3,16 +3,16 @@ import {
   defaultAssetsDir,
   loadApplication,
   str
-} from "./chunk-SYFWCGMZ.mjs";
+} from "./chunk-QF3FUIGG.mjs";
 import {
   VERSION
 } from "./chunk-64FD5OTX.mjs";
-import "./chunk-PWI5SWBA.mjs";
-import "./chunk-A5P52BZT.mjs";
-import "./chunk-SBZ36R7Y.mjs";
+import "./chunk-GGZKKEXV.mjs";
+import "./chunk-WBDBC3GS.mjs";
+import "./chunk-C7ONAFBZ.mjs";
 import {
   Fault
-} from "./chunk-IFFZXFNO.mjs";
+} from "./chunk-JVBX3L43.mjs";
 
 // packages/core/src/webapp/build.ts
 import { createHash } from "node:crypto";

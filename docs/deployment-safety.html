@@ -151,6 +151,8 @@
 <ul>
 <li>Ordinary imports use checksummed, target-bound, private APEXlang snapshots.</li>
 <li>Page changes retain only the selected pages; full imports retain the full application.</li>
+<li>A plan that exports the target keeps that export in private project storage. Apply reuses it as the backup only after proving it is the planned one: the target identity and migration history are read again and, with the kept files&#39; digest, must reproduce the plan fingerprint. An altered or missing copy is ignored and apply exports as before.</li>
+<li>The export taken immediately before the first write must still equal the plan. That is the drift check, and it also proves the backup equals the content the write replaces.</li>
 <li>Restore uses a separate exact plan and a fresh snapshot; production restore is blocked.</li>
 <li>Existing legacy SQL backups remain explicitly restorable.</li>
 <li>Application backups restore APEX metadata, not business data.</li>
@@ -170,7 +172,7 @@
 <li>Eligible partial plans bind an exact page/shared-component file list, baseline, fresh server snapshot and validated effective tree.</li>
 <li>Pages use native selected export.</li>
 <li>Oracle 26.2 rejects native APEXlang LOV/list export selectors, so shared-component imports explicitly bind a full APEXlang source observation while retaining backups and readback comparisons only for the selected files.</li>
-<li>The runtime reuses its pre-apply observation as the backup source, freezes sources and executes one SQLcl <code>apex import -files</code> call.</li>
+<li>The runtime reuses the plan&#39;s kept observation as the backup source, freezes sources and executes one SQLcl <code>apex import -files</code> call.</li>
 <li>It never silently expands an explicit file import to a full import.</li>
 <li>A page file is the import unit; this does not claim child-region granularity.</li>
 </ul>
@@ -206,6 +208,33 @@
 </tbody></table>
 </div>
 <p>The ship worker makes at most one automatic retry per attempt.</p>
+<h3 id="an-import-oracle-rejects">An import Oracle rejects</h3>
+<p>When SQLcl runs the import to its end and reports an Oracle or compiler error, the batch has stopped and rolled back. The runtime does not rely on that: it exports the target again and compares it with the plan (allowing only this run&#39;s own completed migrations).</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Fresh read after the error</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Target equals the plan</td>
+<td><code>IMPORT_REJECTED</code> (failed) with Oracle&#39;s message and located diagnostics; no recovery, no reimport.</td>
+</tr>
+<tr>
+<td>Target differs, or the read fails</td>
+<td><code>OUTCOME_UNKNOWN</code>, as before.</td>
+</tr>
+<tr>
+<td>The error is a lost or killed connection</td>
+<td><code>OUTCOME_UNKNOWN</code>, as before: the server session&#39;s fate is not known.</td>
+</tr>
+<tr>
+<td>APEXREST stopped SQLcl (timeout, cancel, ...)</td>
+<td><code>OUTCOME_UNKNOWN</code> without automatic recovery, as below.</td>
+</tr>
+</tbody></table>
+</div>
 <h3 id="when-apexrest-stopped-sqlcl">When APEXREST stopped SQLcl</h3>
 <p>When APEXREST itself stopped SQLcl before Oracle confirmed the outcome — a timeout, cancellation, the output limit or an unconfirmed batch — the call it had sent can still be running on the server, so no automatic recovery or retry runs. The result names the run and the cause, and <code>apexrest_ship mode:recover</code> is used once no APEXREST session remains on the target.</p>
 <p>SQLcl write sessions (imports, migrations, packages, restores) may run for up to 60 minutes; read sessions keep a 3-minute limit.</p>

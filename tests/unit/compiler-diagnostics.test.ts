@@ -142,13 +142,24 @@ test('hints name the enclosing declarations read from the source file', async (t
     await diagnosticHint(root, at(9, 'MISSING_REQUIRED_PROPERTY')),
     'inside region bad (type: form) of page 1',
   );
+  // The compiler reports a missing required property at the opening line of the component that
+  // lacks it: the hint names that component, not only its parent.
+  assert.equal(
+    await diagnosticHint(root, at(8, 'MISSING_REQUIRED_PROPERTY')),
+    'inside region bad (type: form) of page 1',
+  );
+  assert.equal(await diagnosticHint(root, at(8)), 'inside page 1');
   assert.equal(await diagnosticHint(root, { ...at(5), file: '../outside.apx' }), undefined);
   assert.equal(await diagnosticHint(root, { ...at(5), file: 'pages/missing.apx' }), undefined);
   assert.equal(await diagnosticHint(root, at(0)), undefined);
   const fault = await compilerFault(report, root);
   assert.equal(fault.code, 'VALIDATION_FAILED');
   assert.equal(fault.details!.diagnostics!.length, 3);
-  assert.equal(fault.details!.diagnostics![2]!.hint, 'inside region bad (type: form) of page 1');
+  // A missing required property names its component and what to add.
+  assert.match(
+    fault.details!.diagnostics![2]!.hint!,
+    /^inside region bad \(type: form\) of page 1\. Fix: add to region bad: source \{ tableName: <STRING> \} \(required when source\.location = localDatabase and source\.type = tableView/u,
+  );
   assert.match(fault.message, /^APEXLang Compile Errors:/);
   const unconfirmed = await compilerFault('Nothing recognizable', root);
   assert.equal(unconfirmed.code, 'VALIDATION_UNCONFIRMED');

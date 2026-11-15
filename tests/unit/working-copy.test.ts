@@ -299,7 +299,8 @@ test('legacy/full-export path and new applications plan normally; production is 
   const { ctx, service, controls, calls, env } = await workingCopyFixture();
   env.deployConnectionRef = env.readConnectionRef;
   await service.apply(ctx, await service.plan(ctx, 'dev'));
-  assert.deepEqual(exportsOnly(calls), Array(3).fill('export:APEXLANG'));
+  assert.deepEqual(exportsOnly(calls), Array(2).fill('export:APEXLANG'));
+  // Plan and pre-import barrier: apply reuses the plan's kept export as its backup.
   assert.equal(calls[calls.indexOf('import') - 1], 'export:APEXLANG', 'Last server read precedes import.');
   calls.length = 0;
   controls.exists = false;

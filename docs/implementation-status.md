@@ -10,6 +10,27 @@ The current source and bundled plugin version is **2.7.0**. The current contract
   - **Unit tests** cover the build output and refusals, password hashing and application mode without a database.
   - **Not checked.** A browser session, concurrent users, a remote database, HTTPS behind a proxy, `plsql`/`database` sign-in against real accounts, an APEX session with an imported application. Session state protection is not implemented, one process serves one request at a time, and sessions are in memory.
 
+- Authoring and deployment round trip (2026-11-15). Unit tests and offline checks only: none of this was run against Oracle, imported, or measured in an agent run.
+  - **Deployment.**
+    - A plan keeps the export it observed; apply proves it is the planned one (identity, history and file digest reproduce the plan fingerprint) and uses it as the backup, so a fresh-export apply exports once before the import instead of twice. The export immediately before the first write is unchanged and remains the drift check. See [deployment safety](deployment-safety.md#backups).
+    - Selected-file imports use the prepared import server, started in the run's frozen source directory. Offline check: SQLcl 26.3 in `-R 2 -mcp` mode wrote nothing into that directory while loading the compiler.
+    - An import that Oracle rejects is reported as `IMPORT_REJECTED` with Oracle's message when a fresh read shows the target unchanged; lost connections and client-side stops stay `OUTCOME_UNKNOWN`. See [deployment safety](deployment-safety.md#an-import-oracle-rejects).
+    - `help apex import` is cached across processes like the capability probe, and the MCP server preloads the compiler for a project after its first tool call (`APEXREST_PREWARM=0` disables it).
+    - Read-back equivalence accepts three more forms found in retained local 26.2 exports of hand-written pages: an omitted select list `lov.displayNullValue: true`, an omitted button `behavior.action: submitPage` and a server-assigned process `executionMappingIdentifier`. Of 45 imported-versus-exported page pairs in the speed lab that differ in bytes, 21 now compare as equivalent (none did before); chart, interactive report and form pages still differ.
+  - **Authoring.**
+    - 26.2 component selection lists the allowed values of enum properties next to each example and sample page (`values`), chosen by Oracle sample usage, within 1,500 bytes on top of the unchanged 30,000-byte budget, and states once that every process keeps its own `executionMappingIdentifier`.
+    - `MISSING_REQUIRED_PROPERTY` diagnostics name the component and carry a `Fix:` with group, property and values; a heading on a hidden classic report column gets a removal hint.
+    - The work skill tells the agent to take enum values from the selection or `validValues`, to fix preview check findings on changed pages before shipping, and to resolve security advisory findings on the pages it changed.
+  - **Preview check findings from sources** (codes in the message; warnings unless noted):
+    - `SLOT-001`: a region slot the template or region type does not provide.
+    - `ITEM-001`, `ITEM-002`: references to page items that are not defined.
+    - `DUP-001`, `DUP-002`: duplicate item names and DOM IDs.
+    - `A11Y-001` to `A11Y-005`: page title, item label, report row header (info), image alternative text, page reload on selection (info).
+    - `CHART-001` to `CHART-004`: non-numeric values, unmapped value column, non-date time axis, nothing to plot (info). `notAppliedLocally` also covers `columnInitJavaScriptFunction`.
+    - On the 33-application corpus: 0 page errors before and after; warnings rose from 603 to 1,436 before the row-header rule was lowered to info (685 of them); the count after that change was not re-measured.
+  - **Existing applications.**
+    - `apexrest_apex_sync action:changes` (CLI `apex sync --action changes`) exports once and lists files changed on the server since the checkpoint next to local changes and conflicts; it writes nothing.
+    - `apexrest_metadata_read` kinds `runtime-errors` and `page-timings` read the mapped application's rows of the APEX activity log (no user, session or address columns). Column names were checked against the local 26.2 dictionary; the queries were not executed.
 - Local preview runs the application's database code (2026-11-15): packages, standalone routines, install blocks and BEFORE row triggers from the install scripts, PL/SQL region and item plug-ins (render and ajax callbacks), Oracle outer joins, hierarchical queries in every statement and Oracle dictionary views over the local schema. See [local preview](local-preview.md#application-database-code). `npm run preview:corpus` renders every page of the 33 public Oracle APEX 26.2 applications without a database; the same scorecard before and after the change (same rules, same pinned archive):
 
   | Measure (1,483 pages, 33 applications)         | Before | After |

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   componentExample,
+  componentUsage,
   contractComponent,
   contractComponentType,
   pageExamples,
@@ -76,4 +77,24 @@ test('a modal form request gets one whole Oracle sample page with its buttons an
     assert.match(page!.text, part);
   assert.ok(page!.text.length <= 9000);
   assert.deepEqual(await pageExamples('interactive report of prices'), []);
+});
+
+test('usage counts what the sample blocks of a component state and the values they use', async () => {
+  const process = await componentUsage('process', 'executeCode');
+  // Every sample process carries its own mapping identifier.
+  assert.equal(process.find((entry) => entry.property === 'advanced.executionMappingIdentifier')!.share, 1);
+  const button = await componentUsage('button', undefined);
+  const action = button.find((entry) => entry.property === 'behavior.action')!;
+  assert.ok(action.share > 0.5 && action.share < 1);
+  assert.ok(action.values.includes('redirectThisApp') && action.values.includes('definedByDynamicAction'));
+  assert.ok(action.dominance > 0 && action.dominance < 1);
+  // Most stated first; direct properties carry no group; nested blocks are not counted.
+  assert.equal(button[0]!.share, 1);
+  assert.ok(button.some((entry) => entry.property === 'label'));
+  const report = await componentUsage('region', 'classicReport');
+  assert.equal(
+    report.some((entry) => entry.property.startsWith('column.') || entry.property === 'heading.heading'),
+    false,
+  );
+  assert.deepEqual(await componentUsage('region', 'noSuchType'), []);
 });
